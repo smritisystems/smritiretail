@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 5.4.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-09-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { Product, AttributeDefinition } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { validateItemMasterLookupOptions, fetchGovernedLookupOptions, LookupOption } from "../../services/itemMasterLookupGate.ts";
 import { getUnifiedItemMasterFields, getGloballyVisibleFields, getGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 import { getCustomFieldLabels } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
 import { resolveProductImageUrl, getImagePathConfig } from "../../services/imagePathConfig.ts";
@@ -47,12 +48,33 @@ import { ReplaceDataDlg } from "./ReplaceDataDlg.tsx";
 import { CodeSelectDlg } from "./CodeSelectDlg.tsx";
 import { ItemShortcuts } from "./ItemShortcuts.tsx";
 import { DataLoadConfirm } from "./DataLoadConfirm.tsx";
+import { generatePlaceholderBarcode } from "../../services/barcodePlaceholderService.ts";
 import { ItemViewConfigState } from "./ItemViewConfig.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
+import { useF2Screen, useF2Dispatcher, type LookupResult } from "../../context/F2DispatcherContext.tsx";
 
 export type MasterEntryMode = "add" | "edit" | "delete";
 export type SortDirection = "asc" | "desc";
+
+const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  code: 150,
+  sku: 150,
+  stockNo: 150,
+  barcode: 150,
+  name: 220,
+  brand: 150,
+  styleCode: 140,
+  colour: 130,
+  size: 90,
+  mrp: 110,
+  price: 120,
+  costPrice: 120,
+  gst_percentage: 110,
+  hsn_code: 130,
+};
+
+const getDefaultColumnWidth = (key: string): number => DEFAULT_COLUMN_WIDTHS[key] || 140;
 
 export const REQUIRED_ITEM_KEYS = new Set([
   "code",
@@ -234,6 +256,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   onNavigateToItemViewConfig,
   onNavigateToCommonFields
 }) => {
+  const { originElementRef } = useF2Dispatcher();
   const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
   const [gridRows, setGridRows] = useState<any[]>([]);
   const [selectedRowIndices, setSelectedRowIndices] = useState<Set<number>>(new Set());
@@ -251,16 +274,119 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   const [isDataConfirmOpen, setIsDataConfirmOpen] = useState<boolean>(false);
   const [activeCodeTargetRow, setActiveCodeTargetRow] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem("smriti_item_master_column_widths");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
   const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
+  const [warehouseOptions, setWarehouseOptions] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [locationOptions, setLocationOptions] = useState<{ id: string; warehouseId: string; code: string; name: string }[]>([]);
+  const [governedLookups, setGovernedLookups] = useState<Record<string, LookupOption[]>>({});
+
+  useF2Screen({
+    screenId: "ItemDetailsGrid",
+    defaultEntity: "general",
+    adapter: (result: LookupResult) => {
+      const origin = originElementRef.current;
+      const rowIndex = Number(origin?.getAttribute("data-f2-row-index"));
+      if (!Number.isInteger(rowIndex) || rowIndex < 0) {
+        onNotification?.("F2 Lookup", "The selected item row is no longer available.", "error");
+        return;
+      }
+
+      const record = result.record || {};
+      const textValue = (...keys: string[]) => {
+        for (const key of keys) {
+          const value = record[key];
+          if (value !== null && value !== undefined && String(value).trim()) return String(value);
+        }
+        return "";
+      };
+
+      const field = origin?.getAttribute("data-f2-field");
+      if (
+        field !== "code" && field !== "sku" && field !== "stockNo" && field !== "barcode" &&
+        field !== "styleCode" && field !== "style_code" &&
+        field !== "colour" && field !== "color" && field !== "size"
+      ) {
+        return;
+      }
+      const selectedCode = textValue("stock_no", "code", "sku", "style_code");
+      const selectedBarcode = textValue("barcode", "barcode_value");
+      const updates: Record<string, unknown> = {};
+
+      if (field === "styleCode" || field === "style_code") {
+        updates.styleCode = textValue("code", "style_code", "styleCode") || result.returnValue;
+      } else if (field === "colour" || field === "color") {
+        updates.colour = textValue("name", "color", "colour", "code") || result.returnValue;
+      } else if (field === "size") {
+        updates.size = textValue("code", "name", "size") || result.returnValue;
+      } else if (field === "barcode" || result.entity === "item_barcode") {
+        updates.barcode = selectedBarcode || result.returnValue;
+      } else {
+        updates.code = selectedCode || result.returnValue;
+      }
+
+      if (result.entity !== "item_barcode" && field !== "styleCode" && field !== "style_code" && field !== "colour" && field !== "color" && field !== "size") {
+        if (selectedCode) updates.code = selectedCode;
+        if (selectedBarcode) updates.barcode = selectedBarcode;
+        const name = textValue("name", "product_name", "title");
+        const brand = textValue("brand");
+        const styleCode = textValue("style_code", "styleCode");
+        const color = textValue("color", "colour");
+        const size = textValue("size");
+        if (name) updates.name = name;
+        if (brand) updates.brand = brand;
+        if (styleCode) updates.styleCode = styleCode;
+        if (color) updates.colour = color;
+        if (size) updates.size = size;
+      }
+
+      setGridRows(previous => previous.map((row, index) => index === rowIndex ? { ...row, ...updates } : row));
+      onNotification?.("F2 Lookup Applied", "The selected item was applied to the active row.", "success");
+    }
+  });
 
   // Listen to global visibility changes
   useEffect(() => {
     const handleVisChange = () => setVisibilityVersion(v => v + 1);
     window.addEventListener("smriti_field_visibility_updated", handleVisChange);
     return () => window.removeEventListener("smriti_field_visibility_updated", handleVisChange);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      apiFetchV1("/wms/warehouses"),
+      apiFetchV1("/wms/locations")
+    ]).then(([warehouses, locations]) => {
+      if (!isMounted) return;
+      if (Array.isArray(warehouses)) {
+        setWarehouseOptions(warehouses.map((item: any) => ({
+          id: String(item.id), code: String(item.code || ""), name: String(item.name || item.code || "")
+        })));
+      }
+      if (Array.isArray(locations)) {
+        setLocationOptions(locations.map((item: any) => ({
+          id: String(item.id), warehouseId: String(item.warehouse_id || ""),
+          code: String(item.code || ""), name: String(item.name || item.code || "")
+        })));
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setWarehouseOptions([]);
+        setLocationOptions([]);
+      }
+    });
+    return () => { isMounted = false; };
   }, []);
 
   // Load backend attribute definitions
@@ -274,81 +400,98 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     return () => { isMounted = false; };
   }, []);
 
+  // Load governed lookup options for dropdown / datalist typeahead
+  useEffect(() => {
+    let isMounted = true;
+    fetchGovernedLookupOptions().then(options => {
+      if (isMounted) setGovernedLookups(options);
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  const mapProductToGridRow = (p: any, idx: number) => ({
+    _id: p.id || `row-${idx}`,
+    code: p.code || "",
+    name: p.name || "",
+    imageName: p.image_name || p.imageName || p.image || "",
+    brand: p.brand || commonFields?.brand || "",
+    styleCode: p.style_code || p.styleCode || "",
+    colour: p.colour || p.color || "",
+    size: p.size || "",
+    category: p.category || commonFields?.category || "Footwear",
+    subCategory: p.sub_category || commonFields?.subCategory || "",
+    mrp: p.mrp || p.price || 0,
+    price: p.price || 0,
+    costPrice: p.costPrice || p.cost_price || 0,
+    gst_percentage: p.gst_percentage || p.gstPercentage || commonFields?.gstPercentage || 18,
+    hsn_code: p.hsn_code || p.hsnCode || commonFields?.hsnCode || "",
+    barcode: p.barcode || "",
+    uom: p.uom || commonFields?.uom || "Pair",
+    a1: p.attributes?.a1 || p.attributes?.heels || "",
+    a2: p.attributes?.a2 || p.attributes?.upperMaterial || "",
+    a3: p.attributes?.a3 || p.attributes?.outsole || "",
+    a4: p.attributes?.a4 || p.attributes?.gender || commonFields?.department || "",
+    a5: p.attributes?.a5 || commonFields?.vendorCode || "",
+    a6: p.attributes?.a6 || commonFields?.purchaseClass || "",
+    a7: p.attributes?.a7 || "",
+    a8: p.attributes?.a8 || "",
+    a9: p.attributes?.a9 || "",
+    warehouseId: p.attributes?.warehouse_id || "",
+    binLocation: p.attributes?.location_id || "",
+    hasTransactions: p.has_transactions || Boolean(p.id && idx % 3 === 0)
+  });
+
   // Initialize rows from products
   const populateRowsFromProducts = () => {
+    if (activeMode === "add") {
+      setGridRows([]);
+      setSelectedRowIndices(new Set());
+      return;
+    }
+
     if (products.length > 0) {
-      const rows = products.map((p, idx) => ({
-        _id: p.id || `row-${idx}`,
-        code: p.code || "",
-        name: p.name || "",
-        imageName: (p as any).image_name || (p as any).imageName || (p as any).image || "",
-        brand: p.brand || commonFields?.brand || "",
-        styleCode: (p as any).style_code || (p as any).styleCode || "",
-        colour: (p as any).colour || p.color || "",
-        size: p.size || "",
-        category: p.category || commonFields?.category || "Footwear",
-        subCategory: (p as any).sub_category || commonFields?.subCategory || "",
-        mrp: p.mrp || p.price || 0,
-        price: p.price || 0,
-        costPrice: p.costPrice || (p as any).cost_price || 0,
-        gst_percentage: (p as any).gst_percentage || (p as any).gstPercentage || commonFields?.gstPercentage || 18,
-        hsn_code: (p as any).hsn_code || (p as any).hsnCode || commonFields?.hsnCode || "",
-        barcode: p.barcode || "",
-        uom: (p as any).uom || commonFields?.uom || "Pair",
-        a1: p.attributes?.a1 || p.attributes?.heels || "",
-        a2: p.attributes?.a2 || p.attributes?.upperMaterial || "",
-        a3: p.attributes?.a3 || p.attributes?.outsole || "",
-        a4: p.attributes?.a4 || p.attributes?.gender || commonFields?.department || "",
-        a5: p.attributes?.a5 || commonFields?.vendorCode || "",
-        a6: p.attributes?.a6 || commonFields?.purchaseClass || "",
-        a7: p.attributes?.a7 || "",
-        a8: p.attributes?.a8 || "",
-        a9: p.attributes?.a9 || "",
-        hasTransactions: (p as any).has_transactions || Boolean(p.id && idx % 3 === 0)
-      }));
-      setGridRows(rows);
+      setGridRows(products.map(mapProductToGridRow));
     }
   };
 
   useEffect(() => {
-    if (activeMode === "add") {
-      if (products.length > 0) {
-        populateRowsFromProducts();
-      } else {
-        setGridRows([{
-          _id: "row-0",
-          code: "SMRT-001",
-          barcode: "8901234567890",
-          name: "Classic Leather Shoe",
-          imageName: "shoe-classic-01",
-          brand: commonFields?.brand || "SMRITI",
-          styleCode: "CLS-101",
-          colour: "Black",
-          size: "8",
-          category: commonFields?.category || "Footwear",
-          subCategory: commonFields?.subCategory || "Formal",
-          mrp: 2999,
-          price: 2499,
-          costPrice: 1200,
-          gst_percentage: commonFields?.gstPercentage || "18",
-          hsn_code: commonFields?.hsnCode || "6403",
-          uom: commonFields?.uom || "Pair",
-          a1: "Low Heel",
-          a2: "Full-Grain Leather",
-          a3: "TPR Sole",
-          a4: commonFields?.department || "Men",
-          a5: commonFields?.vendorCode || "VEND-101",
-          a6: commonFields?.purchaseClass || "A-Class",
-          a7: "",
-          a8: "",
-          a9: "",
-          hasTransactions: false
-        }]);
+    const query = searchFilter.trim();
+    if (activeMode === "add" || query.length < 2) return;
+
+    let isMounted = true;
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const response = await apiFetchV1<unknown>(`/inventory/search?q=${encodeURIComponent(query)}&limit=100`);
+        const items = Array.isArray(response) ? response : [];
+        if (isMounted) {
+          setGridRows(items.map(mapProductToGridRow));
+          setSelectedRowIndices(new Set());
+        }
+      } catch (error) {
+        if (isMounted) {
+          setGridRows([]);
+          onNotification?.("Search Unavailable", error instanceof Error ? error.message : "Could not search item records.", "error");
+        }
+      } finally {
+        if (isMounted) setIsSearching(false);
       }
+    }, 300);
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [activeMode, searchFilter]);
+
+  useEffect(() => {
+    if (activeMode === "add") {
+      setGridRows([]);
+      setSelectedRowIndices(new Set());
     } else {
       setIsDataConfirmOpen(true);
     }
-  }, [activeMode, products, commonFields]);
+  }, [activeMode]);
 
   const handleConfirmDataLoading = (loadAll: boolean) => {
     setIsDataConfirmOpen(false);
@@ -360,16 +503,12 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     }
   };
 
-  // Keyboard shortcut listeners (F1, F2, Ctrl+S)
+  // Keyboard shortcut listeners (F1, Ctrl+S)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F1") {
         e.preventDefault();
         setIsShortcutsModalOpen(true);
-      } else if (e.key === "F2") {
-        e.preventDefault();
-        setActiveCodeTargetRow(0);
-        setIsCodeModalOpen(true);
       } else if (e.ctrlKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         handleSaveGridToDatabase();
@@ -439,6 +578,43 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   }, [catalogFields]);
 
   const frozenCount = viewConfig?.frozenColumns ?? 2;
+
+  const getColumnWidth = (key: string): number => columnWidths[key] ?? getDefaultColumnWidth(key);
+
+  const handleColumnResize = (key: string, event: React.MouseEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startWidth = getColumnWidth(key);
+    const handleMove = (moveEvent: MouseEvent) => {
+      const nextWidth = Math.min(520, Math.max(72, startWidth + moveEvent.clientX - startX));
+      setColumnWidths(previous => ({ ...previous, [key]: nextWidth }));
+    };
+    const handleUp = () => {
+      setColumnWidths(previous => {
+        try { localStorage.setItem("smriti_item_master_column_widths", JSON.stringify(previous)); } catch { /* ignore */ }
+        return previous;
+      });
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+  };
+
+  const handleAutoSizeColumn = (key: string) => {
+    const contentWidth = gridRows.reduce((maxWidth, row) => {
+      return Math.max(maxWidth, String(row[key] ?? "").length * 7 + 28);
+    }, getDefaultColumnWidth(key));
+    const nextWidth = Math.min(520, Math.max(72, contentWidth));
+    setColumnWidths(previous => {
+      const next = { ...previous, [key]: nextWidth };
+      try { localStorage.setItem("smriti_item_master_column_widths", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const totalTableWidth = 36 + 40 + visibleColumns.reduce((total, column) => total + getColumnWidth(column.key), 0);
 
   // Numeric field keys for natural numerical sorting
   const NUMERIC_FIELD_KEYS = useMemo(() => new Set([
@@ -713,28 +889,29 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   const handleAddRow = () => {
     const newRow = {
       _id: `new-${Date.now()}`,
-      code: `SMRT-${String(gridRows.length + 1).padStart(3, "0")}`,
-      barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      name: "New Product Item",
+      code: "",
+      barcode: "",
+      name: "",
       imageName: "",
-      brand: commonFields?.brand || "SMRITI",
-      styleCode: "STYLE-01",
-      colour: "Black",
-      size: "M",
-      category: commonFields?.category || "Footwear",
+      brand: "",
+      styleCode: "",
+      colour: "",
+      size: "",
+      category: "",
       subCategory: commonFields?.subCategory || "",
-      mrp: 1999,
-      price: 1499,
-      costPrice: 800,
-      gst_percentage: commonFields?.gstPercentage || "18",
-      hsn_code: commonFields?.hsnCode || "6403",
-      uom: commonFields?.uom || "Pair",
+      mrp: "",
+      price: "",
+      buyingPrice: "",
+      costPrice: "",
+      gst_percentage: "",
+      hsn_code: "",
+      uom: "",
       a1: "",
       a2: "",
       a3: "",
-      a4: commonFields?.department || "",
-      a5: commonFields?.vendorCode || "",
-      a6: commonFields?.purchaseClass || "",
+      a4: "",
+      a5: "",
+      a6: "",
       a7: "",
       a8: "",
       a9: "",
@@ -775,7 +952,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       ...r,
       _id: `dup-${Date.now()}-${Math.random()}`,
       code: `${r.code}-COPY`,
-      barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+      barcode: generatePlaceholderBarcode("S"),
       hasTransactions: false
     }));
     setGridRows(prev => [...prev, ...toDuplicate]);
@@ -884,6 +1061,17 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       return;
     }
 
+    try {
+      const lookupErrors = await validateItemMasterLookupOptions(gridRows as unknown as Record<string, unknown>[]);
+      if (lookupErrors.length > 0) {
+        onNotification?.("System Lookup Required", lookupErrors.slice(0, 5).join(" "), "error");
+        return;
+      }
+    } catch (err: any) {
+      onNotification?.("System Lookup Unavailable", err.message || "Could not verify governed Item Master options.", "error");
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Commit to FastAPI transactional endpoint (PUT for existing, POST for new)
@@ -903,6 +1091,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
           name: String(row.name ?? "").trim(),
           primary_image_url: row.imageName && String(row.imageName).trim() ? String(row.imageName).trim() : null,
           brand: row.brand && String(row.brand).trim() ? String(row.brand).trim() : null,
+          vendor_code: row.vendorCode && String(row.vendorCode).trim() ? String(row.vendorCode).trim() : null,
           style_code: row.styleCode && String(row.styleCode).trim() ? String(row.styleCode).trim() : null,
           color: row.colour && String(row.colour).trim() ? String(row.colour).trim() : null,
           size: row.size && String(row.size).trim() ? String(row.size).trim() : null,
@@ -923,7 +1112,9 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             a6: row.a6 || "",
             a7: row.a7 || "",
             a8: row.a8 || "",
-            a9: row.a9 || ""
+            a9: row.a9 || "",
+            warehouse_id: row.warehouseId || "",
+            location_id: row.binLocation || ""
           }
         };
 
@@ -986,7 +1177,10 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
           <div className="flex items-center bg-[#e9edff] dark:bg-[#1d3054] p-1 rounded-lg border border-[#c4d2ff] dark:border-[#434654]">
             <button
               type="button"
-              onClick={() => setActiveMode("add")}
+              onClick={() => {
+                setActiveMode("add");
+                setSearchFilter("");
+              }}
               className={`px-3 py-1 rounded text-xs font-bold transition ${
                 activeMode === "add"
                   ? "bg-[#0052cc] text-white shadow-xs"
@@ -997,7 +1191,10 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setActiveMode("edit")}
+              onClick={() => {
+                setActiveMode("edit");
+                setSearchFilter("");
+              }}
               className={`px-3 py-1 rounded text-xs font-bold transition ${
                 activeMode === "edit"
                   ? "bg-[#0052cc] text-white shadow-xs"
@@ -1008,7 +1205,10 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setActiveMode("delete")}
+              onClick={() => {
+                setActiveMode("delete");
+                setSearchFilter("");
+              }}
               className={`px-3 py-1 rounded text-xs font-bold transition ${
                 activeMode === "delete"
                   ? "bg-[#ba1a1a] text-white shadow-xs"
@@ -1056,8 +1256,15 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
               value={searchFilter}
               data-field-key="product_name"
               onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Filter items..."
+              placeholder={
+                isSearching
+                  ? "Searching items..."
+                  : activeMode === "add"
+                  ? "Filter current rows..."
+                  : "Search SKU, barcode, name..."
+              }
               aria-label="Filter items globally"
+              aria-busy={isSearching}
               className="w-full pl-8 pr-7 py-1 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs outline-none focus:border-[#0052cc]"
             />
             {searchFilter && (
@@ -1143,7 +1350,17 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
 
             {/* High Density Table */}
             <div className="flex-1 overflow-auto bg-white dark:bg-[#191c1e]">
-              <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+              <table
+                className="w-full min-w-max table-fixed text-left border-collapse text-xs whitespace-nowrap"
+                style={{ width: `${Math.max(totalTableWidth, 720)}px` }}
+              >
+                <colgroup>
+                  <col style={{ width: "36px" }} />
+                  <col style={{ width: "40px" }} />
+                  {visibleColumns.map(column => (
+                    <col key={column.key} style={{ width: `${getColumnWidth(column.key)}px` }} />
+                  ))}
+                </colgroup>
                 <thead className="sticky top-0 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] z-20">
                   <tr>
                     <th className="p-2 w-10 text-center border-r border-[#c6c6cd] dark:border-[#45464d] sticky left-0 z-30 bg-[#f2f4f6] dark:bg-[#131b2e] align-top">
@@ -1185,7 +1402,8 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                         <th
                           key={col.key}
                           aria-sort={ariaSortValue}
-                          className={`p-2 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] border-r border-[#c6c6cd] dark:border-[#45464d] min-w-[130px] ${
+                          style={{ width: `${getColumnWidth(col.key)}px` }}
+                          className={`relative p-2 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] border-r border-[#c6c6cd] dark:border-[#45464d] min-w-[72px] ${
                             isFrozen ? "sticky left-[88px] z-30 bg-[#f2f4f6] dark:bg-[#131b2e] shadow-xs" : ""
                           }`}
                         >
@@ -1234,6 +1452,14 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                 </button>
                               )}
                             </div>
+                            <span
+                              role="separator"
+                              aria-label={`Resize ${col.label} column`}
+                              title="Drag to resize. Double-click to auto-fit."
+                              onMouseDown={(event) => handleColumnResize(col.key, event)}
+                              onDoubleClick={() => handleAutoSizeColumn(col.key)}
+                              className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[#0052cc]"
+                            />
                           </div>
                         </th>
                       );
@@ -1273,7 +1499,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                             isSelected ? "bg-[#d5e3fd]/40" : "hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133]"
                           }`}
                         >
-                          <td className="p-2 text-center border-r border-[#eceef0] dark:border-[#2d3133] sticky left-0 z-10 bg-inherit">
+                          <td className="p-0.5 text-center border-r border-[#eceef0] dark:border-[#2d3133] sticky left-0 z-10 bg-inherit">
                             <input
                               type="checkbox"
                               aria-label={`Select row ${displayIdx + 1}`}
@@ -1289,7 +1515,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                               className="rounded"
                             />
                           </td>
-                          <td className="p-2 text-center font-mono text-[10px] text-[#76777d] border-r border-[#eceef0] dark:border-[#2d3133]">
+                          <td className="p-0.5 text-center font-mono text-[10px] text-[#76777d] border-r border-[#eceef0] dark:border-[#2d3133]">
                             {displayIdx + 1}
                           </td>
                           {visibleColumns.map((col, cIdx) => {
@@ -1310,7 +1536,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                             return (
                               <td
                                 key={col.key}
-                                className={`p-1.5 border-r border-[#eceef0] dark:border-[#2d3133] ${
+                                className={`p-0 border-r border-[#eceef0] dark:border-[#2d3133] ${
                                   isFrozen ? "sticky left-[88px] z-10 bg-inherit shadow-xs" : ""
                                 } ${
                                   isDuplicate
@@ -1323,29 +1549,72 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                 }`}
                               >
                                 <div className="flex items-center gap-1">
-                                  <input
-                                    type="text"
-                                    readOnly={isNonEditableInEditMode || activeMode === "delete"}
-                                    title={
-                                      isNonEditableInEditMode
-                                        ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
-                                        : isBlankValue
-                                        ? `${col.label} is required and cannot be blank.`
-                                        : undefined
-                                    }
-                                    value={val}
-                                    onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
-                                    onBlur={e => handleCellBlur(sourceIndex, col.key, e.target.value)}
-                                    className={`w-full px-2 py-1 rounded outline-none text-xs font-semibold ${
-                                      isDuplicate
-                                        ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold border border-[#ba1a1a]"
-                                        : isBlankValue
-                                        ? "border border-[#ba1a1a] bg-[#ffdad6]/40 text-[#ba1a1a] dark:text-[#ffb4ab] placeholder:text-[#ba1a1a]"
-                                        : isNonEditableInEditMode
-                                        ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
-                                        : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
-                                    }`}
-                                  />
+                                  {col.key === "warehouseId" ? (
+                                    <select
+                                      value={val}
+                                      onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
+                                      className="w-full px-2 py-1 rounded outline-none text-xs font-semibold bg-transparent border border-transparent focus:border-[#0052cc]"
+                                    >
+                                      <option value="">Select Warehouse</option>
+                                      {warehouseOptions.map(option => (
+                                        <option key={option.id} value={option.id}>{option.code} - {option.name}</option>
+                                      ))}
+                                    </select>
+                                  ) : col.key === "binLocation" ? (
+                                    <select
+                                      value={val}
+                                      onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
+                                      className="w-full px-2 py-1 rounded outline-none text-xs font-semibold bg-transparent border border-transparent focus:border-[#0052cc]"
+                                    >
+                                      <option value="">Select Location</option>
+                                      {locationOptions
+                                        .filter(option => !row.warehouseId || option.warehouseId === row.warehouseId)
+                                        .map(option => (
+                                          <option key={option.id} value={option.id}>{option.code} - {option.name}</option>
+                                        ))}
+                                    </select>
+                                  ) : (
+                                    <input
+                                      type="text"
+                                      list={
+                                        col.key === "brand" ? "grid-lookup-brand-list" :
+                                        col.key === "category" ? "grid-lookup-category-list" :
+                                        col.key === "colour" || col.key === "color" ? "grid-lookup-color-list" :
+                                        col.key === "size" ? "grid-lookup-size-list" :
+                                        ["styleCode", "style_code", "style", "stylecode", "article", "article_no", "style_article"].includes(col.key) ? "grid-lookup-style-list" :
+                                        col.key === "vendorCode" || col.key === "vendor_code" ? "grid-lookup-vendor-list" : undefined
+                                      }
+                                      data-f2-entity={
+                                        isCode ? "variant" :
+                                        isBarcode ? "item_barcode" :
+                                        ["styleCode", "style_code", "style", "stylecode", "article", "article_no", "style_article"].includes(col.key) ? "article" :
+                                        col.key === "colour" || col.key === "color" ? "color" :
+                                        col.key === "size" ? "size" : undefined
+                                      }
+                                      data-f2-row-index={sourceIndex}
+                                      data-f2-field={col.key}
+                                      readOnly={isNonEditableInEditMode || activeMode === "delete"}
+                                      title={
+                                        isNonEditableInEditMode
+                                          ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
+                                          : isBlankValue
+                                          ? `${col.label} is required and cannot be blank.`
+                                          : undefined
+                                      }
+                                      value={val}
+                                      onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
+                                      onBlur={e => handleCellBlur(sourceIndex, col.key, e.target.value)}
+                                      className={`w-full px-1.5 py-1 rounded-none outline-none text-xs font-semibold border-0 focus:ring-1 focus:ring-inset focus:ring-[#0052cc] ${
+                                        isDuplicate
+                                          ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold border border-[#ba1a1a]"
+                                          : isBlankValue
+                                          ? "border border-[#ba1a1a] bg-[#ffdad6]/40 text-[#ba1a1a] dark:text-[#ffb4ab] placeholder:text-[#ba1a1a]"
+                                          : isNonEditableInEditMode
+                                          ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
+                                          : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
+                                      }`}
+                                    />
+                                  )}
                                   {isDuplicate && (
                                     <span
                                       title={
@@ -1447,6 +1716,9 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     data-field-key="item_code"
+                    data-f2-entity="variant"
+                    data-f2-row-index={currentClassicSourceIndex}
+                    data-f2-field="code"
                     readOnly={activeMode === "edit" || activeMode === "delete"}
                     title={activeMode === "edit" ? "SKU is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.code || ""}
@@ -1472,6 +1744,9 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <input
                     type="text"
                     data-field-key="barcode"
+                    data-f2-entity="item_barcode"
+                    data-f2-row-index={currentClassicSourceIndex}
+                    data-f2-field="barcode"
                     readOnly={activeMode === "edit" || activeMode === "delete"}
                     title={activeMode === "edit" ? "Barcode is a permanent identifier and cannot be modified." : undefined}
                     value={currentClassicRecord.barcode || ""}
@@ -1877,6 +2152,38 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         totalRecordsCount={products.length}
         onConfirm={handleConfirmDataLoading}
       />
+
+      {/* Governed Lookup Datalists for Auto-completion */}
+      <datalist id="grid-lookup-brand-list">
+        {(governedLookups.brand || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-category-list">
+        {(governedLookups.category || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-color-list">
+        {(governedLookups.color || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-size-list">
+        {(governedLookups.size || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-style-list">
+        {(governedLookups.style_article || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-vendor-list">
+        {(governedLookups.vendor_code || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
 
     </div>
   );

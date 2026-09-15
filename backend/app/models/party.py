@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Text, text, Date, UniqueConstraint
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Text, text, Date, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
@@ -57,6 +57,7 @@ class Party(BaseEntity):
     supplier_profile = relationship("SupplierProfile", back_populates="party", uselist=False, cascade="all, delete-orphan")
     addresses = relationship("PartyAddress", back_populates="party", cascade="all, delete-orphan")
     contacts = relationship("PartyContact", back_populates="party", cascade="all, delete-orphan")
+    bank_accounts = relationship("SupplierBankAccount", back_populates="party", cascade="all, delete-orphan")
 
 
 class PartyRole(BaseEntity):
@@ -102,15 +103,21 @@ class CustomerProfile(BaseEntity):
 class SupplierProfile(BaseEntity):
     """
     Supplier-specific operational profile linked to Universal Party identity.
+    Includes MSME, TDS, compliance classification, and verification flags.
     """
     __tablename__ = "supplier_profiles"
 
     party_id = Column(String(50), ForeignKey("parties.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
-    supplier_type = Column(String(30), nullable=False, default="DISTRIBUTOR")  # MANUFACTURER, DISTRIBUTOR, IMPORTER, TRADER
+    supplier_type = Column(String(30), nullable=False, default="DISTRIBUTOR")  # MANUFACTURER, DISTRIBUTOR, IMPORTER, TRADER, SERVICE_PROVIDER
     payment_terms_days = Column(Integer, nullable=False, default=30)
     msme_registration_no = Column(String(50), nullable=True)
+    msme_category = Column(String(30), nullable=True, default="NOT_APPLICABLE")  # MICRO, SMALL, MEDIUM, NOT_APPLICABLE
+    commercial_classification = Column(String(30), nullable=False, default="APPROVED")  # PREFERRED, APPROVED, CONDITIONAL, RESTRICTED, BLOCKED
+    tds_section = Column(String(20), nullable=True, default="194Q")  # 194Q, 194C, NONE
+    tds_rate = Column(Numeric(5, 2), nullable=False, default=0.10)
     tax_treatment = Column(String(30), nullable=False, default="REGISTERED_REGULAR")  # REGISTERED_REGULAR, COMPOSITION, UNREGISTERED
     outstanding_liability = Column(Numeric(15, 2), nullable=False, default=0.00)
+    verification_flags = Column(JSONB, server_default=text("'{}'"), default=dict)
 
     # Relationships
     party = relationship("Party", back_populates="supplier_profile")
@@ -142,11 +149,13 @@ class PartyAddress(BaseEntity):
 class PartyContact(BaseEntity):
     """
     Contact persons linked to Universal Party.
+    Supports role-specific contact categorization (Sales, Accounts, Logistics, Management).
     """
     __tablename__ = "party_contacts"
 
     party_id = Column(String(50), ForeignKey("parties.id", ondelete="CASCADE"), nullable=False, index=True)
     contact_name = Column(String(150), nullable=False)
+    contact_category = Column(String(30), nullable=False, default="GENERAL")  # SALES, ACCOUNTS, LOGISTICS, MANAGEMENT, OTHER, GENERAL
     designation = Column(String(100), nullable=True)
     department = Column(String(100), nullable=True)
     phone = Column(String(20), nullable=True)
@@ -156,6 +165,43 @@ class PartyContact(BaseEntity):
 
     # Relationships
     party = relationship("Party", back_populates="contacts")
+
+
+class SupplierBankAccount(BaseEntity):
+    """
+    Controlled Bank Account entity for Universal Party (Vendor / Supplier).
+    Supports multi-bank accounts with primary designation and verification audits.
+    """
+    __tablename__ = "party_bank_accounts"
+
+    party_id = Column(String(50), ForeignKey("parties.id", ondelete="CASCADE"), nullable=False, index=True)
+    bank_name = Column(String(150), nullable=False)
+    account_holder_name = Column(String(150), nullable=False)
+    account_number = Column(String(50), nullable=False)
+    ifsc = Column(String(20), nullable=False)
+    branch = Column(String(100), nullable=True)
+    account_type = Column(String(30), nullable=False, default="CURRENT")  # CURRENT, SAVINGS, CC, OVERDRAFT
+    is_primary = Column(Boolean, nullable=False, default=False)
+    verification_status = Column(String(30), nullable=False, default="PENDING")  # PENDING, VERIFIED, REJECTED
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    party = relationship("Party", back_populates="bank_accounts")
+
+
+class VendorIdentityMigration(BaseEntity):
+    """
+    Auditable ledger for migration reconciliation between legacy suppliers table and Universal Party.
+    """
+    __tablename__ = "vendor_identity_migrations"
+
+    legacy_supplier_id = Column(String(50), nullable=False, index=True)
+    party_id = Column(String(50), ForeignKey("parties.id", ondelete="CASCADE"), nullable=False, index=True)
+    migration_status = Column(String(30), nullable=False, default="COMPLETED")  # PENDING, COMPLETED, FAILED
+    migration_reason = Column(String(100), nullable=False, default="LEGACY_CONVERGENCE")
+    migrated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    migrated_by = Column(String(50), nullable=True)
+    details_json = Column(JSONB, server_default=text("'{}'"), default=dict)
 
 
 class PartyRelationship(BaseEntity):

@@ -7,7 +7,7 @@
  * Version      : 3.100.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -98,7 +98,7 @@ export const WavePickingStudioModal: React.FC<WavePickingStudioModalProps> = ({ 
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Warehouse Wave Picking Optimiser</h2>
-              <p className="text-xs text-slate-400">Batch Wave Â· Zone Routing Â· Serpentine Path Â· Picker Assignment Â· Short Detection</p>
+              <p className="text-xs text-slate-400">Batch Wave · Zone Routing · Serpentine Path · Picker Assignment · Short Detection</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export const WavePickingStudioModal: React.FC<WavePickingStudioModalProps> = ({ 
         {wave && (
           <div className="px-6 py-2 border-b border-slate-800 bg-slate-950/30">
             <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
-              <span>Wave Progress â€” {wave.waveId}</span>
+              <span>Wave Progress — {wave.waveId}</span>
               <span>{wave.completedTasks + wave.shortedTasks}/{wave.totalTasks} tasks ({progressPct}%)</span>
             </div>
             <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -143,7 +143,7 @@ export const WavePickingStudioModal: React.FC<WavePickingStudioModalProps> = ({ 
                 <span className="material-symbols-outlined text-4xl">inventory</span>
               </div>
               <p className="text-slate-400 text-sm">No active wave. Click <strong className="text-orange-400">Create Wave</strong> to begin.</p>
-              <p className="text-slate-600 text-xs">{ORDER_LINES.length} order lines Â· {PICKERS.length} pickers available</p>
+              <p className="text-slate-600 text-xs">{ORDER_LINES.length} order lines · {PICKERS.length} pickers available</p>
             </div>
           </div>
         ) : activeTab === "TASKS" ? (
@@ -187,7 +187,7 @@ export const WavePickingStudioModal: React.FC<WavePickingStudioModalProps> = ({ 
                       </span>
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-slate-200 truncate">{task.productName}</p>
-                        <p className="text-[10px] text-slate-500">{task.orderId} Â· {picker?.name.split(" ")[0] ?? "Unassigned"}</p>
+                        <p className="text-[10px] text-slate-500">{task.orderId} · {picker?.name.split(" ")[0] ?? "Unassigned"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0 ml-3">
@@ -218,7 +218,7 @@ export const WavePickingStudioModal: React.FC<WavePickingStudioModalProps> = ({ 
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="text-sm font-bold text-slate-100">{p.name}</p>
-                        <p className="text-[10px] text-slate-400">{p.pickerId} Â· Zone {p.currentZone}</p>
+                        <p className="text-[10px] text-slate-400">{p.pickerId} · Zone {p.currentZone}</p>
                       </div>
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${ZONE_COLORS[p.currentZone!]}`}>Zone {p.currentZone}</span>
                     </div>

@@ -28,10 +28,12 @@ class ProductBase(BaseModel):
     barcode: str = Field(..., max_length=100, description="Barcode")
     secondary_barcodes: Optional[List[str]] = Field(default_factory=list)
     brand: Optional[str] = Field(None, max_length=100)
+    vendor_code: Optional[str] = Field(None, max_length=100)
     color: Optional[str] = Field(None, max_length=50)
     size: Optional[str] = Field(None, max_length=50)
     mrp: Decimal = Field(..., ge=0, description="MRP")
     gst_percentage: Decimal = Field(..., ge=0, description="GST Tax Rate (%)")
+    is_tax_inclusive: Optional[bool] = Field(default=True, description="Statutory MRP Tax Inclusive Flag")
     style_code: Optional[str] = Field(None, max_length=100)
     buying_price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None
@@ -44,6 +46,7 @@ class ProductBase(BaseModel):
     attributes: Optional[Dict[str, Any]] = Field(default_factory=dict)
     primary_image_url: Optional[str] = Field(None, max_length=512)
     gallery_images: Optional[List[str]] = Field(default_factory=list)
+    historical_invoice_qty: Decimal = Decimal("0")
 
     @field_validator("code", "name", "barcode", "hsn_code", mode="before")
     @classmethod
@@ -97,6 +100,24 @@ class ProductBase(BaseModel):
                 raise ValueError(f"{info.field_name} must be a valid number.")
         return dec
 
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
+
     @model_validator(mode="after")
     def validate_pricing_hierarchy(self) -> "ProductBase":
         # Check if item is an exempt non-stock/service/sample/free item
@@ -127,8 +148,10 @@ class ProductBase(BaseModel):
         if self.cost_price <= Decimal("0"):
             self.cost_price = self.buying_price or self.price or Decimal("100.00")
 
-        if self.mrp is None or self.mrp < self.price:
+        if self.mrp is None:
             self.mrp = self.price
+        elif self.mrp < self.price:
+            raise ValueError(f"MRP ({self.mrp}) must be greater than or equal to Selling Price ({self.price}).")
 
         if self.cost_price > self.buying_price:
             self.buying_price = self.cost_price
@@ -150,10 +173,12 @@ class ProductUpdate(BaseModel):
     barcode: Optional[str] = None
     secondary_barcodes: Optional[List[str]] = None
     brand: Optional[str] = None
+    vendor_code: Optional[str] = None
     color: Optional[str] = None
     size: Optional[str] = None
     mrp: Optional[Decimal] = None
     gst_percentage: Optional[Decimal] = None
+    is_tax_inclusive: Optional[bool] = None
     style_code: Optional[str] = None
     buying_price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None
@@ -197,6 +222,24 @@ class ProductUpdate(BaseModel):
                 raise ValueError(f"{info.field_name} must be a valid number.")
         return dec
 
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_update_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
+
     @model_validator(mode="after")
     def validate_update_pricing_hierarchy(self) -> "ProductUpdate":
         if self.buying_price is not None and self.buying_price <= Decimal("0"):
@@ -216,6 +259,8 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: str
+    item_id: Optional[str] = None
+    item_variant_id: Optional[str] = None
     uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
@@ -297,3 +342,21 @@ class StockMovementResponse(BaseModel):
     closing_value: Optional[Decimal] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StockLedgerTotals(BaseModel):
+    total_in_qty: Decimal = Decimal("0.00")
+    total_out_qty: Decimal = Decimal("0.00")
+    total_in_value: Decimal = Decimal("0.00")
+    total_out_value: Decimal = Decimal("0.00")
+    total_movement_value: Decimal = Decimal("0.00")
+    total_moved_qty: Decimal = Decimal("0.00")
+    net_qty: Decimal = Decimal("0.00")
+
+
+class StockLedgerPageResponse(BaseModel):
+    items: List[StockMovementResponse]
+    total: int
+    skip: int
+    limit: int
+    totals: StockLedgerTotals

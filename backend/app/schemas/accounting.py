@@ -214,3 +214,27 @@ class UnrealizedRevaluationResponse(BaseModel):
     total_unrealized_loss: float
     revaluation_voucher_id: Optional[str] = None
     revaluation_voucher_no: Optional[str] = None
+
+
+class BankDepositCreate(BaseModel):
+    amount: Decimal
+    bank_account_code: Optional[str] = "1020"
+    cash_account_code: Optional[str] = "1010"
+    bank_account_id: Optional[str] = None
+    cash_account_id: Optional[str] = None
+    deposit_date: Optional[date] = None
+    slip_number: Optional[str] = None
+    reference_no: Optional[str] = None
+    narration: Optional[str] = None
+    branch_id: Optional[str] = None
+
+
+class BankDepositResponse(BaseModel):
+    voucher_id: str
+    voucher_no: str
+    voucher_date: date
+    amount: Decimal
+    status: str = "POSTED"
+    reference_no: Optional[str] = None
+    narration: Optional[str] = None
+

@@ -1,0 +1,102 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Tally Interface Mapping</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+-->
+</style>
+</head>
+<body>
+<h1>Tally Interface Mapping</h1>
+
+<p class=Body-Text>Shoper 9 can be configured to post the accounting and 
+ closing stock details to Tally 9 for generating the financial and inventory 
+ reports required by your organisation. To achieve this, you have to configure 
+ the details to be posted to Tally 9. This option allows you to do the 
+ necessary configuration to interface with Tally 9.</p>
+
+<p class=Body-Text>You can map many Showrooms to the same Tally Company. 
+ Each showroom can be mapped as a Cost Centre in a Tally company.</p>
+
+<p class=Note><span class="hcp1">Note:</span> The transaction 
+ created only in <span class="hcp1">Shoper 9</span> can be 
+ posted to <span class="hcp1">Tally.ERP 9</span>.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note
+	style="font-weight: bold;">Note:</p>
+
+<p class=Note>1. Install <span class="hcp1">Tally 9</span> 
+ and <span class="hcp1">create a company</span>, before setting 
+ up Tally Interface Mapping</p>
+
+<p class=Note>2. Edit <span class="hcp1">tally.ini</span> 
+ file to add the lines:</p>
+
+<p class=Note>&nbsp;&nbsp;&nbsp;&nbsp;a. 
+ <span class="hcp1">clientserver=&lt;type&gt;</span>, where 
+ type can be client, server or both</p>
+
+<p class=Note>&nbsp;&nbsp;&nbsp;&nbsp;b. 
+ <span class="hcp1">serverport=&lt;port number&gt;</span>, 
+ use a port number between 9000 and 15000</p>
+
+<p class=Note>&nbsp;&nbsp;&nbsp;&nbsp;c. 
+ <span class="hcp1">User TDL = Yes</span></p>
+
+<p class=Note
+	style="text-align: left;"
+	align=left>&nbsp;&nbsp;&nbsp;&nbsp;d.<span class="hcp1"> tdl = &lt;path&gt;\shoper9_T92.tcp</span> 
+ if you are using <span class="hcp1">Tally9 rel2.x</span>; 
+ or <span class="hcp1">tdl = &lt;path&gt;\shoper9_T93.tcp 
+ </span>if you are using <span class="hcp1">Tally9 rel 3.x</span>, 
+ or <span class="hcp1">tdl = &lt;path&gt;\shoper9_ERP.tcp 
+ </span>if you are using <span class="hcp1">Tally.ERP 9 </span>where 
+ path is the location of the tcp file</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Setup 
+ &gt; General &gt; Tally Interface - Mapping</span></p>
+
+<p class=Body-Text>The <span class="hcp1">Tally Interface 
+ - Mapping Manager</span> window is displayed.</p>
+
+<p class=Body-Text><img src="Tally%20Interface%20Mapping%20Manager.gif"
+						x-maintain-ratio=TRUE
+						style="border: none;
+								width: 450px;
+								height: 269px;
+								float: none;"
+						width=450
+						height=269
+						border=0> </p>
+
+<p class=Body-Text>All existing mapping information for the selected showroom 
+ is displayed in the grid.</p>
+
+<p class=Body-Text>In this window you can execute the following functions:</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Add</span>: 
+ Click to create a new mapping for the selected showroom. Click <a href="Creating_a_Tally_Interface_Mapping.htm">here</a> 
+ for more information.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Edit</span>: 
+ Click to edit the mapping you have selected in the grid. Make necessary 
+ changes and save.</p>
+
+<p class=Navigation><span class="hcp1">E</span><span style="x-text-underline: normal; font-weight: bold; /*begin!kadov{{*/ text-decoration: underline; /*}}end!kadov*/ ">x</span><span class="hcp1">it</span>: To abort the mapping process.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

@@ -14,23 +14,115 @@ Classification: Internal
 
 from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, require_role, require_permission
+from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, get_current_user, require_role, require_permission
 from ...models.auth import UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
     SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
-    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse,
+    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse, SalesOrderLineActionRequest,
     SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
     SalesReturnContextResponse,
 )
 
 from ...repositories.sales import SalesInvoiceRepository
 from ...services.sales import SalesService
+from ...services.customer_po import CustomerPOService
 from ...services.eway_bill_service import EWayBillService
+from ...schemas.customer_po import (
+    CustomerPOBillingRequest, CustomerPOCreate, CustomerPOUpdate, CustomerPOResponse,
+    CustomerPOUtilizationResponse, CustomerPOBillingHistoryResponse,
+)
 
 router = APIRouter()
+
+
+@router.post("/customer-pos", response_model=CustomerPOResponse, status_code=201, summary="Create Customer PO")
+async def create_customer_po(
+    payload: CustomerPOCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    _user=Depends(require_permission("sales_billing", "NEW")),
+):
+    return await CustomerPOService(db, tenant_ctx).create(payload)
+
+
+@router.get("/customer-pos", response_model=list[CustomerPOResponse], summary="List Customer POs")
+async def list_customer_pos(
+    customer_id: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    return await CustomerPOService(db, tenant_ctx).list(customer_id=customer_id, q=q, status=status)
+
+
+@router.get("/customer-pos/{po_id}", response_model=CustomerPOResponse, summary="Get Customer PO")
+async def get_customer_po(po_id: str, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context)):
+    return await CustomerPOService(db, tenant_ctx).get(po_id)
+
+
+@router.patch("/customer-pos/{po_id}", response_model=CustomerPOResponse, summary="Update Customer PO")
+async def update_customer_po(po_id: str, payload: CustomerPOUpdate, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context), _user=Depends(require_permission("sales_billing", "EDIT"))):
+    return await CustomerPOService(db, tenant_ctx).update(po_id, payload)
+
+
+@router.get("/customer-pos/{po_id}/utilization", response_model=CustomerPOUtilizationResponse, summary="Get Customer PO Utilization")
+async def get_customer_po_utilization(po_id: str, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context)):
+    return await CustomerPOService(db, tenant_ctx).utilization(po_id)
+
+
+@router.get("/customer-pos/{po_id}/billing-history", response_model=list[CustomerPOBillingHistoryResponse], summary="Get Customer PO Billing History")
+async def get_customer_po_billing_history(po_id: str, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context)):
+    return await CustomerPOService(db, tenant_ctx).history(po_id)
+
+
+@router.post("/customer-pos/{po_id}/validate-billing", response_model=dict, summary="Validate Customer PO Billing")
+async def validate_customer_po_billing(po_id: str, payload: CustomerPOBillingRequest, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context)):
+    service = CustomerPOService(db, tenant_ctx)
+    po, po_lines = await service.validate_billing(po_id, payload)
+    policy, policy_snapshot = await service._policy()
+    violations = [
+        line.customer_po_line_id
+        for line in payload.lines
+        if line.quantity > po_lines[line.customer_po_line_id].quantity_remaining
+    ]
+    is_valid = True
+    if violations:
+        if policy == "BLOCK":
+            is_valid = False
+        elif policy == "ALLOW_WITH_AUTHORIZATION" and not payload.authorization:
+            is_valid = False
+    return {"valid": is_valid, "policy": policy, "policy_snapshot": policy_snapshot, "violations": violations, "utilization": await service.utilization(po_id)}
+
+
+@router.post("/customer-pos/{po_id}/bill", response_model=SalesInvoiceResponse, status_code=201, summary="Create Tax Invoice Against Customer PO")
+async def bill_customer_po(
+    po_id: str,
+    payload: CustomerPOBillingRequest,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    _user=Depends(require_permission("sales_billing", "NEW")),
+):
+    key = idempotency_key or payload.idempotency_key
+    return await CustomerPOService(db, tenant_ctx).bill(po_id, payload, idempotency_key=key)
+
+
+@router.post("/customer-pos/{po_id}/close", response_model=CustomerPOResponse, summary="Close Fully Billed Customer PO")
+async def close_customer_po(po_id: str, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context), _user=Depends(require_permission("sales_billing", "EDIT"))):
+    return await CustomerPOService(db, tenant_ctx).close(po_id)
+
+
+class SalesOrderReservationRequest(BaseModel):
+    idempotency_key: str = Field(..., min_length=8, max_length=100)
+
+
+class SalesOrderReservationReleaseRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
 
 
 
@@ -210,32 +302,33 @@ async def get_sales_invoice_reprint_contract(
 )
 async def get_sales_invoice_pdf_stream(
     invoice_id: str,
-    format: Optional[str] = None,
+    format: Optional[str] = "binary",
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Stream rendered Tax Invoice PDF document from single Canonical TaxInvoiceRenderer."""
     from ...services.invoice_pdf_service import InvoicePdfService
-    if format == "binary":
-        pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
+    if format == "html":
+        html_content = await InvoicePdfService.generate_invoice_html(
             session=db,
             invoice_id=invoice_id,
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id
         )
-        safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
-        )
-    html_content = await InvoicePdfService.generate_invoice_html(
+        return Response(content=html_content, media_type="text/html")
+
+    pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
         session=db,
         invoice_id=invoice_id,
         company_id=tenant_ctx.company_id,
         branch_id=tenant_ctx.branch_id
     )
-    return Response(content=html_content, media_type="text/html")
+    safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
+    )
 
 
 @router.get(
@@ -337,6 +430,23 @@ async def delete_sales_quotation(
     await SalesService(db, tenant_ctx).delete_sales_quotation(quotation_id)
     return Response(status_code=204)
 
+@router.post("/orders/{order_id}/lines/{line_id}/{action}", response_model=SalesOrderItemResponse)
+async def close_or_cancel_sales_order_line(
+    order_id: str,
+    line_id: int,
+    action: str,
+    request: SalesOrderLineActionRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Close or cancel an unbilled Sales Order line without changing its invoice history."""
+    user_name = getattr(current_user, "username", None) or getattr(current_user, "name", None) or "system"
+    line = await SalesService(db, tenant_ctx).close_or_cancel_sales_order_line(
+        order_id, line_id, action, request, user_name
+    )
+    return SalesOrderItemResponse.model_validate(line)
+
 
 # ─────────────────────────── Sales Order ───────────────────────────
 
@@ -385,6 +495,26 @@ async def list_sales_orders(
     )
 
 
+@router.get("/orders/po-address-candidates")
+async def list_po_address_candidates(
+    customer_id: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Preview historical PO billing addresses before adding them to customer master."""
+    return await SalesService(db, tenant_ctx).list_po_address_candidates(customer_id)
+
+
+@router.get("/orders/reconciliation")
+async def get_sales_order_reconciliation(
+    customer_id: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Reconcile PO, Sales Order, reservation, and invoice status for a customer."""
+    return await SalesService(db, tenant_ctx).get_customer_reconciliation(customer_id)
+
+
 @router.get("/orders/{order_id}", response_model=SalesOrderResponse)
 async def get_sales_order(
     order_id: str,
@@ -413,6 +543,32 @@ async def update_sales_order(
 ):
     """Partial-update a sales order."""
     return await SalesService(db, tenant_ctx).update_sales_order(order_id, update_in)
+
+
+@router.post(
+    "/orders/{order_id}/reserve",
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
+)
+async def reserve_sales_order(
+    order_id: str,
+    request_in: SalesOrderReservationRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    return await SalesService(db, tenant_ctx).reserve_sales_order(order_id, request_in.idempotency_key)
+
+
+@router.post(
+    "/orders/{order_id}/release-reservation",
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
+)
+async def release_sales_order_reservation(
+    order_id: str,
+    request_in: SalesOrderReservationReleaseRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    return await SalesService(db, tenant_ctx).release_sales_order_reservations(order_id, request_in.reason)
 
 
 @router.delete(

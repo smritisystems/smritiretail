@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ItemBarcodeItem(BaseModel):
@@ -32,6 +32,8 @@ class ItemVariantItem(BaseModel):
     mrp: float = 0.0
     selling_price: float = 0.0
     cost_price: float = 0.0
+    tax_rate: Optional[float] = None
+    is_tax_inclusive: bool = True
     is_active: bool = True
     barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
 
@@ -70,9 +72,15 @@ class ItemCreateRequest(BaseModel):
     item_type: str = "FINISHED_GOOD"
     category: str
     category_code: Optional[str] = None
+    department: Optional[str] = None
     brand: Optional[str] = None
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    vendor_code: Optional[str] = None
     hsn_code: Optional[str] = "0000"
     tax_rate: float = 18.0
+    is_tax_inclusive: bool = True
     primary_uom: str = "PCS"
     mrp: float = 0.0
     selling_price: float = 0.0
@@ -89,13 +97,37 @@ class ItemCreateRequest(BaseModel):
     batches: List[ItemBatchItem] = Field(default_factory=list)
     locations: List[ItemLocationItem] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
+
 
 class ItemUpdateRequest(BaseModel):
     item_name: Optional[str] = None
     category: Optional[str] = None
+    department: Optional[str] = None
     brand: Optional[str] = None
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    vendor_code: Optional[str] = None
     hsn_code: Optional[str] = None
     tax_rate: Optional[float] = None
+    is_tax_inclusive: Optional[bool] = None
     primary_uom: Optional[str] = None
     mrp: Optional[float] = None
     selling_price: Optional[float] = None
@@ -104,6 +136,24 @@ class ItemUpdateRequest(BaseModel):
     is_favorite: Optional[bool] = None
     tags: Optional[List[str]] = None
     attributes_json: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
 
 
 class ItemResponse(BaseModel):
@@ -115,9 +165,15 @@ class ItemResponse(BaseModel):
     item_type: str
     category: str
     category_code: Optional[str] = None
+    department: Optional[str] = None
     brand: Optional[str] = None
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    vendor_code: Optional[str] = None
     hsn_code: Optional[str] = None
     tax_rate: float
+    is_tax_inclusive: bool = True
     primary_uom: str
     mrp: float
     selling_price: float
@@ -145,7 +201,7 @@ class MatrixVariantGenRequest(BaseModel):
 
 
 class ItemResolutionResponse(BaseModel):
-    matched_by: str  # BARCODE, VARIANT_SKU, ITEM_CODE, SERIAL
+    matched_by: str  # BARCODE, VARIANT_SKU, BUYER_CODE, ITEM_CODE, SERIAL
     item_id: str
     item_code: str
     item_name: str
@@ -153,13 +209,34 @@ class ItemResolutionResponse(BaseModel):
     variant_sku: Optional[str] = None
     barcode: Optional[str] = None
     serial_number: Optional[str] = None
-    tax_rate: float
-    mrp: float
-    selling_price: float
-    cost_price: float
-    primary_uom: str
-    category: str
+    hsn_code: Optional[str] = None
+    tax_rate: Optional[float] = 0.00
+    mrp: Optional[float] = 0.00
+    selling_price: Optional[float] = 0.00
+    cost_price: Optional[float] = 0.00
+    primary_uom: Optional[str] = None
+    category: Optional[str] = None
     brand: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    attributes_json: Optional[Dict[str, Any]] = None
+    customer_article: Optional[str] = None
+    contract_rate: Optional[float] = None
+    contract_discount_pct: Optional[float] = None
+    customer_style_description: Optional[str] = None
+    effective_price: Optional[float] = None
+    currency: Optional[str] = "INR"
+    tax_treatment: Optional[str] = "TAXABLE_EXCLUSIVE"
+    tax_amount: Optional[float] = 0.00
+    effective_price_inclusive: Optional[float] = 0.00
+    physical_on_hand: Optional[float] = 0.00
+    in_transit_qty: Optional[float] = 0.00
+    reserved_qty: Optional[float] = 0.00
+    committed_qty: Optional[float] = 0.00
+    quarantine_qty: Optional[float] = 0.00
+    available_to_promise: Optional[float] = 0.00
+    inventory: Optional[Dict[str, Any]] = None
+    pricing_audit: Optional[Dict[str, Any]] = None
 
 
 class LegacyProductAdapterResponse(BaseModel):

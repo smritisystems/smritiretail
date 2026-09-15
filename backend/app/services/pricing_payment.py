@@ -20,7 +20,7 @@ from sqlalchemy import select, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.pricing import PriceBook, PriceBookEntry, CustomerPriceTier
+from ..models.pricing import PriceBook, PriceBookEntry, CustomerPriceTier, CustomerPriceAssignment
 from ..models.payment_ledger import PaymentTransaction, PaymentAllocation
 from ..models.numbering import DocumentSeries, NumberingAuditLog
 from ..models.item_master import Item, ItemVariant
@@ -64,12 +64,15 @@ class UnifiedPricingPaymentService:
 
         # 1. Check Customer Tier if no explicit price book is requested
         if not resolved_pb_id and customer_id:
-            cust_stmt = select(Customer).where(Customer.id == customer_id)
-            cust = (await session.execute(cust_stmt)).scalar_one_or_none()
-            if cust and getattr(cust, "price_group_id", None):
-                # Map price group to tier
+            assignment_stmt = select(CustomerPriceAssignment).where(
+                CustomerPriceAssignment.customer_id == customer_id,
+                CustomerPriceAssignment.status == "ACTIVE",
+                CustomerPriceAssignment.is_deleted == False,
+            )
+            assignment = (await session.execute(assignment_stmt)).scalar_one_or_none()
+            if assignment:
                 tier_stmt = select(CustomerPriceTier).where(
-                    CustomerPriceTier.id == cust.price_group_id,
+                    CustomerPriceTier.id == assignment.price_tier_id,
                     CustomerPriceTier.is_active == True,
                     CustomerPriceTier.is_deleted == False
                 )

@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 3.31.0
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-13
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -13,6 +13,7 @@
 import React from "react";
 import { Database, Layers, Tag, CheckCircle2, Sliders } from "lucide-react";
 import { MasterConfig } from "../master/types.ts";
+import { MasterLookupDetailDrawer } from "../master/MasterLookupDetailDrawer.tsx";
 
 export interface MasterLookupItem {
   id: string;
@@ -27,6 +28,18 @@ export interface MasterLookupItem {
   sequence_order?: number;
 }
 
+export const mapLookupResponse = (items: any, typeCode: string) => (
+  Array.isArray(items)
+    ? items.map((item) => ({
+      ...item,
+      type_code: typeCode,
+      description: item.data?.description || item.data?.notes || "",
+      values: Array.isArray(item.data?.values) ? item.data.values.join(", ") : "",
+      is_active: item.active !== false
+    }))
+    : []
+);
+
 export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   entityName: "Lookup Value",
   entityNamePlural: "Lookup Values",
@@ -35,6 +48,14 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   icon: <Database size={20} />,
   apiEndpoint: "/api/v1/masters/lookup/department/values",
   idKey: "id",
+  payloadTransform: (formData, _mode) => ({
+    code: String(formData.code || "").trim(),
+    name: String(formData.name || "").trim(),
+    active: formData.is_active !== false,
+    data: {
+      description: String(formData.description || "").trim()
+    }
+  }),
   searchPlaceholder: "Search by value name, code, category, or type...",
   searchFields: ["name", "code", "type_code", "category", "description"],
 
@@ -54,16 +75,6 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
             <div className="text-[10px] text-theme-muted font-mono">{item.code || item.id}</div>
           </div>
         </div>
-      )
-    },
-    {
-      key: "type_code",
-      label: "Lookup Type",
-      width: "150px",
-      render: (val, item) => (
-        <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-theme-surface-2 border border-theme-divider text-theme-primary">
-          {val || item.type || "General"}
-        </span>
       )
     },
     {
@@ -166,5 +177,16 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
       compute: (items) => items.filter((i) => i.is_active !== false).length,
       color: "emerald"
     }
-  ]
+  ],
+
+  slots: {
+    detailDrawer: (item, onClose, refetch) => (
+      <MasterLookupDetailDrawer
+        item={item}
+        typeCode={item?.type_code || item?.type || "lookup"}
+        onClose={onClose}
+        onRefetch={refetch}
+      />
+    )
+  }
 };

@@ -46,6 +46,8 @@ from .api.v1 import (
     auth,
     assignments,
     barcode,
+    barcode_registry,
+    billing_csv,
     barcodes,
     boundaries,
     capability_registry,
@@ -104,11 +106,14 @@ from .api.v1 import (
     training,
     ui_control_plane,
     universal_master,
+    universal_import,
     users,
+    vendor,
     wms,
     workflow,
     workspace_ui,
     cge_unified,
+    system_parameters,
 )
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
@@ -174,6 +179,7 @@ app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",     
 app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory",          tags=["Inventory"])
 app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/products",           tags=["Inventory"])
 app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory/products", tags=["Inventory"])
+app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/variants",           tags=["Variants"])
 app.include_router(inventory_reports.router, prefix=settings.API_V1_STR,                          tags=["Inventory Reports"])
 app.include_router(crm.router,          prefix=settings.API_V1_STR,           tags=["CRM"])
 app.include_router(crm.router,          prefix=settings.API_V1_STR + "/crm",  tags=["CRM"])
@@ -185,6 +191,8 @@ app.include_router(sales.router,         prefix=settings.API_V1_STR + "/tattly",
 app.include_router(sales_reports.router, prefix=settings.API_V1_STR,                     tags=["Sales Reports"])
 app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Deprecated — remove at v3.20.0
 app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Contract URL (Phase 4A)
+app.include_router(vendor.router,    prefix=settings.API_V1_STR + "/purchase",      tags=["Vendors"])          # Canonical Vendor 360
+app.include_router(vendor.router,    prefix=settings.API_V1_STR,                    tags=["Vendors"])
 app.include_router(pos.router,            prefix=settings.API_V1_STR,           tags=["POS Shift"])
 app.include_router(physical_stock.router, prefix=settings.API_V1_STR,           tags=["Physical Stock"])
 app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
@@ -197,8 +205,11 @@ app.include_router(numbering.router,        prefix=settings.API_V1_STR + "/numbe
 app.include_router(terms.router,            prefix=settings.API_V1_STR + "/terms",         tags=["Terms & Conditions"])
 app.include_router(attributes.router,       prefix=settings.API_V1_STR + "/attributes",    tags=["Attributes & Variants"])  # noqa: E501
 app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barcode",       tags=["Barcode Studio"])
+app.include_router(billing_csv.router,      prefix=settings.API_V1_STR + "/billing",       tags=["Barcode Billing CSV Import"])
+app.include_router(barcode_registry.router, prefix=settings.API_V1_STR + "/barcode-registry", tags=["Barcode Management"])
 app.include_router(product_identity.router, prefix=settings.API_V1_STR + "/product-identity", tags=["Product Identity Engine"])
 app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])
+app.include_router(universal_import.router, prefix=settings.API_V1_STR + "/import",        tags=["Universal Import"])
 app.include_router(ai.router,               prefix=settings.API_V1_STR + "/ai",            tags=["AI Assistant"])
 app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs",          tags=["Documentation"])
 app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])
@@ -243,6 +254,7 @@ app.include_router(analytics.router, prefix=settings.API_V1_STR + "/analytics", 
 app.include_router(integration.router, prefix=settings.API_V1_STR + "/integration", tags=["Integration Hub & Audit"])
 app.include_router(legacy_menu_map.router, prefix=settings.API_V1_STR + "/legacy-menu-map", tags=["Legacy Migration Registry"])  # Sprint 2/3: read-only Shoper9->SMRITI lineage
 app.include_router(scheduled_reports.router, prefix=settings.API_V1_STR)
+app.include_router(system_parameters.router, prefix=settings.API_V1_STR, tags=["System Parameters"])
 
 
 

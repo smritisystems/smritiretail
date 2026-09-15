@@ -152,6 +152,20 @@ class SalesReturnRefundAdapter:
                     cust.outstanding = max(Decimal("0.00"), Decimal(str(cust.outstanding or 0)) - refund_amount)
                     cust.modified_at = now
                     session.add(cust)
+                    from ..models.crm import CustomerCreditLedgerEntry
+                    session.add(CustomerCreditLedgerEntry(
+                        id=f"ccle-{uuid.uuid4().hex[:12]}",
+                        customer_id=cust.id,
+                        entry_date=now,
+                        entry_type="CREDIT",
+                        amount=refund_amount,
+                        balance_after=cust.outstanding,
+                        reference_type="SALES_RETURN_REFUND",
+                        reference_id=sales_return.id,
+                        notes="Store credit or credit note refund",
+                        company_id=company_id,
+                        branch_id=branch_id,
+                    ))
 
         # Record REFUND_POSTED compliance audit event
         await ComplianceAuditService.record_audit_event(

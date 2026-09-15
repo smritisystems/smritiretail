@@ -46,7 +46,16 @@ export interface Product {
   size?: string;
   mrp?: number;
   gstPercentage?: number;
+  isTaxInclusive?: boolean;
+  is_tax_inclusive?: boolean;
   styleCode?: string;
+  style_code?: string;
+  style?: string;
+  article?: string;
+  article_no?: string;
+  style_article?: string;
+  department?: string;
+  vendor_code?: string;
   costPrice?: number; // Added for variant cost price support
   sku?: string; // Added for variant SKU support
   hsnCode?: string; // Added for HSN Code support
@@ -70,6 +79,18 @@ export interface AttributeDefinition {
   isVariantDimension: boolean; // If true, contributes to variant SKU and grid structure
   isMandatory: boolean;
   validValues: string[]; // Set of allowed values, e.g., ["Rubber", "PU", "PVC"]
+  groupId?: string;
+  displayOrder?: number;
+  isEnabled?: boolean;
+  isDynamic?: boolean;
+  isSearchable?: boolean;
+  isFilterable?: boolean;
+  isPrintable?: boolean;
+  isBarcodeEnabled?: boolean;
+  defaultValue?: string | null;
+  tooltip?: string | null;
+  validationRules?: string | null;
+  multiLangLabels?: Record<string, string>;
 }
 
 export interface AttributeGroup {
@@ -78,17 +99,22 @@ export interface AttributeGroup {
   attributeIds: string[]; // Ordered attribute IDs
   gridColumnAttributeId?: string; // E.g. "Size"
   gridRowAttributeId?: string; // E.g. "Color"
+  sizeGroupId?: string; // Master Registry size_group code
+  colorGroupId?: string; // Master Registry color_group code
 }
 
 export interface VariantTemplate {
   id: string;
   styleCode: string; // Parent template style code prefix
+  vendorCode?: string; // Governed Vendor Code assigned to the style
+  masterValueId?: string; // Canonical Master Registry Article / Style value
   name: string; // Base name of the product line
   brand: string;
   category: string;
   hsnCode: string;
   basePrice: number;
   baseMrp: number;
+  baseCostPrice: number;
   gstPercentage: number;
   attributeGroupId: string;
   pricingMode: "Fixed" | "Weight-based" | "Negotiated" | "Service";
@@ -168,13 +194,19 @@ export interface PSVPartySkuTracking {
 
 export interface PSVParty {
   id: string;
+  companyId?: string;
+  hostCustomerId?: string;
+  deliveryLocationId?: string;
+  storeCode?: string;
+  storeNameSnapshot?: string;
+  stockModel?: "OUTRIGHT_SALE" | "CONSIGNMENT" | "STOCK_ON_APPROVAL";
   name: string;
   location: string;
   stockCount: number;
   sellThrough: number; // percentage
   weeksOfCover: number;
   capitalLocked: number; // in INR
-  status: "Healthy" | "Monitor" | "Critical";
+  status: "Healthy" | "Monitor" | "Critical" | "SOLD_OUT" | "Reconciliation Required";
   history: { date: string; sales: number; stock: number }[];
   skuTracking?: PSVPartySkuTracking[]; // per-SKU tracking
 }
@@ -188,6 +220,7 @@ export interface Bill {
 }
 
 export interface SalesItemLine {
+  id?: number | string;
   productId: string;
   product_id?: string;
   code: string;
@@ -231,6 +264,16 @@ export interface SalesItemLine {
   delivery_date?: string;
   siteCode?: string;
   site_code?: string;
+  billedQuantity?: number;
+  billed_quantity?: number;
+  pendingQuantity?: number;
+  pending_quantity?: number;
+  overbilledQuantity?: number;
+  overbilled_quantity?: number;
+  lineStatus?: string;
+  line_status?: string;
+  closureReason?: string;
+  closure_reason?: string;
 }
 
 export interface Quotation {
@@ -527,10 +570,13 @@ export interface CustomerGroup {
 
   // Credit Management
   creditLimit: number; // ignored if unlimitedCredit is true
+  credit_limit?: number;
   unlimitedCredit: boolean;
   creditDays: number; // payment terms, e.g. 30
+  credit_days?: number;
   graceDays: number; // additional days before marked overdue
   creditHold: boolean; // true = new credit sales blocked regardless of limit
+  credit_hold?: boolean;
   autoBlockSales: boolean; // true = block sale automatically once limit exceeded
   warningThresholdPercent: number; // e.g. 80 = warn at 80% of credit limit used
   allowOverride: boolean; // can an individual Customer override this group's settings
@@ -609,6 +655,8 @@ export interface Customer {
 
   // Pricing overrides
   priceListId?: string;
+  priceGroupCode?: string;
+  itemClassificationPriceFactorApplicable?: boolean;
   discountPercent?: number;
 
   // Payment overrides
@@ -775,6 +823,7 @@ export interface UserPreferences {
 export interface User {
   id: string; // Keep for Staff-compatibility
   userId: string;
+  companyId?: string;
   employeeId: string;
   username: string;
   passwordHash: string; // Plain password or bcrypt hash
@@ -947,5 +996,31 @@ export interface CustomerPriceGroup {
   modifiedAt?: string;
 }
 
-
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Canonical Vendor 360 & Universal Party Types
+// ─────────────────────────────────────────────────────────────────────────────
+export type {
+  VendorStatus,
+  PartyRole,
+  PartyType,
+  SupplierType,
+  CommercialClassification,
+  TaxTreatment,
+  MSMECategory,
+  AddressType,
+  ContactCategory,
+  BankAccountType,
+  BankVerificationStatus,
+  VendorBankAccount,
+  VendorContact,
+  VendorAddress,
+  VendorCommercial,
+  VendorCompliance,
+  VendorSummary,
+  VendorDetail,
+  VendorCreateRequest,
+  VendorUpdateRequest,
+  VendorMergeRequest,
+  VendorMergeResponse,
+  VendorTabId,
+} from "./types/vendor.ts";

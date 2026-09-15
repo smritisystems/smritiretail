@@ -134,6 +134,8 @@ const DistributorStockTooltip = ({ active, payload, label }: any) => {
       Healthy: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
       Monitor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
       Critical: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+      SOLD_OUT: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+      "Reconciliation Required": "bg-orange-500/10 text-orange-400 border-orange-500/20",
     };
     
     const statusColor = statusColors[data.status] || "bg-slate-500/10 text-slate-400 border-slate-500/20";
@@ -496,9 +498,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     }
   };
 
-  const totalCapitalLocked = liveStockValuation
-    ? Math.round(parseFloat(liveStockValuation.total_value || 0))
-    : psvParties.reduce((sum, p) => sum + p.capitalLocked, 0);
+  const totalCapitalLocked = psvParties.reduce(
+    (sum, party) => sum + Number(party.capitalLocked || 0),
+    0
+  );
 
   const deadStockPercent = products.length > 0
     ? Number(((products.filter(p => Number(p.stock || 0) <= 0).length / products.length) * 100).toFixed(1))
@@ -789,7 +792,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         <div className="bg-theme-surface-1 rounded-xl p-5 border border-theme-divider relative group hover:border-[#2563EB] transition-all">
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-theme-muted uppercase font-display">
-              Channel Capital
+              Channel Capital (PSV)
             </span>
             <button
               onClick={() => {
@@ -804,14 +807,16 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <span className="text-3xl font-bold font-display text-theme-body">
-              {formatCurrency(totalCapitalLocked)}
+              {psvParties.length > 0 ? formatCurrency(totalCapitalLocked) : "Not available"}
             </span>
             <span className="text-xs text-rose-400 font-semibold">
-              Locked in PSV
+              {psvParties.length > 0 ? "Locked in PSV" : "PSV data unavailable"}
             </span>
           </div>
           <p className="mt-2 text-xs text-theme-muted">
-            Downstream partner stock
+            {psvParties.length > 0
+              ? "Downstream partner stock • tax basis not specified"
+              : "No live partner stock data returned"}
           </p>
         </div>
 

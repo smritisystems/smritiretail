@@ -37,13 +37,22 @@ from ...schemas.inventory import (
     ProductUpdate,
     StockMovementCreate,
     StockMovementResponse,
+    StockLedgerPageResponse,
 )
 from ...services.inventory import InventoryService
+from ...services.attributes import AttributesService
 from ...services.spif import SpifService
 
 router = APIRouter()
 
 
+@router.post(
+    "",
+    response_model=ProductResponse,
+    status_code=201,
+    dependencies=[Depends(require_permission("item_master", "ADD"))],
+    include_in_schema=False,
+)
 @router.post(
     "/",
     response_model=ProductResponse,
@@ -60,10 +69,11 @@ async def create_product(
     return await service.create_product(product_in)
 
 
+@router.get("", response_model=PaginatedResponse[ProductResponse], include_in_schema=False)
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
 async def list_products(
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
+    page_size: int = Query(25, ge=1, le=500),
     q: str | None = Query(None),
     category: str | None = Query(None),
     sort: str = Query("name"),
@@ -106,8 +116,8 @@ async def search_products(
     return await repo.search(q=q, category=category, skip=skip, limit=limit)
 
 
-@router.get("/ledger", response_model=list[StockMovementResponse])
-@router.get("/stock-movements", response_model=list[StockMovementResponse])
+@router.get("/ledger", response_model=StockLedgerPageResponse)
+@router.get("/stock-movements", response_model=StockLedgerPageResponse)
 async def list_stock_ledger(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
@@ -204,31 +214,80 @@ async def list_stock_ledger(
             )
         )
 
-    stmt = stmt.order_by(StockMovement.created_at.desc()).offset(skip).limit(limit)
+    # Load the complete filtered stream first so running balances are correct
+    # even when the response is paginated.
+    stmt = stmt.order_by(StockMovement.created_at.asc(), StockMovement.id.asc())
 
     res = await db.execute(stmt)
-    rows = res.all()
-    items = []
-    for row in rows:
-        mv = row[0]
-        cost_val = mv.unit_cost or row.prod_cost_price or row.prod_buying_price or row.prod_price or Decimal("0.00")
-        raw_qty = mv.quantity if mv.quantity is not None else Decimal("0.00")
-        qty_abs = abs(raw_qty)
-        tot_val = qty_abs * cost_val
-        doc_no = row.inv_invoice_no or mv.reference_doc_id or "—"
+    all_rows = res.all()
 
-        m_type = (mv.movement_type or "").upper()
+    def split_quantity(movement: StockMovement):
+        raw_qty = movement.quantity if movement.quantity is not None else Decimal("0.00")
+        qty_abs = abs(raw_qty)
+        m_type = (movement.movement_type or "").upper()
         if m_type in ("OUTWARD_SALE", "SALE", "ADJUSTMENT_OUT", "TRANSFER_OUT", "DAMAGE", "WRITE_OFF", "OUT"):
             is_inward = False
         elif m_type in ("IN", "RETURN", "RETURN_INWARD", "INWARD_GRN", "ADJUSTMENT_IN", "TRANSFER_IN", "PURCHASE"):
             is_inward = True
         else:
             is_inward = raw_qty > 0
+        return raw_qty, (qty_abs if is_inward else Decimal("0.00")), (qty_abs if not is_inward else Decimal("0.00"))
 
-        in_qty = qty_abs if is_inward else Decimal("0.00")
-        out_qty = qty_abs if not is_inward else Decimal("0.00")
-        in_val = in_qty * cost_val
-        out_val = out_qty * cost_val
+    running_by_sku = {}
+    ledger_values = {}
+
+    def movement_cost(row):
+        movement = row[0]
+        if movement.unit_cost is not None:
+            return movement.unit_cost
+        return row.prod_cost_price if row.prod_cost_price is not None else (
+            row.prod_buying_price if row.prod_buying_price is not None else (row.prod_price or Decimal("0.00"))
+        )
+
+    for row in all_rows:
+        mv = row[0]
+        sku_key = mv.sku or mv.product_id
+        raw_qty, in_qty, out_qty = split_quantity(mv)
+        cost_val = movement_cost(row)
+        opening_qty = running_by_sku.get(sku_key, Decimal("0.00"))
+        closing_qty = opening_qty + in_qty - out_qty
+        running_by_sku[sku_key] = closing_qty
+        ledger_values[mv.id] = {
+            "in_qty": in_qty,
+            "out_qty": out_qty,
+            "opening_qty": opening_qty,
+            "closing_qty": closing_qty,
+            "in_value": in_qty * cost_val,
+            "out_value": out_qty * cost_val,
+            "closing_value": closing_qty * cost_val,
+        }
+
+    totals = {
+        "total_in_qty": sum((v["in_qty"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_out_qty": sum((v["out_qty"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_in_value": sum((v["in_value"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_out_value": sum((v["out_value"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_movement_value": sum(
+            (
+                abs(row[0].quantity or Decimal("0.00")) * movement_cost(row)
+                for row in all_rows
+            ),
+            Decimal("0.00"),
+        ),
+    }
+    totals["total_moved_qty"] = totals["total_in_qty"] + totals["total_out_qty"]
+    totals["net_qty"] = totals["total_in_qty"] - totals["total_out_qty"]
+
+    rows = list(reversed(all_rows))[skip:skip + limit]
+    items = []
+    for row in rows:
+        mv = row[0]
+        cost_val = movement_cost(row)
+        raw_qty = mv.quantity if mv.quantity is not None else Decimal("0.00")
+        qty_abs = abs(raw_qty)
+        tot_val = qty_abs * cost_val
+        doc_no = row.inv_invoice_no or mv.reference_doc_id or "—"
+        ledger_value = ledger_values[mv.id]
 
         item_dict = {
             "id": mv.id,
@@ -266,13 +325,22 @@ async def list_stock_ledger(
             "buying_price": row.prod_buying_price or Decimal("0.00"),
             "cost_price": cost_val,
             "total_value": tot_val,
-            "in_qty": in_qty,
-            "out_qty": out_qty,
-            "in_value": in_val,
-            "out_value": out_val,
+            "in_qty": ledger_value["in_qty"],
+            "out_qty": ledger_value["out_qty"],
+            "opening_qty": ledger_value["opening_qty"],
+            "closing_qty": ledger_value["closing_qty"],
+            "in_value": ledger_value["in_value"],
+            "out_value": ledger_value["out_value"],
+            "closing_value": ledger_value["closing_value"],
         }
         items.append(StockMovementResponse(**item_dict))
-    return items
+    return {
+        "items": items,
+        "total": len(all_rows),
+        "skip": skip,
+        "limit": limit,
+        "totals": totals,
+    }
 
 
 @router.post(
@@ -365,33 +433,29 @@ async def update_product(
     
     update_data = product_in.model_dump(exclude_unset=True)
 
-    # Enforce Stock No / Code uniqueness across other products
-    if update_data.get("code") and update_data["code"] != product.code:
-        existing_code = await db.execute(
-            select(Product).filter(
-                Product.code == update_data["code"],
-                Product.id != product_id,
-                Product.is_deleted == False,
-                Product.company_id == tenant_ctx.company_id,
-                Product.branch_id == tenant_ctx.branch_id
-            )
+    if "attributes" in update_data:
+        await AttributesService(db).validate_product_attributes(
+            update_data.get("attributes"),
+            tenant_ctx.company_id,
         )
-        if existing_code.scalars().first():
-            raise HTTPException(status_code=400, detail=f"Stock No / SKU '{update_data['code']}' is already in use by another product")
 
-    # Enforce Barcode uniqueness across other products
-    if update_data.get("barcode") and update_data["barcode"] != product.barcode:
-        existing_barcode = await db.execute(
-            select(Product).filter(
-                Product.barcode == update_data["barcode"],
-                Product.id != product_id,
-                Product.is_deleted == False,
-                Product.company_id == tenant_ctx.company_id,
-                Product.branch_id == tenant_ctx.branch_id
+    from ...services.catalog_validation import CatalogDimensionValidator
+    governed_dims = ["brand", "category", "color", "size", "style_code", "vendor_code"]
+    for dim_key in governed_dims:
+        if dim_key in update_data and update_data[dim_key] and str(update_data[dim_key]).strip():
+            update_data[dim_key] = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                dimension_field=dim_key,
+                value=update_data[dim_key],
+                strict=True,
             )
+
+    immutable_fields = {"code", "sku", "barcode"}.intersection(update_data)
+    if immutable_fields:
+        fields = ", ".join(sorted(immutable_fields))
+        raise HTTPException(
+            status_code=409,
+            detail=f"Immutable product identity cannot be changed after creation: {fields}",
         )
-        if existing_barcode.scalars().first():
-            raise HTTPException(status_code=400, detail=f"Barcode '{update_data['barcode']}' is already in use by another product")
 
     return await repo.update(product, update_data)
 
@@ -437,10 +501,16 @@ async def add_secondary_barcode(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
         
-    # Check if duplicate barcode exists globally
-    existing = await repo.get_by_barcode(value)
+    # A barcode is a permanent identity once attached, including secondary aliases.
+    existing = await db.execute(
+        select(Product).where(
+            Product.is_deleted == False,
+            or_(Product.barcode == value, Product.secondary_barcodes.any(value)),
+        )
+    )
+    existing = existing.scalars().first()
     if existing:
-        raise HTTPException(status_code=400, detail="Barcode already exists globally")
+        raise HTTPException(status_code=409, detail="Barcode is already attached to an SKU and cannot be reused")
         
     current_secondary = list(product.secondary_barcodes or [])
     if value not in current_secondary:
@@ -460,17 +530,11 @@ async def delete_secondary_barcode(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Delete a secondary barcode from a product."""
-    repo = ProductRepository(db, tenant_ctx)
-    product = await repo.get(product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-        
-    current_secondary = list(product.secondary_barcodes or [])
-    if value in current_secondary:
-        current_secondary.remove(value)
-        
-    return await repo.update(product, {"secondary_barcodes": current_secondary})
+    """Deprecated: attached barcodes are permanent identity records."""
+    raise HTTPException(
+        status_code=409,
+        detail="Attached barcodes are immutable and cannot be deleted or reassigned",
+    )
 
 
 @router.post(

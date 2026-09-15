@@ -94,6 +94,7 @@ class PricingEngine:
         price_book_id: str,
         req: PriceBookEntryCreateRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> PriceBookEntry:
         """Adds or updates a price point for an Item / Variant with volume break support."""
         stmt_pb = select(PriceBook).where(PriceBook.id == price_book_id)
@@ -130,7 +131,10 @@ class PricingEngine:
             )
             session.add(entry)
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
         return entry
 
     @classmethod

@@ -615,7 +615,7 @@ async def credit_sale_report(
 ):
     """
     RPT-FIN-009 -- Credit Sale Report (Shoper9: SR242900.EXE MnuNo 460/4702).
-    SalesInvoices with payment_mode=CREDIT â€” outstanding balances and due dates.
+    SalesInvoices with payment_mode=CREDIT — outstanding balances and due dates.
     """
     date_clause = _build_date_clause(from_date, to_date)
     _, params = _tenant_clauses(tenant)

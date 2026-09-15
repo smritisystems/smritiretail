@@ -14,6 +14,7 @@
 
 export interface ProPosCartItem {
   id: string;
+  productId?: string;
   itemNo: number;
   sku: string;
   barcode: string;
@@ -54,6 +55,8 @@ export interface ProPosCustomer {
   gstin?: string;
   state?: string;
   stateCode?: string;
+  priceGroupCode?: string;
+  itemClassificationPriceFactorApplicable?: boolean;
   registrationType?: "REGISTERED" | "UNREGISTERED";
 }
 
@@ -64,6 +67,7 @@ export interface ProPosTenderSplit {
   cardAuthCode?: string;
   upi: number;
   upiRef?: string;
+  credit: number;
   creditNote: number;
   creditNoteNo?: string;
   giftVoucher: number;

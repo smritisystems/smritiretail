@@ -129,15 +129,52 @@ class EphemeralTenantHarness:
     @classmethod
     def run_alembic_upgrade(cls, db_name: str, revision: str = "head") -> None:
         """
-        Programmatically executes Alembic upgrade on the target database via clean subprocess.
+        Executes the Company DB provisioning migration path via clean subprocess.
+
+        Fresh databases are migrated through v1402 first so the bootstrap
+        prerequisite can operate on the newly-created sales_orders table before
+        v1403 reads sales_orders.po_number. Brownfield databases continue from
+        their recorded revision normally.
         """
         import sys
         import subprocess
+        from sqlalchemy import create_engine, text
         backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        cmd = [sys.executable, "-m", "alembic", "-x", f"db={db_name}", "upgrade", revision]
-        res = subprocess.run(cmd, cwd=backend_dir, capture_output=True, text=True)
-        if res.returncode != 0:
-            raise RuntimeError(f"Alembic upgrade failed on {db_name}:\nSTDOUT: {res.stdout}\nSTDERR: {res.stderr}")
+        conn_info = cls._get_pg_admin_connection_info()
+        target_url = (
+            f"postgresql://{conn_info['user']}:{conn_info['password']}@"
+            f"{conn_info['host']}:{conn_info['port']}/{db_name}"
+        )
+
+        with create_engine(target_url, poolclass=NullPool).connect() as connection:
+            has_version_table = connection.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                    "WHERE table_schema = 'public' AND table_name = 'alembic_version')"
+                )
+            ).scalar()
+            revision_row = None
+            if has_version_table:
+                revision_row = connection.execute(
+                    text("SELECT version_num FROM alembic_version ORDER BY version_num LIMIT 1")
+                ).scalar()
+
+        def run_upgrade(target_revision: str) -> None:
+            cmd = [sys.executable, "-m", "alembic", "-x", f"db={db_name}", "upgrade", target_revision]
+            result = subprocess.run(cmd, cwd=backend_dir, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Alembic upgrade failed on {db_name} at {target_revision}:\n"
+                    f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+                )
+
+        if revision_row in (None, "v1402_legacy_reconcile"):
+            run_upgrade("v1402_legacy_reconcile")
+            with create_engine(target_url, poolclass=NullPool).begin() as connection:
+                from .bootstrap import bootstrap_company_database_prerequisites
+                bootstrap_company_database_prerequisites(connection, db_name=db_name)
+
+        run_upgrade(revision)
 
     @classmethod
     def run_alembic_downgrade(cls, db_name: str, revision: str = "base") -> None:

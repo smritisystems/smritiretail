@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.30.0
 Created      : 2026-07-11
-Modified     : 2026-08-17
+Modified     : 2026-09-09
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -33,24 +33,19 @@ def _is_postgres_server(host: str, port: int, user: str = "postgres", password: 
         return False
 
     try:
-        import asyncpg
-    except ImportError:
-        return False
-
-    conn_str = f"postgresql://{user}:{password}@{host}:{port}/{database}"
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        conn = loop.run_until_complete(asyncpg.connect(conn_str, timeout=timeout))
-        loop.run_until_complete(conn.close())
+        import psycopg2
+        conn = psycopg2.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            dbname=database,
+            connect_timeout=int(max(1, timeout))
+        )
+        conn.close()
         return True
     except Exception:
         return False
-    finally:
-        try:
-            loop.close()
-        except Exception:
-            pass
 
 
 def _replace_url_port(conn_str: str, port_int: int) -> str:
@@ -120,7 +115,7 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
-    VERSION: str = "3.16.0"
+    VERSION: str = "3.30.0"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     
@@ -157,6 +152,17 @@ class Settings(BaseSettings):
     USE_MULTI_DB_ROUTER: bool = False
     # Statutory Compliance Configuration
     STRICT_STATUTORY_MODE: bool = False
+
+    # NIC E-Way Bill v1.03 integration. Live calls remain disabled until explicitly configured.
+    EWAYBILL_LIVE_ENABLED: bool = False
+    EWAYBILL_BASE_URL: str = "https://ewb-apisandbox.nic.in/ewbv1"
+    EWAYBILL_CLIENT_ID: str | None = None
+    EWAYBILL_CLIENT_SECRET: str | None = None
+    EWAYBILL_GSTIN: str | None = None
+    EWAYBILL_USERNAME: str | None = None
+    EWAYBILL_PASSWORD: str | None = None
+    EWAYBILL_PUBLIC_KEY: str | None = None
+    EWAYBILL_TIMEOUT_SECONDS: float = 30.0
 
     model_config = {
         "env_file": ".env",

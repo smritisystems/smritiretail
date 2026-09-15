@@ -1,0 +1,109 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Adding GS1 Standard</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { x-text-underline:normal; font-weight:bold; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>GS1 Standard</h1>
+
+<p class=Body-Text>The <span class="hcp1">Stock Number Generation 
+ Methodology</span> window is as shown.</p>
+
+<p class=Body-Text><img src="SNG_GS1.gif"
+						x-maintain-ratio=TRUE
+						style="border: none;
+								float: none;
+								width: 550px;
+								height: 266px;
+								border-style: none;
+								border-style: none;"
+						width=550
+						height=266
+						border=0></p>
+
+<p class=Body-Text><span class="hcp1">Active</span>: Select 
+ to keep the pattern, of stock number generation methodology being defined, 
+ active for use when stock items are added. Inactive patterns are not used 
+ while adding new items.</p>
+
+<p class=Body-Text><span class="hcp1">ID Key</span>: Select 
+ the required ID Key for the current pattern, from the list. This key defines 
+ the type, structure and length of the stock number.<span style="color: #ff0000;"> 
+ </span>Currently GTINs (Global Trade Item Number) are predefined in Shoper 
+ 9. Click <a href="SNG_GS1_ID_Keys.htm">here</a> to learn more about ID 
+ Keys.</p>
+
+<p class=Body-Text><span class="hcp1">Company Prefix</span>: 
+ Enter the company prefix allotted by GS1. Company Prefixes have varying 
+ lengths.</p>
+
+<p class=Body-Text><span class="hcp1">Item ID</span>: Identifies 
+ the item reference numbers allotted by GS1. The Item ID varies in length 
+ based on the ID Key chosen and the Company Prefix length. The allotted 
+ series may be sub divided as per your requirements and separate patterns 
+ can be designed for each of these subdivisions.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Starting</span>: 
+ Enter the first number to be used for the current pattern. The maximum 
+ Item ID length can be <span class="hcp1">length of Stock 
+ No. based on the chosen ID Key – length of the Company Prefix – 1 (length 
+ of check digit)</span>. If necessary, you can enter less number of digits 
+ than the maximum length allowed.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Ending</span>: 
+ Enter the last number to be used for the current pattern. The maximum 
+ Item ID length can be &nbsp;<span class="hcp1">length 
+ of Stock No. based on the chosen ID Key – length of the Company Prefix 
+ – 1 (length of check digit)</span>. If necessary, you can enter less number 
+ of digits than the maximum length allowed.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Last Used</span>: 
+ Indicates the last Item ID used for item numbering using the pattern. 
+ While adding a new pattern this field is blank.</p>
+
+<p class=Body-Text><span class="hcp1">Product (Class 1)</span>: 
+ Select the Class 1 value for which the selected number series has to be 
+ used.</p>
+
+<p class=Body-Text><span class="hcp1">Brand (Class 2)</span>: 
+ Select the Class 2 value for which the selected number series has to be 
+ used. All Class 2 values corresponding to the selected Class 1 are displayed 
+ in the list.</p>
+
+<p class=Body-Text><span class="hcp1">Total</span>: Displays 
+ the statistics of usage of the numbers allotted by GS1.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Procured</span>: 
+ Count of numbers purchased from GS1.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Used</span>: 
+ Count of numbers already used for items.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Remaining</span>: 
+ Count of numbers available that can be assigned to items.</p>
+
+<p class=Navigation><span class="hcp2">O</span><span class="hcp1">k</span>: To save the details entered.</p>
+
+<p class=Navigation><span class="hcp2">C</span><span class="hcp1">ancel</span>: To cancel the Add operation. 
+ On cancelling the operation, the Add, Edit and Delete buttons are enabled.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

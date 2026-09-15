@@ -202,8 +202,8 @@ export const AccountingSyncTab: React.FC = () => {
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 p-4 rounded-xl flex items-start space-x-3">
             <span className="material-symbols-outlined text-amber-600 dark:text-amber-500">info</span>
             <div className="text-sm text-amber-800 dark:text-amber-400">
-              <p className="font-semibold mb-1">Accounting Policy Note</p>
-              <p>SMRITI Retail OS acts as the operational source of truth. All complex accounting, taxation, and final GL consolidation should be performed in TallyPrime. Ensure your ledger names mapped in SMRITI perfectly match your Tally chart of accounts.</p>
+              <p className="font-semibold mb-1">Accounting Integration</p>
+              <p>SMRITI Retail OS can integrate with SMRITI Accounting, TallyPrime, or another accounting system through the appropriate connector. Choose the system that fits your business; ledger mapping and sync rules must be configured before live posting.</p>
             </div>
           </div>
         </div>

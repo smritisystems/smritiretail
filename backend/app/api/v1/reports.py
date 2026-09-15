@@ -18,7 +18,7 @@ Founders
 
 from datetime import date
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Response
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, update
 
@@ -48,12 +48,18 @@ from ...schemas.reports import (
     OrderFulfillmentStatusReport,
     InvoiceAllocationReportModel,
     SalesOrderDetailReport,
+    InvoiceReconciliationReport,
+    UniversalReportEnvelope,
+    PreparedReportEnqueueRequest,
+    PreparedReportStatusResponse,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...services.reports import ReportsService
-from ...models.reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget
+from ...services.prepared_report_service import PreparedReportService
+from ...models.reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget, PreparedReport
 
 router = APIRouter(prefix="/reports")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Studios Catalog — System metadata; stored as Python dict per approved design.
@@ -117,6 +123,7 @@ SMRITI_STUDIOS = {
             {"id": "RPT-TAX-004", "code": "RPT-TAX-004", "title": "Cancelled Bills",          "description": "All voided/cancelled invoices with cancellation reason and operator.",                         "category": "Audit",          "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False, "sh9_exe": "SR210200"},
             {"id": "RPT-TAX-005", "code": "RPT-TAX-005", "title": "Bill-wise Items Detail",   "description": "Each invoice line expanded: product, barcode, HSN, qty, rate, discount, net.",                "category": "Sales Detail",   "format": "Grid",   "owner": "System", "drillDownEnabled": False, "sh9_exe": "SR202000"},
             {"id": "RPT-TAX-006", "code": "RPT-TAX-006", "title": "Statutory GST Tax Invoices Master Register", "description": "Complete statutory audit ledger of all tax invoices with buyer & seller GSTINs, Place of Supply, RCM, E-Way Bill, full billing/shipping addresses, round-off, and amount in words.", "category": "Tax & Compliance", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-TAX-007", "code": "RPT-TAX-007", "title": "Historical Invoice GST Reconciliation", "description": "Read-only review of bills 18–137 for GST, store, PO, and historical snapshot gaps. Never changes posted invoice stock or values.", "category": "Tax & Compliance", "format": "Grid", "owner": "Admin", "drillDownEnabled": False},
         ],
     },
     # ── P2 Sprint 8a: MIS & Analytics ── SR203700/SR203900/SR215600/SR216000/SR238400
@@ -211,17 +218,6 @@ async def purchase_summary(
     db: AsyncSession = Depends(get_company_db),
 ):
     return await ReportsService(db, tenant).purchase_summary(from_date, to_date)
-
-@router.get("/studios")
-async def list_studios(
-    current_user=Depends(get_current_user),
-):
-    return {
-        "studios": SMRITI_STUDIOS,
-        "total_studios": len(SMRITI_STUDIOS),
-        "total_reports": sum(len(s["reports"]) for s in SMRITI_STUDIOS.values()),
-        "policyEnforcement": "SMRITI Rule 10 Non-Repudiation Schema Active",
-    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Sprint 8a P1 Endpoints — Tax & Compliance (Shoper9 parity: SR202300/202400/202200/210200/202000)
@@ -334,13 +330,30 @@ async def tax_invoices_master_register(
     bill_from: Optional[int] = Query(default=None, description="Starting Bill Number"),
     bill_to:   Optional[int] = Query(default=None, description="Ending Bill Number"),
     status:    Optional[str] = Query(default=None, description="Status filter (COMPLETED/CANCELLED)"),
+    include_archived: bool = Query(default=True, description="Include archived invoice history"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """RPT-TAX-006 — Statutory GST Tax Invoices Master Register."""
     return await ReportsService(db, tenant).tax_invoices_master_register(
-        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status_filter=status
+        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status_filter=status,
+        include_archived=include_archived,
+    )
+
+
+@router.get("/invoice-reconciliation", response_model=InvoiceReconciliationReport)
+async def invoice_reconciliation(
+    bill_from: int = Query(18, ge=0, description="Starting TT2026-2027 bill number"),
+    bill_to: int = Query(137, ge=0, description="Ending TT2026-2027 bill number"),
+    include_archived: bool = Query(True, description="Include cancelled/archived invoice history"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Read-only historical GST/location reconciliation; posted invoices are never mutated."""
+    return await ReportsService(db, tenant).invoice_reconciliation(
+        bill_from=bill_from, bill_to=bill_to, include_archived=include_archived
     )
 
 
@@ -379,13 +392,15 @@ async def export_tax_invoices_excel(
     bill_from: Optional[int] = Query(default=None, description="Starting Bill Number"),
     bill_to:   Optional[int] = Query(default=None, description="Ending Bill Number"),
     status:    Optional[str] = Query(default=None, description="Status filter"),
+    include_archived: bool = Query(default=True, description="Include archived invoice history"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Direct Excel export of Statutory GST Tax Invoices Master Workbook."""
     excel_bytes = await ReportsService(db, tenant).export_tax_invoices_master_excel(
-        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status=status
+        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status=status,
+        include_archived=include_archived,
     )
     filename = f"Tax_Invoices_Master_Report_{date.today().strftime('%Y%m%d')}.xlsx"
     return Response(
@@ -727,3 +742,99 @@ async def delete_report_schedule(
     if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER"):
         raise HTTPException(status_code=403, detail="Access Denied: MANAGER role or above required.")
     await ReportsService(db, tenant).delete_schedule(schedule_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Universal Standard 5-Tuple Report Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/universal/{report_id}", response_model=UniversalReportEnvelope)
+async def get_universal_report(
+    report_id: str,
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date: Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    branch_id: Optional[str] = Query(default=None, description="Branch/Store filter"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Standardized 5-tuple report contract:
+    Returns (columns, rows, summary_cards, chart_config, system_message)
+    Bridging CANONICAL_REPORT_REGISTRY and ReportsService.
+    """
+    return await ReportsService(db, tenant).get_universal_report_envelope(
+        report_id=report_id,
+        from_date=from_date,
+        to_date=to_date,
+        branch_id=branch_id,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Asynchronous Prepared Reports Engine (Frappe/ERPNext Pattern)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/prepared/enqueue", response_model=PreparedReportStatusResponse)
+async def enqueue_prepared_report(
+    payload: PreparedReportEnqueueRequest,
+    background_tasks: BackgroundTasks,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Enqueues heavy report for asynchronous execution in background worker pool.
+    Returns immediately with task_id or cached hit if identical parameters were run within TTL.
+    """
+    user_id = current_user.id if hasattr(current_user, "id") else None
+    task, is_cached = await PreparedReportService.enqueue_prepared_report(
+        db=db,
+        tenant_ctx=tenant,
+        payload=payload,
+        requested_by_id=user_id,
+    )
+
+    if not is_cached:
+        # Enqueue background execution task
+        background_tasks.add_task(PreparedReportService.execute_task_background, task.id, db, tenant)
+
+    status_res = await PreparedReportService.get_task_status(db, task.id)
+    if not status_res:
+        raise HTTPException(status_code=500, detail="Failed to retrieve task status.")
+    status_res.is_cached_hit = is_cached
+    return status_res
+
+
+@router.get("/prepared/{task_id}/status", response_model=PreparedReportStatusResponse)
+async def get_prepared_report_status(
+    task_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Polls status, progress, row counts, and forensic SHA-256 hash for a prepared report task."""
+    res = await PreparedReportService.get_task_status(db, task_id)
+    if not res:
+        raise HTTPException(status_code=404, detail=f"Prepared report task '{task_id}' not found.")
+    return res
+
+
+@router.get("/prepared/{task_id}/download")
+async def download_prepared_report(
+    task_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Streams the completed binary artifact (.xlsx, .csv, .pdf) sealed in the Statutory Vault."""
+    try:
+        content, filename, media_type = await PreparedReportService.get_artifact_stream(db, task_id)
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except FileNotFoundError as fe:
+        raise HTTPException(status_code=404, detail=str(fe))
+

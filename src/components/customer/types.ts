@@ -12,9 +12,30 @@
  * Classification: Internal
  */
 
+export type CustomerAddressType = "mailing" | "billing" | "shipping";
+
+export interface CustomerGSTRegistrationOption {
+  id: string;
+  gstin: string;
+  stateName: string;
+  stateCode: string;
+  registrationType: string;
+  isPrimary: boolean;
+  isActive: boolean;
+}
+
 export interface CustomerAddressEntry {
+  id?: string;
   code: string;
   contactPerson: string;
+  addressType?: CustomerAddressType;
+  locationName?: string;
+  stateCode?: string;
+  gstin?: string;
+  gstRegistrationId?: string;
+  storeCode?: string;
+  billingStoreCode?: string;
+  shippingStoreCode?: string;
   address1: string;
   address2: string;
   address3: string;
@@ -36,6 +57,32 @@ export interface CustomerAddressEntry {
   isDefault: boolean;
 }
 
+export const normalizeAddressPart = (value: unknown): string => String(value ?? "")
+  .trim()
+  .toLowerCase()
+  .replace(/[\s,./\\#-]+/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+export const getCustomerAddressFingerprint = (address: Partial<CustomerAddressEntry>): string => {
+  const addressType = address.addressType || "mailing";
+  const parts = [
+    address.address1,
+    address.address2,
+    address.address3,
+    address.address4,
+    address.address5,
+    address.locality,
+    address.city,
+    address.state,
+    address.stateCode,
+    address.postalCode,
+    address.country
+  ].map(normalizeAddressPart);
+
+  return parts.slice(0, -1).some(Boolean) ? `${addressType}|${parts.join("|")}` : "";
+};
+
 export interface CustomerDependantEntry {
   code: string;
   name: string;
@@ -49,6 +96,8 @@ export interface RetailCustomerRecord {
   code: string;
   name: string;
   priceGroup: string;
+  customerGroupId?: string;
+  customer_group_id?: string;
   phone: string;
   email: string;
   
@@ -66,6 +115,9 @@ export interface RetailCustomerRecord {
   companyCode: string;
   environment: "Retail" | "Distribution" | "Warehouse" | string;
   flatFileFormat: "GUI with Delimiter Format" | "Fixed Length Format" | "XML Format" | "JSON Format" | string;
+  storeCode?: string;
+  billingStoreCode?: string;
+  shippingStoreCode?: string;
   isTaxInclusive: boolean;
   delimiter: string;
   buyingFactor: number;

@@ -80,24 +80,44 @@ export interface AutoPopulateHsnResult {
 const searchCache = new Map<string, { timestamp: number; data: any }>();
 const CACHE_TTL_MS = 15000;
 
+export function clearCustomerSearchCache(): void {
+  searchCache.clear();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("smriti_customer_updated", () => {
+    clearCustomerSearchCache();
+  });
+}
+
 /**
  * Searches customers from backend in real-time as user types in any customer-related field.
  */
-export async function searchBackendCustomers(query: string): Promise<AutoPopulateCustomerResult[]> {
+export async function searchBackendCustomers(
+  query: string,
+  invoiceScope?: { series: string; from: number; to: number }
+): Promise<AutoPopulateCustomerResult[]> {
   const cleanQ = query.trim();
   if (!cleanQ) {
     const local = getCustomers();
     return enrichCustomersWithPriceGroups(local.slice(0, 10));
   }
 
-  const cacheKey = `cust:${cleanQ.toLowerCase()}`;
+  const scopeKey = invoiceScope ? `:${invoiceScope.series}:${invoiceScope.from}-${invoiceScope.to}` : "";
+  const cacheKey = `cust:${cleanQ.toLowerCase()}${scopeKey}`;
   const cached = searchCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
   }
 
   try {
-    const res = await apiFetchV1(`/crm/customers/search?q=${encodeURIComponent(cleanQ)}&limit=15`);
+    const params = new URLSearchParams({ q: cleanQ, limit: "15" });
+    if (invoiceScope) {
+      params.set("invoice_series", invoiceScope.series);
+      params.set("invoice_from", String(invoiceScope.from));
+      params.set("invoice_to", String(invoiceScope.to));
+    }
+    const res = await apiFetchV1(`/crm/customers/search?${params.toString()}`);
     const rawList = Array.isArray(res) ? res : (res?.items || []);
     if (rawList.length > 0) {
       const enriched = enrichCustomersWithPriceGroups(rawList);

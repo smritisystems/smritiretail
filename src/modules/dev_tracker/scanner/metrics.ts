@@ -6,13 +6,13 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-07-11
- * Modified     : 2026-07-14
+ * Modified     : 2026-09-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
-import { ParsedCodebase } from "./parser.ts";
-import { ModuleStatus, CodeHealth, GitInfo, RiskAnalysis, ReleaseScores, ScanResult, ScanHistoryEntry } from "../models/interfaces.ts";
+import type { ParsedCodebase } from "./parser.ts";
+import type { ModuleStatus, CodeHealth, GitInfo, RiskAnalysis, ReleaseScores, ScanResult, ScanHistoryEntry } from "../models/interfaces.ts";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -37,7 +37,7 @@ export function discoverModules(parsed: ParsedCodebase): { id: string; label: st
   
   let match;
   while ((match = workspaceBlockRegex.exec(layoutStoreContent)) !== null) {
-    if (!modules.some(m => m.id === match![1])) {
+    if (!modules.some(m => m.id === match![1] || m.label === match![2])) {
       modules.push({
         id: match[1],
         label: match[2],
@@ -75,7 +75,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       docKeywords: ["dashboard", "architecture", "readme"]
     },
     "item-master": {
-      frontendKeyword: "ItemMasterTab.tsx",
+      frontendKeyword: "ItemMasterWs.tsx",
       routeKeywords: ["inventory", "items", "attributes", "variants"],
       tableKeywords: ["items", "products", "attributes", "variants"],
       testKeywords: ["item", "inventory", "barcode", "product"],
@@ -96,7 +96,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       docKeywords: ["sales"]
     },
     "pos": {
-      frontendKeyword: "PosTerminalTab.tsx",
+      frontendKeyword: "BillingWorkspace.tsx",
       routeKeywords: ["pos", "billing"],
       tableKeywords: ["pos_transactions", "pos_payments", "sales_invoices"],
       testKeywords: ["pos", "billing", "sales"],
@@ -123,6 +123,13 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       testKeywords: ["loyalty", "customer", "crm"],
       docKeywords: ["loyalty", "crm"]
     },
+    "sales-promotions": {
+      frontendKeyword: "SmritiSalesPromotionsStudio.tsx",
+      routeKeywords: ["promotions", "schemes", "promotion_campaigns"],
+      tableKeywords: ["promotion_campaigns", "promotion_rules", "promotion_slab_allocations"],
+      testKeywords: ["smritiSalesPromotionsStudio", "smritiSalesPromotionEngine", "test_promotions_schemes_api", "promotion"],
+      docKeywords: ["promotions", "promotion", "Sales_Promotions"]
+    },
     "stock-ledger": {
       frontendKeyword: "StockLedgerTab.tsx",
       routeKeywords: ["inventory", "stock"],
@@ -136,6 +143,188 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       tableKeywords: [],
       testKeywords: ["about", "changelog"],
       docKeywords: ["about", "changelog", "readme"]
+    },
+    "billing-workspace": {
+      frontendKeyword: "BillingWorkspace.tsx",
+      routeKeywords: ["billing", "pos", "sales", "payments", "invoices"],
+      tableKeywords: ["sales_invoices", "pos_transactions", "shift_cash_transactions", "payment_transactions", "shifts"],
+      testKeywords: ["canonical_sales_writer", "pos", "payments", "billing", "invoice"],
+      docKeywords: ["billing", "pos", "sales", "walkthrough"]
+    },
+    "vendor-360": {
+      frontendKeyword: "VendorMasterWs.tsx",
+      routeKeywords: ["vendors", "purchase/vendors", "parties", "suppliers"],
+      tableKeywords: ["parties", "supplier_profiles", "party_roles", "party_addresses", "party_contacts", "supplier_bank_accounts"],
+      testKeywords: ["vendor", "party", "supplier"],
+      docKeywords: ["vendor", "procurement", "purchase", "supplier"]
+    },
+    "supplier-mgmt": {
+      frontendKeyword: "VendorMasterWs.tsx",
+      routeKeywords: ["vendors", "purchase/vendors", "parties", "suppliers"],
+      tableKeywords: ["parties", "supplier_profiles", "party_roles", "party_addresses", "party_contacts", "supplier_bank_accounts"],
+      testKeywords: ["vendor", "party", "supplier"],
+      docKeywords: ["vendor", "procurement", "purchase", "supplier"]
+    },
+    "wiki": {
+      frontendKeyword: "WikiTab.tsx",
+      routeKeywords: ["wiki", "metadata"],
+      tableKeywords: [],
+      testKeywords: ["wikiGyanKendra", "wiki", "readme"],
+      docKeywords: ["wiki", "architecture", "readme"]
+    },
+    "profiles": {
+      frontendKeyword: "PosProfilesTab.tsx",
+      routeKeywords: ["profiles", "pos", "terminals"],
+      tableKeywords: ["pos_profiles", "pos_terminals", "shifts"],
+      testKeywords: ["profiles", "pos", "storeTerminalBroadcast"],
+      docKeywords: ["pos", "profiles"]
+    },
+    "business-ledger": {
+      frontendKeyword: "BusinessLedgerTab.tsx",
+      routeKeywords: ["ledger", "accounting", "reports/ledger"],
+      tableKeywords: ["journal_entries", "accounts", "general_ledger"],
+      testKeywords: ["ledger", "consolidatedBalanceSheet", "plDashboardEngine"],
+      docKeywords: ["ledger", "accounting"]
+    },
+    "accounting-sync": {
+      frontendKeyword: "AccountingSyncTab.tsx",
+      routeKeywords: ["accounting", "sync", "tally"],
+      tableKeywords: ["accounting_sync_logs", "accounts"],
+      testKeywords: ["accounting", "sync"],
+      docKeywords: ["accounting", "sync"]
+    },
+    "report-designer": {
+      frontendKeyword: "ReportDesignerTab.tsx",
+      routeKeywords: ["reports", "designer"],
+      tableKeywords: ["report_templates", "custom_reports"],
+      testKeywords: ["report", "scheduleReportModal"],
+      docKeywords: ["report"]
+    },
+    "barcode": {
+      frontendKeyword: "BarcodeStudioTab.tsx",
+      routeKeywords: ["barcode", "barcodes", "labels"],
+      tableKeywords: ["items", "products", "item_barcodes"],
+      testKeywords: ["barcode", "tagPrinting", "labelPrintEngine"],
+      docKeywords: ["barcode", "inventory"]
+    },
+    "wms-dashboard": {
+      frontendKeyword: "WmsStudioTab.tsx",
+      routeKeywords: ["wms", "inventory", "stock", "batches"],
+      tableKeywords: ["stock_batches", "stock_movements", "warehouses"],
+      testKeywords: ["wms", "batch", "warehouseWavePicking"],
+      docKeywords: ["wms", "inventory"]
+    },
+    "stock-transfers": {
+      frontendKeyword: "WmsStudioTab.tsx",
+      routeKeywords: ["stock-transfers", "transfers", "stock/transfers"],
+      tableKeywords: ["stock_transfers", "stock_transfer_items", "stock_movements"],
+      testKeywords: ["stockTransferEngine", "interBranchTransferEngine"],
+      docKeywords: ["stock", "transfers"]
+    },
+    "masters": {
+      frontendKeyword: "MasterMgmtTab.tsx",
+      routeKeywords: ["masters", "metadata", "master-types", "master-values"],
+      tableKeywords: ["master_types", "master_values", "system_parameters"],
+      testKeywords: ["master", "metaRegistry", "globalFieldRegistry"],
+      docKeywords: ["master", "architecture"]
+    },
+    "ufe": {
+      frontendKeyword: "FieldExplorerTab.tsx",
+      routeKeywords: ["ufe", "fields", "universal-fields"],
+      tableKeywords: ["field_definitions", "custom_fields", "metadata_fields"],
+      testKeywords: ["fieldSearch", "globalFieldRegistry"],
+      docKeywords: ["ufe", "field"]
+    },
+    "formulas": {
+      frontendKeyword: "FormulaRegistryTab.tsx",
+      routeKeywords: ["formulas", "kpi", "formula"],
+      tableKeywords: ["formula_definitions", "business_rule_definitions", "commission_rules"],
+      testKeywords: ["kpiRegistry", "formula", "kpi", "commissionEngine"],
+      docKeywords: ["kpi", "formula", "financial_policy"]
+    },
+    "psv": {
+      frontendKeyword: "PsvTab.tsx",
+      routeKeywords: ["psv", "visibility"],
+      tableKeywords: ["psv_parties", "vendor_shares"],
+      testKeywords: ["psvEngine", "psv"],
+      docKeywords: ["psv"]
+    },
+    "document-series": {
+      frontendKeyword: "DocumentSeriesTab.tsx",
+      routeKeywords: ["document-series", "series", "sequences"],
+      tableKeywords: ["document_series"],
+      testKeywords: ["documentSeries", "numbering", "numberWords", "series"],
+      docKeywords: ["document", "series", "naming"]
+    },
+    "approval-matrix": {
+      frontendKeyword: "ApprovalMatrixTab.tsx",
+      routeKeywords: ["approval-matrix", "approvals"],
+      tableKeywords: ["approval_policies", "approval_requests", "approval_actions", "approval_workflow_logs"],
+      testKeywords: ["approval", "matrix"],
+      docKeywords: ["approval"]
+    },
+    "staff-management": {
+      frontendKeyword: "StaffManagementTab.tsx",
+      routeKeywords: ["staff", "employees", "users"],
+      tableKeywords: ["users", "staff", "employees"],
+      testKeywords: ["staff", "employeeAttendanceEngine", "staffPlacementHelpers"],
+      docKeywords: ["staff", "employee"]
+    },
+    "user-profile": {
+      frontendKeyword: "UserProfileTab.tsx",
+      routeKeywords: ["profile", "user", "me"],
+      tableKeywords: ["users"],
+      testKeywords: ["user", "profile"],
+      docKeywords: ["profile", "user"]
+    },
+    "print-studio": {
+      frontendKeyword: "PrintStudioTab.tsx",
+      routeKeywords: ["print", "templates", "print/templates"],
+      tableKeywords: ["print_templates"],
+      testKeywords: ["print", "tagPrinting", "labelPrintEngine"],
+      docKeywords: ["print"]
+    },
+    "print-history": {
+      frontendKeyword: "PrintHistoryTab.tsx",
+      routeKeywords: ["print-history", "print/logs", "print-logs"],
+      tableKeywords: ["print_logs"],
+      testKeywords: ["print", "tagPrinting"],
+      docKeywords: ["print"]
+    },
+    "terms-engine": {
+      frontendKeyword: "TermsEngineTab.tsx",
+      routeKeywords: ["terms", "store-policies", "policies"],
+      tableKeywords: ["terms_clauses", "terms_defaults", "terms_snapshots"],
+      testKeywords: ["termsEngine", "billingTerm", "custPolicy", "terms"],
+      docKeywords: ["terms", "policy"]
+    },
+    "data-exchange": {
+      frontendKeyword: "DataExchangeTab.tsx",
+      routeKeywords: ["data-exchange", "exchange", "import", "export"],
+      tableKeywords: ["data_exchange_tasks", "data_exchange_field_mappings"],
+      testKeywords: ["universalImportEngine", "globalExport"],
+      docKeywords: ["exchange", "import", "export"]
+    },
+    "company-setup": {
+      frontendKeyword: "SetupWizardTab.tsx",
+      routeKeywords: ["company", "setup", "companies"],
+      tableKeywords: ["companies"],
+      testKeywords: ["companySelect", "company"],
+      docKeywords: ["company", "setup"]
+    },
+    "dev-tracker": {
+      frontendKeyword: "DevTrackerTab.tsx",
+      routeKeywords: ["dev-tracker", "scanner"],
+      tableKeywords: [],
+      testKeywords: ["devTracker"],
+      docKeywords: ["dev_tracker", "architecture"]
+    },
+    "audit-logs": {
+      frontendKeyword: "AuditLogsTab.tsx",
+      routeKeywords: ["audit", "audit-logs", "logs"],
+      tableKeywords: ["compliance_immutable_audit_logs", "module_audit_logs", "smriti_audit_log"],
+      testKeywords: ["audit"],
+      docKeywords: ["audit"]
     }
   };
 
@@ -244,7 +433,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     // 5. Tests
     const testFile = parsed.testFiles.find(t => map.testKeywords.some(k => t.toLowerCase().includes(k.toLowerCase())));
     const unitTestsComplete = !!testFile;
-    const integrationTestsComplete = unitTestsComplete && (parsed.fileContentsMap.get(testFile!) || "").includes("assert");
+    const integrationTestsComplete = unitTestsComplete && ((parsed.fileContentsMap.get(testFile!) || "").includes("assert") || (parsed.fileContentsMap.get(testFile!) || "").includes("expect") || (parsed.fileContentsMap.get(testFile!) || "").includes("def test_"));
 
     // 6. Docs
     const docFile = parsed.docFiles.find(d => map.docKeywords.some(k => d.toLowerCase().includes(k.toLowerCase())));

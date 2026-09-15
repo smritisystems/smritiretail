@@ -85,6 +85,77 @@ class GlobalReferenceService:
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
+    async def search_postal_codes(
+        self,
+        query: Optional[str] = None,
+        state_code: Optional[str] = None,
+        city: Optional[str] = None,
+        country_code: str = "IN",
+        limit: int = 25,
+    ) -> List[PostalCodeRef]:
+        stmt = select(PostalCodeRef).where(
+            PostalCodeRef.country_code == country_code.upper(),
+            PostalCodeRef.is_active == True,
+        )
+        if state_code:
+            stmt = stmt.where(PostalCodeRef.state_code == state_code.strip().upper())
+        if city:
+            stmt = stmt.where(PostalCodeRef.city.ilike(f"%{city.strip()}%"))
+        if query:
+            search = query.strip()
+            pattern = f"%{search}%"
+            stmt = stmt.where(
+                or_(
+                    PostalCodeRef.postal_code.ilike(pattern),
+                    PostalCodeRef.city.ilike(pattern),
+                    PostalCodeRef.locality.ilike(pattern),
+                )
+            )
+        result = await self.db.execute(
+            stmt.order_by(PostalCodeRef.city, PostalCodeRef.postal_code).limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def validate_postal_location(
+        self,
+        postal_code: str,
+        city: Optional[str] = None,
+        state_code: Optional[str] = None,
+        country_code: str = "IN",
+    ) -> Dict[str, Any]:
+        """Validate a postal address against the authoritative postal registry.
+
+        An empty registry is reported as incomplete rather than treated as valid;
+        this prevents an unseeded reference database from silently becoming a
+        compliance decision.
+        """
+        records = await self.search_postal_codes(
+            query=postal_code,
+            state_code=state_code,
+            city=city,
+            country_code=country_code,
+            limit=100,
+        )
+        exact = [record for record in records if record.postal_code == postal_code.strip()]
+        if not exact:
+            return {
+                "valid": False,
+                "status": "NOT_FOUND",
+                "postal_code": postal_code.strip(),
+                "matches": [],
+            }
+
+        city_matches = not city or any(record.city.casefold() == city.strip().casefold() for record in exact)
+        state_matches = not state_code or any(record.state_code.casefold() == state_code.strip().casefold() for record in exact)
+        return {
+            "valid": city_matches and state_matches,
+            "status": "VALID" if city_matches and state_matches else "MISMATCH",
+            "postal_code": postal_code.strip(),
+            "city": city,
+            "state_code": state_code,
+            "matches": exact,
+        }
+
     async def get_currencies(self, active_only: bool = True) -> List[CurrencyRef]:
         stmt = select(CurrencyRef)
         if active_only:

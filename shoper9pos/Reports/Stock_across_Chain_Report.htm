@@ -1,0 +1,132 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Stock across Chain Report</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { font-weight:normal; }
+-->
+</style>
+</head>
+<body>
+<h1>Stock across Chain Report</h1>
+
+<p class=Body-Text
+	style="color: #000000;">If your showroom is a part of a chain store 
+ and you have ran out of stock for a given item, you can help the customers 
+ by guiding them to the nearby showroom that has the required stock. In 
+ the case of chain stores located in the same city or region, this is useful. 
+ To implement stock visibility across chain, the nearby showrooms need 
+ to be logically grouped together.</p>
+
+<p class=Body-Text
+	style="color: #000000;">You can define Stock Visibility Groups in Shoper 
+ 9 HO based on the business requirements and make the showrooms in the 
+ chain part of these groups, at the time of showroom master creation. Shoper 
+ 9 POS user gets visibility of stock based on the group defined at Shoper 
+ 9 HO. To view this report at Shoper 9 POS, Shoper 9 HO needs to be online 
+ with a public IP address. However, POS locations can even use a dial-up 
+ connection.</p>
+
+<p class=Body-Text
+	style="color: #000000;">Stock across Chain report is generated based 
+ on the data available at the head office, as per the last synchronisation. 
+ If AST is installed in Shoper 9 HO, showroom data will be fetched from 
+ replication database. Otherwise, it will be directly fetched from HO database.</p>
+
+<p class=Body-Text>The Stock across Chain report is used to view the stock 
+ of a particular item in any showroom, in the vicinity, belonging to the 
+ same chain, based on the Stock Visibility Group defined at Shoper 9 HO.</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Reports 
+ &gt; MIS &gt; Stock across Chain</span> </p>
+
+<p class=Body-Text>The <span class="hcp1">Stock Visibility 
+ Across Chain</span> window is displayed.</p>
+
+<p class=Body-Text>&nbsp;<img 
+ src="Stock%20Across%20Chain.gif"
+	x-maintain-ratio=TRUE
+	style="border: none;
+			float: none;
+			border-style: none;
+			width: 200px;
+			height: 358px;
+			border-style: none;"
+	width=200
+	height=358
+	border=0></p>
+
+<p class=Body-Text
+	style="font-weight: bold;">General Selection<span class="hcp2">: 
+ Press F2 against any of the fields, </span>Stock No<span class="hcp2">, 
+ </span>Item Desc<span class="hcp2">, </span>Product<span class="hcp2"> (class1), </span>Brand<span class="hcp2"> 
+ (class2), </span>Style<span class="hcp2"> (subclass1), 
+ </span>Shade<span class="hcp2"> (subclass2), </span>Size<span class="hcp2">, </span>Shrm.Code<span class="hcp2">, 
+ to display the corresponding list of values. Select the required value 
+ from the list. Once you select a value for any of these fields, Search 
+ would be enabled.</span></p>
+
+<p class=Body-Text
+	style="font-weight: bold;"><span class="hcp2">Click 
+ </span>Contains<span class="hcp2"> to change the comparison 
+ operator, if required. Repeat until you get the required value. The operators 
+ available are </span>Contains<span class="hcp2">, </span>Is<span class="hcp2">, </span>Starts With<span class="hcp2"> 
+ or </span>End With<span class="hcp2">.</span></p>
+
+<p class=Navigation><span class="hcp1">Search</span>: Click 
+ to display the corresponding item details and stock across chain in the 
+ grid.</p>
+
+<p class=Navigation><span class="hcp1">Advanced</span>: Click 
+ to view Advanced Selection options. This includes <span class="hcp1">Rate</span>, 
+ <span class="hcp1">Department</span> (super classification1), 
+ <span class="hcp1">Buyer</span> (super classification2), 
+ <span class="hcp1">Fibre</span> (analysis code1), <span class="hcp1">Finish</span> (analysis code2), <span class="hcp1">Colour 
+ Base</span> (analysis code3) , <span class="hcp1">Styling</span> 
+ (analysis code4), <span class="hcp1">Usage</span> (analysis 
+ code5) and <span class="hcp1">Quantity</span>.</p>
+
+<p class=Navigation>Press <span class="hcp1">F2</span> against 
+ any of the fields, other than <span class="hcp1">Rate</span> 
+ and <span class="hcp1">Quantity</span>, to display the corresponding 
+ list of values. Select the required value from the list. To change the 
+ comparison operator, click <span class="hcp1">Contains</span>. 
+ Repeat until you get the required value. The operators available are <span class="hcp1">Contains</span>,<span class="hcp1"> 
+ Is</span>, <span class="hcp1">Starts With</span> or <span class="hcp1">End With</span>.</p>
+
+<p class=Navigation>Enter the value for Rate/ Quantity, if required. To 
+ change the comparison operator, click <span class="hcp1">Is</span>. 
+ Repeat until you get the required value. The operators available are <span class="hcp1">Is</span>, <span class="hcp1">Greater 
+ Than</span> or <span class="hcp1">Less Than</span>.</p>
+
+<p class=Body-Text><span class="hcp1">Stock Details Across 
+ Chain</span>: Displays a list of showrooms, in the group that have stock 
+ at hand. Details of showroom includes name, quantity available for the 
+ specified item and date of last replication of showroom data at HO. Click 
+ <span class="hcp1">&lt;&lt;Previous</span> to view the earlier 
+ page and <span class="hcp1">Next&gt;&gt;</span> for the 
+ consecutive page.</p>
+
+<p class=FunctionKey><span class="hcp1">F3 </span>or<span class="hcp1"> Alt + R</span>: Change Criteria</p>
+
+<p class=FunctionKey><span class="hcp1">F4</span> or<span class="hcp1"> Alt + S</span>: Start Search</p>
+
+<p class=FunctionKey><span class="hcp1">Alt + W</span>: Toggle 
+ Focus</p>
+
+<p class=FunctionKey><span class="hcp1">Alt + A</span>: Advanced 
+ Options</p>
+
+<p class=FunctionKey><span class="hcp1">Ctrl + Insert</span>: 
+ Previous Search</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

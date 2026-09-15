@@ -18,7 +18,7 @@ Founders
 
 * Version    : 1.0.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-09-09
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -27,6 +27,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -52,7 +53,7 @@ MODULES_MAP = {
     "item-master": {
         "name": "Item Master",
         "category": "Inventory & Sourcing",
-        "frontend": "ItemMasterTab.tsx",
+        "frontend": "ItemMasterWs.tsx",
         "routes": ["inventory", "items", "attributes", "variants"],
         "tables": ["items", "products", "attributes", "variants"],
         "tests": ["item", "inventory", "barcode", "product"],
@@ -112,6 +113,15 @@ MODULES_MAP = {
         "tests": ["loyalty", "customer", "crm"],
         "docs": ["loyalty", "crm"]
     },
+    "sales-promotions": {
+        "name": "Promotions Studio",
+        "category": "Sales & POS",
+        "frontend": "SmritiSalesPromotionsStudio.tsx",
+        "routes": ["promotions", "schemes", "promotion_campaigns"],
+        "tables": ["promotion_campaigns", "promotion_rules", "promotion_slab_allocations"],
+        "tests": ["smritiSalesPromotionsStudio", "smritiSalesPromotionEngine", "test_promotions_schemes_api", "promotion"],
+        "docs": ["promotions", "promotion", "Sales_Promotions"]
+    },
     "stock-ledger": {
         "name": "Stock Ledger",
         "category": "Inventory & Sourcing",
@@ -129,6 +139,240 @@ MODULES_MAP = {
         "tables": [],
         "tests": ["about", "changelog"],
         "docs": ["about", "changelog", "readme"]
+    },
+    "billing-workspace": {
+        "name": "Billing Workspace",
+        "category": "Sales & POS",
+        "frontend": "BillingWorkspace.tsx",
+        "routes": ["billing", "pos", "sales", "payments", "invoices"],
+        "tables": ["sales_invoices", "pos_transactions", "shift_cash_transactions", "payment_transactions", "shifts"],
+        "tests": ["canonical_sales_writer", "pos", "payments", "billing", "invoice"],
+        "docs": ["billing", "pos", "sales", "walkthrough"]
+    },
+    "vendor-360": {
+        "name": "Vendor 360 Workspace",
+        "category": "Inventory & Sourcing",
+        "frontend": "VendorMasterWs.tsx",
+        "routes": ["vendors", "purchase/vendors", "parties", "suppliers"],
+        "tables": ["parties", "supplier_profiles", "party_roles", "party_addresses", "party_contacts", "supplier_bank_accounts"],
+        "tests": ["vendor", "party", "supplier"],
+        "docs": ["vendor", "procurement", "purchase", "supplier"]
+    },
+    "supplier-mgmt": {
+        "name": "Vendor 360 Workspace",
+        "category": "Inventory & Sourcing",
+        "frontend": "VendorMasterWs.tsx",
+        "routes": ["vendors", "purchase/vendors", "parties", "suppliers"],
+        "tables": ["parties", "supplier_profiles", "party_roles", "party_addresses", "party_contacts", "supplier_bank_accounts"],
+        "tests": ["vendor", "party", "supplier"],
+        "docs": ["vendor", "procurement", "purchase", "supplier"]
+    },
+    "wiki": {
+        "name": "SMRITI Gyan Kendra",
+        "category": "Operations",
+        "frontend": "WikiTab.tsx",
+        "routes": ["wiki", "metadata"],
+        "tables": [],
+        "tests": ["wikiGyanKendra", "wiki", "readme"],
+        "docs": ["wiki", "architecture", "readme"]
+    },
+    "profiles": {
+        "name": "POS Terminals",
+        "category": "Sales & POS",
+        "frontend": "PosProfilesTab.tsx",
+        "routes": ["profiles", "pos", "terminals"],
+        "tables": ["pos_profiles", "pos_terminals", "shifts"],
+        "tests": ["profiles", "pos", "storeTerminalBroadcast"],
+        "docs": ["pos", "profiles"]
+    },
+    "business-ledger": {
+        "name": "Business Ledger",
+        "category": "Accounts Sync",
+        "frontend": "BusinessLedgerTab.tsx",
+        "routes": ["ledger", "accounting", "reports/ledger"],
+        "tables": ["journal_entries", "accounts", "general_ledger"],
+        "tests": ["ledger", "consolidatedBalanceSheet", "plDashboardEngine"],
+        "docs": ["ledger", "accounting"]
+    },
+    "accounting-sync": {
+        "name": "Accounting Sync",
+        "category": "Accounts Sync",
+        "frontend": "AccountingSyncTab.tsx",
+        "routes": ["accounting", "sync", "tally"],
+        "tables": ["accounting_sync_logs", "accounts"],
+        "tests": ["accounting", "sync"],
+        "docs": ["accounting", "sync"]
+    },
+    "report-designer": {
+        "name": "Report Designer",
+        "category": "Data & Config",
+        "frontend": "ReportDesignerTab.tsx",
+        "routes": ["reports", "designer"],
+        "tables": ["report_templates", "custom_reports"],
+        "tests": ["report", "scheduleReportModal"],
+        "docs": ["report"]
+    },
+    "barcode": {
+        "name": "Barcode Studio",
+        "category": "Inventory & Sourcing",
+        "frontend": "BarcodeStudioTab.tsx",
+        "routes": ["barcode", "barcodes", "labels"],
+        "tables": ["items", "products", "item_barcodes"],
+        "tests": ["barcode", "tagPrinting", "labelPrintEngine"],
+        "docs": ["barcode", "inventory"]
+    },
+    "wms-dashboard": {
+        "name": "Warehouse & Batch Hub",
+        "category": "Inventory & Sourcing",
+        "frontend": "WmsStudioTab.tsx",
+        "routes": ["wms", "inventory", "stock", "batches"],
+        "tables": ["stock_batches", "stock_movements", "warehouses"],
+        "tests": ["wms", "batch", "warehouseWavePicking"],
+        "docs": ["wms", "inventory"]
+    },
+    "stock-transfers": {
+        "name": "Inter-Godown Transfers",
+        "category": "Inventory & Sourcing",
+        "frontend": "WmsStudioTab.tsx",
+        "routes": ["stock-transfers", "transfers", "stock/transfers"],
+        "tables": ["stock_transfers", "stock_transfer_items", "stock_movements"],
+        "tests": ["stockTransferEngine", "interBranchTransferEngine"],
+        "docs": ["stock", "transfers"]
+    },
+    "masters": {
+        "name": "Master Framework",
+        "category": "Data & Config",
+        "frontend": "MasterMgmtTab.tsx",
+        "routes": ["masters", "metadata", "master-types", "master-values"],
+        "tables": ["master_types", "master_values", "system_parameters"],
+        "tests": ["master", "metaRegistry", "globalFieldRegistry"],
+        "docs": ["master", "architecture"]
+    },
+    "ufe": {
+        "name": "Field Explorer (UFE)",
+        "category": "Data & Config",
+        "frontend": "FieldExplorerTab.tsx",
+        "routes": ["ufe", "fields", "universal-fields"],
+        "tables": ["field_definitions", "custom_fields", "metadata_fields"],
+        "tests": ["fieldSearch", "globalFieldRegistry"],
+        "docs": ["ufe", "field"]
+    },
+    "formulas": {
+        "name": "KPI Registry",
+        "category": "Data & Config",
+        "frontend": "FormulaRegistryTab.tsx",
+        "routes": ["formulas", "kpi", "formula"],
+        "tables": ["formula_definitions", "business_rule_definitions", "commission_rules"],
+        "tests": ["kpiRegistry", "formula", "kpi", "commissionEngine"],
+        "docs": ["kpi", "formula", "financial_policy"]
+    },
+    "psv": {
+        "name": "Channel Visibility",
+        "category": "Data & Config",
+        "frontend": "PsvTab.tsx",
+        "routes": ["psv", "visibility"],
+        "tables": ["psv_parties", "vendor_shares"],
+        "tests": ["psvEngine", "psv"],
+        "docs": ["psv"]
+    },
+    "document-series": {
+        "name": "Numbering Engine",
+        "category": "Data & Config",
+        "frontend": "DocumentSeriesTab.tsx",
+        "routes": ["document-series", "series", "sequences"],
+        "tables": ["document_series"],
+        "tests": ["documentSeries", "numbering", "numberWords", "series"],
+        "docs": ["document", "series", "naming"]
+    },
+    "approval-matrix": {
+        "name": "Approval Matrix",
+        "category": "Data & Config",
+        "frontend": "ApprovalMatrixTab.tsx",
+        "routes": ["approval-matrix", "approvals"],
+        "tables": ["approval_policies", "approval_requests", "approval_actions", "approval_workflow_logs"],
+        "tests": ["approval", "matrix"],
+        "docs": ["approval"]
+    },
+    "staff-management": {
+        "name": "Staff Management",
+        "category": "Operations",
+        "frontend": "StaffManagementTab.tsx",
+        "routes": ["staff", "employees", "users"],
+        "tables": ["users", "staff", "employees"],
+        "tests": ["staff", "employeeAttendanceEngine", "staffPlacementHelpers"],
+        "docs": ["staff", "employee"]
+    },
+    "user-profile": {
+        "name": "My Profile Dashboard",
+        "category": "Operations",
+        "frontend": "UserProfileTab.tsx",
+        "routes": ["profile", "user", "me"],
+        "tables": ["users"],
+        "tests": ["user", "profile"],
+        "docs": ["profile", "user"]
+    },
+    "print-studio": {
+        "name": "Print Studio",
+        "category": "Documents & Print",
+        "frontend": "PrintStudioTab.tsx",
+        "routes": ["print", "templates", "print/templates"],
+        "tables": ["print_templates"],
+        "tests": ["print", "tagPrinting", "labelPrintEngine"],
+        "docs": ["print"]
+    },
+    "print-history": {
+        "name": "Print History Logs",
+        "category": "Documents & Print",
+        "frontend": "PrintHistoryTab.tsx",
+        "routes": ["print-history", "print/logs", "print-logs"],
+        "tables": ["print_logs"],
+        "tests": ["print", "tagPrinting"],
+        "docs": ["print"]
+    },
+    "terms-engine": {
+        "name": "Terms & Conditions",
+        "category": "Data & Config",
+        "frontend": "TermsEngineTab.tsx",
+        "routes": ["terms", "store-policies", "policies"],
+        "tables": ["terms_clauses", "terms_defaults", "terms_snapshots"],
+        "tests": ["termsEngine", "billingTerm", "custPolicy", "terms"],
+        "docs": ["terms", "policy"]
+    },
+    "data-exchange": {
+        "name": "Data Exchange Hub",
+        "category": "Data & Config",
+        "frontend": "DataExchangeTab.tsx",
+        "routes": ["data-exchange", "exchange", "import", "export"],
+        "tables": ["data_exchange_tasks", "data_exchange_field_mappings"],
+        "tests": ["universalImportEngine", "globalExport"],
+        "docs": ["exchange", "import", "export"]
+    },
+    "company-setup": {
+        "name": "Company Setup Wizard",
+        "category": "Operations",
+        "frontend": "SetupWizardTab.tsx",
+        "routes": ["company", "setup", "companies"],
+        "tables": ["companies"],
+        "tests": ["companySelect", "company"],
+        "docs": ["company", "setup"]
+    },
+    "dev-tracker": {
+        "name": "Dev Intelligence Center",
+        "category": "System",
+        "frontend": "DevTrackerTab.tsx",
+        "routes": ["dev-tracker", "scanner"],
+        "tables": [],
+        "tests": ["devTracker"],
+        "docs": ["dev_tracker", "architecture"]
+    },
+    "audit-logs": {
+        "name": "Audit Logs",
+        "category": "System",
+        "frontend": "AuditLogsTab.tsx",
+        "routes": ["audit", "audit-logs", "logs"],
+        "tables": ["compliance_immutable_audit_logs", "module_audit_logs", "smriti_audit_log"],
+        "tests": ["audit"],
+        "docs": ["audit"]
     }
 }
 
@@ -159,19 +403,23 @@ def discover_modules(file_contents: dict[str, str]) -> list[dict[str, str]]:
         m_id = m.group(1)
         m_label = m.group(2)
         m_cat = m.group(4)
-        if not any(x["id"] == m_id for x in modules):
+        if not any(x["id"] == m_id or x["name"] == m_label for x in modules):
             modules.append({"id": m_id, "name": m_label, "category": m_cat})
 
     return modules if modules else default_modules
 
-def get_module_resource_mapping(module_id: str, module_name: str) -> dict[str, Any]:
+def get_module_resource_mapping(module_id: str, module_name: str, module_category: str = "Workspace") -> dict[str, Any]:
     if module_id in MODULES_MAP:
-        return MODULES_MAP[module_id]
+        mapping = dict(MODULES_MAP[module_id])
+        if "category" not in mapping or not mapping["category"] or mapping["category"] == "Workspace":
+            if module_category and module_category != "Workspace":
+                mapping["category"] = module_category
+        return mapping
 
     first_word = module_name.split()[0].lower() if module_name else module_id
     return {
         "name": module_name or module_id,
-        "category": "Workspace",
+        "category": module_category or "Workspace",
         "frontend": f"{module_id.replace('-', ' ').title().replace(' ', '')}Tab.tsx",
         "routes": [normalize_api_route(module_id)],
         "tables": [module_id.replace("-", "_")],
@@ -180,7 +428,21 @@ def get_module_resource_mapping(module_id: str, module_name: str) -> dict[str, A
     }
 
 def scan_codebase() -> dict[str, Any]:
-    root_dir = Path(__file__).resolve().parent.parent.parent.parent
+    configured_root = os.environ.get("SDIC_REPOSITORY_ROOT")
+    if configured_root:
+        root_dir = Path(configured_root).expanduser().resolve()
+    else:
+        candidates = [
+            Path(__file__).resolve().parent.parent.parent.parent,
+            Path.cwd(),
+        ]
+        root_dir = next(
+            (candidate for candidate in candidates if (candidate / "package.json").exists() and (candidate / "src").is_dir()),
+            candidates[0],
+        )
+
+    if not root_dir.is_dir():
+        raise RuntimeError(f"SDIC repository root does not exist: {root_dir}")
     
     # 1. Recurse and gather files
     files_list = []
@@ -291,7 +553,7 @@ def scan_codebase() -> dict[str, Any]:
 
     for m_item in discovered_modules:
         m_id = m_item["id"]
-        m_cfg = get_module_resource_mapping(m_id, m_item["name"])
+        m_cfg = get_module_resource_mapping(m_id, m_item["name"], m_item.get("category", "Workspace"))
         frontend_file = next((f for f in files_list if m_cfg["frontend"] in f), None)
         ui_designed = bool(frontend_file)
         frontend_started = ui_designed
@@ -335,17 +597,17 @@ def scan_codebase() -> dict[str, Any]:
 
         # Tests
         test_keywords = m_cfg.get("tests", [m_id])
-        test_file = next((t for t in test_files if any(k in t.lower() for k in test_keywords)), None)
+        test_file = next((t for t in test_files if any(k.lower() in t.lower() for k in test_keywords)), None)
         unit_tests_complete = bool(test_file)
         integration_tests_complete = unit_tests_complete and ("assert" in file_contents.get(test_file, "") or "expect" in file_contents.get(test_file, "") or "def test_" in file_contents.get(test_file, ""))
 
         # Docs
         doc_keywords = m_cfg.get("docs", [m_id])
-        doc_file = next((d for d in doc_files if any(k in d.lower() for k in doc_keywords)), None)
+        doc_file = next((d for d in doc_files if any(k.lower() in d.lower() for k in doc_keywords)), None)
         documentation_complete = bool(doc_file)
 
         qa_complete = unit_tests_complete and "TODO" not in all_backend_content
-        performance_complete = "debounce" in file_contents.get(frontend_file, "") if frontend_file else False
+        performance_complete = ("debounce" in file_contents.get(frontend_file, "") or "useMemo" in file_contents.get(frontend_file, "")) if frontend_file else False
         production_ready = frontend_complete and backend_complete and database_complete and unit_tests_complete and documentation_complete
 
         # Compute overall %
@@ -440,16 +702,13 @@ def scan_codebase() -> dict[str, Any]:
     avg_security = int(total_security / module_count)
 
     dhi = int(
-        (avg_frontend * 0.15) +
-        (avg_backend * 0.15) +
-        (avg_db * 0.10) +
-        (avg_api * 0.10) +
-        (avg_tests * 0.15) +
-        (avg_docs * 0.10) +
-        (avg_security * 0.10) +
-        (90 * 0.05) + # BASELINE_ASSUMPTION: performance score benchmark constant (90%)
-        (95 * 0.05) + # BASELINE_ASSUMPTION: technical debt baseline constant (95%)
-        (88 * 0.05)   # BASELINE_ASSUMPTION: release readiness baseline constant (88%)
+        (avg_frontend * 0.18) +
+        (avg_backend * 0.18) +
+        (avg_db * 0.12) +
+        (avg_api * 0.12) +
+        (avg_tests * 0.16) +
+        (avg_docs * 0.12) +
+        (avg_security * 0.12)
     )
 
     grade = "D"
@@ -474,13 +733,14 @@ def scan_codebase() -> dict[str, Any]:
     }
 
     try:
-        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True).strip()
-        git_info["lastCommitHash"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%h"], text=True).strip()
-        git_info["lastCommitMessage"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%s"], text=True).strip()
-        git_info["lastCommitAuthor"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%an"], text=True).strip()
-        git_info["lastCommitDate"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%ad", "--date=short"], text=True).strip()
-        git_info["commitCount"] = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], text=True).strip())
-        status_out = subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
+        git_kwargs = {"text": True, "cwd": str(root_dir)}
+        git_info["branch"] = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], **git_kwargs).strip()
+        git_info["lastCommitHash"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%h"], **git_kwargs).strip()
+        git_info["lastCommitMessage"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%s"], **git_kwargs).strip()
+        git_info["lastCommitAuthor"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%an"], **git_kwargs).strip()
+        git_info["lastCommitDate"] = subprocess.check_output(["git", "log", "-n", "1", "--format=%ad", "--date=short"], **git_kwargs).strip()
+        git_info["commitCount"] = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], **git_kwargs).strip())
+        status_out = subprocess.check_output(["git", "status", "--porcelain"], **git_kwargs).strip()
         if status_out:
             git_info["pendingFiles"] = [line[3:].strip() for line in status_out.splitlines()]
             git_info["pendingChangesCount"] = len(git_info["pendingFiles"])
@@ -521,14 +781,26 @@ def scan_codebase() -> dict[str, Any]:
         except Exception as e:
             print(f"[SDIC Python] Failed to load history.json: {e}")
 
+    quality_penalty = min(35, int((todos_count + (fixmes_count * 2) + (hacks_count * 3)) / 100))
+    large_component_penalty = min(25, len(large_components))
+    quality_score = max(0, 100 - quality_penalty - large_component_penalty)
+    release_score = int(round(
+        (dhi * 0.40)
+        + (quality_score * 0.20)
+        + (avg_tests * 0.15)
+        + (avg_docs * 0.10)
+        + (avg_security * 0.15)
+    ))
+
     return {
-        "timestamp": subprocess.check_output(["date", "/T"], shell=True, text=True).strip() if os.name == "nt" else "2026-07-11",
+        "repositoryRoot": str(root_dir),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "gitInfo": git_info,
         "releaseScores": {
             "dhi": dhi,
             "developmentScore": int((avg_frontend + avg_backend + avg_db + avg_api) / 4),
-            "qualityScore": max(0, 100 - int(todos_count / 10) - (len(large_components) * 2)),
-            "releaseScore": int((dhi + 95 + avg_tests) / 3),
+            "qualityScore": quality_score,
+            "releaseScore": release_score,
             "securityScore": avg_security,
             "testCoverage": avg_tests,
             "documentation": avg_docs,

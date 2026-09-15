@@ -234,16 +234,44 @@ async def seed():
 
         # 3. Seed baseline customer groups and active customers for billing
         try:
-            from app.models.crm import CustomerGroup, Customer
+            from app.models.crm import (
+                Customer,
+                CustomerBillingLocation,
+                CustomerDeliveryLocation,
+                CustomerGSTRegistration,
+                CustomerGroup,
+            )
+            from app.models.inventory import Product
         except ImportError:
-            from backend.app.models.crm import CustomerGroup, Customer
+            from backend.app.models.crm import (
+                Customer,
+                CustomerBillingLocation,
+                CustomerDeliveryLocation,
+                CustomerGSTRegistration,
+                CustomerGroup,
+            )
+            from backend.app.models.inventory import Product
 
         # 3. Seed baseline customer groups and active customers for billing
         try:
-            from app.models.crm import CustomerGroup, Customer
+            from app.models.crm import (
+                Customer,
+                CustomerBillingLocation,
+                CustomerDeliveryLocation,
+                CustomerGSTRegistration,
+                CustomerGroup,
+            )
+            from app.models.inventory import Product
             from app.db.session import get_company_sessionmaker
         except ImportError:
-            from backend.app.models.crm import CustomerGroup, Customer
+            from backend.app.models.crm import (
+                Customer,
+                CustomerBillingLocation,
+                CustomerDeliveryLocation,
+                CustomerGSTRegistration,
+                CustomerGroup,
+            )
+            from backend.app.models.inventory import Product
             from backend.app.db.session import get_company_sessionmaker
 
         async def _seed_crm_data(target_session, comp_id="COMP-001"):
@@ -341,6 +369,122 @@ async def seed():
                 else:
                     for k, v in cust_data.items():
                         setattr(c, k, v)
+            await target_session.commit()
+
+            gst = (
+                await target_session.execute(
+                    select(CustomerGSTRegistration).where(
+                        CustomerGSTRegistration.customer_id == "CUST-003",
+                        CustomerGSTRegistration.gstin == "27AAACL5678A1Z3",
+                        CustomerGSTRegistration.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not gst:
+                gst = CustomerGSTRegistration(
+                    id="CGR-CUST-003-27",
+                    customer_id="CUST-003",
+                    company_id=comp_id,
+                    gstin="27AAACL5678A1Z3",
+                    state_name="Maharashtra",
+                    state_code="27",
+                    registration_type="REGULAR",
+                    is_primary=True,
+                    status="ACTIVE",
+                    is_active=True,
+                    is_deleted=False,
+                )
+                target_session.add(gst)
+                await target_session.flush()
+
+            delivery = (
+                await target_session.execute(
+                    select(CustomerDeliveryLocation).where(
+                        CustomerDeliveryLocation.customer_id == "CUST-003",
+                        CustomerDeliveryLocation.store_code == "LIF-BLR-001",
+                        CustomerDeliveryLocation.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not delivery:
+                target_session.add(CustomerDeliveryLocation(
+                    id="CDL-CUST-003-BLR",
+                    customer_id="CUST-003",
+                    company_id=comp_id,
+                    store_code="LIF-BLR-001",
+                    location_name="Lifestyle Bangalore Store",
+                    address_line1="Bangalore Central",
+                    city="Bangalore",
+                    state="Karnataka",
+                    state_code="29",
+                    pincode="560027",
+                    country="India",
+                    gst_registration_id=gst.id,
+                    gstin=None,
+                    is_default=True,
+                    status="ACTIVE",
+                    is_active=True,
+                    is_deleted=False,
+                ))
+
+            billing = (
+                await target_session.execute(
+                    select(CustomerBillingLocation).where(
+                        CustomerBillingLocation.customer_id == "CUST-003",
+                        CustomerBillingLocation.billing_store_code == "LIF-BLR-BILL",
+                        CustomerBillingLocation.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not billing:
+                target_session.add(CustomerBillingLocation(
+                    id="CBL-CUST-003-BLR",
+                    customer_id="CUST-003",
+                    company_id=comp_id,
+                    billing_store_code="LIF-BLR-BILL",
+                    location_name="Lifestyle Bangalore Accounts",
+                    address_line1="Bangalore Central",
+                    city="Bangalore",
+                    state="Karnataka",
+                    state_code="29",
+                    pincode="560027",
+                    country="India",
+                    gst_registration_id=gst.id,
+                    gstin=None,
+                    contact_person="Lifestyle Accounts",
+                    phone="9844556677",
+                    email="accounts@lifestylestores.com",
+                    is_default=True,
+                    status="ACTIVE",
+                    is_active=True,
+                    is_deleted=False,
+                ))
+
+            product = await target_session.get(Product, "PROD-UAT-B2B-001")
+            if not product:
+                target_session.add(Product(
+                    id="PROD-UAT-B2B-001",
+                    company_id=comp_id,
+                    code="UAT-B2B-001",
+                    sku="UAT-B2B-001",
+                    barcode="8900000000001",
+                    name="UAT Corporate Cotton Shirt",
+                    category="Apparel",
+                    brand="SMRITI",
+                    color="Blue",
+                    size="M",
+                    style_code="UAT-SHIRT-001",
+                    price=1200,
+                    mrp=1500,
+                    buying_price=800,
+                    cost_price=800,
+                    stock=100,
+                    gst_percentage=18,
+                    hsn_code="6203",
+                    workflow_status="Approved",
+                    is_active=True,
+                    is_deleted=False,
+                ))
             await target_session.commit()
 
         # Seed into control DB

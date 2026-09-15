@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any, List, Optional
-from sqlalchemy import select, and_, or_, func
+from sqlalchemy import select, and_, or_, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.promotions import PromotionCampaign, PromotionRule, Coupon, PromotionRedemption
@@ -59,6 +59,7 @@ class PromotionsEngine:
     ) -> PromotionCampaign:
         """Creates a new promotional campaign header."""
         stmt_check = select(PromotionCampaign).where(
+            PromotionCampaign.company_id == company_id,
             PromotionCampaign.name == req.name,
         )
         existing = (await session.execute(stmt_check)).scalars().first()
@@ -103,7 +104,10 @@ class PromotionsEngine:
         created_by: Optional[str] = None,
     ) -> PromotionRule:
         """Adds a rule (Percentage, Fixed, BXGY, Bundle) to a campaign."""
-        stmt_camp = select(PromotionCampaign).where(PromotionCampaign.id == campaign_id)
+        stmt_camp = select(PromotionCampaign).where(
+            PromotionCampaign.id == campaign_id,
+            PromotionCampaign.company_id == company_id,
+        )
         camp = (await session.execute(stmt_camp)).scalars().first()
         if not camp:
             raise ValueError(f"Campaign '{campaign_id}' not found.")
@@ -137,10 +141,18 @@ class PromotionsEngine:
     ) -> Coupon:
         """Generates a unique coupon code mapped to a campaign."""
         code_clean = req.code.strip().upper()
-        stmt_c = select(Coupon).where(Coupon.code == code_clean)
+        stmt_c = select(Coupon).where(Coupon.company_id == company_id, Coupon.code == code_clean)
         existing = (await session.execute(stmt_c)).scalars().first()
         if existing:
             raise ValueError(f"Coupon code '{code_clean}' already exists.")
+
+        campaign = (await session.execute(select(PromotionCampaign).where(
+            PromotionCampaign.id == req.campaign_id,
+            PromotionCampaign.company_id == company_id,
+            PromotionCampaign.is_deleted == False,
+        ))).scalars().first()
+        if not campaign:
+            raise ValueError("Campaign does not belong to the current company.")
 
         coupon = Coupon(
             id=f"cpn_{uuid.uuid4().hex[:12]}",
@@ -172,11 +184,19 @@ class PromotionsEngine:
         for item in req.items:
             gross_total += Decimal(str(item.unit_price)) * Decimal(str(item.quantity))
 
-        # Check coupon if provided
+        # Resolve a coupon only inside the caller's tenant. A coupon also has to
+        # point back to a campaign in the same tenant.
         matched_coupon = None
-        if req.coupon_code:
-            c_code = req.coupon_code.strip().upper()
-            stmt_cpn = select(Coupon).where(Coupon.code == c_code, Coupon.is_active == True)
+        if req.coupon_code or req.coupon_id:
+            c_code = req.coupon_code.strip().upper() if req.coupon_code else None
+            stmt_cpn = select(Coupon).where(
+                Coupon.company_id == company_id,
+                Coupon.is_active == True,
+            )
+            if c_code:
+                stmt_cpn = stmt_cpn.where(Coupon.code == c_code)
+            else:
+                stmt_cpn = stmt_cpn.where(Coupon.id == req.coupon_id)
             matched_coupon = (await session.execute(stmt_cpn)).scalars().first()
             if not matched_coupon:
                 return PromotionEvaluationResponse(
@@ -199,6 +219,7 @@ class PromotionsEngine:
 
         # 1. Fetch eligible active campaigns
         stmt_camp = select(PromotionCampaign).where(
+            PromotionCampaign.company_id == company_id,
             PromotionCampaign.is_active == True,
             PromotionCampaign.min_order_amount <= gross_total,
         )
@@ -214,7 +235,11 @@ class PromotionsEngine:
         all_camps = (await session.execute(stmt_camp)).scalars().all()
 
         eligible_camps = []
+        rejected_count = 0
         for c in all_camps:
+            if c.branch_id and c.branch_id != (req.branch_id or req.store_id):
+                rejected_count += 1
+                continue
             s_date = _to_naive_utc(c.start_date)
             e_date = _to_naive_utc(c.end_date)
             if s_date and now < s_date:
@@ -223,11 +248,48 @@ class PromotionsEngine:
                 continue
             # Check channel filtering
             if c.applicable_channels and len(c.applicable_channels) > 0:
-                if req.channel not in c.applicable_channels:
+                requested_channels = {req.channel, req.channel.upper()}
+                if req.channel.upper() == "POS_RETAIL":
+                    requested_channels.add("POS")
+                if req.channel.upper() == "B2B_WHOLESALE":
+                    requested_channels.add("B2B")
+                if not requested_channels.intersection(set(c.applicable_channels)):
                     continue
             # Check store filtering
-            if req.store_id and c.applicable_stores and len(c.applicable_stores) > 0:
-                if req.store_id not in c.applicable_stores:
+            effective_store = req.store_id or req.branch_id
+            if c.applicable_stores and len(c.applicable_stores) > 0:
+                if not effective_store or effective_store not in c.applicable_stores:
+                    continue
+            eligibility = c.customer_eligibility or {}
+            groups = eligibility.get("customer_group_ids", eligibility.get("customer_groups", []))
+            tiers = eligibility.get("loyalty_tier_ids", eligibility.get("loyalty_tiers", []))
+            if groups and (not req.customer_group_id or req.customer_group_id not in groups):
+                rejected_count += 1
+                continue
+            if tiers and (not req.customer_tier or req.customer_tier not in tiers):
+                rejected_count += 1
+                continue
+            if eligibility.get("customer_ids") and (not req.customer_id or req.customer_id not in eligibility["customer_ids"]):
+                rejected_count += 1
+                continue
+            if eligibility.get("first_order_only") and not req.customer_id:
+                rejected_count += 1
+                continue
+            usage = await session.scalar(select(func.count(PromotionRedemption.id)).where(
+                PromotionRedemption.company_id == company_id,
+                PromotionRedemption.campaign_id == c.id,
+            ))
+            if c.usage_limit is not None and (usage or 0) >= c.usage_limit:
+                rejected_count += 1
+                continue
+            if req.customer_id and c.per_customer_limit is not None:
+                customer_usage = await session.scalar(select(func.count(PromotionRedemption.id)).where(
+                    PromotionRedemption.company_id == company_id,
+                    PromotionRedemption.campaign_id == c.id,
+                    PromotionRedemption.customer_id == req.customer_id,
+                ))
+                if (customer_usage or 0) >= c.per_customer_limit:
+                    rejected_count += 1
                     continue
             eligible_camps.append(c)
 
@@ -235,6 +297,7 @@ class PromotionsEngine:
         evaluated_candidates = []
         for camp in eligible_camps:
             stmt_rules = select(PromotionRule).where(
+                PromotionRule.company_id == company_id,
                 PromotionRule.campaign_id == camp.id,
                 PromotionRule.is_active == True,
             )
@@ -249,12 +312,15 @@ class PromotionsEngine:
                 p_elig = rule.product_eligibility or {}
                 elig_prod_ids = p_elig.get("product_ids", [])
                 elig_cat_ids = p_elig.get("category_ids", [])
+                elig_brand_ids = p_elig.get("brand_ids", p_elig.get("brands", []))
 
                 matching_items = []
                 for itm in req.items:
                     if elig_prod_ids and itm.item_id not in elig_prod_ids:
                         continue
                     if elig_cat_ids and itm.category not in elig_cat_ids:
+                        continue
+                    if elig_brand_ids and itm.brand not in elig_brand_ids:
                         continue
                     matching_items.append(itm)
 
@@ -289,6 +355,21 @@ class PromotionsEngine:
                             disc_amount = regular_cost - sp_price
                             narration += f": Buy {rule.buy_quantity} for special price ₹{rule.special_price}"
 
+                elif rule.rule_type == "QUANTITY_DISCOUNT":
+                    total_qty = sum(Decimal(str(it.quantity)) for it in matching_items)
+                    if total_qty >= rule.buy_quantity:
+                        subtotal = sum(Decimal(str(it.unit_price)) * Decimal(str(it.quantity)) for it in matching_items)
+                        disc_amount = subtotal * Decimal(str(rule.discount_percent)) / Decimal("100.00")
+                        narration += f": {rule.discount_percent}% quantity discount"
+                elif rule.rule_type in {"BUNDLE_OFFER", "MIX_MATCH", "FREE_ITEM", "FREE_SHIPPING"}:
+                    # These require a richer allocation contract than the current
+                    # invoice line schema provides; leave them explicitly rejected.
+                    rejected_count += 1
+                    continue
+                elif rule.rule_type not in {"PERCENTAGE", "FIXED_DISCOUNT", "BUY_X_GET_Y", "BUY_X_AT_PRICE"}:
+                    rejected_count += 1
+                    continue
+
                 # Cap by campaign max_discount_amount
                 if camp.max_discount_amount and disc_amount > Decimal(str(camp.max_discount_amount)):
                     disc_amount = Decimal(str(camp.max_discount_amount))
@@ -310,13 +391,13 @@ class PromotionsEngine:
         applied = []
         total_discount = Decimal("0.00")
         strategy = "BEST_BENEFIT"
-        rejected_count = 0
+        # Keep the eligibility/unsupported-rule rejections accumulated above.
 
         # Check for exclusive campaign
         exclusive_candidates = [c for c in evaluated_candidates if c["campaign"].is_exclusive]
         if exclusive_candidates:
             # Exclusive override: top exclusive candidate wins
-            exclusive_candidates.sort(key=lambda x: (x["discount_amount"]), reverse=True)
+            exclusive_candidates.sort(key=lambda x: (-x["campaign"].priority, x["discount_amount"]), reverse=True)
             top_ex = exclusive_candidates[0]
             applied.append(top_ex)
             total_discount = top_ex["discount_amount"]
@@ -335,6 +416,7 @@ class PromotionsEngine:
                 max_allowed_disc = gross_total * (Decimal(str(max_stack_pct)) / Decimal("100.00"))
 
                 cur_disc = Decimal("0.00")
+                stackable_candidates.sort(key=lambda x: (x["campaign"].priority, -x["discount_amount"]))
                 for cand in stackable_candidates:
                     room = max_allowed_disc - cur_disc
                     if room <= 0:
@@ -349,7 +431,7 @@ class PromotionsEngine:
                 strategy = "BEST_BENEFIT"
                 rejected_count += len(non_stackable)
             elif non_stackable:
-                non_stackable.sort(key=lambda x: (x["discount_amount"]), reverse=True)
+                non_stackable.sort(key=lambda x: (-x["discount_amount"], x["campaign"].priority))
                 top_cand = non_stackable[0]
                 applied.append(top_cand)
                 total_discount = top_cand["discount_amount"]
@@ -394,6 +476,59 @@ class PromotionsEngine:
         req: PromotionRedemptionRequest,
     ) -> PromotionRedemption:
         """Authoritatively logs promotion redemption and increments coupon usage count."""
+        campaign = (await session.execute(select(PromotionCampaign).where(
+            PromotionCampaign.id == req.campaign_id,
+            PromotionCampaign.company_id == company_id,
+            PromotionCampaign.is_active == True,
+        ).with_for_update())).scalars().first()
+        if not campaign:
+            raise ValueError("Campaign is not active or does not belong to the current company.")
+
+        coupon = None
+        if req.coupon_id:
+            coupon = (await session.execute(select(Coupon).where(
+                Coupon.id == req.coupon_id,
+                Coupon.company_id == company_id,
+                Coupon.campaign_id == campaign.id,
+                Coupon.is_active == True,
+            ).with_for_update())).scalars().first()
+            if not coupon or (coupon.usage_limit is not None and (coupon.usage_count or 0) >= coupon.usage_limit):
+                raise ValueError("Coupon is invalid, exhausted, or belongs to another campaign.")
+
+        existing_count = await session.scalar(select(func.count(PromotionRedemption.id)).where(
+            PromotionRedemption.company_id == company_id,
+            PromotionRedemption.campaign_id == campaign.id,
+            PromotionRedemption.customer_id == req.customer_id,
+        ))
+        if req.customer_id and campaign.per_customer_limit is not None and (existing_count or 0) >= campaign.per_customer_limit:
+            raise ValueError("Customer promotion usage limit exceeded.")
+        if campaign.usage_limit is not None:
+            total_count = await session.scalar(select(func.count(PromotionRedemption.id)).where(
+                PromotionRedemption.company_id == company_id,
+                PromotionRedemption.campaign_id == campaign.id,
+            ))
+            if (total_count or 0) >= campaign.usage_limit:
+                raise ValueError("Campaign usage limit exceeded.")
+
+        if req.items is not None:
+            evaluated = await cls.evaluate_promotions(session, company_id, PromotionEvaluationRequest(
+                items=req.items,
+                campaign_id=req.campaign_id,
+                coupon_id=req.coupon_id,
+                customer_id=req.customer_id,
+                customer_group_id=req.customer_group_id,
+                customer_tier=req.customer_tier,
+                store_id=req.store_id,
+                branch_id=req.branch_id,
+                channel=req.channel,
+                as_of_date=req.as_of_date,
+                reference_invoice_id=req.reference_invoice_id,
+            ))
+            expected = Decimal(str(evaluated.total_promotional_discount)).quantize(Decimal("0.01"))
+            actual = Decimal(str(req.discount_applied)).quantize(Decimal("0.01"))
+            if expected != actual:
+                raise ValueError(f"Promotion discount mismatch: expected {expected}, received {actual}.")
+
         redemption = PromotionRedemption(
             id=f"pred_{uuid.uuid4().hex[:12]}",
             company_id=company_id,
@@ -401,17 +536,16 @@ class PromotionsEngine:
             coupon_id=req.coupon_id,
             customer_id=req.customer_id,
             reference_invoice_id=req.reference_invoice_id,
-            discount_applied=Decimal(str(req.discount_applied)),
+            discount_applied=Decimal(str(req.discount_applied)).quantize(Decimal("0.01")),
             conflict_resolution_strategy=req.conflict_resolution_strategy,
             is_active=True,
+            evaluated_campaigns_snapshot={"campaign_id": campaign.id, "coupon_id": req.coupon_id},
+            rule_snapshot={"discount_applied": str(req.discount_applied), "reference_invoice_id": req.reference_invoice_id},
         )
         session.add(redemption)
 
-        if req.coupon_id:
-            stmt_cpn = select(Coupon).where(Coupon.id == req.coupon_id)
-            cpn = (await session.execute(stmt_cpn)).scalars().first()
-            if cpn:
-                cpn.usage_count = (cpn.usage_count or 0) + 1
+        if coupon:
+            coupon.usage_count = (coupon.usage_count or 0) + 1
 
-        await session.commit()
+        await session.flush()
         return redemption
