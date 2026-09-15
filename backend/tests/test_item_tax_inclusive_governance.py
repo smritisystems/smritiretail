@@ -4,12 +4,26 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.28.0
+Version      : 6.28.1
 Created      : 2026-09-16
 Modified     : 2026-09-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Item Master Tax Inclusive Parameter & Dual-Mode Billing Engine Test Suite
+
+Test Coverage:
+  1. Schema AST parity — verifies is_tax_inclusive is on NEW tables (item_barcodes,
+     customer_groups, sales_invoice_items, customers) per migration v1456.
+     Confirms it is ABSENT from products, items, item_variants (removed by v1456).
+  2. ItemBarcode-level tax policy creation and retrieval.
+  3. Item Master Service creates items without is_tax_inclusive on Item/ItemVariant.
+  4. Canonical writer 3-tier tax resolution: line override → barcode → customer →
+     price group → channel default.
+  5. Tax-inclusive (MRP) vs tax-exclusive (base-rate) GST math correctness.
+  6. Channel default: POS_RETAIL → inclusive, B2B_SALES → exclusive.
+  7. Mixed-cart (inclusive + exclusive lines) combined tax totals.
+  8. Statutory MRP ceiling enforcement (Legal Metrology Act compliance).
+  9. POS end-to-end checkout with inclusive MRP and stock deduction.
 """
 
 import sys
@@ -34,11 +48,10 @@ from fastapi import HTTPException
 
 from app.db.session import get_company_sessionmaker
 from app.api.deps import TenantContext
-from app.models.tenant import Company, Branch
 from app.models.inventory import Product
-from app.models.item_master import Item, ItemVariant
-from app.models.sales import SalesInvoice, SalesInvoiceItem
-from app.models.crm import Customer
+from app.models.item_master import Item, ItemVariant, ItemBarcode
+from app.models.crm import Customer, CustomerGroup
+from app.models.pricing import CustomerPriceTier
 from app.models.pos import Shift, CashRegister
 from app.models.auth import User
 from app.schemas.inventory import ProductCreate
@@ -62,142 +75,172 @@ def tenant_ctx():
 
 
 @pytest.mark.asyncio
-async def test_schema_column_parity_and_server_defaults():
+async def test_schema_column_parity_v1456_contract():
     """
     Rule 12: Column-by-column schema AST diff against canonical PostgreSQL contract.
-    Verify 'is_tax_inclusive' exists on products, items, and item_variants as BOOLEAN, NOT NULL, DEFAULT true.
+
+    After migration v1456:
+    - is_tax_inclusive MUST be present on: item_barcodes, customer_groups,
+      sales_invoice_items, customers.
+    - is_tax_inclusive MUST be ABSENT from: products, items, item_variants
+      (these were dropped by v1456 to remove monolithic catalog-level tax policy).
     """
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
-        res = await session.execute(text("""
-            SELECT table_name, column_name, data_type, is_nullable, column_default 
-            FROM information_schema.columns 
-            WHERE table_name IN ('products', 'items', 'item_variants') 
-              AND column_name = 'is_tax_inclusive' 
+        # 1. Verify new tables have the column
+        res_new = await session.execute(text("""
+            SELECT table_name, data_type, is_nullable
+            FROM information_schema.columns
+            WHERE table_name IN ('item_barcodes', 'customer_groups',
+                                 'sales_invoice_items', 'customers')
+              AND column_name = 'is_tax_inclusive'
             ORDER BY table_name;
         """))
-        rows = res.fetchall()
-        assert len(rows) == 3, f"Expected 3 tables with is_tax_inclusive, found {len(rows)}"
-        
-        table_meta = {row[0]: {"type": row[2], "nullable": row[3], "default": row[4]} for row in rows}
-        for tbl in ["products", "items", "item_variants"]:
-            assert tbl in table_meta, f"Table '{tbl}' missing is_tax_inclusive column"
-            assert table_meta[tbl]["type"] == "boolean", f"{tbl}.is_tax_inclusive must be boolean"
-            assert table_meta[tbl]["nullable"] == "NO", f"{tbl}.is_tax_inclusive must be NOT NULL"
-            assert "true" in str(table_meta[tbl]["default"]).lower(), f"{tbl}.is_tax_inclusive default must be true"
+        new_rows = res_new.fetchall()
+        new_tables = {row[0] for row in new_rows}
+        type_map = {row[0]: row[1] for row in new_rows}
+
+        for tbl in ["item_barcodes", "customer_groups", "sales_invoice_items", "customers"]:
+            assert tbl in new_tables, (
+                f"'{tbl}' is missing is_tax_inclusive after v1456 migration. "
+                f"Run: alembic upgrade v1456_tax_inclusive_barcode_group_customer_snapshot"
+            )
+            assert type_map[tbl] == "boolean", (
+                f"{tbl}.is_tax_inclusive must be boolean, got: {type_map[tbl]}"
+            )
+
+        # 2. Verify old catalog master tables NO LONGER have the column
+        res_old = await session.execute(text("""
+            SELECT table_name
+            FROM information_schema.columns
+            WHERE table_name IN ('products', 'items', 'item_variants')
+              AND column_name = 'is_tax_inclusive';
+        """))
+        old_rows = res_old.fetchall()
+        old_tables = {row[0] for row in old_rows}
+
+        assert len(old_tables) == 0, (
+            f"is_tax_inclusive still present on catalog master tables after v1456 drop: "
+            f"{old_tables}. These columns must be removed."
+        )
 
 
 @pytest.mark.asyncio
-async def test_product_creation_defaults_to_tax_inclusive(tenant_ctx):
+async def test_barcode_level_tax_policy_creation():
     """
-    Verify creating a product with default settings assigns is_tax_inclusive = True,
-    and synchronizes atomically to canonical Item and ItemVariant.
+    Verify that is_tax_inclusive can be set on ItemBarcode (the actual sellable SKU).
+    Tests all three states: True (inclusive), False (exclusive), None (defer to hierarchy).
+    Uses the UniversalItemMasterService to create the parent Item correctly (avoids
+    raw ORM NOT NULL constraint issues from undeclared DB-level constraints).
     """
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
-        inv_service = InventoryService(session, tenant_ctx)
-        uid = uuid.uuid4().hex[:6].upper()
-        prod_in = ProductCreate(
-            code=f"SKU-INC-{uid}",
-            name=f"Tax Inclusive MRP Shoe {uid}",
-            price=Decimal("1180.00"),
-            mrp=Decimal("1180.00"),
-            buying_price=Decimal("600.00"),
-            cost_price=Decimal("600.00"),
+        uid = uuid.uuid4().hex[:8].upper()
+
+        # Create parent item via service to satisfy all DB constraints
+        req = ItemCreateRequest(
+            item_code=f"ITEM-BC-{uid}",
+            item_name=f"Barcode Tax Test Item {uid}",
             category="Footwear",
+            tax_rate=18.00,
+            mrp=1180.00,
+            selling_price=1180.00,
+            cost_price=600.00,
+            variants=[
+                ItemVariantItem(
+                    variant_sku=f"ITEM-BC-{uid}-STD",
+                    variant_name=f"Barcode Tax Test Item {uid} Std",
+                    mrp=1180.00,
+                    selling_price=1180.00,
+                    cost_price=600.00,
+                )
+            ]
+        )
+        item = await UniversalItemMasterService.create_item(session, req=req, commit=True)
+        assert item is not None
+
+        # Now add barcodes with explicit tax policies directly
+        bc_inc = ItemBarcode(
+            id=f"BC-INC-{uid}",
+            item_id=item.id,
             barcode=f"BAR-INC-{uid}",
-            gst_percentage=Decimal("18.00"),
-            hsn_code="6403",
-            style_code=None,
-            attributes={"style_no": "CH-06-B", "article_no": f"ART-{uid}"},
-            # is_tax_inclusive omitted, should default to True
+            company_id="COMP-001",
+            branch_id="BR-001",
+            is_tax_inclusive=True,
+            is_deleted=False,
         )
-        prod = await inv_service.create_product(prod_in)
-        await session.commit()
-
-        # Check Product
-        assert prod.is_tax_inclusive is True
-        
-        # Check canonical Item
-        assert prod.item_id is not None
-        canon_item = (await session.execute(select(Item).where(Item.id == prod.item_id))).scalar_one()
-        assert canon_item.is_tax_inclusive is True
-        
-        # Check canonical Variant
-        assert prod.item_variant_id is not None
-        canon_var = (await session.execute(select(ItemVariant).where(ItemVariant.id == prod.item_variant_id))).scalar_one()
-        assert canon_var.is_tax_inclusive is True
-
-
-@pytest.mark.asyncio
-async def test_product_creation_explicit_tax_exclusive(tenant_ctx):
-    """
-    Verify creating an industrial / wholesale product with is_tax_inclusive = False
-    propagates to canonical Item and ItemVariant atomically.
-    """
-    session_factory = get_company_sessionmaker("smriti001")
-    async with session_factory() as session:
-        inv_service = InventoryService(session, tenant_ctx)
-        uid = uuid.uuid4().hex[:6].upper()
-        prod_in = ProductCreate(
-            code=f"SKU-EXC-{uid}",
-            name=f"Tax Exclusive Bulk Shoe {uid}",
-            price=Decimal("1000.00"),
-            mrp=Decimal("1500.00"),
-            buying_price=Decimal("500.00"),
-            cost_price=Decimal("500.00"),
-            category="Footwear",
+        bc_exc = ItemBarcode(
+            id=f"BC-EXC-{uid}",
+            item_id=item.id,
             barcode=f"BAR-EXC-{uid}",
-            gst_percentage=Decimal("18.00"),
-            hsn_code="6403",
-            style_code=None,
-            attributes={"style_no": "CH-07-B", "article_no": f"ART-{uid}"},
+            company_id="COMP-001",
+            branch_id="BR-001",
             is_tax_inclusive=False,
+            is_deleted=False,
         )
-        prod = await inv_service.create_product(prod_in)
+        bc_none = ItemBarcode(
+            id=f"BC-NONE-{uid}",
+            item_id=item.id,
+            barcode=f"BAR-NONE-{uid}",
+            company_id="COMP-001",
+            branch_id="BR-001",
+            is_tax_inclusive=None,
+            is_deleted=False,
+        )
+        session.add_all([bc_inc, bc_exc, bc_none])
         await session.commit()
 
-        assert prod.is_tax_inclusive is False
-        
-        canon_item = (await session.execute(select(Item).where(Item.id == prod.item_id))).scalar_one()
-        assert canon_item.is_tax_inclusive is False
-        
-        canon_var = (await session.execute(select(ItemVariant).where(ItemVariant.id == prod.item_variant_id))).scalar_one()
-        assert canon_var.is_tax_inclusive is False
+        assert await session.scalar(
+            select(ItemBarcode.is_tax_inclusive).where(ItemBarcode.id == bc_inc.id)
+        ) is True, "Barcode with is_tax_inclusive=True must persist as True"
+
+        assert await session.scalar(
+            select(ItemBarcode.is_tax_inclusive).where(ItemBarcode.id == bc_exc.id)
+        ) is False, "Barcode with is_tax_inclusive=False must persist as False"
+
+        assert await session.scalar(
+            select(ItemBarcode.is_tax_inclusive).where(ItemBarcode.id == bc_none.id)
+        ) is None, "Barcode with is_tax_inclusive=None must persist as NULL"
 
 
 @pytest.mark.asyncio
-async def test_item_master_svc_create_item_tax_inclusive(tenant_ctx):
+async def test_item_master_svc_create_item_no_tax_inclusive_on_item_variant():
     """
-    Verify UniversalItemMasterService.create_item persists is_tax_inclusive on Item and Variants.
+    Verify UniversalItemMasterService.create_item works correctly and that
+    Item / ItemVariant models do NOT carry is_tax_inclusive (removed by v1456).
+    Tax policy now lives on ItemBarcode, Customer, CustomerGroup, CustomerPriceTier.
     """
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
         uid = uuid.uuid4().hex[:6].upper()
         req = ItemCreateRequest(
-            item_code=f"ITM-INC-{uid}",
-            item_name=f"Universal Item Inclusive {uid}",
+            item_code=f"ITM-SVC-{uid}",
+            item_name=f"Universal Item Tax Test {uid}",
             category="Footwear",
             tax_rate=12.00,
             mrp=1120.00,
             selling_price=1120.00,
             cost_price=500.00,
-            is_tax_inclusive=True,
             variants=[
                 ItemVariantItem(
-                    variant_sku=f"ITM-INC-{uid}-L",
+                    variant_sku=f"ITM-SVC-{uid}-L",
                     variant_name=f"Universal Item {uid} Large",
                     mrp=1120.00,
                     selling_price=1120.00,
                     cost_price=500.00,
-                    is_tax_inclusive=True,
                 )
             ]
         )
         item = await UniversalItemMasterService.create_item(session, req=req, commit=True)
-        assert item.is_tax_inclusive is True
-        assert len(item.variants) >= 1
-        assert item.variants[0].is_tax_inclusive is True
+        assert item is not None, "Item creation must succeed"
+        assert len(item.variants) >= 1, "Item must have at least one variant"
+        # Item and ItemVariant must NOT carry is_tax_inclusive (dropped by v1456)
+        assert not hasattr(item, "is_tax_inclusive"), (
+            "Item model must NOT have is_tax_inclusive attribute (removed by v1456 migration)"
+        )
+        assert not hasattr(item.variants[0], "is_tax_inclusive"), (
+            "ItemVariant model must NOT have is_tax_inclusive attribute (removed by v1456 migration)"
+        )
 
 
 @pytest.mark.asyncio
@@ -379,6 +422,118 @@ async def test_canonical_sales_posting_mixed_cart():
         assert resp.tax_total == Decimal("270.00")
 
 
+# ---------------------------------------------------------------------------
+# TEST: Channel Default — POS_RETAIL must default to inclusive
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_channel_default_pos_retail_is_tax_inclusive():
+    """
+    When is_tax_inclusive is None on the line item and no barcode/customer policy
+    exists, POS_RETAIL channel must default to is_tax_inclusive=True.
+
+    ₹1,180.00 on POS_RETAIL without explicit flag → taxable = ₹1,000.00 (inclusive math).
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        uid = uuid.uuid4().hex[:6]
+        inv_no = f"INV-CHDEF-{uid}"
+
+        req = CanonicalPostingRequest(
+            context=CanonicalPostingContext(
+                company_id="COMP-001",
+                branch_id="BR-001",
+                source_channel="POS_RETAIL",
+                client_invoice_no=inv_no,
+                idempotency_key=inv_no,
+                allow_negative_stock=True,
+            ),
+            customer_name="Default Channel Buyer",
+            billing_address="Mumbai, MH",
+            shipping_address="Mumbai, MH",
+            place_of_supply_code="27",
+            items=[
+                CanonicalPostingLineItem(
+                    code=f"FEE-CHDEF-{uid}",
+                    name="Default Channel Item",
+                    quantity=Decimal("1.0000"),
+                    unit_price=Decimal("1180.00"),
+                    mrp=Decimal("1180.00"),
+                    gst_rate=Decimal("18.00"),
+                    is_tax_inclusive=None,  # NOT set — derive from channel
+                    is_fee_line=True,
+                )
+            ],
+            tenders=[
+                CanonicalTenderItem(tender_type="CASH", amount=Decimal("1180.00"))
+            ],
+        )
+
+        resp = await CanonicalSalesPostingWriter.post_sales_transaction(session, req, commit=True)
+        assert resp.taxable_amount == Decimal("1000.00"), (
+            f"POS_RETAIL channel default must be inclusive; expected taxable=1000, got {resp.taxable_amount}"
+        )
+        assert resp.tax_total == Decimal("180.00"), (
+            f"POS_RETAIL channel default must yield tax=180; got {resp.tax_total}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_channel_default_b2b_is_tax_exclusive():
+    """
+    When is_tax_inclusive is None on the line item and no barcode/customer policy
+    exists, B2B_SALES channel must default to is_tax_inclusive=False.
+
+    ₹1,000.00 on B2B_SALES without explicit flag → taxable=₹1,000.00 (exclusive math),
+    tax=₹180.00, grand total=₹1,180.00.
+    """
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        uid = uuid.uuid4().hex[:6]
+        inv_no = f"INV-B2BDEF-{uid}"
+
+        req = CanonicalPostingRequest(
+            context=CanonicalPostingContext(
+                company_id="COMP-001",
+                branch_id="BR-001",
+                source_channel="B2B_SALES",
+                client_invoice_no=inv_no,
+                idempotency_key=inv_no,
+                allow_negative_stock=True,
+            ),
+            customer_name="Default B2B Trader",
+            billing_address="Mumbai, MH",
+            shipping_address="Mumbai, MH",
+            place_of_supply_code="27",
+            items=[
+                CanonicalPostingLineItem(
+                    code=f"FEE-B2BDEF-{uid}",
+                    name="Default B2B Item",
+                    quantity=Decimal("1.0000"),
+                    unit_price=Decimal("1000.00"),
+                    mrp=Decimal("1500.00"),
+                    gst_rate=Decimal("18.00"),
+                    is_tax_inclusive=None,  # NOT set — derive from channel
+                    is_fee_line=True,
+                )
+            ],
+            tenders=[
+                CanonicalTenderItem(tender_type="CASH", amount=Decimal("1180.00"))
+            ],
+        )
+
+        resp = await CanonicalSalesPostingWriter.post_sales_transaction(session, req, commit=True)
+        assert resp.taxable_amount == Decimal("1000.00"), (
+            f"B2B_SALES default must be exclusive; expected taxable=1000, got {resp.taxable_amount}"
+        )
+        assert resp.tax_total == Decimal("180.00"), (
+            f"B2B_SALES default must yield tax=180; got {resp.tax_total}"
+        )
+        assert resp.net_amount == Decimal("1180.00"), (
+            f"B2B_SALES grand total must be 1180; got {resp.net_amount}"
+        )
+
+
 @pytest.mark.asyncio
 async def test_statutory_mrp_ceiling_enforcement():
     """
@@ -437,7 +592,7 @@ async def test_pos_checkout_with_tax_inclusive_catalog_item(tenant_ctx):
     async with session_factory() as session:
         uid = uuid.uuid4().hex[:6].upper()
 
-        # Create product with stock
+        # Create product with stock (no is_tax_inclusive on Product — it was dropped by v1456)
         inv_svc = InventoryService(session, tenant_ctx)
         prod = await inv_svc.create_product(ProductCreate(
             code=f"POS-PROD-{uid}",
@@ -453,7 +608,6 @@ async def test_pos_checkout_with_tax_inclusive_catalog_item(tenant_ctx):
             hsn_code="6403",
             style_code=None,
             attributes={"style_no": "CH-08-J", "article_no": f"POS-ART-{uid}"},
-            is_tax_inclusive=True,
         ))
         await session.commit()
 
