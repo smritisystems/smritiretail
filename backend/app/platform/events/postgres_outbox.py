@@ -4,12 +4,12 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.27.0
+Version      : 6.27.1
 Created      : 2026-09-16
 Modified     : 2026-09-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
-Classification: Platform Kernel Contract — Stage 5
+Classification: Platform Kernel Contract — Stage 5.1 Hardened
 """
 
 import uuid
@@ -31,7 +31,9 @@ class PostgresEventOutbox(IEventOutbox):
     """
     Production-grade PostgreSQL implementation of IEventOutbox.
     Provides transactional staging inside existing domain database sessions,
-    and non-blocking batch claiming using SELECT FOR UPDATE SKIP LOCKED.
+    non-blocking batch claiming using SELECT FOR UPDATE SKIP LOCKED,
+    zombie lease recovery, and DLQ operational lifecycle (replay/abandon).
+    All methods strictly require explicit database session ownership.
     """
 
     def __init__(self, serializer: Optional[EventSerializer] = None):
@@ -47,6 +49,9 @@ class PostgresEventOutbox(IEventOutbox):
         serialized_envelope = self.serializer.to_dict(envelope)
 
         target_channel = envelope.metadata.get("target_channel", "PLATFORM_EVENTS")
+        # Semantic mapping: tenantId is isolation boundary, company_id/branch_id are business dimensions
+        company_id = envelope.metadata.get("company_id") or envelope.tenantId
+        branch_id = envelope.metadata.get("branch_id")
 
         outbox_record = IntegrationOutboxEvent(
             outbox_id=outbox_id,
@@ -56,8 +61,8 @@ class PostgresEventOutbox(IEventOutbox):
             event_type=envelope.eventType.strip().upper(),
             aggregate_type=envelope.source,
             aggregate_id=envelope.metadata.get("aggregate_id") or envelope.id,
-            company_id=envelope.tenantId,
-            branch_id=envelope.metadata.get("branch_id"),
+            company_id=company_id,
+            branch_id=branch_id,
             event_schema_version=envelope.schemaVersion,
             target_channel=target_channel,
             payload_json=serialized_envelope,
@@ -69,26 +74,13 @@ class PostgresEventOutbox(IEventOutbox):
         db_session.add(outbox_record)
         return outbox_id
 
-    async def fetch_pending(self, limit: int = 100) -> List[EventEnvelope[Any]]:
-        """Abstract method backward compatibility stub."""
-        return []
-
-    async def mark_dispatched(self, outbox_id: str) -> None:
-        """Abstract method backward compatibility stub."""
-        pass
-
-    async def mark_failed(self, outbox_id: str, error_message: str) -> None:
-        """Abstract method backward compatibility stub."""
-        pass
-
-    async def fetch_pending_and_claim(
+    async def claim(
         self,
         db_session: AsyncSession,
         limit: int = 50,
         claim_timeout_seconds: int = 60,
         target_channel: Optional[str] = "PLATFORM_EVENTS",
     ) -> List[Tuple[str, EventEnvelope[Any]]]:
-
         """
         Atomically queries eligible outbox events with SELECT FOR UPDATE SKIP LOCKED,
         transitions them to 'PROCESSING' with a lease timeout, and commits the claim.
@@ -163,8 +155,8 @@ class PostgresEventOutbox(IEventOutbox):
         await db_session.commit()
         return claimed
 
-    async def mark_dispatched_with_session(self, db_session: AsyncSession, outbox_id: str) -> None:
-        """Mark outbox record as dispatched."""
+    async def mark_dispatched(self, db_session: AsyncSession, outbox_id: str) -> None:
+        """Mark outbox record as dispatched using active database session."""
         stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id == outbox_id)
         rec = (await db_session.execute(stmt)).scalar_one_or_none()
         if rec:
@@ -173,7 +165,7 @@ class PostgresEventOutbox(IEventOutbox):
             rec.claim_expires_at = None
             await db_session.commit()
 
-    async def mark_failed_with_session(
+    async def mark_failed(
         self,
         db_session: AsyncSession,
         outbox_id: str,
@@ -204,3 +196,39 @@ class PostgresEventOutbox(IEventOutbox):
                 )
 
             await db_session.commit()
+
+    async def replay_dead_letter(self, db_session: AsyncSession, outbox_id: str) -> bool:
+        """
+        Reset a DEAD_LETTER record back to PENDING for re-processing.
+        Preserves original source_event_id and audit trail, but resets attempt counts.
+        """
+        stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id == outbox_id)
+        rec = (await db_session.execute(stmt)).scalar_one_or_none()
+        if not rec or rec.status != "DEAD_LETTER":
+            return False
+
+        rec.status = "PENDING"
+        rec.retry_count = 0
+        rec.next_attempt_at = None
+        rec.claim_expires_at = None
+        rec.last_attempt_at = None
+        rec.error_message = f"[REPLAYED AT {datetime.now(timezone.utc).isoformat()}] Prior error: {rec.error_message}"
+        await db_session.commit()
+        return True
+
+    async def abandon_dead_letter(self, db_session: AsyncSession, outbox_id: str, reason: str) -> bool:
+        """
+        Mark a DEAD_LETTER record as ABANDONED with operator/system rationale.
+        Takes event permanently out of polling rotation.
+        """
+        stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id == outbox_id)
+        rec = (await db_session.execute(stmt)).scalar_one_or_none()
+        if not rec or rec.status != "DEAD_LETTER":
+            return False
+
+        rec.status = "ABANDONED"
+        rec.claim_expires_at = None
+        rec.next_attempt_at = None
+        rec.error_message = f"[ABANDONED: {reason}] {rec.error_message}"
+        await db_session.commit()
+        return True
