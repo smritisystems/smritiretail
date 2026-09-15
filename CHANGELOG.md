@@ -28,7 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.27.0] - 2026-09-16
+
+#### Stage 5: Transactional Postgres Outbox Engine & Worker Daemon
+
+**Walkthrough:** [Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md](docs/walkthrough/architecture/Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md)  
+**Implementation Plan:** [Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md](docs/implementation/foundation/Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md)  
+
+- **Transactional Postgres Outbox Engine (`PostgresEventOutbox`):**
+  - Concrete implementation of `IEventOutbox` managing `IntegrationOutboxEvent` ORM records.
+  - Guarantees atomic staging within caller's active database transaction/session, preventing dual-write hazards.
+  - Implements two-phase non-blocking batch claiming with `SELECT ... FOR UPDATE SKIP LOCKED`.
+  - Channel isolation defaulting to `PLATFORM_EVENTS`.
+  - Zombie lease recovery for crashed worker claims (`status='PROCESSING' AND claim_expires_at <= now`).
+- **Asynchronous Outbox Worker Daemon (`PlatformOutboxWorker`):**
+  - Resilient polling runner that claims batches with row locks, dispatches outside locks via `PlatformEventService.publish(envelope)`, and settles results.
+  - Exponential backoff retry scheduling and Dead Letter Queue (`DEAD_LETTER`) routing.
+  - Immediate `wake()` trigger via asyncio Event.
+- **TypeScript Parity:**
+  - Added `OutboxRecord`, `OutboxStatus`, `OutboxWorkerStats`, and updated `IEventOutbox` in `src/kernel/events.ts`.
+- **Verification:**
+  - 7/7 Pytest tests passing in `test_postgres_outbox_worker.py`.
+  - 9/9 Pytest tests passing in `test_platform_event_service.py`.
+  - 3,547 modules clean Vite production build.
+
 ### [6.26.0] - 2026-09-16
+
 
 #### Stage 4 Platform Event Service & Canonical Table Convergence
 

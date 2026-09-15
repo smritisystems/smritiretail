@@ -21,7 +21,10 @@ from .serializer import EventSerializer
 from .publisher import EventPublisher
 from .subscriber import EventSubscriber, EventHandler
 from .outbox import IEventOutbox
+from .postgres_outbox import PostgresEventOutbox
+from .outbox_worker import PlatformOutboxWorker
 from .service import PlatformEventService
+
 
 __all__ = [
     "EventEnvelope",
@@ -40,5 +43,8 @@ __all__ = [
     "EventSubscriber",
     "EventHandler",
     "IEventOutbox",
+    "PostgresEventOutbox",
+    "PlatformOutboxWorker",
     "PlatformEventService",
 ]
+
