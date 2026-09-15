@@ -63,6 +63,8 @@ class CanonicalPostingLineItem(BaseModel):
     customer_po_line_id: Optional[str] = Field(None, description="Traceability link to customer_purchase_order_lines.id")
     source_line_type: Optional[str] = Field(None, description="DIRECT, CUSTOMER_PO, SALES_ORDER")
     source_line_id: Optional[str] = Field(None, description="ID of source document line")
+    category: Optional[str] = Field(None, description="Promotion category identity")
+    brand: Optional[str] = Field(None, description="Promotion brand identity")
 
 
 class CanonicalTenderItem(BaseModel):
@@ -107,6 +109,9 @@ class CanonicalPostingRequest(BaseModel):
     customer_po_id: Optional[str] = Field(None, description="Upstream customer_purchase_orders.id")
     so_reference_no: Optional[str] = Field(None, description="Sales Order reference number")
     payment_mode: Optional[str] = Field(None, description="Payment mode override (e.g. CASH, CARD, UPI, CREDIT, SPLIT)")
+    promotion_campaign_id: Optional[str] = Field(None, description="Server-evaluated promotion campaign")
+    promotion_coupon_code: Optional[str] = Field(None, description="Server-evaluated promotion coupon")
+    promotion_coupon_id: Optional[str] = Field(None, description="Server-evaluated promotion coupon ID")
 
 
 class CanonicalPostingLineResult(BaseModel):

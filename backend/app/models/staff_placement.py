@@ -13,7 +13,7 @@ class StaffPlacementAssignment(BaseEntity):
     staff_user_id = Column(String(50), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     placement_type = Column(String(30), nullable=False)  # INTERNAL_BRANCH | CUSTOMER_STORE | THIRD_PARTY_STORE
     internal_branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True, index=True)
-    internal_store_id = Column(String(50), ForeignKey("stores.id", ondelete="RESTRICT"), nullable=True, index=True)
+    internal_store_id = Column(String(50), nullable=True, index=True)  # Legacy store ref; FK severed in migration v1454
     host_customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True, index=True)
     host_delivery_location_id = Column(String(50), ForeignKey("customer_delivery_locations.id", ondelete="RESTRICT"), nullable=True, index=True)
     host_store_code_snapshot = Column(String(50), nullable=True)
@@ -46,6 +46,5 @@ class StaffPlacementAssignment(BaseEntity):
     staff_user = relationship("User", foreign_keys=[staff_user_id])
     approved_by_user = relationship("User", foreign_keys=[approved_by])
     internal_branch = relationship("Branch", foreign_keys=[internal_branch_id])
-    internal_store = relationship("Store", foreign_keys=[internal_store_id])
     host_customer = relationship("Customer", foreign_keys=[host_customer_id])
     host_delivery_location = relationship("CustomerDeliveryLocation", foreign_keys=[host_delivery_location_id])

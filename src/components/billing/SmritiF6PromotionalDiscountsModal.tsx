@@ -42,6 +42,10 @@ export interface SmritiActivePromoScheme {
   maxDiscount?: number;
   description: string;
   isItemLevel: boolean;
+  minQty?: number;
+  applicableCategories?: string[];
+  applicableBrands?: string[];
+  applicableCustomerGroups?: string[];
 }
 
 export interface SmritiBillLevelPromoState {
@@ -289,6 +293,13 @@ export const SmritiF6PromotionalDiscountsModal: React.FC<SmritiF6PromotionalDisc
       const rate = Number(it.rate || it.unitPrice || 0);
       const qty = Number(it.qty || 1);
       const gross = rate * qty;
+      const category = String(it.category || it.categoryId || "");
+      const brand = String(it.brand || it.brandId || "");
+      const eligible =
+        (!promo.minQty || qty >= promo.minQty) &&
+        (!promo.applicableCategories?.length || promo.applicableCategories.includes(category)) &&
+        (!promo.applicableBrands?.length || promo.applicableBrands.includes(brand));
+      if (!eligible) return it;
       let newDiscPct = 0;
       let newDiscAmt = 0;
 
@@ -334,6 +345,18 @@ export const SmritiF6PromotionalDiscountsModal: React.FC<SmritiF6PromotionalDisc
 
   // Handle Bill Level Promo Code Selection
   const handleBillPromoSelect = (scheme: SmritiActivePromoScheme) => {
+    if (scheme.minBillValue && calcBase < scheme.minBillValue) {
+      setBillPromo(prev => ({
+        ...prev,
+        code: scheme.code,
+        description: scheme.name,
+        discountPct: 0,
+        discountAmt: 0,
+        maxAllowed: scheme.maxDiscount
+      }));
+      onNotification?.("Promotion Preview", `Minimum bill value is ₹${scheme.minBillValue.toFixed(2)}.`, "info");
+      return;
+    }
     let amt = 0;
     let pct = 0;
     if (scheme.type === "PERCENT") {

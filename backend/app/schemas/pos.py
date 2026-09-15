@@ -269,6 +269,8 @@ class POSCheckoutItem(BaseModel):
     hsn_code:   Optional[str]     = None
     gst_rate:   Decimal           = Field(Decimal("0.00"), ge=Decimal("0.00"))
     mrp:        Optional[Decimal] = Field(None, ge=Decimal("0.00"))
+    category:   Optional[str] = None
+    brand:      Optional[str] = None
 
 
 class POSCheckoutRequest(BaseModel):
@@ -298,6 +300,9 @@ class POSCheckoutRequest(BaseModel):
     bill_discount_val:    Optional[Decimal]    = None
     bill_discount_type:   Optional[str]        = None     # "percent" | "flat"
     loyalty_redeem_points: Optional[int]       = None
+    promotion_campaign_id: Optional[str] = None
+    promotion_coupon_code: Optional[str] = None
+    promotion_coupon_id: Optional[str] = None
 
 
 class POSCheckoutResponse(BaseModel):

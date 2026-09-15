@@ -37,7 +37,6 @@ from ...models.auth import User, UserRole
 from ...models.hr import AttendanceRecord, LeaveBalance, LeaveRequest
 from ...models.crm import CustomerDeliveryLocation
 from ...models.tenant import Branch
-from ...models.inventory import Store
 from ...models.staff_placement import StaffPlacementAssignment
 from ...models.staff_profile import StaffProfile
 from ...models.staff_profile_history import StaffProfileHistory

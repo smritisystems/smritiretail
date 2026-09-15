@@ -245,6 +245,11 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
           barcode: prod.barcode || barcode,
           itemDescription: prod.name || prod.title || "Scanned Item",
           rate: pRate,
+          mrp: Number(prod.mrp || pRate),
+          mrpDiscountPercent: Number(prod.mrp || pRate) > 0
+            ? Math.max(0, (Number(prod.mrp || pRate) - pRate) / Number(prod.mrp || pRate) * 100)
+            : 0,
+          mrpDiscountAmt: Math.max(0, Number(prod.mrp || pRate) - pRate),
           qty: 1,
           value: pRate,
           discCode: "None",
@@ -640,6 +645,11 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                   </td>
                   <td className="py-2 px-3 font-medium text-slate-800">
                     {item.itemDescription}
+                    {(item.mrp || 0) > (item.rate || 0) && (
+                      <div className="text-[10px] font-mono text-emerald-700">
+                        MRP ₹{Number(item.mrp).toFixed(2)} · {Number(item.mrpDiscountPercent || 0).toFixed(2)}% off
+                      </div>
+                    )}
                   </td>
                   <td className="py-1 px-2 text-right font-mono">
                     <input

@@ -321,6 +321,23 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
   // Lookup product via API
   const handleLookupProduct = useCallback(async (term: string): Promise<any | null> => {
     try {
+      const barcodeResult = await apiFetchV1("/search/barcode-scan", {
+        method: "POST",
+        body: JSON.stringify({ barcode: term }),
+      });
+      if (barcodeResult?.found) {
+        return {
+          ...barcodeResult,
+          code: barcodeResult.sku || barcodeResult.item_code || term,
+          name: barcodeResult.item_name,
+          price: Number(barcodeResult.selling_price || barcodeResult.mrp || 0),
+          mrp: Number(barcodeResult.mrp || barcodeResult.selling_price || 0),
+          gst_percentage: Number(barcodeResult.tax_rate || 18),
+          hsn_code: barcodeResult.hsn_sac,
+          stock: barcodeResult.current_stock,
+        };
+      }
+
       const res = await apiFetchV1(`/products?search=${encodeURIComponent(term)}`);
       const items = Array.isArray(res) ? res : res?.items || res?.products || [];
       if (items.length > 0) {
@@ -480,6 +497,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
           code: it.stockNo,
           name: it.itemDescription,
           price: it.rate,
+          mrp: it.mrp,
           quantity: it.qty,
           disc_pct: it.discPercent,
           taxable_value: Math.max(0, (Number(it.rate) || 0) * (Number(it.qty) || 0) - (Number(it.discAmt) || 0)),
@@ -588,12 +606,18 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
         }));
         setIsCustomerModalOpen(false);
       } else if (result.entity === "variant" || result.entity === "item" || result.entity === "item_barcode") {
+        const sellingPrice = Number(result.record?.selling_price || result.record?.mrp || 0);
+        const mrp = Number(result.record?.mrp || sellingPrice || 0);
+        const mrpDiscountAmount = Math.max(0, mrp - sellingPrice);
         handleAddItem({
           stockNo:         (result.record?.stock_no as string) || result.returnValue || "",
           barcode:         (result.record?.barcode as string) || "",
           itemDescription: result.displayValue || (result.record?.name as string) || "Item",
           qty:             1,
-          rate:            (result.record?.selling_price as number) || (result.record?.mrp as number) || 0,
+          rate:            sellingPrice,
+          mrp,
+          mrpDiscountPercent: mrp > 0 ? (mrpDiscountAmount / mrp) * 100 : 0,
+          mrpDiscountAmt: mrpDiscountAmount,
           value:           0,
           discCode:        "",
           discQty:         0,

@@ -47,6 +47,7 @@ from .api.v1 import (
     assignments,
     barcode,
     barcode_registry,
+    billing_csv,
     barcodes,
     boundaries,
     capability_registry,
@@ -204,6 +205,7 @@ app.include_router(numbering.router,        prefix=settings.API_V1_STR + "/numbe
 app.include_router(terms.router,            prefix=settings.API_V1_STR + "/terms",         tags=["Terms & Conditions"])
 app.include_router(attributes.router,       prefix=settings.API_V1_STR + "/attributes",    tags=["Attributes & Variants"])  # noqa: E501
 app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barcode",       tags=["Barcode Studio"])
+app.include_router(billing_csv.router,      prefix=settings.API_V1_STR + "/billing",       tags=["Barcode Billing CSV Import"])
 app.include_router(barcode_registry.router, prefix=settings.API_V1_STR + "/barcode-registry", tags=["Barcode Management"])
 app.include_router(product_identity.router, prefix=settings.API_V1_STR + "/product-identity", tags=["Product Identity Engine"])
 app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])

@@ -43,6 +43,8 @@ class SalesInvoiceItemBase(BaseModel):
     customer_po_line_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("customer_po_line_id", "customerPoLineId"))
     source_line_type: Optional[str] = Field(None, max_length=30, validation_alias=AliasChoices("source_line_type", "sourceLineType"))
     source_line_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_line_id", "sourceLineId"))
+    category: Optional[str] = Field(None, max_length=100)
+    brand: Optional[str] = Field(None, max_length=100)
 
 class SalesInvoiceItemCreate(SalesInvoiceItemBase):
     pass
@@ -117,6 +119,9 @@ class SalesInvoiceBase(BaseModel):
     # Statutory GST Physical Origin / Dispatch From
     dispatch_from_location_id: Optional[str] = Field(None, max_length=50,  validation_alias=AliasChoices("dispatch_from_location_id", "dispatchFromLocationId"))
     dispatch_from_snapshot:    Optional[dict] = Field(None,                validation_alias=AliasChoices("dispatch_from_snapshot", "dispatchFromSnapshot"))
+    promotion_campaign_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("promotion_campaign_id", "promotionCampaignId"))
+    promotion_coupon_code: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("promotion_coupon_code", "promotionCouponCode"))
+    promotion_coupon_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("promotion_coupon_id", "promotionCouponId"))
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50)

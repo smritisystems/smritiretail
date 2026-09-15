@@ -18,9 +18,9 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from backend.app.models.numbering import DocumentSeries, NumberingAuditLog
-from backend.app.services.numbering import NumberingService
-from backend.app.schemas.numbering import (
+from app.models.numbering import DocumentSeries, NumberingAuditLog
+from app.services.numbering import NumberingService
+from app.schemas.numbering import (
     BillPrefixResolveRequest,
     BillPrefixBatchSaveRequest,
     BillPrefixBatchSaveItem,
@@ -62,7 +62,7 @@ async def test_bill_prefix_resolution_hierarchy():
     2. Common store prefix applies when no terminal-specific prefix exists
     3. Auto-instantiation provides safe default
     """
-    from backend.app.db.session import async_session as async_session_factory
+    from app.db.session import async_session as async_session_factory
     from sqlalchemy import text
     async with async_session_factory() as db:
         service = NumberingService(db)
@@ -141,7 +141,7 @@ async def test_year_end_rollover_process():
     - Resets counter to start number
     - Logs audit trail
     """
-    from backend.app.db.session import async_session as async_session_factory
+    from app.db.session import async_session as async_session_factory
     async with async_session_factory() as db:
         service = NumberingService(db)
         test_company = f"COMP-YE-{uuid.uuid4().hex[:6]}"

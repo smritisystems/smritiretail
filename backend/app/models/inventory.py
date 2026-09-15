@@ -128,31 +128,14 @@ class StockMovement(BaseEntity):
     approval = Column(String(50), nullable=True)
 
 
-# DEPRECATED — Phase B (2026-09-10, v4.17.0)
-# Audit status: 0 rows in production DB (smriti001). FK child table
-# `user_store_assignments` also 0 rows. No live API route writes to this table.
-# Phase C removal requires:
-#   1. DDL backup to docs/archive/
-#   2. Alembic DOWN migration authored and reviewed
-#   3. Full regression suite passed
-# DO NOT DROP until all 5 gates in docs/walkthrough/foundation/Staged_Migration_Audit... pass.
-class Store(BaseEntity):
-    __tablename__ = "stores"
+# RETIRED — Phase C (2026-09-16, v6.26.0)
+# Table 'stores' formally dropped via Alembic migration v1454_retire_stores_table.py.
+# All 5 safety gates passed (Gate 1: 0 rows, Gate 2: 0 write paths, Gate 3: FK severed,
+# Gate 4: DDL archived at docs/archive/stores_phase_b_archive_v4.17.0.sql, Gate 5: tests green).
+# Canonical replacements are Warehouse and Branch entities.
+# class Store(BaseEntity):
+#     __tablename__ = "stores"
 
-    code = Column(String(50), nullable=False)
-    name = Column(String(200), nullable=False)
-    store_type = Column(String(50), nullable=True)
-    address = Column(Text, nullable=True)
-
-    __table_args__ = (
-        Index(
-            "uq_company_store_code_active",
-            "company_id",
-            "code",
-            unique=True,
-            postgresql_where=text("is_deleted = false"),
-        ),
-    )
 
 
 class Warehouse(BaseEntity):

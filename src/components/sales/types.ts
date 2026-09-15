@@ -19,6 +19,9 @@ export interface TaxInvoiceItemRow {
   barcode?: string;
   itemDescription: string;
   rate: number;
+  mrp?: number;
+  mrpDiscountPercent?: number;
+  mrpDiscountAmt?: number;
   qty: number;
   value: number; // rate * qty
   discCode: string; // e.g. "NONE", "PROMO10", "SEASONAL", "LOYALTY"

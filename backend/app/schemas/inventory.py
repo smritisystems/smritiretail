@@ -147,8 +147,10 @@ class ProductBase(BaseModel):
         if self.cost_price <= Decimal("0"):
             self.cost_price = self.buying_price or self.price or Decimal("100.00")
 
-        if self.mrp is None or self.mrp < self.price:
+        if self.mrp is None:
             self.mrp = self.price
+        elif self.mrp < self.price:
+            raise ValueError(f"MRP ({self.mrp}) must be greater than or equal to Selling Price ({self.price}).")
 
         if self.cost_price > self.buying_price:
             self.buying_price = self.cost_price

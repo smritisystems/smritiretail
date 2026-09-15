@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
 from app.compliance.connectors.ewaybill.connector import EWayBillConnector
+from app.compliance.connectors.ewaybill.payloads import build_generate_payload
 from app.compliance.exceptions import PolicyViolationException
 from app.compliance.models.compliance import ComplianceAuditLog
 from app.compliance.schemas.compliance import (
@@ -34,6 +35,7 @@ from app.compliance.schemas.compliance import (
     CancelComplianceDocRequest,
 )
 from app.models.distribution import EWayBill
+from app.core.config import settings
 
 
 class EWayBillService:
@@ -69,24 +71,76 @@ class EWayBillService:
         """
         start_time = time.time()
         
-        payload = {
+        raw_payload = {
             "supplyType": "O",
             "subSupplyType": "1",
             "docType": request.doc_type,
             "docNo": request.doc_no,
+            "document_date": request.document_date,
             "fromGstin": request.from_gstin,
             "toGstin": request.to_gstin,
-            "fromPincode": request.from_pincode,
-            "toPincode": request.to_pincode,
-            "totInvValue": request.total_invoice_value,
-            "transDistance": request.trans_distance_km,
+            "from_trade_name": request.from_trade_name or "",
+            "from_addr1": request.from_addr1 or "",
+            "from_addr2": request.from_addr2 or "",
+            "from_place": request.from_place or "",
+            "from_state_code": request.from_state_code or int(request.from_gstin[:2]),
+            "actual_from_state_code": request.actual_from_state_code or request.from_state_code or int(request.from_gstin[:2]),
+            "from_pincode": request.from_pincode,
+            "to_trade_name": request.to_trade_name or "",
+            "to_addr1": request.to_addr1 or "",
+            "to_addr2": request.to_addr2 or "",
+            "to_place": request.to_place or "",
+            "to_state_code": request.to_state_code or int(request.to_gstin[:2]) if request.to_gstin != "URP" else 96,
+            "actual_to_state_code": request.actual_to_state_code or request.to_state_code or (int(request.to_gstin[:2]) if request.to_gstin != "URP" else 96),
+            "to_pincode": request.to_pincode,
+            "total_invoice_value": request.total_invoice_value,
+            "total_taxable_amount": request.total_taxable_amount or request.total_invoice_value,
+            "cgst_amount": request.cgst_amount,
+            "sgst_amount": request.sgst_amount,
+            "igst_amount": request.igst_amount,
+            "cess_amount": request.cess_amount,
+            "other_value": request.other_value,
+            "cess_non_advol_value": request.cess_non_advol_value,
+            "trans_distance_km": request.trans_distance_km,
+            "trans_mode": request.trans_mode,
             "transporterId": request.transporter_id or "",
             "transporterName": request.transporter_name or "",
+            "trans_doc_no": request.trans_doc_no or "",
+            "trans_doc_date": request.trans_doc_date or "",
             "vehicleNo": request.vehicle_no or "",
+            "vehicle_type": request.vehicle_type,
+            "transaction_type": request.trans_type,
+            "items": [item.model_dump() for item in request.items],
         }
 
+        if settings.EWAYBILL_LIVE_ENABLED:
+            if not request.items:
+                raise PolicyViolationException("SGIP-EWB-VAL-007: Item details are required for live NIC submission.")
+            payload = build_generate_payload(raw_payload)
+        else:
+            payload = {
+                "supplyType": raw_payload["supplyType"],
+                "subSupplyType": raw_payload["subSupplyType"],
+                "docType": raw_payload["docType"],
+                "docNo": raw_payload["docNo"],
+                "fromGstin": raw_payload["fromGstin"],
+                "toGstin": raw_payload["toGstin"],
+                "fromPincode": raw_payload["from_pincode"],
+                "toPincode": raw_payload["to_pincode"],
+                "totInvValue": raw_payload["total_invoice_value"],
+                "transDistance": raw_payload["trans_distance_km"],
+                "transporterId": raw_payload["transporterId"],
+                "transporterName": raw_payload["transporterName"],
+                "vehicleNo": raw_payload["vehicleNo"],
+            }
+
         # Authenticate
-        token = self.connector.authenticate({"username": "TEST_EWB_USER", "password": "TEST_EWB_PASSWORD"})
+        credentials = (
+            {"username": settings.EWAYBILL_USERNAME, "password": settings.EWAYBILL_PASSWORD}
+            if settings.EWAYBILL_LIVE_ENABLED
+            else {"username": "TEST_EWB_USER", "password": "TEST_EWB_PASSWORD"}
+        )
+        token = self.connector.authenticate(credentials)
         result = self.connector.submit(payload, token=token)
         duration_ms = int((time.time() - start_time) * 1000)
 
@@ -196,7 +250,12 @@ class EWayBillService:
         """
         Cancels an active E-Way Bill within 24 hours and synchronizes database status.
         """
-        token = self.connector.authenticate({"username": "TEST_EWB_USER", "password": "TEST_EWB_PASSWORD"})
+        credentials = (
+            {"username": settings.EWAYBILL_USERNAME, "password": settings.EWAYBILL_PASSWORD}
+            if settings.EWAYBILL_LIVE_ENABLED
+            else {"username": "TEST_EWB_USER", "password": "TEST_EWB_PASSWORD"}
+        )
+        token = self.connector.authenticate(credentials)
         result = self.connector.cancel(document_no=req.document_no, reason=req.reason, token=token)
 
         # Update canonical EWayBill record if present

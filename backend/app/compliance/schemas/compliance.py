@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -175,15 +175,46 @@ class EInvoiceResponse(BaseModel):
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class EWayBillItem(BaseModel):
+    product_name: str = ""
+    product_desc: str = ""
+    hsn_code: str
+    quantity: float = 0.0
+    qty_unit: str = "NOS"
+    taxable_amount: float
+    cgst_rate: float = 0.0
+    sgst_rate: float = 0.0
+    igst_rate: float = 0.0
+    cess_rate: float = 0.0
+    cess_non_advol: float = 0.0
+
+
 class EWayBillGenerationRequest(BaseModel):
     invoice_id: str = Field(..., description="Internal SMRITI sales_invoices or transfer ID")
     doc_no: str = Field(..., description="Invoice or Delivery Challan number")
     doc_type: str = Field("INV", description="INV (Tax Invoice) or CHL (Delivery Challan)")
+    document_date: date | None = None
     from_gstin: str
     to_gstin: str
+    from_trade_name: str | None = None
+    from_addr1: str | None = None
+    from_addr2: str | None = None
+    from_place: str | None = None
+    from_state_code: int | None = None
+    actual_from_state_code: int | None = None
     from_pincode: str
+    to_trade_name: str | None = None
+    to_addr1: str | None = None
+    to_addr2: str | None = None
+    to_place: str | None = None
+    to_state_code: int | None = None
+    actual_to_state_code: int | None = None
     to_pincode: str
     trans_distance_km: int = Field(100, description="Transit distance in kilometers")
+    trans_mode: str = "1"
+    trans_doc_no: str | None = None
+    trans_doc_date: str | None = None
+    vehicle_type: str = "R"
     transporter_id: str | None = None
     transporter_name: str | None = None
     vehicle_no: str | None = None
@@ -192,7 +223,11 @@ class EWayBillGenerationRequest(BaseModel):
     cgst_amount: float | None = 0.0
     sgst_amount: float | None = 0.0
     igst_amount: float | None = 0.0
+    cess_amount: float | None = 0.0
+    other_value: float | None = 0.0
+    cess_non_advol_value: float | None = 0.0
     main_hsn_code: str | None = None
+    items: list[EWayBillItem] = Field(default_factory=list)
     trans_type: int = 1  # 1 = Regular, 2 = Bill To-Ship To, 3 = Bill From-Dispatch From, 4 = Combination
     dispatch_from_gstin: str | None = None
     dispatch_from_trade_name: str | None = None

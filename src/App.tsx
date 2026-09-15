@@ -101,6 +101,7 @@ import {
 
 // Lazy-loaded components (heavy feature modules)
 const SalesStudioTab = lazy(() => import("./components/SalesStudioTab.tsx").then(m => ({ default: m.SalesStudioTab })));
+const EWayBillManagementTab = lazy(() => import("./components/compliance/EWayBillManagementTab.tsx").then(m => ({ default: m.EWayBillManagementTab })));
 const ReportDesignerTab = lazy(() => import("./components/ReportDesignerTab.tsx").then(m => ({ default: m.ReportDesignerTab })));
 const PurchaseStudioTab = lazy(() => import("./components/PurchaseStudioTab.tsx").then(m => ({ default: m.PurchaseStudioTab })));
 const ItemMasterWs = lazy(() => import("./components/itemMaster/ItemMasterWs.tsx").then(m => ({ default: m.ItemMasterWs })));
@@ -1458,6 +1459,9 @@ const mapModuleId = (id: string): string => {
     "create-tax-invoice": "billing-workspace",
     "dist-invoice": "billing-workspace",
     "tax-invoice": "billing-workspace",
+    "ewaybill-management": "ewaybill-management",
+    ewaybill_management: "ewaybill-management",
+    "eway-bill-management": "ewaybill-management",
     "menu-sales": "sales",
     "menu-customer-master": "customer-master",
     "menu-crm": "crm",
@@ -1941,6 +1945,8 @@ const AppContent: React.FC = () => {
             currentUser={currentUser}
           />
         );
+      case "ewaybill-management":
+        return <EWayBillManagementTab onNotification={addNotification} />;
       case "purchase":
         return (
           <PurchaseStudioTab
