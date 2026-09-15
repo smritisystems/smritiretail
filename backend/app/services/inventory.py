@@ -187,6 +187,7 @@ class InventoryService:
                 brand=db_product.brand or None,
                 hsn_code=db_product.hsn_code or None,
                 tax_rate=db_product.gst_percentage or None,
+                is_tax_inclusive=db_product.is_tax_inclusive if db_product.is_tax_inclusive is not None else True,
                 primary_uom=None,
                 status=item_status,
                 is_active=True,
@@ -207,6 +208,7 @@ class InventoryService:
             variant_sku=db_product.code,
             variant_name=db_product.name,
             attributes_json={"color": db_product.color, "size": db_product.size} if (db_product.color or db_product.size) else {},
+            is_tax_inclusive=db_product.is_tax_inclusive if db_product.is_tax_inclusive is not None else True,
             is_active=True,
             is_deleted=False
         )

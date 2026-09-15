@@ -1146,7 +1146,7 @@ class POSService:
                     gst_rate=item.gst_rate,
                     disc_pct=disc_pct,
                     disc_amt=allocated_discount,
-                    is_tax_inclusive=False,
+                    is_tax_inclusive=item.is_tax_inclusive,
                     mrp=item.mrp,
                     category=item.category,
                     brand=item.brand,

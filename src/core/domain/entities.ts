@@ -45,6 +45,8 @@ export interface Product {
   size?: string;
   mrp?: number;
   gstPercentage?: number;
+  isTaxInclusive?: boolean;
+  is_tax_inclusive?: boolean;
   styleCode?: string;
   costPrice?: number;
   sku?: string;

@@ -226,6 +226,7 @@ class UniversalItemMasterService:
                 vendor_code=normalized_vendor_code,
                 hsn_code=req.hsn_code or "0000",
                 tax_rate=Decimal(str(req.tax_rate)),
+                is_tax_inclusive=req.is_tax_inclusive if getattr(req, "is_tax_inclusive", None) is not None else True,
                 primary_uom=req.primary_uom,
                 mrp=Decimal(str(req.mrp)),
                 selling_price=Decimal(str(req.selling_price)),
@@ -254,6 +255,7 @@ class UniversalItemMasterService:
                         mrp=Decimal(str(v_data.mrp or item.mrp)),
                         selling_price=Decimal(str(v_data.selling_price or item.selling_price)),
                         cost_price=Decimal(str(v_data.cost_price or item.cost_price)),
+                        is_tax_inclusive=getattr(v_data, "is_tax_inclusive", True) if getattr(v_data, "is_tax_inclusive", None) is not None else item.is_tax_inclusive,
                         is_active=v_data.is_active,
                     )
                     session.add(variant)
@@ -281,6 +283,7 @@ class UniversalItemMasterService:
                     mrp=item.mrp,
                     selling_price=item.selling_price,
                     cost_price=item.cost_price,
+                    is_tax_inclusive=item.is_tax_inclusive,
                     is_active=True,
                 )
                 session.add(variant)
@@ -394,6 +397,7 @@ class UniversalItemMasterService:
             vendor_code=normalized_vendor,
             hsn_code=clean_hsn,
             tax_rate=Decimal(str(tax_rate)),
+            is_tax_inclusive=bool(kwargs.get("is_tax_inclusive", True)),
             primary_uom=primary_uom,
             mrp=Decimal(str(mrp)),
             selling_price=Decimal(str(selling_price)),
@@ -429,6 +433,7 @@ class UniversalItemMasterService:
                         mrp=Decimal(str(v_data.get("mrp", mrp))),
                         selling_price=Decimal(str(v_data.get("selling_price", selling_price))),
                         cost_price=Decimal(str(v_data.get("cost_price", cost_price))),
+                        is_tax_inclusive=bool(v_data.get("is_tax_inclusive", item.is_tax_inclusive)),
                         is_active=True,
                         is_deleted=False,
                     )

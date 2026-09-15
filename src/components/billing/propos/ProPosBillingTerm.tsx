@@ -881,13 +881,15 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const discAmt = parseFloat(directDiscAmtInput) || ((rate * effDiscQ * discPct) / 100);
     const staff = directStaff || salesStaff;
     const gstRate = selectedProductMeta?.gstPercentage || 5.00;
+    const itemTaxInclusive = (selectedProductMeta as any)?.isTaxInclusive ?? (selectedProductMeta as any)?.is_tax_inclusive;
+    const effTaxInclusive = itemTaxInclusive !== undefined ? Boolean(itemTaxInclusive) : !isB2B;
 
     const gstCalc = calculateGST({
       unitPrice: rate,
       quantity: qty,
       discountAmount: discAmt,
       gstRate: gstRate,
-      isTaxInclusive: !isB2B,
+      isTaxInclusive: effTaxInclusive,
       isInterstate: isInterstate,
     });
 
@@ -916,6 +918,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             cgstAmount: gstCalc.cgstAmount,
             sgstAmount: gstCalc.sgstAmount,
             igstAmount: gstCalc.igstAmount,
+            isTaxInclusive: effTaxInclusive,
             lineTotal: gstCalc.totalAmount
           };
           return next;
@@ -951,12 +954,13 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         const newQty = cur.qty + qty;
         const newDiscQ = (cur.discQty || 0) + effDiscQ;
         const newDiscAmt = (cur.unitPrice * newDiscQ * cur.discountPct) / 100;
+        const updatedTaxInclusive = cur.isTaxInclusive !== undefined ? cur.isTaxInclusive : effTaxInclusive;
         const updatedGst = calculateGST({
           unitPrice: cur.unitPrice,
           quantity: newQty,
           discountAmount: newDiscAmt,
           gstRate: cur.taxPct || gstRate,
-          isTaxInclusive: !isB2B,
+          isTaxInclusive: updatedTaxInclusive,
           isInterstate: isInterstate,
         });
         next[existingIndex] = {
@@ -969,6 +973,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           cgstAmount: updatedGst.cgstAmount,
           sgstAmount: updatedGst.sgstAmount,
           igstAmount: updatedGst.igstAmount,
+          isTaxInclusive: updatedTaxInclusive,
           lineTotal: updatedGst.totalAmount
         };
         return next;
@@ -1000,7 +1005,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         cgstAmount: gstCalc.cgstAmount,
         sgstAmount: gstCalc.sgstAmount,
         igstAmount: gstCalc.igstAmount,
-        isTaxInclusive: !isB2B,
+        isTaxInclusive: effTaxInclusive,
         lineTotal: gstCalc.totalAmount
       };
 
@@ -1047,6 +1052,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       discountAmt: it.discountAmt || 99.90,
       taxPct: it.taxPct || 5.00,
       taxAmt: it.taxAmt || 42.81,
+      isTaxInclusive: it.isTaxInclusive ?? !isB2B,
       lineTotal: it.lineTotal || 899.10
     }));
 
@@ -1095,6 +1101,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       cgstAmount: it.cgst_amount,
       sgstAmount: it.sgst_amount,
       hsnCode: it.hsn_code,
+      isTaxInclusive: (it as any).is_tax_inclusive ?? (it as any).isTaxInclusive ?? !isB2B,
       lineTotal: it.line_total,
     }));
     setCartItems(prev => [...prev, ...converted]);
@@ -1247,9 +1254,11 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             code: item.sku,
             name: item.name,
             quantity: item.qty,
-            price: (item.taxableValue ?? Math.max(item.lineTotal - item.taxAmt, 0)) / item.qty,
+            price: item.isTaxInclusive ? item.unitPrice : ((item.taxableValue ?? Math.max(item.lineTotal - item.taxAmt, 0)) / item.qty),
             hsn_code: item.hsnCode,
             gst_rate: item.taxPct,
+            mrp: item.mrp,
+            is_tax_inclusive: item.isTaxInclusive,
           })),
         }),
       });
