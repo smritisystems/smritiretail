@@ -53,10 +53,21 @@ export interface IIdempotencyStore {
 /**
  * Transactional Outbox status states.
  */
-export type OutboxStatus = "PENDING" | "PROCESSING" | "DISPATCHED" | "FAILED" | "DEAD_LETTER";
+export type OutboxStatus = "PENDING" | "PROCESSING" | "DISPATCHED" | "FAILED" | "DEAD_LETTER" | "ABANDONED";
+
+/**
+ * Event retention policy tiers.
+ * Prevents premature deletion of statutory accounting, tax, or governance logs.
+ */
+export type RetentionTier = "EPHEMERAL" | "OPERATIONAL" | "STATUTORY_FINANCIAL" | "AUDIT_COMPLIANCE";
 
 /**
  * Transactional Outbox record representing an event staged within a PostgreSQL transaction.
+ * SEMANTIC RULES:
+ * - tenantId: Mandatory isolation boundary (database partition e.g. smriti001).
+ * - companyId: Optional business legal entity dimension.
+ * - branchId: Optional physical operational branch/store.
+ * RULE: tenantId must never be replaced by companyId or branchId.
  */
 export interface OutboxRecord<T = unknown> {
   outboxId: string;
@@ -66,6 +77,7 @@ export interface OutboxRecord<T = unknown> {
   eventType: string;
   aggregateType?: string;
   aggregateId?: string;
+  tenantId: string;
   companyId?: string;
   branchId?: string;
   eventSchemaVersion: string;
@@ -94,13 +106,15 @@ export interface OutboxWorkerStats {
 
 /**
  * Transactional Outbox boundary contract.
- * Stage 5 concrete implementation: PostgresEventOutbox & PlatformOutboxWorker.
+ * Stage 5.1 Hardened: Requires explicit database transaction/session ownership on all lifecycle methods.
  */
 export interface IEventOutbox {
-  stage(envelope: EventEnvelope, transactionContext?: unknown): Promise<string>;
-  fetchPending(limit?: number): Promise<EventEnvelope[]>;
-  fetchPendingAndClaim?(limit?: number, claimTimeoutSeconds?: number, targetChannel?: string): Promise<Array<[string, EventEnvelope]>>;
-  markDispatched(outboxId: string): Promise<void>;
-  markFailed(outboxId: string, errorMessage: string): Promise<void>;
+  stage(envelope: EventEnvelope, transactionContext: unknown): Promise<string>;
+  claim(transactionContext: unknown, limit?: number, claimTimeoutSeconds?: number, targetChannel?: string): Promise<Array<[string, EventEnvelope]>>;
+  markDispatched(transactionContext: unknown, outboxId: string): Promise<void>;
+  markFailed(transactionContext: unknown, outboxId: string, errorMessage: string, maxRetries?: number, baseBackoffSeconds?: number): Promise<void>;
+  replayDeadLetter?(transactionContext: unknown, outboxId: string): Promise<boolean>;
+  abandonDeadLetter?(transactionContext: unknown, outboxId: string, reason: string): Promise<boolean>;
 }
+
 

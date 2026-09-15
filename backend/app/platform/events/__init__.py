@@ -23,7 +23,8 @@ from .subscriber import EventSubscriber, EventHandler
 from .outbox import IEventOutbox
 from .postgres_outbox import PostgresEventOutbox
 from .outbox_worker import PlatformOutboxWorker
-from .service import PlatformEventService
+from .retention import RetentionTier, EventRetentionPolicy
+from .service import PlatformEventService, get_platform_event_service
 
 
 __all__ = [
@@ -45,6 +46,8 @@ __all__ = [
     "IEventOutbox",
     "PostgresEventOutbox",
     "PlatformOutboxWorker",
+    "RetentionTier",
+    "EventRetentionPolicy",
     "PlatformEventService",
+    "get_platform_event_service",
 ]
-

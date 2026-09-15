@@ -46,6 +46,14 @@ class EventSerializer:
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> EventEnvelope[Dict[str, Any]]:
-        """Reconstruct a typed EventEnvelope from a dictionary."""
-        return EventEnvelope[Dict[str, Any]](**data)
+        """Reconstruct a typed EventEnvelope from a dictionary, safely handling root-level metadata."""
+        known_fields = {
+            "id", "eventType", "version", "schemaVersion", "source",
+            "tenantId", "timestamp", "correlationId", "causationId",
+            "actorId", "payload", "metadata"
+        }
+        filtered = {k: v for k, v in data.items() if k in known_fields}
+        if "payload" not in filtered:
+            filtered["payload"] = {k: v for k, v in data.items() if k not in known_fields}
+        return EventEnvelope[Dict[str, Any]](**filtered)
 

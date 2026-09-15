@@ -53,19 +53,27 @@ class PostgresEventOutbox(IEventOutbox):
         company_id = envelope.metadata.get("company_id") or envelope.tenantId
         branch_id = envelope.metadata.get("branch_id")
 
+        # Ensure backward compatibility for legacy callers/tests expecting payload keys at root level
+        if isinstance(envelope.payload, dict):
+            stored_payload = {**envelope.payload, **serialized_envelope}
+        else:
+            stored_payload = serialized_envelope
+
+        canonical_event_type = envelope.metadata.get("event_type") or envelope.eventType.strip().upper()
+
         outbox_record = IntegrationOutboxEvent(
             outbox_id=outbox_id,
             source_event_id=envelope.id,
             correlation_id=envelope.correlationId,
             causation_id=envelope.causationId,
-            event_type=envelope.eventType.strip().upper(),
+            event_type=canonical_event_type,
             aggregate_type=envelope.source,
             aggregate_id=envelope.metadata.get("aggregate_id") or envelope.id,
             company_id=company_id,
             branch_id=branch_id,
             event_schema_version=envelope.schemaVersion,
             target_channel=target_channel,
-            payload_json=serialized_envelope,
+            payload_json=stored_payload,
             status="PENDING",
             retry_count=0,
             created_at=datetime.now(timezone.utc),

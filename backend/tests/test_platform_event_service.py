@@ -292,19 +292,26 @@ async def test_platform_event_service_end_to_end_facade():
 
 
 def test_outbox_interface_contract():
-    """Criterion 17: IEventOutbox boundary interface is cleanly declared without distributed dependencies."""
+    """Criterion 17: IEventOutbox boundary interface is cleanly declared with explicit session ownership."""
     class DummyOutbox(IEventOutbox):
         async def stage(self, envelope, db_session):
             return "outbox-001"
 
-        async def fetch_pending(self, limit: int = 100):
+        async def claim(self, db_session, limit=50, claim_timeout_seconds=60, target_channel="PLATFORM_EVENTS"):
             return []
 
-        async def mark_dispatched(self, outbox_id: str):
+        async def mark_dispatched(self, db_session, outbox_id: str):
             pass
 
-        async def mark_failed(self, outbox_id: str, error_message: str):
+        async def mark_failed(self, db_session, outbox_id: str, error_message: str, max_retries=5, base_backoff_seconds=2):
             pass
+
+        async def replay_dead_letter(self, db_session, outbox_id: str) -> bool:
+            return True
+
+        async def abandon_dead_letter(self, db_session, outbox_id: str, reason: str) -> bool:
+            return True
 
     outbox = DummyOutbox()
     assert isinstance(outbox, IEventOutbox)
+

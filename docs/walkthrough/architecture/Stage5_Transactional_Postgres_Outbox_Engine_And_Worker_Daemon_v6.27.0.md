@@ -104,7 +104,7 @@ To ensure complete isolation from legacy queue records (such as `PSV_QUEUE` or e
 
 ## 8. Tests Executed
 
-### Test Suite 1: Postgres Outbox Worker (`test_postgres_outbox_worker.py`)
+### Test Suite 1: Postgres Outbox Worker & Hardening (`test_postgres_outbox_worker.py`)
 ```powershell
 python -m pytest backend/tests/test_postgres_outbox_worker.py -v
 ```
@@ -117,17 +117,22 @@ rootdir: F:\SMRITRretailNX\backend
 configfile: pyproject.toml
 plugins: anyio-4.14.2, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collecting ... collected 7 items
+collecting ... collected 12 items
 
-backend\tests\test_postgres_outbox_worker.py::test_outbox_stage_and_rollback PASSED [ 14%]
-backend\tests\test_postgres_outbox_worker.py::test_outbox_stage_and_commit PASSED [ 28%]
-backend\tests\test_postgres_outbox_worker.py::test_outbox_fetch_pending_and_claim_skip_locked PASSED [ 42%]
-backend\tests\test_postgres_outbox_worker.py::test_outbox_zombie_claim_recovery PASSED [ 57%]
-backend\tests\test_postgres_outbox_worker.py::test_platform_outbox_worker_end_to_end PASSED [ 71%]
-backend\tests\test_postgres_outbox_worker.py::test_outbox_retry_and_dead_letter_routing PASSED [ 85%]
-backend\tests\test_postgres_outbox_worker.py::test_platform_event_service_stage_event_facade PASSED [100%]
+backend\tests\test_postgres_outbox_worker.py::test_outbox_stage_and_rollback PASSED [  8%]
+backend\tests\test_postgres_outbox_worker.py::test_outbox_stage_and_commit PASSED [ 16%]
+backend\tests\test_postgres_outbox_worker.py::test_outbox_fetch_pending_and_claim_skip_locked PASSED [ 25%]
+backend\tests\test_postgres_outbox_worker.py::test_outbox_zombie_claim_recovery PASSED [ 33%]
+backend\tests\test_postgres_outbox_worker.py::test_platform_outbox_worker_end_to_end PASSED [ 41%]
+backend\tests\test_postgres_outbox_worker.py::test_outbox_retry_and_dead_letter_routing PASSED [ 50%]
+backend\tests\test_postgres_outbox_worker.py::test_platform_event_service_stage_event_facade PASSED [ 58%]
+backend\tests\test_postgres_outbox_worker.py::test_database_level_unique_constraint_on_source_event_id PASSED [ 66%]
+backend\tests\test_postgres_outbox_worker.py::test_outbox_dlq_operational_lifecycle PASSED [ 75%]
+backend\tests\test_postgres_outbox_worker.py::test_event_retention_policy_resolution PASSED [ 83%]
+backend\tests\test_postgres_outbox_worker.py::test_transaction_rollback_removes_domain_change_and_event PASSED [ 91%]
+backend\tests\test_postgres_outbox_worker.py::test_transaction_commit_persists_domain_change_and_event PASSED [100%]
 
-============================== 7 passed in 6.61s ==============================
+============================= 12 passed in 9.24s ==============================
 ```
 
 ### Test Suite 2: Stage 4 Platform Event Service Regression (`test_platform_event_service.py`)
@@ -139,14 +144,27 @@ Literal output:
 ============================== 9 passed in 3.37s ==============================
 ```
 
-### Test Suite 3: Frontend TypeScript Production Build
+### Test Suite 3: Combined Platform Kernel & Outbox Suite (21/21 Green)
 ```powershell
+python -m pytest backend/tests/test_platform_event_service.py backend/tests/test_postgres_outbox_worker.py -v
+```
+Literal output:
+```text
+============================= 21 passed in 10.81s =============================
+```
+
+### Test Suite 4: TypeScript Type Check & Production Build
+```powershell
+npm run lint
 npm run build
 ```
 Literal output:
 ```text
+> smriti-retail-os@3.30.0 lint
+> tsc --noEmit
+
 ✓ 3547 modules transformed.
-✓ built in 32.30s
+✓ built in 29.87s
 ```
 
 ---
@@ -154,7 +172,7 @@ Literal output:
 ## 9. Verification Results
 
 ```text
-Stage 5 Platform Outbox Engine — 7-Point Completion Verification
+Stage 5.1 Platform Outbox Engine — 12-Point Hardened Verification Checklist
 
 ✓ Atomic Rollback (Discard on rollback): PASSED
 ✓ Atomic Commit (Persisted with PENDING): PASSED
@@ -163,9 +181,16 @@ Stage 5 Platform Outbox Engine — 7-Point Completion Verification
 ✓ End-to-End Worker Cycle (PlatformOutboxWorker -> PlatformEventService): PASSED
 ✓ Retry Backoff & Dead Letter Queue (Exponential backoff & DEAD_LETTER transition): PASSED
 ✓ PlatformEventService Staging Facade (Registry validation & delegation): PASSED
+✓ Database-Level Unique Constraint (ix_integration_outbox_events_source_event_id): PASSED
+✓ DLQ Operational Lifecycle (replay_dead_letter, abandon_dead_letter): PASSED
+✓ Statutory Event Retention Engine (EventRetentionPolicy per CGST Sec 36): PASSED
+✓ Domain Coupling Rollback (Discard both domain invoice & outbox event): PASSED
+✓ Domain Coupling Commit (Persist both domain invoice & outbox event): PASSED
 
-Evidence Level: Level A (Directly Observable PostgreSQL & Pytest Execution)
+Evidence Level: Level A (Directly Observable PostgreSQL Catalog, Execution Plan & Pytest)
 ```
+
+> **Worker Query Scaling Note:** Current observed query execution: 0.133 ms; production performance must be continuously monitored as outbox volume scales.
 
 ---
 
@@ -173,14 +198,15 @@ Evidence Level: Level A (Directly Observable PostgreSQL & Pytest Execution)
 
 1. **Multi-Tenant Polling Sequence:** In the single-worker setup, tenant databases are polled sequentially per cycle. A multi-process distributed supervisor can be added in future stages for high-throughput multi-tenant sharding.
 2. **Channel Filtering:** Default channel is set to `PLATFORM_EVENTS`; callers wishing to route to legacy channels must specify `target_channel` in envelope metadata.
+3. **DLQ Storage Structure:** Current DLQ implementation retains error annotations in `error_message`. A dedicated, segregated DLQ audit table can be added in subsequent platform versions.
 
 ---
 
 ## 11. Future Work
 
-1. **Distributed Outbox Supervisor:** Multi-threaded/multi-process worker supervisor managing tenant database pools concurrently.
-2. **Outbox Clean-up / Archival Job:** Scheduled cron job to archive or purge `DISPATCHED` records older than 30 days.
-3. **Stage 6 Notification Consumer:** Wire `NotificationService` to consume outbox-dispatched events for customer alerts.
+1. **Stage 5.2 (v6.27.2):** First Domain Writer Integration (`CanonicalSalesWriter.post_sales_invoice`).
+2. **Stage 6 (v6.28.0):** Notification Service consuming outbox-dispatched platform events.
+3. **Dedicated DLQ Audit Table:** Segregated audit journal for dead-letter lifecycle events.
 
 ---
 

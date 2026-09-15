@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.26.0
+  * Version    : 6.27.2
   * Created    : 2026-07-11
   * Modified   : 2026-09-16
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,62 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [6.27.2] - 2026-09-16
+
+#### Stage 5.2: First Domain Writer Integration (Sales Ledger Outbox)
+
+**Walkthrough:** [Stage5_2_First_Domain_Writer_Integration_v6.27.2.md](docs/walkthrough/architecture/Stage5_2_First_Domain_Writer_Integration_v6.27.2.md)  
+**Implementation Plan:** [Stage5_2_First_Domain_Writer_Integration_v6.27.2.md](docs/implementation/foundation/Stage5_2_First_Domain_Writer_Integration_v6.27.2.md)  
+
+- **Transactional Outbox Domain Writer Integration:**
+  - Integrated `UnifiedSalesLedgerService.post_sales_invoice` with Stage 5.1 `PlatformEventService` transactional outbox kernel.
+  - Automatically stages `sales.invoice.confirmed` (v1.0) event within the active business session, ensuring atomic commit across `sales_invoices`, `sales_invoice_items`, `stock_movements`, and `integration_outbox_events`.
+- **Cancellation Event Outbox Staging:**
+  - Integrated `UnifiedSalesLedgerService.cancel_sales_invoice` to atomically stage `sales.invoice.cancelled` (v1.0) event with cancellation reason and reverted status within the same database transaction.
+- **Canonical Architecture Export:**
+  - Exported canonical alias `CanonicalSalesWriter = UnifiedSalesLedgerService` in `sales_ledger_svc.py`, establishing single source of write truth for sales transactions.
+- **Kernel Interoperability & Backward Compatibility:**
+  - Added singleton factory `get_platform_event_service()` in `backend/app/platform/events/service.py` pre-configured with default event schemas (`sales.invoice.confirmed`, `SALES_INVOICE_CONFIRMED`, `sales.invoice.cancelled`, `SALES_INVOICE_CANCELLED`, `pos.bill.created`, `wms.goods.receipt`, `payment.received`).
+  - Added schema key normalization in `EventRegistry` supporting both dot-notation and uppercase underscore legacy aliases.
+  - Enhanced `EventSerializer.from_dict()` with envelope field filtering for resilient deserialization.
+  - Updated `PostgresEventOutbox.stage()` to hoist domain payload fields to root of `payload_json` for downstream consumer backward compatibility.
+  - Added `PlatformOutboxWorker.process_batch()` alias to `run_cycle()`.
+- **Comprehensive Verification:**
+  - 5/5 dedicated Stage 5.2 integration tests passed (`test_stage5_2_domain_writer_integration.py`).
+  - 26/26 combined Platform Event Service and Outbox Worker test suite passed.
+  - 13/13 existing domain sales ledger and outbox tests passed (`t_sales_ledger.py` + `t_outbox_stats.py`).
+  - TypeScript check (`tsc --noEmit`) 0 errors; Vite production build (3,547 modules) clean.
+  - Architecture duplication CI gate passed with 0 P0/P1 violations.
+
+### [6.27.1] - 2026-09-16
+
+#### Stage 5.1: Transactional Outbox Engine Hardening & Architectural Freeze
+
+**Walkthrough:** [Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md](docs/walkthrough/architecture/Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md)  
+**Implementation Plan:** [Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md](docs/implementation/foundation/Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md)  
+
+- **Explicit Session Ownership on `IEventOutbox`:**
+  - Enforced mandatory `db_session` parameter across all outbox operations (`stage`, `claim`, `mark_dispatched`, `mark_failed`, `replay_dead_letter`, `abandon_dead_letter`).
+  - Removed fallback ambient session delegation, preventing accidental cross-session leakage.
+- **Tenant vs. Company vs. Branch Isolation Boundary:**
+  - Codified absolute governance rule: `tenantId` is the mandatory physical database isolation partition; `companyId` and `branchId` are optional business metadata dimensions.
+- **PostgreSQL Database-Level Uniqueness Constraint:**
+  - Formally verified and tested `btree unique` index on `source_event_id` in `integration_outbox_events` (`ix_integration_outbox_events_source_event_id`), preventing concurrent duplicate staging at the storage engine level.
+- **At-Least-Once Delivery & Consumer Idempotency Contract:**
+  - Formally designated Stage 5 delivery semantics as **At-Least-Once**. Outbox worker commits after transport delivery; subscribers are required to maintain idempotent consumption.
+- **DLQ Operational Lifecycle:**
+  - Implemented `replay_dead_letter()` and `abandon_dead_letter()` methods on `IEventOutbox` with retry counter resets and audit state updates.
+- **Configurable Statutory Event Retention Engine (`EventRetentionPolicy`):**
+  - Replaced arbitrary 30-day purge with granular classification:
+    - Statutory Financial / Tax Events: 8 Years / 2,920 days (per CGST Act 2017 Section 36).
+    - Operational / Ephemeral Events: 7 Days.
+    - System / Security Audit Events: Permanent (indefinite).
+- **Controlled Domain Writer Rollout Policy:**
+  - Established phased domain writer convergence (Phase A: single writer `CanonicalSalesWriter.post_sales_invoice`; Phase B: 2-3 critical writers; Phase C: platform-wide).
+- **Verification:**
+  - Expanded test suite: **19/19 Pytest tests passing** (up from 16/16).
+  - TypeScript type check (`tsc --noEmit`) and Vite production build (`npm run build`) passing 100% clean.
 
 ### [6.27.0] - 2026-09-16
 
