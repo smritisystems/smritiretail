@@ -55,6 +55,8 @@ import {
   AlertCircle,
   Sliders,
   RefreshCw,
+  Printer,
+  BarChart3,
   X
 } from "lucide-react";
 import {
@@ -405,24 +407,24 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
   const billLevelCount = promotions.filter(p => p.isActive && p.level === "BILL_LEVEL").length;
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-100 overflow-hidden select-none font-sans">
+    <div className="flex flex-col h-full bg-slate-50 text-slate-900 overflow-hidden select-none font-sans">
       {/* ─── TOP WORKSPACE HEADER ────────────────────────────────────────── */}
-      <div className="border-b border-slate-800 bg-slate-900/90 px-6 py-4 flex items-center justify-between shadow-lg">
+      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-rose-500 to-amber-600 flex items-center justify-center shadow-md shadow-rose-900/30">
-            <Sparkles className="h-6 w-6 text-white" />
+          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-rose-500 to-amber-600 flex items-center justify-center shadow-md shadow-rose-200">
+            <Percent className="h-6 w-6 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-white">Sales Promotions Studio</h1>
-              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">Sales Promotions Studio</h1>
+              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                 Human-First Rule Engine
               </span>
-              <span className="px-2 py-0.5 text-xs font-mono rounded bg-slate-800 text-slate-400 border border-slate-700">
+              <span className="px-2 py-0.5 text-xs font-mono rounded bg-slate-100 text-slate-600 border border-slate-200">
                 Shoper 9 Parity (13 Types)
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Define customer concessions, BOGO offers, happy hours & bill slabs in plain business language
             </p>
           </div>
@@ -430,18 +432,18 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
         {/* Header Telemetry & Quick Action Badges */}
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs">
-            <div className="flex items-center gap-1.5 text-emerald-400">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+            <div className="flex items-center gap-1.5 text-emerald-700">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="font-semibold">{activeCount}</span> Active Deals
             </div>
-            <span className="text-slate-600">|</span>
-            <div className="flex items-center gap-1.5 text-amber-400">
+            <span className="text-slate-300">|</span>
+            <div className="flex items-center gap-1.5 text-amber-700">
               <Clock className="h-3.5 w-3.5" />
               <span>{happyHourCount}</span> Happy Hours
             </div>
-            <span className="text-slate-600">|</span>
-            <div className="flex items-center gap-1.5 text-blue-400">
+            <span className="text-slate-300">|</span>
+            <div className="flex items-center gap-1.5 text-blue-700">
               <Layers className="h-3.5 w-3.5" />
               <span>{billLevelCount}</span> Bill Slabs
             </div>
@@ -450,16 +452,16 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
           <button
             onClick={() => void syncWithBackend()}
             title="Synchronize with POS & PostgreSQL"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-colors"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${syncStatus === "SYNCING" ? "animate-spin text-amber-400" : "text-slate-400"}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${syncStatus === "SYNCING" ? "animate-spin text-amber-600" : "text-slate-500"}`} />
             <span>{syncStatus === "SYNCHRONIZED" ? "Synced" : syncStatus === "SYNCING" ? "Syncing..." : "Sync POS"}</span>
           </button>
 
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
               title="Close Promotions Studio"
             >
               <X className="h-5 w-5" />
@@ -469,14 +471,14 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
       </div>
 
       {/* ─── PRIMARY WORKSPACE NAVIGATION TABS ───────────────────────────── */}
-      <div className="border-b border-slate-800 bg-slate-900/60 px-6 py-2 flex items-center justify-between">
+      <div className="border-b border-slate-200 bg-white/90 backdrop-blur-xs px-6 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab("ACTIVE_LIST")}
             className={`px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all ${
               activeTab === "ACTIVE_LIST"
-                ? "bg-rose-600 text-white shadow-sm shadow-rose-900/30"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                ? "bg-rose-600 text-white shadow-sm shadow-rose-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
             <Tag className="h-4 w-4" />
@@ -489,8 +491,8 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             }}
             className={`px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all ${
               activeTab === "BUILDER"
-                ? "bg-rose-600 text-white shadow-sm shadow-rose-900/30"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                ? "bg-rose-600 text-white shadow-sm shadow-rose-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
             <Plus className="h-4 w-4" />
@@ -501,30 +503,52 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             onClick={() => setActiveTab("SIMULATOR")}
             className={`px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all ${
               activeTab === "SIMULATOR"
-                ? "bg-rose-600 text-white shadow-sm shadow-rose-900/30"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                ? "bg-rose-600 text-white shadow-sm shadow-rose-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
-            <Play className="h-4 w-4 text-emerald-400" />
+            <Play className="h-4 w-4 text-emerald-600" />
             <span>Live Cart Sandbox & Simulator</span>
-            <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 rounded text-[10px]">Test Rules</span>
+            <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px]">Test Rules</span>
           </button>
         </div>
 
-        {/* 1-Click Recipe Dropdown Quick Button */}
-        {activeTab !== "BUILDER" && (
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={handleStartNewCustom}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-600 hover:to-amber-700 text-white font-medium text-xs rounded-lg shadow-md transition-all"
+            onClick={() => window.print()}
+            title="Print promotion schemes and rule definitions"
+            aria-label="Print promotion schemes"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 shadow-xs transition-all"
           >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Create New Promotion</span>
+            <Printer className="h-3.5 w-3.5 text-slate-500" />
+            <span>Print Schemes</span>
           </button>
-        )}
+          <button
+            onClick={() => onNotification?.("QuickReports", "Opening Promotion Sales Analytics", "info")}
+            title="Open QuickReports for Sales Promotions performance analytics"
+            aria-label="Open QuickReports analytics"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 shadow-xs transition-all"
+          >
+            <BarChart3 className="h-3.5 w-3.5 text-slate-500" />
+            <span>QuickReports</span>
+          </button>
+          {activeTab !== "BUILDER" && (
+            <button
+              onClick={handleStartNewCustom}
+              title="Create new promotion rule"
+              aria-label="Create new promotion rule"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-600 hover:to-amber-700 text-white font-medium text-xs rounded-lg shadow-sm hover:shadow transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Create New Promotion</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ─── WORKSPACE CONTENT BODY ──────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-950">
+      <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
         {/* =================================================================== */}
         {/* TAB 1: ACTIVE PROMOTIONS LIST                                       */}
         {/* =================================================================== */}
@@ -534,8 +558,8 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-400" />
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-800">
                     1-Click Popular Retail Recipes (Instant Presets)
                   </h2>
                 </div>
@@ -547,25 +571,25 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   <div
                     key={recipe.id}
                     onClick={() => handleSelectRecipe(recipe)}
-                    className="group relative p-4 rounded-xl bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 hover:border-rose-500/50 cursor-pointer transition-all shadow hover:shadow-rose-950/20 flex flex-col justify-between"
+                    className="group relative p-4 rounded-xl bg-white hover:bg-rose-50/40 border border-slate-200 hover:border-rose-300 cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
                           {recipe.badge}
                         </span>
-                        <ArrowRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-rose-400 group-hover:translate-x-1 transition-all" />
+                        <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-rose-600 group-hover:translate-x-1 transition-all" />
                       </div>
-                      <h3 className="text-sm font-bold text-white group-hover:text-rose-200 transition-colors">
+                      <h3 className="text-sm font-bold text-slate-900 group-hover:text-rose-700 transition-colors">
                         {recipe.name}
                       </h3>
-                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                      <p className="text-xs text-slate-600 mt-1 line-clamp-2">
                         {recipe.tagline}
                       </p>
                     </div>
-                    <div className="mt-3 pt-2 border-t border-slate-800/60 text-[11px] text-slate-500 flex items-center gap-1 font-mono">
+                    <div className="mt-3 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center gap-1 font-mono">
                       <span>Formula:</span>
-                      <span className="text-slate-300 truncate">{recipe.defaultScheme.code}</span>
+                      <span className="text-slate-800 font-semibold truncate">{recipe.defaultScheme.code}</span>
                     </div>
                   </div>
                 ))}
@@ -573,7 +597,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
               <div className="relative w-full sm:w-96">
                 <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -581,17 +605,17 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   placeholder="Search schemes by name, code or description..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
                 />
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <span className="text-xs text-slate-400">Level:</span>
-                <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800">
+                <span className="text-xs text-slate-500">Level:</span>
+                <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200">
                   <button
                     onClick={() => setFilterLevel("ALL")}
                     className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-                      filterLevel === "ALL" ? "bg-rose-600 text-white" : "text-slate-400 hover:text-white"
+                      filterLevel === "ALL" ? "bg-rose-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     All ({promotions.length})
@@ -599,7 +623,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   <button
                     onClick={() => setFilterLevel("ITEM_LEVEL")}
                     className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-                      filterLevel === "ITEM_LEVEL" ? "bg-rose-600 text-white" : "text-slate-400 hover:text-white"
+                      filterLevel === "ITEM_LEVEL" ? "bg-rose-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     Item Level
@@ -607,7 +631,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   <button
                     onClick={() => setFilterLevel("BILL_LEVEL")}
                     className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-                      filterLevel === "BILL_LEVEL" ? "bg-rose-600 text-white" : "text-slate-400 hover:text-white"
+                      filterLevel === "BILL_LEVEL" ? "bg-rose-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     Bill Slabs
@@ -617,10 +641,10 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             </div>
 
             {/* Promotions Table */}
-            <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden shadow">
+            <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider text-[11px]">
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                     <tr>
                       <th className="py-3 px-4">Priority</th>
                       <th className="py-3 px-4">Scheme Details</th>
@@ -632,26 +656,26 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredPromotions.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-500">
-                          <Tag className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                          <Tag className="h-8 w-8 mx-auto mb-2 opacity-30" />
                           <p>No promotions found matching current criteria.</p>
                         </td>
                       </tr>
                     ) : (
                       filteredPromotions.map(p => (
-                        <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
+                        <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3.5 px-4 font-mono">
-                            <span className="h-6 w-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-slate-300">
+                            <span className="h-6 w-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700">
                               {p.priority}
                             </span>
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="font-semibold text-white text-sm">{p.name}</div>
-                            <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                              <span className="font-mono text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
+                            <div className="font-semibold text-slate-900 text-sm">{p.name}</div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                              <span className="font-mono text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
                                 {p.code}
                               </span>
                               <span className="truncate max-w-xs">{p.description}</span>
@@ -660,17 +684,17 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                           <td className="py-3.5 px-4">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
                               p.level === "ITEM_LEVEL"
-                                ? "bg-blue-500/10 text-blue-300 border border-blue-500/30"
-                                : "bg-purple-500/10 text-purple-300 border border-purple-500/30"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : "bg-purple-50 text-purple-700 border border-purple-200"
                             }`}>
                               {p.level === "ITEM_LEVEL" ? "Item Level" : "Bill Level"}
                             </span>
-                            <div className="text-[11px] text-slate-400 mt-1 font-mono">
+                            <div className="text-[11px] text-slate-500 mt-1 font-mono">
                               {p.category.replace(/^(ITEM_|BILL_)/, "")}
                             </div>
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="font-bold text-white">
+                            <div className="font-bold text-slate-900">
                               {p.category === "ITEM_OFFER_B2G1"
                                 ? `Buy ${p.buyQty} Get ${p.freeQty} FREE`
                                 : p.category === "ITEM_BUNDLE_COMBO"
@@ -680,19 +704,19 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                                 : `₹${p.discountValue} OFF`}
                             </div>
                             {p.maxDiscount && (
-                              <div className="text-[10px] text-slate-400 mt-0.5">
+                              <div className="text-[10px] text-slate-500 mt-0.5">
                                 Max Cap: ₹{p.maxDiscount.toLocaleString("en-IN")}
                               </div>
                             )}
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-1.5 text-[11px] text-slate-300">
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-700">
                               <Calendar className="h-3.5 w-3.5 text-slate-400" />
                               <span>{p.validFrom} to {p.validTo}</span>
                             </div>
                             {p.isHappyHours && (
-                              <div className="flex items-center gap-1.5 text-[10px] text-amber-400 mt-1">
-                                <Clock className="h-3 w-3" />
+                              <div className="flex items-center gap-1.5 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-1 w-fit">
+                                <Clock className="h-3 w-3 text-amber-600" />
                                 <span>{p.happyHoursStart} - {p.happyHoursEnd}</span>
                               </div>
                             )}
@@ -700,7 +724,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                           <td className="py-3.5 px-4">
                             <div className="flex flex-wrap gap-1">
                               {(p.applicableCustomerGroups || ["ALL"]).map(cg => (
-                                <span key={cg} className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 border border-slate-700">
+                                <span key={cg} className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] text-slate-700 border border-slate-200">
                                   {cg}
                                 </span>
                               ))}
@@ -711,8 +735,8 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                               onClick={() => void handleToggleActive(p)}
                               className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase transition-all ${
                                 p.isActive
-                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
-                                  : "bg-slate-800 text-slate-500 border border-slate-700 hover:bg-slate-700"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                                  : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"
                               }`}
                             >
                               {p.isActive ? "Active" : "Paused"}
@@ -722,14 +746,14 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => handleEditPromotion(p)}
-                                className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                                className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-colors"
                                 title="Edit Scheme"
                               >
                                 <Edit2 className="h-3.5 w-3.5" />
                               </button>
                               <button
                                 onClick={() => void handleDeletePromotion(p.id, p.name)}
-                                className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition-colors"
+                                className="p-1.5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
                                 title="Delete Scheme"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -752,21 +776,21 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
         {activeTab === "BUILDER" && (
           <div className="max-w-5xl mx-auto space-y-6">
             {/* Real-time Natural Language Summary Banner ("Mad-Libs" Result) */}
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-rose-950/40 via-slate-900 to-amber-950/30 border-2 border-rose-500/30 shadow-xl">
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-white to-amber-50 border-2 border-rose-200 shadow-sm">
               <div className="flex items-start gap-3">
-                <div className="h-9 w-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mt-0.5">
-                  <Sparkles className="h-5 w-5 text-rose-300" />
+                <div className="h-9 w-9 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5">
+                  <Sparkles className="h-5 w-5 text-rose-600" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-rose-400">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
                       Rule in Plain Business English:
                     </span>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Scheme Code: <strong className="text-white">{formCode}</strong>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      Scheme Code: <strong className="text-slate-900">{formCode}</strong>
                     </span>
                   </div>
-                  <p className="text-base font-semibold text-white leading-relaxed">
+                  <p className="text-base font-semibold text-slate-900 leading-relaxed">
                     "{naturalLanguageSummary}"
                   </p>
                 </div>
@@ -774,7 +798,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             </div>
 
             {/* 4-Step Wizard Navigation */}
-            <div className="grid grid-cols-4 gap-2 border-b border-slate-800 pb-3">
+            <div className="grid grid-cols-4 gap-2 border-b border-slate-200 pb-3">
               {[
                 { step: 1, title: "1. Deal Type", desc: "Choose offer format" },
                 { step: 2, title: "2. Trigger Conditions", desc: "What customer buys" },
@@ -786,11 +810,11 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   onClick={() => setBuilderStep(s.step as any)}
                   className={`text-left p-3 rounded-xl border transition-all ${
                     builderStep === s.step
-                      ? "bg-slate-900 border-rose-500 shadow-md shadow-rose-950/20"
-                      : "bg-slate-950 border-slate-800/80 hover:bg-slate-900 text-slate-400"
+                      ? "bg-white border-2 border-rose-500 shadow-sm"
+                      : "bg-slate-100/80 border-slate-200 hover:bg-white text-slate-500"
                   }`}
                 >
-                  <div className={`text-xs font-bold ${builderStep === s.step ? "text-rose-400" : "text-slate-300"}`}>
+                  <div className={`text-xs font-bold ${builderStep === s.step ? "text-rose-700" : "text-slate-700"}`}>
                     {s.title}
                   </div>
                   <div className="text-[10px] text-slate-500 mt-0.5 truncate">{s.desc}</div>
@@ -800,9 +824,9 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
             {/* ── STEP 1: DEAL TYPE ────────────────────────────────────────── */}
             {builderStep === 1 && (
-              <div className="space-y-4 bg-slate-900 p-6 rounded-2xl border border-slate-800">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-rose-400" />
+              <div className="space-y-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-rose-600" />
                   <span>Step 1: Select Deal Type & Give it a Name</span>
                 </h3>
 
@@ -862,25 +886,25 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                         }}
                         className={`p-4 rounded-xl border cursor-pointer transition-all ${
                           isSelected
-                            ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-950/30"
-                            : "bg-slate-950 border-slate-800 hover:border-slate-700"
+                            ? "bg-rose-50/70 border-2 border-rose-500 shadow-xs"
+                            : "bg-slate-50/70 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
                         }`}
                       >
                         <div className="flex items-center gap-2 mb-1.5">
-                          <Icon className={`h-4 w-4 ${isSelected ? "text-rose-400" : "text-slate-400"}`} />
-                          <span className={`text-sm font-bold ${isSelected ? "text-white" : "text-slate-200"}`}>
+                          <Icon className={`h-4 w-4 ${isSelected ? "text-rose-600" : "text-slate-500"}`} />
+                          <span className={`text-sm font-bold ${isSelected ? "text-rose-950" : "text-slate-800"}`}>
                             {dt.title}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400">{dt.desc}</p>
+                        <p className={`text-xs ${isSelected ? "text-rose-700" : "text-slate-500"}`}>{dt.desc}</p>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-800">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Scheme Name (Customer & Cashier Facing) *
                     </label>
                     <input
@@ -888,11 +912,11 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                       value={formName}
                       onChange={e => setFormName(e.target.value)}
                       placeholder="e.g. Weekend Mega Sale 20% Off"
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Short Scheme Code (Alpha-numeric) *
                     </label>
                     <input
@@ -900,7 +924,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                       value={formCode}
                       onChange={e => setFormCode(e.target.value.toUpperCase())}
                       placeholder="e.g. WKND20"
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white uppercase font-mono placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 uppercase font-mono placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
                     />
                   </div>
                 </div>
@@ -909,15 +933,15 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
             {/* ── STEP 2: TRIGGER CONDITIONS ───────────────────────────────── */}
             {builderStep === 2 && (
-              <div className="space-y-5 bg-slate-900 p-6 rounded-2xl border border-slate-800">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Package className="h-4 w-4 text-rose-400" />
+              <div className="space-y-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Package className="h-4 w-4 text-rose-600" />
                   <span>Step 2: What Items Must the Customer Buy?</span>
                 </h3>
 
                 {/* Categories Selector */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">
                     Eligible Product Categories:
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -936,8 +960,8 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                           }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                             isChecked
-                              ? "bg-rose-600 border-rose-500 text-white shadow-sm"
-                              : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                              ? "bg-rose-600 border-rose-500 text-white shadow-xs"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                           }`}
                         >
                           {isChecked ? "✓ " : "+ "} {cat}
@@ -949,7 +973,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
                 {/* Brands Input (Comma Separated) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Specific Brands (Leave empty for all brands):
                   </label>
                   <input
@@ -960,15 +984,30 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                       setFormBrands(list);
                     }}
                     placeholder="e.g. Raymond, Peter England, Louis Philippe"
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                  />
+                </div>
+
+                {/* Specific Item Code & Barcode Filters */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Specific Items & Barcode Qualifiers (Optional):
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-1.5">
+                    Filter offer by specific product SKU codes or scan product barcode labels. Leave empty to apply across all items in selected categories.
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="e.g. SKU-10024, BARCODE-89010308, 64041990"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 font-mono"
                   />
                 </div>
 
                 {/* Quantity & BOGO Controls */}
                 {formCategory === "ITEM_OFFER_B2G1" && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-950 border border-slate-800">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Customer Buys (Qty):
                       </label>
                       <input
@@ -976,11 +1015,11 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                         min={1}
                         value={formBuyQty}
                         onChange={e => setFormBuyQty(Math.max(1, Number(e.target.value)))}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Customer Gets Free (Qty):
                       </label>
                       <input
@@ -988,17 +1027,17 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                         min={1}
                         value={formFreeQty}
                         onChange={e => setFormFreeQty(Math.max(1, Number(e.target.value)))}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Which Piece is Discounted?
                       </label>
                       <select
                         value={formAppliedOn}
                         onChange={e => setFormAppliedOn(e.target.value as any)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                       >
                         <option value="LOWEST_PRICE">Cheapest Item (Recommended)</option>
                         <option value="HIGHEST_PRICE">Highest Priced Item</option>
@@ -1010,7 +1049,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                 {/* Cart Milestone threshold */}
                 {formLevel === "BILL_LEVEL" && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Minimum Bill Amount to Qualify (₹):
                     </label>
                     <input
@@ -1019,7 +1058,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                       step={100}
                       value={formMinBillValue}
                       onChange={e => setFormMinBillValue(Math.max(0, Number(e.target.value)))}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                     />
                     <p className="text-[11px] text-slate-500 mt-1">
                       Promotion triggers only when the customer's total bill net value reaches this threshold.
@@ -1031,16 +1070,16 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
             {/* ── STEP 3: REWARDS & LIMITS ─────────────────────────────────── */}
             {builderStep === 3 && (
-              <div className="space-y-5 bg-slate-900 p-6 rounded-2xl border border-slate-800">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Percent className="h-4 w-4 text-rose-400" />
+              <div className="space-y-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Percent className="h-4 w-4 text-rose-600" />
                   <span>Step 3: What Discount or Concession Do They Get?</span>
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {formCategory.includes("PERCENT") && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Discount Percentage (%):
                       </label>
                       <div className="relative">
@@ -1050,7 +1089,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                           max={100}
                           value={formDiscountValue}
                           onChange={e => setFormDiscountValue(Math.min(100, Math.max(1, Number(e.target.value))))}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white font-mono"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-mono focus:outline-none focus:border-rose-500"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
                       </div>
@@ -1059,7 +1098,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
                   {formCategory === "ITEM_DISCOUNT_FLAT" && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Flat Rupee Discount per Piece (₹):
                       </label>
                       <div className="relative">
@@ -1068,7 +1107,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                           min={1}
                           value={formDiscountValue}
                           onChange={e => setFormDiscountValue(Math.max(1, Number(e.target.value)))}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white font-mono"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-mono focus:outline-none focus:border-rose-500"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
                       </div>
@@ -1077,7 +1116,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
                   {formCategory === "BILL_DISCOUNT_FLAT" && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Flat Rupee Discount on Invoice (₹):
                       </label>
                       <div className="relative">
@@ -1086,7 +1125,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                           min={1}
                           value={formDiscountValue}
                           onChange={e => setFormDiscountValue(Math.max(1, Number(e.target.value)))}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white font-mono"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-mono focus:outline-none focus:border-rose-500"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
                       </div>
@@ -1095,7 +1134,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
                   {formCategory === "ITEM_BUNDLE_COMBO" && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Fixed Bundle Combo Price (₹):
                       </label>
                       <input
@@ -1103,14 +1142,14 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                         min={1}
                         value={formFixedComboPrice}
                         onChange={e => setFormFixedComboPrice(Math.max(1, Number(e.target.value)))}
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white font-mono"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-mono focus:outline-none focus:border-rose-500"
                       />
                     </div>
                   )}
 
                   {/* Safety Max Discount Cap */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Maximum Discount Allowed per Bill (₹ Safety Cap):
                     </label>
                     <input
@@ -1118,7 +1157,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                       min={0}
                       value={formMaxDiscount}
                       onChange={e => setFormMaxDiscount(Math.max(0, Number(e.target.value)))}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white font-mono"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-mono focus:outline-none focus:border-rose-500"
                     />
                     <p className="text-[11px] text-slate-500 mt-1">
                       Protects gross margins by ensuring no customer receives more than this ceiling.
@@ -1130,37 +1169,37 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
             {/* ── STEP 4: SCHEDULE & TARGETING ─────────────────────────────── */}
             {builderStep === 4 && (
-              <div className="space-y-5 bg-slate-900 p-6 rounded-2xl border border-slate-800">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-rose-400" />
+              <div className="space-y-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-rose-600" />
                   <span>Step 4: Who Gets It and When is it Active?</span>
                 </h3>
 
                 {/* Date Ranges */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Start Date:</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date:</label>
                     <input
                       type="date"
                       value={formValidFrom}
                       onChange={e => setFormValidFrom(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">End Date:</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">End Date:</label>
                     <input
                       type="date"
                       value={formValidTo}
                       onChange={e => setFormValidTo(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                     />
                   </div>
                 </div>
 
                 {/* Days of Week Pills */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-2">Active Days of Week:</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">Active Days of Week:</label>
                   <div className="flex flex-wrap gap-2">
                     {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(day => {
                       const isSelected = formDaysOfWeek.includes(day);
@@ -1179,8 +1218,8 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                           }}
                           className={`w-12 py-2 rounded-lg text-xs font-bold border transition-all ${
                             isSelected
-                              ? "bg-rose-600 border-rose-500 text-white"
-                              : "bg-slate-950 border-slate-800 text-slate-500 hover:text-white"
+                              ? "bg-rose-600 border-rose-500 text-white shadow-xs"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                           }`}
                         >
                           {day}
@@ -1191,41 +1230,41 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                 </div>
 
                 {/* Happy Hours Toggle */}
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-amber-400" />
+                      <Clock className="h-4 w-4 text-amber-600" />
                       <div>
-                        <div className="text-xs font-bold text-white">Happy Hours Time Window</div>
-                        <div className="text-[11px] text-slate-400">Limit discount to specific hours during the day</div>
+                        <div className="text-xs font-bold text-slate-900">Happy Hours Time Window</div>
+                        <div className="text-[11px] text-slate-500">Limit discount to specific hours during the day</div>
                       </div>
                     </div>
                     <input
                       type="checkbox"
                       checked={formIsHappyHours}
                       onChange={e => setFormIsHappyHours(e.target.checked)}
-                      className="h-4 w-4 rounded accent-rose-500 cursor-pointer"
+                      className="h-4 w-4 rounded accent-rose-600 cursor-pointer"
                     />
                   </div>
 
                   {formIsHappyHours && (
-                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-800/80">
+                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-200">
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">Start Time (24h):</label>
+                        <label className="block text-[11px] text-slate-600 mb-1">Start Time (24h):</label>
                         <input
                           type="time"
                           value={formHappyHoursStart}
                           onChange={e => setFormHappyHoursStart(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">End Time (24h):</label>
+                        <label className="block text-[11px] text-slate-600 mb-1">End Time (24h):</label>
                         <input
                           type="time"
                           value={formHappyHoursEnd}
                           onChange={e => setFormHappyHoursEnd(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                         />
                       </div>
                     </div>
@@ -1234,7 +1273,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
                 {/* Customer Targeting */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-2">Customer Groups:</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">Customer Groups:</label>
                   <div className="flex flex-wrap gap-2">
                     {["ALL", "VIP", "WHOLESALE", "CORPORATE", "STAFF"].map(cg => {
                       const isSelected = formCustomerGroups.includes(cg);
@@ -1257,8 +1296,8 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                           }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                             isSelected
-                              ? "bg-rose-600 border-rose-500 text-white"
-                              : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                              ? "bg-rose-600 border-rose-500 text-white shadow-xs"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                           }`}
                         >
                           {isSelected ? "✓ " : ""} {cg === "ALL" ? "All Customers" : cg}
@@ -1271,7 +1310,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             )}
 
             {/* Bottom Builder Buttons */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => {
@@ -1281,7 +1320,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                     setActiveTab("ACTIVE_LIST");
                   }
                 }}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition-colors"
               >
                 {builderStep === 1 ? "Cancel & Back to List" : "← Previous Step"}
               </button>
@@ -1292,7 +1331,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   onClick={() => {
                     setActiveTab("SIMULATOR");
                   }}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 shadow"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 shadow-xs"
                 >
                   <Play className="h-3.5 w-3.5" />
                   <span>Test in Simulator</span>
@@ -1302,7 +1341,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   <button
                     type="button"
                     onClick={() => setBuilderStep((builderStep + 1) as any)}
-                    className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-rose-900/30"
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 shadow-xs"
                   >
                     <span>Next Step →</span>
                   </button>
@@ -1310,7 +1349,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   <button
                     type="button"
                     onClick={() => void handleSavePromotion()}
-                    className="px-6 py-2 bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-600 hover:to-amber-700 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center gap-2"
+                    className="px-6 py-2 bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-600 hover:to-amber-700 text-white text-xs font-bold rounded-lg transition-all shadow-md flex items-center gap-2"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     <span>Save & Deploy Scheme to POS</span>
@@ -1328,13 +1367,13 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Mock Cart & Scenario Settings (5 cols) */}
             <div className="lg:col-span-5 space-y-4">
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-md">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <ShoppingCart className="h-4 w-4 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4 text-emerald-600" />
                     <span>Mock Customer Cart</span>
                   </h3>
-                  <span className="text-xs text-slate-400 font-mono">
+                  <span className="text-xs text-slate-500 font-mono font-semibold">
                     {simCart.reduce((a, b) => a + b.qty, 0)} Items
                   </span>
                 </div>
@@ -1342,26 +1381,26 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                 {/* Cart Items List */}
                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-1">
                   {simCart.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-slate-500 bg-slate-950 rounded-lg">
+                    <div className="py-6 text-center text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-lg">
                       Cart is empty. Add items from catalog below.
                     </div>
                   ) : (
                     simCart.map(item => (
                       <div
                         key={item.id}
-                        className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
+                        className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs"
                       >
                         <div>
-                          <div className="font-semibold text-white">{item.name}</div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="font-semibold text-slate-900">{item.name}</div>
+                          <div className="text-[11px] text-slate-500">
                             {item.brand} • {item.category} • ₹{item.unitPrice.toLocaleString("en-IN")}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-white font-mono">x{item.qty}</span>
+                          <span className="font-bold text-slate-900 font-mono">x{item.qty}</span>
                           <button
                             onClick={() => handleRemoveSimItem(item.id)}
-                            className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
+                            className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -1372,8 +1411,8 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                 </div>
 
                 {/* Add Quick Mock Items */}
-                <div className="border-t border-slate-800 pt-3">
-                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                <div className="border-t border-slate-200 pt-3">
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
                     Quick Add Sample Items:
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -1381,7 +1420,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                       <button
                         key={p.id}
                         onClick={() => handleAddSimItem(p)}
-                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700 transition-colors"
+                        className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium border border-slate-200 transition-colors"
                       >
                         + {p.name.split(" ")[0]} (₹{p.unitPrice})
                       </button>
@@ -1391,19 +1430,19 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
               </div>
 
               {/* Scenario Conditions (Time, Day, Customer) */}
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3 shadow-md">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Sliders className="h-4 w-4 text-rose-400" />
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-3 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Sliders className="h-4 w-4 text-rose-600" />
                   <span>Simulation Environment</span>
                 </h3>
 
                 <div className="grid grid-cols-3 gap-3 text-xs">
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Customer Group:</label>
+                    <label className="block text-[11px] text-slate-600 mb-1">Customer Group:</label>
                     <select
                       value={simCustomerGroup}
                       onChange={e => setSimCustomerGroup(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-white text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded text-slate-900 text-xs focus:outline-none focus:border-rose-500"
                     >
                       <option value="ALL">All Shoppers</option>
                       <option value="VIP">VIP Member</option>
@@ -1413,21 +1452,21 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Test Time (24h):</label>
+                    <label className="block text-[11px] text-slate-600 mb-1">Test Time (24h):</label>
                     <input
                       type="time"
                       value={simTime}
                       onChange={e => setSimTime(e.target.value)}
-                      className="w-full px-2 py-1 bg-slate-950 border border-slate-800 rounded text-white text-xs"
+                      className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-slate-900 text-xs focus:outline-none focus:border-rose-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Test Day:</label>
+                    <label className="block text-[11px] text-slate-600 mb-1">Test Day:</label>
                     <select
                       value={simDay}
                       onChange={e => setSimDay(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-white text-xs"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded text-slate-900 text-xs focus:outline-none focus:border-rose-500"
                     >
                       {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(d => (
                         <option key={d} value={d}>{d}</option>
@@ -1438,7 +1477,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
                 <button
                   onClick={handleRunSimulation}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-950/30 transition-all mt-2"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all mt-2"
                 >
                   <Play className="h-4 w-4" />
                   <span>Re-Evaluate Simulation</span>
@@ -1449,15 +1488,15 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             {/* Right Column: Live Mathematical Results (7 cols) */}
             <div className="lg:col-span-7 space-y-4">
               {/* Active Tested Rule Banner */}
-              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Currently Testing Scheme:</span>
-                  <div className="text-sm font-bold text-white mt-0.5">{currentDraftPromo.name}</div>
-                  <div className="text-xs text-slate-400 font-mono">[{currentDraftPromo.code}] • {currentDraftPromo.category}</div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Currently Testing Scheme:</span>
+                  <div className="text-sm font-bold text-slate-900 mt-0.5">{currentDraftPromo.name}</div>
+                  <div className="text-xs text-slate-500 font-mono">[{currentDraftPromo.code}] • {currentDraftPromo.category}</div>
                 </div>
                 <button
                   onClick={() => setActiveTab("BUILDER")}
-                  className="px-3 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors"
+                  className="px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-200 transition-colors"
                 >
                   Edit Rule Parameters
                 </button>
@@ -1467,50 +1506,50 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
               {simulationResult && (
                 <div className={`p-5 rounded-2xl border ${
                   simulationResult.isEligible
-                    ? "bg-emerald-950/20 border-emerald-500/40 shadow-emerald-950/20"
-                    : "bg-amber-950/20 border-amber-500/40 shadow-amber-950/20"
-                } shadow-lg space-y-4`}>
+                    ? "bg-emerald-50/70 border-emerald-300 shadow-xs"
+                    : "bg-amber-50/70 border-amber-300 shadow-xs"
+                } space-y-4`}>
                   <div className="flex items-center gap-3">
                     {simulationResult.isEligible ? (
-                      <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
                     ) : (
-                      <AlertCircle className="h-6 w-6 text-amber-400 shrink-0" />
+                      <AlertCircle className="h-6 w-6 text-amber-600 shrink-0" />
                     )}
                     <div>
-                      <h4 className={`text-base font-bold ${simulationResult.isEligible ? "text-emerald-300" : "text-amber-300"}`}>
+                      <h4 className={`text-base font-bold ${simulationResult.isEligible ? "text-emerald-900" : "text-amber-900"}`}>
                         {simulationResult.isEligible ? "Promotion Successfully Triggered!" : "Promotion Not Applicable"}
                       </h4>
-                      <p className="text-xs text-slate-300 mt-0.5">
+                      <p className={`text-xs mt-0.5 ${simulationResult.isEligible ? "text-emerald-800" : "text-amber-800"}`}>
                         {simulationResult.reason}
                       </p>
                     </div>
                   </div>
 
                   {/* Financial Breakdown Table */}
-                  <div className="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden text-xs">
+                  <div className="rounded-xl bg-white border border-slate-200 overflow-hidden text-xs shadow-xs">
                     <table className="w-full text-left">
-                      <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800 text-[11px]">
+                      <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[11px]">
                         <tr>
                           <th className="py-2.5 px-3">Item Description</th>
                           <th className="py-2.5 px-3 text-right">Qty</th>
                           <th className="py-2.5 px-3 text-right">Original</th>
-                          <th className="py-2.5 px-3 text-right text-emerald-400">Discount</th>
-                          <th className="py-2.5 px-3 text-right text-white">Final Net</th>
+                          <th className="py-2.5 px-3 text-right text-emerald-700">Discount</th>
+                          <th className="py-2.5 px-3 text-right text-slate-900">Final Net</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                      <tbody className="divide-y divide-slate-100 font-mono">
                         {simulationResult.lines.map((l, i) => (
-                          <tr key={i} className="hover:bg-slate-900/30">
+                          <tr key={i} className="hover:bg-slate-50/60">
                             <td className="py-2.5 px-3 font-sans">
-                              <div className="font-semibold text-slate-200">{l.name}</div>
-                              <div className="text-[10px] text-slate-400">{l.appliedRule}</div>
+                              <div className="font-semibold text-slate-900">{l.name}</div>
+                              <div className="text-[10px] text-slate-500">{l.appliedRule}</div>
                             </td>
-                            <td className="py-2.5 px-3 text-right text-slate-300">x{l.qty}</td>
-                            <td className="py-2.5 px-3 text-right text-slate-400">₹{l.originalLineTotal.toLocaleString("en-IN")}</td>
-                            <td className="py-2.5 px-3 text-right font-bold text-emerald-400">
+                            <td className="py-2.5 px-3 text-right text-slate-700">x{l.qty}</td>
+                            <td className="py-2.5 px-3 text-right text-slate-500">₹{l.originalLineTotal.toLocaleString("en-IN")}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
                               {l.discountAmount > 0 ? `-₹${l.discountAmount.toLocaleString("en-IN")}` : "—"}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-bold text-white">
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-900">
                               ₹{l.finalLineTotal.toLocaleString("en-IN")}
                             </td>
                           </tr>
@@ -1520,22 +1559,22 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
                   </div>
 
                   {/* Grand Totals */}
-                  <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
                     <div>
-                      <span className="text-slate-400">Original Gross:</span>
-                      <span className="font-mono font-bold text-slate-200 ml-2">
+                      <span className="text-slate-500">Original Gross:</span>
+                      <span className="font-mono font-bold text-slate-700 ml-2">
                         ₹{simulationResult.originalTotal.toLocaleString("en-IN")}
                       </span>
                     </div>
                     <div>
-                      <span className="text-emerald-400 font-semibold">Total Savings:</span>
-                      <span className="font-mono font-bold text-emerald-300 ml-2">
+                      <span className="text-emerald-700 font-semibold">Total Savings:</span>
+                      <span className="font-mono font-bold text-emerald-700 ml-2">
                         ₹{simulationResult.discountTotal.toLocaleString("en-IN")}
                       </span>
                     </div>
                     <div className="text-sm">
-                      <span className="text-slate-300 font-bold">Customer Pays:</span>
-                      <span className="font-mono font-black text-rose-400 text-base ml-2">
+                      <span className="text-slate-700 font-bold">Customer Pays:</span>
+                      <span className="font-mono font-black text-rose-600 text-base ml-2">
                         ₹{simulationResult.finalTotal.toLocaleString("en-IN")}
                       </span>
                     </div>

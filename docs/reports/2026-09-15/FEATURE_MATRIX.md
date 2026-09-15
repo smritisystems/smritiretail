@@ -1,6 +1,6 @@
 # SMRITI Feature Matrix
 
-*Generated: 2026-09-14T16:15:37.420733+00:00*
+*Generated: 2026-09-15T06:36:24.389941+00:00*
 
 | Module | UI Designed | Frontend | Backend | Business Logic | Validation | Security | Reports | Printing | Barcode |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -11,7 +11,7 @@
 | Customer Master | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | CRM & Loyalty | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
 | Loyalty Studio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Promotions Studio | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Promotions Studio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | POS Terminals | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Purchase Studio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Vendor 360 Workspace | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |

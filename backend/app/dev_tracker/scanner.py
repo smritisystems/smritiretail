@@ -113,6 +113,15 @@ MODULES_MAP = {
         "tests": ["loyalty", "customer", "crm"],
         "docs": ["loyalty", "crm"]
     },
+    "sales-promotions": {
+        "name": "Promotions Studio",
+        "category": "Sales & POS",
+        "frontend": "SmritiSalesPromotionsStudio.tsx",
+        "routes": ["promotions", "schemes", "promotion_campaigns"],
+        "tables": ["promotion_campaigns", "promotion_rules", "promotion_slab_allocations"],
+        "tests": ["smritiSalesPromotionsStudio", "smritiSalesPromotionEngine", "test_promotions_schemes_api", "promotion"],
+        "docs": ["promotions", "promotion", "Sales_Promotions"]
+    },
     "stock-ledger": {
         "name": "Stock Ledger",
         "category": "Inventory & Sourcing",

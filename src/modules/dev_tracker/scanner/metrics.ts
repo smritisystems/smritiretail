@@ -123,6 +123,13 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
       testKeywords: ["loyalty", "customer", "crm"],
       docKeywords: ["loyalty", "crm"]
     },
+    "sales-promotions": {
+      frontendKeyword: "SmritiSalesPromotionsStudio.tsx",
+      routeKeywords: ["promotions", "schemes", "promotion_campaigns"],
+      tableKeywords: ["promotion_campaigns", "promotion_rules", "promotion_slab_allocations"],
+      testKeywords: ["smritiSalesPromotionsStudio", "smritiSalesPromotionEngine", "test_promotions_schemes_api", "promotion"],
+      docKeywords: ["promotions", "promotion", "Sales_Promotions"]
+    },
     "stock-ledger": {
       frontendKeyword: "StockLedgerTab.tsx",
       routeKeywords: ["inventory", "stock"],
