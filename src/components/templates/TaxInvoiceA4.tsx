@@ -730,7 +730,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
         <div className="mt-6 text-center text-[9px] text-gray-500 border-t border-dashed pt-2 font-mono flex flex-col justify-center items-center text-center px-1">
           <div>
             <p>This is a computer-generated tax invoice and does not require a physical signature.</p>
-            <p className="font-bold uppercase tracking-wider text-gray-700 mt-0.5 text-[8.5px]">Subject to Mumbai Jurisdiction.</p>
+            <p className="font-bold uppercase tracking-wider text-gray-700 mt-0.5 text-[8.5px]">Subject to Nagpur Jurisdiction.</p>
             <p className="font-bold text-gray-600 mt-0.5">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</p>
           </div>
         </div>
