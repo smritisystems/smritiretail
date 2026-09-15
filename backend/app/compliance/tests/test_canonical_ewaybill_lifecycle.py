@@ -18,7 +18,7 @@ from sqlalchemy import select, delete
 
 from httpx import AsyncClient, ASGITransport
 from app.main import app
-from app.api.deps import TenantContext, get_db, get_tenant_context
+from app.api.deps import TenantContext, get_db, get_tenant_context, get_current_user
 from app.compliance.models.compliance import ComplianceAuditLog
 from app.compliance.schemas.compliance import (
     EWayBillGenerationRequest,
@@ -192,10 +192,16 @@ async def test_get_ewaybill_api_endpoint(db_session):
     test_ewb_no = f"2609{uuid.uuid4().hex[:8]}"
     test_inv_no = f"INV-GET-{uuid.uuid4().hex[:4].upper()}"
 
+    from app.models.auth import User, UserRole
+
     async def _mock_tenant():
         return TenantContext(company_id=comp.id, branch_id=br.id)
 
+    async def _mock_user():
+        return User(id="usr-test-ewb", username="test_ewb_user", role=UserRole.SYSADMIN)
+
     app.dependency_overrides[get_tenant_context] = _mock_tenant
+    app.dependency_overrides[get_current_user] = _mock_user
 
     ewb = EWayBill(
         id=f"EWB-{uuid.uuid4().hex[:8]}",
@@ -243,6 +249,7 @@ async def test_get_ewaybill_api_endpoint(db_session):
             assert res3.status_code == 404
     finally:
         app.dependency_overrides.pop(get_tenant_context, None)
+        app.dependency_overrides.pop(get_current_user, None)
         # Cleanup
         await db_session.execute(delete(EWayBill).where(EWayBill.id == ewb.id))
         await db_session.execute(delete(Branch).where(Branch.company_id == comp.id))

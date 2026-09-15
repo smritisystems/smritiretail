@@ -1,12 +1,12 @@
 # SMRITI Development Status Dashboard
 
-*Generated: 2026-09-14T15:07:21.254365+00:00*
-*Branch: smritiNX | Last Commit: a8ddf7c2*
+*Generated: 2026-09-14T16:15:37.420733+00:00*
+*Branch: smritiNX | Last Commit: bc1d0edf*
 
 ## SMRITI Development Health Index (DHI)
 ```
-DHI:      █████████░ 99% (Grade A)
-Release:  █████████░ 95%
+DHI:      █████████░ 98% (Grade A)
+Release:  █████████░ 94%
 Security: ██████████ 100%
 ```
 
@@ -21,6 +21,7 @@ Security: ██████████ 100%
 | Customer Master | Sales & POS | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 68% |
 | CRM & Loyalty | Sales & POS | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 80% |
 | Loyalty Studio | Sales & POS | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 72% |
+| Promotions Studio | Sales & POS | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 44% |
 | POS Terminals | Sales & POS | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 68% |
 | Purchase Studio | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 68% |
 | Vendor 360 Workspace | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 88% |

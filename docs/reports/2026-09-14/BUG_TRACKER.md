@@ -1,6 +1,6 @@
 # Bug Tracker Log
 
-*Generated: 2026-09-14T15:07:21.254365+00:00*
+*Generated: 2026-09-14T16:15:37.420733+00:00*
 
 | Module | Risk Rating | Critical Issues / Recommendations |
 | :--- | :---: | :--- |
@@ -11,6 +11,7 @@
 | Customer Master | Low | No active recommendations |
 | CRM & Loyalty | Low | No active recommendations |
 | Loyalty Studio | Low | No active recommendations |
+| Promotions Studio | High | No active recommendations |
 | POS Terminals | Low | No active recommendations |
 | Purchase Studio | Low | No active recommendations |
 | Vendor 360 Workspace | Low | No active recommendations |

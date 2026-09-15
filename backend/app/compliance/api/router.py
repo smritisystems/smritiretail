@@ -214,7 +214,7 @@ async def cancel_ewaybill_endpoint(
 
 
 @router.get(
-    "/ewaybill/{document_no_or_id}",
+    "/ewaybill/{document_no_or_id:path}",
     summary="Get E-Way Bill Details",
     description="Retrieves canonical E-Way Bill details by E-Way Bill number, document number, or invoice ID."
 )
@@ -225,13 +225,35 @@ async def get_ewaybill_endpoint(
 ) -> dict[str, Any]:
     from sqlalchemy import select
     from app.models.distribution import EWayBill
-    stmt = select(EWayBill).where(
-        (EWayBill.eway_bill_no == document_no_or_id) |
-        (EWayBill.document_no == document_no_or_id) |
-        (EWayBill.invoice_id == document_no_or_id)
-    )
-    res = await db.execute(stmt)
-    ewb = res.scalars().first()
+    from app.db.session import resolve_company_database_name, get_company_sessionmaker
+
+    target_session = db
+    company_session = None
+    if tenant_ctx and tenant_ctx.company_id:
+        try:
+            target_db = await resolve_company_database_name(tenant_ctx.company_id)
+            if target_db and target_db != "smritisys":
+                sm = get_company_sessionmaker(target_db)
+                company_session = sm()
+                target_session = company_session
+        except Exception:
+            pass
+
+    try:
+        stmt = select(EWayBill).where(
+            (EWayBill.eway_bill_no == document_no_or_id) |
+            (EWayBill.document_no == document_no_or_id) |
+            (EWayBill.invoice_id == document_no_or_id)
+        )
+        res = await target_session.execute(stmt)
+        ewb = res.scalars().first()
+        if not ewb and target_session != db:
+            res_ctrl = await db.execute(stmt)
+            ewb = res_ctrl.scalars().first()
+    finally:
+        if company_session:
+            await company_session.close()
+
     if not ewb:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-Way Bill not found.")
     return {

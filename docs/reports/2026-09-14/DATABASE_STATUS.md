@@ -1,6 +1,6 @@
 # Database Entities Registry
 
-*Generated: 2026-09-14T15:07:21.254365+00:00*
+*Generated: 2026-09-14T16:15:37.420733+00:00*
 
 | Module | Database Setup | Checked Status |
 | :--- | :---: | :--- |
@@ -11,6 +11,7 @@
 | Customer Master | ✅ | Schema tables fully validated |
 | CRM & Loyalty | ✅ | Schema tables fully validated |
 | Loyalty Studio | ✅ | Schema tables fully validated |
+| Promotions Studio | ❌ | Missing or incomplete DB tables mapping |
 | POS Terminals | ✅ | Schema tables fully validated |
 | Purchase Studio | ✅ | Schema tables fully validated |
 | Vendor 360 Workspace | ✅ | Schema tables fully validated |

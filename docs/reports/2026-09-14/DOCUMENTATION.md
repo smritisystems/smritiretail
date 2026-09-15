@@ -1,6 +1,6 @@
 # Documentation Status Sheet
 
-*Generated: 2026-09-14T15:07:21.254365+00:00*
+*Generated: 2026-09-14T16:15:37.420733+00:00*
 
 | Module | Docs Present | Recommendation |
 | :--- | :---: | :--- |
@@ -11,6 +11,7 @@
 | Customer Master | ✅ | Documentation is up to date |
 | CRM & Loyalty | ✅ | Documentation is up to date |
 | Loyalty Studio | ✅ | Documentation is up to date |
+| Promotions Studio | ✅ | Documentation is up to date |
 | POS Terminals | ✅ | Documentation is up to date |
 | Purchase Studio | ✅ | Documentation is up to date |
 | Vendor 360 Workspace | ✅ | Documentation is up to date |

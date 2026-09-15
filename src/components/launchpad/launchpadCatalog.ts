@@ -191,7 +191,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     id: "sales-promotions",
     title: "Sales Promotions Studio",
     subtitle: "Define retail schemes, BOGO, combo offers, happy hours & customer group targeting",
-    icon: "campaign",
+    icon: "percent",
     tag: "Promotions",
     badgeType: "success",
     group: "Master Data & Stock",

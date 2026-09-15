@@ -148,7 +148,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     {
       id: "sales-promotions",
       label: "Promotions Studio",
-      icon: "campaign",
+      icon: "percent",
       category: "Sales & POS",
     },
 

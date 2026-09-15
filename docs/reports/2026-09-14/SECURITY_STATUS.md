@@ -1,6 +1,6 @@
 # Security Compliance Status
 
-*Generated: 2026-09-14T15:07:21.254365+00:00*
+*Generated: 2026-09-14T16:15:37.420733+00:00*
 
 | Module | Auth Complete | Authz Complete | Security Status |
 | :--- | :---: | :---: | :--- |
@@ -11,6 +11,7 @@
 | Customer Master | ✅ | ✅ | Secure |
 | CRM & Loyalty | ✅ | ✅ | Secure |
 | Loyalty Studio | ✅ | ✅ | Secure |
+| Promotions Studio | ✅ | ✅ | Secure |
 | POS Terminals | ✅ | ✅ | Secure |
 | Purchase Studio | ✅ | ✅ | Secure |
 | Vendor 360 Workspace | ✅ | ✅ | Secure |

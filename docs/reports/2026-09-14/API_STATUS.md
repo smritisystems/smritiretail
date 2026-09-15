@@ -1,6 +1,6 @@
 # API Endpoints Audit
 
-*Generated: 2026-09-14T15:07:21.254365+00:00*
+*Generated: 2026-09-14T16:15:37.420733+00:00*
 
 | Module | API Routes Integrated | Status |
 | :--- | :---: | :--- |
@@ -11,6 +11,7 @@
 | Customer Master | ✅ | Endpoints active and exposed |
 | CRM & Loyalty | ✅ | Endpoints active and exposed |
 | Loyalty Studio | ✅ | Endpoints active and exposed |
+| Promotions Studio | ✅ | Endpoints active and exposed |
 | POS Terminals | ✅ | Endpoints active and exposed |
 | Purchase Studio | ✅ | Endpoints active and exposed |
 | Vendor 360 Workspace | ✅ | Endpoints active and exposed |
