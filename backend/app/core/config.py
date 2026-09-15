@@ -153,6 +153,17 @@ class Settings(BaseSettings):
     # Statutory Compliance Configuration
     STRICT_STATUTORY_MODE: bool = False
 
+    # NIC E-Way Bill v1.03 integration. Live calls remain disabled until explicitly configured.
+    EWAYBILL_LIVE_ENABLED: bool = False
+    EWAYBILL_BASE_URL: str = "https://ewb-apisandbox.nic.in/ewbv1"
+    EWAYBILL_CLIENT_ID: str | None = None
+    EWAYBILL_CLIENT_SECRET: str | None = None
+    EWAYBILL_GSTIN: str | None = None
+    EWAYBILL_USERNAME: str | None = None
+    EWAYBILL_PASSWORD: str | None = None
+    EWAYBILL_PUBLIC_KEY: str | None = None
+    EWAYBILL_TIMEOUT_SECONDS: float = 30.0
+
     model_config = {
         "env_file": ".env",
         "case_sensitive": True,

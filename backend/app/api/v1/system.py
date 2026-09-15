@@ -29,7 +29,6 @@ from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
 from ...models.tenant import Company, Branch
-from ...models.inventory import Store
 from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
@@ -691,22 +690,12 @@ async def company_setup(
             await db.flush()
             created_branches.append(branch)
 
-            store_id = f"stor-{timestamp_ms + idx}"
-            store_record = Store(
-                id=store_id,
-                company_id=company_id,
-                branch_id=branch_id,
-                code=branch_code,
-                name=branch_name,
-                store_type=store.type or "Company Owned",
-                address=store.address or "",
-                is_active=True,
-                is_deleted=False,
-                created_by=current_user.username,
-                updated_by=current_user.username,
-            )
-            db.add(store_record)
-            created_stores.append(store_record)
+            created_stores.append({
+                "id": branch_id,
+                "name": branch_name,
+                "code": branch_code,
+                "branch_id": branch_id,
+            })
 
         for idx, staff in enumerate(staff_entries):
             username = (staff.username or "").strip()
@@ -812,7 +801,7 @@ async def company_setup(
                 for b in created_branches
             ],
             "stores": [
-                {"id": s.id, "name": s.name, "code": s.code, "branch_id": s.branch_id}
+                {"id": s["id"], "name": s["name"], "code": s["code"], "branch_id": s["branch_id"]}
                 for s in created_stores
             ],
             "users": created_users,

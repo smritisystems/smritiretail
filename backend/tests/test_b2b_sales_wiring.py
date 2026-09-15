@@ -446,6 +446,37 @@ async def test_01_corporate_customer_with_single_gst_registration(setup_seed_dat
 
 
 @pytest.mark.anyio
+async def test_invoice_totals_ignore_tampered_client_totals(setup_seed_data, tenant_ctx):
+    data = setup_seed_data
+    async with TestSessionLocal() as session:
+        invoice = await SalesService(session, tenant_ctx).create_sales_invoice(
+            SalesInvoiceCreate(
+                customer_id=data["cust_ril"].id,
+                warehouse_id=data["warehouse_id"],
+                payment_mode="CASH",
+                grand_total=Decimal("1.00"),
+                tax_total=Decimal("0.00"),
+                discount_amount=Decimal("999.00"),
+                net_amount=Decimal("1.00"),
+                items=[
+                    SalesInvoiceItemCreate(
+                        product_id=data["product_id"],
+                        code=data["product_code"],
+                        name="Authoritative total test",
+                        price=Decimal("100.00"),
+                        quantity=Decimal("1.0000"),
+                        gst_rate=Decimal("18.00"),
+                    )
+                ],
+            )
+        )
+
+        assert invoice.discount_amount == Decimal("0.00")
+        assert invoice.net_amount == invoice.grand_total
+        assert invoice.grand_total == Decimal("118.00")
+
+
+@pytest.mark.anyio
 async def test_02_corporate_customer_with_multiple_gst_registrations(setup_seed_data, tenant_ctx):
     """Requirement 2: Corporate customer with multiple GST registrations persists explicitly selected registration."""
     data = setup_seed_data

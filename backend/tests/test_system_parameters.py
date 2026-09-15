@@ -27,9 +27,9 @@ for p in [str(workspace_root), str(backend_dir)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from backend.app.db.session import async_session
-from backend.app.services.system_parameter import SystemParameterService
-from backend.app.models.system_parameter import SystemParameter
+from app.db.session import async_session
+from app.services.system_parameter import SystemParameterService
+from app.models.system_parameter import SystemParameter
 
 
 @pytest.mark.asyncio

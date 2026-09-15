@@ -209,3 +209,54 @@ export interface ItemBrowseFilterColumn {
   condition: "Contains" | "Equals" | "Starts With" | "Ends With";
   checked: boolean;
 }
+
+// ─── Barcode CSV Import Engine ───────────────────────────────────────────────
+
+export type CsvFormatTier =
+  | "FORMAT_1"
+  | "FORMAT_2"
+  | "FORMAT_3"
+  | "FORMAT_4"
+  | "FORMAT_5"
+  | "FORMAT_6"
+  | "FORMAT_PDT";
+
+export type CsvRowStatus = "VALID" | "WARNING" | "REJECTED";
+
+export interface CsvImportRow {
+  row_index: number;
+  barcode: string;
+  status: CsvRowStatus;
+  // Resolution (VALID / WARNING)
+  resolved_item?: string;
+  resolved_sku?: string;
+  product_id?: string;  // catalog product UUID — required for checkout
+  hsn_code?: string;
+  quantity?: number;
+  catalog_mrp?: number;
+  effective_selling_price?: number;
+  mrp_markdown_pct?: number;
+  mrp_markdown_display?: string;
+  gst_rate?: number;
+  taxable_value?: number;
+  cgst_amount?: number;
+  sgst_amount?: number;
+  line_total?: number;
+  available_stock?: number;
+  uom?: string;
+  warnings?: string[];
+  // Error (REJECTED)
+  error_code?: string;
+  error_message?: string;
+}
+
+export interface CsvImportResult {
+  format_detected: CsvFormatTier;
+  format_label: string;
+  total_rows: number;
+  valid_rows: number;
+  rejected_rows: number;
+  warning_rows: number;
+  can_proceed: boolean;
+  rows: CsvImportRow[];
+}

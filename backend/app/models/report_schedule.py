@@ -26,6 +26,7 @@ class ReportSchedule(BaseEntity):
     Stores report automation schedule metadata per tenant with multi-channel distribution.
     """
     __tablename__ = "report_schedules"
+    __table_args__ = {"extend_existing": True}
 
     schedule_name = Column(String(150), nullable=False, index=True)
     report_code = Column(String(50), nullable=False, index=True)  # e.g., 'RPT-SAL-001', 'RPT-TAX-006'
@@ -75,6 +76,7 @@ class ReportDispatchLog(BaseEntity):
     Records delivery statuses, SHA-256 integrity digests, and channel latency metrics.
     """
     __tablename__ = "report_dispatch_logs"
+    __table_args__ = {"extend_existing": True}
 
     schedule_id = Column(String(50), ForeignKey("report_schedules.id", ondelete="CASCADE"), nullable=False, index=True)
     report_code = Column(String(50), nullable=False, index=True)

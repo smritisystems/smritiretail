@@ -21,6 +21,7 @@ import { SmritiLoyaltyLookupDlgpModal } from "./ProPosLoyaltyLooku.tsx";
 import { SmritiProPosSalesReturnModal } from "./ProPosSalesReturnD.tsx";
 import { SmritiProPosTaxInvoiceReceipt } from "./ProPosTaxInvoiceRc.tsx";
 import { SmritiPdtImportDlg } from "./ProPosPdtImportDlg.tsx";
+import { BarcodeCSVImportModal, ResolvedCartItem } from "../BarcodeCSVImportModal.tsx";
 import { SmritiCustomerBrowseModal } from "./CustBrowseDlg.tsx";
 import { SmritiProPosHotkeysDlg } from "./ProPosHotkeysDlg.tsx";
 import { SmritiProPosReprintDlg } from "./ProPosReprintDlg.tsx";
@@ -599,6 +600,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showReturnModal, setShowReturnModal] = useState<boolean>(false);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
+  const [showCsvImportModal, setShowCsvImportModal] = useState<boolean>(false);
   const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
   const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
   const [showF6PromoModal, setShowF6PromoModal] = useState<boolean>(false);
@@ -1050,6 +1052,61 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
     setCartItems(prev => [...prev, ...converted]);
     onNotification?.("PDT Loaded", `Successfully imported ${converted.length} items from PDT.`, "success");
+  };
+
+  // Import CSV Items callback (Barcode CSV Import Engine)
+  const handleCsvImportConfirmed = (items: ResolvedCartItem[]) => {
+    // Strictly enforce: Allow ONLY items with a valid product_id verified in the database
+    const validDbItems = items.filter(it => it.product_id && it.product_id.trim() !== "");
+    const rejectedCount = items.length - validDbItems.length;
+
+    if (validDbItems.length === 0) {
+      onNotification?.(
+        "Import Blocked",
+        "No valid database items found. Only barcodes or SKUs present in the database can be added to billing.",
+        "error"
+      );
+      return;
+    }
+
+    const converted: ProPosCartItem[] = validDbItems.map((it, idx) => ({
+      id: `csv-${Date.now()}-${idx}`,
+      productId: it.product_id,
+      itemNo: cartItems.length + idx + 1,
+      sku: it.resolved_sku || it.barcode,
+      barcode: it.barcode,
+      name: it.resolved_item || it.barcode,
+      size: "—",
+      color: "—",
+      brand: "—",
+      salesStaff: salesStaff,
+      qty: it.quantity,
+      mrp: it.catalog_mrp,
+      unitPrice: it.effective_selling_price,
+      discCode: "CSVImp",
+      discQty: it.quantity,
+      discountPct: it.catalog_mrp > 0
+        ? Math.round((it.catalog_mrp - it.effective_selling_price) / it.catalog_mrp * 100 * 100) / 100
+        : 0,
+      discountAmt: (it.catalog_mrp - it.effective_selling_price) * it.quantity,
+      taxPct: it.gst_rate,
+      taxAmt: it.cgst_amount + it.sgst_amount,
+      taxableValue: it.taxable_value,
+      cgstAmount: it.cgst_amount,
+      sgstAmount: it.sgst_amount,
+      hsnCode: it.hsn_code,
+      lineTotal: it.line_total,
+    }));
+    setCartItems(prev => [...prev, ...converted]);
+    if (rejectedCount > 0) {
+      onNotification?.(
+        "CSV Imported with Exclusions",
+        `${converted.length} item(s) added from database. ${rejectedCount} unverified item(s) were excluded.`,
+        "warning"
+      );
+    } else {
+      onNotification?.("CSV Imported", `${converted.length} database-verified item(s) added to bill.`, "success");
+    }
   };
 
   // Remove Item from Grid
@@ -1506,8 +1563,19 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                   }}
                   className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3"
                 >
-                  <span className="flex items-center gap-2"><UploadCloud size={13} />Import</span>
+                  <span className="flex items-center gap-2"><UploadCloud size={13} />PDT Import</span>
                   <kbd className="text-[10px] font-mono opacity-70">Alt+I</kbd>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowCsvImportModal(true);
+                    setShowOverflowMenu(false);
+                  }}
+                  className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3"
+                >
+                  <span className="flex items-center gap-2"><FileSpreadsheet size={13} />CSV Import</span>
                 </button>
                 <button
                   type="button"
@@ -2546,6 +2614,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           onClose={() => setShowPdtImportModal(false)}
         />
       )}
+
+      <BarcodeCSVImportModal
+        isOpen={showCsvImportModal}
+        onClose={() => setShowCsvImportModal(false)}
+        onImportConfirmed={handleCsvImportConfirmed}
+      />
 
       {showSettlementModal && (
         <SmritiPosSettlement

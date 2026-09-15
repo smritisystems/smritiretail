@@ -55,6 +55,9 @@ from .inventory import InventoryService
 from .inventory_warehouse_resolver import InventoryWarehouseResolver
 from .sales_return_policy import SalesReturnPolicyResolver
 from .sales_return_refund_adapter import SalesReturnRefundAdapter
+from .customer_discount_policy import resolve_customer_discount_policy, validate_customer_discount_policy
+from .promotions_engine import PromotionsEngine
+from ..schemas.promotions import PromotionCartItem, PromotionEvaluationRequest, PromotionRedemptionRequest
 from .documents_engine import DocumentsEngine
 from .compliance_audit import ComplianceAuditService
 from ..api.deps import TenantContext
@@ -190,6 +193,7 @@ class SalesService:
         pos_state_code = None
 
         cust_db_record = None
+        customer_discount_policy = None
         if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
             # Tenant verification
             cust_stmt = select(Customer).options(
@@ -232,6 +236,12 @@ class SalesService:
                 customer_name = getattr(cust_db_record, "name", None)
             if not customer_gstin:
                 customer_gstin = cust_db_record.canonical_gstin
+            customer_discount_policy = await resolve_customer_discount_policy(
+                self.db,
+                resolved_customer_id,
+                self.tenant_ctx.company_id,
+                self.tenant_ctx.branch_id,
+            )
         else:
             if not customer_name:
                 customer_name = "Walk-In / Cash Customer"
@@ -453,8 +463,37 @@ class SalesService:
         calculated_taxable_total = Decimal("0.00")
         calculated_tax_total = Decimal("0.00")
         calculated_grand_total = Decimal("0.00")
+        calculated_gross_total = Decimal("0.00")
+        calculated_discount_total = Decimal("0.00")
         invoice_items = []
         batch_deductions = []
+        promotion_result = None
+        if any(getattr(invoice_in, field, None) for field in ("promotion_campaign_id", "promotion_coupon_code", "promotion_coupon_id")):
+            promotion_result = await PromotionsEngine.evaluate_promotions(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                req=PromotionEvaluationRequest(
+                    items=[PromotionCartItem(
+                        item_id=item.item_id or item.product_id or item.code,
+                        product_name=item.name,
+                        category=item.category,
+                        brand=item.brand,
+                        unit_price=float(item.price),
+                        quantity=float(item.quantity),
+                    ) for item in invoice_in.items],
+                    campaign_id=getattr(invoice_in, "promotion_campaign_id", None),
+                    coupon_code=getattr(invoice_in, "promotion_coupon_code", None),
+                    coupon_id=getattr(invoice_in, "promotion_coupon_id", None),
+                    customer_id=resolved_customer_id,
+                    customer_group_id=getattr(cust_db_record, "customer_group_id", None),
+                    branch_id=self.tenant_ctx.branch_id,
+                    store_id=self.tenant_ctx.branch_id,
+                    channel="POS" if invoice_in.payment_mode else "B2B",
+                ),
+            )
+            if not promotion_result.applied_promotions:
+                raise HTTPException(status_code=400, detail="Requested promotion is not eligible for this invoice.")
+        cart_gross_total = sum(Decimal(str(item.quantity)) * Decimal(str(item.price)) for item in invoice_in.items)
 
         for idx, item in enumerate(invoice_in.items, start=1):
             quantity = Decimal(str(item.quantity))
@@ -536,8 +575,15 @@ class SalesService:
                 )
 
             # Compute discount amount if discount percentage is given
-            disc_pct = Decimal(str(item.disc_pct or "0.00"))
-            discount_amount = (unit_price * quantity * disc_pct / Decimal("100.00")) if disc_pct > 0 else Decimal("0.00")
+            if promotion_result:
+                promo_total = Decimal(str(promotion_result.total_promotional_discount))
+                discount_amount = (promo_total * unit_price * quantity / cart_gross_total).quantize(Decimal("0.01")) if cart_gross_total > 0 else Decimal("0.00")
+                disc_pct = (discount_amount / (unit_price * quantity) * Decimal("100.00")) if unit_price * quantity > 0 else Decimal("0.00")
+            else:
+                disc_pct = Decimal(str(item.disc_pct or "0.00"))
+                discount_amount = (unit_price * quantity * disc_pct / Decimal("100.00")) if disc_pct > 0 else Decimal("0.00")
+            calculated_gross_total += unit_price * quantity
+            calculated_discount_total += discount_amount
 
             tax_calc = calculate_line_item_tax(
                 unit_price=unit_price,
@@ -576,6 +622,13 @@ class SalesService:
                 source_line_id=getattr(item, "source_line_id", None),
             )
             invoice_items.append(db_item)
+
+        if customer_discount_policy:
+            validate_customer_discount_policy(
+                customer_discount_policy,
+                calculated_discount_total,
+                calculated_gross_total,
+            )
 
         # 2. Concurrency-Safe Customer Row Lock & Authoritative Credit Check (Blockers 2 & 3)
         if is_credit_mode:
@@ -700,8 +753,8 @@ class SalesService:
             counter_id=getattr(invoice_in, "counter_id", None),
             paid_amount=final_paid_amount,
             balance_amount=final_balance_amount,
-            discount_amount=getattr(invoice_in, "discount_amount", None) or Decimal("0.00"),
-            net_amount=getattr(invoice_in, "net_amount", None) or Decimal("0.00"),
+            discount_amount=calculated_discount_total,
+            net_amount=calculated_grand_total,
             rule_snapshots=snapshots,
             import_validation_notes=getattr(invoice_in, "remarks", None),
             # Phase 2C Corporate B2B Fields & Immutable Snapshots
@@ -754,6 +807,32 @@ class SalesService:
         except Exception as ef:
             print(f"[SalesService Error at flush db_invoice]: {ef}")
             raise
+
+        if promotion_result:
+            for applied in promotion_result.applied_promotions:
+                await PromotionsEngine.record_redemption(
+                    session=self.db,
+                    company_id=self.tenant_ctx.company_id,
+                    req=PromotionRedemptionRequest(
+                        campaign_id=applied.campaign_id,
+                        coupon_id=applied.coupon_id,
+                        customer_id=resolved_customer_id,
+                        reference_invoice_id=db_invoice.id,
+                        discount_applied=applied.discount_amount,
+                        items=[PromotionCartItem(
+                            item_id=item.item_id or item.product_id or item.code,
+                            product_name=item.name,
+                            category=item.category,
+                            brand=item.brand,
+                            unit_price=float(item.price),
+                            quantity=float(item.quantity),
+                        ) for item in invoice_in.items],
+                        customer_group_id=getattr(cust_db_record, "customer_group_id", None),
+                        branch_id=self.tenant_ctx.branch_id,
+                        store_id=self.tenant_ctx.branch_id,
+                        channel="POS" if invoice_in.payment_mode else "B2B",
+                    ),
+                )
 
         # 4. Deduct stock from WMS batch stocks atomically (only for completed/settled sales)
         if (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]:

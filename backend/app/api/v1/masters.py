@@ -22,7 +22,7 @@ from sqlalchemy.future import select
 from ...api.deps import get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.tenant import Company, Branch
-from ...models.inventory import Store, Warehouse
+from ...models.inventory import Warehouse
 from ...schemas.masters_tier2 import (
     CompanyCreate, CompanyUpdate, CompanyResponse,
     BranchCreate, BranchUpdate, BranchResponse,
@@ -112,9 +112,7 @@ async def list_masters(
         return [BranchResponse.from_orm_model(x) for x in res.scalars().all()]
         
     elif norm_type == "store":
-        q_store = _scoped_query(Store, current_user).order_by(Store.name.asc())
-        res = await db.execute(q_store)
-        return [StoreResponse.from_orm_model(x) for x in res.scalars().all()]
+        return []  # Retired in Phase C (v1454)
         
     elif norm_type == "warehouse":
         q_warehouse = _scoped_query(Warehouse, current_user).order_by(Warehouse.name.asc())
@@ -187,26 +185,10 @@ async def create_master(
         return BranchResponse.from_orm_model(item_branch)
 
     elif norm_type == "store":
-        req_store = StoreCreate(**payload)
-        # Referential integrity check
-        branch_exists = await _validate_branch_scope(db, req_store.branch, current_user)
-
-        new_id = f"store-{timestamp_ms}"
-        item_store = Store()
-        setattr(item_store, "id", new_id)
-        setattr(item_store, "code", req_store.code)
-        setattr(item_store, "name", req_store.name)
-        setattr(item_store, "branch_id", req_store.branch)
-        setattr(item_store, "store_type", req_store.store_type)
-        setattr(item_store, "address", req_store.address)
-        setattr(item_store, "is_active", req_store.status == "Active" if req_store.status else True)
-        setattr(item_store, "is_deleted", False)
-        setattr(item_store, "created_by", current_user.username)
-        setattr(item_store, "updated_by", current_user.username)
-        db.add(item_store)
-        await db.commit()
-        await db.refresh(item_store)
-        return StoreResponse.from_orm_model(item_store)
+        raise HTTPException(
+            status_code=410,
+            detail="Store entity has been retired in Phase C (v1454). Use branches or warehouses instead."
+        )
 
     elif norm_type == "warehouse":
         req_warehouse = WarehouseCreate(**payload)
@@ -305,29 +287,10 @@ async def update_master(
         return BranchResponse.from_orm_model(item_branch)
 
     elif norm_type == "store":
-        req_store = StoreUpdate(**payload)
-        item_store = await _scoped_entity(db, Store, id, current_user)
-        
-        if req_store.branch:
-            branch_exists = await _validate_branch_scope(db, req_store.branch, current_user)
-            setattr(item_store, "branch_id", req_store.branch)
-
-        if req_store.name is not None:
-            setattr(item_store, "name", req_store.name)
-        if req_store.code is not None:
-            setattr(item_store, "code", req_store.code)
-        if req_store.store_type is not None:
-            setattr(item_store, "store_type", req_store.store_type)
-        if req_store.address is not None:
-            setattr(item_store, "address", req_store.address)
-        if req_store.status is not None:
-            setattr(item_store, "is_active", req_store.status == "Active")
-            
-        setattr(item_store, "updated_by", current_user.username)
-        setattr(item_store, "modified_at", datetime.now(timezone.utc))
-        await db.commit()
-        await db.refresh(item_store)
-        return StoreResponse.from_orm_model(item_store)
+        raise HTTPException(
+            status_code=410,
+            detail="Store entity has been retired in Phase C (v1454)."
+        )
 
     elif norm_type == "warehouse":
         req_warehouse = WarehouseUpdate(**payload)
@@ -399,12 +362,10 @@ async def delete_master(
         return {"success": True, "deletedId": id}
 
     elif norm_type == "store":
-        item_store = await _scoped_entity(db, Store, id, current_user)
-        setattr(item_store, "is_deleted", True)
-        setattr(item_store, "deleted_at", datetime.now(timezone.utc))
-        setattr(item_store, "deleted_by", current_user.username)
-        await db.commit()
-        return {"success": True, "deletedId": id}
+        raise HTTPException(
+            status_code=410,
+            detail="Store entity has been retired in Phase C (v1454)."
+        )
 
     elif norm_type == "warehouse":
         item_warehouse = await _scoped_entity(db, Warehouse, id, current_user)

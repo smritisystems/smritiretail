@@ -75,10 +75,14 @@ async def setup_test_master_data():
                 name="Wholesale Tier 1",
                 credit_limit=Decimal("5000.00"),
                 credit_days=30,
+                max_discount_percent=Decimal("10.00"),
                 is_active=True,
                 is_deleted=False,
             )
             session.add(cg)
+        else:
+            cg.max_discount_percent = Decimal("10.00")
+            cg.can_receive_discount = True
 
         # 3. Customer linked to CustomerGroup
         cust = (await session.execute(select(Customer).where(Customer.id == "cust_canonical_test_01"))).scalar_one_or_none()

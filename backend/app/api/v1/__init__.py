@@ -21,6 +21,7 @@ from . import (
     auth,
     assignments,
     barcode,
+    billing_csv,
     barcode_registry,
     changelog,
     crm,

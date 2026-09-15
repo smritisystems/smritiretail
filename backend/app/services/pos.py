@@ -1092,6 +1092,7 @@ class POSService:
             CanonicalTenderItem,
         )
         from .canonical_sales_writer import CanonicalSalesPostingWriter
+        from .customer_discount_policy import resolve_customer_discount_policy, validate_customer_discount_policy
         from ..models.sales import SalesInvoice
         from sqlalchemy.orm import selectinload
 
@@ -1105,13 +1106,22 @@ class POSService:
 
         base_total = sum(item.quantity * item.price for item in req.items)
         bill_discount = Decimal("0.00")
-        if req.bill_discount_val and req.bill_discount_val > 0:
+        has_server_promotion = bool(req.promotion_campaign_id or req.promotion_coupon_code or req.promotion_coupon_id)
+        if not has_server_promotion and req.bill_discount_val and req.bill_discount_val > 0:
             bill_discount = (
                 base_total * req.bill_discount_val / Decimal("100")
                 if req.bill_discount_type == "percent"
                 else req.bill_discount_val
             ).quantize(Decimal("0.01"))
         bill_discount = min(max(bill_discount, Decimal("0.00")), base_total)
+
+        customer_policy = await resolve_customer_discount_policy(
+            self.db,
+            req.customer_id,
+            self.tenant.company_id,
+            self.tenant.branch_id,
+        )
+        validate_customer_discount_policy(customer_policy, bill_discount, base_total)
 
         canon_items = []
         for item in req.items:
@@ -1138,20 +1148,15 @@ class POSService:
                     disc_amt=allocated_discount,
                     is_tax_inclusive=False,
                     mrp=item.mrp,
+                    category=item.category,
+                    brand=item.brand,
                 )
             )
 
         pm = (req.payment_mode or "CASH").upper()
+        # The canonical writer creates the tender after authoritative promotion,
+        # discount, tax, and rounding calculation. Client totals are display-only.
         tenders = []
-        if pm != "CREDIT":
-            est_total = sum(i.quantity * i.price for i in req.items) - bill_discount
-            tender_amt = req.grand_total if (req.grand_total and req.grand_total > Decimal("0.00")) else est_total
-            tenders.append(
-                CanonicalTenderItem(
-                    tender_type=pm,
-                    amount=max(tender_amt, Decimal("0.01")),
-                )
-            )
 
         canon_req = CanonicalPostingRequest(
             context=CanonicalPostingContext(
@@ -1179,6 +1184,9 @@ class POSService:
             payment_mode=pm,
             items=canon_items,
             tenders=tenders,
+            promotion_campaign_id=req.promotion_campaign_id,
+            promotion_coupon_code=req.promotion_coupon_code,
+            promotion_coupon_id=req.promotion_coupon_id,
         )
 
         canon_result = await CanonicalSalesPostingWriter.post_sales_transaction(

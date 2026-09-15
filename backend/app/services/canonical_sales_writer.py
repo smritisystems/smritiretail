@@ -46,6 +46,9 @@ from .inventory_wms import InventoryWmsService
 from .payments_engine import PaymentsEngine
 from .outbox_service import OutboxService
 from .numbering import NumberingService
+from .customer_discount_policy import resolve_customer_discount_policy, validate_customer_discount_policy
+from .promotions_engine import PromotionsEngine
+from ..schemas.promotions import PromotionCartItem, PromotionEvaluationRequest, PromotionRedemptionRequest
 from ..api.deps import TenantContext
 
 logger = logging.getLogger("smriti.canonical_sales_writer")
@@ -215,6 +218,7 @@ class CanonicalSalesPostingWriter:
             q_cust = select(Customer).where(
                 Customer.id == req.customer_id,
                 Customer.company_id == company_id,
+                (Customer.branch_id == branch_id) | Customer.branch_id.is_(None),
                 Customer.is_deleted == False,
             ).with_for_update()
             res_cust = await session.execute(q_cust)
@@ -224,6 +228,41 @@ class CanonicalSalesPostingWriter:
                     status_code=404,
                     detail=f"SMRITI-CRM-001: Customer '{req.customer_id}' not found for company '{company_id}'.",
                 )
+
+        customer_discount_policy = await resolve_customer_discount_policy(
+            session,
+            req.customer_id,
+            company_id,
+            branch_id,
+        )
+
+        promotion_result = None
+        if req.promotion_campaign_id or req.promotion_coupon_code or req.promotion_coupon_id:
+            promotion_result = await PromotionsEngine.evaluate_promotions(
+                session=session,
+                company_id=company_id,
+                req=PromotionEvaluationRequest(
+                    items=[PromotionCartItem(
+                        item_id=item.item_id or item.product_id or item.code,
+                        variant_id=item.variant_id,
+                        product_name=item.name,
+                        category=item.category,
+                        brand=item.brand,
+                        unit_price=float(item.unit_price),
+                        quantity=float(item.quantity),
+                    ) for item in req.items],
+                    campaign_id=req.promotion_campaign_id,
+                    coupon_code=req.promotion_coupon_code,
+                    coupon_id=req.promotion_coupon_id,
+                    customer_id=req.customer_id,
+                    customer_group_id=getattr(db_customer, "customer_group_id", None),
+                    branch_id=branch_id,
+                    store_id=branch_id,
+                    channel=req.context.source_channel,
+                ),
+            )
+            if not promotion_result.applied_promotions:
+                raise HTTPException(status_code=400, detail="Requested promotion is not eligible for this transaction.")
 
         if credit_tender_amount > 0:
             if not db_customer:
@@ -298,6 +337,10 @@ class CanonicalSalesPostingWriter:
         total_sgst = Decimal("0.00")
         total_igst = Decimal("0.00")
         total_tax = Decimal("0.00")
+        cart_gross_total = sum(
+            Decimal(str(item.quantity)) * Decimal(str(item.unit_price))
+            for item in req.items
+        )
 
         for idx, item in enumerate(req.items):
             line_no = idx + 1
@@ -380,10 +423,14 @@ class CanonicalSalesPostingWriter:
             gross_base = qty * rate
 
             disc_amount = Decimal("0.00")
-            if item.disc_pct and item.disc_pct > 0:
-                disc_amount += round_currency(gross_base * Decimal(str(item.disc_pct)) / Decimal("100.00"))
-            if item.disc_amt and item.disc_amt > 0:
-                disc_amount += Decimal(str(item.disc_amt))
+            if promotion_result:
+                promo_total = Decimal(str(promotion_result.total_promotional_discount))
+                disc_amount = round_currency(promo_total * gross_base / cart_gross_total) if cart_gross_total > 0 else Decimal("0.00")
+            else:
+                if item.disc_pct and item.disc_pct > 0:
+                    disc_amount += round_currency(gross_base * Decimal(str(item.disc_pct)) / Decimal("100.00"))
+                if item.disc_amt and item.disc_amt > 0:
+                    disc_amount += Decimal(str(item.disc_amt))
             disc_amount = min(disc_amount, gross_base)
 
             # Execute canonical GST math
@@ -414,7 +461,7 @@ class CanonicalSalesPostingWriter:
                 "quantity": qty,
                 "price": rate,
                 "mrp": Decimal(str(item.mrp)) if item.mrp else None,
-                "disc_pct": item.disc_pct,
+                "disc_pct": (disc_amount / gross_base * Decimal("100.00")) if gross_base > 0 else Decimal("0.00"),
                 "discount_amount": disc_amount,
                 "taxable_value": tax_dict["taxable_value"],
                 "gst_rate": gst_rate,
@@ -443,6 +490,7 @@ class CanonicalSalesPostingWriter:
         raw_net = sum(l["total_amount"] for l in calculated_lines)
         net_rounded = round_currency(raw_net)
         round_off = net_rounded - raw_net
+        validate_customer_discount_policy(customer_discount_policy, total_discount, total_gross)
 
         # 7. Invoice Numbering Allocation
         invoice_no = req.context.client_invoice_no
@@ -588,6 +636,7 @@ class CanonicalSalesPostingWriter:
                 "source_channel": req.context.source_channel,
                 "supervisor_override": req.context.supervisor_override_code,
                 "calculated_at": datetime.now(timezone.utc).isoformat(),
+                "promotion_evaluation": promotion_result.model_dump(mode="json") if promotion_result else None,
             },
         )
         session.add(db_invoice)
@@ -622,6 +671,33 @@ class CanonicalSalesPostingWriter:
             session.add(db_item)
 
         await session.flush()
+
+        if promotion_result:
+            for applied in promotion_result.applied_promotions:
+                await PromotionsEngine.record_redemption(
+                    session=session,
+                    company_id=company_id,
+                    req=PromotionRedemptionRequest(
+                        campaign_id=applied.campaign_id,
+                        coupon_id=applied.coupon_id,
+                        customer_id=req.customer_id,
+                        reference_invoice_id=db_invoice.id,
+                        discount_applied=applied.discount_amount,
+                        items=[PromotionCartItem(
+                            item_id=item.item_id or item.product_id or item.code,
+                            variant_id=item.variant_id,
+                            product_name=item.name,
+                            category=item.category,
+                            brand=item.brand,
+                            unit_price=float(item.unit_price),
+                            quantity=float(item.quantity),
+                        ) for item in req.items],
+                        customer_group_id=getattr(db_customer, "customer_group_id", None),
+                        branch_id=branch_id,
+                        store_id=branch_id,
+                        channel=req.context.source_channel,
+                    ),
+                )
 
         # 10. Update Customer Outstanding if Credit Tender
         if credit_tender_amount > 0 and db_customer:
@@ -672,10 +748,25 @@ class CanonicalSalesPostingWriter:
                         raise
 
         # 12. Payments Engine Multi-Tender Recording
+        # POS does not send a client-derived tender amount. Create the tender
+        # from the final server-calculated total only after all pricing rules,
+        # promotions, tax, and rounding have been applied.
+        tenders_to_process = list(req.tenders)
+        if (
+            req.context.source_channel == "POS_RETAIL"
+            and (req.payment_mode or "CASH").upper() != "CREDIT"
+            and not tenders_to_process
+        ):
+            from ..schemas.canonical_posting import CanonicalTenderItem
+            tenders_to_process = [CanonicalTenderItem(
+                tender_type=(req.payment_mode or "CASH").upper(),
+                amount=net_rounded,
+            )]
+
         total_paid = Decimal("0.00")
-        if req.tenders:
+        if tenders_to_process:
             payment_tenders: List[PaymentTenderItem] = []
-            for t in req.tenders:
+            for t in tenders_to_process:
                 t_amt = Decimal(str(t.amount))
                 total_paid += t_amt
                 payment_tenders.append(

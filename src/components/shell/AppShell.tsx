@@ -33,7 +33,7 @@ interface AppShellProps {
 }
 
 const mapModuleToContext = (moduleId: string): BusinessContext => {
-  if (['sales', 'crm', 'tax-invoice-print'].includes(moduleId)) {
+  if (['sales', 'crm', 'tax-invoice-print', 'ewaybill-management'].includes(moduleId)) {
     return 'sales';
   }
   if (['purchase', 'grn', 'supplier-mgmt', 'vendor-360', 'vendor-master', 'vendors', 'approval-matrix'].includes(moduleId)) {

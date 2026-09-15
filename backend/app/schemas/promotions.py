@@ -134,11 +134,15 @@ class PromotionEvaluationRequest(BaseModel):
     campaign_ids: Optional[List[str]] = None
     campaign_code: Optional[str] = None
     coupon_code: Optional[str] = None
+    coupon_id: Optional[str] = None
     customer_id: Optional[str] = None
+    customer_group_id: Optional[str] = None
     customer_tier: Optional[str] = None
     store_id: Optional[str] = None
+    branch_id: Optional[str] = None
     channel: str = Field("POS", description="POS, ECOMMERCE, MOBILE_APP, B2B")
     as_of_date: Optional[datetime] = None
+    reference_invoice_id: Optional[str] = None
 
 
 class AppliedPromotionDetail(BaseModel):
@@ -170,6 +174,13 @@ class PromotionRedemptionRequest(BaseModel):
     reference_invoice_id: str
     discount_applied: float = Field(..., ge=0.0)
     conflict_resolution_strategy: str = "BEST_BENEFIT"
+    items: Optional[List[PromotionCartItem]] = None
+    customer_group_id: Optional[str] = None
+    customer_tier: Optional[str] = None
+    store_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    channel: str = "POS"
+    as_of_date: Optional[datetime] = None
 
 
 class PromotionRedemptionResponse(BaseModel):

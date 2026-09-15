@@ -54,6 +54,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
   },
   {
+    id: "ewaybill-management",
+    title: "E-Way Bill Management",
+    subtitle: "Review invoice sets, prepare NIC v1.03 JSON & generate selected or ranged bills",
+    icon: "local_shipping",
+    tag: "GST Compliance",
+    badgeType: "warning",
+    group: "Finance & Ledgers",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
     id: "purchase",
     title: "Purchase Studio",
     subtitle: "Vendor purchase orders, goods receipt notes (GRN) & matrix grid paste",

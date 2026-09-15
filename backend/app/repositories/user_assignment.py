@@ -11,13 +11,12 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import List, Optional
+from typing import List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from ..models.user_assignment import (
     UserCompanyAssignment,
     UserBranchAssignment,
-    UserStoreAssignment,
 )
 from .base import BaseRepository
 from ..api.deps import TenantContext
@@ -67,23 +66,14 @@ class UserBranchAssignmentRepository(BaseRepository[UserBranchAssignment]):
         return result.scalars().first()
 
 
-class UserStoreAssignmentRepository(BaseRepository[UserStoreAssignment]):
+class UserStoreAssignmentRepository:
+    """RETIRED — Phase C: Table dropped in v1454. Returns empty results for compatibility."""
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
-        super().__init__(UserStoreAssignment, db, tenant_ctx)
+        self.db = db
 
-    async def list_by_user(self, user_id: str) -> List[UserStoreAssignment]:
-        stmt = select(UserStoreAssignment).filter(
-            UserStoreAssignment.user_id == user_id,
-            UserStoreAssignment.is_deleted == False,
-        )
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
+    async def list_by_user(self, user_id: str) -> List[Any]:
+        return []
 
-    async def get_by_user_and_store(self, user_id: str, store_id: str) -> Optional[UserStoreAssignment]:
-        stmt = select(UserStoreAssignment).filter(
-            UserStoreAssignment.user_id == user_id,
-            UserStoreAssignment.store_id == store_id,
-            UserStoreAssignment.is_deleted == False,
-        )
-        result = await self.db.execute(stmt)
-        return result.scalars().first()
+    async def get_by_user_and_store(self, user_id: str, store_id: str) -> Optional[Any]:
+        return None
+

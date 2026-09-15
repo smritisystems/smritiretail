@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.31.0
+  * Version    : 6.26.0
   * Created    : 2026-07-11
-  * Modified   : 2026-09-13
+  * Modified   : 2026-09-16
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,80 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [6.26.0] - 2026-09-16
+
+#### Stage 4 Platform Event Service & Canonical Table Convergence
+
+**Walkthrough:** [Stage4_Platform_Event_Service_And_Canonical_Convergence_v6.26.0.md](docs/walkthrough/architecture/Stage4_Platform_Event_Service_And_Canonical_Convergence_v6.26.0.md)  
+**Architecture Decision:** [ADR-005-One-Way-Canonical-Master-To-Compatibility-Projection-Architecture.md](docs/adr/ADR-005-One-Way-Canonical-Master-To-Compatibility-Projection-Architecture.md)  
+**Dependency Matrix:** [CANONICAL_TABLE_DEPENDENCY_MATRIX_2026.md](docs/_audit/CANONICAL_TABLE_DEPENDENCY_MATRIX_2026.md)
+
+- **One-Way Canonical Master → Compatibility Projection Policy:**
+  - Formally rejected bidirectional synchronization in favor of strictly unidirectional projections from canonical domain masters (`items`, `customer_profiles`, `vendor_profiles`) to legacy compatibility tables (`products`, `customers`, `suppliers`).
+  - Prohibited retroactive mutations on historical transactions; historical invoices preserve statutory compliance independently of master data revisions.
+- **Permanent Statutory Transaction Snapshot Immutability Rule:**
+  - Enforced statutory requirement (CGST Act 2017 Section 31 and Rule 46): invoices, credit notes, and purchase vouchers must store permanent frozen copies of item description, HSN, tax rate, and pricing at point of issuance.
+  - Invoices must never dynamically join live master tables for statutory attributes.
+- **Canonical Table Dependency Matrix (201 Models Inventory):**
+  - Completed comprehensive forensic audit of all 201 mapped SQLAlchemy models across `smriti001` (189 physical tables) and `smritisys` (12 control plane tables).
+  - Established domain ownership, incoming/outgoing foreign keys, live row counts, and 5-gate retirement classification.
+- **Stage 4 Platform Event Service Architecture (`backend/app/platform/events/` & `src/kernel/events.ts`):**
+  - **Transport Abstraction:** Authored `IEventTransport` protocol and `MemoryTransport` reference implementation, isolating message broker infrastructure (Kafka, RabbitMQ, Redis Streams) from business logic.
+  - **Standardized Envelope:** Authored `EventEnvelope<T>` supporting `schemaVersion`, `actorId`, `correlationId`, `causationId`, `tenantId`, and `occurredAt`.
+  - **Schema Registry & Validation:** Implemented `EventRegistry` enforcing schema version registration and payload compatibility checks.
+  - **Consumer Contractual Idempotency:** Implemented `IIdempotencyStore` protocol and `MemoryIdempotencyStore` guaranteeing duplicate suppression across transport retries.
+  - **Resilience Policies:** Authored configurable `RetryPolicy` with exponential backoff and `DeadLetterPolicy` with dead letter entry capture.
+  - **Transactional Outbox Interface:** Declared `IEventOutbox` boundary interface for transactional atomicity.
+  - **Frontend Parity:** Exported matching TypeScript interfaces in `src/kernel/events.ts`.
+- **Alembic Migration `v1454_retire_stores_table.py` & Model Decoupling:**
+  - Executed 5-gate staged retirement of obsolete `stores` and `user_store_assignments` tables.
+  - Safely severed hidden foreign key constraint `staff_placement_assignments_internal_store_id_fkey` on `staff_placement_assignments.internal_store_id`.
+  - Upgraded both `smriti001` and `smritisys` databases to head `v1454_retire_stores_table`.
+  - Verified clean bidirectional rollback (`downgrade -1` reconstructs `stores`, `user_store_assignments`, and restored foreign key constraints).
+  - Cleaned up models in `backend/app/models/` (`inventory.py`, `staff_placement.py`, `user_assignment.py`) and converted legacy endpoints in `masters.py`, `staff.py`, and `system.py` to HTTP 410 / empty stubs.
+
+### [6.25.0] - 2026-09-15
+
+#### Barcode Billing CSV Import Engine & Statutory GST Resolution
+
+**Walkthrough:** [Billing_Barcode_CSV_Import_Engine_And_Statutory_GST_Resolution_v6.25.0.md](docs/walkthrough/billing/Billing_Barcode_CSV_Import_Engine_And_Statutory_GST_Resolution_v6.25.0.md)
+
+- **Multi-Tier CSV/PDT Barcode Import Subsystem:**
+  - Implemented `/api/v1/billing/csv/validate` supporting 6 CSV tiers (Barcode only, Barcode+Qty, Barcode+Qty+Price, Barcode+Qty+Rate, Barcode+Qty+Discount%, Full Billing) plus PDT (tilde/pipe delimited).
+  - Added delimiter auto-detection (comma, tilde, pipe, tab) and case-insensitive header normalization.
+- **Strict Database Catalog Resolution & MRP Ceilings:**
+  - Enforced zero-tolerance database resolution (`SMRITI-BILL-001`): rejected non-existent barcodes, characters, and unmapped SKUs across `products.barcode`, `secondary_barcodes`, `code`, and `sku`.
+  - Enforced Legal Metrology Act MRP ceiling (`SMRITI-BILL-002`): unconditionally rejected lines priced above master MRP.
+  - Statutory GST supremacy (`SMRITI-BILL-010`): catalog GST rate is the legal statutory source of truth; user-entered GST serves strictly as advisory mismatch warning.
+  - Computed non-cascading MRP markdown percentages (`round((mrp - selling_price) / mrp * 100)`) for customer receipt display.
+- **Frontend Pro POS Billing Integration:**
+  - Created `BarcodeCSVImportModal.tsx` featuring drag-and-drop file upload, live row-by-row status badges (`VALID`, `WARN`, `ERROR`), format tier tags, and error guidance.
+  - Integrated into `ProPosBillingTerm.tsx` overflow menu with direct cart injection and checkout settlement.
+
+### [6.24.0] - 2026-09-15
+
+#### Generation of 16 Statutory GST Tax Invoices for Reliance Retail (Sheet '15-09-2026-1' in RIL_Dispatch15092026-2.xlsx)
+
+**Walkthrough:** [Sales_Dispatch_16_Stores_Invoices_v6.24.0.md](docs/walkthrough/sales/Sales_Dispatch_16_Stores_Invoices_v6.24.0.md)
+
+- **16 Store Dispatch Direct Billing & Delivery (Batch 2):**
+  - Processed 144 rows from sheet `'15-09-2026-1'` of `RIL_Dispatch15092026-2.xlsx` unpivoted across 7 footwear size columns (36 to 42) into 828 line items and exactly 1,116 pairs across 16 stores in Karnataka, Tamil Nadu, and Telangana (`TT2026-2027/215` through `TT2026-2027/230`).
+  - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
+- **Commercial & Statutory Financial Reconciliation:**
+  - Total Gross MRP: ₹2,327,684.00.
+  - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
+  - Total Taxable Value: ₹1,309,092.16.
+  - Interstate IGST 5.00%: ₹65,454.28.
+  - Total Net Invoiced Value: ₹1,374,548.00.
+- **Physical Logistics & Pre-Portal E-Way Separation:**
+  - Logistics origin: `Tattly Threads Nagpur Depot`, PIN `440029`.
+  - Stored pre-dispatch staging records in `eway_bills`; kept `sales_invoices.eway_bill_no` NULL and invoice PDF E-Way Bill fields blank pending government portal generation.
+- **Artifacts & Deliverables Generated:**
+  - 16 Statutory A4 PDF invoices rendered via Playwright (`InvoicePdfService`) in `F:\Smriti-Clients Data\15-09-2026\inv2\Final_Invoices\Tax_Invoice_PDFs\` and mirrored in `Invoices_Store_PO_Invoice\`.
+  - 16 Individual NIC E-Way Bill JSON payloads and 1 consolidated bulk upload JSON (`EWayBill_Bulk_Upload_15092026_Batch2.json`) mirrored in `F:\Smriti-Clients Data\Eway\Final_15092026_Batch2\`.
+  - 2-Tab Client Summary Excel Matrix: `Tax_Invoice_Summary_15-09-2026_Batch2.xlsx`.
+  - Source Excel Updated with green highlight (`#FF92D050`) on columns M, N, O, P: `RIL_Dispatch15092026-2_Updated.xlsx` and `RIL_Dispatch15092026-2_Invoiced.xlsx`.
 
 ### [6.23.0] - 2026-09-15
 

@@ -43,7 +43,7 @@ from app.models.crm import (
     CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation,
     CustomerBillingLocation, CustomerExternalIdentity,
 )
-from app.models.inventory import Product, StockMovement, Store, Warehouse
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.sales import (
     SalesInvoice, SalesInvoiceItem,
     SalesQuotation, SalesQuotationItem,
@@ -77,7 +77,7 @@ from app.models.exchange import DataExchangeTask, DataExchangeFieldMapping
 from app.models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
 from app.models.role import Role
 from app.models.master_lookup import MasterType, MasterValue
-from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
+from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 from app.models.staff_profile import StaffProfile
 from app.models.staff_profile_history import StaffProfileHistory
 # v1368: UI/Experience Engine (smritisys Control Plane)
