@@ -15,18 +15,24 @@ Classification: Platform Kernel Test Suite — Stage 5
 import uuid
 import pytest
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 from typing import Dict, Any
 from sqlalchemy import select, delete
+from sqlalchemy.exc import IntegrityError
 
 from app.db.session import get_company_sessionmaker
 from app.models.outbox import IntegrationOutboxEvent
+from app.models.sales import SalesInvoice
 from app.platform.events import (
     EventEnvelope,
     EventRegistry,
     PlatformEventService,
     PostgresEventOutbox,
     PlatformOutboxWorker,
+    RetentionTier,
+    EventRetentionPolicy,
 )
+
 
 
 @pytest.fixture
@@ -383,3 +389,201 @@ async def test_platform_event_service_stage_event_facade(session_factory):
     async with session_factory() as session:
         with pytest.raises(ValueError, match="Unregistered event type"):
             await service.stage_event(invalid_env, session)
+
+
+@pytest.mark.asyncio
+async def test_database_level_unique_constraint_on_source_event_id(session_factory):
+    """Criterion 8: Database Uniqueness Constraint — DB engine strictly rejects duplicate source_event_id."""
+    outbox = PostgresEventOutbox()
+    fixed_event_id = f"evt-test-outbox-unique-{uuid.uuid4().hex[:8]}"
+
+    env1 = EventEnvelope(
+        id=fixed_event_id,
+        eventType="pos.bill.created",
+        schemaVersion="1.0",
+        source="pos.checkout",
+        tenantId="smriti001",
+        payload={"bill_id": "B-001"},
+    )
+    env2 = EventEnvelope(
+        id=fixed_event_id,  # Identical source_event_id
+        eventType="pos.bill.created",
+        schemaVersion="1.0",
+        source="pos.checkout",
+        tenantId="smriti001",
+        payload={"bill_id": "B-002"},
+    )
+
+    # First insert commits cleanly
+    async with session_factory() as session:
+        await outbox.stage(env1, session)
+        await session.commit()
+
+    # Second insert MUST fail with PostgreSQL database IntegrityError (unique violation)
+    async with session_factory() as session:
+        await outbox.stage(env2, session)
+        with pytest.raises(IntegrityError):
+            await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_outbox_dlq_operational_lifecycle(session_factory):
+    """Criterion 9: DLQ Operational Recovery — Replay reverts to PENDING and Abandon marks ABANDONED."""
+    outbox = PostgresEventOutbox()
+    test_id = f"evt-test-outbox-dlq-{uuid.uuid4().hex[:8]}"
+
+    env = EventEnvelope(
+        id=test_id,
+        eventType="wms.goods.receipt",
+        schemaVersion="1.0",
+        source="wms.grn",
+        tenantId="smriti001",
+        payload={"grn_no": "GRN-999"},
+    )
+
+    async with session_factory() as session:
+        outbox_id = await outbox.stage(env, session)
+        await session.commit()
+
+    # Transition to DEAD_LETTER via max retries
+    async with session_factory() as session:
+        await outbox.mark_failed(session, outbox_id, "External GRN partner timeout", max_retries=1)
+
+    # Verify status is DEAD_LETTER
+    async with session_factory() as session:
+        stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id == outbox_id)
+        rec = (await session.execute(stmt)).scalar_one()
+        assert rec.status == "DEAD_LETTER"
+
+    # Test Operational Replay: resets to PENDING
+    async with session_factory() as session:
+        replayed = await outbox.replay_dead_letter(session, outbox_id)
+        assert replayed is True
+
+    async with session_factory() as session:
+        stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id == outbox_id)
+        rec = (await session.execute(stmt)).scalar_one()
+        assert rec.status == "PENDING"
+        assert rec.retry_count == 0
+        assert "[REPLAYED AT" in rec.error_message
+
+    # Transition back to DEAD_LETTER and test Abandon
+    async with session_factory() as session:
+        await outbox.mark_failed(session, outbox_id, "Permanent schema corruption", max_retries=1)
+        abandoned = await outbox.abandon_dead_letter(session, outbox_id, "Business canceled transaction")
+        assert abandoned is True
+
+    async with session_factory() as session:
+        stmt = select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id == outbox_id)
+        rec = (await session.execute(stmt)).scalar_one()
+        assert rec.status == "ABANDONED"
+        assert "[ABANDONED: Business canceled transaction]" in rec.error_message
+
+
+def test_event_retention_policy_resolution():
+    """Criterion 10: Retention Policy — Prevents blind 30-day purge for statutory financial events."""
+    # Statutory financial events: 8 Years (2920 days) per CGST Act 2017 Sec 36
+    assert EventRetentionPolicy.resolve_tier("billing.invoice.issued") == RetentionTier.STATUTORY_FINANCIAL
+    assert EventRetentionPolicy.resolve_retention_days("billing.invoice.issued") == 2920
+    assert EventRetentionPolicy.resolve_tier("accounting.voucher.posted") == RetentionTier.STATUTORY_FINANCIAL
+    assert EventRetentionPolicy.resolve_retention_days("accounting.voucher.posted") == 2920
+
+    # Ephemeral events: 7 days
+    assert EventRetentionPolicy.resolve_tier("heartbeat.worker.ping") == RetentionTier.EPHEMERAL
+    assert EventRetentionPolicy.resolve_retention_days("heartbeat.worker.ping") == 7
+
+    # Audit & Compliance: Permanent (-1)
+    assert EventRetentionPolicy.resolve_tier("compliance.immutable.audit") == RetentionTier.AUDIT_COMPLIANCE
+    assert EventRetentionPolicy.resolve_retention_days("compliance.immutable.audit") == -1
+
+    # Default operational: 90 days
+    assert EventRetentionPolicy.resolve_tier("custom.unknown.event") == RetentionTier.OPERATIONAL
+    assert EventRetentionPolicy.resolve_retention_days("custom.unknown.event") == 90
+
+
+@pytest.mark.asyncio
+async def test_transaction_rollback_removes_domain_change_and_event(session_factory):
+    """Criterion 11: Business Coupling Rollback — Proves domain business record and outbox event are atomically discarded on rollback."""
+    outbox = PostgresEventOutbox()
+    test_inv_no = f"INV-TEST-RB-{uuid.uuid4().hex[:8].upper()}"
+    test_event_id = f"evt-rb-{uuid.uuid4().hex[:8]}"
+
+    # Transaction 1: Create domain invoice + stage event, then ROLLBACK
+    async with session_factory() as session:
+        inv = SalesInvoice(
+            id=f"inv_{uuid.uuid4().hex[:12]}",
+            invoice_no=test_inv_no,
+            grand_total=Decimal("1500.00"),
+        )
+        session.add(inv)
+
+        env = EventEnvelope(
+            id=test_event_id,
+            eventType="pos.bill.created",
+            schemaVersion="1.0",
+            source="sales.pos",
+            tenantId="smriti001",
+            payload={"invoice_no": test_inv_no, "grand_total": 1500.00},
+            metadata={"aggregate_id": inv.id},
+        )
+        await outbox.stage(env, session)
+        await session.rollback()
+
+    # Verify both are absent in a fresh query session
+    async with session_factory() as session:
+        db_inv = (await session.execute(
+            select(SalesInvoice).where(SalesInvoice.invoice_no == test_inv_no)
+        )).scalar_one_or_none()
+        assert db_inv is None
+
+        db_outbox = (await session.execute(
+            select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.source_event_id == test_event_id)
+        )).scalar_one_or_none()
+        assert db_outbox is None
+
+
+@pytest.mark.asyncio
+async def test_transaction_commit_persists_domain_change_and_event(session_factory):
+    """Criterion 12: Business Coupling Commit — Proves domain business record and outbox event are atomically committed together."""
+    outbox = PostgresEventOutbox()
+    test_inv_no = f"INV-TEST-CM-{uuid.uuid4().hex[:8].upper()}"
+    test_event_id = f"evt-cm-{uuid.uuid4().hex[:8]}"
+    invoice_id = f"inv_{uuid.uuid4().hex[:12]}"
+
+    # Transaction 1: Create domain invoice + stage event, then COMMIT
+    async with session_factory() as session:
+        inv = SalesInvoice(
+            id=invoice_id,
+            invoice_no=test_inv_no,
+            grand_total=Decimal("2500.00"),
+        )
+        session.add(inv)
+
+        env = EventEnvelope(
+            id=test_event_id,
+            eventType="pos.bill.created",
+            schemaVersion="1.0",
+            source="sales.pos",
+            tenantId="smriti001",
+            payload={"invoice_no": test_inv_no, "grand_total": 2500.00},
+            metadata={"aggregate_id": inv.id},
+        )
+        outbox_id = await outbox.stage(env, session)
+        await session.commit()
+
+    # Verify both exist in the database in the exact same transaction boundary
+    async with session_factory() as session:
+        db_inv = (await session.execute(
+            select(SalesInvoice).where(SalesInvoice.invoice_no == test_inv_no)
+        )).scalar_one_or_none()
+        assert db_inv is not None
+        assert db_inv.grand_total == Decimal("2500.00")
+
+        db_outbox = (await session.execute(
+            select(IntegrationOutboxEvent).where(IntegrationOutboxEvent.outbox_id == outbox_id)
+        )).scalar_one_or_none()
+        assert db_outbox is not None
+        assert db_outbox.status == "PENDING"
+        assert db_outbox.aggregate_id == invoice_id
+
+

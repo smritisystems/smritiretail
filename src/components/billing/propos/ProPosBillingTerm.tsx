@@ -83,7 +83,7 @@ import { useF2Screen } from "../../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../../context/F2DispatcherContext.tsx";
 
 interface SmritiProPosBillingTerminalProps {
-  onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
+  onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
   shiftId?: string;
 }
 export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalProps> = ({

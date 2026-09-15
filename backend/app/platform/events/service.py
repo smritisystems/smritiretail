@@ -112,3 +112,36 @@ class PlatformEventService:
         self.registry.validate(envelope.eventType, envelope.schemaVersion)
         return await self.outbox.stage(envelope, db_session)
 
+
+_default_platform_event_service: Optional[PlatformEventService] = None
+
+
+def get_platform_event_service() -> PlatformEventService:
+    """
+    Returns the canonical PlatformEventService singleton for domain writer event staging.
+    Configured with standard schema registrations and PostgresEventOutbox.
+    """
+    global _default_platform_event_service
+    if _default_platform_event_service is None:
+        from .postgres_outbox import PostgresEventOutbox
+
+        registry = EventRegistry()
+        registry.register("sales.invoice.confirmed", {"1.0"}, "Canonical Sales Invoice Confirmed")
+        registry.register("SALES_INVOICE_CONFIRMED", {"1.0"}, "Canonical Sales Invoice Confirmed (Legacy Alias)")
+        registry.register("sales.invoice.cancelled", {"1.0"}, "Canonical Sales Invoice Cancelled")
+        registry.register("SALES_INVOICE_CANCELLED", {"1.0"}, "Canonical Sales Invoice Cancelled (Legacy Alias)")
+        registry.register("pos.bill.created", {"1.0"}, "POS Bill Created")
+        registry.register("wms.goods.receipt", {"1.0"}, "WMS Goods Receipt Note")
+        registry.register("payment.received", {"1.0"}, "Payment Settle Received")
+
+        _default_platform_event_service = PlatformEventService(
+            transport=MemoryTransport(),
+            registry=registry,
+            idempotency_store=MemoryIdempotencyStore(),
+            retry_policy=RetryPolicy(),
+            dead_letter_policy=DeadLetterPolicy(),
+            serializer=EventSerializer(),
+            outbox=PostgresEventOutbox(),
+        )
+    return _default_platform_event_service
+

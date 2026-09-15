@@ -50,12 +50,18 @@ class EventRegistry:
         )
 
     def is_registered(self, event_type: str) -> bool:
-        return event_type in self._registry
+        if event_type in self._registry:
+            return True
+        normalized = event_type.strip().lower().replace("_", ".")
+        return normalized in self._registry
 
     def is_compatible(self, event_type: str, schema_version: str) -> bool:
-        if event_type not in self._registry:
-            return False
-        return schema_version in self._registry[event_type].supported_schema_versions
+        if event_type in self._registry:
+            return schema_version in self._registry[event_type].supported_schema_versions
+        normalized = event_type.strip().lower().replace("_", ".")
+        if normalized in self._registry:
+            return schema_version in self._registry[normalized].supported_schema_versions
+        return False
 
     def validate(self, event_type: str, schema_version: str) -> None:
         """Validate that an event type is registered and compatible; raise ValueError if not."""

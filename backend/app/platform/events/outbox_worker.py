@@ -71,14 +71,13 @@ class PlatformOutboxWorker:
         }
 
         async with self.session_factory() as session:
-            # Phase 1: Claim Batch with SKIP LOCKED (commits lease inside fetch_pending_and_claim)
-            claimed = await self.outbox.fetch_pending_and_claim(
+            # Phase 1: Claim Batch with SKIP LOCKED (commits lease inside claim)
+            claimed = await self.outbox.claim(
                 db_session=session,
                 limit=batch_limit,
                 claim_timeout_seconds=self.claim_timeout_seconds,
                 target_channel=self.target_channel,
             )
-
 
             if not claimed:
                 return stats
@@ -89,12 +88,12 @@ class PlatformOutboxWorker:
             for outbox_id, envelope in claimed:
                 try:
                     await self.event_service.publish(envelope)
-                    await self.outbox.mark_dispatched_with_session(session, outbox_id)
+                    await self.outbox.mark_dispatched(session, outbox_id)
                     stats["dispatched_count"] += 1
                     stats["dispatched_ids"].append(outbox_id)
                 except Exception as exc:
                     logger.exception(f"Error publishing outbox event {outbox_id}: {exc}")
-                    await self.outbox.mark_failed_with_session(
+                    await self.outbox.mark_failed(
                         db_session=session,
                         outbox_id=outbox_id,
                         error_message=str(exc),
@@ -104,7 +103,11 @@ class PlatformOutboxWorker:
                     stats["failed_count"] += 1
                     stats["failed_ids"].append(outbox_id)
 
+
         return stats
+
+    # Alias for batch processing
+    process_batch = run_cycle
 
     async def _worker_loop(self) -> None:
         """Background continuous polling loop."""
