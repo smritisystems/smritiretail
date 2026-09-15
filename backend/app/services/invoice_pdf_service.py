@@ -954,7 +954,7 @@ class InvoicePdfService:
                     <div>
                       <div style="font-size: 6.5px; font-weight: 700; color: #6b7280; font-family: monospace; text-transform: uppercase;">TERMS &amp; CONDITIONS</div>
                       <div style="font-size: 6.5px; color: #4b5563; line-height: 1.3;">
-                        Goods once sold will not be taken back without prior written approval. All disputes subject to Mumbai Jurisdiction.
+                        Goods once sold will not be taken back without prior written approval. All disputes subject to Nagpur Jurisdiction.
                       </div>
                     </div>
                   </div>
@@ -975,7 +975,7 @@ class InvoicePdfService:
             is_last_page = (p_idx == total_pages)
             disclaimer_html = f"""
               <div style="font-size: 6.00pt; color: #6b7280; text-align: center;">This is a computer-generated tax invoice and does not require a physical signature.</div>
-              <div style="font-size: 6.00pt; font-weight: 700; text-transform: uppercase; color: #374151; text-align: center;">SUBJECT TO MUMBAI JURISDICTION.</div>
+              <div style="font-size: 6.00pt; font-weight: 700; text-transform: uppercase; color: #374151; text-align: center;">SUBJECT TO NAGPUR JURISDICTION.</div>
             """ if is_last_page else ""
             footer_html = f"""
             <div class="page-footer" style="flex-direction: column; text-align: center; gap: 1px;">

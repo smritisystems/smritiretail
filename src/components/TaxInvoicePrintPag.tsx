@@ -81,7 +81,7 @@ const DEFAULT_HEADER_CONFIG: HeaderCustomizationConfig = {
   accountsEmail: "accounts@tattlythreads.com",
   logoUrl: "",
   headerText: "TAX INVOICE",
-  footerText: "Goods once sold will not be taken back without prior written approval. All disputes subject to Mumbai Jurisdiction.",
+  footerText: "Goods once sold will not be taken back without prior written approval. All disputes subject to Nagpur Jurisdiction.",
   headerAlignment: "left",
   showLogo: true,
   bankName: "",

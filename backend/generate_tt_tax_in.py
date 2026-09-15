@@ -666,7 +666,7 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
               TERMS &amp; CONDITIONS
             </span>
             <p class="text-gray-500" style="font-size: 9px; line-height: 1.35; margin: 0;">
-              Goods once sold will not be taken back without prior written approval. All disputes subject to Mumbai Jurisdiction.
+              Goods once sold will not be taken back without prior written approval. All disputes subject to Nagpur Jurisdiction.
             </p>
           </div>
         </div>
@@ -685,7 +685,7 @@ def generate_pixel_faithful_a4_html(inv: dict) -> str:
       <!-- Bottom Disclaimer -->
       <div class="mt-6 text-center text-gray-500 border-t border-dashed pt-2 font-mono" style="font-size: 9px;">
         <p style="margin: 0 0 2px 0;">This is a computer-generated tax invoice and does not require a physical signature.</p>
-        <p class="font-bold uppercase tracking-wider text-gray-700" style="font-size: 8.5px; margin: 0 0 2px 0;">Subject to Mumbai Jurisdiction.</p>
+        <p class="font-bold uppercase tracking-wider text-gray-700" style="font-size: 8.5px; margin: 0 0 2px 0;">Subject to Nagpur Jurisdiction.</p>
         <p class="font-bold text-gray-600" style="margin: 0;">SMRITI OS Retail Suite - Powered by SMRITI SYSTEMS</p>
       </div>
     </div>

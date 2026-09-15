@@ -28,6 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.23.0] - 2026-09-15
+
+#### Generation of 17 Statutory GST Tax Invoices for Reliance Retail (Sheet '15-09-2026') & Nagpur Jurisdiction Alignment
+
+**Walkthrough:** [Sales_Dispatch_17_Stores_Invoices_v6.23.0.md](docs/walkthrough/sales/Sales_Dispatch_17_Stores_Invoices_v6.23.0.md)
+
+- **17 Store Dispatch Direct Billing & Delivery:**
+  - Processed 119 rows from sheet `'15-09-2026'` of `RIL_Dispatch15092026.xlsx` unpivoted across 7 footwear size columns (36 to 42) into 765 line items and exactly 1,003 pairs (59 pairs per store).
+  - Billed and shipped each of the 17 stores directly to their registered store site addresses under their individual PO numbers from Reliance Retail's 60-PO register (`TT2026-2027/198` through `TT2026-2027/214`).
+  - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
+- **Commercial & Statutory Financial Reconciliation:**
+  - Total Gross MRP: ₹2,078,097.00 (₹122,241.00 per store).
+  - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
+  - Total Taxable Value: ₹1,168,724.16 (₹68,748.48 per store).
+  - Intrastate Maharashtra (2 Stores: `TFW4`, `TMN2`): CGST 2.5% (₹1,718.68) + SGST 2.5% (₹1,718.68) = ₹3,437.36 per store.
+  - Interstate (15 Stores): IGST 5% = ₹3,437.47 per store (Total IGST: ₹51,562.05).
+  - Total Net Invoiced Value: ₹1,227,162.00 (₹72,186.00 net per invoice × 17).
+- **Pre-Portal E-Way Bill Decoupling & Governance:**
+  - Enforced statutory ERP standard: set `sales_invoices.eway_bill_no = NULL` and left the `E-Way Bill No:` field strictly blank on physical invoice PDFs.
+  - Generated NIC v1.0.1118 compliant individual JSON payloads and 1 consolidated bulk upload JSON (`EWayBill_Bulk_Upload_15092026.json`) with `transType: 4` combination movement for immediate upload to `ewaybillgst.gov.in`.
+- **Legal Jurisdiction Realignment:**
+  - Updated all dispute jurisdiction clauses and footer disclaimers from Mumbai to **Nagpur Jurisdiction** across backend PDF generator (`invoice_pdf_service.py`), seed configuration (`seed_tax_invoice.py`), and frontend print templates (`StandardInvoiceA4.tsx`, `TaxInvoiceA4.tsx`, `TaxInvoicePrintPag.tsx`).
+- **Verification:**
+  - Database row counts, values, and NULL eway_bill_no confirmed across all 17 invoices.
+  - PDF text extraction confirmed "Nagpur Jurisdiction: True", "Mumbai Jurisdiction: False", and "E-Way Bill No:" blank.
+
 ### [6.22.0] - 2026-09-15
 
 #### SMRITI Sales Promotions Studio & Dev Tracker Intelligence Convergence

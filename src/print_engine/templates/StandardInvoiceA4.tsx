@@ -686,7 +686,7 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                       </p>
                       <p className="m-0 text-slate-700 leading-snug font-medium text-[8.5px]">
                         1. Goods once sold will not be taken back without prior written approval.<br />
-                        2. All disputes subject to Mumbai Jurisdiction.
+                        2. All disputes subject to Nagpur Jurisdiction.
                       </p>
                     </div>
 
@@ -705,7 +705,7 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                   {/* STATUTORY DECLARATION & WATERMARK */}
                   <div className="mt-2 border-t border-slate-200 pt-1.5 text-center text-[8.5px] text-slate-500 font-medium leading-tight">
                     <p className="m-0">This is a computer-generated tax invoice and does not require a physical signature.</p>
-                    <p className="m-0 font-bold text-slate-700 tracking-wider">SUBJECT TO MUMBAI JURISDICTION.</p>
+                    <p className="m-0 font-bold text-slate-700 tracking-wider">SUBJECT TO NAGPUR JURISDICTION.</p>
                     <p className="m-0 text-[8px] text-slate-400 font-mono tracking-tight mt-0.5">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</p>
                   </div>
 
