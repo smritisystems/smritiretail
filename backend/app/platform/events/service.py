@@ -100,3 +100,15 @@ class PlatformEventService:
             handler=handler,
             tenant_filter=tenant_filter,
         )
+
+    async def stage_event(self, envelope: EventEnvelope[Any], db_session: Any) -> str:
+        """
+        Stage an event atomically in the configured outbox table within the caller's db_session.
+        Validates schema registration and compatibility prior to staging.
+        Raises RuntimeError if no outbox is configured.
+        """
+        if not self.outbox:
+            raise RuntimeError("Cannot stage event: No IEventOutbox configured on PlatformEventService")
+        self.registry.validate(envelope.eventType, envelope.schemaVersion)
+        return await self.outbox.stage(envelope, db_session)
+

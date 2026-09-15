@@ -57,8 +57,15 @@ class EventRegistry:
             return False
         return schema_version in self._registry[event_type].supported_schema_versions
 
-    def get_metadata(self, event_type: str) -> Optional[EventMetadata]:
-        return self._registry.get(event_type)
+    def validate(self, event_type: str, schema_version: str) -> None:
+        """Validate that an event type is registered and compatible; raise ValueError if not."""
+        if not self.is_registered(event_type):
+            raise ValueError(f"Unregistered event type: {event_type}")
+        if not self.is_compatible(event_type, schema_version):
+            raise ValueError(
+                f"Incompatible schema version {schema_version} for event type {event_type}"
+            )
 
     def list_all(self) -> Dict[str, EventMetadata]:
         return dict(self._registry)
+
