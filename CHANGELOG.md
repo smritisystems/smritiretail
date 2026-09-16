@@ -28,6 +28,36 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.27.3] - 2026-09-16
+
+#### Billing Default Tax-Exclusive Calculation, TT138 A4 Print Format & Document Auth Protection
+
+**Walkthroughs:**
+- [Billing_Default_Tax_Exclusive_Calculation_And_TT138_Standard_v6.27.3.md](docs/walkthrough/billing/Billing_Default_Tax_Exclusive_Calculation_And_TT138_Standard_v6.27.3.md)
+- [Billing_A4_Print_Format_Preview_And_Document_Auth_v6.27.3.md](docs/walkthrough/billing/Billing_A4_Print_Format_Preview_And_Document_Auth_v6.27.3.md)
+
+- **Default Wholesale/Commercial Tax-Exclusive Billing:**
+  - Standardized wholesale/commercial calculation (`Rate/MRP -> Trade Disc% -> Taxable Base -> + GST -> Total`) as system default across POS billing terminal (`ProPosBillingTerm.tsx`), modeled on `invoice_TT2026-2027-138.pdf`.
+  - Added interactive POS Toolbar toggle pill (`Exclusive (Base+GST) [Default]` vs `Inclusive (MRP Gross)`).
+  - Aligned accepted items table columns: `Stock No | Item Description | Rate / MRP | Qty | Disc. % | Taxable | Tax % | Tax Amt | Total | Staff | Del`.
+  - Updated Net Values summary to explicitly distinguish Gross MRP Sales, Discounts, Taxable Value, and GST Tax.
+- **A4 Canonical Print Format as System Default & Live Preview:**
+  - Embedded `TaxInvoiceA4.tsx` as default format (`printFormat = "a4"`) in `ProPosTaxInvoiceRc.tsx`.
+  - Added format toggle between `A4 Standard (TT138) [Default]` and `Thermal Slip (80mm)`.
+  - Added zoom controls (`Zoom Out`, `Zoom In`, `Reset 100%`) for responsive preview on any screen size.
+  - Added `Alt+V` keyboard shortcut in POS terminal to preview active bill before/during checkout.
+- **Multi-Vector Document Authentication (Eliminating `SMRITI-AUTH-001`):**
+  - Updated FastAPI `backend/app/api/deps.py` to resolve authentication tokens from `Authorization` header, query parameter `?token=...`, or browser cookies (`access_token`, `smriti_jwt_token`).
+  - Added fallback in `get_tenant_context` to auto-resolve to the company's first active branch if unassigned or default.
+  - Aligned `invoice_pdf_service.py` to support invoice lookup by `id` or `invoice_no` and resolve branch aliases (`BR-MAIN-001`, `MAIN`, `BR-001`).
+  - Added `getAuthenticatedDocumentUrl`, `openAuthenticatedDocument`, and `syncAuthCookies` in `src/lib/apiFetchV1.ts`.
+  - Routed all document actions in `SalesStudioTab.tsx` (`PRINT TAX INVOICE`, `Preview`, `Export PDF`, `Reprint`) through `openAuthenticatedDocument`.
+- **Comprehensive Verification:**
+  - `src/tests/ttInvoiceBillingCalculation.test.ts` (10/10 passed).
+  - `src/tests/authenticatedDocumentUrl.test.ts` (4/4 passed).
+  - Full Vitest suite: 132/132 files passed (875/875 tests passed).
+  - TypeScript compiler check (`tsc --noEmit`): 0 errors.
+
 ### [6.27.2] - 2026-09-16
 
 #### Stage 5.2: First Domain Writer Integration (Sales Ledger Outbox)
