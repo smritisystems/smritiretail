@@ -462,7 +462,7 @@ class EWayBillService:
         company = await self._get_company()
 
         company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None)) if company else None
-        if require_complete_data and not company_gstin:
+        if is_strict and not company_gstin:
             raise HTTPException(status_code=422, detail="E-Way Bill requires a configured company GSTIN.")
         company_gstin = company_gstin or "27AABCS1429B1Z"
         company_name = company.name if company else "SMRITI Enterprise"
@@ -470,7 +470,7 @@ class EWayBillService:
 
         customer_gstin = getattr(invoice, 'customer_gstin', None) or ((getattr(customer, 'canonical_gstin', None) or getattr(customer, 'gstin', None) or "URP") if customer else "URP")
         customer_name = getattr(invoice, 'customer_name', None) or (customer.name if customer else None)
-        if require_complete_data and not customer_name:
+        if is_strict and not customer_name:
             raise HTTPException(status_code=422, detail="E-Way Bill requires a customer legal or trade name.")
         customer_name = customer_name or ""
         customer_state_code = int(customer_gstin[:2]) if customer_gstin and customer_gstin != "URP" and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit() else company_state_code
@@ -480,14 +480,14 @@ class EWayBillService:
         warnings: List[str] = []
         is_valid_gst, gst_err = self._validate_gstin(company_gstin, "Company GSTIN")
         if not is_valid_gst:
-            if is_strict or require_complete_data:
+            if is_strict:
                 raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {gst_err}")
             warnings.append(gst_err)
 
         if customer_gstin != "URP":
             is_valid_cgst, cgst_err = self._validate_gstin(customer_gstin, "Customer GSTIN")
             if not is_valid_cgst:
-                if is_strict or require_complete_data:
+                if is_strict:
                     raise HTTPException(status_code=422, detail=f"SMRITI-STAT-001: {cgst_err}")
                 warnings.append(cgst_err)
 
@@ -502,7 +502,7 @@ class EWayBillService:
             prod_name = item.name or (prod.name if prod else f"Product {item.product_id}")
             raw_hsn = getattr(item, 'hsn_code', None) or getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', None)
             if not raw_hsn or not str(raw_hsn).strip().isdigit() or len(str(raw_hsn).strip()) not in (2, 4, 6, 8):
-                if is_strict or require_complete_data:
+                if is_strict:
                     raise HTTPException(status_code=422, detail=f"SMRITI-STAT-002: Product '{prod_name}' has missing or invalid statutory HSN code.")
                 hsn_code = 8471
                 warnings.append(f"Product '{prod_name}' missing HSN; defaulted to 8471.")
@@ -551,16 +551,16 @@ class EWayBillService:
         
         has_disp = bool(disp_snap and (disp_snap.get("address_line1") or disp_snap.get("city") or disp_snap.get("pincode")))
         company_address = getattr(company, "address", None) if company else None
-        if require_complete_data and not has_disp and not company_address:
+        if is_strict and not has_disp and not company_address:
             raise HTTPException(status_code=422, detail="E-Way Bill requires a configured dispatch address or invoice dispatch snapshot.")
         disp_addr1 = (disp_snap.get("address_line1") or company_address or "")[:120]
         disp_addr2 = (disp_snap.get("address_line2") or disp_snap.get("location_name") or "")[:120]
         disp_place = (disp_snap.get("city") or getattr(company, "city", None) or "")[:50]
-        if require_complete_data and not disp_place:
+        if is_strict and not disp_place:
             raise HTTPException(status_code=422, detail="E-Way Bill requires a dispatch place.")
         
         raw_disp_pin = disp_snap.get("pincode")
-        if require_complete_data and not (raw_disp_pin and str(raw_disp_pin).isdigit()):
+        if is_strict and not (raw_disp_pin and str(raw_disp_pin).isdigit()):
             raise HTTPException(status_code=422, detail="E-Way Bill requires a dispatch pincode.")
         disp_pin = int(raw_disp_pin) if (raw_disp_pin and str(raw_disp_pin).isdigit()) else (440029 if has_disp else comp_pin)
         
@@ -570,11 +570,11 @@ class EWayBillService:
         # Delivery Site / Destination Resolution
         deliv_snap = getattr(invoice, "delivery_location_snapshot", None) or {}
         deliv_gstin = getattr(invoice, "delivery_gstin", None) or deliv_snap.get("gstin") or customer_gstin
-        if require_complete_data and not (deliv_snap.get("pincode") and str(deliv_snap.get("pincode")).isdigit()):
+        if is_strict and not (deliv_snap.get("pincode") and str(deliv_snap.get("pincode")).isdigit()):
             raise HTTPException(status_code=422, detail="E-Way Bill requires a delivery pincode.")
-        if require_complete_data and not (getattr(customer, "address", None) or getattr(invoice, "shipping_address", None) or getattr(invoice, "billing_address", None)):
+        if is_strict and not (getattr(customer, "address", None) or getattr(invoice, "shipping_address", None) or getattr(invoice, "billing_address", None)):
             raise HTTPException(status_code=422, detail="E-Way Bill requires a delivery address.")
-        if require_complete_data and not (getattr(customer, "city", None) or getattr(invoice, "pos_state", None)):
+        if is_strict and not (getattr(customer, "city", None) or getattr(invoice, "pos_state", None)):
             raise HTTPException(status_code=422, detail="E-Way Bill requires a delivery place.")
         act_to_state = int(deliv_gstin[:2]) if (deliv_gstin and len(deliv_gstin) >= 2 and deliv_gstin[:2].isdigit()) else customer_state_code
         

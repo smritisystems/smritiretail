@@ -70,7 +70,7 @@ class SalesInvoice(BaseEntity):
     billing_location_id        = Column(String(50), ForeignKey("customer_billing_locations.id", ondelete="SET NULL"), nullable=True, index=True)
     billing_store_code         = Column(String(50), nullable=True, index=True)
     delivery_location_snapshot  = Column(JSONB, nullable=True)
-    place_of_supply_code       = Column(String(2), nullable=True)
+    place_of_supply_code       = Column(String(50), nullable=True)
     taxable_value           = Column(Numeric(15, 2))
     rounding_amount         = Column(Numeric(10, 4), default=0.0000)
     amount_in_words         = Column(Text)
