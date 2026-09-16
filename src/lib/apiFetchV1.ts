@@ -237,10 +237,8 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
   }
 
-  const browserHost = typeof window !== "undefined" ? window.location?.hostname : "";
-  const isLocalBrowser = browserHost === "localhost" || browserHost === "127.0.0.1";
   const baseUrl = typeof window !== "undefined" && window.location?.origin
-    ? (isLocalBrowser ? "http://127.0.0.1:8000" : "")
+    ? ""
     : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
   const url = applyQueryParams(
     `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`,
@@ -292,14 +290,18 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
   // ────────────────────────────────────────────────────────────────────────────
 
   if (!response.ok) {
-    let errorData: any;
+    let errorDetail = `Request failed with status ${response.status}`;
     try {
-      errorData = await response.json();
+      const errorJson = await response.json();
+      errorDetail = errorJson.detail || errorJson.error?.explanation || errorJson.message || JSON.stringify(errorJson);
     } catch {
-      errorData = { detail: "Upstream python-core communication failed." };
+      try {
+        errorDetail = await response.text();
+      } catch {
+        // noop
+      }
     }
-    const errMsg = errorData.detail || errorData.message || `API request failed with status ${response.status}`;
-    throw new Error(typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg);
+    throw new Error(errorDetail);
   }
 
   if (response.status === 204 || response.headers?.get?.("content-length") === "0") {
@@ -327,7 +329,12 @@ export function isLocalMockToken(): boolean {
 
 export function getAuthenticatedDocumentUrl(endpoint: string): string {
   const token = typeof window !== "undefined"
-    ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
+    ? (
+        localStorage.getItem("smriti_jwt_token")
+        || localStorage.getItem("smriti_session_token")
+        || sessionStorage.getItem("smriti_jwt_token")
+        || sessionStorage.getItem("smriti_session_token")
+      )
     : null;
   const companyCode = typeof window !== "undefined" ? localStorage.getItem("smriti_company_code") || "001" : "001";
   const branchId = typeof window !== "undefined" ? localStorage.getItem("smriti_branch_id") || "MAIN" : "MAIN";
@@ -344,15 +351,10 @@ export function getAuthenticatedDocumentUrl(endpoint: string): string {
     cleanEndpoint = `/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
   }
 
-  const browserHost = typeof window !== "undefined" ? window.location?.hostname : "";
-  const isLocalBrowser = browserHost === "localhost" || browserHost === "127.0.0.1";
-  const baseUrl = typeof window !== "undefined" && window.location?.origin
-    ? (isLocalBrowser ? "http://127.0.0.1:8000" : "")
-    : "";
-
-  const fullUrl = `${baseUrl}${cleanEndpoint}`;
-  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-  const urlObj = new URL(fullUrl, origin);
+  const origin = typeof window !== "undefined" && window.location?.origin
+    ? window.location.origin
+    : "http://localhost:3000";
+  const urlObj = new URL(cleanEndpoint, origin);
 
   if (token) {
     urlObj.searchParams.set("token", token);
@@ -365,13 +367,21 @@ export function getAuthenticatedDocumentUrl(endpoint: string): string {
   }
 
   // Also sync cookie for the browser session
-  syncAuthCookies(token);
+  if (token) {
+    syncAuthCookies(token);
+  }
 
   return urlObj.toString();
 }
 
 export function openAuthenticatedDocument(endpoint: string, target = "_blank", features?: string): Window | null {
   if (typeof window === "undefined") return null;
+  const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
+  if (!token) {
+    console.warn("[openAuthenticatedDocument] No active JWT token found in storage. Redirecting to login.");
+    window.location.href = "/";
+    return null;
+  }
   const authUrl = getAuthenticatedDocumentUrl(endpoint);
   return window.open(authUrl, target, features);
 }

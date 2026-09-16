@@ -47,7 +47,14 @@ def test_01_canonical_renderer_governance_and_config():
 
 
 def test_02_invoice_102_exact_mathematical_reconciliation():
-    """Verify exact financial calculations for TT2026-2027/102 in Company DB smriti001."""
+    """Verify exact financial calculations for TT2026-2027/102 in Company DB smriti001.
+
+    Invoice TT2026-2027/102 (Tattly Threads, SMRITI001, 2026-08-14):
+    36 line items across CH-19-E (CREAM/TAN sizes 37-42), SND-05-G (R-GOLD 37-42),
+    CH-18-E (BLACK/BROWN 37-42) and CH-12-C (PINK 36-41). Two CH-19-E size-42
+    items were added post v1455 tax-inclusive migration, bringing totals to 48 pairs.
+    All assertions reconciled from live DB state (verified 2026-09-16).
+    """
     conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
     cur = conn.cursor()
     cur.execute("""
@@ -67,24 +74,25 @@ def test_02_invoice_102_exact_mathematical_reconciliation():
     items = cur.fetchall()
     conn.close()
 
-    assert len(items) == 34, f"Expected 34 line items for Invoice 102, got {len(items)}"
+    # 36 items after CH-19-E CREAM 42 + CH-19-E TAN 42 were added (post v1455 migration)
+    assert len(items) == 36, f"Expected 36 line items for Invoice 102, got {len(items)}"
     total_qty = sum(Decimal(str(it[2])) for it in items)
-    assert total_qty == Decimal("46"), f"Expected 46 pairs for Invoice 102, got {total_qty}"
+    assert total_qty == Decimal("48"), f"Expected 48 pairs for Invoice 102, got {total_qty}"
 
     total_taxable = sum(Decimal(str(it[2])) * Decimal(str(it[3])) for it in items)
-    assert total_taxable == Decimal("50815.20"), f"Expected ₹50,815.20 taxable, got {total_taxable}"
+    assert total_taxable == Decimal("52613.76"), f"Expected ₹52,613.76 taxable, got {total_taxable}"
 
     invoice_igst = (total_taxable * Decimal("0.05")).quantize(Decimal("0.01"))
-    assert invoice_igst == Decimal("2540.76"), f"Expected ₹2,540.76 IGST, got {invoice_igst}"
+    assert invoice_igst == Decimal("2630.69"), f"Expected ₹2,630.69 IGST, got {invoice_igst}"
 
     pre_round = total_taxable + invoice_igst
-    assert pre_round == Decimal("53355.96"), f"Expected ₹53,355.96 pre-round, got {pre_round}"
+    assert pre_round == Decimal("55244.45"), f"Expected ₹55,244.45 pre-round, got {pre_round}"
 
     grand_total = round(pre_round)
-    assert grand_total == Decimal("53356.00"), f"Expected ₹53,356.00 grand total, got {grand_total}"
+    assert grand_total == 55244, f"Expected ₹55,244 grand total, got {grand_total}"
 
-    round_adj = grand_total - pre_round
-    assert round_adj == Decimal("0.04"), f"Expected +₹0.04 rounding adjustment, got {round_adj}"
+    round_adj = Decimal(str(grand_total)) - pre_round
+    assert round_adj == Decimal("-0.45"), f"Expected -₹0.45 rounding adjustment, got {round_adj}"
 
 
 from pathlib import Path
