@@ -477,4 +477,126 @@ describe("SMRITI POS Item-Level Sales Promotion Auto-Select", () => {
     expect(res3200.promoCode).toBe("FLAT700_BILL");
     expect(res3200.discountAmt).toBe(700);
   });
+
+  it("11. Promotion Explainability Audit Checklist: provides structured checks, rationale, and arbitration proof", () => {
+    const res = SmritiSalesPromotionService.resolveBestItemPromo({
+      sku: "8887462974824",
+      category: "Apparel",
+      brand: "SMRITI",
+      rate: 1000.00,
+      qty: 2,
+      customerGroup: "VIP"
+    });
+
+    expect(res.applied).toBe(true);
+    expect(res.explainability).not.toBeNull();
+    const exp = res.explainability!;
+    expect(exp.schemeCode).toBeDefined();
+    expect(exp.arbitrationResult).toBe("WON");
+    expect(exp.checks.length).toBeGreaterThanOrEqual(4);
+
+    const checkRules = exp.checks.map(c => c.rule);
+    expect(checkRules).toContain("SCHEDULE_ACTIVE");
+    expect(checkRules).toContain("CUSTOMER_ELIGIBILITY");
+    expect(checkRules).toContain("CATALOG_TARGETING");
+    expect(checkRules).toContain("MIN_QUANTITY");
+    expect(exp.checks.every(c => c.passed)).toBe(true);
+    expect(res.taxTreatment).toBe("PRE_TAX_TRADE_DISCOUNT");
+  });
+
+  it("12. Single Primary Basket Upsell Milestone Gauge: calculates nearest threshold and visual progress bar", () => {
+    // Add bill slab promotions at ₹2,000 (Save ₹200) and ₹5,000 (Save ₹1,000)
+    SmritiSalesPromotionService.savePromotion({
+      id: "promo-bill-2k",
+      code: "SAVE200",
+      name: "Spend ₹2,000 Get ₹200 Off",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_FLAT",
+      discountValue: 200,
+      minBillValue: 2000,
+      priority: 5,
+      isActive: true,
+      rules: []
+    });
+
+    SmritiSalesPromotionService.savePromotion({
+      id: "promo-bill-5k",
+      code: "SAVE1000",
+      name: "Spend ₹5,000 Get ₹1,000 Off",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_FLAT",
+      discountValue: 1000,
+      minBillValue: 5000,
+      priority: 4,
+      isActive: true,
+      rules: []
+    });
+
+    // On subtotal ₹1,650:
+    // Nearest target is ₹2,000 (SAVE200)
+    // Remaining is ₹350
+    const milestone = SmritiSalesPromotionService.getBasketUpsellMilestone(1650);
+    expect(milestone).not.toBeNull();
+    expect(milestone!.targetSubtotal).toBe(2000);
+    expect(milestone!.remainingAmount).toBe(350);
+    expect(milestone!.schemeCode).toBe("SAVE200");
+    expect(milestone!.potentialSavings).toBe(200);
+    expect(milestone!.percentProgress).toBe(83);
+    expect(milestone!.gaugeText).toContain("₹1,650");
+    expect(milestone!.gaugeText).toContain("₹2,000");
+    expect(milestone!.gaugeText).toContain("Add ₹350 more to get ₹200 OFF");
+    expect(milestone!.gaugeText).toContain("█");
+
+    // On subtotal ₹3,500 (above the ₹3,000 default slab):
+    // Nearest target advances to ₹5,000 (SAVE1000)
+    const milestone2 = SmritiSalesPromotionService.getBasketUpsellMilestone(3500);
+    expect(milestone2).not.toBeNull();
+    expect(milestone2!.targetSubtotal).toBe(5000);
+    expect(milestone2!.remainingAmount).toBe(1500);
+    expect(milestone2!.schemeCode).toBe("SAVE1000");
+    expect(milestone2!.potentialSavings).toBe(1000);
+  });
+
+  it("13. Non-Blocking Free Item Flow: unlocks free item offer and supports explicit decline recording", () => {
+    // Single or 3-item B2G1 check
+    const res = SmritiSalesPromotionService.resolveBestItemPromo({
+      category: "Apparel",
+      rate: 999.00,
+      qty: 3
+    });
+
+    expect(res.applied).toBe(true);
+    expect(res.unclaimedFreeItemOffer).not.toBeNull();
+    expect(res.unclaimedFreeItemOffer!.freeQty).toBe(1);
+    expect(res.unclaimedFreeItemOffer!.qualificationStatus).toBe("REDEEMED");
+
+    // Cashier/customer declines an offer
+    const declineResult = SmritiSalesPromotionService.recordPromotionDecline({
+      salesSessionId: "pos-sess-9921",
+      schemeCode: "B2G1",
+      cashierId: "usr-cashier-1",
+      customerId: "cust-walkin",
+      reasonCode: "CUSTOMER_DECLINED_FREE_ITEM",
+      reasonText: "Customer did not want the third promotional item",
+      potentialSavings: 999.00
+    });
+
+    expect(declineResult.recorded).toBe(true);
+    expect(declineResult.declineId).toMatch(/^dec-/);
+    expect(declineResult.timestamp).toBeDefined();
+  });
+
+  it("14. Bill Promotion Explainability & Tax Treatment: verifiable audit receipt for bill discounts", () => {
+    const res = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: 3500
+    });
+
+    expect(res.applied).toBe(true);
+    expect(res.explainability).not.toBeNull();
+    const exp = res.explainability!;
+    expect(exp.schemeCode).toBeDefined();
+    expect(exp.arbitrationResult).toBe("WON");
+    expect(exp.checks.some(c => c.rule === "BILL_THRESHOLD_MET")).toBe(true);
+    expect(res.taxTreatment).toBe("PRE_TAX_TRADE_DISCOUNT");
+  });
 });
