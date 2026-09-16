@@ -114,6 +114,12 @@ class CatalogDimensionValidator:
         direct_rows = res.all()
 
         for row_code, row_name in direct_rows:
+            if row_code and clean_val == row_code.strip():
+                return row_code.strip()
+            if row_name and clean_val == row_name.strip():
+                return row_name.strip()
+
+        for row_code, row_name in direct_rows:
             if row_code.strip().casefold() == target_lower or row_name.strip().casefold() == target_lower:
                 return row_code.strip()
 

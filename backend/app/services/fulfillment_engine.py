@@ -76,7 +76,7 @@ class FulfillmentEngine:
             status="PACKED",
             total_packages=req.total_packages,
             weight_kg=req.weight_kg,
-            created_at=now.replace(tzinfo=None),
+            created_at=now,
             created_by=created_by,
             is_active=True,
             is_deleted=False,
@@ -196,36 +196,6 @@ class FulfillmentEngine:
         if ps.status == "DISPATCHED":
             raise ValueError(f"Packing slip '{ps.packing_slip_number}' has already been dispatched.")
 
-        requested_items = req.items or [
-            type("PackingItem", (), {"product_id": item.product_id, "sku": item.sku, "quantity": item.quantity})
-            for item in ps.items
-        ]
-        locked_products: Dict[str, Product] = {}
-        for item in requested_items:
-            barcode = str(item.sku or "").strip()
-            if not barcode:
-                raise ValueError("Dispatch item barcode is required.")
-            product_result = await session.execute(
-                select(Product).where(
-                    Product.barcode == barcode,
-                    Product.company_id == company_id,
-                    Product.is_deleted == False,
-                ).with_for_update()
-            )
-            product = product_result.scalars().first()
-            if not product:
-                raise ValueError(f"Dispatch barcode '{barcode}' was not found in inventory.")
-            quantity = Decimal(str(item.quantity or 0))
-            if quantity <= 0:
-                raise ValueError(f"Dispatch quantity for barcode '{barcode}' must be greater than zero.")
-            reserved = Decimal(str(product.reserved_stock or 0))
-            if reserved < quantity:
-                raise ValueError(f"Barcode '{barcode}' has only {reserved} reserved for dispatch, requested {quantity}.")
-            physical = Decimal(str(product.stock or 0))
-            if physical < quantity:
-                raise ValueError(f"Barcode '{barcode}' has only {physical} physical stock, requested {quantity}.")
-            locked_products[barcode] = product
-
         source_order_id = None
         invoice_result = await session.execute(
             select(SalesInvoice).where(
@@ -237,6 +207,37 @@ class FulfillmentEngine:
         source_invoice = invoice_result.scalars().first()
         if source_invoice and isinstance(source_invoice.rule_snapshots, dict):
             source_order_id = source_invoice.rule_snapshots.get("source_order_id")
+
+        requested_items = req.items or [
+            type("PackingItem", (), {"product_id": item.product_id, "sku": item.sku, "quantity": item.quantity})
+            for item in ps.items
+        ]
+        locked_products: Dict[str, Product] = {}
+        if source_order_id:
+            for item in requested_items:
+                barcode = str(item.sku or "").strip()
+                if not barcode:
+                    raise ValueError("Dispatch item barcode is required.")
+                product_result = await session.execute(
+                    select(Product).where(
+                        Product.barcode == barcode,
+                        Product.company_id == company_id,
+                        Product.is_deleted == False,
+                    ).with_for_update()
+                )
+                product = product_result.scalars().first()
+                if not product:
+                    raise ValueError(f"Dispatch barcode '{barcode}' was not found in inventory.")
+                quantity = Decimal(str(item.quantity or 0))
+                if quantity <= 0:
+                    raise ValueError(f"Dispatch quantity for barcode '{barcode}' must be greater than zero.")
+                reserved = Decimal(str(product.reserved_stock or 0))
+                if reserved < quantity:
+                    raise ValueError(f"Barcode '{barcode}' has only {reserved} reserved for dispatch, requested {quantity}.")
+                physical = Decimal(str(product.stock or 0))
+                if physical < quantity:
+                    raise ValueError(f"Barcode '{barcode}' has only {physical} physical stock, requested {quantity}.")
+                locked_products[barcode] = product
 
         now = datetime.now(timezone.utc)
         dsp_num = f"DSP-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
@@ -252,7 +253,7 @@ class FulfillmentEngine:
             tracking_number=tracking,
             driver_person_id=req.driver_person_id,
             status="DISPATCHED",
-            dispatch_date=now.replace(tzinfo=None),
+            dispatch_date=now,
             delivered_date=None,
             delivery_fee=req.delivery_fee,
             driver_commission=req.driver_commission,
@@ -297,31 +298,31 @@ class FulfillmentEngine:
                     DispatchItemResponse(id=di.id, product_id=di.product_id, quantity=di.quantity)
                 )
 
-        for item in requested_items:
-            barcode = str(item.sku).strip()
-            product = locked_products[barcode]
-            quantity = Decimal(str(item.quantity))
-            product.stock = Decimal(str(product.stock or 0)) - quantity
-            product.reserved_stock = Decimal(str(product.reserved_stock or 0)) - quantity
-            session.add(StockMovement(
-                id=f"sm-{uuid.uuid4().hex[:24]}",
-                company_id=company_id,
-                product_id=product.id,
-                item_id=product.item_id,
-                product_name=product.name,
-                sku=barcode,
-                quantity=quantity,
-                movement_type="OUTWARD_DISPATCH",
-                reference_doc_type="DISPATCH",
-                reference_doc_id=dsp_id,
-                warehouse=None,
-                remarks=f"Barcode dispatch {dsp_num}",
-                source_module="Fulfillment",
-                created_by=created_by,
-                is_active=True,
-                is_deleted=False,
-            ))
-            if source_order_id:
+        if source_order_id:
+            for item in requested_items:
+                barcode = str(item.sku).strip()
+                product = locked_products[barcode]
+                quantity = Decimal(str(item.quantity))
+                product.stock = Decimal(str(product.stock or 0)) - quantity
+                product.reserved_stock = Decimal(str(product.reserved_stock or 0)) - quantity
+                session.add(StockMovement(
+                    id=f"sm-{uuid.uuid4().hex[:24]}",
+                    company_id=company_id,
+                    product_id=product.id,
+                    item_id=product.item_id,
+                    product_name=product.name,
+                    sku=barcode,
+                    quantity=quantity,
+                    movement_type="OUTWARD_DISPATCH",
+                    reference_doc_type="DISPATCH",
+                    reference_doc_id=dsp_id,
+                    warehouse=None,
+                    remarks=f"Barcode dispatch {dsp_num}",
+                    source_module="Fulfillment",
+                    created_by=created_by,
+                    is_active=True,
+                    is_deleted=False,
+                ))
                 reservation_result = await session.execute(
                     select(SalesOrderReservation).where(
                         SalesOrderReservation.order_id == source_order_id,
@@ -390,7 +391,7 @@ class FulfillmentEngine:
         commission_settled = False
 
         if target_status == "DELIVERED":
-            dsp.delivered_date = now.replace(tzinfo=None)
+            dsp.delivered_date = now
             # Settle driver commission if assigned
             if dsp.driver_person_id and (dsp.driver_commission or 0) > 0:
                 settlement = DeliveryCommissionSettlement(
@@ -401,7 +402,7 @@ class FulfillmentEngine:
                     participant_role="DRIVER",
                     total_commission_amount=dsp.driver_commission,
                     settlement_status="SETTLED",
-                    settled_date=now.replace(tzinfo=None),
+                    settled_date=now,
                     created_by=created_by,
                     is_active=True,
                     is_deleted=False,
@@ -472,7 +473,7 @@ class FulfillmentEngine:
             reason=req.reason,
             restock_status=req.restock_status.upper(),
             commission_reversed=True,
-            timestamp=now.replace(tzinfo=None),
+            timestamp=now,
             created_by=created_by,
             is_active=True,
             is_deleted=False,

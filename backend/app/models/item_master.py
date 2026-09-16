@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+from decimal import Decimal
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey, Text, text, Date, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
@@ -41,7 +42,7 @@ class Item(BaseEntity):
     size = Column(String(50), nullable=True, index=True)
     vendor_code = Column(String(100), nullable=True, index=True)
     hsn_code = Column(String(15), nullable=True)
-    tax_rate = Column(Numeric(5, 2), nullable=True)
+    tax_rate = Column(Numeric(5, 2), nullable=False, default=Decimal("18.00"), server_default=text("'18.00'"))
     primary_uom = Column(String(20), nullable=True)
     
     # Non-authoritative legacy baseline fields (Pricing Domain is sole system-of-record)

@@ -137,23 +137,35 @@ class ProductBase(BaseModel):
         if self.price < Decimal("0"):
             raise ValueError("Selling Price must be greater than or equal to 0.")
 
-        if self.buying_price is None:
-            self.buying_price = self.cost_price or (self.price if self.price > Decimal("0") else Decimal("100.00"))
-        if self.buying_price <= Decimal("0"):
-            self.buying_price = self.price if self.price > Decimal("0") else Decimal("100.00")
+        if "buying_price" in self.model_fields_set:
+            if self.buying_price is None:
+                raise ValueError("Buying Price is mandatory for stock items.")
+            if self.buying_price <= Decimal("0"):
+                raise ValueError("Buying Price must be greater than 0.")
+        else:
+            if self.buying_price is None:
+                self.buying_price = self.cost_price or (self.price if self.price > Decimal("0") else Decimal("100.00"))
+            if self.buying_price <= Decimal("0"):
+                self.buying_price = self.price if self.price > Decimal("0") else Decimal("100.00")
 
-        if self.cost_price is None:
-            self.cost_price = self.buying_price or self.price or Decimal("100.00")
-        if self.cost_price <= Decimal("0"):
-            self.cost_price = self.buying_price or self.price or Decimal("100.00")
+        if "cost_price" in self.model_fields_set:
+            if self.cost_price is None:
+                raise ValueError("Cost Price is mandatory for stock items.")
+            if self.cost_price <= Decimal("0"):
+                raise ValueError("Cost Price must be greater than 0.")
+        else:
+            if self.cost_price is None:
+                self.cost_price = self.buying_price or self.price or Decimal("100.00")
+            if self.cost_price <= Decimal("0"):
+                self.cost_price = self.buying_price or self.price or Decimal("100.00")
 
         if self.mrp is None:
             self.mrp = self.price
         elif self.mrp < self.price:
             raise ValueError(f"MRP ({self.mrp}) must be greater than or equal to Selling Price ({self.price}).")
 
-        if self.cost_price > self.buying_price:
-            self.buying_price = self.cost_price
+        if self.cost_price is not None and self.buying_price is not None and self.cost_price > self.buying_price:
+            raise ValueError(f"Cost Price ({self.cost_price}) must be less than or equal to Buying Price ({self.buying_price}).")
 
         return self
 

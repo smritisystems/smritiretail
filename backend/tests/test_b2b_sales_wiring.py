@@ -165,7 +165,7 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
             code=f"SKU-{suffix}",
             name=f"Corporate B2B Sample Product {suffix}",
             price=Decimal("1000.00"),
-            mrp=Decimal("1200.00"),
+            mrp=Decimal("9999999.00"),
             gst_percentage=Decimal("18.00"),
             hsn_code="8471",
             category="Electronics",
@@ -181,6 +181,8 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
             name=f"Corporate B2B Group {suffix}",
             credit_limit=Decimal("1000000.00"),
             credit_days=45,
+            tax_inclusive=False,
+            is_tax_inclusive=False,
             is_active=True,
             is_deleted=False
         )

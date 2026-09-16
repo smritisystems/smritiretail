@@ -223,9 +223,22 @@ class UniversalPartyService:
         Deduplication rule engine:
         Matches existing party by GSTIN -> Phone/Mobile -> Email -> Party Code.
         """
-        conditions = []
+        # 1. Authoritative Corporate Identifier: GSTIN
         if gstin and gstin.strip():
-            conditions.append(Party.gstin == gstin.strip())
+            clean_gst = gstin.strip().upper()
+            stmt_gst = select(Party).options(
+                selectinload(Party.roles),
+                selectinload(Party.customer_profile),
+                selectinload(Party.supplier_profile)
+            ).where(Party.gstin == clean_gst)
+            gst_match = (await session.execute(stmt_gst)).scalars().first()
+            if gst_match:
+                return gst_match
+            # A registered business entity with a distinct GSTIN must not be hijacked by shared phone/email
+            return None
+
+        # 2. Secondary Identifiers: Phone / Email / Party Code for unregistered parties
+        conditions = []
         if phone and phone.strip():
             p = phone.strip()
             conditions.append(or_(Party.phone == p, Party.mobile == p))
@@ -242,7 +255,7 @@ class UniversalPartyService:
             selectinload(Party.customer_profile),
             selectinload(Party.supplier_profile)
         ).where(or_(*conditions))
-        
+
         return (await session.execute(stmt)).scalars().first()
 
     @classmethod

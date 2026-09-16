@@ -37,7 +37,7 @@ from app.models.item_master import Item, ItemVariant, ItemBarcode
 @pytest.fixture(autouse=True)
 async def cleanup_test_items():
     """Clean up test items before and after each test."""
-    test_codes = ["SKU-POLO-NAVY", "SKU-TSHIRT-BLK", "SKU-JEANS-SLIM", "SKU-ISO-TEST-01", "SKU-SCAN-ITEM-01"]
+    test_codes = ["SKU-POLO-NAVY", "SKU-TSHIRT-BLK", "SKU-JEANS-SLIM", "SKU-ISO-TEST-01", "SKU-SCAN-ITEM-01", "SKU-5BKT-TEST-01"]
     for db in ["smriti001", "smriti002"]:
         session_factory = get_company_sessionmaker(db)
         async with session_factory() as session:

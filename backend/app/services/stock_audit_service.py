@@ -131,6 +131,8 @@ class StockAuditService:
 
         for b in batches:
             p = products_map.get(b.product_id)
+            if not p:
+                continue
             unit_cost = float(getattr(p, 'cost_price', None) or getattr(p, 'price', 100.0) or 100.0)
             sys_qty = float(b.quantity)
             

@@ -82,6 +82,9 @@ class InventoryService:
         self.db.add(movement)
 
     async def create_product(self, product_in: ProductCreate) -> Product:
+        # Multi-Tenant Isolation Enforcement (Blocker 5)
+        if not self.tenant_ctx or not self.tenant_ctx.company_id:
+            raise HTTPException(status_code=400, detail="Multi-tenant security violation: company_id is required")
 
         await AttributesService(self.db).validate_product_attributes(
             product_in.attributes,
@@ -132,10 +135,6 @@ class InventoryService:
             )
             if existing_barcode.scalars().first():
                 raise HTTPException(status_code=400, detail="Product with this barcode already exists")
-
-        # Multi-Tenant Isolation Enforcement (Blocker 5)
-        if not self.tenant_ctx or not self.tenant_ctx.company_id:
-            raise HTTPException(status_code=400, detail="Multi-tenant security violation: company_id is required")
 
         cid = self.tenant_ctx.company_id
         bid = self.tenant_ctx.branch_id

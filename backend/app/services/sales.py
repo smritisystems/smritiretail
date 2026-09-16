@@ -183,7 +183,7 @@ class SalesService:
 
         # Determine settlement and credit modes early
         is_credit_mode = (invoice_in.payment_mode or "").strip().upper() == "CREDIT"
-        is_settled_status = (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]
+        is_settled_status = (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "HOLD", "CANCELLED"]
 
         # Resolve customer details & tenant validation
         resolved_customer_id = invoice_in.customer_id or "CUST-WALKIN"
@@ -529,7 +529,7 @@ class SalesService:
 
             # Determine batch allocation
             assigned_batch = item.batch_no or "BATCH-OPENING"
-            is_settled_status = (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]
+            is_settled_status = (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "HOLD", "CANCELLED"]
             if product and product.tracking_mode != "No-stock" and is_settled_status:
                 if item.batch_no:
                     batch_deductions.append({
@@ -879,7 +879,7 @@ class SalesService:
                 )
 
         # 4. Deduct stock from WMS batch stocks atomically (only for completed/settled sales)
-        if (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "DRAFT", "HOLD", "CANCELLED"]:
+        if (invoice_in.status or "Draft").upper() not in ["SUSPENDED", "HOLD", "CANCELLED"]:
             for ded in batch_deductions:
                 await wms_service.atomic_mutate_batch_stock(
                     product_id=ded["product"].id,

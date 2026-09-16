@@ -17,7 +17,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Dict, Any
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, or_
 from sqlalchemy.exc import IntegrityError
 
 from app.db.session import get_company_sessionmaker
@@ -46,7 +46,10 @@ async def cleanup_test_outbox(session_factory):
     async with session_factory() as session:
         await session.execute(
             delete(IntegrationOutboxEvent).where(
-                IntegrationOutboxEvent.source_event_id.like("evt-test-outbox-%")
+                or_(
+                    IntegrationOutboxEvent.source_event_id.like("evt-%"),
+                    IntegrationOutboxEvent.target_channel == "PLATFORM_EVENTS",
+                )
             )
         )
         await session.commit()
@@ -54,7 +57,10 @@ async def cleanup_test_outbox(session_factory):
     async with session_factory() as session:
         await session.execute(
             delete(IntegrationOutboxEvent).where(
-                IntegrationOutboxEvent.source_event_id.like("evt-test-outbox-%")
+                or_(
+                    IntegrationOutboxEvent.source_event_id.like("evt-%"),
+                    IntegrationOutboxEvent.target_channel == "PLATFORM_EVENTS",
+                )
             )
         )
         await session.commit()
