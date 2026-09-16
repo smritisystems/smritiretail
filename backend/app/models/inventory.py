@@ -41,7 +41,7 @@ class Product(BaseEntity):
     buying_price = Column(Numeric(15, 2))
     cost_price = Column(Numeric(15, 2))
     sku = Column(String(100), unique=True)
-    hsn_code = Column(String(15), default="6403", server_default="6403")
+    hsn_code = Column(String(15), nullable=True)
     pricing_mode = Column(String(30), default="Fixed")
     tracking_mode = Column(String(30), default="Standard")
     variant_template_id = Column(String(50))

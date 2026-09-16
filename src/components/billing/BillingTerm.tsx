@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.10.0
+ * Version      : 6.28.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-02
+ * Modified     : 2026-09-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -50,6 +50,10 @@ import {
 import { SmritiDefineSalesPromotionsModal } from "./SmritiDefineSalesPromotionsModal.tsx";
 import { SmritiDefineSalesFactorsModal } from "../pricing/SmritiDefineSalesFactorsModal.tsx";
 import { SmritiSalesFactorService } from "../../services/smritiSalesFactorService.ts";
+import {
+  SmritiSalesPromotionService,
+  ItemPromoResolutionResult
+} from "../../services/smritiSalesPromotionService.ts";
 import { SmritiDefineBillPrefixModal } from "./SmritiDefineBillPrefixModal.tsx";
 import { smritiSystemParameterService } from "../../services/smritiSystemParameterService.ts";
 import {
@@ -808,12 +812,29 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                        || (result.record?.price as number)
                        || 0
                         );
+        const numRate = parseFloat(rateVal) || 0;
+        const numQty = parseFloat(directEntry.qty) || 1;
+        const bestPromo = SmritiSalesPromotionService.resolveBestItemPromo({
+          sku: stockVal,
+          barcode: barcodeVal,
+          category: (result.record?.category as string) || "",
+          brand: (result.record?.brand as string) || undefined,
+          rate: numRate,
+          qty: numQty,
+          customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+          customerCode: headerState.customer?.id,
+          evalDate: new Date()
+        });
+
         setDirectEntry(prev => ({
           ...prev,
           stockNo:         stockVal,
           barcode:         barcodeVal,
           itemDescription: descVal,
           rate:            rateVal,
+          discCode:        bestPromo.promo ? bestPromo.promoCode : (prev.discCode || "ILD"),
+          discPercent:     bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (prev.discPercent || "0.00"),
+          discQty:         prev.discQty || prev.qty || "1"
         }));
         // Keep focus in the direct-entry row after selection (focus restoration
         // is handled by F2Dispatcher.closeLookup → originElementRef, which points
@@ -1265,16 +1286,38 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const rateVal = String((p as any).sellingPrice || (p as any).mrp || (p as any).price || 0);
     const stockVal = (p as any).stockNo || (p as any).styleCode || (p as any).style_code || p.code || "";
     const barcodeVal = p.barcode || (p as any).code || "";
+    const numRate = parseFloat(rateVal) || 0;
+    const numQty = parseFloat(directEntry.qty) || 1;
+
+    // Auto-evaluate promotional scheme on item auto-population
+    const bestPromo = SmritiSalesPromotionService.resolveBestItemPromo({
+      sku: stockVal,
+      barcode: barcodeVal,
+      category: (p as any).category,
+      brand: (p as any).brand,
+      rate: numRate,
+      qty: numQty,
+      customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+      customerCode: headerState.customer?.id,
+      evalDate: new Date()
+    });
+
     setDirectEntry(prev => ({
       ...prev,
       stockNo: stockVal,
       barcode: barcodeVal,
       itemDescription: p.name || (p as any).itemDescription || (p as any).description || "",
-      rate: rateVal
+      rate: rateVal,
+      discCode: bestPromo.promo ? bestPromo.promoCode : (prev.discCode || "ILD"),
+      discPercent: bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (prev.discPercent || "0.00"),
+      discQty: prev.discQty || prev.qty || "1"
     }));
     setSelectedItemProductMeta(p as AutoPopulateProductResult);
     setShowProductDropdown(false);
     setProductSearchError(null);
+    if (bestPromo.promo) {
+      onNotification?.("Promotion Auto-Applied", `${bestPromo.promoCode} applied (${bestPromo.discountPct.toFixed(2)}% off, saving ₹${bestPromo.discountAmt.toFixed(2)}).`, "info");
+    }
     setTimeout(() => {
       directStockNoRef.current?.focus();
     }, 10);
@@ -1504,23 +1547,42 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       }
     }
 
-    // Duplicate scan aggregation: if identical item exists at same rate/discount, increment its quantity
+    // Duplicate scan aggregation: if identical item exists at same rate, increment its quantity and dynamically re-evaluate promotions
     const existingIndex = items.findIndex(it =>
       ((it.barcode && computedLine.barcode && it.barcode === computedLine.barcode) ||
        (it.stockNo && computedLine.stockNo && it.stockNo === computedLine.stockNo)) &&
-      it.rate === computedLine.rate &&
-      (it.discPercent || 0) === (computedLine.discPercent || 0) &&
-      it.discCode === directEntry.discCode
+      it.rate === computedLine.rate
     );
 
     if (existingIndex !== -1) {
       const existing = items[existingIndex];
       const updatedQty = existing.qty + qty;
+
+      // Dynamic re-evaluation of promotional scheme on aggregated quantity (e.g. B2G1 on 3 units)
+      let updatedDiscPct = existing.discPercent || 0;
+      let updatedDiscCode = existing.discCode || "ILD";
+
+      const promoRes = SmritiSalesPromotionService.resolveBestItemPromo({
+        sku: existing.stockNo,
+        barcode: existing.barcode,
+        rate: existing.rate,
+        qty: updatedQty,
+        customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+        customerCode: headerState.customer?.id,
+        evalDate: new Date()
+      });
+
+      if (promoRes.promo) {
+        updatedDiscPct = promoRes.discountPct;
+        updatedDiscCode = promoRes.promoCode;
+      }
+
       const recomputed = calculateLineTotal({
         ...existing,
         qty: updatedQty,
         value: existing.rate * updatedQty,
-        discPercent: existing.discPercent || 0,
+        discPercent: updatedDiscPct,
+        discCode: updatedDiscCode,
         taxPercent: existing.gstPercentage || 18,
       });
 
@@ -1530,6 +1592,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             ...it,
             qty: updatedQty,
             value: recomputed.value,
+            discPercent: updatedDiscPct,
+            discCode: updatedDiscCode,
             discAmt: Number(recomputed.discAmt ?? 0),
             total: recomputed.total,
             taxAmount: Number(recomputed.taxAmount ?? 0),
@@ -1537,7 +1601,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         }
         return it;
       }));
-      onNotification?.("Item Quantity Updated", `Incremented quantity of '${computedLine.itemDescription}' to ${updatedQty} units.`, "success");
+      onNotification?.("Item Quantity Updated", `Incremented quantity of '${computedLine.itemDescription}' to ${updatedQty} units (${updatedDiscCode}: ${updatedDiscPct}% off).`, "success");
     } else {
       const newLine: BillingLineItem = {
         id: computedLine.id,

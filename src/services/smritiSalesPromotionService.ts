@@ -167,9 +167,13 @@ export interface SmritiDefinedSalesPromotion {
   applicableCustomerGroups?: string[]; // ["ALL", "VIP", "WHOLESALE", "STAFF"]
   validFrom: string; // YYYY-MM-DD
   validTo: string; // YYYY-MM-DD
+  startDate?: string;
+  endDate?: string;
   isHappyHours?: boolean;
   happyHoursStart?: string; // HH:mm
   happyHoursEnd?: string; // HH:mm
+  timeFrom?: string;
+  timeTo?: string;
   recipeId?: string;
   appliedOn?: "LOWEST_PRICE" | "HIGHEST_PRICE" | "MRP" | "SELLING_PRICE";
   daysOfWeek?: string[]; // ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
@@ -185,6 +189,7 @@ export interface SmritiDefinedSalesPromotion {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  rules?: any[];
 }
 
 const STORAGE_KEY = "smriti_sales_promotions_catalog";
@@ -201,7 +206,7 @@ export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
     priority: 1,
     discountValue: 43.76,
     appliedOn: "MRP",
-    applicableCustomerGroups: ["RELIANCE", "RELIANCE_RETAIL", "ALL"],
+    applicableCustomerGroups: ["RELIANCE", "RELIANCE_RETAIL"],
     validFrom: "2026-01-01",
     validTo: "2026-12-31",
     isActive: true,
@@ -217,6 +222,7 @@ export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
     category: "ITEM_DISCOUNT_PERCENT",
     priority: 2,
     discountValue: 10,
+    applicableCategories: ["Apparel"],
     applicableCustomerGroups: ["ALL"],
     validFrom: "2026-01-01",
     validTo: "2026-12-31",
@@ -236,6 +242,7 @@ export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
     buyQty: 2,
     freeQty: 1,
     minQty: 3,
+    applicableCategories: ["Apparel"],
     applicableCustomerGroups: ["ALL"],
     validFrom: "2026-01-01",
     validTo: "2026-12-31",
@@ -252,6 +259,7 @@ export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
     category: "ITEM_DISCOUNT_PERCENT",
     priority: 3,
     discountValue: 20,
+    applicableCategories: ["Apparel", "Fashion"],
     applicableCustomerGroups: ["ALL"],
     validFrom: "2026-01-01",
     validTo: "2026-12-31",
@@ -268,6 +276,7 @@ export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
     category: "ITEM_DISCOUNT_FLAT",
     priority: 4,
     discountValue: 100,
+    applicableCategories: ["Footwear"],
     applicableCustomerGroups: ["ALL"],
     validFrom: "2026-01-01",
     validTo: "2026-12-31",
@@ -450,10 +459,24 @@ export class SmritiSalesPromotionService {
     const idx = all.findIndex(p => p.id === promo.id);
     const now = new Date().toISOString();
 
+    const normalizedPromo: SmritiDefinedSalesPromotion = {
+      ...promo,
+      validFrom: promo.validFrom || promo.startDate || "2026-01-01",
+      validTo: promo.validTo || promo.endDate || "2026-12-31",
+      happyHoursStart: promo.happyHoursStart || promo.timeFrom,
+      happyHoursEnd: promo.happyHoursEnd || promo.timeTo,
+      isHappyHours: promo.isHappyHours ?? Boolean(promo.happyHoursStart || promo.timeFrom),
+      applicableCategories: promo.applicableCategories || (promo.rules?.filter((r: any) => r.ruleType === "CATEGORY").map((r: any) => r.targetValue)) || [],
+      applicableBrands: promo.applicableBrands || (promo.rules?.filter((r: any) => r.ruleType === "BRAND").map((r: any) => r.targetValue)) || [],
+      applicableCustomerGroups: promo.applicableCustomerGroups || (promo.rules?.filter((r: any) => r.ruleType === "CUSTOMER_GROUP").map((r: any) => r.targetValue)) || ["ALL"],
+      minQty: promo.minQty || (promo.rules?.find((r: any) => r.ruleType === "MIN_QTY")?.minQuantity),
+      rules: promo.rules || []
+    };
+
     if (idx >= 0) {
-      all[idx] = { ...promo, updatedAt: now };
+      all[idx] = { ...normalizedPromo, updatedAt: now };
     } else {
-      all.push({ ...promo, createdAt: promo.createdAt || now, updatedAt: now });
+      all.push({ ...normalizedPromo, createdAt: promo.createdAt || now, updatedAt: now });
     }
 
     try {
@@ -1064,6 +1087,264 @@ export class SmritiSalesPromotionService {
       }))
     };
   }
+
+  /**
+  /**
+   * Real-Time Item-Level Auto-Select Resolver:
+   * Evaluates all active ITEM_LEVEL promotions against a scanned or entered product.
+   * If multiple promotions qualify, selects the one offering the HIGHEST customer discount (Highest Discount Wins).
+   */
+  public static resolveBestItemPromo(params: {
+    sku?: string;
+    barcode?: string;
+    category?: string;
+    brand?: string;
+    rate: number;
+    qty?: number;
+    customerGroup?: string;
+    customerCode?: string;
+    evalDate?: Date;
+    asOf?: Date;
+    currentTime?: string; // "HH:mm"
+    currentDay?: string; // "MON", "TUE", etc.
+    isLastPiece?: boolean;
+    stockQty?: number;
+  }): ItemPromoResolutionResult {
+    const qty = params.qty && params.qty > 0 ? params.qty : 1;
+    const rate = params.rate > 0 ? params.rate : 0;
+    const evalDate = params.evalDate || params.asOf || new Date();
+    const customerGroup = (params.customerGroup || "ALL").trim().toUpperCase();
+    const itemCat = (params.category || "").trim().toLowerCase();
+    const itemBrand = (params.brand || "").trim().toLowerCase();
+    const itemSku = (params.sku || "").trim().toLowerCase();
+    const itemBarcode = (params.barcode || "").trim().toLowerCase();
+
+    // Determine day of week if not passed
+    const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const currentDay = params.currentDay || dayNames[evalDate.getDay()];
+
+    // Determine current time HH:mm if not passed
+    const hours = String(evalDate.getHours()).padStart(2, "0");
+    const mins = String(evalDate.getMinutes()).padStart(2, "0");
+    const currentTime = params.currentTime || `${hours}:${mins}`;
+
+    const nullResult: ItemPromoResolutionResult = {
+      applied: false,
+      promo: null,
+      rule: null,
+      discountPct: 0,
+      discountAmt: 0,
+      promoCode: "",
+      promoDescription: "",
+      schemeType: null,
+      reason: "No active promotion qualified",
+      appliedOnQty: qty,
+      badgeText: "",
+      ruleDescription: ""
+    };
+
+    if (rate <= 0) {
+      return nullResult;
+    }
+
+    const activeItemPromos = this.getActivePromotionsByLevel("ITEM_LEVEL", evalDate);
+
+    interface Candidate {
+      promo: SmritiDefinedSalesPromotion;
+      discountPct: number;
+      discountAmt: number;
+      badgeText: string;
+      ruleDescription: string;
+      savings: number;
+      appliedQty: number;
+    }
+
+    const candidates: Candidate[] = [];
+
+    for (const promo of activeItemPromos) {
+      // 1. Day of week filter
+      if (promo.daysOfWeek && promo.daysOfWeek.length > 0 && promo.daysOfWeek.length < 7) {
+        if (!promo.daysOfWeek.includes(currentDay)) continue;
+      }
+
+      // 2. Happy hours filter
+      const hhStart = promo.happyHoursStart || promo.timeFrom;
+      const hhEnd = promo.happyHoursEnd || promo.timeTo;
+      if ((promo.isHappyHours || hhStart) && hhStart && hhEnd) {
+        if (currentTime < hhStart || currentTime > hhEnd) continue;
+      }
+
+      // 3. Customer group filter
+      const custGroups = promo.applicableCustomerGroups || [];
+      const ruleCustGroups = (promo.rules || [])
+        .filter((r: any) => r.ruleType === "CUSTOMER_GROUP")
+        .map((r: any) => r.targetValue);
+      const allCustGroups = [...custGroups, ...ruleCustGroups].map(g => String(g).trim().toUpperCase());
+
+      if (allCustGroups.length > 0 && !allCustGroups.includes("ALL")) {
+        if (!customerGroup || customerGroup === "ALL") continue;
+        const normCustGroup = customerGroup.trim().toUpperCase();
+        const matches = allCustGroups.some(g =>
+          normCustGroup === g ||
+          normCustGroup.includes(g) ||
+          g.includes(normCustGroup)
+        );
+        if (!matches) continue;
+      }
+
+      // 4. Category / Brand / SKU filters
+      let matchesTarget = true;
+      const promoCats = (promo.applicableCategories || []).map(c => c.trim().toLowerCase());
+      const promoBrands = (promo.applicableBrands || []).map(b => b.trim().toLowerCase());
+
+      if (promo.rules && promo.rules.length > 0) {
+        for (const r of promo.rules) {
+          if (r.ruleType === "CATEGORY") {
+            const targetVal = String(r.targetValue).trim().toLowerCase();
+            if (!itemCat || itemCat !== targetVal) {
+              matchesTarget = false;
+              break;
+            }
+          } else if (r.ruleType === "BRAND") {
+            const targetVal = String(r.targetValue).trim().toLowerCase();
+            if (!itemBrand || itemBrand !== targetVal) {
+              matchesTarget = false;
+              break;
+            }
+          } else if (r.ruleType === "SKU") {
+            const targetVal = String(r.targetValue).trim().toLowerCase();
+            if (!itemSku || (itemSku !== targetVal && itemBarcode !== targetVal)) {
+              matchesTarget = false;
+              break;
+            }
+          } else if (r.ruleType === "MIN_QTY") {
+            if (qty < (r.minQuantity || 1)) {
+              matchesTarget = false;
+              break;
+            }
+          }
+        }
+      } else {
+        if (promoCats.length > 0) {
+          const catMatch = promoCats.some(c => itemCat === c || itemCat.includes(c) || c.includes(itemCat));
+          if (!catMatch && itemCat) matchesTarget = false;
+          if (promoCats.length > 0 && !itemCat) matchesTarget = false;
+        }
+        if (promoBrands.length > 0) {
+          const brandMatch = promoBrands.some(b => itemBrand === b || itemBrand.includes(b) || b.includes(itemBrand));
+          if (!brandMatch && itemBrand) matchesTarget = false;
+          if (promoBrands.length > 0 && !itemBrand) matchesTarget = false;
+        }
+      }
+
+      if (!matchesTarget) continue;
+
+      // 5. Min quantity check
+      const minQty = promo.minQty || promo.rules?.find((r: any) => r.ruleType === "MIN_QTY")?.minQuantity;
+      if (minQty && qty < minQty) {
+        continue;
+      }
+
+      // 6. Calculate discount for this promo
+      let discPct = 0;
+      let discAmt = 0;
+      let appliedQty = qty;
+      const lineGross = rate * qty;
+
+      if (promo.category === "ITEM_DISCOUNT_PERCENT") {
+        discPct = promo.discountValue || 0;
+        discAmt = (lineGross * discPct) / 100;
+        if (promo.maxDiscount && discAmt > promo.maxDiscount) {
+          discAmt = promo.maxDiscount;
+          discPct = lineGross > 0 ? (discAmt / lineGross) * 100 : 0;
+        }
+      } else if (promo.category === "ITEM_DISCOUNT_FLAT") {
+        const perPieceAmt = promo.discountValue || 0;
+        discAmt = Math.min(lineGross, perPieceAmt * qty);
+        discPct = lineGross > 0 ? (discAmt / lineGross) * 100 : 0;
+        if (promo.maxDiscount && discAmt > promo.maxDiscount) {
+          discAmt = promo.maxDiscount;
+          discPct = lineGross > 0 ? (discAmt / lineGross) * 100 : 0;
+        }
+      } else if (promo.category === "ITEM_OFFER_B2G1") {
+        const buy = promo.buyQty || 2;
+        const free = promo.freeQty || 1;
+        const bundleSize = buy + free;
+        if (qty >= bundleSize) {
+          const bundles = Math.floor(qty / bundleSize);
+          const freePieces = bundles * free;
+          discAmt = freePieces * rate;
+          discPct = lineGross > 0 ? (discAmt / lineGross) * 100 : 0;
+          appliedQty = freePieces;
+        } else {
+          continue;
+        }
+      } else if (promo.category === "ITEM_LAST_PIECE") {
+        const qualifiesLastPiece = params.isLastPiece || (params.stockQty !== undefined && params.stockQty <= 1);
+        if (qualifiesLastPiece && qty === 1) {
+          discPct = promo.discountValue || 25;
+          discAmt = (lineGross * discPct) / 100;
+        } else {
+          continue;
+        }
+      }
+
+      if (discAmt > 0 || discPct > 0) {
+        candidates.push({
+          promo,
+          discountPct: Math.round(discPct * 100) / 100,
+          discountAmt: Math.round(discAmt * 100) / 100,
+          badgeText: `${discPct.toFixed(1)}% [${promo.code}]`,
+          ruleDescription: promo.name || promo.description,
+          savings: discAmt,
+          appliedQty
+        });
+      }
+    }
+
+    if (candidates.length === 0) {
+      return nullResult;
+    }
+
+    // Sort candidates: Highest savings wins. If savings equal, smallest priority number wins.
+    candidates.sort((a, b) => {
+      if (Math.abs(b.savings - a.savings) > 0.01) {
+        return b.savings - a.savings;
+      }
+      return a.promo.priority - b.promo.priority;
+    });
+
+    const best = candidates[0];
+    return {
+      applied: true,
+      promo: best.promo,
+      rule: best.promo.rules?.[0] || null,
+      discountPct: best.discountPct,
+      discountAmt: best.discountAmt,
+      promoCode: best.promo.code,
+      promoDescription: best.ruleDescription || best.promo.description || best.promo.name,
+      schemeType: best.promo.category,
+      reason: `Auto-selected best qualifying promotional scheme: ${best.promo.name} (${best.discountPct}% off)`,
+      appliedOnQty: best.appliedQty,
+      badgeText: best.badgeText,
+      ruleDescription: best.ruleDescription
+    };
+  }
+}
+
+export interface ItemPromoResolutionResult {
+  applied: boolean;
+  promo: SmritiDefinedSalesPromotion | null;
+  rule?: any | null;
+  discountPct: number;
+  discountAmt: number;
+  promoCode: string;
+  promoDescription: string;
+  schemeType: SmritiPromoCategory | null;
+  reason: string;
+  appliedOnQty: number;
+  badgeText?: string;
+  ruleDescription?: string;
 }
 
 export interface RetailPromotionRecipe {

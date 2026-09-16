@@ -605,7 +605,7 @@ class EWayBillService:
                 {
                     "userGstin": company_gstin,
                     "supplyType": "O",
-                    "subSupplyType": 1, # 1 = Supply
+                    "subSupplyType": "1", # 1 = Supply
                     "docType": "INV",
                     "docNo": invoice.invoice_no,
                     "docDate": doc_date,

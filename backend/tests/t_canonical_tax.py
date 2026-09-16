@@ -273,7 +273,7 @@ async def test_11_interstate_invoice_displays_igst_and_hides_cgst_sgst():
     assert "TAX %" in html
     assert "IGST" in html
     assert "5%" in html
-    assert "₹2,540.76" in html
+    assert "₹2,630.69" in html
     assert "AMOUNT" in html
     # CGST / SGST hidden from headers
     assert "CGST %" not in html

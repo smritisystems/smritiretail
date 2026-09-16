@@ -29,9 +29,9 @@ import psycopg2
 import uuid
 import asyncio
 
-# Force SelectorEventLoop on Windows to prevent asyncpg socket concurrency collisions
+# Use ProactorEventLoop on Windows to support subprocesses (Playwright PDF rendering) and asyncpg
 if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # ============================================================
 # Architecture-Compliant Connection URLs

@@ -144,6 +144,10 @@ async def test_transfer_eway_bill_and_delivery_challan_generation(async_db: Asyn
         assert challan["summary"]["total_value"] == 50000.0
 
     finally:
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
@@ -379,6 +383,10 @@ async def test_strict_statutory_validation_rejections(async_db: AsyncSession, te
         assert "SMRITI-STAT-002" in exc_dc_hsn.value.detail
 
     finally:
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
@@ -496,6 +504,10 @@ async def test_strict_statutory_mode_config_toggle(async_db: AsyncSession, tenan
 
     finally:
         settings.STRICT_STATUTORY_MODE = original_mode
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
