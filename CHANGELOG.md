@@ -28,6 +28,37 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.30.0] - 2026-09-17
+
+#### POS Counter Resilience: F12 Park & Recall, Statutory GST Section 15 Return Integrity, Alt+M Customer Switch & LSQ Gate
+
+- **F12 Bill Park & Recall Engine (`smritiPosParkedCartService.ts`):**
+  - Instant zero-latency counter lane unfreezing; generates canonical hold slip numbering (`HOLD-YYYYMMDD-XXXX`).
+  - Strict 4-hour auto-expiration window (`expires_at`): filters out stale carts so shift-end reconciliation and cash drawer balances are never compromised by forgotten transactions from earlier shifts.
+  - Dual-layer storage: local storage for zero-latency counter resilience and asynchronous PostgreSQL persistence (`pos_parked_carts`).
+  - Prominent toolbar ribbon badge with active cart count and 1-click recall dialog.
+- **B2G1 Promotional Return Integrity & Statutory GST Sec. 15 Clawback (`smritiPromotionClawbackService.ts`):**
+  - Inspects invoice promotion redemptions to block or deduct clawback when customers return paid items while retaining free promotional items.
+  - Preserves statutory GST Section 15 taxable base calculation on return Credit Notes, preventing understated taxable consideration on GSTR-1.
+- **Alt+M Mid-Bill Customer Switch with Dynamic Re-Evaluation:**
+  - Frictionless mid-transaction customer change dynamically re-evaluating `resolveBestItemPromo` and `resolveBestBillPromo` across all grid lines with recalculation of line discounts, GST, and totals.
+  - Asynchronously posts audit records to `invoice_customer_change_logs`.
+- **Quick Last-Bill Reprint (`Alt+6`):**
+  - Single-keystroke counter hotkey to reprint or inspect the last finalized receipt without leaving the active billing canvas.
+- **Supervisor-Gated Void Authorization (`Alt+2`):**
+  - Enforced mandatory supervisor/manager PIN verification before authorizing invoice voids or cancellations (`SmritiProPosCancelDlg`), closing checkout shrinkage vulnerabilities.
+- **Least Saleable Quantity (LSQ) Integrity Gate:**
+  - Added `least_saleable_qty NUMERIC(10, 4) NOT NULL DEFAULT 1.0000` to `items` and `item_barcodes`.
+  - Enforced positive integer multiple gate at grid commit boundary, preventing fractional or under-pack sales.
+- **Shift-End Cash Denomination Reconciliation Ledger:**
+  - Created `pos_shift_denomination_counts` for cashier handover and manager balance sheet reconciliation.
+- **Alembic Migration (`v1458`):**
+  - Created `v1458_pos_parked_carts_lsq_and_customer_switch_audit.py` (down_revision: `v1457_canonical_smriti_promotions_engine`).
+- **Verification & Test Coverage:**
+  - Vitest test suites: 41/41 tests green (`smritiPosParkedCart.test.ts` 7/7, `smritiPromotionClawback.test.ts` 5/5, `smritiAutoSelectPromotion.test.ts` 14/14, `smritiSalesPromotionEngine.test.ts` 15/15).
+  - TypeScript compilation: 0 errors (`npx tsc --noEmit` exit 0).
+  - Python compilation: 0 errors (`py_compile` exit 0).
+
 ### [6.29.0] - 2026-09-17
 
 #### Core Commerce: Enterprise Promotion Engine Canonical PostgreSQL Schema, 5-Primitive Rule Composition & Explainability

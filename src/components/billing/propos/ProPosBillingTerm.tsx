@@ -44,6 +44,7 @@ import {
   SmritiBillPrefixService,
   BillPrefixResolveResult
 } from "../../../services/smritiBillPrefixService.ts";
+import { SmritiPosParkedCartService } from "../../../services/smritiPosParkedCartService.ts";
 import { smritiSystemParameterService } from "../../../services/smritiSystemParameterService.ts";
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../../utils/gstEngine.ts";
 import { searchBackendProducts, AutoPopulateProductResult } from "../../../services/autoPopulateService.ts";
@@ -274,12 +275,85 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     }
   };
 
-  const handleCustomerSelection = (nextCustomer: ProPosCustomer) => {
+  const handleCustomerSelection = (nextCustomer: ProPosCustomer, skipReevaluation: boolean = false) => {
+    const prevCustomer = customer;
     const enrichedCustomer: ProPosCustomer = {
       ...nextCustomer,
       customerGroup: nextCustomer.customerGroup || nextCustomer.customerGroupId || (nextCustomer.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined)
     };
     setCustomer(enrichedCustomer);
+
+    // Alt+M Mid-Bill Customer Switch: Re-evaluate promotions across all active cart lines
+    const isCustomerSwitch = prevCustomer.id !== enrichedCustomer.id || prevCustomer.code !== enrichedCustomer.code;
+    if (!skipReevaluation && isCustomerSwitch && cartItems.length > 0) {
+      setCartItems(prevItems => {
+        return prevItems.map(it => {
+          const promoRes = SmritiSalesPromotionService.resolveBestItemPromo({
+            sku: it.sku,
+            barcode: it.barcode,
+            brand: it.brand,
+            rate: it.unitPrice,
+            qty: it.qty,
+            customerGroup: enrichedCustomer.customerGroup,
+            customerCode: enrichedCustomer.code || enrichedCustomer.id,
+            evalDate: new Date()
+          });
+
+          const discPct = promoRes.promo ? promoRes.discountPct : 0.00;
+          const discAmt = promoRes.promo ? promoRes.discountAmt : 0.00;
+          const discCode = promoRes.promo ? promoRes.promoCode : "ILD";
+
+          const gst = calculateGST({
+            unitPrice: it.unitPrice,
+            quantity: it.qty,
+            discountAmount: discAmt,
+            gstRate: it.taxPct || 5.00,
+            isTaxInclusive: it.isTaxInclusive !== undefined ? it.isTaxInclusive : (taxMode === "inclusive"),
+            isInterstate: isInterstate,
+          });
+
+          return {
+            ...it,
+            discCode,
+            discountPct: discPct,
+            discountAmt: discAmt,
+            promoDescription: promoRes.promoDescription,
+            promoBadge: promoRes.promo ? promoRes.promoCode : undefined,
+            taxAmt: gst.taxAmount,
+            taxableValue: gst.taxableValue,
+            cgstAmount: gst.cgstAmount,
+            sgstAmount: gst.sgstAmount,
+            igstAmount: gst.igstAmount,
+            lineTotal: gst.totalAmount
+          };
+        });
+      });
+
+      // Asynchronously audit log mid-bill customer change
+      void apiFetchV1("/pos/customer-switch-log", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: shiftId || "SESS-LIVE-01",
+          old_customer_id: prevCustomer.id,
+          old_customer_name: prevCustomer.name,
+          old_customer_group: prevCustomer.customerGroup,
+          new_customer_id: enrichedCustomer.id,
+          new_customer_name: enrichedCustomer.name,
+          new_customer_group: enrichedCustomer.customerGroup,
+          line_items_count: cartItems.length,
+          cart_subtotal: grossSalesValue,
+          promotions_reevaluated: true,
+          changed_by: salesStaff || "cashier-1",
+        })
+      }).catch(() => {});
+
+      onNotification?.(
+        "Customer Switched [Alt+M]",
+        `Switched to ${enrichedCustomer.name}. Promotional schemes automatically re-evaluated across ${cartItems.length} line(s).`,
+        "info"
+      );
+    }
+
     void (async () => {
       let resolvedCustomer = enrichedCustomer;
       try {
@@ -746,8 +820,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     return Math.max(0, directValue - directDiscAmt);
   }, [directValue, directDiscAmt]);
 
-  // --- Suspended Bills & Recalls State ---
-  const [suspendedBills, setSuspendedBills] = useState<SuspendedBill[]>([]);
+  // --- Suspended Bills & Recalls State (F12 Park & Recall with 4-Hour Expiration) ---
+  const [suspendedBills, setSuspendedBills] = useState<SuspendedBill[]>(() => {
+    return SmritiPosParkedCartService.getActiveParkedCarts().map(SmritiPosParkedCartService.toSuspendedBill);
+  });
 
   // --- Modals State ---
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
@@ -1144,6 +1220,22 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const desc = directDescription.trim() || selectedProductMeta?.name || `Retail Item ${stockCode}`;
     const rate = parseFloat(directRate) || selectedProductMeta?.sellingPrice || 999.00;
     const qty = parseFloat(directQty) || 1.00;
+
+    // LSQ (Least Saleable Quantity) Validation Gate (Shoper 9 Parity)
+    const lsq = Number((selectedProductMeta as any)?.least_saleable_qty ?? (selectedProductMeta as any)?.leastSaleableQty ?? 1.0);
+    if (lsq > 1.0) {
+      const rem = qty % lsq;
+      const isMultiple = Math.abs(rem) < 0.0001 || Math.abs(rem - lsq) < 0.0001;
+      if (qty < lsq || !isMultiple) {
+        onNotification?.(
+          "LSQ Validation Failure",
+          `Item ${stockCode} has a Least Saleable Quantity (LSQ) of ${lsq}. Entered quantity ${qty} must be an exact positive multiple of ${lsq}.`,
+          "error"
+        );
+        directQtyRef.current?.focus();
+        return;
+      }
+    }
     const effDiscQ = getEffectiveDiscQty(directDiscQty, directQty);
     const discPct = parseFloat(directDiscPct) || 0.00;
     const discAmt = parseFloat(directDiscAmtInput) || ((rate * effDiscQ * discPct) / 100);
@@ -1479,37 +1571,53 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     directQtyRef.current?.focus();
   };
 
-  // Hold / Suspend Current Bill
-  const handleHoldBill = () => {
+  // F12 Bill Park & Recall: 4-Hour Auto-Expiration & Postgres Durability
+  const handleHoldBill = async () => {
     if (cartItems.length === 0) {
-      onNotification?.("Empty Cart", "No items to hold/suspend.", "error");
+      onNotification?.("Empty Cart", "No items in active cart to park [F12].", "error");
       return;
     }
 
-    const newSuspended: SuspendedBill = {
-      id: `susp-${Date.now()}`,
-      billNo: `SUSP-${Date.now().toString().slice(-4)}`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      customer,
-      salesStaff,
-      items: cartItems,
-      itemCount: totalItemsCount,
-      totalQty: totalQuantity,
-      netAmount: netPayableAmount
-    };
+    try {
+      const parked = await SmritiPosParkedCartService.parkCart({
+        sessionId: shiftId || "SESS-LIVE-01",
+        customer,
+        salesStaff,
+        items: cartItems,
+        totalAmount: netPayableAmount,
+        expirationHours: 4,
+      });
 
-    setSuspendedBills(prev => [newSuspended, ...prev]);
-    setCartItems([]);
-    onNotification?.("Bill Suspended", `Bill ${newSuspended.billNo} suspended to queue.`, "info");
+      const newSuspended = SmritiPosParkedCartService.toSuspendedBill(parked);
+      setSuspendedBills(prev => [newSuspended, ...prev.filter(b => b.billNo !== newSuspended.billNo)]);
+      setCartItems([]);
+      onNotification?.(
+        "Cart Parked [F12]",
+        `Cart parked as Hold Slip #${parked.holdSlipNumber}. Valid for 4 hours.`,
+        "info"
+      );
+    } catch (err: any) {
+      onNotification?.("Park Failed", `Could not park cart: ${err.message}`, "error");
+    }
   };
 
-  // Recall Bill
-  const handleRecallBill = (bill: SuspendedBill) => {
-    setCartItems(bill.items);
-    handleCustomerSelection(bill.customer);
-    setSalesStaff(bill.salesStaff);
-    setSuspendedBills(prev => prev.filter(b => b.id !== bill.id));
-    onNotification?.("Bill Restored", `Restored bill ${bill.billNo} to terminal.`, "success");
+  // F12 Recall Bill
+  const handleRecallBill = async (bill: SuspendedBill) => {
+    try {
+      await SmritiPosParkedCartService.recallCart(bill.billNo);
+      setCartItems(bill.items);
+      handleCustomerSelection(bill.customer, true); // true = skip switch log on recall
+      setSalesStaff(bill.salesStaff);
+      setSuspendedBills(prev => prev.filter(b => b.id !== bill.id && b.billNo !== bill.billNo));
+      setShowRecallModal(false);
+      onNotification?.(
+        "Cart Recalled [F12]",
+        `Restored Hold Slip #${bill.billNo} to terminal.`,
+        "success"
+      );
+    } catch (err: any) {
+      onNotification?.("Recall Failed", err.message || "Failed to recall parked cart.", "error");
+    }
   };
 
   // Settlement Success
@@ -1695,7 +1803,22 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         setShowReturnModal(true);
       } else if (e.altKey && e.key === "6") {
         e.preventDefault();
-        setShowReprintModal(true);
+        if (lastCompletedBill) {
+          setShowReceiptModal(true);
+          onNotification?.("Reprinting Last Receipt [Alt+6]", `Showing receipt for bill ${lastCompletedBill.billNo}`, "info");
+        } else {
+          setShowReprintModal(true);
+        }
+      } else if (e.key === "F12") {
+        e.preventDefault();
+        if (cartItems.length > 0) {
+          handleHoldBill();
+        } else {
+          setShowRecallModal(true);
+        }
+      } else if (e.altKey && (e.key === "m" || e.key === "M")) {
+        e.preventDefault();
+        setShowCustomerBrowseModal(true);
       } else if (e.altKey && (e.key === "d" || e.key === "D")) {
         e.preventDefault();
         setShowCashMovementsModal(true);
@@ -1808,7 +1931,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
     window.addEventListener("keydown", handleGlobalShortcuts);
     return () => window.removeEventListener("keydown", handleGlobalShortcuts);
-  }, [cartItems, netPayableAmount, customer, salesStaff, billDocPrefix, billDocNumber, selectedRowIndex, editingCartItemId]);
+  }, [cartItems, netPayableAmount, customer, salesStaff, billDocPrefix, billDocNumber, selectedRowIndex, editingCartItemId, lastCompletedBill]);
 
   const emptyRowsCount = Math.max(0, 10 - cartItems.length);
 
@@ -1849,6 +1972,33 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             <ShieldAlert size={13} />
             <span>Cancel Bill</span>
             <kbd className="text-[10px] opacity-80 font-mono">[Alt+2]</kbd>
+          </button>
+
+          {/* F12: Park & Recall with 4-Hour Auto-Expiration */}
+          <button
+            type="button"
+            onClick={() => {
+              if (cartItems.length > 0) {
+                handleHoldBill();
+              } else {
+                setShowRecallModal(true);
+              }
+            }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs border ${
+              suspendedBills.length > 0
+                ? "bg-amber-100 dark:bg-amber-900/40 text-amber-950 dark:text-amber-200 border-amber-400"
+                : "bg-white dark:bg-[#2d3133] border-[#c4c5d5] text-[#191c1d] dark:text-white hover:bg-[#f3f4f5]"
+            }`}
+            title="Park Active Bill or Recall Suspended Bill with 4-Hour Expiration [F12]"
+          >
+            <History size={13} />
+            <span>Park / Recall</span>
+            {suspendedBills.length > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-600 text-white rounded-full text-[10px] font-mono font-bold">
+                {suspendedBills.length}
+              </span>
+            )}
+            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e] dark:text-amber-300">[F12]</kbd>
           </button>
 
           {/* Alt+3: Sales Return with Ref */}

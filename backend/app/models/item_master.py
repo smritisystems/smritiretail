@@ -44,6 +44,7 @@ class Item(BaseEntity):
     hsn_code = Column(String(15), nullable=True)
     tax_rate = Column(Numeric(5, 2), nullable=False, default=Decimal("18.00"), server_default=text("'18.00'"))
     primary_uom = Column(String(20), nullable=True)
+    least_saleable_qty = Column(Numeric(10, 4), nullable=False, default=Decimal("1.0000"), server_default=text("'1.0000'"))
     
     # Non-authoritative legacy baseline fields (Pricing Domain is sole system-of-record)
     mrp = Column(Numeric(15, 2), nullable=True, default=0.00)
@@ -119,6 +120,7 @@ class ItemBarcode(BaseEntity):
     encoding_standard = Column(String(20), nullable=False, default="NONE")
     is_primary = Column(Boolean, nullable=False, default=False)
     is_tax_inclusive = Column(Boolean, nullable=True, default=None)  # Explicit sellable unit tax policy override
+    least_saleable_qty = Column(Numeric(10, 4), nullable=True, default=None)  # Barcode pack/bundle minimum multiplier
     status = Column(String(20), nullable=False, default="ASSIGNED")
     source = Column(String(30), nullable=False, default="MANUAL")
     source_reference = Column(String(100), nullable=True)

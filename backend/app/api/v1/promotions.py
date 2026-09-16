@@ -21,7 +21,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ...api.deps import get_company_db, get_current_user
-from ...models.promotions import PromotionCampaign, PromotionRule, Coupon, PromotionRedemption
+from ...models.promotions import (
+    PromotionCampaign,
+    PromotionRule,
+    Coupon,
+    PromotionRedemption,
+    SmritiPromotion,
+    SmritiPromotionDecline,
+)
 from ...services.promotions_engine import PromotionsEngine
 from ...schemas.promotions import (
     PromotionCampaignCreateRequest,
@@ -483,4 +490,62 @@ async def delete_promotion_scheme(
         await db.rollback()
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/declines", summary="Record Promotion Decline Event")
+async def record_promotion_decline(
+    payload: Dict[str, Any],
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Non-blocking persistence of customer/cashier promotion decline events.
+    Stored in PostgreSQL table smriti_promotion_declines for shrinkage and audit telemetry.
+    """
+    comp_id, user_id = _extract_user_info(current_user)
+    try:
+        scheme_code = payload.get("schemeCode") or payload.get("promotion_id") or "PROMO-UNKNOWN"
+        promo_res = await db.execute(
+            select(SmritiPromotion).where(
+                SmritiPromotion.tenant_id == comp_id,
+                SmritiPromotion.promotion_code == scheme_code
+            )
+        )
+        promo = promo_res.scalars().first()
+
+        promo_id = promo.id if promo else scheme_code
+        version_id = promo.active_version_id if (promo and promo.active_version_id) else f"ver-{scheme_code}"
+
+        decline_record = SmritiPromotionDecline(
+            id=payload.get("declineId") or f"dec-{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            tenant_id=comp_id,
+            promotion_id=promo_id,
+            promotion_version_id=version_id,
+            sales_session_id=payload.get("salesSessionId", "SESSION-DEFAULT"),
+            sales_invoice_id=payload.get("salesInvoiceId"),
+            cashier_id=payload.get("cashierId", user_id),
+            customer_id=payload.get("customerId"),
+            decline_reason_code=payload.get("reasonCode", "CUSTOMER_DECLINED"),
+            decline_reason_text=payload.get("reasonText", "Customer declined promotional bundle or free item"),
+            unclaimed_potential_savings=float(payload.get("potentialSavings", 0.00)),
+            declined_at=datetime.now(timezone.utc),
+        )
+        db.add(decline_record)
+        await db.commit()
+        return {
+            "recorded": True,
+            "decline_id": decline_record.id,
+            "promotion_id": promo_id,
+            "declined_at": decline_record.declined_at.isoformat() if decline_record.declined_at else None,
+        }
+    except Exception as e:
+        await db.rollback()
+        # Non-blocking: log but return graceful response
+        traceback.print_exc()
+        return {
+            "recorded": False,
+            "error": str(e),
+            "decline_id": payload.get("declineId"),
+        }
 
