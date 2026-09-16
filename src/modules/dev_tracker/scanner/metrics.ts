@@ -196,7 +196,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "report-designer": {
       frontendKeyword: "ReportDesignerTab.tsx",
       routeKeywords: ["reports", "designer"],
-      tableKeywords: ["report_templates", "custom_reports"],
+      tableKeywords: ["report_definitions", "report_saved_views", "report_schedules", "prepared_reports"],
       testKeywords: ["report", "scheduleReportModal"],
       docKeywords: ["report"]
     },
@@ -287,7 +287,7 @@ export function getModuleResourcesMapping(moduleId: string, moduleLabel: string 
     "print-history": {
       frontendKeyword: "PrintHistoryTab.tsx",
       routeKeywords: ["print-history", "print/logs", "print-logs"],
-      tableKeywords: ["print_logs"],
+      tableKeywords: ["print_histories", "print_templates"],
       testKeywords: ["print", "tagPrinting"],
       docKeywords: ["print"]
     },

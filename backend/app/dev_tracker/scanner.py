@@ -208,7 +208,7 @@ MODULES_MAP = {
         "category": "Data & Config",
         "frontend": "ReportDesignerTab.tsx",
         "routes": ["reports", "designer"],
-        "tables": ["report_templates", "custom_reports"],
+        "tables": ["report_definitions", "report_saved_views", "report_schedules", "prepared_reports"],
         "tests": ["report", "scheduleReportModal"],
         "docs": ["report"]
     },
@@ -325,7 +325,7 @@ MODULES_MAP = {
         "category": "Documents & Print",
         "frontend": "PrintHistoryTab.tsx",
         "routes": ["print-history", "print/logs", "print-logs"],
-        "tables": ["print_logs"],
+        "tables": ["print_histories", "print_templates"],
         "tests": ["print", "tagPrinting"],
         "docs": ["print"]
     },
