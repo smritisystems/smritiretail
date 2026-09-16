@@ -75,7 +75,8 @@ import {
   RefreshCw,
   Vault,
   Lock,
-  MoreVertical
+  MoreVertical,
+  Eye
 } from "lucide-react";
 import type { CustomerBillingLocationDTO, CustomerDeliveryLocationDTO } from "../types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
@@ -389,6 +390,16 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   });
 
   const storeStateCode = "27"; // Maharashtra store default
+  const storeProfile = useMemo(() => ({
+    storeName: "TATTLY THREADS",
+    addressLine1: "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai",
+    city: "Mumbai",
+    state: "Maharashtra",
+    stateCode: storeStateCode,
+    gstin: "27AAXFT2508H1ZR",
+    phone: "+91 98765 43210",
+    pincode: "400003",
+  }), []);
 
   const gstAnalysis = useMemo(() => {
     return parseAndValidateGSTIN(customer.gstin);
@@ -403,6 +414,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
   const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null);
   const [showTotalsPanel, setShowTotalsPanel] = useState<boolean>(true);
+
+  // --- Statutory Tax Mode: "exclusive" (Default per canonical Tax Invoice TT2026-2027/138: MRP -> Disc% -> Taxable Value -> + GST -> Total) | "inclusive" (MRP Gross) ---
+  const [taxMode, setTaxMode] = useState<"exclusive" | "inclusive">("exclusive");
 
   // --- Detail Group: Accepted Item Details Grid State ---
   const [cartItems, setCartItems] = useState<ProPosCartItem[]>([
@@ -424,8 +438,13 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       discountPct: 10.00,
       discountAmt: 99.90,
       taxPct: 5.00,
-      taxAmt: 42.81,
-      lineTotal: 899.10
+      taxAmt: 44.96,
+      taxableValue: 899.10,
+      cgstAmount: 22.48,
+      sgstAmount: 22.48,
+      igstAmount: 0.00,
+      isTaxInclusive: false,
+      lineTotal: 944.06
     },
     {
       id: "item-init-2",
@@ -445,10 +464,39 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       discountPct: 10.00,
       discountAmt: 99.90,
       taxPct: 5.00,
-      taxAmt: 42.81,
-      lineTotal: 899.10
+      taxAmt: 44.96,
+      taxableValue: 899.10,
+      cgstAmount: 22.48,
+      sgstAmount: 22.48,
+      igstAmount: 0.00,
+      isTaxInclusive: false,
+      lineTotal: 944.06
     }
   ]);
+
+  // Recompute existing cart items when taxMode or interstate status toggles
+  useEffect(() => {
+    setCartItems(prev => prev.map(it => {
+      const isInc = it.isTaxInclusive !== undefined ? it.isTaxInclusive : (taxMode === "inclusive");
+      const gst = calculateGST({
+        unitPrice: it.unitPrice,
+        quantity: it.qty,
+        discountAmount: it.discountAmt,
+        gstRate: it.taxPct || 5.00,
+        isTaxInclusive: isInc,
+        isInterstate: isInterstate,
+      });
+      return {
+        ...it,
+        taxAmt: gst.taxAmount,
+        taxableValue: gst.taxableValue,
+        cgstAmount: gst.cgstAmount,
+        sgstAmount: gst.sgstAmount,
+        igstAmount: gst.igstAmount,
+        lineTotal: gst.totalAmount,
+      };
+    }));
+  }, [taxMode, isInterstate]);
 
   // --- Detail Group: Direct Entry Grid State ---
   const [directBarcode, setDirectBarcode] = useState<string>("");
@@ -707,12 +755,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         quantity: it.qty,
         discountAmount: it.discountAmt,
         gstRate: it.taxPct || 5.00,
-        isTaxInclusive: it.isTaxInclusive ?? !isB2B,
+        isTaxInclusive: it.isTaxInclusive !== undefined ? it.isTaxInclusive : (taxMode === "inclusive"),
         isInterstate: isInterstate,
       });
       return acc + gst.taxAmount;
     }, 0);
-  }, [cartItems, isB2B, isInterstate]);
+  }, [cartItems, taxMode, isInterstate]);
   // Dynamic Sales Factors Calculation (Statutory GST Sec 15 & Price Groups)
   const salesFactorsResult = useMemo(() => {
     const applicableFactors = SmritiSalesFactorService.getFactorsForCustomerAndPriceGroup(
@@ -727,10 +775,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       itemPromotionalDiscount: itemDiscounts,
       billDiscount: billLevelPromo.discountAmt || 0,
       taxRatePercent: 5.0,
-      isTaxInclusive: !isB2B,
+      isTaxInclusive: taxMode === "inclusive",
       factors: applicableFactors
     });
-  }, [cartItems, customer.priceGroupCode, customer.id, billLevelPromo, isB2B]);
+  }, [cartItems, customer.priceGroupCode, customer.id, billLevelPromo, taxMode]);
 
   const addonGenAmount = useMemo(() => {
     return salesFactorsResult.aboveTaxAddons + salesFactorsResult.belowTaxAddons;
@@ -747,14 +795,14 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         quantity: it.qty,
         discountAmount: it.discountAmt,
         gstRate: it.taxPct || 5.00,
-        isTaxInclusive: it.isTaxInclusive ?? !isB2B,
+        isTaxInclusive: it.isTaxInclusive !== undefined ? it.isTaxInclusive : (taxMode === "inclusive"),
         isInterstate: isInterstate,
       });
       return acc + gst.totalAmount;
     }, 0);
     const unrounded = Math.max(0, raw - (billLevelPromo.discountAmt || 0) + addonGenAmount - dednsGenAmount);
     return Math.round(unrounded * 100) / 100;
-  }, [cartItems, isB2B, isInterstate, billLevelPromo, addonGenAmount, dednsGenAmount]);
+  }, [cartItems, taxMode, isInterstate, billLevelPromo, addonGenAmount, dednsGenAmount]);
 
   // Create New Bill (Alt+1)
   const handleNewBill = () => {
@@ -882,7 +930,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const staff = directStaff || salesStaff;
     const gstRate = selectedProductMeta?.gstPercentage || 5.00;
     const itemTaxInclusive = (selectedProductMeta as any)?.isTaxInclusive ?? (selectedProductMeta as any)?.is_tax_inclusive;
-    const effTaxInclusive = itemTaxInclusive !== undefined ? Boolean(itemTaxInclusive) : !isB2B;
+    const effTaxInclusive = itemTaxInclusive !== undefined ? Boolean(itemTaxInclusive) : (taxMode === "inclusive");
 
     const gstCalc = calculateGST({
       unitPrice: rate,
@@ -954,7 +1002,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         const newQty = cur.qty + qty;
         const newDiscQ = (cur.discQty || 0) + effDiscQ;
         const newDiscAmt = (cur.unitPrice * newDiscQ * cur.discountPct) / 100;
-        const updatedTaxInclusive = cur.isTaxInclusive !== undefined ? cur.isTaxInclusive : effTaxInclusive;
+        const updatedTaxInclusive = cur.isTaxInclusive !== undefined ? cur.isTaxInclusive : (taxMode === "inclusive");
         const updatedGst = calculateGST({
           unitPrice: cur.unitPrice,
           quantity: newQty,
@@ -1052,7 +1100,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       discountAmt: it.discountAmt || 99.90,
       taxPct: it.taxPct || 5.00,
       taxAmt: it.taxAmt || 42.81,
-      isTaxInclusive: it.isTaxInclusive ?? !isB2B,
+      isTaxInclusive: it.isTaxInclusive !== undefined ? it.isTaxInclusive : (taxMode === "inclusive"),
       lineTotal: it.lineTotal || 899.10
     }));
 
@@ -1101,7 +1149,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       cgstAmount: it.cgst_amount,
       sgstAmount: it.sgst_amount,
       hsnCode: it.hsn_code,
-      isTaxInclusive: (it as any).is_tax_inclusive ?? (it as any).isTaxInclusive ?? !isB2B,
+      isTaxInclusive: (it as any).is_tax_inclusive ?? (it as any).isTaxInclusive ?? (taxMode === "inclusive"),
       lineTotal: it.line_total,
     }));
     setCartItems(prev => [...prev, ...converted]);
@@ -1288,6 +1336,39 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     }
   };
 
+  const handlePreviewCurrentBill = () => {
+    if (cartItems.length === 0 && !lastCompletedBill) {
+      onNotification?.("Empty Bill", "Please add items to cart before previewing bill [Alt+V].", "warning");
+      return;
+    }
+    if (cartItems.length > 0) {
+      const previewRecord = {
+        billNo: `PREVIEW-${billDocPrefix || "INV"}-${billDocNumber}`,
+        billDate: new Date().toISOString().slice(0, 10),
+        customer,
+        salesStaff,
+        items: cartItems,
+        subTotal: grossSalesValue,
+        discountTotal: itemDiscountsTotal + billLevelPromo.discountAmt,
+        taxTotal: totalTaxAmount,
+        netPayable: netPayableAmount,
+        tenders: {
+          cash: netPayableAmount,
+          card: 0,
+          upi: 0,
+          credit: 0,
+          giftVoucher: 0,
+          loyaltyPointsRedeemed: 0,
+          loyaltyAmount: 0,
+          creditNote: 0,
+        },
+        changeDue: 0,
+      };
+      setLastCompletedBill(previewRecord);
+    }
+    setShowReceiptModal(true);
+  };
+
   // --- Complete Global POS Keyboard Shortcuts ---
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
@@ -1350,6 +1431,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       } else if (e.altKey && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
         setShowDefinePromosModal(true);
+      } else if (e.altKey && (e.key === "v" || e.key === "V")) {
+        e.preventDefault();
+        handlePreviewCurrentBill();
       } else if (e.altKey && (e.key === "s" || e.key === "S")) {
         e.preventDefault();
         setShowDefineFactorsModal(true);
@@ -1542,6 +1626,31 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             <Lock size={13} />
             <span>Shift Close</span>
             <kbd className="text-[10px] opacity-80 font-mono text-[#991b1b] dark:text-[#fca5a5]">[Alt+Z]</kbd>
+          </button>
+
+          {/* Canonical Tax Mode Pill (Default Exclusive per TT2026-2027/138) */}
+          <button
+            type="button"
+            onClick={() => {
+              const nextMode = taxMode === "exclusive" ? "inclusive" : "exclusive";
+              setTaxMode(nextMode);
+              onNotification?.(
+                "Tax Mode Switched",
+                nextMode === "exclusive"
+                  ? "Tax Mode: Exclusive (Discounted MRP + GST on top) — Canonical TT2026-2027/138 standard."
+                  : "Tax Mode: Inclusive (MRP Gross).",
+                "info"
+              );
+            }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs border cursor-pointer ${
+              taxMode === "exclusive"
+                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700"
+                : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700"
+            }`}
+            title="Toggle Tax Calculation Mode: Exclusive (MRP + GST) [Default per TT2026-2027/138] vs Inclusive (MRP Gross)"
+          >
+            <span className={`w-2 h-2 rounded-full ${taxMode === "exclusive" ? "bg-amber-500" : "bg-emerald-500"}`}></span>
+            <span>{taxMode === "exclusive" ? "Tax: Exclusive (Base+GST) [Default]" : "Tax: Inclusive (MRP Gross)"}</span>
           </button>
 
           <div ref={overflowMenuRef} className="relative">
@@ -1983,15 +2092,14 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 <tr className="h-8">
                   <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] w-36">Stock No</th>
                   <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Rate</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Qty</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Value</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-24">Disc Code</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Disc Qty</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Rate / MRP</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-16">Qty</th>
                   <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Disc. %</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Disc.Amt</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Taxable</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-16">Tax %</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Tax Amt</th>
                   <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24 font-bold text-[#191c1d] dark:text-white">Total</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-24">SalesStaff</th>
+                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-20">Staff</th>
                   <th className="px-2 text-center w-10">Del</th>
                 </tr>
               </thead>
@@ -1999,6 +2107,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 {cartItems.map((item, idx) => {
                   const isSelected = selectedRowIndex === idx;
                   const isEditing = editingCartItemId === item.id;
+                  const itemTaxable = item.taxableValue ?? ((item.unitPrice * item.qty) - item.discountAmt);
                   return (
                     <tr
                       key={item.id}
@@ -2026,19 +2135,16 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                         {item.qty.toFixed(2)}
                       </td>
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
-                        {(item.unitPrice * item.qty).toFixed(2)}
-                      </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center">
-                        <span className="font-bold text-[10px]">{item.discCode || "ILD"}</span>
+                        {item.discountPct.toFixed(2)}%
                       </td>
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold text-[#00288e] dark:text-[#a8b8ff]">
-                        {(item.discQty !== undefined ? item.discQty : item.qty).toFixed(2)}
+                        {itemTaxable.toFixed(2)}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
-                        {item.discountPct.toFixed(2)}
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center">
+                        {item.taxPct.toFixed(0)}%
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold text-[#ba1a1a]">
-                        {item.discountAmt.toFixed(2)}
+                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
+                        {item.taxAmt.toFixed(2)}
                       </td>
                       <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
                         {item.lineTotal.toFixed(2)}
@@ -2076,7 +2182,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                     <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
                     <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
                     <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
-                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
                     <td></td>
                   </tr>
                 ))}
@@ -2087,6 +2192,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           {/* Active Line Inspector Ribbon when row is selected */}
           {selectedRowIndex >= 0 && selectedRowIndex < cartItems.length && (() => {
             const sel = cartItems[selectedRowIndex];
+            const selTaxable = sel.taxableValue ?? ((sel.unitPrice * sel.qty) - sel.discountAmt);
             return (
               <div className="bg-[#edeae1] dark:bg-[#252836] border-t border-[#c4c5d5] dark:border-[#444653] px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-3 font-mono text-[11px] overflow-x-auto">
@@ -2094,8 +2200,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                   <span className="font-sans font-medium text-[#191c1d] dark:text-white">{sel.name}</span>
                   {sel.brand && <span className="bg-white dark:bg-[#131b2e] px-1.5 py-0.5 rounded text-[10px] border border-gray-300 dark:border-gray-700">Brand: {sel.brand}</span>}
                   {sel.size && <span className="bg-white dark:bg-[#131b2e] px-1.5 py-0.5 rounded text-[10px] border border-gray-300 dark:border-gray-700">Size: {sel.size}</span>}
+                  <span className="text-gray-600 dark:text-gray-300 text-[10px]">Taxable: ₹{selTaxable.toFixed(2)}</span>
                   <span className="text-gray-600 dark:text-gray-300 text-[10px]">GST: {sel.taxPct}% (₹{sel.taxAmt.toFixed(2)})</span>
                   {sel.discountAmt > 0 && <span className="text-red-600 font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{sel.discountAmt.toFixed(2)} ({sel.discountPct}%)</span>}
+                  <span className="font-bold text-[#191c1d] dark:text-white text-[10px]">Total: ₹{sel.lineTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-gray-500 text-[10px] hidden md:inline">Double-click to edit | Ctrl+D to delete</span>
@@ -2429,7 +2537,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             <div className="space-y-1.5 font-mono text-xs">
               <div className="flex justify-between items-center">
                 <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
-                  Sales
+                  Gross MRP Sales
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
                   ₹{grossSalesValue.toFixed(2)}
@@ -2446,11 +2554,20 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               </div>
 
               <div className="flex justify-between items-center">
+                <span className="bg-[#e8edff] dark:bg-[#1a233b] px-2 py-0.5 rounded text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff]">
+                  Taxable Value
+                </span>
+                <span className="font-bold text-[#00288e] dark:text-[#a8b8ff]">
+                  ₹{Math.max(0, grossSalesValue - itemDiscountsTotal).toFixed(2)}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
                 <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
-                  Sales Tax
+                  GST Tax
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
-                  ₹{totalTaxAmount.toFixed(2)}
+                  {taxMode === "exclusive" ? "+" : ""}₹{totalTaxAmount.toFixed(2)}
                 </span>
               </div>
 
@@ -2543,6 +2660,18 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           </span>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={cartItems.length === 0 && !lastCompletedBill}
+              onClick={handlePreviewCurrentBill}
+              className="bg-white dark:bg-[#2d3133] border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#3f465c] text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 disabled:opacity-40 active:scale-95 shadow-2xs text-[#191c1d] dark:text-white"
+              title="Preview and print bill in standard A4 format (TT2026-2027/138) [Alt+V]"
+            >
+              <Eye size={14} className="text-[#00288e] dark:text-[#a8b8ff]" />
+              <span className="text-[#00288e] dark:text-[#a8b8ff] font-mono">[Alt+V]</span>
+              <span>Preview Bill</span>
+            </button>
+
             <button
               type="button"
               disabled={cartItems.length === 0}
@@ -2690,6 +2819,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           netPayable={lastCompletedBill.netPayable}
           tenders={lastCompletedBill.tenders}
           changeDue={lastCompletedBill.changeDue}
+          storeProfile={storeProfile}
+          defaultFormat="a4"
           onClose={() => setShowReceiptModal(false)}
         />
       )}

@@ -7,7 +7,7 @@ Founders
 
 * Pushpa Devi Jawahar Mallah
   * Founder & Chairperson
-  * Phone: +91 9324117007
+  * Phone: [REDACTED_PUBLIC_PII]
   * Email: founder@aitdl.com
 
 * Jawahar Ramkripal Mallah
@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.25.0
+* Version    : 6.27.3
 * Created    : 2026-07-11
-* Modified   : 2026-08-20
+* Modified   : 2026-09-16
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -50,7 +50,7 @@ from ..core.security import decode_token
 get_db = _get_db  # re-exported for router convenience
 
 # OAuth2 Bearer scheme — token URL points at the login endpoint
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -64,16 +64,39 @@ class TenantContext:
 # ---------------------------------------------------------------------------
 async def get_current_user(
     request: Request,
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme),
     db: AsyncSession = Depends(_get_db),
 ) -> User:
     """
     Decode the Bearer JWT and return the authenticated User object.
+    Supports Authorization header, query parameter (?token=...), or cookies.
 
     Raises 401 if:
     - Token is missing, expired, or tampered.
     - User referenced by the token is inactive or deleted.
     """
+    if not token:
+        token = (
+            request.query_params.get("token")
+            or request.query_params.get("auth_token")
+            or request.cookies.get("access_token")
+            or request.cookies.get("smriti_jwt_token")
+        )
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="A valid access token is required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if isinstance(token, str):
+        token = token.strip()
+        if token.lower().startswith("bearer "):
+            token = token[7:].strip()
+        if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
+            token = token[1:-1].strip()
+
     payload = decode_token(token)
 
     if payload.get("type") != "access":
@@ -171,13 +194,20 @@ async def get_tenant_context(
     Enforces header tampering checks against X-Company-Code and X-Branch-Code headers.
     Normalizes company codes (e.g. '001' and 'COMP-001') before validation.
     """
-    header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID")
-    header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code")
+    query_company_id = request.query_params.get("company_id") or request.query_params.get("companyId")
+    query_company = query_company_id or request.query_params.get("company_code") or request.query_params.get("companyCode") or request.cookies.get("smriti_company_id")
+    header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID") or query_company_id
+    header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code") or query_company
     header_branch = (
         request.headers.get("x-branch-code")
         or request.headers.get("X-Branch-Code")
         or request.headers.get("x-branch-id")
         or request.headers.get("X-Branch-ID")
+        or request.query_params.get("branch_code")
+        or request.query_params.get("branch_id")
+        or request.query_params.get("branchCode")
+        or request.query_params.get("branchId")
+        or request.cookies.get("smriti_branch_id")
     )
 
     raw_target = header_company if header_company else current_user.company_id
@@ -212,6 +242,16 @@ async def get_tenant_context(
         )
     )
     branch = branch_res.scalars().first()
+    if branch is None:
+        fallback_branch_res = await db.execute(
+            select(Branch).where(
+                Branch.company_id == target_company,
+                Branch.is_deleted == False,
+                Branch.is_active == True,
+            ).order_by(Branch.id.asc())
+        )
+        branch = fallback_branch_res.scalars().first()
+
     if branch is None:
         raise HTTPException(
             status_code=403,

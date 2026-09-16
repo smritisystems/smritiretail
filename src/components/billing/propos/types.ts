@@ -52,6 +52,9 @@ export interface ProPosCustomer {
   creditLimit?: number;
   currentBalance?: number;
   address?: string;
+  city?: string;
+  pincode?: string;
+  stateName?: string;
   gstin?: string;
   state?: string;
   stateCode?: string;

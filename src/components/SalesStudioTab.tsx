@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.4
+ * Version      : 6.27.3
  * Created      : 2026-07-10
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -23,7 +23,7 @@ import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
-import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { apiFetchV1, openAuthenticatedDocument } from "../lib/apiFetchV1.ts";
 import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
@@ -594,7 +594,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     const handlePrintInvoice = (e: any) => {
       const inv = e.detail;
       if (inv?.id) {
-        window.open(`/api/v1/sales/invoices/${inv.id}/print`, "_blank");
+        openAuthenticatedDocument(`/api/v1/sales/invoices/${inv.id}/print`, "_blank");
         onNotification("Print Action", `Sales Invoice ${inv.invoiceNo} opened in canonical print spooler.`, "success");
       }
     };
@@ -3714,7 +3714,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 {/* Canonical Print & Document Actions */}
                 <button
                   onClick={() => {
-                    window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/print`, "_blank");
+                    openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/print`, "_blank");
                     onNotification("Print Action", `Sales Invoice ${selectedInvoice.invoiceNo} opened in canonical print spooler.`, "success");
                   }}
                   className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all"
@@ -3726,21 +3726,21 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
                 <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/preview`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/preview`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Open Live Canonical Preview"
                   >
                     Preview
                   </button>
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/download`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/download`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-emerald-400 rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Export / Download PDF"
                   >
                     Export PDF
                   </button>
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/reprint`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/reprint`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-amber-400 rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Reprint Immutable Historical Artifact"
                   >
