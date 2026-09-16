@@ -28,6 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.31.0] - 2026-09-17
+
+#### POS Line-Level Sales Staff Attribution, Commission Tracking & Shift-End Cashier Handover Thermal Balance Sheet
+
+- **Line-Level Sales Staff Attribution (`sales_invoice_items`):**
+  - Added `salesperson_id VARCHAR(50) NULL` and `salesperson_name VARCHAR(255) NULL` to `sales_invoice_items` with index `idx_sales_invoice_items_salesperson` via Alembic migration `v1459_line_level_salesperson_attribution.py`.
+  - Propagated through `CanonicalPostingLineItem`, `POSCheckoutItem`, and `CanonicalSalesPostingWriter` with automatic fallback to bill header `salesperson_id` if item-level attendant is omitted.
+  - Enabled multi-department retail checkout (apparel, footwear, cosmetics) with accurate line-item level employee attribution.
+- **Sales Staff Commission & Incentive Tracking Engine (`smritiSalesStaffIncentiveService.ts`):**
+  - Implemented category-specific commission calculations, volume turnover slabs, and brand kicker rules (`CommissionRule`).
+  - Provides basket-level and shift-level commission summaries aggregated per staff attendant.
+- **Shift-End Cashier Handover Thermal Balance Sheet (`ProPosShiftHandoverSlip.tsx`):**
+  - High-contrast 80mm / 40-column ESC/POS styled cashier handover balance sheet.
+  - Renders Store Name, Terminal Code, Shift Code, Cashier Name, Start/End timestamps, Tender Sales (Cash, Card, UPI), Float additions/drops, System Expected Cash, Physical Denominations Table (all 11 Indian currency denominations), Shortage/Overage Variance, and dual Cashier/Manager signature blocks.
+  - Clean `@media print` CSS isolation ensuring only the 80mm thermal slip prints on receipt printers without application UI background.
+- **Shift Denomination Ledger Persistence (`pos_shift_denomination_counts`):**
+  - Updated `POSService.close_shift` to automatically unpack and persist counted physical denominations into `pos_shift_denomination_counts` in PostgreSQL, creating an auditable historical handover record.
+- **Frontend POS Billing Terminal Integration (`ProPosBillingTerm.tsx`):**
+  - Added line attendant staff tag badge in active row details.
+  - Passed line attendant `salesperson_id` and `salesperson_name` in `/pos/checkout` payload.
+  - Integrated 1-click **"80mm Cashier Handover Slip"** into `ProPosShiftCloseDl.tsx`.
+- **Verification & Test Coverage:**
+  - Vitest test suites: 44/44 tests green across 5 suites (`smritiSalesStaffAttribution.test.ts` 3/3, `smritiPosParkedCart.test.ts` 7/7, `smritiPromotionClawback.test.ts` 5/5, `smritiAutoSelectPromotion.test.ts` 14/14, `smritiSalesPromotionEngine.test.ts` 15/15).
+  - TypeScript compilation: 0 errors (`npx tsc --noEmit` exit 0).
+  - Python compilation: 0 errors (`py_compile` exit 0 across all backend modules).
+
 ### [6.30.0] - 2026-09-17
 
 #### POS Counter Resilience: F12 Park & Recall, Statutory GST Section 15 Return Integrity, Alt+M Customer Switch & LSQ Gate

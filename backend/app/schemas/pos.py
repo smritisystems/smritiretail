@@ -272,6 +272,8 @@ class POSCheckoutItem(BaseModel):
     category:   Optional[str] = None
     brand:      Optional[str] = None
     is_tax_inclusive: Optional[bool] = None
+    salesperson_id:   Optional[str] = None
+    salesperson_name: Optional[str] = None
 
 
 class POSCheckoutRequest(BaseModel):

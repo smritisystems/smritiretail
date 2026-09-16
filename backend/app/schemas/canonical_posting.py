@@ -65,6 +65,8 @@ class CanonicalPostingLineItem(BaseModel):
     source_line_id: Optional[str] = Field(None, description="ID of source document line")
     category: Optional[str] = Field(None, description="Promotion category identity")
     brand: Optional[str] = Field(None, description="Promotion brand identity")
+    salesperson_id: Optional[str] = Field(None, description="Line-level attendant / salesperson ID")
+    salesperson_name: Optional[str] = Field(None, description="Line-level attendant / salesperson name")
 
 
 class CanonicalTenderItem(BaseModel):

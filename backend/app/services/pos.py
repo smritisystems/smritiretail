@@ -26,7 +26,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
-from ..models.pos import CashRegister, Shift, ShiftCashTransaction
+from ..models.pos import CashRegister, Shift, ShiftCashTransaction, POSShiftDenominationCount
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement
 from ..api.deps import TenantContext
@@ -912,6 +912,42 @@ class POSService:
             counted_balance = req.denominations.calculate_total()
             shift.denominations = req.denominations.model_dump(mode="json")
             closing_balance = counted_balance
+
+            # Persist historical shift-end denomination breakdown to pos_shift_denomination_counts (Phase 3)
+            denom_multiplier_map = {
+                "notes_2000": Decimal("2000.00"),
+                "notes_500": Decimal("500.00"),
+                "notes_200": Decimal("200.00"),
+                "notes_100": Decimal("100.00"),
+                "notes_50": Decimal("50.00"),
+                "notes_20": Decimal("20.00"),
+                "notes_10": Decimal("10.00"),
+                "notes_5": Decimal("5.00"),
+                "notes_2": Decimal("2.00"),
+                "notes_1": Decimal("1.00"),
+                "coins": Decimal("1.00"),
+            }
+            for k, val in shift.denominations.items():
+                mult = denom_multiplier_map.get(k, Decimal("1.00"))
+                cnt = int(val or 0)
+                if cnt > 0:
+                    self.db.add(
+                        POSShiftDenominationCount(
+                            id=f"sdc-{uuid.uuid4().hex[:12]}",
+                            tenant_id=self.tenant.tenant_id,
+                            company_id=self.tenant.company_id,
+                            shift_id=shift.id,
+                            denomination_value=mult,
+                            expected_count=0,
+                            actual_count=cnt,
+                            expected_amount=Decimal("0.00"),
+                            actual_amount=Decimal(str(cnt)) * mult,
+                            variance_amount=Decimal(str(cnt)) * mult,
+                            reconciled_by=requesting_user_id,
+                            reconciled_at=datetime.now(timezone.utc),
+                            notes=f"Denomination {k}",
+                        )
+                    )
         elif req.closing_balance is not None:
             closing_balance = Decimal(str(req.closing_balance)).quantize(Decimal("0.01"))
         else:
@@ -1178,6 +1214,8 @@ class POSService:
                     mrp=item.mrp,
                     category=item.category,
                     brand=item.brand,
+                    salesperson_id=item.salesperson_id,
+                    salesperson_name=item.salesperson_name,
                 )
             )
 

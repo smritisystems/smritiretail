@@ -1704,6 +1704,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             gst_rate: item.taxPct,
             mrp: item.mrp,
             is_tax_inclusive: item.isTaxInclusive,
+            salesperson_id: item.salesStaff || salesStaff,
+            salesperson_name: item.salesStaff || salesStaff,
           })),
         }),
       });
@@ -2649,6 +2651,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                   <span className="font-sans font-medium text-[#191c1d] dark:text-white">{sel.name}</span>
                   {sel.brand && <span className="bg-white dark:bg-[#131b2e] px-1.5 py-0.5 rounded text-[10px] border border-gray-300 dark:border-gray-700">Brand: {sel.brand}</span>}
                   {sel.size && <span className="bg-white dark:bg-[#131b2e] px-1.5 py-0.5 rounded text-[10px] border border-gray-300 dark:border-gray-700">Size: {sel.size}</span>}
+                  <span className="bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded text-[10px] border border-indigo-200 dark:border-indigo-800 font-mono font-bold">
+                    Staff: {sel.salesStaff || salesStaff}
+                  </span>
                   <span className="text-gray-600 dark:text-gray-300 text-[10px]">Taxable: ₹{selTaxable.toFixed(2)}</span>
                   <span className="text-gray-600 dark:text-gray-300 text-[10px]">GST: {sel.taxPct}% (₹{sel.taxAmt.toFixed(2)})</span>
                   {sel.discountAmt > 0 && <span className="text-red-600 font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{sel.discountAmt.toFixed(2)} ({sel.discountPct}%)</span>}

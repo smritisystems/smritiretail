@@ -540,6 +540,8 @@ class CanonicalSalesPostingWriter:
                 "source_line_type": item.source_line_type or ("CUSTOMER_PO" if item.customer_po_line_id else "DIRECT"),
                 "source_line_id": item.source_line_id,
                 "is_tax_inclusive": tax_inc,
+                "salesperson_id": getattr(item, "salesperson_id", None) or getattr(req, "salesperson_id", None) or getattr(req.context, "cashier_id", None),
+                "salesperson_name": getattr(item, "salesperson_name", None) or getattr(req, "salesperson_name", None),
             }
             calculated_lines.append(line_data)
 
@@ -733,6 +735,8 @@ class CanonicalSalesPostingWriter:
                 source_line_type=l["source_line_type"],
                 source_line_id=l["source_line_id"],
                 is_tax_inclusive=l["is_tax_inclusive"],
+                salesperson_id=l.get("salesperson_id"),
+                salesperson_name=l.get("salesperson_name"),
             )
             session.add(db_item)
 
