@@ -38,7 +38,9 @@ from ..core.gst_engine import (
 )
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.pos import Shift
-from ..models.crm import Customer, CustomerCreditLedgerEntry
+from ..models.crm import Customer, CustomerGroup, CustomerCreditLedgerEntry
+from ..models.pricing import CustomerPriceTier
+from ..models.item_master import ItemBarcode
 from ..models.inventory import Product, Warehouse
 from ..models.tenant import Branch
 from .canonical_transaction_writer import CanonicalTransactionWriter
@@ -404,27 +406,71 @@ class CanonicalSalesPostingWriter:
                     detail=f"Line {line_no}: {identity.error_message or 'Item identity resolution failed.'}",
                 )
 
-            # Determine tax inclusive/exclusive mode
+            # Determine tax inclusive/exclusive mode via 3-tier hierarchy:
+            # 1. Line Item Override
+            # 2. Barcode level (actual sellable unit)
+            # 3. Customer level (customer-specific commercial contract)
+            # 4. Price Group level (group pricing/tax policy)
+            # 5. Channel default (POS_RETAIL -> True, other -> False)
             if item.is_tax_inclusive is not None:
                 tax_inc = item.is_tax_inclusive
             else:
-                # Query item master / product catalog tax inclusivity
-                catalog_tax_inc = None
-                if identity.legacy_product_id:
-                    prod_tax = await session.scalar(
-                        select(Product.is_tax_inclusive).where(Product.id == identity.legacy_product_id)
+                # 1. Barcode check
+                barcode_tax_inc = None
+                code_to_check = str(item.code or "").strip()
+                if code_to_check:
+                    bc_tax = await session.scalar(
+                        select(ItemBarcode.is_tax_inclusive).where(
+                            ItemBarcode.company_id == company_id,
+                            ItemBarcode.barcode == code_to_check,
+                            ItemBarcode.is_deleted == False,
+                        ).limit(1)
                     )
-                    if prod_tax is not None:
-                        catalog_tax_inc = prod_tax
-                if catalog_tax_inc is None and identity.canonical_item_id:
-                    item_tax = await session.scalar(
-                        select(Item.is_tax_inclusive).where(Item.id == identity.canonical_item_id)
-                    )
-                    if item_tax is not None:
-                        catalog_tax_inc = item_tax
+                    if bc_tax is not None:
+                        barcode_tax_inc = bc_tax
 
-                if catalog_tax_inc is not None:
-                    tax_inc = catalog_tax_inc
+                if barcode_tax_inc is None and identity.canonical_variant_id:
+                    bc_tax = await session.scalar(
+                        select(ItemBarcode.is_tax_inclusive).where(
+                            ItemBarcode.variant_id == identity.canonical_variant_id,
+                            ItemBarcode.is_tax_inclusive.is_not(None),
+                            ItemBarcode.is_deleted == False,
+                        ).limit(1)
+                    )
+                    if bc_tax is not None:
+                        barcode_tax_inc = bc_tax
+
+                # 2. Customer check
+                customer_tax_inc = getattr(db_customer, "is_tax_inclusive", None) if db_customer else None
+
+                # 3. Price Group check
+                price_group_tax_inc = None
+                if db_customer:
+                    if getattr(db_customer, "customer_group_id", None):
+                        cg_tax = await session.scalar(
+                            select(CustomerGroup.is_tax_inclusive).where(
+                                CustomerGroup.id == db_customer.customer_group_id,
+                                CustomerGroup.is_deleted == False,
+                            )
+                        )
+                        if cg_tax is not None:
+                            price_group_tax_inc = cg_tax
+                    elif getattr(db_customer, "price_tier_id", None):
+                        cpt_tax = await session.scalar(
+                            select(CustomerPriceTier.is_tax_inclusive).where(
+                                CustomerPriceTier.id == db_customer.price_tier_id,
+                                CustomerPriceTier.is_deleted == False,
+                            )
+                        )
+                        if cpt_tax is not None:
+                            price_group_tax_inc = cpt_tax
+
+                if barcode_tax_inc is not None:
+                    tax_inc = barcode_tax_inc
+                elif customer_tax_inc is not None:
+                    tax_inc = customer_tax_inc
+                elif price_group_tax_inc is not None:
+                    tax_inc = price_group_tax_inc
                 elif req.context.source_channel == "POS_RETAIL":
                     tax_inc = True  # Retail MRP inclusive by default
                 else:
@@ -493,6 +539,7 @@ class CanonicalSalesPostingWriter:
                 "customer_po_line_id": item.customer_po_line_id,
                 "source_line_type": item.source_line_type or ("CUSTOMER_PO" if item.customer_po_line_id else "DIRECT"),
                 "source_line_id": item.source_line_id,
+                "is_tax_inclusive": tax_inc,
             }
             calculated_lines.append(line_data)
 
@@ -685,6 +732,7 @@ class CanonicalSalesPostingWriter:
                 customer_po_line_id=l["customer_po_line_id"],
                 source_line_type=l["source_line_type"],
                 source_line_id=l["source_line_id"],
+                is_tax_inclusive=l["is_tax_inclusive"],
             )
             session.add(db_item)
 

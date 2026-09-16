@@ -11,7 +11,7 @@
  * Classification: Internal
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
@@ -94,4 +94,4 @@ class PromotionRedemption(BaseEntity):
     evaluated_campaigns_snapshot = Column(JSONB, server_default=text("'[]'"), default=list)  # Evaluated, stacked, and rejected campaigns
     rule_snapshot = Column(JSONB, server_default=text("'{}'"), default=dict)  # Immutable snapshot at transaction time
 
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -427,6 +427,7 @@ async def test_repeated_processing_does_not_create_duplicates():
     Verifies that calling create_sales_invoice idempotently returns the existing invoice
     without creating duplicate stock movements.
     """
+    from app.models.inventory import Warehouse
     session_factory = get_company_sessionmaker("smriti001")
 
     async with session_factory() as session:
@@ -435,6 +436,19 @@ async def test_repeated_processing_does_not_create_duplicates():
             branch_id="MAIN",
         )
         sales_svc = SalesService(session, tenant_ctx)
+
+        # Resolve the canonical warehouse for this tenant (mirrors InventoryWarehouseResolver)
+        wh_res = await session.execute(
+            select(Warehouse).where(
+                Warehouse.company_id == "COMP-001",
+                Warehouse.is_deleted == False,
+                Warehouse.is_active == True,
+            ).order_by(Warehouse.created_at.asc())
+        )
+        canonical_wh = wh_res.scalars().first()
+        if not canonical_wh:
+            pytest.skip("No active warehouse found for COMP-001 — DB not seeded")
+        canonical_warehouse_id = canonical_wh.id
 
         res = await session.execute(
             select(Product).filter(
@@ -450,17 +464,18 @@ async def test_repeated_processing_does_not_create_duplicates():
         await session.flush()
 
         # Ensure ProductBatchStock for the opening batch exists with sufficient stock
+        # Uses the dynamically resolved canonical warehouse (not a hardcoded ID)
         from app.models.inventory import ProductBatchStock
         q_batch = select(ProductBatchStock).where(
             ProductBatchStock.company_id == "COMP-001",
             ProductBatchStock.product_id == prod.id,
-            ProductBatchStock.warehouse_id == "wh-central-001",
+            ProductBatchStock.warehouse_id == canonical_warehouse_id,
             ProductBatchStock.batch_no == "BATCH-OPENING",
             ProductBatchStock.is_deleted == False,
         )
         res_batch = await session.execute(q_batch)
         opening_batch = res_batch.scalars().first()
-        
+
         if not opening_batch:
             opening_batch = ProductBatchStock(
                 id=f"pbs-idemp-{uuid.uuid4().hex[:12]}",
@@ -468,7 +483,7 @@ async def test_repeated_processing_does_not_create_duplicates():
                 company_id="COMP-001",
                 branch_id="MAIN",
                 product_id=prod.id,
-                warehouse_id="wh-central-001",
+                warehouse_id=canonical_warehouse_id,
                 batch_no="BATCH-OPENING",
                 quantity=Decimal("100.00"),
                 reserved_quantity=Decimal("0.00"),
@@ -524,6 +539,7 @@ async def test_repeated_processing_does_not_create_duplicates():
                 await session.commit()
 
 
+
 @pytest.mark.asyncio
 async def test_stock_movement_ledger_live_api_runtime_response():
     """
@@ -534,6 +550,7 @@ async def test_stock_movement_ledger_live_api_runtime_response():
        correct quantity, canonical reference_doc_id, and tenant scope.
     4. Clean up test records completely.
     """
+    from app.models.inventory import Warehouse
     session_factory = get_company_sessionmaker("smriti001")
 
     async with session_factory() as session:
@@ -542,6 +559,19 @@ async def test_stock_movement_ledger_live_api_runtime_response():
             branch_id="MAIN",
         )
         sales_svc = SalesService(session, tenant_ctx)
+
+        # Resolve the canonical warehouse for this tenant (mirrors InventoryWarehouseResolver)
+        wh_res = await session.execute(
+            select(Warehouse).where(
+                Warehouse.company_id == "COMP-001",
+                Warehouse.is_deleted == False,
+                Warehouse.is_active == True,
+            ).order_by(Warehouse.created_at.asc())
+        )
+        canonical_wh = wh_res.scalars().first()
+        if not canonical_wh:
+            pytest.skip("No active warehouse found for COMP-001 — DB not seeded")
+        canonical_warehouse_id = canonical_wh.id
 
         res = await session.execute(
             select(Product).filter(
@@ -556,18 +586,18 @@ async def test_stock_movement_ledger_live_api_runtime_response():
         prod.stock = Decimal("50.00")
         await session.flush()
 
-        # Ensure ProductBatchStock for the opening batch exists with sufficient stock
+        # Ensure ProductBatchStock uses canonical warehouse (not hardcoded ID)
         from app.models.inventory import ProductBatchStock
         q_batch = select(ProductBatchStock).where(
             ProductBatchStock.company_id == "COMP-001",
             ProductBatchStock.product_id == prod.id,
-            ProductBatchStock.warehouse_id == "wh-central-001",
+            ProductBatchStock.warehouse_id == canonical_warehouse_id,
             ProductBatchStock.batch_no == "BATCH-OPENING",
             ProductBatchStock.is_deleted == False,
         )
         res_batch = await session.execute(q_batch)
         opening_batch = res_batch.scalars().first()
-        
+
         if not opening_batch:
             opening_batch = ProductBatchStock(
                 id=f"pbs-runtime-{uuid.uuid4().hex[:12]}",
@@ -575,7 +605,7 @@ async def test_stock_movement_ledger_live_api_runtime_response():
                 company_id="COMP-001",
                 branch_id="MAIN",
                 product_id=prod.id,
-                warehouse_id="wh-central-001",
+                warehouse_id=canonical_warehouse_id,
                 batch_no="BATCH-OPENING",
                 quantity=Decimal("50.00"),
                 reserved_quantity=Decimal("0.00"),
@@ -635,6 +665,7 @@ async def test_stock_movement_ledger_live_api_runtime_response():
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv.id})
                 await session.commit()
+
 
 
 def test_historical_apply_all_5_guards(tmp_path):

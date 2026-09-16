@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -172,7 +172,7 @@ class EInvoiceResponse(BaseModel):
     signed_invoice: str
     signed_qr_code: str
     status_code: str
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class EWayBillItem(BaseModel):

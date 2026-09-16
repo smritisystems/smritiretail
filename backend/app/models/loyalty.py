@@ -11,7 +11,7 @@
  * Classification: Internal
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
@@ -51,7 +51,7 @@ class LoyaltyMember(BaseEntity):
     total_points_redeemed = Column(Numeric(15, 2), default=0.00)
     current_points_balance = Column(Numeric(15, 2), default=0.00)
     total_lifetime_spend = Column(Numeric(15, 2), default=0.00)
-    joined_date = Column(DateTime, default=datetime.utcnow)
+    joined_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class LoyaltyPointsLedger(BaseEntity):
     """Authoritative Transactional Ledger for Loyalty Points (Earn, Redeem, Reversal, Expiry)."""
@@ -63,4 +63,4 @@ class LoyaltyPointsLedger(BaseEntity):
     reference_invoice_id = Column(String(50), nullable=True, index=True)
     reference_return_id = Column(String(50), nullable=True, index=True)
     narration = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -40,14 +40,12 @@ export interface Product {
   isFavorite?: boolean;
   barcode: string;
   secondaryBarcodes?: string[]; // Added for secondary barcodes support
-  barcodes?: { type: string; value: string; isPrimary?: boolean }[]; // Barcode Mapping relationships
   brand?: string; // Added for brand support in template tokens
   color?: string;
   size?: string;
   mrp?: number;
   gstPercentage?: number;
-  isTaxInclusive?: boolean;
-  is_tax_inclusive?: boolean;
+  barcodes?: { type: string; value: string; isPrimary?: boolean; is_tax_inclusive?: boolean; isTaxInclusive?: boolean }[]; // Barcode Mapping relationships
   styleCode?: string;
   style_code?: string;
   style?: string;
@@ -584,6 +582,8 @@ export interface CustomerGroup {
 
   // Tax Rules
   taxInclusive: boolean; // true = prices shown inclusive of tax
+  isTaxInclusive?: boolean;
+  is_tax_inclusive?: boolean;
   gstPercentageOverride?: number; // if set, overrides item-level GST for this group
   taxCategory?: TaxCategory;
 
@@ -650,6 +650,8 @@ export interface Customer {
 
   // Tax overrides
   taxInclusive?: boolean;
+  isTaxInclusive?: boolean;
+  is_tax_inclusive?: boolean;
   gstPercentageOverride?: number;
   taxCategory?: TaxCategory;
 
@@ -990,6 +992,8 @@ export interface CustomerPriceGroup {
   allowCreditInvoice: boolean;
   allowCashInvoice: boolean;
   taxExclusiveInvoice: boolean;
+  isTaxInclusive?: boolean;
+  is_tax_inclusive?: boolean;
   allowMiscIssue: boolean;
   status?: "Active" | "Inactive";
   createdAt?: string;

@@ -42,7 +42,6 @@ class Item(BaseEntity):
     vendor_code = Column(String(100), nullable=True, index=True)
     hsn_code = Column(String(15), nullable=True)
     tax_rate = Column(Numeric(5, 2), nullable=True)
-    is_tax_inclusive = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     primary_uom = Column(String(20), nullable=True)
     
     # Non-authoritative legacy baseline fields (Pricing Domain is sole system-of-record)
@@ -88,7 +87,6 @@ class ItemVariant(BaseEntity):
     # Explicit Statutory / Compliance Overrides (First-Class Schema Columns)
     hsn_code = Column(String(15), nullable=True)
     tax_rate = Column(Numeric(5, 2), nullable=True)
-    is_tax_inclusive = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     
     mrp = Column(Numeric(15, 2), nullable=True, default=0.00)
     selling_price = Column(Numeric(15, 2), nullable=True, default=0.00)
@@ -119,6 +117,7 @@ class ItemBarcode(BaseEntity):
     barcode_purpose = Column(String(20), nullable=False, default="RETAIL")
     encoding_standard = Column(String(20), nullable=False, default="NONE")
     is_primary = Column(Boolean, nullable=False, default=False)
+    is_tax_inclusive = Column(Boolean, nullable=True, default=None)  # Explicit sellable unit tax policy override
     status = Column(String(20), nullable=False, default="ASSIGNED")
     source = Column(String(30), nullable=False, default="MANUAL")
     source_reference = Column(String(100), nullable=True)

@@ -13,7 +13,7 @@ License      : Proprietary Commercial Software
 
 import os
 from decimal import Decimal
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
@@ -367,7 +367,7 @@ async def create_stock_movement(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
         
-    movement_id = movement_in.id or f"SM-{int(datetime.utcnow().timestamp())}-{uuid.uuid4().hex[:6]}"
+    movement_id = movement_in.id or f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
     
     db_movement = StockMovement(
         id=movement_id,

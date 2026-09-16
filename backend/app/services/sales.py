@@ -560,13 +560,55 @@ class SalesService:
                             "quantity": quantity
                         })
 
-            # Determine whether line is tax-inclusive (Hierarchy: Line Item Override -> Product Master -> B2C consumer MRP / B2B wholesale)
+            # Determine whether line is tax-inclusive (Hierarchy: Line Item Override -> Barcode -> Customer -> Price Group -> B2C consumer MRP / B2B wholesale)
             if item.is_tax_inclusive is not None:
                 is_inclusive = item.is_tax_inclusive
-            elif product and getattr(product, "is_tax_inclusive", None) is not None:
-                is_inclusive = product.is_tax_inclusive
             else:
-                is_inclusive = not is_registered_b2b
+                # 1. Barcode check
+                barcode_tax_inc = None
+                code_to_check = str(item.code or (product.barcode if product else "")).strip()
+                if code_to_check:
+                    from ..models.item_master import ItemBarcode
+                    bc_tax = await self.db.scalar(
+                        select(ItemBarcode.is_tax_inclusive).where(
+                            ItemBarcode.company_id == self.tenant_ctx.company_id,
+                            ItemBarcode.barcode == code_to_check,
+                            ItemBarcode.is_deleted == False,
+                        ).limit(1)
+                    )
+                    if bc_tax is not None:
+                        barcode_tax_inc = bc_tax
+
+                # 2. Customer check
+                cust_tax_inc = getattr(cust_db_record, "is_tax_inclusive", None) if cust_db_record else None
+
+                # 3. Price Group check
+                pg_tax_inc = None
+                if cust_db_record and getattr(cust_db_record, "customer_group_id", None):
+                    from ..models.crm import CustomerGroup
+                    pg_tax_inc = await self.db.scalar(
+                        select(CustomerGroup.is_tax_inclusive).where(
+                            CustomerGroup.id == cust_db_record.customer_group_id,
+                            CustomerGroup.is_deleted == False,
+                        )
+                    )
+                elif cust_db_record and getattr(cust_db_record, "price_tier_id", None):
+                    from ..models.pricing import CustomerPriceTier
+                    pg_tax_inc = await self.db.scalar(
+                        select(CustomerPriceTier.is_tax_inclusive).where(
+                            CustomerPriceTier.id == cust_db_record.price_tier_id,
+                            CustomerPriceTier.is_deleted == False,
+                        )
+                    )
+
+                if barcode_tax_inc is not None:
+                    is_inclusive = barcode_tax_inc
+                elif cust_tax_inc is not None:
+                    is_inclusive = cust_tax_inc
+                elif pg_tax_inc is not None:
+                    is_inclusive = pg_tax_inc
+                else:
+                    is_inclusive = not is_registered_b2b
 
             # Statutory Price Validation: Unit Rate cannot exceed statutory MRP
             effective_mrp = item.mrp or (product.mrp if product else None)
@@ -622,6 +664,7 @@ class SalesService:
                 customer_po_line_id=getattr(item, "customer_po_line_id", None),
                 source_line_type=getattr(item, "source_line_type", None),
                 source_line_id=getattr(item, "source_line_id", None),
+                is_tax_inclusive=is_inclusive,
             )
             invoice_items.append(db_item)
 

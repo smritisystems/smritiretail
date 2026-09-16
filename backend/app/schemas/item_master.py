@@ -22,6 +22,7 @@ class ItemBarcodeItem(BaseModel):
     barcode: str
     barcode_type: str = "EAN13"
     is_primary: bool = False
+    is_tax_inclusive: Optional[bool] = None
 
 
 class ItemVariantItem(BaseModel):
@@ -33,7 +34,6 @@ class ItemVariantItem(BaseModel):
     selling_price: float = 0.0
     cost_price: float = 0.0
     tax_rate: Optional[float] = None
-    is_tax_inclusive: bool = True
     is_active: bool = True
     barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
 
@@ -80,7 +80,6 @@ class ItemCreateRequest(BaseModel):
     vendor_code: Optional[str] = None
     hsn_code: Optional[str] = "0000"
     tax_rate: float = 18.0
-    is_tax_inclusive: bool = True
     primary_uom: str = "PCS"
     mrp: float = 0.0
     selling_price: float = 0.0
@@ -127,7 +126,6 @@ class ItemUpdateRequest(BaseModel):
     vendor_code: Optional[str] = None
     hsn_code: Optional[str] = None
     tax_rate: Optional[float] = None
-    is_tax_inclusive: Optional[bool] = None
     primary_uom: Optional[str] = None
     mrp: Optional[float] = None
     selling_price: Optional[float] = None
@@ -173,7 +171,6 @@ class ItemResponse(BaseModel):
     vendor_code: Optional[str] = None
     hsn_code: Optional[str] = None
     tax_rate: float
-    is_tax_inclusive: bool = True
     primary_uom: str
     mrp: float
     selling_price: float

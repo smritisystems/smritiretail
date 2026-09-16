@@ -344,9 +344,6 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           price: parseFloat(String(rawRowObj.price || rawRowObj.sellingPrice || "0").replace(/,/g, "")) || 0,
           mrp: parseFloat(String(rawRowObj.mrp || rawRowObj.price || "0").replace(/,/g, "")) || 0,
           gst_percentage: parseFloat(String(rawRowObj.gstPercentage || rawRowObj.productTax || "18").replace(/[^0-9.]/g, "")) || 18.00,
-          is_tax_inclusive: rawRowObj.isTaxInclusive !== undefined 
-            ? Boolean(rawRowObj.isTaxInclusive) 
-            : (rawRowObj.taxCalculationMode === "EXCLUSIVE" ? false : true),
           hsn_code: rawRowObj.hsnCode || rawRowObj.hsn_code || "61091000",
           style_code: rawRowObj.style || rawRowObj.style_code || rawRowObj.code || "",
           color: rawRowObj.colour || rawRowObj.color || rawRowObj.shade || "",

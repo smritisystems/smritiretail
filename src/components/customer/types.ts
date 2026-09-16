@@ -220,6 +220,8 @@ export interface CustomerPriceGroup {
   allowCreditInvoice: boolean;
   allowCashInvoice: boolean;
   taxExclusiveInvoice: boolean;
+  isTaxInclusive?: boolean;
+  is_tax_inclusive?: boolean;
   allowMiscIssue: boolean; // Allow Goods (Misc.,) Issue (Without Invoicing)
 
   // Status & Audit

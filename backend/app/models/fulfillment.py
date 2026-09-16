@@ -11,7 +11,7 @@
  * Classification: Internal
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
@@ -27,7 +27,7 @@ class PackingSlip(BaseEntity):
     status = Column(String(30), default="PACKED")  # PENDING, PACKED, CANCELLED
     total_packages = Column(Integer, default=1)
     weight_kg = Column(Numeric(10, 3), default=0.000)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     items = relationship("PackingSlipItem", back_populates="packing_slip")
 
@@ -53,7 +53,7 @@ class Dispatch(BaseEntity):
     tracking_number = Column(String(100), nullable=True, index=True)
     driver_person_id = Column(String(50), nullable=True, index=True)  # Universal Person ID for Driver
     status = Column(String(30), default="DISPATCHED")  # DISPATCHED, IN_TRANSIT, DELIVERED, RETURNED
-    dispatch_date = Column(DateTime, default=datetime.utcnow)
+    dispatch_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     delivered_date = Column(DateTime, nullable=True)
     delivery_fee = Column(Numeric(15, 2), default=0.00)
     driver_commission = Column(Numeric(15, 2), default=50.00)  # ₹50 fixed driver commission
@@ -79,7 +79,7 @@ class DeliveryCommissionSettlement(BaseEntity):
     participant_role = Column(String(50), nullable=False)  # DRIVER, SALESPERSON, REFERRER
     total_commission_amount = Column(Numeric(15, 2), nullable=False)
     settlement_status = Column(String(30), default="SETTLED")  # PENDING, SETTLED, PAID
-    settled_date = Column(DateTime, default=datetime.utcnow)
+    settled_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class ReverseLogisticsReturn(BaseEntity):
     """Reverse Logistics & Return Pick manifest."""
@@ -91,4 +91,4 @@ class ReverseLogisticsReturn(BaseEntity):
     reason = Column(Text, nullable=True)
     restock_status = Column(String(30), default="RESTOCKED")  # RESTOCKED, SCRAPPED, INSPECTION
     commission_reversed = Column(Boolean, default=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
