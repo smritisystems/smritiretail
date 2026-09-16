@@ -485,6 +485,73 @@ async def seed():
                     is_active=True,
                     is_deleted=False,
                 ))
+
+            # 4. Seed default POS Terminal Profiles (Installation baseline)
+            try:
+                from app.models.pos import CashRegister
+                from app.models.tenant import Branch
+            except ImportError:
+                from backend.app.models.pos import CashRegister
+                from backend.app.models.tenant import Branch
+
+            primary_branch = (
+                await target_session.execute(
+                    select(Branch).where(
+                        Branch.company_id == comp_id,
+                        Branch.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            actual_br_id = primary_branch.id if primary_branch else None
+
+            reg1 = (
+                await target_session.execute(
+                    select(CashRegister).where(
+                        CashRegister.company_id == comp_id,
+                        CashRegister.code == "REG-01",
+                        CashRegister.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not reg1:
+                target_session.add(CashRegister(
+                    id="PROF-DEFAULT-REG01",
+                    name="Counter 01 - Express Billing",
+                    code="REG-01",
+                    cashier="EMP001 - John Doe",
+                    warehouse="Main Store",
+                    notes="Default installation counter with high-speed POS billing, thermal printer, and barcode scanner.",
+                    is_locked=False,
+                    is_active=True,
+                    is_deleted=False,
+                    company_id=comp_id,
+                    branch_id=actual_br_id,
+                ))
+
+            reg2 = (
+                await target_session.execute(
+                    select(CashRegister).where(
+                        CashRegister.company_id == comp_id,
+                        CashRegister.code == "REG-02",
+                        CashRegister.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not reg2:
+                target_session.add(CashRegister(
+                    id="PROF-DEFAULT-REG02",
+                    name="Counter 02 - Standard Checkout",
+                    code="REG-02",
+                    cashier="EMP002 - Jane Smith",
+                    warehouse="Main Store",
+                    notes="Secondary standard checkout counter for retail sales and customer returns.",
+                    is_locked=False,
+                    is_active=True,
+                    is_deleted=False,
+                    company_id=comp_id,
+                    branch_id=actual_br_id,
+                ))
+
             await target_session.commit()
 
         # Seed into control DB

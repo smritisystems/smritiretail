@@ -167,16 +167,7 @@ app.add_middleware(
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=[
-        "Authorization",
-        "Content-Type",
-        "Accept",
-        "X-Company-ID",
-        "X-Branch-ID",
-        "X-Company-Code",
-        "X-Tenant-ID",
-        "X-Request-ID",
-    ],
+    allow_headers=["*"],
 )
 
 # 2. Register Request Logger & ID Middleware

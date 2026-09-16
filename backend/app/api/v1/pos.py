@@ -330,6 +330,39 @@ async def archive_pos_profile(
     return POSProfileResponse.from_register(reg)
 
 
+@router.put(
+    "/pos/profiles/{profile_id}",
+    response_model=POSProfileResponse,
+    summary="Update POS Profile",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def update_pos_profile(
+    profile_id: str,
+    req: POSProfileCreate,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Update an existing POS terminal profile."""
+    reg = await POSService(db, tenant).update_profile(profile_id, req)
+    return POSProfileResponse.from_register(reg)
+
+
+@router.delete(
+    "/pos/profiles/{profile_id}",
+    response_model=POSProfileResponse,
+    summary="Delete POS Profile",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def delete_pos_profile(
+    profile_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Soft-delete a POS profile."""
+    reg = await POSService(db, tenant).archive_register(profile_id)
+    return POSProfileResponse.from_register(reg)
+
+
 @router.post(
     "/pos/profiles/{profile_id}/toggle-lock",
     response_model=POSProfileResponse,

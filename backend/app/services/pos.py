@@ -72,13 +72,15 @@ class POSService:
         return reg
 
     async def list_registers(self) -> list[CashRegister]:
-        res = await self.db.execute(
-            select(CashRegister).where(
-                CashRegister.company_id == self.tenant.company_id,
-                CashRegister.branch_id  == self.tenant.branch_id,
-                CashRegister.is_deleted == False,
-            )
+        stmt = select(CashRegister).where(
+            CashRegister.company_id == self.tenant.company_id,
+            CashRegister.is_deleted == False,
         )
+        if self.tenant.branch_id:
+            stmt = stmt.where(
+                (CashRegister.branch_id == self.tenant.branch_id) | (CashRegister.branch_id.is_(None))
+            )
+        res = await self.db.execute(stmt)
         return res.scalars().all()
 
     async def get_register(self, register_id: str) -> CashRegister:
@@ -95,8 +97,8 @@ class POSService:
     async def create_profile(self, req: "POSProfileCreate") -> CashRegister:  # type: ignore[name-defined]
         """Create a CashRegister from the frontend POS profile form."""
         import uuid as _uuid
-        # Auto-derive a short code from the name if not provided
-        code = f"REG-{_uuid.uuid4().hex[:6].upper()}"
+        # Use provided code or auto-derive a short code
+        code = req.code.strip() if getattr(req, "code", None) and req.code.strip() else f"REG-{_uuid.uuid4().hex[:6].upper()}"
         reg = CashRegister(
             id=f"PROF-{_uuid.uuid4().hex[:8].upper()}",
             name=req.name,
@@ -104,7 +106,7 @@ class POSService:
             notes=req.notes,
             cashier=req.cashier,
             warehouse=req.warehouse,
-            is_locked=False,
+            is_locked=req.is_locked or False,
             is_active=True,
             is_deleted=False,
             company_id=self.tenant.company_id,
@@ -117,7 +119,33 @@ class POSService:
             await self.db.rollback()
             raise HTTPException(
                 status_code=400,
-                detail="A profile with this name already exists. Please use a different name.",
+                detail="A profile with this name or code already exists. Please use a different name or code.",
+            )
+        await self.db.refresh(reg)
+        return reg
+
+    async def update_profile(self, register_id: str, req: "POSProfileCreate") -> CashRegister:  # type: ignore[name-defined]
+        """Update an existing CashRegister from the frontend POS profile form."""
+        reg = await self.get_register(register_id)
+        if req.name:
+            reg.name = req.name
+        if getattr(req, "code", None) and req.code.strip():
+            reg.code = req.code.strip()
+        if req.notes is not None:
+            reg.notes = req.notes
+        if req.cashier is not None:
+            reg.cashier = req.cashier
+        if req.warehouse is not None:
+            reg.warehouse = req.warehouse
+        if req.is_locked is not None:
+            reg.is_locked = req.is_locked
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="A profile with this name or code already exists. Please use a different name or code.",
             )
         await self.db.refresh(reg)
         return reg
