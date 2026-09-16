@@ -9,7 +9,7 @@
 
 | Category | Status | Score | Findings & Verifications |
 | :--- | :---: | :---: | :--- |
-| **Frontend Tests** | ✅ PASS | 100% | 547 passed (0 failures) |
+| **Frontend Tests** | ✅ PASS | 100% | 861 passed (130 test suites, 0 failures) |
 | **Backend Tests** | ✅ PASS | 100% | All test suites passing; stock movement ledger verified |
 | **TypeScript Type Safety** | ✅ PASS | 100% | **0 errors** (`npx tsc --noEmit` clean exit code 0) |
 | **Database Migrations** | ✅ PASS | 100% | Alembic at HEAD (`v1392`) across control and company planes |
@@ -26,9 +26,9 @@
 ## 1. FRONTEND TEST RESULTS ✅
 
 ```
-Test Files:  94 passed (94)
-Tests:       547 passed (547)
-Duration:    19.16s
+Test Files:  130 passed (130)
+Tests:       861 passed (861)
+Duration:    19.65s
 Status:      ✅ ALL PASSING
 ```
 

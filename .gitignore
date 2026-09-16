@@ -140,4 +140,8 @@ backend/lint-output.txt
 backend/gate_auth.txt
 backend/mypy-baseline.txt
 
+# Post-mortem and Scratch Fix Scripts
+fix-typescript-errors.*
+
+
 

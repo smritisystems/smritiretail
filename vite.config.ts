@@ -7,7 +7,7 @@
  *
  * * Pushpa Devi Jawahar Mallah
  *   * Founder & Chairperson
- *   * Phone: +91 9324117007
+ *   * Phone: [REDACTED_PUBLIC_PII]
  *   * Email: founder@aitdl.com
  *
  * * Jawahar Ramkripal Mallah
@@ -16,7 +16,7 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.30.0
+ * * Version    : 6.27.2
  * * Created    : 2026-07-10
  * * Modified   : 2026-09-09
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
