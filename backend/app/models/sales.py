@@ -364,3 +364,26 @@ class SalesReturnItem(Base):
 
     # Relationships
     sales_return = relationship("SalesReturn", back_populates="items")
+
+
+class InvoiceCustomerChangeLog(BaseEntity):
+    """
+    Audit ledger tracking mid-bill customer switch events (Alt+M).
+    Captures old customer, new customer, cart subtotal, line count, and promotion re-evaluation diffs.
+    """
+    __tablename__ = "invoice_customer_change_logs"
+
+    session_id             = Column(String(100), nullable=False, index=True)
+    draft_invoice_id       = Column(String(100), nullable=True)
+    old_customer_id        = Column(String(50), nullable=True)
+    old_customer_name      = Column(String(255), nullable=True)
+    old_customer_group     = Column(String(100), nullable=True)
+    new_customer_id        = Column(String(50), nullable=False)
+    new_customer_name      = Column(String(255), nullable=False)
+    new_customer_group     = Column(String(100), nullable=True)
+    line_items_count       = Column(Integer, nullable=False, default=0)
+    cart_subtotal          = Column(Numeric(15, 2), nullable=False, default=0.00)
+    promotions_reevaluated = Column(Boolean, nullable=False, default=True)
+    promo_diff_summary     = Column(JSONB, nullable=True)
+    changed_by             = Column(String(50), nullable=False)
+    changed_at             = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))

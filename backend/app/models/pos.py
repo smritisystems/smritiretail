@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from sqlalchemy import Boolean, Column, String, Numeric, ForeignKey, Text, DateTime
+from sqlalchemy import Boolean, Column, String, Numeric, ForeignKey, Text, DateTime, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from ..db.base import BaseEntity
@@ -108,3 +108,45 @@ class ShiftCashTransaction(BaseEntity):
 
     # Relationships
     shift            = relationship("Shift", back_populates="cash_transactions")
+
+
+class POSParkedCart(BaseEntity):
+    """
+    F12 Bill Park & Recall cart snapshot in PostgreSQL durability layer.
+    Allows high-speed cashier lane clearance with 4-hour automatic expiration window.
+    """
+    __tablename__ = "pos_parked_carts"
+
+    branch_id        = Column(String(50), nullable=False, index=True)
+    session_id       = Column(String(100), nullable=False, index=True)
+    cashier_id       = Column(String(50), nullable=False, index=True)
+    hold_slip_number = Column(String(50), nullable=False, unique=True, index=True)
+    customer_id      = Column(String(50), nullable=True)
+    customer_name    = Column(String(255), nullable=True)
+    customer_phone   = Column(String(50), nullable=True)
+    items_count      = Column(Integer, nullable=False, default=0)
+    total_amount     = Column(Numeric(15, 2), nullable=False, default=0.00)
+    cart_snapshot    = Column(JSONB, nullable=False)
+    status           = Column(String(20), nullable=False, default="PARKED")  # PARKED, RECALLED, CANCELLED, EXPIRED
+    parked_at        = Column(DateTime(timezone=True), nullable=False)
+    expires_at       = Column(DateTime(timezone=True), nullable=False)
+    recalled_at      = Column(DateTime(timezone=True), nullable=True)
+    recalled_by      = Column(String(50), nullable=True)
+
+
+class POSShiftDenominationCount(BaseEntity):
+    """
+    Shift-end denomination count breakdown for cashier handover and manager balance sheet.
+    """
+    __tablename__ = "pos_shift_denomination_counts"
+
+    shift_id           = Column(String(50), ForeignKey("shifts.id", ondelete="CASCADE"), nullable=False, index=True)
+    denomination_value = Column(Numeric(10, 2), nullable=False)
+    expected_count     = Column(Integer, nullable=False, default=0)
+    actual_count       = Column(Integer, nullable=False, default=0)
+    expected_amount    = Column(Numeric(15, 2), nullable=False, default=0.00)
+    actual_amount      = Column(Numeric(15, 2), nullable=False, default=0.00)
+    variance_amount    = Column(Numeric(15, 2), nullable=False, default=0.00)
+    reconciled_by      = Column(String(50), nullable=False)
+    reconciled_at      = Column(DateTime(timezone=True), nullable=False)
+    notes              = Column(Text, nullable=True)
