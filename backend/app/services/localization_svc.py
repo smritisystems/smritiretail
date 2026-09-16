@@ -361,13 +361,44 @@ class LocalizationService:
     Static helper and compatibility wrapper for fast in-memory localization & conversions.
     """
     _BASELINE_TRANSLATIONS: Dict[str, Dict[str, str]] = {
-        "common.save": {"en-IN": "Save", "hi-IN": "सहेजें", "mr-IN": "जतन करा", "gu-IN": "સાચવો"},
-        "common.cancel": {"en-IN": "Cancel", "hi-IN": "रद्द करें", "mr-IN": "रद्द करा", "gu-IN": "રદ કરો"},
-        "common.delete": {"en-IN": "Delete", "hi-IN": "हटाएं", "mr-IN": "हटवा", "gu-IN": "કાઢી નાખો"},
-        "common.success": {"en-IN": "Success", "hi-IN": "सफल", "mr-IN": "यशस्वी", "gu-IN": "સફળ"},
-        "pos.shift.open": {"en-IN": "Open POS Shift", "hi-IN": "पीओएस शिफ्ट खोलें", "mr-IN": "पीओएस शिफ्ट उघडा"},
-        "pos.shift.close": {"en-IN": "Close POS Shift", "hi-IN": "पीओएस शिफ्ट बंद करें", "mr-IN": "पीओएस शिफ्ट बंद करा"},
-        "billing.tax_invoice": {"en-IN": "Tax Invoice", "hi-IN": "टैक्स इनवॉयस", "mr-IN": "कर बीजक"},
+        # Common actions
+        "common.save":    {"en-IN": "Save",    "hi-IN": "सहेजें",  "mr-IN": "जतन करा", "gu-IN": "સાચવો"},
+        "common.cancel":  {"en-IN": "Cancel",  "hi-IN": "रद्द करें", "mr-IN": "रद्द करा", "gu-IN": "રદ કરો"},
+        "common.delete":  {"en-IN": "Delete",  "hi-IN": "हटाएं",   "mr-IN": "हटवा",    "gu-IN": "કાઢી નાખો"},
+        "common.success": {"en-IN": "Success", "hi-IN": "सफल",    "mr-IN": "यशस्वी",  "gu-IN": "સફળ"},
+        # POS Shift
+        "pos.shift.open":  {
+            "en-IN": "Open POS Shift",
+            "hi-IN": "शिफ्ट खोलें",
+            "mr-IN": "शिफ्ट सुरू करा",
+            "gu-IN": "શિફ્ટ શરૂ કરો",
+        },
+        "pos.shift.close": {
+            "en-IN": "Close POS Shift",
+            "hi-IN": "शिफ्ट बंद करें",
+            "mr-IN": "शिफ्ट बंद करा",
+            "gu-IN": "શિફ્ટ બંધ કરો",
+        },
+        # POS misc
+        "pos.cash_drop": {
+            "en-IN": "Cash Drop",
+            "hi-IN": "तिजोरी में रकम",
+            "mr-IN": "तिजोरी जमा",
+            "gu-IN": "તિજોરી જમા",
+        },
+        # Billing
+        "billing.tax_invoice": {
+            "en-IN": "Tax Invoice",
+            "hi-IN": "टैक्स चालान",
+            "mr-IN": "कर बीजक",
+            "gu-IN": "ટેક્સ ઇનવૉઇસ",
+        },
+        "billing.grand_total": {
+            "en-IN": "Grand Total",
+            "hi-IN": "कुल योग",
+            "mr-IN": "एकूण रक्कम",
+            "gu-IN": "કુલ રકમ",
+        },
     }
 
     @classmethod
@@ -398,6 +429,10 @@ class LocalizationService:
     @classmethod
     def format_indian_number(cls, num: Decimal) -> str:
         s = f"{num:.2f}"
+        # Handle negative numbers — strip sign before grouping, reattach after
+        negative = s.startswith("-")
+        if negative:
+            s = s[1:]
         parts = s.split(".")
         integer_part = parts[0]
         dec_part = parts[1] if len(parts) > 1 else "00"
@@ -414,16 +449,39 @@ class LocalizationService:
                 chunks.insert(0, rest)
             chunks.append(last3)
             res = ",".join(chunks)
-        return f"{res}.{dec_part}"
+        formatted = f"{res}.{dec_part}"
+        return f"-{formatted}" if negative else formatted
 
     @classmethod
     def format_international_number(cls, num: Decimal) -> str:
         return f"{num:,.2f}"
 
+    # Currency symbol registry — symbol, placement ('pre' or 'post')
+    _CURRENCY_SYMBOLS: dict = {
+        "INR": ("₹", "pre"),
+        "USD": ("$", "pre"),
+        "EUR": ("€", "pre"),
+        "GBP": ("£", "pre"),
+        "AED": ("د.إ", "post"),
+        "SAR": ("﷼", "post"),
+        "JPY": ("¥", "pre"),
+        "CNY": ("¥", "pre"),
+    }
+
     @classmethod
     def format_currency(cls, amount: Decimal, currency_code: str = "INR", locale_code: str = "en-IN") -> str:
-        symbol = "₹" if currency_code == "INR" else "$" if currency_code == "USD" else currency_code
-        num_str = cls.format_indian_number(amount) if "IN" in locale_code.upper() else cls.format_international_number(amount)
+        symbol_info = cls._CURRENCY_SYMBOLS.get(currency_code.upper())
+        if symbol_info:
+            symbol, placement = symbol_info
+        else:
+            symbol, placement = currency_code, "pre"
+        num_str = (
+            cls.format_indian_number(amount)
+            if "IN" in locale_code.upper()
+            else cls.format_international_number(amount)
+        )
+        if placement == "post":
+            return f"{num_str} {symbol}"
         return f"{symbol} {num_str}"
 
     @classmethod
@@ -431,3 +489,33 @@ class LocalizationService:
         if date_format == "MM/DD/YYYY":
             return dt.strftime("%m/%d/%Y")
         return dt.strftime("%d/%m/%Y")
+
+    @classmethod
+    def determine_gst_type(cls, supplier_state_code: str, buyer_state_code: str) -> dict:
+        """
+        Determine statutory Indian GST supply type based on state codes.
+
+        Under CGST Act Section 8:
+        - Intrastate supply: supplier and buyer in the same state → CGST + SGST
+        - Interstate supply: different states → IGST
+
+        Args:
+            supplier_state_code: 2-digit state code of supplier (e.g. '27' = Maharashtra)
+            buyer_state_code:    2-digit state code of buyer (e.g. '29' = Karnataka)
+
+        Returns:
+            dict with keys: is_intrastate, supply_type, tax_components
+        """
+        is_intrastate = supplier_state_code.strip() == buyer_state_code.strip()
+        if is_intrastate:
+            return {
+                "is_intrastate": True,
+                "supply_type": "INTRASTATE",
+                "tax_components": ["CGST", "SGST"],
+            }
+        return {
+            "is_intrastate": False,
+            "supply_type": "INTERSTATE",
+            "tax_components": ["IGST"],
+        }
+
