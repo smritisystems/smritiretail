@@ -1,6 +1,6 @@
 # Database Entities Registry
 
-*Generated: 2026-09-16T04:51:08.847877+00:00*
+*Generated: 2026-09-16T05:17:52.586545+00:00*
 
 | Module | Database Setup | Checked Status |
 | :--- | :---: | :--- |
@@ -17,7 +17,7 @@
 | Vendor 360 Workspace | ✅ | Schema tables fully validated |
 | Business Ledger | ✅ | Schema tables fully validated |
 | Accounting Sync | ✅ | Schema tables fully validated |
-| Report Designer | ❌ | Missing or incomplete DB tables mapping |
+| Report Designer | ✅ | Schema tables fully validated |
 | Item Master | ✅ | Schema tables fully validated |
 | Barcode Studio | ✅ | Schema tables fully validated |
 | Warehouse & Batch Hub | ✅ | Schema tables fully validated |
@@ -32,7 +32,7 @@
 | Staff Management | ✅ | Schema tables fully validated |
 | My Profile Dashboard | ✅ | Schema tables fully validated |
 | Print Studio | ✅ | Schema tables fully validated |
-| Print History Logs | ❌ | Missing or incomplete DB tables mapping |
+| Print History Logs | ✅ | Schema tables fully validated |
 | Terms & Conditions | ✅ | Schema tables fully validated |
 | Data Exchange Hub | ✅ | Schema tables fully validated |
 | Company Setup Wizard | ✅ | Schema tables fully validated |

@@ -1,6 +1,6 @@
 # Module Progress Details
 
-*Generated: 2026-09-16T04:51:08.847877+00:00*
+*Generated: 2026-09-16T05:17:52.586545+00:00*
 
 | Module | Category | Progress | Risk Rating |
 | :--- | :--- | :---: | :---: |
@@ -17,7 +17,7 @@
 | Vendor 360 Workspace | Inventory & Sourcing | 88% | Low |
 | Business Ledger | Accounts Sync | 76% | Low |
 | Accounting Sync | Accounts Sync | 72% | Low |
-| Report Designer | Data & Config | 72% | Low |
+| Report Designer | Data & Config | 80% | Low |
 | Item Master | Inventory & Sourcing | 72% | Low |
 | Barcode Studio | Inventory & Sourcing | 76% | Low |
 | Warehouse & Batch Hub | Inventory & Sourcing | 88% | Low |
@@ -32,7 +32,7 @@
 | Staff Management | Operations | 68% | Low |
 | My Profile Dashboard | Operations | 76% | Low |
 | Print Studio | Documents & Print | 76% | Low |
-| Print History Logs | Documents & Print | 76% | Low |
+| Print History Logs | Documents & Print | 84% | Low |
 | Terms & Conditions | Data & Config | 84% | Low |
 | Data Exchange Hub | Data & Config | 88% | Low |
 | Company Setup Wizard | Operations | 80% | Low |
