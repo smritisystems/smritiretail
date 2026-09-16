@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Platform Kernel Contract — Stage 4
 """
 
+import os
 from typing import Optional, Any
 from .transport import IEventTransport, MemoryTransport
 from .registry import EventRegistry
@@ -116,10 +117,24 @@ class PlatformEventService:
 _default_platform_event_service: Optional[PlatformEventService] = None
 
 
+def set_platform_event_service(service: Optional[PlatformEventService]) -> None:
+    """Explicitly injects or overrides the canonical PlatformEventService singleton (useful for testing)."""
+    global _default_platform_event_service
+    _default_platform_event_service = service
+
+
+def reset_platform_event_service() -> None:
+    """Resets the canonical PlatformEventService singleton to None."""
+    global _default_platform_event_service
+    _default_platform_event_service = None
+
+
 def get_platform_event_service() -> PlatformEventService:
     """
     Returns the canonical PlatformEventService singleton for domain writer event staging.
     Configured with standard schema registrations and PostgresEventOutbox.
+    Supports environment-driven distributed transport (EVENT_TRANSPORT="redis")
+    with seamless local development/test fallback to MemoryTransport.
     """
     global _default_platform_event_service
     if _default_platform_event_service is None:
@@ -134,14 +149,27 @@ def get_platform_event_service() -> PlatformEventService:
         registry.register("wms.goods.receipt", {"1.0"}, "WMS Goods Receipt Note")
         registry.register("payment.received", {"1.0"}, "Payment Settle Received")
 
+        transport_type = os.getenv("EVENT_TRANSPORT", "memory").lower().strip()
+        redis_url = os.getenv("REDIS_URL")
+
+        if transport_type == "redis" or (transport_type == "auto" and redis_url):
+            from .redis_transport import RedisStreamTransport, RedisIdempotencyStore
+            target_redis_url = redis_url or "redis://localhost:6379/0"
+            transport = RedisStreamTransport(redis_url=target_redis_url)
+            idempotency_store = RedisIdempotencyStore(redis_url=target_redis_url)
+        else:
+            transport = MemoryTransport()
+            idempotency_store = MemoryIdempotencyStore()
+
         _default_platform_event_service = PlatformEventService(
-            transport=MemoryTransport(),
+            transport=transport,
             registry=registry,
-            idempotency_store=MemoryIdempotencyStore(),
+            idempotency_store=idempotency_store,
             retry_policy=RetryPolicy(),
             dead_letter_policy=DeadLetterPolicy(),
             serializer=EventSerializer(),
             outbox=PostgresEventOutbox(),
         )
     return _default_platform_event_service
+
 
