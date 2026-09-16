@@ -64,7 +64,8 @@ const REGISTERED_APP_TABS = [
   "legacy-migration",
   "physical-stock",
   "wiki",
-  "training-academy"
+  "training-academy",
+  "ewaybill-management"
 ];
 
 describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {

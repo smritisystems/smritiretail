@@ -7,7 +7,7 @@
 
   * Pushpa Devi Jawahar Mallah
     * Founder & Chairperson
-    * Phone: +91 9324117007
+    * Phone: [REDACTED_PUBLIC_PII]
     * Email: founder@aitdl.com
 
   * Jawahar Ramkripal Mallah
