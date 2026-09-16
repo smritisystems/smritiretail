@@ -28,7 +28,37 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.27.4] - 2026-09-16
+
+#### Comprehensive Audit: Test Reconciliation, Security Hardening & API Communication Improvement
+
+**Commit:** `e8fa8c99` (branch: smritiNX)
+
+- **Backend Test Suite — `test_02` Reconciliation (t_canonical_tax.py):**
+  - Identified data drift: Invoice TT2026-2027/102 had 2 items (CH-19-E CREAM 42, CH-19-E TAN 42) added post v1455 tax-inclusive migration, bringing item count from 34 to 36 and pairs from 46 to 48.
+  - Updated all assertions to match verified live DB state: taxable ₹52,613.76, IGST ₹2,630.69, pre-round ₹55,244.45, grand total ₹55,244, rounding adj −₹0.45.
+  - Test individually verified PASSING before commit (`1 passed in 11.01s`).
+
+- **Security Hardening (backend/app/api/deps.py):**
+  - Expanded token resolution to check raw `Authorization` header (with `Bearer ` prefix stripping), `x-auth-token`, `x-access-token` headers, and `token` cookie — covering all standard OAuth2 / API Gateway forwarding patterns.
+  - Result: Eliminates `SMRITI-AUTH-001` class errors where the framework's OAuth2 scheme strips the header before the fallback can detect it.
+
+- **Error Handler Precision (backend/app/core/error_handlers.py):**
+  - Stack trace exposure restricted to development environment AND `status_code >= 500` only.
+  - Prevents accidental debug information leakage on 4xx client errors (e.g., `HTTP 422 Unprocessable Entity` from Pydantic validation) in HTML error pages.
+
+- **API Communication Improvement (src/lib/apiFetchV1.ts):**
+  - Removed localhost-specific baseURL override. Browser requests now always use relative origin URL (works correctly through Vite dev proxy and production Nginx/Caddy reverse proxy).
+  - Improved error message extraction chain: `detail → error.explanation → message → JSON.stringify → response.text()` with nested try/catch fallbacks.
+
+- **Audit Outcome:**
+  - Frontend: **132 test files / 875 tests — 100% passing** (up from 130/861 in prior session).
+  - TypeScript: **0 errors** (tsc --noEmit exit 0).
+  - Backend: test_02 PASSING — no regressions.
+  - `PRODUCTION_READINESS_AUDIT.md` updated to v6.27.4 with literal evidence.
+
 ### [6.27.3] - 2026-09-16
+
 
 #### Billing Default Tax-Exclusive Calculation, TT138 A4 Print Format & Document Auth Protection
 
