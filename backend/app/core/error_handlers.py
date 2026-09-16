@@ -53,7 +53,7 @@ def dispatch_response(request: Request, exc: Exception | None, status_code: int,
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         stack_trace = ""
-        if settings.ENVIRONMENT == "development" and exc:
+        if settings.ENVIRONMENT == "development" and exc and status_code >= 500:
             stack_trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
             
         request_id = getattr(request.state, "request_id", None)

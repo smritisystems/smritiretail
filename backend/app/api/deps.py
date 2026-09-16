@@ -76,11 +76,24 @@ async def get_current_user(
     - User referenced by the token is inactive or deleted.
     """
     if not token:
+        # Check raw Authorization header in case OAuth2 scheme didn't extract it
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth_header:
+            if auth_header.lower().startswith("bearer "):
+                token = auth_header[7:].strip()
+            else:
+                token = auth_header.strip()
+
+    if not token:
         token = (
-            request.query_params.get("token")
+            request.headers.get("x-auth-token")
+            or request.headers.get("x-access-token")
+            or request.query_params.get("token")
             or request.query_params.get("auth_token")
+            or request.query_params.get("access_token")
             or request.cookies.get("access_token")
             or request.cookies.get("smriti_jwt_token")
+            or request.cookies.get("token")
         )
 
     if not token:
