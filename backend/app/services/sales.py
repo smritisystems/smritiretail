@@ -585,7 +585,6 @@ class SalesService:
                 # 3. Price Group check
                 pg_tax_inc = None
                 if cust_db_record and getattr(cust_db_record, "customer_group_id", None):
-                    from ..models.crm import CustomerGroup
                     pg_tax_inc = await self.db.scalar(
                         select(CustomerGroup.is_tax_inclusive).where(
                             CustomerGroup.id == cust_db_record.customer_group_id,

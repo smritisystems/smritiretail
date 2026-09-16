@@ -268,6 +268,10 @@ async def test_sales_invoice_eway_bill_generation(async_db: AsyncSession, tenant
         assert bill["itemList"][0]["quantity"] == 1.0
 
     finally:
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         await async_db.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": inv_id})
         await async_db.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": inv_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
