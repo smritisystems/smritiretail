@@ -28,6 +28,39 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.28.0] - 2026-09-16
+
+#### POS Billing: Real-Time Item-Level Sales Promotion Auto-Select Engine
+
+- **Real-Time Promotional Auto-Resolution (`resolveBestItemPromo`):**
+  - Evaluates all active item-level promotional schemes on optical barcode scan or manual SKU/Stock No entry.
+  - Multi-dimensional qualification validation: date validity range, day of week (`MON`–`SUN`), and happy hour time windows (`HH:mm`).
+  - Strict Commercial Customer Group entitlement matching (e.g., Reliance Retail contractual markdown of 43.76% on MRP).
+  - Target filtering: Category hierarchy, Brand matching, SKU/Barcode exact matching, and minimum quantity thresholds.
+- **Canonical "Highest Discount Wins" Arbitration:**
+  - Evaluates all candidate qualifying promotions, computes exact rupee line savings, and awards the offer maximizing customer savings.
+  - Deterministic tie-breaking using promotion priority (`1 = highest`).
+- **Dynamic Progression for Multi-Unit Schemes (B2G1):**
+  - Incremental duplicate barcode scanning aggregates line quantity and re-evaluates promotional eligibility in real time, unlocking "Buy 2 Get 1 Free" on the 3rd scanned piece.
+- **Operator Authority & Visual Feedback:**
+  - Preserves cashier `F6` manual override (`isManualDiscOverride`), preventing unwanted resets of manual trade concessions.
+  - Visual promotion badge (`🏷️ {item.discCode}`) in accepted items table and active promotion banner in the item inspector ribbon.
+- **Verification:**
+  - Added dedicated Vitest test suite (`smritiAutoSelectPromotion.test.ts`, 6/6 tests green in 26ms).
+  - Validated regression suite (`smritiSalesPromotionEngine.test.ts`, 15/15 tests green in 38ms).
+
+### [6.26.0] - 2026-09-16
+
+#### Commercial Billing: Generation of 5 Statutory GST Tax Invoices for Reliance Retail (Allof2nd Dispatch)
+
+- **Tax Invoice Generation (`TT2026-2027/250` through `254`):**
+  - Generated 5 statutory GST Tax Invoices dated `05-09-2026` for Reliance Retail Limited from Sheet `16-09-26(2)` of `RIL_Dispatch1_16092026_Allof2nd.xlsx`.
+  - Dispatched 5 stores: `TXAJ` (Palavakkam Chennai, PO 5182778205), `TW07` (Tumkur NDC, PO 5182778158), `TW97` (AS Rao Nagar Hyderabad, PO 5182778204), `TXSR` (FIF Hyderabad SU, PO 5182778206), `TXSU` (FIF Bangalore KR, PO 5182778207).
+  - Unpivoted 32 data rows into 185 line items representing 249 physical footwear pairs.
+  - Financial reconciliation: Gross MRP ₹535,051.00, Taxable Value ₹300,913.28, 5% IGST ₹15,045.51, Grand Total ₹315,958.00.
+  - Inserted full canonical AST records into `sales_invoices`, `sales_invoice_items`, and `eway_bills` in PostgreSQL database `smriti001`.
+  - Rendered 5 statutory A4 PDF invoices via Playwright; generated individual + consolidated NIC v1.0.1118 E-Way Bill JSON payloads; generated 2-sheet client summary Excel matrix; highlighted Columns M, N, O, P in dispatch spreadsheet with green fill (`#FF92D050`).
+
 ### [6.27.4] - 2026-09-16
 
 #### Comprehensive Audit: Test Reconciliation, Security Hardening & API Communication Improvement

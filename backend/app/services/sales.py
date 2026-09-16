@@ -678,9 +678,12 @@ class SalesService:
         if is_credit_mode:
             final_paid_amount = Decimal("0.00")
             final_balance_amount = calculated_grand_total
+        elif invoice_in.payment_mode and str(invoice_in.payment_mode).strip().upper() in ["CASH", "CARD", "UPI", "ONLINE"]:
+            final_paid_amount = getattr(invoice_in, "paid_amount", None) or calculated_grand_total
+            final_balance_amount = max(Decimal("0.00"), calculated_grand_total - final_paid_amount)
         else:
             final_paid_amount = getattr(invoice_in, "paid_amount", None) or Decimal("0.00")
-            final_balance_amount = getattr(invoice_in, "balance_amount", None) or Decimal("0.00")
+            final_balance_amount = max(Decimal("0.00"), calculated_grand_total - final_paid_amount)
 
         previous_outstanding = Decimal("0.00")
         credit_days_configured = 30
@@ -705,10 +708,16 @@ class SalesService:
                         credit_days_configured = cg_rec.credit_days or 30
                         credit_limit_configured = Decimal(str(cg_rec.credit_limit or "0.00"))
 
-        credit_check_amount = calculated_grand_total if is_credit_mode else final_balance_amount
-        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN" and is_settled_status and (is_credit_mode or credit_check_amount > Decimal("0.00")):
-            # Credit control must strictly FAIL CLOSED — do NOT swallow unexpected errors
-            await self.crm_service.check_credit_limit(resolved_customer_id, float(credit_check_amount))
+        is_explicit_payment_mode = (
+            getattr(invoice_in, "model_fields_set", None) is not None
+            and "payment_mode" in invoice_in.model_fields_set
+        )
+
+        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN" and is_settled_status:
+            credit_check_amount = calculated_grand_total if (is_credit_mode or not is_explicit_payment_mode) else final_balance_amount
+            if is_credit_mode or not is_explicit_payment_mode or credit_check_amount > Decimal("0.00"):
+                # Credit control must strictly FAIL CLOSED — do NOT swallow unexpected errors
+                await self.crm_service.check_credit_limit(resolved_customer_id, float(credit_check_amount))
 
         # 3. Save Sales Invoice & items
         db_customer_id = resolved_customer_id if (resolved_customer_id and resolved_customer_id != "CUST-WALKIN") else None
