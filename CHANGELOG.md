@@ -226,6 +226,31 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Created `BarcodeCSVImportModal.tsx` featuring drag-and-drop file upload, live row-by-row status badges (`VALID`, `WARN`, `ERROR`), format tier tags, and error guidance.
   - Integrated into `ProPosBillingTerm.tsx` overflow menu with direct cart injection and checkout settlement.
 
+### [6.25.0] - 2026-09-16
+
+#### Generation of 19 Statutory GST Tax Invoices for Reliance Retail (RIL_Dispatch1_16092026_All.xlsx)
+
+**Walkthrough:** [Sales_Dispatch_19_Stores_Invoices_v6.25.0.md](docs/walkthrough/sales/Sales_Dispatch_19_Stores_Invoices_v6.25.0.md)
+
+- **19 Store Dispatch Direct Billing & Delivery (16-09-2026 Dispatch):**
+  - Processed 114 rows from sheet `Sheet1` of `RIL_Dispatch1_16092026_All.xlsx` unpivoted across 7 footwear size columns (36 to 42) into 645 line items and exactly 904 pairs across 19 stores in Assam, Tripura, Bihar, Jharkhand, West Bengal, Andhra Pradesh, Telangana, and Karnataka (`TT2026-2027/231` through `TT2026-2027/249`).
+  - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
+- **Commercial & Statutory Financial Reconciliation:**
+  - Total Gross MRP: ₹1,953,496.00.
+  - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
+  - Total Taxable Value: ₹1,098,648.32.
+  - Interstate IGST 5.00%: ₹54,932.24.
+  - Total Net Invoiced Value: ₹1,153,583.00.
+- **Physical Logistics & Pre-Portal E-Way Separation:**
+  - Logistics origin: `Tattly Threads Nagpur Depot`, PIN `440029`.
+  - Stored `sales_invoices.eway_bill_no` as `NULL` and rendered E-Way Bill fields blank on physical tax invoice PDFs pending government portal upload.
+- **NIC Government Portal Bulk Upload Payloads:**
+  - Generated 19 individual store JSONs and 1 consolidated bulk upload JSON (`EWayBill_Bulk_Upload_16092026.json`) adhering strictly to NIC schema v1.0.1118 with statutory combination movement (`transType: 4`).
+  - Staged payloads in `Final_Invoices/Eway_JSON` and mirrored to `F:\Smriti-Clients Data\Eway\Final_16092026\`.
+- **Client Summary Matrix & Invoiced Dispatch Workbook:**
+  - Generated two-tab summary workbook `Tax_Invoice_Summary_16-09-2026.xlsx` (`Invoice_Summary` and `All_Items_Consolidated`).
+  - Highlighted Columns M (Invoice details), N (Invoice Date), O (PO Number), P (Dispatch From) green (`#FF92D050`) in `RIL_Dispatch1_16092026_All_Updated.xlsx` and preserved copy `RIL_Dispatch1_16092026_All_Invoiced.xlsx`.
+
 ### [6.24.0] - 2026-09-15
 
 #### Generation of 16 Statutory GST Tax Invoices for Reliance Retail (Sheet '15-09-2026-1' in RIL_Dispatch15092026-2.xlsx)

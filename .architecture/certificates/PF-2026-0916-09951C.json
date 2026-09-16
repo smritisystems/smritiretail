@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0916-09951C",
+  "entity": "sales_order",
+  "capability": "sales_order.order_entry",
+  "asset_type": "component",
+  "proposed_name": "SalesOrderFormCustom.tsx",
+  "target_file_path": null,
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "SalesOrderFormCustom.tsx",
+  "content_hash": "08acefd0ce589961a2b7fee5117021c1d9cb740c6c0cedc293d2b86bf0fff814",
+  "git_commit": "e9e9be2c90743951b00433d3172c4c3e1a2c5900",
+  "issued_at": "2026-09-16T10:34:44.279846+00:00",
+  "expires_at": "2026-09-23T10:34:44.279846+00:00",
+  "status": "ISSUED"
+}

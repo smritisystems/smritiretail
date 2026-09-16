@@ -235,11 +235,13 @@ def load_settings() -> Settings:
 
     # Fail closed on insecure secrets in production
     if env in {"production", "prod"}:
-        if not base_settings.JWT_SECRET_KEY or len(base_settings.JWT_SECRET_KEY) < 32:
+        insecure_jwt_markers = {"dev-test", "development", "dev_test", "default", "example"}
+        if not base_settings.JWT_SECRET_KEY or len(base_settings.JWT_SECRET_KEY) < 32 or any(m in base_settings.JWT_SECRET_KEY.lower() for m in insecure_jwt_markers):
             raise ValueError(
                 "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong JWT_SECRET_KEY (min 32 chars) from the runtime secret store."
             )
-        if not base_settings.INTERNAL_SERVICE_KEY or len(base_settings.INTERNAL_SERVICE_KEY) < 32:
+        insecure_key_markers = {"dev-test", "development", "dev_test", "default", "example"}
+        if not base_settings.INTERNAL_SERVICE_KEY or len(base_settings.INTERNAL_SERVICE_KEY) < 32 or any(m in base_settings.INTERNAL_SERVICE_KEY.lower() for m in insecure_key_markers):
             raise ValueError(
                 "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong INTERNAL_SERVICE_KEY (min 32 chars) from the runtime secret store."
             )

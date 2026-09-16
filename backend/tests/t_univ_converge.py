@@ -60,6 +60,8 @@ async def test_polymorphic_multi_role_party_convergence():
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as session:
         gstin_shared = f"27TESTP{uuid.uuid4().hex[:5].upper()}1Z5"
+        test_mobile = f"9820{uuid.uuid4().hex[:6]}"
+        test_email = f"apex_{uuid.uuid4().hex[:6]}@example.com"
         
         # 1. Create legacy Customer
         cust = Customer(
@@ -67,8 +69,8 @@ async def test_polymorphic_multi_role_party_convergence():
             code=f"CUST-{uuid.uuid4().hex[:6]}",
             name="Apex Omnichannel Traders",
             gst_number=gstin_shared,
-            mobile="9820011223",
-            email="apex@example.com"
+            mobile=test_mobile,
+            email=test_email
         )
         session.add(cust)
         await session.flush()
@@ -79,8 +81,8 @@ async def test_polymorphic_multi_role_party_convergence():
             code=f"SUPP-{uuid.uuid4().hex[:6]}",
             name="Apex Omnichannel Traders (Supply Div)",
             gst_number=gstin_shared,
-            mobile="9820011223",
-            email="apex@example.com"
+            mobile=test_mobile,
+            email=test_email
         )
         session.add(supp)
         await session.flush()
@@ -115,6 +117,7 @@ async def test_universal_item_and_variant_barcode_resolution():
             item_code=test_sku,
             item_name="Premium Organic Cotton T-Shirt",
             category="APPAREL",
+            hsn_code="61091000",
             tax_rate=Decimal("12.00"),
             primary_uom="PCS",
             mrp=Decimal("999.00"),

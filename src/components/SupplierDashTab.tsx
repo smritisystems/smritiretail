@@ -23,6 +23,19 @@ export interface SupplierDashboardTabProps {
 }
 
 /**
+ * Canonical Zero-State Baseline Metrics
+ * Honest default metrics for zero/empty supplier state:
+ * - Default Outstanding Payables: "₹0.00"
+ * - Default Supplier Turnaround: "0.0 Days"
+ * - Default Open Purchase Orders: "0 Open POs"
+ */
+export const SUPPLIER_ZERO_STATE_METRICS = {
+  payables: "₹0.00",
+  turnaround: "0.0 Days",
+  openOrders: "0 Open POs"
+};
+
+/**
  * SupplierDashboardTab (Host Container)
  * Mounts the canonical Vendor 360 Workspace powered by the Universal Party Master.
  */

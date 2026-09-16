@@ -68,7 +68,8 @@ async def test_dual_write_canonical_sync_and_tenant_isolation():
             mrp=Decimal('1499.00'),
             category='Apparel',
             brand='Tattly Threads',
-            style_code='STYLE-LINEN-02',
+            style_code='CH-01-A',
+            attributes={'style_no': 'CH-01-A', 'article_no': 'ART-LINEN-02'},
             barcode=test_bc,
             gst_percentage=Decimal('12.00'),
             hsn_code='6205',
@@ -93,7 +94,7 @@ async def test_dual_write_canonical_sync_and_tenant_isolation():
         row = res_var.fetchone()
         assert row is not None
         assert row[0] == test_code
-        assert row[1] == 'STYLE-LINEN-02'
+        assert row[1] == 'CH-01-A'
         assert row[2] == test_bc
         assert row[4] == created.id
         assert row[5] == Decimal('1299.00')

@@ -87,7 +87,7 @@ class UnifiedPricingPaymentService:
                 PriceBook.status == "ACTIVE",
                 PriceBook.is_deleted == False
             )
-            def_pb = (await session.execute(def_pb_stmt)).scalar_one_or_none()
+            def_pb = (await session.execute(def_pb_stmt)).scalars().first()
             if def_pb:
                 resolved_pb_id = def_pb.id
 
