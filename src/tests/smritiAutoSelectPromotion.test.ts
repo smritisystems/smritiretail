@@ -32,6 +32,10 @@
  *   4. Volume & B2G1 Incremental Scan Progression (Dynamic re-evaluation on duplicate scan)
  *   5. Schedule & Happy Hours Window Restrictions
  *   6. Flat Discount Percentage & Amount Computation
+ *   7. Bill-Level Slab Threshold Qualification (Activates only when subtotal >= minBillValue)
+ *   8. Bill-Level Ceiling Cap Enforcement (maxDiscount ceiling bounds discount amount)
+ *   9. Customer Group Contract Inheritance for Bill-Level Promos (VIP / Institutional)
+ *   10. Highest Discount Wins Arbitration across competing Bill-Level Schemes
  */
 
 vi.mock("../lib/apiFetchV1", () => ({
@@ -311,5 +315,166 @@ describe("SMRITI POS Item-Level Sales Promotion Auto-Select", () => {
     expect(res.discountAmt).toBe(300.00);
     // 300 / 3000 = 10% effective discount
     expect(res.discountPct).toBe(10.00);
+  });
+
+  it("7. Bill-Level Slab Threshold: Activates scheme only when cart subtotal meets minBillValue", () => {
+    // FEST500: Flat ₹500 off on bills >= ₹3,000
+    SmritiSalesPromotionService.savePromotion({
+      id: "promo-bill-fest500",
+      code: "FEST500",
+      name: "Festival ₹500 Off",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_FLAT",
+      discountValue: 500,
+      minBillValue: 3000,
+      priority: 5,
+      isActive: true,
+      rules: []
+    });
+
+    // Subtotal ₹2,500 (< ₹3,000) -> Does not qualify
+    const resUnder = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: 2500,
+      itemsCount: 3
+    });
+    expect(resUnder.applied).toBe(false);
+    expect(resUnder.promoCode).toBe("NONE");
+    expect(resUnder.discountAmt).toBe(0);
+
+    // Subtotal ₹3,200 (>= ₹3,000) -> Qualifies and auto-applies ₹500
+    const resOver = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: 3200,
+      itemsCount: 4
+    });
+    expect(resOver.applied).toBe(true);
+    expect(resOver.promoCode).toBe("FEST500");
+    expect(resOver.discountAmt).toBe(500);
+    expect(resOver.discountPct).toBe(15.63);
+  });
+
+  it("8. Bill-Level Ceiling Cap: maxDiscount ceiling strictly caps percentage discounts", () => {
+    // MEGA20: 20% off on bills >= ₹2,000 with maxDiscount capped at ₹400
+    SmritiSalesPromotionService.savePromotion({
+      id: "promo-bill-mega20",
+      code: "MEGA20",
+      name: "Mega Savings 20% Capped",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_PERCENT",
+      discountValue: 20,
+      minBillValue: 2000,
+      maxDiscount: 400,
+      priority: 4,
+      isActive: true,
+      rules: []
+    });
+
+    // Subtotal ₹2,500 (< ₹3,000 so FEST500 is inactive; >= ₹2,000 so MEGA20 qualifies)
+    // 20% of ₹2,500 = ₹500, but capped at ₹400
+    const res = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: 2500,
+      itemsCount: 3
+    });
+
+    expect(res.applied).toBe(true);
+    expect(res.promoCode).toBe("MEGA20");
+    expect(res.discountAmt).toBe(400); // Strictly capped
+    expect(res.discountPct).toBe(16.00); // 400 / 2500 * 100 = 16%
+  });
+
+  it("9. Customer Group Contract Inheritance for Bill-Level Promos: VIP customers auto-qualify", () => {
+    // VIP_PRIVILEGE: 10% off for VIP customer group
+    SmritiSalesPromotionService.savePromotion({
+      id: "promo-bill-vip",
+      code: "VIP10",
+      name: "VIP Exclusive 10% Bill Discount",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_PERCENT",
+      discountValue: 10,
+      minBillValue: 1000,
+      priority: 2,
+      isActive: true,
+      applicableCustomerGroups: ["VIP"],
+      rules: [
+        {
+          id: "r-vip-group",
+          ruleType: "CUSTOMER_GROUP",
+          targetValue: "VIP",
+          discountType: "PERCENT",
+          discountValue: 10
+        }
+      ]
+    });
+
+    // Regular customer -> Ineligible
+    const resReg = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: 2000,
+      customerGroup: "RETAIL"
+    });
+    expect(resReg.promoCode).not.toBe("VIP10");
+
+    // VIP customer -> Eligible & receives 10% off (₹200 on ₹2,000)
+    const resVip = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: 2000,
+      customerGroup: "VIP"
+    });
+    expect(resVip.applied).toBe(true);
+    expect(resVip.promoCode).toBe("VIP10");
+    expect(resVip.discountAmt).toBe(200);
+    expect(resVip.discountPct).toBe(10);
+  });
+
+  it("10. Highest Discount Wins Arbitration across competing Bill-Level Schemes", () => {
+    // Scheme A: Flat ₹700 off on bills >= ₹3,000 (Priority 5)
+    SmritiSalesPromotionService.savePromotion({
+      id: "promo-bill-flat700",
+      code: "FLAT700_BILL",
+      name: "Flat ₹700 Off",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_FLAT",
+      discountValue: 700,
+      minBillValue: 3000,
+      priority: 5,
+      isActive: true,
+      rules: []
+    });
+
+    // Scheme B: 20% off on bills >= ₹3,000 with maxDiscount ₹900 (Priority 6)
+    SmritiSalesPromotionService.savePromotion({
+      id: "promo-bill-pct20",
+      code: "PCT20_BILL",
+      name: "20% Off Bill",
+      level: "BILL_LEVEL",
+      category: "BILL_DISCOUNT_PERCENT",
+      discountValue: 20,
+      minBillValue: 3000,
+      maxDiscount: 900,
+      priority: 6,
+      isActive: true,
+      rules: []
+    });
+
+    // On ₹4,000 cart:
+    // FEST500 gives: ₹500
+    // Scheme A gives: ₹700
+    // Scheme B gives: 20% of 4000 = ₹800 (<= 900)
+    // 800 > 700 > 500 -> Scheme B wins despite lower priority number!
+    const res4000 = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: 4000
+    });
+    expect(res4000.applied).toBe(true);
+    expect(res4000.promoCode).toBe("PCT20_BILL");
+    expect(res4000.discountAmt).toBe(800);
+
+    // On ₹3,200 cart:
+    // FEST500 gives: ₹500
+    // Scheme A gives: ₹700
+    // Scheme B gives: 20% of 3200 = ₹640
+    // 700 > 640 > 500 -> Scheme A wins!
+    const res3200 = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: 3200
+    });
+    expect(res3200.applied).toBe(true);
+    expect(res3200.promoCode).toBe("FLAT700_BILL");
+    expect(res3200.discountAmt).toBe(700);
   });
 });

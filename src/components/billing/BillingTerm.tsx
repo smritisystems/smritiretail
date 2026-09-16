@@ -527,6 +527,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     reason: "Generally Allowed Discount",
     remarks: ""
   });
+  const [isManualBillPromoOverride, setIsManualBillPromoOverride] = useState<boolean>(false);
   const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
@@ -681,6 +682,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     });
     setCustomerSearchInput("");
     setSelectedItemProductMeta(null);
+    setIsManualBillPromoOverride(false);
     setBillLevelPromo({
       code: "NONE",
       description: "No bill discount applied",
@@ -1281,6 +1283,71 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       netAmount
     };
   }, [items, transporterRows, addonRows, headerState, liveTime, billLevelPromo]);
+
+  // Real-Time Bill-Level Promotion Auto-Select Engine (Cart Threshold / Highest Discount Wins)
+  useEffect(() => {
+    if (isManualBillPromoOverride) return;
+
+    const subtotal = summaryTotals.salesValue;
+    if (items.length === 0 || subtotal <= 0) {
+      if (billLevelPromo.code !== "NONE") {
+        setBillLevelPromo({
+          code: "NONE",
+          description: "No bill discount applied",
+          discountPct: 0,
+          discountAmt: 0,
+          calculatedOn: 0,
+          priceOffs: 0,
+          maxAllowed: undefined,
+          applyBillLevelFirst: false,
+          reason: "Generally Allowed Discount",
+          remarks: ""
+        });
+      }
+      return;
+    }
+
+    const res = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal,
+      itemsCount: items.length,
+      customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+      customerCode: headerState.customer?.id,
+      evalDate: new Date()
+    });
+
+    if (res.applied && res.promo) {
+      if (billLevelPromo.code !== res.promoCode || Math.abs(billLevelPromo.discountAmt - res.discountAmt) > 0.01) {
+        setBillLevelPromo({
+          code: res.promoCode,
+          description: res.promoDescription,
+          discountPct: res.discountPct,
+          discountAmt: res.discountAmt,
+          calculatedOn: subtotal,
+          priceOffs: 0,
+          maxAllowed: res.promo.maxDiscount,
+          applyBillLevelFirst: false,
+          reason: res.reason,
+          remarks: res.badgeText
+        });
+        onNotification?.("Bill Promotion Qualified", `${res.promoName} applied (Save ₹${res.discountAmt.toFixed(2)} on bill).`, "info");
+      }
+    } else {
+      if (billLevelPromo.code !== "NONE") {
+        setBillLevelPromo({
+          code: "NONE",
+          description: "No bill discount applied",
+          discountPct: 0,
+          discountAmt: 0,
+          calculatedOn: 0,
+          priceOffs: 0,
+          maxAllowed: undefined,
+          applyBillLevelFirst: false,
+          reason: "Generally Allowed Discount",
+          remarks: ""
+        });
+      }
+    }
+  }, [summaryTotals.salesValue, items.length, headerState.customer?.customerGroupId, headerState.customer?.name, headerState.customer?.id, isManualBillPromoOverride]);
 
   const applyProductAutoPopulate = (p: AutoPopulateProductResult | Product) => {
     const rateVal = String((p as any).sellingPrice || (p as any).mrp || (p as any).price || 0);
@@ -3540,7 +3607,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 <span>Bill Discount</span>
                 <span className="font-mono text-[8px] px-0.5 rounded bg-white/20 text-white font-bold">F6</span>
               </span>
-              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.billDiscount.toFixed(2)}</span>
+              <div className="flex items-center gap-1">
+                <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.billDiscount.toFixed(2)}</span>
+                {billLevelPromo.code !== "NONE" && (
+                  <span className="text-[9px] bg-amber-400 text-slate-900 font-bold px-1 rounded uppercase tracking-wider" title={billLevelPromo.description}>
+                    {billLevelPromo.code}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
@@ -3643,6 +3717,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         billLevelPromo={billLevelPromo}
         onApplyPromos={(updatedItems, updatedBillPromo) => {
           setItems(updatedItems);
+          setIsManualBillPromoOverride(true);
           setBillLevelPromo(updatedBillPromo);
           onNotification?.("Discounts Applied", `Applied ${updatedBillPromo.code} bill discount and updated line item promos.`, "success");
         }}

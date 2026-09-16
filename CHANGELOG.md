@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.28.1] - 2026-09-17
+
+#### POS Billing: Real-Time Bill-Level Sales Promotion Auto-Select Engine & Basket Value Arbitration
+
+- **Synchronous Basket Auto-Resolution (`resolveBestBillPromo`):**
+  - Evaluates active `BILL_LEVEL` promotions in real time based on cart subtotal, item count, date validity, day of week (`MON`–`SUN`), happy hours, customer group, and `minBillValue` threshold.
+  - Supports `BILL_DISCOUNT_PERCENT`, `BILL_VALUE_SLAB` (with `maxDiscount` ceiling caps), and flat rupee markdowns (`BILL_DISCOUNT_FLAT`).
+- **Canonical "Highest Discount Wins" Basket Arbitration:**
+  - Dynamic evaluation of competing basket promotional schemes, selecting the scheme awarding maximum customer net rupee savings.
+  - Secondary tie-breaking deterministic priority resolution (`1 = highest priority`).
+- **POS Terminal Integration & Operator Authority:**
+  - Automated real-time evaluation hooks wired into `ProPosBillingTerm.tsx` and `BillingTerm.tsx`.
+  - Cashier manual override protection (`isManualBillPromoOverride`): Cashier adjustments via `F6` are preserved and protected from automated overrides.
+  - Visual scheme badge (`🏷️ {billLevelPromo.code} [F6]`) directly rendered in Net Values summary bar with 1-click modal inspection.
+  - Automatic state reset upon `Alt+1` New Bill / `handleNewInvoice`.
+- **Verification & Parity:**
+  - Expanded unit test suite `smritiAutoSelectPromotion.test.ts` (10/10 tests green).
+  - Maintained full regression stability `smritiSalesPromotionEngine.test.ts` (15/15 tests green).
+  - TypeScript compilation: 0 errors (`npx tsc --noEmit` exit code 0).
+
 ### [6.28.0] - 2026-09-16
 
 #### POS Billing: Real-Time Item-Level Sales Promotion Auto-Select Engine
