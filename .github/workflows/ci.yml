@@ -135,8 +135,7 @@ jobs:
         run: >
           pytest tests/ app/tests/ app/compliance/tests/
           -v --tb=short --timeout=120 -x
-          --ignore=tests/test_stock_movement_ledger.py
-        # Stock ledger tests require live smriti001 seed data — run in integration pipeline
+        # Includes all unit, compliance, and stock movement ledger tests (self-provisioned)
 
 # ============================================================
 # Job 3: Security Scan

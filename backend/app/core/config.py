@@ -115,7 +115,7 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
-    VERSION: str = "3.30.0"
+    VERSION: str = "6.27.2"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     
