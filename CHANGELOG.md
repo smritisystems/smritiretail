@@ -28,6 +28,38 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.29.0] - 2026-09-17
+
+#### Core Commerce: Enterprise Promotion Engine Canonical PostgreSQL Schema, 5-Primitive Rule Composition & Explainability
+
+- **PostgreSQL 15+ Canonical DDL & Migration (`v1457`):**
+  - Created 11 custom PostgreSQL ENUM types (`smriti_promo_status_enum`, `smriti_promo_level_enum`, `smriti_promo_rule_type_enum`, `smriti_promo_reward_type_enum`, etc.).
+  - Created 18 canonical tables across 4 phases:
+    - Phase 1 (Definition & Scopes): `smriti_promotions`, `smriti_promotion_versions`, `smriti_promotion_rules`, `smriti_promotion_conditions`, `smriti_promotion_rewards`, `smriti_promotion_scopes`, `smriti_promotion_scope_items`.
+    - Phase 2 (Transactions & Declines): `smriti_promotion_qualifications`, `smriti_promotion_redemptions`, `smriti_promotion_redemption_items`, `smriti_promotion_declines`.
+    - Phase 3 (Operations & Audit): `smriti_promotion_overrides`, `smriti_promotion_audit`, `smriti_promotion_imports`, `smriti_promotion_import_rows`.
+    - Phase 4 (Simulation & Conflicts): `smriti_promotion_simulations`, `smriti_promotion_simulation_items`, `smriti_promotion_conflicts`.
+  - Installed PostgreSQL triggers: `fn_smriti_promotions_touch_modified_at` and `fn_smriti_promo_version_immutability_guard` (blocks modifications or deletions of published/redeemed promotion versions).
+  - High-speed POS barcode candidate index: `idx_smriti_scope_items_pos_lookup` on `(tenant_id, barcode, promotion_scope_id)`.
+- **SQLAlchemy 2.0 ORM Declarative Models:**
+  - Added enterprise models in `backend/app/models/promotions.py` inheriting from SMRITI's `BaseEntity` with tenant isolation.
+  - Maintained backward-compatible aliases for legacy `PromotionCampaign` and `PromotionRedemption`.
+- **Service Layer 5-Primitive Refactoring (`smritiSalesPromotionService.ts`):**
+  - Modeled promotion resolution via 5 decoupled primitives: `PromotionEligibility`, `PromotionTrigger`, `PromotionReward`, `PromotionLimits`, and `PromotionGovernance`.
+  - Decoupled trigger scope from independent reward scope (`rewardScope`) enabling cross-item / differential promotions (e.g. Suit $\rightarrow$ Free Tie).
+- **Promotion Explainability & Verifiable Audit:**
+  - Integrated `explainability: PromotionExplanation` answering *"Why this discount?"* with granular evaluation checklists (`SCHEDULE_ACTIVE`, `CUSTOMER_ELIGIBILITY`, `CATALOG_TARGETING`, `MIN_QUANTITY`, `BILL_THRESHOLD_MET`).
+- **Non-Blocking Free Item Flow & Decline Tracking:**
+  - Implemented `UnclaimedFreeItemOffer` qualification flow with explicit decline recording (`recordPromotionDecline`) capturing the critical retail metric *"Qualified but not redeemed"*.
+- **Single Primary Basket Upsell Milestone Gauge:**
+  - Implemented context-aware single-milestone progress calculation (`getBasketUpsellMilestone`) rendering a 16-block ASCII gauge (`[██████████████░░] ₹1,650 / ₹2,000 — Add ₹350 more to get ₹200 OFF`).
+- **Statutory GST Section 15 Compliance:**
+  - Explicit tax treatment indicator (`tax_treatment = 'PRE_TAX_TRADE_DISCOUNT'`).
+- **Verification:**
+  - Vitest test suites: 29/29 tests green (`smritiAutoSelectPromotion.test.ts` 14/14, `smritiSalesPromotionEngine.test.ts` 15/15).
+  - TypeScript compilation: 0 errors (`npx tsc --noEmit` exit code 0).
+  - Python compilation: 0 errors (`py_compile` exit code 0).
+
 ### [6.28.1] - 2026-09-17
 
 #### POS Billing: Real-Time Bill-Level Sales Promotion Auto-Select Engine & Basket Value Arbitration

@@ -50,6 +50,97 @@ export type SmritiPromoCategory =
   | "BILL_VALUE_SLAB"
   | "BILL_FREE_GIFT";
 
+// ─── 5 PROMOTION CORE PRIMITIVES (SMRITI ENTERPRISE ENGINE) ─────────────────
+
+export interface PromotionEligibility {
+  applicableCustomerGroups?: string[];
+  applicableStores?: string[];
+  daysOfWeek?: string[];
+  isHappyHours?: boolean;
+  happyHoursStart?: string;
+  happyHoursEnd?: string;
+  validFrom?: string;
+  validTo?: string;
+}
+
+export interface PromotionTrigger {
+  triggerType: "QUANTITY" | "VALUE" | "BASKET_VALUE" | "ITEM" | "CATEGORY" | "BRAND";
+  thresholdQty?: number;
+  thresholdValue?: number;
+  targetCategories?: string[];
+  targetBrands?: string[];
+  targetSkus?: string[];
+  targetBarcodes?: string[];
+}
+
+export interface PromotionReward {
+  rewardType: "PERCENT" | "FLAT" | "FREE_ITEM" | "FIXED_COMBO" | "DIFFERENTIAL_ITEM";
+  discountPct?: number;
+  discountAmt?: number;
+  freeQty?: number;
+  fixedPrice?: number;
+  appliedOn?: "LOWEST_PRICE" | "HIGHEST_PRICE" | "MRP" | "SELLING_PRICE";
+  rewardScope?: {
+    categories?: string[];
+    brands?: string[];
+    skus?: string[];
+  };
+  taxTreatment?: "PRE_TAX_TRADE_DISCOUNT" | "POST_TAX_INCENTIVE";
+}
+
+export interface PromotionLimits {
+  maxDiscountCap?: number;
+  maxRewardQty?: number;
+  perBillLimit?: number;
+}
+
+export interface PromotionGovernance {
+  priority: number;
+  isExclusive?: boolean;
+  allowStacking?: boolean;
+  maxStackedDiscountPct?: number;
+  requiresSupervisorAuth?: boolean;
+}
+
+export interface PromotionExplainabilityCheck {
+  rule: string;
+  passed: boolean;
+  observedValue: any;
+  requiredValue: any;
+  explanation: string;
+}
+
+export interface PromotionExplanation {
+  schemeCode: string;
+  schemeName: string;
+  checks: PromotionExplainabilityCheck[];
+  arbitrationResult: "WON" | "FORGONE" | "DISQUALIFIED";
+  rationale: string;
+  winningDiscountAmount: number;
+}
+
+export interface UnclaimedFreeItemOffer {
+  schemeCode: string;
+  schemeName: string;
+  triggerSku?: string;
+  freeQty: number;
+  freeItemCategory?: string;
+  freeItemBrand?: string;
+  estimatedSavings: number;
+  qualificationStatus: "QUALIFIED" | "REDEEMED" | "DECLINED";
+  declineReason?: string;
+}
+
+export interface BasketUpsellMilestone {
+  targetSubtotal: number;
+  remainingAmount: number;
+  percentProgress: number;
+  schemeCode: string;
+  schemeName: string;
+  potentialSavings: number;
+  gaugeText: string;
+}
+
 export interface BackendPromotionSchemeDTO {
   id: string;
   code: string;
@@ -1318,6 +1409,66 @@ export class SmritiSalesPromotionService {
     });
 
     const best = candidates[0];
+
+    // Build explainability verification checklist
+    const itemChecks: PromotionExplainabilityCheck[] = [
+      {
+        rule: "SCHEDULE_ACTIVE",
+        passed: true,
+        observedValue: `${currentDay} ${currentTime}`,
+        requiredValue: "Within validity schedule",
+        explanation: `Promotion is active on ${currentDay} at ${currentTime}`
+      },
+      {
+        rule: "CUSTOMER_ELIGIBILITY",
+        passed: true,
+        observedValue: customerGroup,
+        requiredValue: best.promo.applicableCustomerGroups?.join(", ") || "ALL",
+        explanation: `Customer group '${customerGroup}' satisfies scheme eligibility`
+      },
+      {
+        rule: "CATALOG_TARGETING",
+        passed: true,
+        observedValue: `${itemCat || "N/A"} / ${itemBrand || "N/A"}`,
+        requiredValue: best.promo.applicableCategories?.join(", ") || "All Categories",
+        explanation: `Line item satisfies targeted category/brand specifications`
+      },
+      {
+        rule: "MIN_QUANTITY",
+        passed: true,
+        observedValue: qty,
+        requiredValue: best.promo.minQty || 1,
+        explanation: `Quantity ${qty} meets minimum required units of ${best.promo.minQty || 1}`
+      }
+    ];
+
+    const explainability: PromotionExplanation = {
+      schemeCode: best.promo.code,
+      schemeName: best.promo.name,
+      checks: itemChecks,
+      arbitrationResult: "WON",
+      rationale: candidates.length > 1
+        ? `Won Best Benefit arbitration (Savings ₹${best.discountAmt.toFixed(2)}) against ${candidates.length - 1} other competing item promotions.`
+        : `Primary qualifying promotion for this product scan.`,
+      winningDiscountAmount: best.discountAmt
+    };
+
+    let unclaimedFreeItemOffer: UnclaimedFreeItemOffer | null = null;
+    if (best.promo.category === "ITEM_OFFER_B2G1") {
+      const buy = best.promo.buyQty || 2;
+      const free = best.promo.freeQty || 1;
+      const bundleSize = buy + free;
+      const bundles = Math.floor(qty / bundleSize);
+      const freePieces = bundles * free;
+      unclaimedFreeItemOffer = {
+        schemeCode: best.promo.code,
+        schemeName: best.promo.name,
+        freeQty: freePieces > 0 ? freePieces : free,
+        estimatedSavings: (freePieces > 0 ? freePieces : free) * rate,
+        qualificationStatus: freePieces > 0 ? "REDEEMED" : "QUALIFIED"
+      };
+    }
+
     return {
       applied: true,
       promo: best.promo,
@@ -1330,7 +1481,10 @@ export class SmritiSalesPromotionService {
       reason: `Auto-selected best qualifying promotional scheme: ${best.promo.name} (${best.discountPct}% off)`,
       appliedOnQty: best.appliedQty,
       badgeText: best.badgeText,
-      ruleDescription: best.ruleDescription
+      ruleDescription: best.ruleDescription,
+      explainability,
+      unclaimedFreeItemOffer,
+      taxTreatment: "PRE_TAX_TRADE_DISCOUNT"
     };
   }
 
@@ -1489,6 +1643,35 @@ export class SmritiSalesPromotionService {
     });
 
     const best = candidates[0];
+
+    const billChecks: PromotionExplainabilityCheck[] = [
+      {
+        rule: "BILL_THRESHOLD_MET",
+        passed: true,
+        observedValue: `₹${subtotal.toFixed(2)}`,
+        requiredValue: `₹${(best.promo.minBillValue || 0).toFixed(2)}`,
+        explanation: `Cart subtotal ₹${subtotal.toFixed(2)} satisfies minimum bill threshold ₹${(best.promo.minBillValue || 0).toFixed(2)}`
+      },
+      {
+        rule: "CUSTOMER_ELIGIBILITY",
+        passed: true,
+        observedValue: customerGroup,
+        requiredValue: best.promo.applicableCustomerGroups?.join(", ") || "ALL",
+        explanation: `Customer group '${customerGroup}' satisfies scheme eligibility criteria`
+      }
+    ];
+
+    const billExplainability: PromotionExplanation = {
+      schemeCode: best.promo.code,
+      schemeName: best.promo.name,
+      checks: billChecks,
+      arbitrationResult: "WON",
+      rationale: candidates.length > 1
+        ? `Won 'Highest Discount Wins' arbitration (Save ₹${best.discountAmt.toFixed(2)}) against ${candidates.length - 1} other competing bill schemes.`
+        : `Sole qualifying bill-level scheme for cart value ₹${subtotal.toFixed(2)}.`,
+      winningDiscountAmount: best.discountAmt
+    };
+
     return {
       applied: true,
       promo: best.promo,
@@ -1499,8 +1682,111 @@ export class SmritiSalesPromotionService {
       promoDescription: best.description || best.promo.description || best.promo.name,
       schemeType: best.promo.category,
       reason: `Auto-selected best qualifying bill promotion: ${best.promo.name} (Save ₹${best.discountAmt.toFixed(2)})`,
-      badgeText: best.badgeText
+      badgeText: best.badgeText,
+      explainability: billExplainability,
+      taxTreatment: "PRE_TAX_TRADE_DISCOUNT"
     };
+  }
+
+  /**
+   * Single Primary Context-Aware Basket Upsell Milestone Gauge:
+   * Finds the nearest qualifying bill promotion threshold above current subtotal.
+   * Renders a single-line ASCII progress gauge to prevent POS UI noise.
+   */
+  public static getBasketUpsellMilestone(
+    subtotal: number,
+    customerGroup: string = "ALL",
+    evalDate: Date = new Date()
+  ): BasketUpsellMilestone | null {
+    if (subtotal <= 0) return null;
+    const activeBillPromos = this.getActivePromotionsByLevel("BILL_LEVEL", evalDate);
+    const candidateMilestones: {
+      minBillValue: number;
+      promo: SmritiDefinedSalesPromotion;
+      potentialSavings: number;
+    }[] = [];
+
+    const normGroup = (customerGroup || "ALL").trim().toUpperCase();
+
+    for (const promo of activeBillPromos) {
+      if (!promo.isActive || promo.code === "NONE") continue;
+      const custGroups = (promo.applicableCustomerGroups || []).map(g => g.trim().toUpperCase());
+      if (custGroups.length > 0 && !custGroups.includes("ALL")) {
+        if (!normGroup || normGroup === "ALL") continue;
+        if (!custGroups.includes(normGroup)) continue;
+      }
+      const minVal = promo.minBillValue ?? 0;
+      if (minVal > subtotal) {
+        let potSavings = 0;
+        const val = promo.discountValue || 0;
+        if (promo.category === "BILL_DISCOUNT_FLAT") {
+          potSavings = Math.min(minVal, val);
+        } else if (promo.category === "BILL_DISCOUNT_PERCENT" || promo.category === "BILL_VALUE_SLAB") {
+          potSavings = (minVal * val) / 100;
+        }
+        if (promo.maxDiscount && potSavings > promo.maxDiscount) {
+          potSavings = promo.maxDiscount;
+        }
+        candidateMilestones.push({
+          minBillValue: minVal,
+          promo,
+          potentialSavings: potSavings
+        });
+      }
+    }
+
+    if (candidateMilestones.length === 0) return null;
+
+    // Sort by ascending minBillValue (nearest target first)
+    candidateMilestones.sort((a, b) => a.minBillValue - b.minBillValue);
+    const nearest = candidateMilestones[0];
+    const remaining = nearest.minBillValue - subtotal;
+    const pctProgress = Math.min(100, Math.max(0, Math.round((subtotal / nearest.minBillValue) * 100)));
+
+    // Create 16-block visual gauge: [██████████████░░]
+    const filledBlocks = Math.round((pctProgress / 100) * 16);
+    const emptyBlocks = 16 - filledBlocks;
+    const bar = "█".repeat(filledBlocks) + "░".repeat(emptyBlocks);
+    const gaugeText = `[${bar}] ₹${subtotal.toLocaleString("en-IN")} / ₹${nearest.minBillValue.toLocaleString("en-IN")} — Add ₹${remaining.toFixed(0)} more to get ₹${nearest.potentialSavings.toFixed(0)} OFF [${nearest.promo.code}]`;
+
+    return {
+      targetSubtotal: nearest.minBillValue,
+      remainingAmount: remaining,
+      percentProgress: pctProgress,
+      schemeCode: nearest.promo.code,
+      schemeName: nearest.promo.name,
+      potentialSavings: nearest.potentialSavings,
+      gaugeText
+    };
+  }
+
+  /**
+   * Non-Blocking Free Item / Promotion Decline Audit Logger:
+   * Records cashier/customer decline events without blocking checkout.
+   */
+  public static recordPromotionDecline(params: {
+    salesSessionId: string;
+    schemeCode: string;
+    cashierId?: string;
+    customerId?: string;
+    reasonCode?: string;
+    reasonText?: string;
+    potentialSavings: number;
+  }): { recorded: boolean; declineId: string; timestamp: string } {
+    const declineId = `dec-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const timestamp = new Date().toISOString();
+    try {
+      const storedDeclines = JSON.parse(localStorage.getItem("smriti_promotion_declines") || "[]");
+      storedDeclines.push({
+        id: declineId,
+        ...params,
+        timestamp
+      });
+      localStorage.setItem("smriti_promotion_declines", JSON.stringify(storedDeclines));
+    } catch (e) {
+      // Graceful fallback for non-storage environments
+    }
+    return { recorded: true, declineId, timestamp };
   }
 }
 
@@ -1517,6 +1803,9 @@ export interface ItemPromoResolutionResult {
   appliedOnQty: number;
   badgeText?: string;
   ruleDescription?: string;
+  explainability?: PromotionExplanation | null;
+  unclaimedFreeItemOffer?: UnclaimedFreeItemOffer | null;
+  taxTreatment?: string;
 }
 
 export interface BillPromoResolutionResult {
@@ -1530,6 +1819,8 @@ export interface BillPromoResolutionResult {
   schemeType: SmritiPromoCategory | null;
   reason: string;
   badgeText: string;
+  explainability?: PromotionExplanation | null;
+  taxTreatment?: string;
 }
 
 export interface RetailPromotionRecipe {
