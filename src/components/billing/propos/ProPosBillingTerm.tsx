@@ -775,6 +775,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     reason: "Generally Allowed Discount",
     remarks: ""
   });
+  const [isManualBillPromoOverride, setIsManualBillPromoOverride] = useState<boolean>(false);
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [showReprintModal, setShowReprintModal] = useState<boolean>(false);
   const [showCashMovementsModal, setShowCashMovementsModal] = useState<boolean>(false);
@@ -913,8 +914,73 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     return Math.round(unrounded * 100) / 100;
   }, [cartItems, taxMode, isInterstate, billLevelPromo, addonGenAmount, dednsGenAmount]);
 
+  // Real-Time Bill-Level Promotion Auto-Select Engine (Cart Threshold / Highest Discount Wins)
+  useEffect(() => {
+    if (isManualBillPromoOverride) return;
+
+    if (cartItems.length === 0 || grossSalesValue <= 0) {
+      if (billLevelPromo.code !== "NONE") {
+        setBillLevelPromo({
+          code: "NONE",
+          description: "No bill discount applied",
+          discountPct: 0,
+          discountAmt: 0,
+          calculatedOn: 0,
+          priceOffs: 0,
+          maxAllowed: undefined,
+          applyBillLevelFirst: false,
+          reason: "Generally Allowed Discount",
+          remarks: ""
+        });
+      }
+      return;
+    }
+
+    const res = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal: grossSalesValue,
+      itemsCount: totalItemsCount,
+      customerGroup: customer.customerGroup || customer.customerGroupId || (customer.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+      customerCode: customer.code || customer.id,
+      evalDate: new Date()
+    });
+
+    if (res.applied && res.promo) {
+      if (billLevelPromo.code !== res.promoCode || Math.abs(billLevelPromo.discountAmt - res.discountAmt) > 0.01) {
+        setBillLevelPromo({
+          code: res.promoCode,
+          description: res.promoDescription,
+          discountPct: res.discountPct,
+          discountAmt: res.discountAmt,
+          calculatedOn: grossSalesValue,
+          priceOffs: 0,
+          maxAllowed: res.promo.maxDiscount,
+          applyBillLevelFirst: false,
+          reason: res.reason,
+          remarks: res.badgeText
+        });
+        onNotification?.("Bill Promotion Qualified", `${res.promoName} applied (Save ₹${res.discountAmt.toFixed(2)} on bill).`, "info");
+      }
+    } else {
+      if (billLevelPromo.code !== "NONE") {
+        setBillLevelPromo({
+          code: "NONE",
+          description: "No bill discount applied",
+          discountPct: 0,
+          discountAmt: 0,
+          calculatedOn: 0,
+          priceOffs: 0,
+          maxAllowed: undefined,
+          applyBillLevelFirst: false,
+          reason: "Generally Allowed Discount",
+          remarks: ""
+        });
+      }
+    }
+  }, [grossSalesValue, totalItemsCount, customer.customerGroup, customer.customerGroupId, customer.name, customer.code, cartItems.length, isManualBillPromoOverride]);
+
   // Create New Bill (Alt+1)
   const handleNewBill = () => {
+    setIsManualBillPromoOverride(false);
     setCartItems([]);
     setCustomer({
       id: "cust-01",
@@ -2797,6 +2863,25 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 </span>
               </div>
 
+              <div
+                className="flex justify-between items-center cursor-pointer hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] px-1 rounded transition-colors"
+                onClick={() => setShowF6PromoModal(true)}
+                title="Click to view/override Promotional Discounts (F6)"
+              >
+                <span className="bg-[#fef2f2] dark:bg-[#7f1d1d]/30 px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a] flex items-center gap-1">
+                  <span>Bill Promo</span>
+                  {billLevelPromo.discountAmt > 0 && (
+                    <span className="bg-red-500 text-white font-mono text-[8px] px-1 rounded font-extrabold">
+                      {billLevelPromo.code}
+                    </span>
+                  )}
+                  <span className="font-mono text-[8px] bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-1 rounded">F6</span>
+                </span>
+                <span className="font-bold text-[#ba1a1a]">
+                  -₹{(billLevelPromo.discountAmt || 0).toFixed(2)}
+                </span>
+              </div>
+
               <div className="flex justify-between items-center">
                 <span className="bg-[#e8edff] dark:bg-[#1a233b] px-2 py-0.5 rounded text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff]">
                   Taxable Value
@@ -3141,6 +3226,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         onApplyPromos={(updatedItems, updatedBillPromo) => {
           setCartItems(updatedItems);
           setBillLevelPromo(updatedBillPromo);
+          setIsManualBillPromoOverride(true);
           onNotification?.("Promotions Applied", `Applied ${updatedBillPromo.code} bill discount and updated line item promos.`, "success");
         }}
         onNotification={onNotification}

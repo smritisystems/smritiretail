@@ -362,11 +362,12 @@ export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
     category: "BILL_DISCOUNT_PERCENT",
     priority: 3,
     discountValue: 15,
+    minBillValue: 5000,
     maxDiscount: 3000,
     applicableCustomerGroups: ["ALL"],
     validFrom: "2026-01-01",
     validTo: "2026-12-31",
-    isActive: true,
+    isActive: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-09-14T00:00:00.000Z"
   },
@@ -384,7 +385,7 @@ export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
     applicableCustomerGroups: ["ALL"],
     validFrom: "2026-01-01",
     validTo: "2026-12-31",
-    isActive: true,
+    isActive: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-09-14T00:00:00.000Z"
   }
@@ -470,6 +471,8 @@ export class SmritiSalesPromotionService {
       applicableBrands: promo.applicableBrands || (promo.rules?.filter((r: any) => r.ruleType === "BRAND").map((r: any) => r.targetValue)) || [],
       applicableCustomerGroups: promo.applicableCustomerGroups || (promo.rules?.filter((r: any) => r.ruleType === "CUSTOMER_GROUP").map((r: any) => r.targetValue)) || ["ALL"],
       minQty: promo.minQty || (promo.rules?.find((r: any) => r.ruleType === "MIN_QTY")?.minQuantity),
+      minBillValue: promo.minBillValue ?? (promo as any).min_bill_value ?? (promo.rules?.find((r: any) => r.ruleType === "MIN_BILL_VALUE")?.minBillValue),
+      maxDiscount: promo.maxDiscount ?? (promo as any).max_discount,
       rules: promo.rules || []
     };
 
@@ -1330,6 +1333,175 @@ export class SmritiSalesPromotionService {
       ruleDescription: best.ruleDescription
     };
   }
+
+  /**
+   * Real-Time Bill-Level Auto-Select Resolver:
+   * Evaluates all active BILL_LEVEL promotions against the current cart subtotal, item count, and customer profile.
+   * Enforces bill value thresholds (minBillValue), ceiling caps (maxDiscount), schedule gates, and customer group eligibility.
+   * If multiple promotions qualify, selects the one offering the HIGHEST customer savings (Highest Discount Wins).
+   */
+  public static resolveBestBillPromo(params: {
+    subtotal: number;
+    itemsCount?: number;
+    customerGroup?: string;
+    customerCode?: string;
+    evalDate?: Date;
+    asOf?: Date;
+    currentTime?: string; // "HH:mm"
+    currentDay?: string; // "MON", "TUE", etc.
+  }): BillPromoResolutionResult {
+    const subtotal = params.subtotal > 0 ? params.subtotal : 0;
+    const itemsCount = params.itemsCount && params.itemsCount > 0 ? params.itemsCount : 0;
+    const evalDate = params.evalDate || params.asOf || new Date();
+    const customerGroup = (params.customerGroup || "ALL").trim().toUpperCase();
+
+    // Determine day of week if not passed
+    const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const currentDay = params.currentDay || dayNames[evalDate.getDay()];
+
+    // Determine current time HH:mm if not passed
+    const hours = String(evalDate.getHours()).padStart(2, "0");
+    const mins = String(evalDate.getMinutes()).padStart(2, "0");
+    const currentTime = params.currentTime || `${hours}:${mins}`;
+
+    const nullResult: BillPromoResolutionResult = {
+      applied: false,
+      promo: null,
+      discountPct: 0,
+      discountAmt: 0,
+      promoCode: "NONE",
+      promoName: "No Bill Discount",
+      promoDescription: "",
+      schemeType: null,
+      reason: "No active bill promotion qualified",
+      badgeText: ""
+    };
+
+    if (subtotal <= 0) {
+      return nullResult;
+    }
+
+    const activeBillPromos = this.getActivePromotionsByLevel("BILL_LEVEL", evalDate);
+
+    interface BillCandidate {
+      promo: SmritiDefinedSalesPromotion;
+      discountPct: number;
+      discountAmt: number;
+      savings: number;
+      badgeText: string;
+      description: string;
+    }
+
+    const candidates: BillCandidate[] = [];
+
+    for (const promo of activeBillPromos) {
+      // 1. Skip dummy or zero discount
+      const val = promo.discountValue ?? (promo as any).discount_value ?? 0;
+      if (promo.code === "NONE" || val <= 0) {
+        continue;
+      }
+
+      // 2. Day of week filter
+      if (promo.daysOfWeek && promo.daysOfWeek.length > 0 && promo.daysOfWeek.length < 7) {
+        if (!promo.daysOfWeek.includes(currentDay)) continue;
+      }
+
+      // 3. Happy hours / time filter
+      const hhStart = promo.happyHoursStart || promo.timeFrom;
+      const hhEnd = promo.happyHoursEnd || promo.timeTo;
+      if ((promo.isHappyHours || hhStart) && hhStart && hhEnd) {
+        if (currentTime < hhStart || currentTime > hhEnd) continue;
+      }
+
+      // 4. Customer group filter
+      const custGroups = promo.applicableCustomerGroups || [];
+      const ruleCustGroups = (promo.rules || [])
+        .filter((r: any) => r.ruleType === "CUSTOMER_GROUP")
+        .map((r: any) => r.targetValue);
+      const allCustGroups = [...custGroups, ...ruleCustGroups].map(g => String(g).trim().toUpperCase());
+
+      if (allCustGroups.length > 0 && !allCustGroups.includes("ALL")) {
+        if (!customerGroup || customerGroup === "ALL") continue;
+        const normCustGroup = customerGroup.trim().toUpperCase();
+        const matches = allCustGroups.some(g =>
+          normCustGroup === g ||
+          normCustGroup.includes(g) ||
+          g.includes(normCustGroup)
+        );
+        if (!matches) continue;
+      }
+
+      // 5. Minimum Bill Value threshold check
+      const minBillVal = promo.minBillValue ?? (promo as any).min_bill_value ?? promo.rules?.find((r: any) => r.ruleType === "MIN_BILL_VALUE")?.minBillValue ?? 0;
+      if (subtotal < minBillVal) {
+        continue;
+      }
+
+      // 6. Minimum Quantity check (if specified on bill promo)
+      const minQty = promo.minQty ?? (promo as any).min_qty ?? 0;
+      if (minQty > 0 && itemsCount < minQty) {
+        continue;
+      }
+
+      // 7. Calculate discount
+      let discPct = 0;
+      let discAmt = 0;
+      const maxDisc = promo.maxDiscount ?? (promo as any).max_discount;
+
+      if (promo.category === "BILL_DISCOUNT_PERCENT" || promo.category === "BILL_VALUE_SLAB") {
+        discPct = val;
+        discAmt = (subtotal * discPct) / 100;
+        if (maxDisc && discAmt > maxDisc) {
+          discAmt = maxDisc;
+          discPct = subtotal > 0 ? (discAmt / subtotal) * 100 : 0;
+        }
+      } else if (promo.category === "BILL_DISCOUNT_FLAT") {
+        discAmt = Math.min(subtotal, val);
+        discPct = subtotal > 0 ? (discAmt / subtotal) * 100 : 0;
+        if (maxDisc && discAmt > maxDisc) {
+          discAmt = maxDisc;
+          discPct = subtotal > 0 ? (discAmt / subtotal) * 100 : 0;
+        }
+      }
+
+      if (discAmt > 0) {
+        candidates.push({
+          promo,
+          discountPct: Math.round(discPct * 100) / 100,
+          discountAmt: Math.round(discAmt * 100) / 100,
+          savings: discAmt,
+          badgeText: promo.category === "BILL_DISCOUNT_FLAT" ? `₹${discAmt.toFixed(0)} OFF [${promo.code}]` : `${discPct.toFixed(1)}% OFF [${promo.code}]`,
+          description: promo.name || promo.description
+        });
+      }
+    }
+
+    if (candidates.length === 0) {
+      return nullResult;
+    }
+
+    // Sort candidates: Highest savings wins. If savings equal, smallest priority number wins.
+    candidates.sort((a, b) => {
+      if (Math.abs(b.savings - a.savings) > 0.01) {
+        return b.savings - a.savings;
+      }
+      return a.promo.priority - b.promo.priority;
+    });
+
+    const best = candidates[0];
+    return {
+      applied: true,
+      promo: best.promo,
+      discountPct: best.discountPct,
+      discountAmt: best.discountAmt,
+      promoCode: best.promo.code,
+      promoName: best.promo.name,
+      promoDescription: best.description || best.promo.description || best.promo.name,
+      schemeType: best.promo.category,
+      reason: `Auto-selected best qualifying bill promotion: ${best.promo.name} (Save ₹${best.discountAmt.toFixed(2)})`,
+      badgeText: best.badgeText
+    };
+  }
 }
 
 export interface ItemPromoResolutionResult {
@@ -1345,6 +1517,19 @@ export interface ItemPromoResolutionResult {
   appliedOnQty: number;
   badgeText?: string;
   ruleDescription?: string;
+}
+
+export interface BillPromoResolutionResult {
+  applied: boolean;
+  promo: SmritiDefinedSalesPromotion | null;
+  discountPct: number;
+  discountAmt: number;
+  promoCode: string;
+  promoName: string;
+  promoDescription: string;
+  schemeType: SmritiPromoCategory | null;
+  reason: string;
+  badgeText: string;
 }
 
 export interface RetailPromotionRecipe {
