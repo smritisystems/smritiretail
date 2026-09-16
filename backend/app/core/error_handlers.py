@@ -137,9 +137,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 
 async def db_exception_handler(request: Request, exc: SQLAlchemyError):
-    print("DB EXCEPTION TRIGGERED:", repr(exc))
-    import traceback
-    traceback.print_exc()
+    from app.core.logging import logger
+    logger.error("[SMRITI DB] SQLAlchemyError: %s", repr(exc), exc_info=True)
     res = build_error_response(
         error_code="SMRITI-DATA-001",
         custom_explanation="A database operations conflict occurred or referential integrity check failed.",

@@ -217,20 +217,6 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     width: "110px"
   },
   {
-    id: "taxCalculationMode",
-    key: "is_tax_inclusive",
-    label: "Tax Mode",
-    datatype: "select",
-    required: false,
-    defaultValue: "INCLUSIVE",
-    validValues: ["INCLUSIVE", "EXCLUSIVE"],
-    aliases: ["tax mode", "tax type", "tax basis", "tax inclusive", "is_tax_inclusive", "inclusive"],
-    active: true,
-    displayOrder: 13,
-    source: "core",
-    width: "120px"
-  },
-  {
     id: "hsnCode",
     key: "hsn_code",
     label: "HSN Code",

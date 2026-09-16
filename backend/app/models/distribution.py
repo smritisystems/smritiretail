@@ -209,7 +209,7 @@ class DistributionSettlement(BaseEntity):
     shortage_excess_amount = Column(Numeric(15, 2), default=0.00)
     
     status = Column(String(30), default="DRAFT")  # DRAFT, RECONCILED, APPROVED, POSTED
-    settled_at = Column(DateTime, default=datetime.utcnow)
+    settled_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class EWayBill(BaseEntity):

@@ -37,7 +37,6 @@ class Product(BaseEntity):
     size = Column(String(50))
     mrp = Column(Numeric(15, 2), default=0.00, server_default="0.00")
     gst_percentage = Column(Numeric(5, 2), default=18.00, server_default="18.00")
-    is_tax_inclusive = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     style_code = Column(String(100))
     buying_price = Column(Numeric(15, 2))
     cost_price = Column(Numeric(15, 2))

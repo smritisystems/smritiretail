@@ -59,8 +59,6 @@ export interface ItemMasterGridRow {
   dealerPrice: string;
   costPrice: string;
   productTax: string;
-  isTaxInclusive?: boolean;
-  taxCalculationMode?: "INCLUSIVE" | "EXCLUSIVE";
   hsnCode: string;
   uom: string;
   customFields?: Record<string, string>;
@@ -80,7 +78,6 @@ export const DEFAULT_MANDATORY_FIELDS: ItemMasterFieldDefinition[] = [
   { id: "sellingPrice", key: "sellingPrice", label: "Selling Price", isMandatory: true, type: "currency", align: "right", width: "110px", aliases: ["Price", "Sale Price", "SP"] },
   { id: "mrp", key: "mrp", label: "MRP", isMandatory: true, type: "currency", align: "right", width: "110px" },
   { id: "productTax", key: "productTax", label: "Product Tax", isMandatory: true, type: "select", width: "110px", options: ["STD_18", "GST_12", "GST_5", "EXEMPT"], aliases: ["GST %", "Tax Rate", "GST Tax Rate"] },
-  { id: "taxCalculationMode", key: "taxCalculationMode", label: "Tax Mode", isMandatory: false, type: "select", width: "120px", defaultValue: "INCLUSIVE", options: ["INCLUSIVE", "EXCLUSIVE"], aliases: ["Tax Mode", "Tax Inclusive", "Tax Type", "Tax Basis", "isTaxInclusive"] },
   { id: "hsnCode", key: "hsnCode", label: "HSN Code", isMandatory: true, type: "text", width: "110px", aliases: ["HSN", "HSN/SAC"] },
 ];
 

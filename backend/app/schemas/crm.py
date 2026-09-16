@@ -602,6 +602,7 @@ class CustomerGroupBase(BaseModel):
     warning_threshold_percent: Optional[Decimal] = Decimal("80.00")
     allow_override: Optional[bool] = False
     tax_inclusive: Optional[bool] = True
+    is_tax_inclusive: Optional[bool] = Field(True, alias="isTaxInclusive")
     max_discount_percent: Optional[Decimal] = Decimal("0.00")
     min_margin_percent: Optional[Decimal] = Decimal("0.00")
     rounding_rule: Optional[str] = "Nearest1"
@@ -630,6 +631,7 @@ class CustomerGroupUpdate(BaseModel):
     warning_threshold_percent: Optional[Decimal] = None
     allow_override: Optional[bool] = None
     tax_inclusive: Optional[bool] = None
+    is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
     max_discount_percent: Optional[Decimal] = None
     min_margin_percent: Optional[Decimal] = None
     rounding_rule: Optional[str] = None
@@ -673,6 +675,7 @@ class CustomerBase(BaseModel):
     credit_days: Optional[int] = Field(None, alias="creditDays")
     unlimited_credit: Optional[bool] = Field(None, alias="unlimitedCredit")
     credit_hold: Optional[bool] = Field(None, alias="creditHold")
+    is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -712,6 +715,7 @@ class CustomerUpdate(BaseModel):
     mobile: Optional[str] = None
     email: Optional[str] = None
     gst_number: Optional[str] = Field(None, alias="gstNumber")
+    is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
     outstanding: Optional[Decimal] = None
     status: Optional[str] = None
     tags: Optional[List[str]] = None

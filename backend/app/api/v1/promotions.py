@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import traceback
 from typing import Dict, Any, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -278,8 +278,8 @@ async def list_promotion_schemes(
             category = bundle.get("category", "ITEM_DISCOUNT_PERCENT")
             disc_val = float(rule.discount_percent or 0.0) if rule and float(rule.discount_percent or 0.0) > 0 else float(getattr(rule, "discount_fixed_amount", 0.0) or 0.0)
 
-            valid_from = camp.start_date.strftime("%Y-%m-%d") if camp.start_date else datetime.utcnow().strftime("%Y-%m-%d")
-            valid_to = camp.end_date.strftime("%Y-%m-%d") if camp.end_date else datetime.utcnow().strftime("%Y-%m-%d")
+            valid_from = camp.start_date.strftime("%Y-%m-%d") if camp.start_date else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            valid_to = camp.end_date.strftime("%Y-%m-%d") if camp.end_date else datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
             dtos.append(
                 PromotionSchemeDTO(
@@ -329,11 +329,11 @@ async def upsert_promotion_scheme(
         try:
             start_dt = datetime.strptime(req.valid_from, "%Y-%m-%d")
         except Exception:
-            start_dt = datetime.utcnow()
+            start_dt = datetime.now(timezone.utc)
         try:
             end_dt = datetime.strptime(req.valid_to, "%Y-%m-%d")
         except Exception:
-            end_dt = datetime.utcnow().replace(year=datetime.utcnow().year + 1)
+            end_dt = datetime.now(timezone.utc).replace(year=datetime.now(timezone.utc).year + 1)
 
         camp = None
         if req.id:

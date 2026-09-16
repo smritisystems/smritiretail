@@ -70,6 +70,7 @@ class CustomerPriceTier(BaseEntity):
     code = Column(String(50), nullable=False, unique=True, index=True)
     price_book_id = Column(String(50), ForeignKey("price_books.id", ondelete="SET NULL"), nullable=True)
     discount_percentage = Column(Numeric(5, 2), nullable=False, default=0.00)
+    is_tax_inclusive = Column(Boolean, nullable=True, default=None)
     description = Column(Text, nullable=True)
 
 

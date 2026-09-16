@@ -139,6 +139,7 @@ class SalesInvoiceItem(Base):
     customer_po_line_id = Column(String(50), ForeignKey("customer_purchase_order_lines.id", ondelete="SET NULL"), nullable=True, index=True)
     source_line_type = Column(String(30), nullable=True)
     source_line_id = Column(String(50), nullable=True)
+    is_tax_inclusive = Column(Boolean, nullable=False, default=True, server_default=text("true"))
 
     # Relationships
     invoice = relationship("SalesInvoice", back_populates="items")

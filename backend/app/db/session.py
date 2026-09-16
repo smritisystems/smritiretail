@@ -27,6 +27,7 @@ Founders
 import os
 import re
 import time
+import asyncio
 import psycopg2
 from typing import Dict, Optional, AsyncGenerator, Tuple
 from urllib.parse import urlparse
@@ -74,23 +75,14 @@ _company_engines["smritisys"] = engine
 _company_sessionmakers["smritisys"] = async_session
 
 
-def _verify_database_is_registered(db_clean: str) -> bool:
+def _blocking_pg_registry_check(ctrl_url: str, db_clean: str) -> bool:
     """
-    Authoritative registry check in smritisys.
-    Ensures an engine is created ONLY for registered databases in READY status.
+    Pure synchronous helper — performs a single psycopg2 query to verify
+    that db_clean is registered as READY in the smritisys control plane.
+    Must be called via ThreadPoolExecutor when inside an async context.
     """
-    if db_clean in _verified_company_databases:
-        return True
-
-    parsed_url = urlparse(settings.DATABASE_URL)
-    user = os.getenv("POSTGRES_USER") or parsed_url.username or "postgres"
-    password = os.getenv("POSTGRES_PASSWORD") or parsed_url.password or "postgres"
-    db_host = os.getenv("POSTGRES_HOST") or parsed_url.hostname or "localhost"
-    db_port = int(os.getenv("POSTGRES_PORT") or parsed_url.port or 5432)
-    ctrl_url = f"postgresql://{user}:{password}@{db_host}:{db_port}/smritisys"
-
     try:
-        conn = psycopg2.connect(ctrl_url)
+        conn = psycopg2.connect(ctrl_url, connect_timeout=3)
         cur = conn.cursor()
         cur.execute(
             "SELECT 1 FROM company_database_registries WHERE LOWER(database_name) = %s AND status = 'READY';",
@@ -104,6 +96,42 @@ def _verify_database_is_registered(db_clean: str) -> bool:
     except Exception:
         pass
     return False
+
+
+def _verify_database_is_registered(db_clean: str) -> bool:
+    """
+    Authoritative registry check in smritisys.
+    Ensures an engine is created ONLY for registered databases in READY status.
+
+    Fast path: in-memory set (zero I/O cost on cache hit).
+    Slow path: delegates the blocking psycopg2 call to a ThreadPoolExecutor
+               so the asyncio event loop is never starved during first-resolution
+               of a new company database.
+    """
+    if db_clean in _verified_company_databases:
+        return True
+
+    parsed_url = urlparse(settings.DATABASE_URL)
+    user = os.getenv("POSTGRES_USER") or parsed_url.username or "postgres"
+    password = os.getenv("POSTGRES_PASSWORD") or parsed_url.password or "postgres"
+    db_host = os.getenv("POSTGRES_HOST") or parsed_url.hostname or "localhost"
+    db_port = int(os.getenv("POSTGRES_PORT") or parsed_url.port or 5432)
+    ctrl_url = f"postgresql://{user}:{password}@{db_host}:{db_port}/smritisys"
+
+    import concurrent.futures
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Inside an async context — submit to thread pool to avoid blocking the loop.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(_blocking_pg_registry_check, ctrl_url, db_clean)
+                return future.result(timeout=5)
+        else:
+            # Sync context (startup, CLI, testing) — call directly.
+            return _blocking_pg_registry_check(ctrl_url, db_clean)
+    except Exception:
+        return False
 
 
 def validate_company_database_name(database_name: str) -> bool:

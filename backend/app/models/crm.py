@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 import uuid as uuid_pkg
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, DateTime, Text, UniqueConstraint, Index, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
@@ -33,6 +33,7 @@ class CustomerGroup(BaseEntity):
     warning_threshold_percent = Column(Numeric(5, 2), default=80.00)
     allow_override = Column(Boolean, default=False)
     tax_inclusive = Column(Boolean, default=True)
+    is_tax_inclusive = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     max_discount_percent = Column(Numeric(5, 2), default=0.00)
     min_margin_percent = Column(Numeric(5, 2), default=0.00)
     rounding_rule = Column(String(30), default="Nearest1")
@@ -72,6 +73,7 @@ class Customer(BaseEntity):
     # are in CustomerGSTRegistration. Kept in sync with the primary registration
     # row by the service layer.
     gst_number = Column(String(15))
+    is_tax_inclusive = Column(Boolean, nullable=True, default=None)  # Customer-specific tax policy override
     outstanding = Column(Numeric(15, 2), default=0.00)
     status = Column(String(20), default="Active")
     created_date = Column(Date, default=date.today)
@@ -329,7 +331,7 @@ class CustomerCreditLedgerEntry(BaseEntity):
     uuid = Column(UUID(as_uuid=True), default=uuid_pkg.uuid4, unique=True, nullable=False)
 
     customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False, index=True)
-    entry_date = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    entry_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     entry_type = Column(String(20), nullable=False)  # DEBIT, CREDIT
     amount = Column(Numeric(15, 2), nullable=False)
     balance_after = Column(Numeric(15, 2), nullable=False)
@@ -427,4 +429,4 @@ class CrmCustomerActivity(BaseEntity):
     activity_type = Column(String(50), nullable=False)  # CALL, MEETING, EMAIL, WHATSAPP, NOTE, TASK
     summary = Column(String(255), nullable=False)
     details = Column(Text, nullable=True)
-    activity_date = Column(DateTime, default=datetime.utcnow)
+    activity_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))

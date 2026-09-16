@@ -92,7 +92,7 @@ class EcomOrderImport(BaseEntity):
     max_retries = Column(Integer, default=3)
     error_message = Column(Text, nullable=True)
     last_retry_at = Column(DateTime, nullable=True)
-    imported_at = Column(DateTime, default=datetime.utcnow)
+    imported_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class EcomStockSyncLog(BaseEntity):
@@ -107,7 +107,7 @@ class EcomStockSyncLog(BaseEntity):
     quantity_synced = Column(Numeric(12, 4), default=0.0000)
     status = Column(String(30), default="SUCCESS")  # SUCCESS, FAILED, THROTTLED
     response_payload = Column(JSONB, nullable=True)
-    synced_at = Column(DateTime, default=datetime.utcnow)
+    synced_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class EcomReconciliation(BaseEntity):
@@ -129,4 +129,4 @@ class EcomReconciliation(BaseEntity):
     
     status = Column(String(30), default="RECONCILED")  # RECONCILED, DISCREPANCY, UNDER_INVESTIGATION
     discrepancy_details = Column(JSONB, nullable=True)
-    reconciled_at = Column(DateTime, default=datetime.utcnow)
+    reconciled_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
