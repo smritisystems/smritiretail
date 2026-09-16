@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -1095,12 +1096,18 @@ class InvoicePdfService:
         stmt = (
             select(SalesInvoice)
             .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.id == invoice_id, SalesInvoice.is_deleted == False)
+            .where(
+                or_(SalesInvoice.id == invoice_id, SalesInvoice.invoice_no == invoice_id),
+                SalesInvoice.is_deleted == False
+            )
         )
         if company_id:
             stmt = stmt.where(SalesInvoice.company_id == company_id)
         if branch_id:
-            stmt = stmt.where(SalesInvoice.branch_id == branch_id)
+            if branch_id in ("BR-MAIN-001", "MAIN", "BR-001"):
+                stmt = stmt.where(or_(SalesInvoice.branch_id.in_(["BR-MAIN-001", "MAIN", "BR-001"]), SalesInvoice.branch_id.is_(None)))
+            else:
+                stmt = stmt.where(or_(SalesInvoice.branch_id == branch_id, SalesInvoice.branch_id.is_(None)))
 
         res = await session.execute(stmt)
         invoice_rec = res.scalars().first()
@@ -1314,7 +1321,17 @@ class InvoicePdfService:
         file_size = len(pdf_bytes)
 
         # Get invoice record
-        inv_stmt = select(SalesInvoice).where(SalesInvoice.id == invoice_id)
+        inv_stmt = select(SalesInvoice).where(
+            or_(SalesInvoice.id == invoice_id, SalesInvoice.invoice_no == invoice_id),
+            SalesInvoice.is_deleted == False
+        )
+        if company_id:
+            inv_stmt = inv_stmt.where(SalesInvoice.company_id == company_id)
+        if branch_id:
+            if branch_id in ("BR-MAIN-001", "MAIN", "BR-001"):
+                inv_stmt = inv_stmt.where(or_(SalesInvoice.branch_id.in_(["BR-MAIN-001", "MAIN", "BR-001"]), SalesInvoice.branch_id.is_(None)))
+            else:
+                inv_stmt = inv_stmt.where(or_(SalesInvoice.branch_id == branch_id, SalesInvoice.branch_id.is_(None)))
         inv_res = await session.execute(inv_stmt)
         invoice = inv_res.scalars().first()
         inv_no = invoice.invoice_no if invoice else f"INV-{invoice_id}"

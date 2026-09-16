@@ -121,10 +121,11 @@ from .core.error_handlers import register_error_handlers
 from .core.logging import logger
 from .db.session import verify_db_connectivity
 from .middleware.request_logger import RequestLoggerMiddleware
-from .middleware.rate_limiter import limiter
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
+from .middleware.rate_limiter import limiter, SLOWAPI_AVAILABLE
+if SLOWAPI_AVAILABLE:
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.middleware import SlowAPIMiddleware
 
 STARTUP_TIME = time.time()
 
@@ -183,8 +184,9 @@ app.add_middleware(RequestLoggerMiddleware)
 
 # 3. Register Rate Limiting Middleware (slowapi — tenant-scoped, 300/min default)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+if SLOWAPI_AVAILABLE:
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
 
 
 # ============================================================

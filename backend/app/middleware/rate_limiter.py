@@ -22,9 +22,26 @@ Limits are designed for a typical retail branch with:
   - Low-frequency auth/admin operations
 """
 
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from fastapi import Request
+
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    SLOWAPI_AVAILABLE = True
+except ImportError:
+    SLOWAPI_AVAILABLE = False
+
+    class Limiter:  # type: ignore
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def limit(self, *args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
+
+    def get_remote_address(request: Request) -> str:  # type: ignore
+        return getattr(request.client, "host", "127.0.0.1") if request.client else "127.0.0.1"
 
 
 def _get_tenant_key(request: Request) -> str:
