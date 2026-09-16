@@ -141,6 +141,10 @@ class SalesInvoiceItem(Base):
     source_line_id = Column(String(50), nullable=True)
     is_tax_inclusive = Column(Boolean, nullable=False, default=True, server_default=text("true"))
 
+    # Line-Level Sales Staff Attribution (Phase 2)
+    salesperson_id = Column(String(50), nullable=True, index=True)
+    salesperson_name = Column(String(255), nullable=True)
+
     # Relationships
     invoice = relationship("SalesInvoice", back_populates="items")
 

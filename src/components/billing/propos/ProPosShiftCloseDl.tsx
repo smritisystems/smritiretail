@@ -15,6 +15,7 @@
 import React, { useState, useEffect } from "react";
 import { CashDenominations, POSZReportData } from "./types.ts";
 import ProPosDenomination, { calculateDenominationTotal } from "./ProPosDenomination.tsx";
+import ProPosShiftHandoverSlip from "./ProPosShiftHandoverSlip.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import {
   Lock,
@@ -54,6 +55,7 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
   const [closing, setClosing] = useState<boolean>(false);
   const [zReportData, setZReportData] = useState<POSZReportData | null>(null);
   const [closedResult, setClosedResult] = useState<POSZReportData | null>(null);
+  const [showHandoverSlip, setShowHandoverSlip] = useState<boolean>(false);
 
   // Denominations State
   const [denominations, setDenominations] = useState<CashDenominations>({
@@ -245,24 +247,42 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={handlePrintSlip}
-                className="px-6 py-2.5 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2"
-              >
-                <Printer size={15} />
-                <span>Print Official Z-Report Slip</span>
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2.5 bg-[#f1f5f9] dark:bg-[#334155] text-[#334155] dark:text-[#f8fafc] hover:bg-[#e2e8f0] text-xs font-bold rounded-xl transition"
-              >
-                Done
-              </button>
-            </div>
+            {/* Handover Slip Modal / Drawer */}
+            {showHandoverSlip ? (
+              <div className="w-full">
+                <ProPosShiftHandoverSlip
+                  data={closedResult}
+                  onClose={() => setShowHandoverSlip(false)}
+                />
+              </div>
+            ) : (
+              /* Actions */
+              <div className="flex flex-wrap justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowHandoverSlip(true)}
+                  className="px-6 py-2.5 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Receipt size={15} />
+                  <span>80mm Cashier Handover Slip</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintSlip}
+                  className="px-6 py-2.5 bg-[#f1f5f9] dark:bg-[#334155] text-[#1e293b] dark:text-[#f8fafc] hover:bg-[#e2e8f0] text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer size={15} />
+                  <span>Print Full Z-Report</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2.5 bg-[#e2e8f0] dark:bg-[#1e293b] text-[#334155] dark:text-[#f8fafc] hover:bg-[#cbd5e1] text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           /* Normal Reconciliation Flow */
