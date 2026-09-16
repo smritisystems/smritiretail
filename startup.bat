@@ -7,7 +7,7 @@ REM Founders
 REM 
 REM * Pushpa Devi Jawahar Mallah
 REM   * Founder & Chairperson
-REM   * Phone: +91 9324117007
+REM   * Phone: [REDACTED_PUBLIC_PII]
 REM   * Email: founder@aitdl.com
 REM 
 REM * Jawahar Ramkripal Mallah
