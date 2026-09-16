@@ -76,8 +76,36 @@ def other_tenant_ctx() -> TenantContext:
     return TenantContext(company_id="COMP-OTHER", branch_id="OTHER-BR")
 
 
+@pytest.fixture(scope="session", autouse=True)
+async def clean_test_database_before_suite():
+    """
+    Session-scoped pre-run cleanup: wipes all customer test data to prevent
+    GSTIN/code collisions from prior test runs contaminating the database.
+    Seed records (Company, Branch, CustomerGroup, Warehouse) are NOT deleted.
+    """
+    from sqlalchemy import text as sa_text
+    async with TestSessionLocal() as session:
+        # Delete in FK-safe order (children before parents)
+        for stmt in [
+            "DELETE FROM sales_invoice_items WHERE company_id IN ('COMP-001','COMP-OTHER')",
+            "DELETE FROM sales_invoices WHERE company_id IN ('COMP-001','COMP-OTHER')",
+            "DELETE FROM customer_external_identities WHERE company_id IN ('COMP-001','COMP-OTHER')",
+            "DELETE FROM customer_billing_locations WHERE company_id IN ('COMP-001','COMP-OTHER')",
+            "DELETE FROM customer_delivery_locations WHERE company_id IN ('COMP-001','COMP-OTHER')",
+            "DELETE FROM customer_gst_registrations WHERE company_id IN ('COMP-001','COMP-OTHER')",
+            "DELETE FROM customers WHERE company_id IN ('COMP-001','COMP-OTHER')",
+        ]:
+            try:
+                await session.execute(sa_text(stmt))
+            except Exception:
+                pass  # Table may not exist in all environments
+        await session.commit()
+    yield
+
+
 @pytest.fixture(autouse=True)
 async def ensure_seed_companies_and_groups():
+
     async with TestSessionLocal() as session:
         for cid in ["COMP-001", "COMP-OTHER"]:
             c = await session.get(Company, cid)
