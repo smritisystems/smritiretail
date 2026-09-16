@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 """
 
 import os
+import sys
 import json
 import socket
 import asyncio
@@ -85,24 +86,28 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
     if _is_postgres_server(host, port):
         return conn_str
 
-    try:
-        import subprocess
-        out = subprocess.check_output(["wsl", "-d", "docker-desktop", "-e", "/sbin/ip", "addr"], text=True, stderr=subprocess.DEVNULL)
-        for line in out.splitlines():
-            line = line.strip()
-            if line.startswith("inet "):
-                ip = line.split()[1].split("/")[0]
-                if ip != "127.0.0.1" and _is_postgres_server(ip, port):
-                    auth = ""
-                    if parsed.username:
-                        auth = parsed.username
-                        if parsed.password:
-                            auth += f":{parsed.password}"
-                        auth += "@"
-                    netloc = f"{auth}{ip}:{port}"
-                    return urlunparse(parsed._replace(netloc=netloc))
-    except Exception:
-        pass
+    # WSL IP probe: skip entirely on cloud / Linux production deployments unless IS_WSL is explicitly enabled
+    if os.environ.get("IS_WSL", "").lower() in {"1", "true", "yes"} or (
+        sys.platform == "win32" and os.environ.get("ENVIRONMENT", "development").lower() not in {"production", "staging", "test"}
+    ):
+        try:
+            import subprocess
+            out = subprocess.check_output(["wsl", "-d", "docker-desktop", "-e", "/sbin/ip", "addr"], text=True, stderr=subprocess.DEVNULL)
+            for line in out.splitlines():
+                line = line.strip()
+                if line.startswith("inet "):
+                    ip = line.split()[1].split("/")[0]
+                    if ip != "127.0.0.1" and _is_postgres_server(ip, port):
+                        auth = ""
+                        if parsed.username:
+                            auth = parsed.username
+                            if parsed.password:
+                                auth += f":{parsed.password}"
+                            auth += "@"
+                        netloc = f"{auth}{ip}:{port}"
+                        return urlunparse(parsed._replace(netloc=netloc))
+        except Exception:
+            pass
 
     for alt_port in (5432, 5434):
         if alt_port == port:
