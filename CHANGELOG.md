@@ -52,6 +52,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Aligned `invoice_pdf_service.py` to support invoice lookup by `id` or `invoice_no` and resolve branch aliases (`BR-MAIN-001`, `MAIN`, `BR-001`).
   - Added `getAuthenticatedDocumentUrl`, `openAuthenticatedDocument`, and `syncAuthCookies` in `src/lib/apiFetchV1.ts`.
   - Routed all document actions in `SalesStudioTab.tsx` (`PRINT TAX INVOICE`, `Preview`, `Export PDF`, `Reprint`) through `openAuthenticatedDocument`.
+- **POS Terminal Profile Default Installation Baseline & CRUD Lifecycle:**
+  - Established statutory POS Terminal Profile (`Counter 01 - Express Billing`, Code: `REG-01`) as installation baseline across `POSProfileCreate` schema defaults (`backend/app/schemas/pos.py`).
+  - Added installation baseline database seeding for `REG-01` (`Counter 01 - Express Billing`) and `REG-02` (`Counter 02 - Standard Checkout`) across control (`smritisys`) and tenant (`smriti001`) databases in `backend/app/db/seed_baseline_users.py`.
+  - Added automatic POS profile provisioning in onboarding company setup wizard (`backend/app/api/v1/system.py` - `/api/v1/company/setup`).
+  - Added full backend CRUD endpoints in `backend/app/api/v1/pos.py` and `backend/app/services/pos.py`: `PUT /pos/profiles/{id}` (update terminal profile) and `DELETE /pos/profiles/{id}` (soft delete/archive).
+  - Aligned frontend configuration `posProfiles.config.tsx` with `code` and `notes` form fields and default payload transform.
+  - Enforced Rule 12 database column parity by adding missing `warehouse_id` on `cash_registers` in `smritisys`.
 - **Comprehensive Verification:**
   - `src/tests/ttInvoiceBillingCalculation.test.ts` (10/10 passed).
   - `src/tests/authenticatedDocumentUrl.test.ts` (4/4 passed).

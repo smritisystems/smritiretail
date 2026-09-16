@@ -29,6 +29,7 @@ from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
 from ...models.tenant import Company, Branch
+from ...models.pos import CashRegister
 from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
@@ -777,6 +778,30 @@ async def company_setup(
                 continue
 
             await numbering_service.create_series(series_req, current_user.username, commit=False)
+
+        # Provision default statutory POS Terminal Profile (REG-01) if none exists
+        existing_reg = await db.execute(
+            select(CashRegister).where(
+                CashRegister.company_id == company_id,
+                CashRegister.is_deleted == False,
+            )
+        )
+        if not existing_reg.scalars().first():
+            assigned_branch = created_branches[0] if created_branches else None
+            default_reg = CashRegister(
+                id=f"PROF-{uuid.uuid4().hex[:8].upper()}",
+                name="Counter 01 - Express Billing",
+                code="REG-01",
+                notes="Default installation POS terminal profile",
+                cashier=created_users[0]["username"] if created_users else "EMP001 - John Doe",
+                warehouse="Main Store",
+                is_locked=False,
+                is_active=True,
+                is_deleted=False,
+                company_id=company_id,
+                branch_id=assigned_branch.id if assigned_branch is not None else None,
+            )
+            db.add(default_reg)
 
         await set_system_config(db, CURRENT_FINANCIAL_YEAR_KEY, business_financial_year, current_user, commit=False)
         await set_system_config(db, BOOKS_START_DATE_KEY, books_start_date, current_user, commit=False)

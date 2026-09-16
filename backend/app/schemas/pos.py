@@ -53,12 +53,12 @@ class CashRegisterResponse(BaseModel):
 
 class POSProfileCreate(BaseModel):
     """Maps the frontend PosProfilesTab create form to CashRegister fields."""
-    name:        str = Field(..., min_length=2, max_length=100)
-    code:        str = Field(..., min_length=2, max_length=50)
-    cashier:     Optional[str] = Field(None, max_length=100)
-    warehouse:   Optional[str] = Field(None, max_length=100)
+    name:        str = Field(default="Counter 01 - Express Billing", min_length=2, max_length=100)
+    code:        Optional[str] = Field(default="REG-01", max_length=50)
+    cashier:     Optional[str] = Field(default="EMP001 - John Doe", max_length=100)
+    warehouse:   Optional[str] = Field(default="Main Store", max_length=100)
     is_locked:   Optional[bool] = False
-    notes:       Optional[str] = Field(None, max_length=500)
+    notes:       Optional[str] = Field(default="Default installation POS terminal profile", max_length=500)
 
 
 class POSProfileResponse(BaseModel):
