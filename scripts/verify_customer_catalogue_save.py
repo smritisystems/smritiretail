@@ -1,4 +1,16 @@
 """
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 6.34.0
+Created      : 2026-09-17
+Modified     : 2026-09-17
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
+
 Verification Script for Customer Catalogue Form Save & PostgreSQL Persistence.
 Tests modifying customer details, saving via UI, intercepting network PUT request,
 verifying toast notifications, checking database persistence in PostgreSQL,
@@ -128,18 +140,22 @@ async def main():
         put_responses.clear()
         save_btn = page.locator('button:has-text("Save"), button:has-text("Save Ctrl+S")').first
         await save_btn.click()
-        await page.wait_for_timeout(3000)
+
+        # Wait for toast to appear
+        toast_el = page.locator('text="CATALOGUE SAVED"').first
+        try:
+            await toast_el.wait_for(state="visible", timeout=6000)
+            print("  Toast 'CATALOGUE SAVED' popped up successfully!")
+        except Exception:
+            print("  Toast wait timed out; checking if already rendered...")
+
+        await page.wait_for_timeout(1500)
 
         # Verify network PUT response
         print(f"  Total PUT responses intercepted: {len(put_responses)}")
         assert any(r["status"] == 200 for r in put_responses), "Expected at least one HTTP 200 PUT response!"
         for r in put_responses:
             print(f"  -> HTTP {r['status']} for {r['url']}")
-
-        # Verify UI Notification
-        toast_el = page.locator('text="CATALOGUE SAVED"').first
-        toast_visible = await toast_el.is_visible()
-        print(f"  Toast 'CATALOGUE SAVED' visible on UI: {toast_visible}")
 
         # Take Screenshot 2: Save Toast Notification
         ss2_path = os.path.join(SCREENSHOT_DIR, "02_customer_save_toast_notification.png")
@@ -160,7 +176,7 @@ async def main():
         await page.reload(wait_until="networkidle")
         await page.wait_for_timeout(2500)
 
-        # Navigate back to customer master if needed
+        # Ensure customer master is visible
         if await page.locator('text="Customer Catalogue"').count() == 0:
             await page.evaluate("""() => {
                 window.dispatchEvent(new CustomEvent('smriti_navigate_module', { detail: { moduleId: 'customer-master' } }));

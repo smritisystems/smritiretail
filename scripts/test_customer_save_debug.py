@@ -1,4 +1,16 @@
 """
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 6.34.0
+Created      : 2026-09-17
+Modified     : 2026-09-17
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
+
 Diagnostic script to test modifying details in Customer Catalogue Form and clicking Save.
 Captures console logs, network payloads, HTTP status codes, and UI notifications.
 """
