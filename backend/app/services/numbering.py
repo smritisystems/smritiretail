@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.17.0
 Created      : 2026-07-12
-Modified     : 2026-07-12
+Modified     : 2026-09-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -17,6 +17,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_, and_
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
 from ..models.numbering import DocumentSeries, NumberingAuditLog
@@ -498,113 +499,192 @@ class NumberingService:
         req,
         operator: str
     ) -> list[DocumentSeries]:
+        import logging
+        _log = logging.getLogger("smriti-core")
+
         results = []
-        for item in req.items:
-            # Check GST Rule 46(b)
-            pfx = item.prefix or ""
-            sfx = item.suffix or ""
-            try:
-                start_num = int(item.startNumber if item.startNumber is not None else 1)
-            except (ValueError, TypeError):
-                start_num = 1
+        try:
+            for item in req.items:
+                pfx = item.prefix or ""
+                sfx = item.suffix or ""
+                run_len = int(item.runningLength) if item.runningLength is not None else 4
+                start_num = int(item.startNumber) if item.startNumber is not None else 1
+                curr_num = int(item.currentNumber if item.currentNumber is not None else 0)
+                is_active = bool(item.isActive) if item.isActive is not None else True
+                is_void = bool(item.isVoidUnified) if item.isVoidUnified is not None else False
+                is_common = bool(item.isCommonAcrossTerminals) if item.isCommonAcrossTerminals is not None else True
+                term_id = item.terminalId or "COMMON"
+                item_id = item.id  # may be None for new records
 
-            try:
-                run_len = int(item.runningLength if item.runningLength is not None else 4)
-            except (ValueError, TypeError):
-                run_len = 4
-
-            padded_sample = str(start_num).zfill(run_len)
-            gst_res = self.validate_gst_rule_46b(pfx, padded_sample, sfx)
-            if not gst_res["isValid"]:
-                raise HTTPException(status_code=400, detail=gst_res["error"])
-
-            curr_num = int(item.currentNumber if item.currentNumber is not None else 0)
-            is_active = bool(item.isActive) if item.isActive is not None else True
-            is_void = bool(item.isVoidUnified) if item.isVoidUnified is not None else False
-            is_common = bool(item.isCommonAcrossTerminals) if item.isCommonAcrossTerminals is not None else True
-            term_id = item.terminalId or "COMMON"
-
-            existing: Optional[DocumentSeries] = None
-
-            # 1. Try lookup by explicit id
-            if item.id:
-                existing = await self.db.get(DocumentSeries, item.id)
-
-            # 2. Fallback: find by natural key (company_id, document_type, terminal_id)
-            #    This prevents mass-insert duplication when the same row is saved repeatedly
-            if not existing:
-                dup_q = select(DocumentSeries).where(
-                    DocumentSeries.document_type == item.documentType,
-                    DocumentSeries.terminal_id == term_id,
+                # ── PRE-FLIGHT 1: Duplicate name check ────────────────────────────
+                name_chk = select(DocumentSeries.id).where(
+                    DocumentSeries.name == item.name,
                     DocumentSeries.is_deleted == False
                 )
                 if company_id:
-                    from sqlalchemy import or_ as _or_
-                    dup_q = dup_q.where(
-                        _or_(
+                    name_chk = name_chk.where(
+                        or_(
                             DocumentSeries.company_id == company_id,
                             DocumentSeries.company_code == company_id
                         )
                     )
-                dup_res = await self.db.execute(dup_q.limit(1))
-                existing = dup_res.scalars().first()
+                if branch_id:
+                    name_chk = name_chk.where(DocumentSeries.branch_id == branch_id)
+                if item_id:
+                    # Exclude self when updating
+                    name_chk = name_chk.where(DocumentSeries.id != item_id)
+                name_res = await self.db.execute(name_chk.limit(1))
+                if name_res.scalars().first():
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "code": "SMRITI-NUM-001",
+                            "field": "name",
+                            "message": (
+                                f"A prefix series named '{item.name}' already exists for this branch. "
+                                "Use a unique name."
+                            )
+                        }
+                    )
 
-            if existing:
-                # Upsert: restore soft-deleted series or update in-place
-                existing.is_deleted = False
-                existing.deleted_at = None
-                existing.deleted_by = None
-                existing.name = item.name
-                existing.document_type = item.documentType
-                existing.transaction_group = item.transactionGroup
-                existing.terminal_id = term_id
-                existing.is_common_across_terminals = is_common
-                existing.prefix = pfx
-                existing.suffix = sfx
-                existing.start_number = start_num
-                existing.running_length = run_len
-                existing.is_active = is_active
-                existing.is_void_unified = is_void
-                existing.updated_by = operator
-                existing.modified_at = datetime.now(timezone.utc)
-                results.append(existing)
-                continue
+                # ── PRE-FLIGHT 2: Duplicate prefix+suffix+type+terminal check ─────
+                if is_active:
+                    cfg_chk = select(DocumentSeries).where(
+                        DocumentSeries.prefix == pfx,
+                        DocumentSeries.suffix == sfx,
+                        DocumentSeries.document_type == item.documentType,
+                        DocumentSeries.transaction_group == item.transactionGroup,
+                        DocumentSeries.terminal_id == term_id,
+                        DocumentSeries.is_deleted == False,
+                        DocumentSeries.is_active == True
+                    )
+                    if company_id:
+                        cfg_chk = cfg_chk.where(
+                            or_(
+                                DocumentSeries.company_id == company_id,
+                                DocumentSeries.company_code == company_id
+                            )
+                        )
+                    if branch_id:
+                        cfg_chk = cfg_chk.where(DocumentSeries.branch_id == branch_id)
+                    if item_id:
+                        cfg_chk = cfg_chk.where(DocumentSeries.id != item_id)
+                    cfg_res = await self.db.execute(cfg_chk.limit(1))
+                    conflict = cfg_res.scalars().first()
+                    if conflict:
+                        raise HTTPException(
+                            status_code=409,
+                            detail={
+                                "code": "SMRITI-NUM-002",
+                                "field": "prefix",
+                                "message": (
+                                    f"Prefix '{pfx}' with suffix '{sfx}' is already assigned "
+                                    f"to series '{conflict.name}'. "
+                                    "Each active series must have a unique prefix+suffix combination."
+                                )
+                            }
+                        )
 
-            # Create new series only when no existing row found
-            new_series = DocumentSeries(
-                id=f"SER-{uuid.uuid4().hex[:8]}",
-                company_id=company_id,
-                branch_id=branch_id,
-                name=item.name,
-                document_type=item.documentType,
-                transaction_group=item.transactionGroup,
-                terminal_id=term_id,
-                is_common_across_terminals=is_common,
-                prefix=pfx,
-                suffix=sfx,
-                start_number=start_num,
-                current_number=curr_num,
-                running_length=run_len,
-                is_active=is_active,
-                is_void_unified=is_void,
-                reset_rule="Financial Year",
-                mode="Auto",
-                created_by=operator,
-                updated_by=operator
-            )
-            self.db.add(new_series)
-            results.append(new_series)
+                # ── GST Rule 46(b) validation ─────────────────────────────────────
+                padded_sample = str(start_num).zfill(run_len)
+                gst_res = self.validate_gst_rule_46b(pfx, padded_sample, sfx)
+                if not gst_res["isValid"]:
+                    raise HTTPException(status_code=400, detail=gst_res["error"])
 
-        try:
+                # ── Upsert logic ──────────────────────────────────────────────────
+                existing: Optional[DocumentSeries] = None
+
+                # 1. Try lookup by explicit id
+                if item_id:
+                    existing = await self.db.get(DocumentSeries, item_id)
+
+                # 2. Fallback: natural key (document_type, terminal_id) lookup
+                if not existing:
+                    dup_q = select(DocumentSeries).where(
+                        DocumentSeries.document_type == item.documentType,
+                        DocumentSeries.terminal_id == term_id,
+                        DocumentSeries.is_deleted == False
+                    )
+                    if company_id:
+                        dup_q = dup_q.where(
+                            or_(
+                                DocumentSeries.company_id == company_id,
+                                DocumentSeries.company_code == company_id
+                            )
+                        )
+                    dup_res = await self.db.execute(dup_q.limit(1))
+                    existing = dup_res.scalars().first()
+
+                if existing:
+                    existing.is_deleted = False
+                    existing.deleted_at = None
+                    existing.deleted_by = None
+                    existing.name = item.name
+                    existing.document_type = item.documentType
+                    existing.transaction_group = item.transactionGroup
+                    existing.terminal_id = term_id
+                    existing.is_common_across_terminals = is_common
+                    existing.prefix = pfx
+                    existing.suffix = sfx
+                    existing.start_number = start_num
+                    existing.running_length = run_len
+                    existing.is_active = is_active
+                    existing.is_void_unified = is_void
+                    existing.updated_by = operator
+                    existing.modified_at = datetime.now(timezone.utc)
+                    results.append(existing)
+                    continue
+
+                # Create new series only when no existing row found
+                new_series = DocumentSeries(
+                    id=f"SER-{uuid.uuid4().hex[:8]}",
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    name=item.name,
+                    document_type=item.documentType,
+                    transaction_group=item.transactionGroup,
+                    terminal_id=term_id,
+                    is_common_across_terminals=is_common,
+                    prefix=pfx,
+                    suffix=sfx,
+                    start_number=start_num,
+                    current_number=curr_num,
+                    running_length=run_len,
+                    is_active=is_active,
+                    is_void_unified=is_void,
+                    reset_rule="Financial Year",
+                    mode="Auto",
+                    created_by=operator,
+                    updated_by=operator
+                )
+                self.db.add(new_series)
+                results.append(new_series)
+
             await self.db.commit()
             for r in results:
                 await self.db.refresh(r)
+
+        except HTTPException:
+            # Re-raise pre-flight validation errors unchanged
+            raise
+        except IntegrityError as e:
+            # ── SAFETY NET: DB constraint fired (SMRITI-NUM-003) ─────────────
+            await self.db.rollback()
+            _log.error("save_bill_prefixes_batch IntegrityError: %s", str(e.orig))
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "SMRITI-NUM-003",
+                    "message": (
+                        "Duplicate series configuration detected. "
+                        "Two or more series share the same prefix, suffix, and document type. "
+                        + str(e.orig)
+                    )
+                }
+            )
         except Exception as e:
             await self.db.rollback()
-            import logging
-            logging.getLogger("smriti-core").error(
-                "save_bill_prefixes_batch DB error: %s: %s", type(e).__name__, str(e)
-            )
+            _log.error("save_bill_prefixes_batch DB error: %s: %s", type(e).__name__, str(e))
             raise HTTPException(
                 status_code=500,
                 detail=(
