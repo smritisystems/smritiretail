@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 6.32.0
 Created      : 2026-09-15
-Modified     : 2026-09-15
+Modified     : 2026-09-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -124,7 +124,7 @@ def _compute_gst(selling_price: Decimal, gst_rate: Decimal, qty: Decimal) -> Dic
 # ---------------------------------------------------------------------------
 
 async def _lookup_catalog(
-    db: AsyncSession, company_id: str, identifier: str, sku_hint: Optional[str] = None
+    db: AsyncSession, company_id: Optional[str], identifier: str, sku_hint: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     identifier = identifier.strip()
     sku_hint = sku_hint.strip() if sku_hint else None
@@ -144,14 +144,14 @@ async def _lookup_catalog(
             COALESCE(p.color, '')           AS color,
             COALESCE(p.size, '')            AS size_variant
         FROM products p
-        WHERE p.company_id = :company_id
+        WHERE (p.company_id = CAST(:company_id AS VARCHAR) OR CAST(:company_id AS VARCHAR) IS NULL)
           AND p.is_deleted = FALSE
           AND (
             p.barcode = :identifier
             OR :identifier = ANY(p.secondary_barcodes)
             OR p.code = :identifier
             OR p.sku = :identifier
-            OR (:sku_hint IS NOT NULL AND (p.code = :sku_hint OR p.sku = :sku_hint))
+            OR (CAST(:sku_hint AS VARCHAR) IS NOT NULL AND (p.code = CAST(:sku_hint AS VARCHAR) OR p.sku = CAST(:sku_hint AS VARCHAR)))
           )
         LIMIT 1
     """)
@@ -428,6 +428,39 @@ def _parse_input(raw_text: str, delimiter_hint: Optional[str]):
                 row["selling_price"] = parts[2]
             data_rows.append(row)
         return True, list(data_rows[0].keys()) if data_rows else [], data_rows
+
+    # Check if first line is a header row or data row
+    first_cells = next(csv.reader(io.StringIO(first_line), delimiter=delimiter), [])
+    first_cells_norm = [_norm_header(c) for c in first_cells]
+    has_header = any(c in set(HEADER_ALIASES.values()) for c in first_cells_norm)
+
+    if not has_header:
+        # Headerless CSV (positional: barcode, quantity[, selling_price, discount_percent])
+        reader = csv.reader(io.StringIO(raw_text), delimiter=delimiter)
+        data_rows = []
+        max_cols = 0
+        for parts in reader:
+            parts = [p.strip() for p in parts]
+            if not parts or not parts[0]:
+                continue
+            max_cols = max(max_cols, len(parts))
+            row: Dict[str, str] = {"barcode": parts[0]}
+            if len(parts) > 1:
+                row["quantity"] = parts[1]
+            if len(parts) > 2:
+                row["selling_price"] = parts[2]
+            if len(parts) > 3:
+                row["discount_percent"] = parts[3]
+            data_rows.append(row)
+
+        canonical_headers = ["barcode"]
+        if max_cols > 1:
+            canonical_headers.append("quantity")
+        if max_cols > 2:
+            canonical_headers.append("selling_price")
+        if max_cols > 3:
+            canonical_headers.append("discount_percent")
+        return False, canonical_headers, data_rows
 
     reader = csv.DictReader(io.StringIO(raw_text), delimiter=delimiter)
     raw_headers = reader.fieldnames or []

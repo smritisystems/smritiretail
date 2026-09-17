@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.14.0
+ * Version      : 6.32.0
  * Created      : 2026-09-08
- * Modified     : 2026-09-09
+ * Modified     : 2026-09-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Single Consolidated Billing Workspace Component (Phase 2C Step 13)
@@ -63,9 +63,9 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>(() => new Date().toLocaleTimeString());
   // Active shift determination
-  const activeShift = shifts.find((s) => s.status === "Open") || shifts[0] || null;
+  const activeShift = shifts.find((s) => s.status?.toUpperCase() === "OPEN") || shifts[0] || null;
   const registerLabel = activeShift?.profileId || "REG-01";
-  const shiftStatus = activeShift?.status === "Open" ? "Shift Active" : "Shift Ready";
+  const shiftStatus = activeShift?.status?.toUpperCase() === "OPEN" ? "Shift Active" : "Shift Ready";
   const [toast, setToast] = useState<{ title: string; message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
 
   // Clock ticker

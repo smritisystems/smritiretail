@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.28.0
+ * Version      : 6.32.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-16
+ * Modified     : 2026-09-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -533,60 +533,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [taxMode, setTaxMode] = useState<"exclusive" | "inclusive">("exclusive");
 
   // --- Detail Group: Accepted Item Details Grid State ---
-  const [cartItems, setCartItems] = useState<ProPosCartItem[]>([
-    {
-      id: "item-init-1",
-      itemNo: 1,
-      sku: "8887462974641",
-      barcode: "8887462974641",
-      name: "regular straight Med Beige",
-      size: "32",
-      color: "Beige",
-      brand: "SMRITI",
-      salesStaff: "SM1",
-      qty: 1.00,
-      mrp: 999.00,
-      unitPrice: 999.00,
-      discCode: "ILD",
-      discQty: 1.00,
-      discountPct: 10.00,
-      discountAmt: 99.90,
-      taxPct: 5.00,
-      taxAmt: 44.96,
-      taxableValue: 899.10,
-      cgstAmount: 22.48,
-      sgstAmount: 22.48,
-      igstAmount: 0.00,
-      isTaxInclusive: false,
-      lineTotal: 944.06
-    },
-    {
-      id: "item-init-2",
-      itemNo: 2,
-      sku: "8887462974825",
-      barcode: "8887462974825",
-      name: "regular straight Med Beige",
-      size: "34",
-      color: "Beige",
-      brand: "SMRITI",
-      salesStaff: "SM1",
-      qty: 1.00,
-      mrp: 999.00,
-      unitPrice: 999.00,
-      discCode: "ILD",
-      discQty: 1.00,
-      discountPct: 10.00,
-      discountAmt: 99.90,
-      taxPct: 5.00,
-      taxAmt: 44.96,
-      taxableValue: 899.10,
-      cgstAmount: 22.48,
-      sgstAmount: 22.48,
-      igstAmount: 0.00,
-      isTaxInclusive: false,
-      lineTotal: 944.06
-    }
-  ]);
+  const [cartItems, setCartItems] = useState<ProPosCartItem[]>([]);
 
   // Recompute existing cart items when taxMode or interstate status toggles
   useEffect(() => {
@@ -855,8 +802,14 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showShiftCloseModal, setShowShiftCloseModal] = useState<boolean>(false);
   const [showOverflowMenu, setShowOverflowMenu] = useState<boolean>(false);
   const overflowMenuRef = useRef<HTMLDivElement | null>(null);
-  const [activeShiftId, setActiveShiftId] = useState<string>("shift-01");
+  const [activeShiftId, setActiveShiftId] = useState<string>(shiftId || "");
   const [activeShiftCode, setActiveShiftCode] = useState<string>("REG-01 / SHIFT-CURRENT");
+
+  useEffect(() => {
+    if (shiftId) {
+      setActiveShiftId(shiftId);
+    }
+  }, [shiftId]);
 
   // Fetch active shift on load
   useEffect(() => {
@@ -868,7 +821,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           apiFetchV1<any[]>("/pos/profiles/").catch(() => []),
         ]);
         if (isMounted && shifts && shifts.length > 0) {
-          const openShift = shifts.find((s: any) => s.status === "OPEN") || shifts[0];
+          const openShift = shifts.find((s: any) => s.status?.toUpperCase() === "OPEN") || shifts[0];
           setActiveShiftId(openShift.id);
           setActiveShiftCode(openShift.shift_code || `REG-01 / SHIFT-${openShift.id.slice(-6).toUpperCase()}`);
           const register = profiles.find((profile: any) => profile.id === openShift.register_id);
@@ -1591,7 +1544,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   // Settlement Success
   const handleSettlementSuccess = async (tenders: ProPosTenderSplit, changeDue: number) => {
     const generatedBillNo = `${billDocPrefix}-${billDocNumber}`;
-    if (!shiftId) {
+    const effectiveShiftId = shiftId || activeShiftId;
+    if (!effectiveShiftId) {
       onNotification?.("Checkout Blocked", "Open a register shift before finalizing a bill.", "error");
       return;
     }
@@ -1633,7 +1587,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         headers: { "Idempotency-Key": generatedBillNo },
         body: JSON.stringify({
           invoice_no: generatedBillNo,
-          shift_id: shiftId,
+          shift_id: effectiveShiftId,
           payment_mode: paymentMode,
           grand_total: netPayableAmount,
           customer_id: customer.id.startsWith("cust-") ? undefined : customer.id,
