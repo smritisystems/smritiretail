@@ -482,25 +482,45 @@ class NumberingService:
             # Check GST Rule 46(b)
             pfx = item.prefix or ""
             sfx = item.suffix or ""
-            padded_sample = str(item.startNumber or 1).zfill(item.runningLength or 4)
+            try:
+                start_num = int(item.startNumber if item.startNumber is not None else 1)
+            except (ValueError, TypeError):
+                start_num = 1
+
+            try:
+                run_len = int(item.runningLength if item.runningLength is not None else 4)
+            except (ValueError, TypeError):
+                run_len = 4
+
+            padded_sample = str(start_num).zfill(run_len)
             gst_res = self.validate_gst_rule_46b(pfx, padded_sample, sfx)
             if not gst_res["isValid"]:
                 raise HTTPException(status_code=400, detail=gst_res["error"])
 
+            curr_num = int(item.currentNumber if item.currentNumber is not None else 0)
+            is_active = bool(item.isActive) if item.isActive is not None else True
+            is_void = bool(item.isVoidUnified) if item.isVoidUnified is not None else False
+            is_common = bool(item.isCommonAcrossTerminals) if item.isCommonAcrossTerminals is not None else True
+            term_id = item.terminalId or "COMMON"
+
             if item.id:
                 existing = await self.db.get(DocumentSeries, item.id)
-                if existing and not existing.is_deleted:
+                if existing:
+                    # Restore soft-deleted series rather than creating a duplicate
+                    existing.is_deleted = False
+                    existing.deleted_at = None
+                    existing.deleted_by = None
                     existing.name = item.name
                     existing.document_type = item.documentType
                     existing.transaction_group = item.transactionGroup
-                    existing.terminal_id = item.terminalId or "COMMON"
-                    existing.is_common_across_terminals = item.isCommonAcrossTerminals
-                    existing.prefix = item.prefix
-                    existing.suffix = item.suffix or ""
-                    existing.start_number = item.startNumber
-                    existing.running_length = item.runningLength
-                    existing.is_active = item.isActive
-                    existing.is_void_unified = item.isVoidUnified
+                    existing.terminal_id = term_id
+                    existing.is_common_across_terminals = is_common
+                    existing.prefix = pfx
+                    existing.suffix = sfx
+                    existing.start_number = start_num
+                    existing.running_length = run_len
+                    existing.is_active = is_active
+                    existing.is_void_unified = is_void
                     existing.updated_by = operator
                     existing.modified_at = datetime.now(timezone.utc)
                     results.append(existing)
@@ -514,15 +534,15 @@ class NumberingService:
                 name=item.name,
                 document_type=item.documentType,
                 transaction_group=item.transactionGroup,
-                terminal_id=item.terminalId or "COMMON",
-                is_common_across_terminals=item.isCommonAcrossTerminals,
-                prefix=item.prefix,
-                suffix=item.suffix or "",
-                start_number=item.startNumber,
-                current_number=item.currentNumber or 0,
-                running_length=item.runningLength,
-                is_active=item.isActive,
-                is_void_unified=item.isVoidUnified,
+                terminal_id=term_id,
+                is_common_across_terminals=is_common,
+                prefix=pfx,
+                suffix=sfx,
+                start_number=start_num,
+                current_number=curr_num,
+                running_length=run_len,
+                is_active=is_active,
+                is_void_unified=is_void,
                 reset_rule="Financial Year",
                 mode="Auto",
                 created_by=operator,
@@ -531,10 +551,26 @@ class NumberingService:
             self.db.add(new_series)
             results.append(new_series)
 
-        await self.db.commit()
-        for r in results:
-            await self.db.refresh(r)
+        try:
+            await self.db.commit()
+            for r in results:
+                await self.db.refresh(r)
+        except Exception as e:
+            await self.db.rollback()
+            import logging
+            logging.getLogger("smriti-core").error(
+                "save_bill_prefixes_batch DB error: %s: %s", type(e).__name__, str(e)
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "The bill prefix definitions could not be saved due to a data conflict. "
+                    "Please verify that each prefix scheme has a unique configuration and try again. "
+                    "If the problem persists, contact the system administrator."
+                )
+            )
         return results
+
 
     async def execute_year_end_rollover(
         self,
