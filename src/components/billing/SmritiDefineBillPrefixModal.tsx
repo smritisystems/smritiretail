@@ -303,14 +303,16 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#c4c5d5] dark:divide-[#444653]">
-                  {filteredDefinitions.map((row) => {
+                  {Array.from(
+                    new Map(filteredDefinitions.map(r => [r.documentType, r])).values()
+                  ).map((row) => {
                     const actualIdx = definitions.findIndex(d => d.documentType === row.documentType);
                     const padded = (row.startNumber || 1).toString().padStart(row.runningLength || 4, "0");
                     const preview = formatBillPreview(row.prefix, row.startNumber || 1, row.suffix, row.runningLength || 4);
                     const gst = validateGstRule46b(row.prefix, padded, row.suffix);
 
                     return (
-                      <tr key={row.documentType} className="hover:bg-black/5 dark:hover:bg-white/5 transition">
+                      <tr key={row.id ?? row.documentType} className="hover:bg-black/5 dark:hover:bg-white/5 transition">
                         <td className="px-3 py-2 font-medium">
                           <div>{row.name}</div>
                           <div className="text-[10px] text-[#565e74] dark:text-[#bec6e0] font-mono">
