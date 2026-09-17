@@ -28,6 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.34.1] - 2026-09-17
+
+#### Customer Catalogue Form Save & PostgreSQL Persistence Remediation
+
+- **Diagnostic Root Cause Analysis:**
+  - Resolved phantom seed record desynchronization in `CustMasterWs.tsx` where un-matched seed ID `cust-1` triggered `POST /crm/customers` with duplicate GSTIN `29AABCT1332L1ZV` (HTTP 409 Conflict).
+  - Aligned default seed anchor customer to backend entity `cust-rrl-192b561d` (`RRL-001`, Reliance Retail Limited).
+  - Fixed reconciliation heuristic in `loadCustomersFromBackend` to default to `mappedList[0]` if no matching ID/code is active, eliminating phantom mock state.
+- **DTO Serialization & Deserialization Hardening:**
+  - Serialized `pricing_basis`, `allow_promotions_on_rate`, and `is_tax_inclusive` in `handleSave` payload for `PUT /api/v1/crm/customers/{customer_id}`.
+  - Implemented authoritative mapping for `pricingBasis`, `pricing_basis`, `allowPromotionsOnRate`, `allow_promotions_on_rate`, and `is_tax_inclusive` in `mapBackendCustomerToRecord`, ensuring round-trip browser reloads preserve persisted PostgreSQL values.
+- **UI Component & Notification Binding:**
+  - Bound `onNotification={addNotification}` to `CustomerMasterTab` in `src/components/shell/TabRenderer.tsx`, enabling real-time human-friendly toast error and success feedback.
+  - Corrected field key attribute for Company Code to `data-field-key="company_code"` in `CustFormTab.tsx`.
+  - Wrapped secondary delivery and billing location synchronization in non-blocking exception guards to prevent partial address format anomalies from blocking primary customer profile saves.
+- **Automated Verification:**
+  - Automated Playwright end-to-end verification script `scripts/verify_customer_catalogue_save.py` validated form modifications, 9/9 HTTP 200 PUT API requests, direct PostgreSQL persistence in `smriti001.customers`, round-trip page reload rehydration, and canonical state restoration.
+
 ### [6.32.0] - 2026-09-17
 
 #### Numbering Duplicate Prevention — DB Constraints, Pre-Flight Validation & GST Rule 46(b) Schema Enforcement
