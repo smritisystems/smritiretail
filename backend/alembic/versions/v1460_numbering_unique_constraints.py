@@ -31,6 +31,17 @@ depends_on = None
 
 def upgrade() -> None:
     # -------------------------------------------------------------------------
+    # 0. Ensure prerequisite columns exist on document_series before index creation
+    # -------------------------------------------------------------------------
+    op.execute("""
+        ALTER TABLE IF EXISTS document_series ADD COLUMN IF NOT EXISTS terminal_id VARCHAR(50) DEFAULT 'COMMON';
+        ALTER TABLE IF EXISTS document_series ADD COLUMN IF NOT EXISTS is_common_across_terminals BOOLEAN DEFAULT true;
+        ALTER TABLE IF EXISTS document_series ADD COLUMN IF NOT EXISTS transaction_group VARCHAR(50) DEFAULT 'SALES';
+        ALTER TABLE IF EXISTS document_series ADD COLUMN IF NOT EXISTS start_number INTEGER DEFAULT 1;
+        ALTER TABLE IF EXISTS document_series ADD COLUMN IF NOT EXISTS is_void_unified BOOLEAN DEFAULT false;
+    """)
+
+    # -------------------------------------------------------------------------
     # 1. UNIQUE PARTIAL INDEX on (company_id, branch_id, prefix, suffix,
     #    document_type, transaction_group, terminal_id) WHERE active & not deleted
     #    This is the primary dedup guard — only live active records are blocked.

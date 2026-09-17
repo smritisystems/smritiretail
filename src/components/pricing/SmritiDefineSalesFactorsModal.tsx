@@ -530,6 +530,7 @@ export const SmritiDefineSalesFactorsModal: React.FC<SmritiDefineSalesFactorsMod
                       type="text"
                       required
                       disabled={!isCreatingNew}
+                      data-field-key="factor_code"
                       value={editingFactor.code}
                       onChange={e => setEditingFactor({ ...editingFactor, code: e.target.value.toUpperCase() })}
                       placeholder="e.g. INS"
@@ -543,6 +544,7 @@ export const SmritiDefineSalesFactorsModal: React.FC<SmritiDefineSalesFactorsMod
                     <input
                       type="text"
                       required
+                      data-field-key="factor_name"
                       value={editingFactor.description}
                       onChange={e => setEditingFactor({ ...editingFactor, description: e.target.value })}
                       placeholder="e.g. Transit Insurance"
@@ -608,6 +610,7 @@ export const SmritiDefineSalesFactorsModal: React.FC<SmritiDefineSalesFactorsMod
                       <input
                         type="text"
                         required
+                        data-field-key="price_group_code"
                         value={editingFactor.priceGroupCode || ""}
                         onChange={e => setEditingFactor({ ...editingFactor, priceGroupCode: e.target.value.toUpperCase() })}
                         placeholder="e.g. CPP, EMP, WHOLESALE"
@@ -622,6 +625,7 @@ export const SmritiDefineSalesFactorsModal: React.FC<SmritiDefineSalesFactorsMod
                       <input
                         type="text"
                         required
+                        data-field-key="customer_code"
                         value={editingFactor.customerId || ""}
                         onChange={e => setEditingFactor({ ...editingFactor, customerId: e.target.value })}
                         placeholder="e.g. CUST-001"
@@ -677,6 +681,7 @@ export const SmritiDefineSalesFactorsModal: React.FC<SmritiDefineSalesFactorsMod
                       type="number"
                       step="0.01"
                       required
+                      data-field-key="factor_value"
                       value={editingFactor.value}
                       onChange={e => setEditingFactor({ ...editingFactor, value: parseFloat(e.target.value) || 0 })}
                       className="w-full px-2.5 py-1.5 font-mono font-bold text-xs bg-surface border border-outline-variant rounded focus:border-primary focus:outline-none"
@@ -693,6 +698,7 @@ export const SmritiDefineSalesFactorsModal: React.FC<SmritiDefineSalesFactorsMod
                     <input
                       type="number"
                       step="1"
+                      data-field-key="min_bill_value"
                       value={editingFactor.minBillValue ?? ""}
                       onChange={e => setEditingFactor({ ...editingFactor, minBillValue: e.target.value ? parseFloat(e.target.value) : undefined })}
                       placeholder="e.g. 500"
@@ -706,6 +712,7 @@ export const SmritiDefineSalesFactorsModal: React.FC<SmritiDefineSalesFactorsMod
                     <input
                       type="number"
                       step="1"
+                      data-field-key="max_bill_value"
                       value={editingFactor.maxBillValue ?? ""}
                       onChange={e => setEditingFactor({ ...editingFactor, maxBillValue: e.target.value ? parseFloat(e.target.value) : undefined })}
                       placeholder="Optional upper limit"

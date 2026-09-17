@@ -479,6 +479,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             <input
               type="text"
               value={customer.storeCode ?? ""}
+              data-field-key="store_code"
               onChange={(e) => onChange("storeCode", e.target.value)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs"
             />
@@ -540,6 +541,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
+                  data-field-key="is_tax_inclusive"
                   checked={Boolean(customer.isTaxInclusive ?? customer.is_tax_inclusive)}
                   onChange={(e) => {
                     onChange("isTaxInclusive", e.target.checked);
@@ -555,6 +557,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
+                  data-field-key="allow_promotions_on_rate"
                   checked={Boolean(customer.allowPromotionsOnRate ?? customer.allow_promotions_on_rate)}
                   onChange={(e) => {
                     onChange("allowPromotionsOnRate", e.target.checked);

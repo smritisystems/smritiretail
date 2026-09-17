@@ -6,9 +6,10 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(scriptDirectory, "..");
 const catalogPath = path.join(projectRoot, "src", "components", "launchpad", "launchpadCatalog.ts");
 const appPath = path.join(projectRoot, "src", "App.tsx");
+const tabRendererPath = path.join(projectRoot, "src", "components", "shell", "TabRenderer.tsx");
 
 const catalogSource = fs.readFileSync(catalogPath, "utf8");
-const appSource = fs.readFileSync(appPath, "utf8");
+const appSource = fs.readFileSync(appPath, "utf8") + "\n" + (fs.existsSync(tabRendererPath) ? fs.readFileSync(tabRendererPath, "utf8") : "");
 
 const catalogIds = [...catalogSource.matchAll(/\bid:\s*["']([^"']+)["']/g)].map((match) => match[1]);
 const renderCaseIds = new Set(

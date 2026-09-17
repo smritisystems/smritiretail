@@ -19,6 +19,17 @@ COLUMN_PATCHES = [
     ("sales_invoices", "dispatch_from_snapshot",    "JSONB"),
     # customers
     ("customers", "price_tier_id", "VARCHAR(50)"),
+    ("customers", "pricing_basis", "VARCHAR(20) DEFAULT 'MRP'"),
+    ("customers", "allow_promotions_on_rate", "BOOLEAN DEFAULT FALSE"),
+    # customer_groups
+    ("customer_groups", "pricing_basis", "VARCHAR(20) DEFAULT 'MRP'"),
+    ("customer_groups", "allow_promotions_on_rate", "BOOLEAN DEFAULT FALSE"),
+    # sales_invoice_items
+    ("sales_invoice_items", "salesperson_id", "VARCHAR(50)"),
+    ("sales_invoice_items", "salesperson_name", "VARCHAR(100)"),
+    # items & barcodes
+    ("items", "least_saleable_qty", "NUMERIC DEFAULT 1.0"),
+    ("item_barcodes", "least_saleable_qty", "NUMERIC DEFAULT NULL"),
     # customer_price_tiers
     ("customer_price_tiers", "is_tax_inclusive", "BOOLEAN"),
     # cash_registers
@@ -29,6 +40,7 @@ COLUMN_PATCHES = [
     ("document_series", "transaction_group",        "VARCHAR(50)"),
     ("document_series", "start_number",             "INTEGER DEFAULT 1"),
     ("document_series", "is_void_unified",          "BOOLEAN DEFAULT FALSE"),
+    ("document_series", "number_format",            "VARCHAR(30) DEFAULT 'PREFIX_NUM_SUFFIX'"),
     # items (dimension columns)
     ("items", "color",       "VARCHAR(100)"),
     ("items", "department",  "VARCHAR(100)"),

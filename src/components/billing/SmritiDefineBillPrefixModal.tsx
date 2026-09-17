@@ -328,6 +328,7 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                         <td className="px-3 py-2">
                           <input
                             type="text"
+                            data-field-key="prefix"
                             value={row.prefix}
                             onChange={e => handleRowChange(actualIdx, "prefix", e.target.value.toUpperCase())}
                             className="w-24 border border-[#c4c5d5] dark:border-[#444653] rounded px-2 py-1 font-mono text-xs bg-white dark:bg-[#1e2022] outline-none focus:border-[#00288e]"
@@ -336,6 +337,7 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                         <td className="px-3 py-2">
                           <input
                             type="text"
+                            data-field-key="suffix"
                             value={row.suffix}
                             onChange={e => handleRowChange(actualIdx, "suffix", e.target.value)}
                             className="w-24 border border-[#c4c5d5] dark:border-[#444653] rounded px-2 py-1 font-mono text-xs bg-white dark:bg-[#1e2022] outline-none focus:border-[#00288e]"
@@ -345,6 +347,7 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                           <input
                             type="number"
                             min="1"
+                            data-field-key="start_number"
                             value={row.startNumber}
                             onChange={e => handleRowChange(actualIdx, "startNumber", parseInt(e.target.value) || 1)}
                             className="w-16 border border-[#c4c5d5] dark:border-[#444653] rounded px-1 py-1 font-mono text-xs bg-white dark:bg-[#1e2022] text-center outline-none"
@@ -468,6 +471,7 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                   </label>
                   <input
                     type="text"
+                    data-field-key="financial_year"
                     value={newFyInput}
                     onChange={e => setNewFyInput(e.target.value)}
                     placeholder="2026-2027"
@@ -480,6 +484,7 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                   </label>
                   <input
                     type="text"
+                    data-field-key="suffix"
                     value={newYearSuffixInput}
                     onChange={e => setNewYearSuffixInput(e.target.value)}
                     placeholder="26-27"
