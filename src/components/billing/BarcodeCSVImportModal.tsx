@@ -45,12 +45,16 @@ export interface ResolvedCartItem {
   quantity: number;
   catalog_mrp: number;
   effective_selling_price: number;
+  is_tax_inclusive?: boolean;
+  tax_mode_display?: string;
   gst_rate: number;
   taxable_value: number;
   cgst_amount: number;
   sgst_amount: number;
   line_total: number;
   uom: string;
+  batch_no?: string;
+  salesperson_id?: string;
   mrp_markdown_display?: string;
 }
 
@@ -66,6 +70,8 @@ const FORMAT_COLORS: Record<string, string> = {
   FORMAT_5: "bg-orange-900/40 text-orange-300 border-orange-700",
   FORMAT_6: "bg-rose-900/40 text-rose-300 border-rose-700",
   FORMAT_PDT: "bg-teal-900/40 text-teal-300 border-teal-700",
+  FORMAT_B2B_RATE: "bg-cyan-900/40 text-cyan-300 border-cyan-700",
+  FORMAT_COMMERCIAL_DISC: "bg-fuchsia-900/40 text-fuchsia-300 border-fuchsia-700",
 };
 
 const FORMAT_SAMPLE: Record<string, string> = {
@@ -76,6 +82,8 @@ const FORMAT_SAMPLE: Record<string, string> = {
   FORMAT_5: "barcode, quantity, discount_percent",
   FORMAT_6: "barcode, sku, quantity, mrp, selling_price, gst_rate, hsn_code",
   FORMAT_PDT: "890100~2~50.00  (tilde-delimited)",
+  FORMAT_B2B_RATE: "barcode, quantity, rate, is_tax_inclusive",
+  FORMAT_COMMERCIAL_DISC: "barcode, quantity, rate, disc%, disc_amt, is_tax_inclusive",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,6 +158,17 @@ function RowCard({ row, idx }: { row: CsvImportRow; idx: number }) {
             {row.mrp_markdown_display}
           </span>
         )}
+        {isOk && (
+          <span
+            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0 ${
+              row.is_tax_inclusive === false
+                ? "bg-amber-900/50 text-amber-300 border-amber-700"
+                : "bg-sky-900/50 text-sky-300 border-sky-700"
+            }`}
+          >
+            {row.is_tax_inclusive === false ? "EXC TAX" : "INC TAX"}
+          </span>
+        )}
 
         <StatusBadge status={row.status} />
         {open ? (
@@ -176,8 +195,9 @@ function RowCard({ row, idx }: { row: CsvImportRow; idx: number }) {
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                 <Detail label="SKU" value={row.resolved_sku} mono />
                 <Detail label="UOM" value={row.uom} />
+                <Detail label="Tax Mode" value={row.tax_mode_display || (row.is_tax_inclusive ? "INCLUSIVE" : "EXCLUSIVE")} />
                 <Detail label="Catalogue MRP" value={row.catalog_mrp !== undefined ? `₹${row.catalog_mrp.toFixed(2)}` : undefined} />
-                <Detail label="Selling Price" value={row.effective_selling_price !== undefined ? `₹${row.effective_selling_price.toFixed(2)}` : undefined} highlight />
+                <Detail label={row.is_tax_inclusive === false ? "Base Rate" : "Selling Price"} value={row.effective_selling_price !== undefined ? `₹${row.effective_selling_price.toFixed(2)}` : undefined} highlight />
                 <Detail label="GST Rate" value={row.gst_rate !== undefined ? `${row.gst_rate}%` : undefined} />
                 <Detail label="Taxable Value" value={row.taxable_value !== undefined ? `₹${row.taxable_value.toFixed(2)}` : undefined} />
                 <Detail label="CGST" value={row.cgst_amount !== undefined ? `₹${row.cgst_amount.toFixed(2)}` : undefined} />
@@ -330,6 +350,7 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
 }) => {
   const [rawText, setRawText] = useState("");
   const [fileName, setFileName] = useState("");
+  const [taxPolicy, setTaxPolicy] = useState<"AUTO" | "INCLUSIVE" | "EXCLUSIVE">("AUTO");
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CsvImportResult | null>(null);
@@ -338,7 +359,7 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-validate whenever rawText changes
+  // Auto-validate whenever rawText or taxPolicy changes
   useEffect(() => {
     if (!rawText.trim()) {
       setResult(null);
@@ -352,9 +373,15 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
       setLoading(true);
       setApiError(null);
       try {
+        const taxDefault = taxPolicy === "AUTO" ? null : (taxPolicy === "INCLUSIVE");
         const data = await apiFetchV1("/billing/csv/validate", {
           method: "POST",
-          body: JSON.stringify({ raw_text: rawText, delimiter_hint: null }),
+          body: JSON.stringify({
+            raw_text: rawText,
+            delimiter_hint: null,
+            tax_inclusive_default: taxDefault,
+            file_name: fileName || "uploaded.csv",
+          }),
           signal: controller.signal,
         });
         if (!cancelled) setResult(data as CsvImportResult);
@@ -375,7 +402,7 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [rawText]);
+  }, [rawText, taxPolicy, fileName]);
 
   const loadFile = useCallback((file: File) => {
     setFileName(file.name);
@@ -430,6 +457,10 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
         quantity: r.quantity ?? 1,
         catalog_mrp: r.catalog_mrp ?? 0,
         effective_selling_price: r.effective_selling_price ?? 0,
+        is_tax_inclusive: r.is_tax_inclusive ?? true,
+        tax_mode_display: r.tax_mode_display,
+        batch_no: r.batch_no,
+        salesperson_id: r.salesperson_id,
         gst_rate: r.gst_rate ?? 0,
         taxable_value: r.taxable_value ?? 0,
         cgst_amount: r.cgst_amount ?? 0,
@@ -490,6 +521,24 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
 
           {/* Format help */}
           <FormatHelp detected={result?.format_detected} />
+
+          {/* Pricing Policy Selector */}
+          <div className="flex items-center justify-between bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-xs">
+            <span className="flex items-center gap-1.5 font-semibold text-on-surface">
+              <Tag size={13} className="text-primary" />
+              <span>Pricing & Tax Mode</span>
+            </span>
+            <select
+              id="csv-tax-policy-select"
+              value={taxPolicy}
+              onChange={(e) => setTaxPolicy(e.target.value as any)}
+              className="bg-surface-container border border-outline-variant rounded px-2.5 py-1 text-xs text-on-surface font-medium focus:outline-none focus:border-primary cursor-pointer"
+            >
+              <option value="AUTO">Auto-detect (From CSV Column / Channel Default)</option>
+              <option value="INCLUSIVE">Tax Inclusive (MRP / Retail Standard)</option>
+              <option value="EXCLUSIVE">Tax Exclusive (Base Rate + GST Added)</option>
+            </select>
+          </div>
 
           {/* Upload zone */}
           <div
