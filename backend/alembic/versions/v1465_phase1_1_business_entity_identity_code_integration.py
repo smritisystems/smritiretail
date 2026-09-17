@@ -14,7 +14,7 @@ Classification: Internal
 
 """v1465 – phase1_1_business_entity_identity_code_integration: Business Entity Identity Code Integration & Legacy Alias Migration
 
-Adds additive identity_code VARCHAR(100) and B-Tree indexes to:
+Adds additive identity_code VARCHAR(100) and UNIQUE B-Tree indexes to:
   1. companies
   2. branches
   3. items
@@ -109,13 +109,13 @@ def upgrade() -> None:
     conn = op.get_bind()
 
     # -------------------------------------------------------------------------
-    # 1. Additive Schema Extension: identity_code column + B-Tree index
+    # 1. Additive Schema Extension: identity_code column + UNIQUE B-Tree index
     # -------------------------------------------------------------------------
     for spec in ENTITY_SPECS:
         tbl = spec["table_name"]
-        idx = f"ix_{tbl}_identity_code"
+        idx = f"uq_{tbl}_identity_code"
         op.add_column(tbl, sa.Column("identity_code", sa.String(length=100), nullable=True))
-        op.create_index(idx, tbl, ["identity_code"])
+        op.create_index(idx, tbl, ["identity_code"], unique=True)
 
     # -------------------------------------------------------------------------
     # 2. Deterministic Sequential Allocation, Backfill & Legacy Alias Ingestion
@@ -370,6 +370,6 @@ def downgrade() -> None:
     # Drop columns and indexes in reverse order
     for spec in reversed(ENTITY_SPECS):
         tbl = spec["table_name"]
-        idx = f"ix_{tbl}_identity_code"
+        idx = f"uq_{tbl}_identity_code"
         op.drop_index(idx, table_name=tbl)
         op.drop_column(tbl, "identity_code")

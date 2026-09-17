@@ -34,15 +34,19 @@ _STATE = _UUIDv7State()
 
 def uuid7(as_str: bool = True) -> str | uuid.UUID:
     """
-    Generate an RFC 9562 compliant UUIDv7.
-    - 48 bits: Unix timestamp in milliseconds (gives monotonic index-friendly sort order)
-    - 4 bits: Version (0b0111 = 7)
-    - 12 bits: Sub-millisecond sequence counter (prevents collisions in same millisecond)
-    - 2 bits: Variant (0b10 = RFC 4122/9562)
-    - 62 bits: Cryptographically secure random bits
+    Generate an RFC 9562-compatible UUIDv7.
 
-    Output matches canonical UUID string format:
-    '0198c7e4-8d42-7a19-b231-1e2478ab0192'
+    Architecture Contract:
+    - RFC 9562-compatible layout:
+      * 48 bits: Unix timestamp in milliseconds
+      * 4 bits: Version (0b0111 = 7)
+      * 12 bits: Sub-millisecond monotonic sequence counter (0x000 - 0xFFF)
+      * 2 bits: Variant (0b10 = RFC 4122/9562)
+      * 62 bits: Cryptographically secure random bits
+    - Generator-level monotonic ordering:
+      * Enforces local monotonic lexical ordering within this process/generator
+    - Uniqueness enforced by DB constraints (PRIMARY KEY / UNIQUE INDEX)
+    - Not a universal guarantee of global temporal ordering across distributed clocks
     """
     with _STATE.lock:
         current_ms = int(time.time() * 1000)

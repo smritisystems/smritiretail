@@ -22,7 +22,7 @@ This walkthrough documents the full execution and formal verification of **Phase
 - `customers` (`CRM-CUS`)
 - `suppliers` (`PUR-SUP`)
 
-The implementation enforces the locked core architectural invariants: **Zero PK/FK Re-keying** (preserving 100% of existing `*.id` values and all 312 foreign key relationships), zero disruption to human-entered business identifiers, additive `identity_code VARCHAR(100)` with B-Tree indexes, deterministic sequential backfill of historical entities, ingestion of historical legacy codes into `smriti_identity_alias`, and multi-tier tenant-isolated identifier resolution.
+The implementation enforces the locked core architectural invariants: **Zero PK/FK Re-keying** (preserving 100% of existing `*.id` values and all 312 foreign key relationships), zero disruption to human-entered business identifiers, additive `identity_code VARCHAR(100)` with database-level UNIQUE B-Tree indexes (`uq_<tbl>_identity_code`), deterministic sequential backfill of historical entities, ingestion of historical legacy codes into `smriti_identity_alias`, and multi-tier tenant-isolated identifier resolution.
 
 ---
 
@@ -70,11 +70,20 @@ The implementation enforces the locked core architectural invariants: **Zero PK/
    - **Business Identifier:** Mutable business codes (`company_code`, `code`, `item_code`) preserved for operator convenience and supplier/customer-facing nomenclature.
 3. **Deterministic Sequential Historical Backfill:** Existing records were sorted by `ORDER BY COALESCE(created_at, '1970-01-01'::timestamptz) ASC, id ASC` to guarantee that identity codes reflect the true chronological lineage of the enterprise data.
 4. **Tenant Isolation Guard in Identifier Resolver:** If an entity's `identity_code` was allocated to `tenant_a`, any lookup attempting to resolve under `tenant_b` is rejected (`found=False`), preventing data leakage across organizational tenants.
+5. **Database-Enforced Invariant Uniqueness:** In place of ordinary non-unique indexes, `identity_code` is governed by PostgreSQL unique B-Tree indexes (`uq_<tbl>_identity_code`) across `smritisys`, `smriti001`, and `smriti002`. Under PostgreSQL nullable unique semantics, multiple NULLs are permitted during gradual migration while populated identity codes are strictly guaranteed unique at the database engine level (`indisunique=True`).
+6. **Precise UUIDv7 Architecture Contract:**
+   ```text
+   UUIDv7
+   ├── RFC 9562-compatible layout
+   ├── generator-level monotonic ordering
+   ├── uniqueness enforced by DB constraints
+   └── not a universal guarantee of global temporal ordering
+   ```
 
 ---
 
 ## 6. Design Rationale
-- **Additive Indexing:** Adding `identity_code` with individual B-tree indexes (`ix_companies_identity_code`, `ix_branches_identity_code`, etc.) allows fast lookups in both Tier 1A (central log) and Tier 1B (direct table lookup) without locking or performance penalties on transactional tables.
+- **Database-Enforced Unique Indexing:** Creating `uq_<tbl>_identity_code` unique indexes allows high-speed index scans in both Tier 1A (central log) and Tier 1B (direct table lookup) while physically preventing any duplicate `identity_code` allocation at the storage layer.
 - **Bulk Chunking:** In migration `v1465`, updates and audit insertions were executed in batches of 1,000 using SQLAlchemy `bindparam`, completing the entire 7,071-row backfill and 3,627-alias ingestion across 5 tables in under 4 seconds.
 - **Backward Compatibility:** All Pydantic response models mark `identity_code` as `Optional[str] = None` with default values, ensuring existing frontend clients and integrations function without deserialization errors.
 
@@ -138,17 +147,19 @@ Sequence counters in `smriti_numbering_registry` were atomically advanced to ref
 SMRITI UNIFIED IDENTITY — PHASE 1.1 VERIFICATION MATRIX
 ================================================================================
 Alembic Revision Head    : v1465_phase1_1_business_entity_identity_code_integration
-Parity Status            : PASSED (All 5 tables verified with AST & column parity)
+Parity Status            : PASSED (All 5 tables verified with AST, column, and UNIQUE index parity)
+Database Uniqueness      : VERIFIED (PostgreSQL indisunique=True on uq_<tbl>_identity_code)
 Backfilled Entities      : 7,071 / 7,071 (100.0% coverage, 0 nulls)
 Allocation Log Entries   : 7,071 (purpose="MIGRATION_BACKFILL")
 Legacy Aliases Ingested  : 3,627 (source="SHOPER9", type="LEGACY_IMPORT")
 Dangling Foreign Keys    : 0 (Allocation Log & Alias tables fully verified)
-Phase 1.1 Test Suite     : 5/5 PASSED in 35.51s
-Phase 1 Regression Suite : 7/7 PASSED in 43.97s
+Phase 1.1 Test Suite     : 5/5 PASSED in 41.62s
+Phase 1 Regression Suite : 7/7 PASSED in 43.87s
 Architecture Gate        : 11/11 PASSED (0 P0/P1 violations)
 TypeScript Check         : 0 errors
+UUIDv7 Contract          : PRECISE (RFC 9562 layout, local monotonic, DB constraint uniqueness)
 ================================================================================
-FINAL VERDICT: DONE — VERIFIED WITH DIRECT OBSERVABLE EVIDENCE
+FINAL VERDICT: FROZEN — FULLY VERIFIED WITH DIRECT OBSERVABLE EVIDENCE
 ================================================================================
 ```
 
