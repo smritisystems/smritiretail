@@ -250,8 +250,12 @@ export const SmritiCustomerAdditionalDetailsTab: React.FC<SmritiCustomerAddition
                 Bill On Price
               </label>
               <select
-                value={customer.pricingBasis || "MRP"}
-                onChange={e => onChange("pricingBasis", e.target.value as "MRP" | "RATE")}
+                value={customer.pricingBasis || customer.pricing_basis || "MRP"}
+                onChange={e => {
+                  const val = e.target.value as "MRP" | "RATE";
+                  onChange("pricingBasis", val);
+                  onChange("pricing_basis", val);
+                }}
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] rounded-lg text-xs font-bold text-[#00355f] dark:text-[#8ebdf9]"
               >
                 <option value="MRP">MRP (Retail)</option>

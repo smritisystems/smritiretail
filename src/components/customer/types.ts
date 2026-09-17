@@ -119,11 +119,14 @@ export interface RetailCustomerRecord {
   billingStoreCode?: string;
   shippingStoreCode?: string;
   isTaxInclusive: boolean;
+  is_tax_inclusive?: boolean;
   delimiter: string;
   buyingFactor: number;
   sellingFactor: number;
   pricingBasis?: "MRP" | "RATE";
+  pricing_basis?: "MRP" | "RATE";
   allowPromotionsOnRate?: boolean;
+  allow_promotions_on_rate?: boolean;
   
   // Mailing Addresses
   mailingAddresses: CustomerAddressEntry[];

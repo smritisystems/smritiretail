@@ -338,25 +338,27 @@ const syncCanonicalCustomerLocations = async (
 
 const SEED_CUSTOMERS: RetailCustomerRecord[] = [
   {
-    id: "cust-1",
-    code: "CUST-001",
-    name: "Siddharth Mallah",
-    priceGroup: "TI#Tech Infotech Ltd",
-    phone: "9845510001",
-    email: "siddharth.mallah@gmail.com",
+    id: "cust-rrl-192b561d",
+    code: "RRL-001",
+    name: "Reliance Retail Limited",
+    priceGroup: "CORP#Standard Corporate",
+    phone: "9820098200",
+    email: "billing@relianceretail.com",
     religion: "Hindu",
     ethnicity: "Asian",
-    ageGroup: ">=35 - <45",
-    profession: "Senior Consultant",
-    customerType: "Retail",
-    profileNotes: "Prefers leather footwear and comfort insoles. Regular VIP shopper at Jayanagar store.",
-    companyCode: "009",
-    environment: "Retail",
+    ageGroup: ">=20 - <35",
+    profession: "Corporate Enterprise",
+    customerType: "Corporate",
+    profileNotes: "Authoritative Enterprise Corporate Customer with multiple delivery and billing locations.",
+    companyCode: "001",
+    environment: "Corporate",
     flatFileFormat: "GUI with Delimiter Format",
     storeCode: "",
-    billingStoreCode: "",
+    billingStoreCode: "BILL-A",
     shippingStoreCode: "",
     isTaxInclusive: true,
+    pricingBasis: "MRP",
+    allowPromotionsOnRate: false,
     delimiter: ";",
     buyingFactor: 1.00,
     sellingFactor: 1.00,
@@ -365,27 +367,25 @@ const SEED_CUSTOMERS: RetailCustomerRecord[] = [
     primaryAccountCode: "",
     primaryAccountName: "",
     applyParentMailingInfo: false,
-    dependants: [
-      { code: "DEP-001", name: "Sara Jameel", relation: "Daughter", applySameMailing: true }
-    ],
+    dependants: [],
     gender: "Female",
-    dateOfBirth: "1988-05-14",
-    isMarried: true,
-    weddingAnniversary: "2012-11-20",
+    dateOfBirth: "",
+    isMarried: false,
+    weddingAnniversary: "",
     loyaltyPgmId: "024",
     loyaltyPgmCode: "DSC",
-    loyaltyTier: "Gold",
-    loyaltyPointsBalance: 1450,
+    loyaltyTier: "Standard",
+    loyaltyPointsBalance: 0,
     paymentCategory: "CASH",
-    paymentTerm: "Immediate",
-    creditLimit: 50000,
-    creditDays: 30,
-    creditUsed: 12500,
+    paymentTerm: "Net 45 Days",
+    creditLimit: 100000,
+    creditDays: 45,
+    creditUsed: 0,
     transportMode: "By-Road",
     transportCode: "VRL",
     transitDays: 2,
     bankCode: "HDFC000123",
-    bankLocation: "Jayanagar 4th Block",
+    bankLocation: "Mumbai Bandra Kurla",
     retailFactor: 1.00,
     dealerFactor: 0.85,
     destinationTaxType: "318#GST_RETAIL",
@@ -394,11 +394,11 @@ const SEED_CUSTOMERS: RetailCustomerRecord[] = [
     allowCreditInvoice: true,
     allowMiscIssue: false,
     allowMiscReceipts: true,
-    lstNumber: "LST-KA-9901",
-    lstDate: "2020-04-01",
-    cstNumber: "CST-KA-8802",
-    cstDate: "2020-04-01",
-    gstin: "29AABCT1332L1ZV",
+    lstNumber: "LST-001",
+    lstDate: "",
+    cstNumber: "CST-001",
+    cstDate: "",
+    gstin: "27AAACR1921R1Z5",
     panNumber: "ABCDE1234F",
     isPreSaleFormApplicable: false,
     preSaleFormName: "",
@@ -406,7 +406,7 @@ const SEED_CUSTOMERS: RetailCustomerRecord[] = [
     postSaleFormName: "",
     status: "Active",
     createdAt: "2026-01-10",
-    updatedAt: "2026-08-21"
+    updatedAt: "2026-09-17"
   },
   {
     id: "cust-2",
@@ -784,15 +784,25 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                (currentCust?.code && c.code === currentCust.code)
         );
 
+        let targetCust: RetailCustomerRecord | null = null;
+        let targetIndex = 0;
+
         if (matchIndex >= 0) {
-          const matched = mappedList[matchIndex];
-          setCurrentIndex(matchIndex);
-          setActiveCustomerId(matched.id);
-          activeCustomerIdRef.current = matched.id;
+          targetIndex = matchIndex;
+          targetCust = mappedList[matchIndex];
+        } else if (mappedList.length > 0 && !currentActiveId?.startsWith("cust-draft-")) {
+          targetIndex = 0;
+          targetCust = mappedList[0];
+        }
+
+        if (targetCust) {
+          setCurrentIndex(targetIndex);
+          setActiveCustomerId(targetCust.id);
+          activeCustomerIdRef.current = targetCust.id;
           // If the user has pending edits in the active editor, preserve local form changes
           if (!isDirtyRef.current) {
-            setCurrentCustomer(JSON.parse(JSON.stringify(matched)));
-            currentCustomerRef.current = matched;
+            setCurrentCustomer(JSON.parse(JSON.stringify(targetCust)));
+            currentCustomerRef.current = targetCust;
           }
         }
       }
@@ -817,14 +827,25 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                    (currentCust?.id && c.id === currentCust.id) ||
                    (currentCust?.code && c.code === currentCust.code)
             );
+
+            let targetCust: RetailCustomerRecord | null = null;
+            let targetIndex = 0;
+
             if (matchIndex >= 0) {
-              const matched = mapped[matchIndex];
-              setCurrentIndex(matchIndex);
-              setActiveCustomerId(matched.id);
-              activeCustomerIdRef.current = matched.id;
+              targetIndex = matchIndex;
+              targetCust = mapped[matchIndex];
+            } else if (mapped.length > 0 && !currentActiveId?.startsWith("cust-draft-")) {
+              targetIndex = 0;
+              targetCust = mapped[0];
+            }
+
+            if (targetCust) {
+              setCurrentIndex(targetIndex);
+              setActiveCustomerId(targetCust.id);
+              activeCustomerIdRef.current = targetCust.id;
               if (!isDirtyRef.current) {
-                setCurrentCustomer(JSON.parse(JSON.stringify(matched)));
-                currentCustomerRef.current = matched;
+                setCurrentCustomer(JSON.parse(JSON.stringify(targetCust)));
+                currentCustomerRef.current = targetCust;
               }
             }
           }
@@ -901,8 +922,12 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       const cleanName = currentCustomer.name.trim();
       const cleanCode = currentCustomer.code?.trim() || undefined;
 
-      const isExistingInBackend = customers.some(c => c.id === currentCustomer.id && !c.id.startsWith("cust-draft-") && !c.id.startsWith("cust-17"));
-      const isBackendId = currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-") && !currentCustomer.id.startsWith("cust-17");
+      const existingInList = customers.find(c =>
+        (c.id === currentCustomer.id && !c.id.startsWith("cust-draft-") && !c.id.startsWith("cust-1")) ||
+        (c.code && currentCustomer.code && c.code.trim().toUpperCase() === currentCustomer.code.trim().toUpperCase() && !c.id.startsWith("cust-draft-"))
+      );
+      const targetBackendId = existingInList ? existingInList.id : currentCustomer.id;
+      const isExistingInBackend = Boolean(existingInList) && !targetBackendId.startsWith("cust-draft-") && !targetBackendId.startsWith("cust-1");
 
       const resolvedCustomerGroupId = currentCustomer.customerGroupId || currentCustomer.customer_group_id || (
         currentCustomer.customerType === "Corporate" || currentCustomer.customerType === "Wholesale" ? "CG-Corporate" : (currentCustomer.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail")
@@ -915,22 +940,39 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         email: cleanEmail,
         gst_number: cleanGstin,
         customer_group_id: resolvedCustomerGroupId,
+        pricing_basis: currentCustomer.pricingBasis || currentCustomer.pricing_basis || "MRP",
+        allow_promotions_on_rate: Boolean(currentCustomer.allowPromotionsOnRate ?? currentCustomer.allow_promotions_on_rate),
+        is_tax_inclusive: Boolean(currentCustomer.isTaxInclusive ?? currentCustomer.is_tax_inclusive),
         outstanding: Number(currentCustomer.creditUsed || 0),
         status: currentCustomer.status || "Active",
         tags: [currentCustomer.customerType || "Retail", "B2B"].filter(Boolean)
       };
 
       let savedBackendCust: any = null;
-      if (isExistingInBackend && isBackendId) {
-        savedBackendCust = await apiFetchV1(`/crm/customers/${currentCustomer.id}`, {
+      if (isExistingInBackend) {
+        savedBackendCust = await apiFetchV1(`/crm/customers/${targetBackendId}`, {
           method: "PUT",
           body: JSON.stringify(backendPayload)
         });
       } else {
-        savedBackendCust = await apiFetchV1("/crm/customers", {
-          method: "POST",
-          body: JSON.stringify(backendPayload)
-        });
+        try {
+          savedBackendCust = await apiFetchV1("/crm/customers", {
+            method: "POST",
+            body: JSON.stringify(backendPayload)
+          });
+        } catch (postErr: any) {
+          const postErrStr = String(postErr?.message || postErr || "");
+          const existingIdMatch = postErrStr.match(/['"]id['"]:\s*['"]([^'"]+)['"]/);
+          if (existingIdMatch && existingIdMatch[1]) {
+            const matchedId = existingIdMatch[1];
+            savedBackendCust = await apiFetchV1(`/crm/customers/${matchedId}`, {
+              method: "PUT",
+              body: JSON.stringify(backendPayload)
+            });
+          } else {
+            throw postErr;
+          }
+        }
       }
 
       const rawSavedGstin = savedBackendCust?.gstNumber ?? savedBackendCust?.gst_number ?? savedBackendCust?.gstin ?? currentCustomer.gstin;
@@ -938,6 +980,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       const rawSavedDays = savedBackendCust?.creditDays ?? savedBackendCust?.credit_days ?? currentCustomer.creditDays;
       const rawSavedTerm = savedBackendCust?.paymentTerm ?? savedBackendCust?.payment_term ?? currentCustomer.paymentTerm;
       const rawSavedGroupId = savedBackendCust?.customerGroupId ?? savedBackendCust?.customer_group_id ?? resolvedCustomerGroupId;
+      const rawSavedBasis = savedBackendCust?.pricingBasis ?? savedBackendCust?.pricing_basis ?? currentCustomer.pricingBasis ?? "MRP";
+      const rawSavedAllowPromo = savedBackendCust?.allowPromotionsOnRate ?? savedBackendCust?.allow_promotions_on_rate ?? currentCustomer.allowPromotionsOnRate ?? false;
+      const rawSavedTaxInc = savedBackendCust?.isTaxInclusive ?? savedBackendCust?.is_tax_inclusive ?? currentCustomer.isTaxInclusive ?? true;
 
       const recordToSave: RetailCustomerRecord = {
         ...currentCustomer,
@@ -948,6 +993,12 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         gstin: rawSavedGstin !== undefined && rawSavedGstin !== null ? String(rawSavedGstin).trim() : "",
         customerGroupId: rawSavedGroupId,
         customer_group_id: rawSavedGroupId,
+        pricingBasis: rawSavedBasis,
+        pricing_basis: rawSavedBasis,
+        allowPromotionsOnRate: rawSavedAllowPromo,
+        allow_promotions_on_rate: rawSavedAllowPromo,
+        isTaxInclusive: rawSavedTaxInc,
+        is_tax_inclusive: rawSavedTaxInc,
         creditLimit: rawSavedLimit !== undefined && rawSavedLimit !== null ? Number(rawSavedLimit) : 0,
         creditDays: rawSavedDays !== undefined && rawSavedDays !== null ? Number(rawSavedDays) : 0,
         paymentTerm: rawSavedTerm !== undefined && rawSavedTerm !== null && String(rawSavedTerm).trim() !== ""
@@ -956,10 +1007,14 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         updatedAt: new Date().toISOString().split("T")[0]
       };
 
-      recordToSave.mailingAddresses = await syncCanonicalCustomerLocations(
-        savedBackendCust?.id || currentCustomer.id,
-        currentCustomer.mailingAddresses
-      );
+      try {
+        recordToSave.mailingAddresses = await syncCanonicalCustomerLocations(
+          savedBackendCust?.id || currentCustomer.id,
+          currentCustomer.mailingAddresses
+        );
+      } catch (locErr) {
+        console.warn("[Customer Master Location Sync Warning]:", locErr);
+      }
 
       const savedId = recordToSave.id;
       const savedCode = recordToSave.code;
@@ -976,7 +1031,6 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         savedIndex = updated.length - 1;
       }
 
-      // Explicitly anchor active identity to authoritative saved backend ID before background refresh
       setActiveCustomerId(savedId);
       activeCustomerIdRef.current = savedId;
       setCurrentIndex(savedIndex);
@@ -988,36 +1042,33 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
       // Universal cache synchronization with normalized representation
       try {
-        localStorage.setItem("smriti_customers", JSON.stringify(updated.map(c => {
-          const grpIdToSave = c.customerGroupId || c.customer_group_id || (
-            c.customerType === "Corporate" || c.customerType === "Wholesale" ? "CG-Corporate" : (c.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail")
-          );
-          return {
-            id: c.id,
-            code: c.code,
-            name: c.name,
-            mobile: c.phone,
-            email: c.email,
-            gstNumber: c.gstin,
-            customerGroupId: grpIdToSave,
-            customer_group_id: grpIdToSave,
-            creditLimit: c.creditLimit,
-            creditDays: c.creditDays,
-            paymentTerm: c.paymentTerm,
-            outstanding: c.creditUsed,
-            status: c.status,
-            tags: [c.customerType || "Retail", "B2B"],
-            customer_type: c.customerType,
-            customerType: c.customerType,
-            environment: c.environment,
-            price_group: c.priceGroup,
-            priceGroup: c.priceGroup,
-            store_code: c.storeCode || null,
-            billing_store_code: c.billingStoreCode || null,
-            shipping_store_code: c.shippingStoreCode || null,
-            mailing_addresses: normalizeMailingAddresses(c.mailingAddresses)
-          };
-        })));
+        localStorage.setItem("smriti_customers", JSON.stringify(updated.map(c => ({
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          mobile: c.phone,
+          email: c.email,
+          gstNumber: c.gstin,
+          customerGroupId: c.customerGroupId || c.customer_group_id,
+          pricingBasis: c.pricingBasis || c.pricing_basis,
+          allowPromotionsOnRate: c.allowPromotionsOnRate ?? c.allow_promotions_on_rate,
+          isTaxInclusive: c.isTaxInclusive ?? c.is_tax_inclusive,
+          creditLimit: c.creditLimit,
+          creditDays: c.creditDays,
+          paymentTerm: c.paymentTerm,
+          outstanding: c.creditUsed,
+          status: c.status,
+          tags: [c.customerType || "Retail", "B2B"],
+          customer_type: c.customerType,
+          customerType: c.customerType,
+          environment: c.environment,
+          price_group: c.priceGroup,
+          priceGroup: c.priceGroup,
+          store_code: c.storeCode || null,
+          billing_store_code: c.billingStoreCode || null,
+          shipping_store_code: c.shippingStoreCode || null,
+          mailing_addresses: normalizeMailingAddresses(c.mailingAddresses)
+        }))));
         localStorage.removeItem("smriti_retail_customers");
       } catch {}
 
@@ -1029,13 +1080,27 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       );
     } catch (err: any) {
       console.error("[Customer Master Save Error]:", err);
-      let errMsg = err?.message || "Failed to persist customer to backend database.";
-      if (typeof errMsg === "string" && errMsg.toLowerCase().includes("mobile number already exists")) {
-        errMsg = "A customer with this mobile number is already registered in the system. Please provide a distinct mobile number or update the existing customer profile.";
+      const rawErrMsg = String(err?.message || err || "");
+      let errorTitle = "Save Failed";
+      let errorExplanation = "Failed to persist customer details to backend database.";
+      let suggestedAction = "Please verify your entries and try again.";
+
+      if (rawErrMsg.includes("DUPLICATE_CUSTOMER") || rawErrMsg.includes("already recorded") || rawErrMsg.includes("already registered")) {
+        errorTitle = "Duplicate Customer Account";
+        const reasonMatch = rawErrMsg.match(/['"]reason['"]:\s*['"]([^'"]+)['"]/);
+        errorExplanation = reasonMatch ? reasonMatch[1] : "A customer profile with this mobile number, GSTIN, or customer code is already registered in the system.";
+        suggestedAction = "Please search and open the existing customer profile to update details, or provide distinct credentials.";
+      } else if (rawErrMsg.toLowerCase().includes("mobile number already exists")) {
+        errorTitle = "Mobile Number In Use";
+        errorExplanation = "A customer with this mobile number is already registered in the system.";
+        suggestedAction = "Please provide a distinct mobile number or update the existing customer profile.";
+      } else if (rawErrMsg) {
+        errorExplanation = rawErrMsg;
       }
+
       onNotification?.(
-        "Save Failed",
-        errMsg,
+        errorTitle,
+        `${errorExplanation} ${suggestedAction}`,
         "error"
       );
     } finally {
