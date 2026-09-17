@@ -74,6 +74,8 @@ class Customer(BaseEntity):
     # row by the service layer.
     gst_number = Column(String(15))
     is_tax_inclusive = Column(Boolean, nullable=True, default=None)  # Customer-specific tax policy override
+    pricing_basis = Column(String(20), nullable=False, default="MRP", server_default="MRP")  # "MRP" | "RATE"
+    allow_promotions_on_rate = Column(Boolean, nullable=False, default=False, server_default=text("false"))  # If True, retail promos stack on Rate
     outstanding = Column(Numeric(15, 2), default=0.00)
     status = Column(String(20), default="Active")
     created_date = Column(Date, default=date.today)

@@ -277,20 +277,30 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const prevCustomer = customer;
     const enrichedCustomer: ProPosCustomer = {
       ...nextCustomer,
-      customerGroup: nextCustomer.customerGroup || nextCustomer.customerGroupId || (nextCustomer.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined)
+      customerGroup: nextCustomer.customerGroup || nextCustomer.customerGroupId || (nextCustomer.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+      pricingBasis: nextCustomer.pricingBasis || (nextCustomer.customerGroup === "CG-Corporate" || nextCustomer.customerGroupId === "CG-Corporate" ? "RATE" : "MRP"),
+      allowPromotionsOnRate: Boolean(nextCustomer.allowPromotionsOnRate),
     };
     if (SmritiSalesPromotionService.isRelianceCustomer(enrichedCustomer)) {
       SmritiSalesPromotionService.ensureReliance4376Promotion();
     }
     setCustomer(enrichedCustomer);
 
-    // Alt+M Mid-Bill Customer Switch: Re-evaluate promotions across all active cart lines
-    const isCustomerSwitch = prevCustomer.id !== enrichedCustomer.id || prevCustomer.code !== enrichedCustomer.code;
+    // Alt+M Mid-Bill Customer Switch: Re-evaluate promotions and pricing basis across all active cart lines
+    const isCustomerSwitch = prevCustomer.id !== enrichedCustomer.id || prevCustomer.code !== enrichedCustomer.code || prevCustomer.pricingBasis !== enrichedCustomer.pricingBasis;
     if (!skipReevaluation && isCustomerSwitch && cartItems.length > 0) {
       const isReliance = SmritiSalesPromotionService.isRelianceCustomer(enrichedCustomer);
+      const isRate = enrichedCustomer.pricingBasis === "RATE";
       setCartItems(prevItems => {
         return prevItems.map(it => {
-          const baseRate = (isReliance && it.mrp && it.mrp > 0) ? it.mrp : it.unitPrice;
+          let baseRate = (isReliance && it.mrp && it.mrp > 0) ? it.mrp : it.unitPrice;
+          if (!isReliance) {
+            if (isRate) {
+              baseRate = it.unitPrice || it.mrp;
+            } else {
+              baseRate = it.mrp || it.unitPrice;
+            }
+          }
           const promoRes = SmritiSalesPromotionService.resolveBestItemPromo({
             sku: it.sku,
             barcode: it.barcode,
@@ -300,6 +310,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             customerGroup: enrichedCustomer.customerGroup,
             customerCode: enrichedCustomer.code || enrichedCustomer.id,
             customerName: enrichedCustomer.name,
+            pricingBasis: enrichedCustomer.pricingBasis || "MRP",
+            allowPromotionsOnRate: enrichedCustomer.allowPromotionsOnRate || false,
             evalDate: new Date()
           });
 
@@ -308,7 +320,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           const discCode = promoRes.promo ? promoRes.promoCode : "ILD";
           const finalUnitPrice = (isReliance && it.mrp && it.mrp > 0)
             ? Math.round(it.mrp * (1 - discPct / 100) * 100) / 100
-            : it.unitPrice;
+            : baseRate;
 
           const gst = calculateGST({
             unitPrice: finalUnitPrice,
@@ -326,18 +338,17 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             discountPct: discPct,
             discountAmt: discAmt,
             promoDescription: promoRes.promoDescription,
-            promoBadge: promoRes.promo ? promoRes.promoCode : undefined,
+            promoBadge: promoRes.promo ? promoRes.promoCode : (isRate ? "RATE" : undefined),
             taxAmt: gst.taxAmount,
             taxableValue: gst.taxableValue,
             cgstAmount: gst.cgstAmount,
             sgstAmount: gst.sgstAmount,
             igstAmount: gst.igstAmount,
-            lineTotal: gst.totalAmount
+            lineTotal: gst.totalAmount,
           };
         });
       });
 
-      // Asynchronously audit log mid-bill customer change
       void apiFetchV1("/pos/customer-switch-log", {
         method: "POST",
         body: JSON.stringify({
@@ -1066,8 +1077,11 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       const items = Array.isArray(resp) ? resp : (resp?.items || []);
       if (items.length > 0) {
         const p = items[0];
-        setDirectDescription(p.product_name || p.name || `Retail Item ${term}`);
-        const unitP = (parseFloat(p.selling_price || p.mrp || p.price) || 999.00).toFixed(2);
+        const isRate = customer.pricingBasis === "RATE";
+        const catMrp = parseFloat(p.mrp || p.price || 0) || 999.00;
+        const catSelling = parseFloat(p.selling_price || p.price || catMrp) || catMrp;
+        const baseUnit = isRate ? catSelling : catMrp;
+        const unitP = baseUnit.toFixed(2);
         const meta: AutoPopulateProductResult = {
           id: p.id || term,
           name: p.product_name || p.name || `Retail Item ${term}`,
@@ -1076,8 +1090,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           stockNo: p.style_code || p.stock_no || term,
           barcode: p.barcode || term,
           description: p.description || p.name || "",
-          sellingPrice: parseFloat(unitP),
-          mrp: parseFloat(p.mrp || unitP),
+          sellingPrice: catSelling,
+          mrp: catMrp,
           costPrice: parseFloat(p.cost_price || 0),
           stockQty: p.stock_quantity || 1,
           category: p.category || "",
@@ -1098,6 +1112,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           qty: parseFloat(directQty) || 1,
           customerGroup: customer.customerGroup || customer.customerGroupId || (customer.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
           customerCode: customer.code || customer.id,
+          pricingBasis: customer.pricingBasis || "MRP",
+          allowPromotionsOnRate: customer.allowPromotionsOnRate || false,
           evalDate: new Date()
         });
         setDirectPromoResult(promoRes);
@@ -1642,7 +1658,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           shift_id: effectiveShiftId,
           payment_mode: paymentMode,
           grand_total: netPayableAmount,
-          customer_id: customer.id.startsWith("cust-") ? undefined : customer.id,
+          customer_id: (customer.id === "cust-01" || customer.code === "C01" || !customer.id) ? undefined : customer.id,
           customer_name: customer.name,
           billing_location_id: selectedBillingLocation?.id,
           billing_store_code: selectedBillingLocation?.billing_store_code,
@@ -2263,9 +2279,18 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         {/* Customer Code & Name (with F2 Browse Window) */}
         <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
           <div className="flex justify-between items-center">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
-              Customer Code &amp; Name
-            </label>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+                Customer Code &amp; Name
+              </label>
+              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                customer.pricingBasis === "RATE"
+                  ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200"
+                  : "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200"
+              }`}>
+                {customer.pricingBasis === "RATE" ? "BILL ON: RATE (Wholesale)" : "BILL ON: MRP (Retail)"}
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => setShowCustomerBrowseModal(true)}

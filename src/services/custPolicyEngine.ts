@@ -53,6 +53,8 @@ export function resolveCustomerPolicy(
     gstPercentageOverride: customer.gstPercentageOverride ?? group.gstPercentageOverride,
     taxCategory: customer.taxCategory ?? group.taxCategory,
     priceListId: customer.priceListId ?? group.defaultPriceListId,
+    pricingBasis: customer.pricingBasis ?? group.defaultPricingBasis ?? "MRP",
+    allowPromotionsOnRate: customer.allowPromotionsOnRate ?? group.defaultAllowPromotionsOnRate ?? false,
     maxDiscountPercent: group.maxDiscountPercent,
     minMarginPercent: group.minMarginPercent,
     roundingRule: group.roundingRule,

@@ -65,6 +65,8 @@ export interface ProPosCustomer {
   priceGroupCode?: string;
   itemClassificationPriceFactorApplicable?: boolean;
   registrationType?: "REGISTERED" | "UNREGISTERED";
+  pricingBasis?: "MRP" | "RATE";
+  allowPromotionsOnRate?: boolean;
 }
 
 export interface ProPosTenderSplit {

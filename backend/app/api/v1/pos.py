@@ -591,7 +591,7 @@ async def log_customer_switch(
 ):
     log_record = InvoiceCustomerChangeLog(
         id=f"cswitch-{uuid.uuid4().hex[:12]}",
-        tenant_id=tenant.tenant_id,
+        tenant_id=getattr(tenant, "tenant_id", None) or tenant.company_id,
         company_id=tenant.company_id,
         session_id=payload.get("session_id", "SESSION-DEFAULT"),
         draft_invoice_id=payload.get("draft_invoice_id"),

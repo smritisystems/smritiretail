@@ -122,6 +122,8 @@ export interface RetailCustomerRecord {
   delimiter: string;
   buyingFactor: number;
   sellingFactor: number;
+  pricingBasis?: "MRP" | "RATE";
+  allowPromotionsOnRate?: boolean;
   
   // Mailing Addresses
   mailingAddresses: CustomerAddressEntry[];
