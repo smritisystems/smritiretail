@@ -282,6 +282,24 @@ class ProductResponse(ProductBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @model_validator(mode="after")
+    def validate_pricing_hierarchy(self) -> "ProductResponse":  # type: ignore[override]
+        """
+        Override the strict input validator from ProductBase.
+        During response serialization, legacy DB rows may have NULL buying_price /
+        cost_price. We coerce to safe defaults instead of raising, so that
+        existing inventory data never causes a 500 ResponseValidationError.
+        """
+        if self.price is None:
+            self.price = Decimal("0.00")
+        if self.mrp is None:
+            self.mrp = self.price
+        if self.buying_price is None or self.buying_price <= Decimal("0"):
+            self.buying_price = self.price if self.price > Decimal("0") else Decimal("0.00")
+        if self.cost_price is None or self.cost_price <= Decimal("0"):
+            self.cost_price = self.buying_price
+        return self
+
 
 class StockMovementCreate(BaseModel):
     product_id: str = Field(..., max_length=50)
