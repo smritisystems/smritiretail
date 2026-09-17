@@ -219,7 +219,9 @@ export type CsvFormatTier =
   | "FORMAT_4"
   | "FORMAT_5"
   | "FORMAT_6"
-  | "FORMAT_PDT";
+  | "FORMAT_PDT"
+  | "FORMAT_B2B_RATE"
+  | "FORMAT_COMMERCIAL_DISC";
 
 export type CsvRowStatus = "VALID" | "WARNING" | "REJECTED";
 
@@ -235,15 +237,21 @@ export interface CsvImportRow {
   quantity?: number;
   catalog_mrp?: number;
   effective_selling_price?: number;
+  is_tax_inclusive?: boolean;
+  tax_mode_display?: string;
   mrp_markdown_pct?: number;
   mrp_markdown_display?: string;
   gst_rate?: number;
   taxable_value?: number;
   cgst_amount?: number;
   sgst_amount?: number;
+  igst_amount?: number;
   line_total?: number;
   available_stock?: number;
   uom?: string;
+  batch_no?: string;
+  expiry_date?: string;
+  salesperson_id?: string;
   warnings?: string[];
   // Error (REJECTED)
   error_code?: string;
@@ -258,5 +266,7 @@ export interface CsvImportResult {
   rejected_rows: number;
   warning_rows: number;
   can_proceed: boolean;
+  import_log_id?: string;
   rows: CsvImportRow[];
 }
+
