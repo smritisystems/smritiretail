@@ -43,6 +43,13 @@ class SalaryStructure(BaseModel):
 
 class PaymentDetails(BaseModel):
     frequency: str = "Monthly"
+    paymentMode: str = "Bank Transfer"
+    bankName: Optional[str] = ""
+    accountNumber: Optional[str] = ""
+    ifscCode: Optional[str] = ""
+    branchName: Optional[str] = ""
+    accountType: Optional[str] = "Savings"
+    nameAsPerBank: Optional[str] = ""
     bankDetails: str = ""
     upi: str = ""
     salaryEffectiveFrom: str = ""
@@ -54,6 +61,7 @@ class PaymentDetails(BaseModel):
     fatherSpouseName: Optional[str] = ""
     bloodGroup: Optional[str] = ""
     maritalStatus: Optional[str] = ""
+    emergencyContactRelation: Optional[str] = ""
     permanentAddress: Optional[str] = ""
 
 

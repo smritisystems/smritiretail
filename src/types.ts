@@ -896,13 +896,29 @@ export interface User {
     policyAnnouncements: boolean;
   };
 
-  // Payment Details
+  // Payment Details & Statutory KYC
   payment?: {
     frequency: "Monthly" | "Weekly" | "Bi-weekly";
+    paymentMode?: "Bank Transfer" | "NEFT/RTGS" | "Cheque" | "Cash" | "UPI";
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    branchName?: string;
+    accountType?: "Savings" | "Current" | "Salary";
+    nameAsPerBank?: string;
     bankDetails: string;
     upi: string;
     salaryEffectiveFrom: string;
     commissionEffectiveFrom: string;
+    panNumber?: string;
+    aadhaarNumber?: string;
+    providentFundUan?: string;
+    esicNumber?: string;
+    bloodGroup?: string;
+    fatherSpouseName?: string;
+    maritalStatus?: string;
+    emergencyContactRelation?: string;
+    permanentAddress?: string;
   };
 
   // Attendance & Performance

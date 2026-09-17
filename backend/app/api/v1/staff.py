@@ -283,10 +283,24 @@ def _merge_staff_profile(user: User, profile: Optional[StaffProfile]) -> dict:
         "notification_settings_json": "notificationSettings",
         "status": "status",
     }
+    json_fields = {
+        "salary_json": "salary",
+        "payment_json": "payment",
+        "performance_json": "performance",
+        "preferences_json": "preferences",
+        "notification_settings_json": "notificationSettings",
+        "allowed_branches": "allowedBranches",
+    }
     for source, target in profile_fields.items():
         value = getattr(profile, source)
         if value is not None:
-            payload[target] = value
+            if source in json_fields and isinstance(value, str):
+                try:
+                    payload[target] = json.loads(value)
+                except Exception:
+                    payload[target] = value
+            else:
+                payload[target] = value
     return payload
 
 
