@@ -66,6 +66,7 @@ class Customer(BaseEntity):
 
     customer_group_id = Column(String(50), ForeignKey("customer_groups.id", ondelete="RESTRICT"), index=True)
     code = Column(String(50), nullable=True, index=True)
+    identity_code = Column(String(100), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     mobile = Column(String(20), index=True)
     email = Column(String(255))

@@ -39,6 +39,7 @@ class Supplier(BaseEntity):
 
     name       = Column(String(255), nullable=False)
     code       = Column(String(50),  nullable=False)
+    identity_code = Column(String(100), nullable=True, index=True)
     gst_number = Column(String(20),  nullable=True)
     mobile     = Column(String(20),  nullable=True)
     email      = Column(String(255), nullable=True)

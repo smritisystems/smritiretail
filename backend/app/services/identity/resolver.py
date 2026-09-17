@@ -88,28 +88,52 @@ class IdentityResolver:
         parsed = IdentityValidator.parse_identity_code(clean_id)
         if parsed:
             # Tier 1A: Check smriti_identity_allocation_logs (Central issuance ledger)
-            alloc_stmt = select(SmritiIdentityAllocationLog).where(
-                SmritiIdentityAllocationLog.identity_code == clean_id,
-            )
             if tenant_id:
-                alloc_stmt = alloc_stmt.where(
-                    (SmritiIdentityAllocationLog.tenant_id == tenant_id) | (SmritiIdentityAllocationLog.tenant_id.is_(None))
+                alloc_stmt = select(SmritiIdentityAllocationLog).where(
+                    SmritiIdentityAllocationLog.identity_code == clean_id,
+                    SmritiIdentityAllocationLog.tenant_id == tenant_id,
                 )
-            if company_id:
-                alloc_stmt = alloc_stmt.where(
-                    (SmritiIdentityAllocationLog.company_id == company_id) | (SmritiIdentityAllocationLog.company_id.is_(None))
+                alloc_res = await session.execute(alloc_stmt)
+                alloc = alloc_res.scalars().first()
+                if alloc:
+                    if company_id and alloc.company_id and alloc.company_id.strip() and alloc.company_id != company_id:
+                        return IdentityResolutionResult(found=False)
+                    return IdentityResolutionResult(
+                        found=True,
+                        entity_type=alloc.entity_type,
+                        entity_id=alloc.canonical_id,
+                        identity_code=alloc.identity_code,
+                        resolution_tier="TIER_1_ALLOCATION_LOG",
+                        metadata={"purpose": alloc.purpose, "scope": alloc.scope},
+                    )
+
+                # Check if this identity code was allocated to another tenant (Tenant Isolation Guard)
+                other_tenant_stmt = select(SmritiIdentityAllocationLog).where(
+                    SmritiIdentityAllocationLog.identity_code == clean_id,
+                    SmritiIdentityAllocationLog.tenant_id.is_not(None),
+                    SmritiIdentityAllocationLog.tenant_id != "",
+                    SmritiIdentityAllocationLog.tenant_id != tenant_id,
                 )
-            alloc_res = await session.execute(alloc_stmt)
-            alloc = alloc_res.scalars().first()
-            if alloc:
-                return IdentityResolutionResult(
-                    found=True,
-                    entity_type=alloc.entity_type,
-                    entity_id=alloc.canonical_id,
-                    identity_code=alloc.identity_code,
-                    resolution_tier="TIER_1_ALLOCATION_LOG",
-                    metadata={"purpose": alloc.purpose, "scope": alloc.scope},
+                other_res = await session.execute(other_tenant_stmt)
+                if other_res.scalars().first():
+                    return IdentityResolutionResult(found=False)
+            else:
+                alloc_stmt = select(SmritiIdentityAllocationLog).where(
+                    SmritiIdentityAllocationLog.identity_code == clean_id,
                 )
+                alloc_res = await session.execute(alloc_stmt)
+                alloc = alloc_res.scalars().first()
+                if alloc:
+                    if company_id and alloc.company_id and alloc.company_id.strip() and alloc.company_id != company_id:
+                        return IdentityResolutionResult(found=False)
+                    return IdentityResolutionResult(
+                        found=True,
+                        entity_type=alloc.entity_type,
+                        entity_id=alloc.canonical_id,
+                        identity_code=alloc.identity_code,
+                        resolution_tier="TIER_1_ALLOCATION_LOG",
+                        metadata={"purpose": alloc.purpose, "scope": alloc.scope},
+                    )
 
             # Tier 1B: If not in allocation log, check registry and physical table
             reg_stmt = select(SmritiIdentityRegistry).where(

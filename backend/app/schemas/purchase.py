@@ -18,7 +18,7 @@ Founders
 
 * Version    : 3.18.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-14
+* Modified   : 2026-09-18
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -46,19 +46,20 @@ class SupplierCreate(BaseModel):
 
 
 class SupplierResponse(BaseModel):
-    id:          str
-    name:        str
-    code:        str
-    gst_number:  Optional[str] = None
-    mobile:      Optional[str] = None
-    email:       Optional[str] = None
-    address:     Optional[str] = None
-    city:        Optional[str] = None
-    state:       Optional[str] = None
-    pincode:     Optional[str] = None
-    outstanding: Decimal
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    id:            str
+    identity_code: Optional[str] = None
+    name:          str
+    code:          str
+    gst_number:    Optional[str] = None
+    mobile:        Optional[str] = None
+    email:         Optional[str] = None
+    address:       Optional[str] = None
+    city:          Optional[str] = None
+    state:         Optional[str] = None
+    pincode:       Optional[str] = None
+    outstanding:   Decimal
+    company_id:    Optional[str] = None
+    branch_id:     Optional[str] = None
 
     model_config = {"from_attributes": True}
 

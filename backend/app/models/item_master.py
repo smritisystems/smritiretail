@@ -31,6 +31,7 @@ class Item(BaseEntity):
     )
 
     item_code = Column(String(50), nullable=False, index=True)
+    identity_code = Column(String(100), nullable=True, index=True)
     item_name = Column(String(255), nullable=False)
     item_type = Column(String(30), nullable=False, default="FINISHED_GOOD")  # FINISHED_GOOD, RAW_MATERIAL, SERVICE, PACKAGING, CONSUMABLE
     category = Column(String(100), nullable=True, index=True)

@@ -48,11 +48,14 @@ def uuid7(as_str: bool = True) -> str | uuid.UUID:
         current_ms = int(time.time() * 1000)
         if current_ms > _STATE.last_ms:
             _STATE.last_ms = current_ms
-            # Initialize 12-bit sequence with top random bits
-            _STATE.sequence = int.from_bytes(os.urandom(2), "big") & 0x0FFF
+            _STATE.sequence = 0
         else:
             # Same or backwards millisecond: increment monotonic sequence
-            _STATE.sequence = (_STATE.sequence + 1) & 0x0FFF
+            _STATE.sequence += 1
+            if _STATE.sequence > 0x0FFF:
+                # Counter rollover per RFC 9562 Section 6.2: advance simulated millisecond
+                _STATE.last_ms += 1
+                _STATE.sequence = 0
             current_ms = _STATE.last_ms
 
         seq = _STATE.sequence
