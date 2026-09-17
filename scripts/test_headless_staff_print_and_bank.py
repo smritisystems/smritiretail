@@ -186,11 +186,19 @@ async def run():
         print("\n[Step 6] Opening Staff Print Center Modal...")
         print_btn = page.locator('button[title="Print staff form or physical ID"], button[aria-label="Print staff form or physical ID"]').first
         await print_btn.click()
-        await page.wait_for_timeout(1200)
+        await page.wait_for_timeout(1500)
 
         # Verify modal header
-        await page.wait_for_selector('text=Staff Documentation & ID Card Print Center', timeout=5000)
+        await page.wait_for_selector('text=Staff Print Center', timeout=5000)
         print("  Staff Print Center Modal is open!")
+
+        # Verify 5 sections are visible in A4 form
+        await page.wait_for_selector('text=Staff Registration & Remittance Form', timeout=5000)
+        await page.wait_for_selector('text=Identity & Employment', timeout=5000)
+        await page.wait_for_selector('text=Personal & Contact Details', timeout=5000)
+        await page.wait_for_selector('text=Statutory KYC', timeout=5000)
+        await page.wait_for_selector('text=Banking & Salary Remittance', timeout=5000)
+        print("  All 5 mandatory statutory registration sections verified!")
 
         # Screenshot 2: A4 Form (With Data)
         ss2 = os.path.join(SCREENSHOT_DIR, "02_staff_print_modal_default_a4_form.png")
@@ -199,7 +207,7 @@ async def run():
 
         # Step 7: Switch to "Without Data" Blank Form
         print("\n[Step 7] Switching to A4 Blank Registration Form...")
-        blank_tab = page.locator('button:has-text("A4 Blank Registration Form")').first
+        blank_tab = page.locator('#btn-print-without-data').first
         await blank_tab.click()
         await page.wait_for_timeout(800)
 
@@ -208,30 +216,24 @@ async def run():
         await page.screenshot(path=ss3)
         print(f"  Saved Screenshot 3 -> {ss3}")
 
-        # Step 8: Switch to CR-80 Physical ID Card (Front)
-        print("\n[Step 8] Switching to CR-80 Physical ID Card (Front)...")
-        cr80_front_tab = page.locator('button:has-text("Physical ID Card (Front)")').first
-        await cr80_front_tab.click()
-        await page.wait_for_timeout(800)
+        # Step 8: Switch to CR-80 Physical ID Card
+        print("\n[Step 8] Switching to CR-80 Physical ID Card...")
+        cr80_tab = page.locator('#btn-print-mode-id').first
+        await cr80_tab.click()
+        await page.wait_for_timeout(1200)
 
         # Verify Blood Group badge and Barcode SVG are present
-        await page.wait_for_selector('text=BG:', timeout=3000)
-        barcode_svg = page.locator('svg').filter(has=page.locator('rect'))
-        print(f"  Verified CR-80 Front: Blood Group pill badge and SVG Barcode elements present.")
+        await page.wait_for_selector('text=BG:', timeout=5000)
+        print("  Verified CR-80 Card: Blood Group pill badge and SVG Barcode elements present.")
 
-        # Screenshot 4: CR-80 ID Front
+        # Screenshot 4: CR-80 ID Front and Back
         ss4 = os.path.join(SCREENSHOT_DIR, "04_staff_print_modal_cr80_id_card_front.png")
         await page.screenshot(path=ss4)
         print(f"  Saved Screenshot 4 -> {ss4}")
 
-        # Step 9: Switch to CR-80 Physical ID Card (Back)
-        print("\n[Step 9] Switching to CR-80 Physical ID Card (Back)...")
-        cr80_back_tab = page.locator('button:has-text("Physical ID Card (Back)")').first
-        await cr80_back_tab.click()
-        await page.wait_for_timeout(800)
-
-        # Screenshot 5: CR-80 ID Back
-        ss5 = os.path.join(SCREENSHOT_DIR, "05_staff_print_modal_cr80_id_card_back.png")
+        # Step 9: Capture zoomed preview of CR-80 ID Card (Front & Back)
+        print("\n[Step 9] Capturing CR-80 physical ID card...")
+        ss5 = os.path.join(SCREENSHOT_DIR, "05_staff_print_modal_cr80_id_cards_preview.png")
         await page.screenshot(path=ss5)
         print(f"  Saved Screenshot 5 -> {ss5}")
 

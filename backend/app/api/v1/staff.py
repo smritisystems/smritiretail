@@ -422,6 +422,7 @@ async def update_staff_directory_profile(
         StaffProfile.is_deleted == False,
     ))).scalar_one_or_none()
     local_user = None
+    profile_was_new = False
     if not profile:
         local_user = (await company_db.execute(select(User).where(
             User.username == user.username,
