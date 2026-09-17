@@ -23,7 +23,12 @@ import {
   CircleUserRound,
   ClipboardCheck,
   Clock3,
+  Eye,
+  EyeOff,
+  FileText,
+  Heart,
   KeyRound,
+  Landmark,
   MapPin,
   Plus,
   PanelLeftClose,
@@ -49,12 +54,13 @@ export interface StaffMasterWsProps {
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
 }
 
-type StaffTab = "overview" | "identity" | "employment" | "attendance" | "leave" | "access" | "assignments" | "compensation" | "sessions" | "activity" | "lifecycle";
+type StaffTab = "overview" | "identity" | "employment" | "bank" | "attendance" | "leave" | "access" | "assignments" | "compensation" | "sessions" | "activity" | "lifecycle";
 
 const STAFF_TABS: Array<{ id: StaffTab; label: string; icon: React.ReactNode }> = [
   { id: "overview", label: "Overview", icon: <CircleUserRound size={14} /> },
   { id: "identity", label: "Identity", icon: <UserRound size={14} /> },
   { id: "employment", label: "Employment", icon: <Building2 size={14} /> },
+  { id: "bank", label: "Bank & KYC", icon: <Landmark size={14} /> },
   { id: "attendance", label: "Attendance", icon: <CalendarDays size={14} /> },
   { id: "leave", label: "Leave", icon: <ClipboardCheck size={14} /> },
   { id: "access", label: "Roles & Permissions", icon: <ShieldCheck size={14} /> },
@@ -73,6 +79,29 @@ const emptyStaff: User = {
   email: "", emergencyContact: "", address: "", city: "", state: "", country: "India", pinCode: "",
   department: "", designation: "", branch: "", dateOfJoining: "", reportingManager: "", employmentType: "Permanent",
   allowedBranches: [], preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" }, notificationSettings: { salaryCredit: true, commissionEarned: true, targetAchievement: true, travelClaimApproval: true, leaveApproval: true, attendanceAlerts: true, holidayWeeklyOff: true, birthdayAnniversary: true, policyAnnouncements: true },
+  payment: {
+    frequency: "Monthly",
+    paymentMode: "Bank Transfer",
+    bankName: "",
+    accountNumber: "",
+    ifscCode: "",
+    branchName: "",
+    accountType: "Savings",
+    nameAsPerBank: "",
+    bankDetails: "",
+    upi: "",
+    salaryEffectiveFrom: "",
+    commissionEffectiveFrom: "",
+    panNumber: "",
+    aadhaarNumber: "",
+    providentFundUan: "",
+    esicNumber: "",
+    bloodGroup: "",
+    fatherSpouseName: "",
+    maritalStatus: "",
+    emergencyContactRelation: "",
+    permanentAddress: "",
+  },
 };
 
 const displayValue = (value: unknown, fallback = "Not provided") => value === undefined || value === null || value === "" ? fallback : String(value);
@@ -80,6 +109,20 @@ const displayValue = (value: unknown, fallback = "Not provided") => value === un
 const storeCode = (location: { store_code?: string; storeCode?: string }) => location.store_code || location.storeCode || "Store code unavailable";
 const storeName = (location: { location_name?: string; locationName?: string }) => location.location_name || location.locationName || "Store name unavailable";
 const storeLabel = (location: { store_code?: string; storeCode?: string; location_name?: string; locationName?: string }) => `${storeCode(location)} · ${storeName(location)}`;
+
+const maskAccountNumber = (val?: string) => {
+  if (!val) return "Not provided";
+  const clean = val.trim();
+  if (clean.length <= 4) return clean;
+  return `•••• •••• ${clean.slice(-4)}`;
+};
+
+const maskAadhaarNumber = (val?: string) => {
+  if (!val) return "Not provided";
+  const clean = val.replace(/\s+/g, "");
+  if (clean.length <= 4) return clean;
+  return `•••• •••• ${clean.slice(-4)}`;
+};
 
 const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotification }) => {
   const [staff, setStaff] = useState<User[]>([]);
@@ -92,8 +135,36 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [activeEditSubTab, setActiveEditSubTab] = useState<"general" | "bank" | "kyc">("general");
+  const [showMaskedAccount, setShowMaskedAccount] = useState(true);
+  const [showMaskedAadhaar, setShowMaskedAadhaar] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [editDraft, setEditDraft] = useState({ fullName: "", displayName: "", department: "", designation: "", branch: "", status: "Active", role: "CASHIER" });
+  const [editDraft, setEditDraft] = useState({
+    fullName: "",
+    displayName: "",
+    department: "",
+    designation: "",
+    branch: "",
+    status: "Active",
+    role: "CASHIER",
+    bankName: "",
+    accountNumber: "",
+    ifscCode: "",
+    branchName: "",
+    accountType: "Savings",
+    nameAsPerBank: "",
+    paymentMode: "Bank Transfer",
+    upi: "",
+    panNumber: "",
+    aadhaarNumber: "",
+    providentFundUan: "",
+    esicNumber: "",
+    bloodGroup: "",
+    fatherSpouseName: "",
+    maritalStatus: "Single",
+    emergencyContactRelation: "",
+    permanentAddress: "",
+  });
   const [showNew, setShowNew] = useState(false);
   const [newStaff, setNewStaff] = useState({ fullName: "", username: "", password: "", role: "CASHIER" });
   const [attendance, setAttendance] = useState<Array<{ id: string; attendance_date: string; status: string; check_in_at?: string; check_out_at?: string }>>([]);
@@ -137,7 +208,33 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
     apiFetchV1<User>(`/staff/directory/${selectedId}`)
       .then((user) => {
         setSelected(user);
-        setEditDraft({ fullName: user.fullName, displayName: user.displayName, department: user.department, designation: user.designation, branch: user.branch, status: user.status, role: user.role });
+        const p = user.payment;
+        setEditDraft({
+          fullName: user.fullName || "",
+          displayName: user.displayName || "",
+          department: user.department || "",
+          designation: user.designation || "",
+          branch: user.branch || "",
+          status: user.status || "Active",
+          role: user.role || "CASHIER",
+          bankName: p?.bankName || "",
+          accountNumber: p?.accountNumber || "",
+          ifscCode: p?.ifscCode || "",
+          branchName: p?.branchName || "",
+          accountType: p?.accountType || "Savings",
+          nameAsPerBank: p?.nameAsPerBank || "",
+          paymentMode: p?.paymentMode || "Bank Transfer",
+          upi: p?.upi || "",
+          panNumber: p?.panNumber || "",
+          aadhaarNumber: p?.aadhaarNumber || "",
+          providentFundUan: p?.providentFundUan || "",
+          esicNumber: p?.esicNumber || "",
+          bloodGroup: p?.bloodGroup || "",
+          fatherSpouseName: p?.fatherSpouseName || "",
+          maritalStatus: p?.maritalStatus || "Single",
+          emergencyContactRelation: p?.emergencyContactRelation || "",
+          permanentAddress: p?.permanentAddress || "",
+        });
       })
       .catch((error: any) => onNotification?.("Staff Detail Error", error?.message || "Unable to load staff details.", "error"))
       .finally(() => setDetailLoading(false));
@@ -212,7 +309,38 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await apiFetchV1<User>(`/staff/directory/${selected.id}/profile`, { method: "PATCH", body: editDraft });
+      const payload: any = {
+        fullName: editDraft.fullName,
+        displayName: editDraft.displayName,
+        department: editDraft.department,
+        designation: editDraft.designation,
+        branch: editDraft.branch,
+        status: editDraft.status,
+        role: editDraft.role,
+        payment: {
+          ...selected.payment,
+          frequency: selected.payment?.frequency || "Monthly",
+          paymentMode: editDraft.paymentMode || "Bank Transfer",
+          bankName: editDraft.bankName,
+          accountNumber: editDraft.accountNumber,
+          ifscCode: editDraft.ifscCode,
+          branchName: editDraft.branchName,
+          accountType: editDraft.accountType,
+          nameAsPerBank: editDraft.nameAsPerBank,
+          bankDetails: editDraft.accountNumber ? `${editDraft.bankName || "Bank"} - ${editDraft.accountNumber}` : selected.payment?.bankDetails,
+          upi: editDraft.upi,
+          panNumber: editDraft.panNumber,
+          aadhaarNumber: editDraft.aadhaarNumber,
+          providentFundUan: editDraft.providentFundUan,
+          esicNumber: editDraft.esicNumber,
+          bloodGroup: editDraft.bloodGroup,
+          fatherSpouseName: editDraft.fatherSpouseName,
+          maritalStatus: editDraft.maritalStatus,
+          emergencyContactRelation: editDraft.emergencyContactRelation,
+          permanentAddress: editDraft.permanentAddress,
+        },
+      };
+      const updated = await apiFetchV1<User>(`/staff/directory/${selected.id}/profile`, { method: "PATCH", body: payload });
       setSelected(updated);
       setIsEditing(false);
       onNotification?.("Staff Updated", `${updated.fullName} was saved successfully.`, "success");
@@ -532,8 +660,111 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
           </div>
         );
       }
+      case "bank":
+        return (
+          <div className="space-y-6">
+            {/* Bank Remittance Card */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Landmark className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">Banking & Salary Remittance</h3>
+                    <p className="text-xs text-slate-500">Governed bank account details for payroll and compensation transfers.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                    Direct Deposit Active
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMaskedAccount(!showMaskedAccount)}
+                    className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    title={showMaskedAccount ? "Show full account number" : "Mask account number"}
+                  >
+                    {showMaskedAccount ? <Eye size={13} /> : <EyeOff size={13} />}
+                    <span>{showMaskedAccount ? "Reveal" : "Mask"}</span>
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {renderField("Beneficiary Name", selected.payment?.nameAsPerBank || selected.fullName)}
+                {renderField("Bank Name", selected.payment?.bankName)}
+                {renderField(
+                  "Account Number",
+                  showMaskedAccount ? maskAccountNumber(selected.payment?.accountNumber) : selected.payment?.accountNumber
+                )}
+                {renderField("IFSC Code", selected.payment?.ifscCode)}
+                {renderField("Branch Name", selected.payment?.branchName)}
+                {renderField("Account Type", selected.payment?.accountType || "Savings")}
+                {renderField("Remittance Mode", selected.payment?.paymentMode || "Bank Transfer")}
+                {renderField("UPI ID", selected.payment?.upi)}
+                {renderField("Payment Frequency", selected.payment?.frequency || "Monthly")}
+              </div>
+            </div>
+
+            {/* Statutory KYC Card */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">Statutory KYC & Identification</h3>
+                    <p className="text-xs text-slate-500">Government compliance identifiers, tax credentials, and labor welfare records.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selected.payment?.bloodGroup && (
+                    <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                      <Heart size={11} className="fill-rose-500 text-rose-500" /> Blood Group: {selected.payment.bloodGroup}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowMaskedAadhaar(!showMaskedAadhaar)}
+                    className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    title={showMaskedAadhaar ? "Show full Aadhaar" : "Mask Aadhaar"}
+                  >
+                    {showMaskedAadhaar ? <Eye size={13} /> : <EyeOff size={13} />}
+                    <span>{showMaskedAadhaar ? "Reveal Aadhaar" : "Mask Aadhaar"}</span>
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {renderField("PAN Number", selected.payment?.panNumber)}
+                {renderField(
+                  "Aadhaar Number",
+                  showMaskedAadhaar ? maskAadhaarNumber(selected.payment?.aadhaarNumber) : selected.payment?.aadhaarNumber
+                )}
+                {renderField("Blood Group", selected.payment?.bloodGroup)}
+                {renderField("EPFO UAN Number", selected.payment?.providentFundUan)}
+                {renderField("ESIC Insurance IP", selected.payment?.esicNumber)}
+                {renderField("Marital Status", selected.payment?.maritalStatus || "Single")}
+                {renderField("Father / Spouse Name", selected.payment?.fatherSpouseName)}
+                {renderField("Emergency Contact Relation", selected.payment?.emergencyContactRelation)}
+                {renderField("Permanent Address", selected.payment?.permanentAddress || selected.address)}
+              </div>
+            </div>
+          </div>
+        );
       case "compensation":
-        return <div className="grid gap-3 sm:grid-cols-2">{renderField("Compensation access", "Restricted by staff.compensation permission")}{renderField("Salary", selected.salary?.fixedMonthly, true)}{renderField("Payment details", selected.payment?.bankDetails, true)}{renderField("Performance metrics", selected.performance?.monthlySales, true)}</div>;
+        return (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {renderField("Compensation Access", "Governed by HR Payroll")}
+              {renderField("Base Monthly Salary", selected.salary?.fixedMonthly ? `₹${Number(selected.salary.fixedMonthly).toLocaleString("en-IN")}` : "Not configured")}
+              {renderField("Remittance Mode", selected.payment?.paymentMode || "Bank Transfer")}
+              {renderField("Bank Account", selected.payment?.accountNumber ? maskAccountNumber(selected.payment.accountNumber) : "Not configured")}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {renderField("Remittance Bank", selected.payment?.bankName || "Not configured")}
+              {renderField("IFSC Code", selected.payment?.ifscCode || "Not configured")}
+              {renderField("Performance Target", selected.performance?.targetsAssigned ? `₹${Number(selected.performance.targetsAssigned).toLocaleString("en-IN")}` : "Standard quota")}
+              {renderField("Monthly Sales Recorded", selected.performance?.monthlySales ? `₹${Number(selected.performance.monthlySales).toLocaleString("en-IN")}` : "₹0")}
+            </div>
+          </div>
+        );
       case "sessions": return renderUnavailable("Session management is not connected", "The next access-domain contract should expose active sessions, devices, revocation, MFA, and forced password reset state.");
       case "activity": return renderUnavailable("Staff audit stream is not connected", "Staff mutations should be backed by authoritative server audit events before this tab presents history.");
       case "lifecycle": return <div className="grid gap-3 sm:grid-cols-2">{renderField("Current lifecycle", selected.status)}{renderField("Termination state", "Not terminated")}{renderField("Password reset", "Use explicit reset contract")}{renderField("Last state change", undefined)}</div>;
@@ -549,7 +780,317 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       <div className="grid grid-cols-3 gap-2 border-b border-slate-200 p-3 text-center dark:border-slate-800"><div><div className="text-lg font-black">{staff.length}</div><div className="text-[10px] text-slate-500">Staff</div></div><div><div className="text-lg font-black text-emerald-600">{activeCount}</div><div className="text-[10px] text-slate-500">Active</div></div><div><div className="text-lg font-black text-indigo-600">{adminCount}</div><div className="text-[10px] text-slate-500">Admin</div></div></div>
       <div className="min-h-0 flex-1 overflow-y-auto">{loading ? <div className="p-6 text-xs text-slate-500">Loading staff directory...</div> : filteredStaff.map((person) => <button key={person.id} onClick={() => { setSelectedId(person.id); setActiveTab("overview"); }} className={`w-full border-b border-slate-100 p-3 text-left dark:border-slate-800 ${person.id === selectedId ? "border-l-4 border-l-indigo-600 bg-indigo-50 dark:bg-indigo-950/30" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"}`}><div className="flex items-center justify-between"><span className="truncate text-xs font-bold">{displayValue(person.fullName, person.username)}</span><span className="text-[9px] font-mono text-indigo-600">{person.role}</span></div><div className="mt-1 flex justify-between text-[10px] text-slate-500"><span>{displayValue(person.designation, "Operator")}</span><span>{displayValue(person.branch, "No branch")}</span></div></button>)}</div>
     </aside>}
-    <section className="min-w-0 flex-1 overflow-y-auto"><div className="border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/70"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-600"><ShieldCheck size={14} />Staff 360</div><h1 className="mt-1 text-xl font-black">{displayValue(selected.fullName, "Staff & User Access Management")}</h1><p className="mt-1 text-xs text-slate-500">Identity, employment, access scope, sensitive data, sessions, audit, and lifecycle governance.</p></div><div className="flex items-center gap-2"><div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><CheckCircle2 size={14} className="text-emerald-500" />{currentUser?.role || "Authorized operator"}</div>{selectedId && !isEditing && <button onClick={() => setIsEditing(true)} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Edit Staff</button>}{isEditing && <><button onClick={() => setIsEditing(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={saving} onClick={handleSave} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">{saving ? "Saving..." : "Save Changes"}</button></>}</div></div>{isEditing && <div className="mt-4 grid gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-900 dark:bg-indigo-950/20 sm:grid-cols-2"><input aria-label="Edit full name" value={editDraft.fullName} onChange={(e) => setEditDraft({ ...editDraft, fullName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Full name" /><input aria-label="Edit display name" value={editDraft.displayName} onChange={(e) => setEditDraft({ ...editDraft, displayName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Display name" /><input aria-label="Edit department" value={editDraft.department} onChange={(e) => setEditDraft({ ...editDraft, department: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Department" /><input aria-label="Edit designation" value={editDraft.designation} onChange={(e) => setEditDraft({ ...editDraft, designation: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Designation" /><input aria-label="Edit branch" value={editDraft.branch} onChange={(e) => setEditDraft({ ...editDraft, branch: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" placeholder="Branch" /><select aria-label="Edit status" value={editDraft.status} onChange={(e) => setEditDraft({ ...editDraft, status: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option>Active</option><option>Inactive</option><option>Suspended</option></select></div>}<div className="mt-5 flex gap-1 overflow-x-auto">{STAFF_TABS.map((tab) => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === tab.id ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{tab.icon}{tab.label}</button>)}</div></div><div className="p-5">{renderTab()}</div></section>
+    <section className="min-w-0 flex-1 overflow-y-auto"><div className="border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/70"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-600"><ShieldCheck size={14} />Staff 360</div><h1 className="mt-1 text-xl font-black">{displayValue(selected.fullName, "Staff & User Access Management")}</h1><p className="mt-1 text-xs text-slate-500">Identity, employment, access scope, sensitive data, sessions, audit, and lifecycle governance.</p></div><div className="flex items-center gap-2"><div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><CheckCircle2 size={14} className="text-emerald-500" />{currentUser?.role || "Authorized operator"}</div>{selectedId && !isEditing && <button onClick={() => setIsEditing(true)} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Edit Staff</button>}{isEditing && <><button onClick={() => setIsEditing(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={saving} onClick={handleSave} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">{saving ? "Saving..." : "Save Changes"}</button></>}</div></div>{isEditing && (
+          <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-900 dark:bg-indigo-950/20">
+            <div className="mb-3 flex items-center justify-between border-b border-indigo-100 pb-2 dark:border-indigo-900/50">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveEditSubTab("general")}
+                  className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                    activeEditSubTab === "general"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  General Info
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveEditSubTab("bank")}
+                  className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                    activeEditSubTab === "bank"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  Bank Remittance
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveEditSubTab("kyc")}
+                  className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+                    activeEditSubTab === "kyc"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  Statutory KYC
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-500">Editing {selected.fullName || "Staff"}</span>
+            </div>
+
+            {activeEditSubTab === "general" && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Full Name</label>
+                  <input
+                    aria-label="Edit full name"
+                    value={editDraft.fullName}
+                    onChange={(e) => setEditDraft({ ...editDraft, fullName: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Full name"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Display Name</label>
+                  <input
+                    aria-label="Edit display name"
+                    value={editDraft.displayName}
+                    onChange={(e) => setEditDraft({ ...editDraft, displayName: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Display name"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Department</label>
+                  <input
+                    aria-label="Edit department"
+                    value={editDraft.department}
+                    onChange={(e) => setEditDraft({ ...editDraft, department: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Department"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Designation</label>
+                  <input
+                    aria-label="Edit designation"
+                    value={editDraft.designation}
+                    onChange={(e) => setEditDraft({ ...editDraft, designation: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Designation"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Branch</label>
+                  <input
+                    aria-label="Edit branch"
+                    value={editDraft.branch}
+                    onChange={(e) => setEditDraft({ ...editDraft, branch: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Branch"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Status</label>
+                  <select
+                    aria-label="Edit status"
+                    value={editDraft.status}
+                    onChange={(e) => setEditDraft({ ...editDraft, status: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option>Active</option>
+                    <option>Inactive</option>
+                    <option>Suspended</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {activeEditSubTab === "bank" && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Bank Name</label>
+                  <input
+                    aria-label="Edit bank name"
+                    value={editDraft.bankName}
+                    onChange={(e) => setEditDraft({ ...editDraft, bankName: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="e.g. HDFC Bank, SBI, ICICI"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Account Number</label>
+                  <input
+                    aria-label="Edit account number"
+                    value={editDraft.accountNumber}
+                    onChange={(e) => setEditDraft({ ...editDraft, accountNumber: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs font-mono dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Account number"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">IFSC Code</label>
+                  <input
+                    aria-label="Edit IFSC code"
+                    value={editDraft.ifscCode}
+                    onChange={(e) => setEditDraft({ ...editDraft, ifscCode: e.target.value.toUpperCase() })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs font-mono uppercase dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="e.g. HDFC0001234"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Branch Name</label>
+                  <input
+                    aria-label="Edit bank branch"
+                    value={editDraft.branchName}
+                    onChange={(e) => setEditDraft({ ...editDraft, branchName: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Branch name or city"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Account Type</label>
+                  <select
+                    aria-label="Edit account type"
+                    value={editDraft.accountType}
+                    onChange={(e) => setEditDraft({ ...editDraft, accountType: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="Savings">Savings Account</option>
+                    <option value="Salary">Salary Account</option>
+                    <option value="Current">Current Account</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Beneficiary Name</label>
+                  <input
+                    aria-label="Edit beneficiary name"
+                    value={editDraft.nameAsPerBank}
+                    onChange={(e) => setEditDraft({ ...editDraft, nameAsPerBank: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Name as per bank records"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Payment Mode</label>
+                  <select
+                    aria-label="Edit payment mode"
+                    value={editDraft.paymentMode}
+                    onChange={(e) => setEditDraft({ ...editDraft, paymentMode: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
+                    <option value="IMPS">Instant IMPS</option>
+                    <option value="UPI">UPI Direct</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Cash">Cash</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">UPI ID / VPA</label>
+                  <input
+                    aria-label="Edit UPI ID"
+                    value={editDraft.upi}
+                    onChange={(e) => setEditDraft({ ...editDraft, upi: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="e.g. employee@okaxis"
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeEditSubTab === "kyc" && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">PAN Number</label>
+                  <input
+                    aria-label="Edit PAN number"
+                    value={editDraft.panNumber}
+                    onChange={(e) => setEditDraft({ ...editDraft, panNumber: e.target.value.toUpperCase() })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs font-mono uppercase dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="e.g. ABCDE1234F"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Aadhaar Number</label>
+                  <input
+                    aria-label="Edit Aadhaar number"
+                    value={editDraft.aadhaarNumber}
+                    onChange={(e) => setEditDraft({ ...editDraft, aadhaarNumber: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs font-mono dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="12-digit UID"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Blood Group</label>
+                  <select
+                    aria-label="Edit blood group"
+                    value={editDraft.bloodGroup}
+                    onChange={(e) => setEditDraft({ ...editDraft, bloodGroup: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="">Select Blood Group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">EPFO UAN Number</label>
+                  <input
+                    aria-label="Edit UAN number"
+                    value={editDraft.providentFundUan}
+                    onChange={(e) => setEditDraft({ ...editDraft, providentFundUan: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs font-mono dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="12-digit UAN"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">ESIC Insurance IP No</label>
+                  <input
+                    aria-label="Edit ESIC IP"
+                    value={editDraft.esicNumber}
+                    onChange={(e) => setEditDraft({ ...editDraft, esicNumber: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs font-mono dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="17-digit ESIC IP"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Marital Status</label>
+                  <select
+                    aria-label="Edit marital status"
+                    value={editDraft.maritalStatus}
+                    onChange={(e) => setEditDraft({ ...editDraft, maritalStatus: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="Single">Single</option>
+                    <option value="Married">Married</option>
+                    <option value="Divorced">Divorced</option>
+                    <option value="Widowed">Widowed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Father / Spouse Name</label>
+                  <input
+                    aria-label="Edit father or spouse name"
+                    value={editDraft.fatherSpouseName}
+                    onChange={(e) => setEditDraft({ ...editDraft, fatherSpouseName: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Full name of father / spouse"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Emergency Contact Relation</label>
+                  <input
+                    aria-label="Edit emergency contact relation"
+                    value={editDraft.emergencyContactRelation}
+                    onChange={(e) => setEditDraft({ ...editDraft, emergencyContactRelation: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="e.g. Spouse, Father, Mother, Brother"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Permanent Address</label>
+                  <input
+                    aria-label="Edit permanent address"
+                    value={editDraft.permanentAddress}
+                    onChange={(e) => setEditDraft({ ...editDraft, permanentAddress: e.target.value })}
+                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="Permanent / Domicile Address"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}<div className="mt-5 flex gap-1 overflow-x-auto">{STAFF_TABS.map((tab) => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === tab.id ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{tab.icon}{tab.label}</button>)}</div></div><div className="p-5">{renderTab()}</div></section>
     {showNew && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h2 className="text-base font-black">Create Staff Account</h2><button title="Close" onClick={() => setShowNew(false)}>×</button></div><p className="mt-1 text-xs text-slate-500">An explicit temporary password is required. No default credentials are generated.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><input aria-label="Full name" placeholder="Full name" value={newStaff.fullName} onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Username" placeholder="Username" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Temporary password" type="password" placeholder="Temporary password" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><select aria-label="Role" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="CASHIER">CASHIER</option><option value="MANAGER">MANAGER</option><option value="ADMIN">ADMIN</option></select></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => setShowNew(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button onClick={handleCreate} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Create Staff</button></div></div></div>}
     {showPrint && <StaffPrintModal isOpen={showPrint} onClose={() => setShowPrint(false)} staff={selected} />}
   </div>;
