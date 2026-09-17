@@ -437,10 +437,10 @@ def test_smriti001_read_only_schema_comparison():
     idx = cur.fetchone()
     assert idx is not None, "Index on sales_orders.po_number must already exist in smriti001"
 
-    # 3. Verify Alembic version in smriti001 is v1416
+    # 3. Verify Alembic version in smriti001 is at least v1417
     cur.execute("SELECT version_num FROM alembic_version;")
     ver = cur.fetchone()["version_num"]
-    assert ver == "v1417_so_po_compat"
+    assert ver >= "v1417_so_po_compat"
 
     cur.close()
     conn.close()

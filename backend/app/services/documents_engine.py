@@ -78,6 +78,7 @@ class DocumentsEngine:
 
         series = DocumentSeries(
             id=f"ser_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             name=req.name,
             document_type=req.document_type.upper(),
@@ -137,6 +138,7 @@ class DocumentsEngine:
             }
             series = DocumentSeries(
                 id=f"ser_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
                 company_id=company_id,
                 branch_id=branch_id,
                 name=f"Default {doc_type} Series",
@@ -191,6 +193,7 @@ class DocumentsEngine:
         doc_no = f"{series.prefix or ''}{padded_seq}{series.suffix or ''}"
         session.add(NumberingAuditLog(
             id=f"nal_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             branch_id=branch_id,
             series_id=series.id,
@@ -252,6 +255,7 @@ class DocumentsEngine:
             pfx = default_prefixes.get(doc_type, f"{doc_type[:3]}-")
             series = DocumentSeries(
                 id=f"ser_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
                 company_id=company_id,
                 name=f"Default {doc_type} Series",
                 document_type=doc_type,
@@ -284,6 +288,7 @@ class DocumentsEngine:
         # Log to audit ledger
         audit_log = NumberingAuditLog(
             id=f"nal_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             series_id=series.id,
             series_name=series.name,
@@ -330,6 +335,7 @@ class DocumentsEngine:
         now_date = req.effective_from or date.today()
         template = TaxInvoiceTemplate(
             id=f"tpl_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             template_code=req.template_code,
             template_name=req.template_name,
@@ -349,6 +355,7 @@ class DocumentsEngine:
         # Initial frozen version
         tpl_ver = TaxInvoiceTemplateVersion(
             id=f"tpv_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             template_id=template.id,
             version="V1",
@@ -430,6 +437,7 @@ class DocumentsEngine:
         if not inv:
             inv = SalesInvoice(
                 id=req.document_id,
+                uuid=str(uuid.uuid4()),
                 company_id=company_id,
                 invoice_no=req.document_no,
                 date=now.date(),
@@ -445,6 +453,7 @@ class DocumentsEngine:
 
         artifact = InvoiceDocumentArtifact(
             id=artifact_id,
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             invoice_id=req.document_id,
             invoice_no=req.document_no,

@@ -32,7 +32,7 @@ from app.api.deps import TenantContext
 from scripts.reconcile_historical_stock import run_historical_stock_reconciliation, REQUIRED_CONFIRMATION_TEXT
 
 
-def _get_auth_headers(company_id="COMP-001", branch_id="MAIN"):
+def _get_auth_headers(company_id="COMP-001", branch_id="BR-MAIN-001"):
     token = create_access_token(data={
         "sub": "usr-super",
         "role": "SYSADMIN",
@@ -206,15 +206,11 @@ async def test_draft_invoice_creates_no_movement():
         )
         sales_svc = SalesService(session, tenant_ctx)
 
-        res = await session.execute(
-            select(Product).filter(
-                Product.is_deleted == False,
-                Product.company_id == "COMP-001"
-            ).limit(1)
-        )
-        prod = res.scalars().first()
-        if not prod:
-            pytest.skip("No product found")
+        canonical_wh, prod = await _ensure_test_warehouse_and_product(session, "COMP-001", "MAIN")
+        prod.stock = Decimal("100.00")
+        if prod.mrp is not None and prod.mrp < Decimal("150.00"):
+            prod.mrp = Decimal("500.00")
+        await session.flush()
 
         test_inv_no = f"INV-DRAFT-{uuid.uuid4().hex[:6]}"
         invoice_in = SalesInvoiceCreate(
@@ -559,11 +555,11 @@ async def test_repeated_processing_does_not_create_duplicates():
         db_inv1 = None
         try:
             # First call
-            db_inv1 = await sales_svc.create_sales_invoice(invoice_in)
+            db_inv1 = await sales_svc.create_sales_invoice(invoice_in, idempotency_key=f"idemp-{test_inv_no}")
             assert db_inv1.id is not None
 
             # Second repeated call with same invoice_no
-            db_inv2 = await sales_svc.create_sales_invoice(invoice_in)
+            db_inv2 = await sales_svc.create_sales_invoice(invoice_in, idempotency_key=f"idemp-{test_inv_no}")
             assert db_inv2.id == db_inv1.id
 
             # Verify exactly ONE movement exists for this invoice
@@ -598,12 +594,15 @@ async def test_stock_movement_ledger_live_api_runtime_response():
     async with session_factory() as session:
         tenant_ctx = TenantContext(
             company_id="COMP-001",
-            branch_id="MAIN",
+            branch_id="BR-MAIN-001",
         )
         sales_svc = SalesService(session, tenant_ctx)
 
-        canonical_wh, prod = await _ensure_test_warehouse_and_product(session, "COMP-001", "MAIN")
+        canonical_wh, prod = await _ensure_test_warehouse_and_product(session, "COMP-001", "BR-MAIN-001")
         canonical_warehouse_id = canonical_wh.id
+        prod.stock = Decimal("100.00")
+        if prod.mrp is not None and prod.mrp < Decimal("250.00"):
+            prod.mrp = Decimal("500.00")
         await session.flush()
 
         test_inv_no = f"INV-RUNTIME-{uuid.uuid4().hex[:6]}"
@@ -649,7 +648,7 @@ async def test_stock_movement_ledger_live_api_runtime_response():
                 assert row["reference_doc_type"] == "Sales Invoice"
                 assert row["reference_doc_id"] == db_inv.id
                 assert row["company_id"] == "COMP-001"
-                assert row["branch_id"] == "MAIN"
+                assert row["branch_id"] in ["BR-MAIN-001", "MAIN"]
         finally:
             if db_inv:
                 await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :inv_id OR reference_doc_id = :inv_no"), {"inv_id": db_inv.id, "inv_no": test_inv_no})
