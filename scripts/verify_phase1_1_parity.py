@@ -61,25 +61,38 @@ def main():
         )
         col = cur.fetchone()
 
-        # Check index existence
+        # Check UNIQUE index existence and indisunique flag
         cur.execute(
             """
-            SELECT indexname, indexdef
-            FROM pg_indexes
-            WHERE tablename = %s AND indexname = %s
+            SELECT c.relname as table_name, i.relname as index_name, ix.indisunique, pg_get_indexdef(ix.indexrelid) as indexdef
+            FROM pg_class c
+            JOIN pg_index ix ON c.oid = ix.indrelid
+            JOIN pg_class i ON i.oid = ix.indexrelid
+            JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(ix.indkey)
+            WHERE a.attname = 'identity_code' AND c.relname = %s
             """,
-            (tbl, f"ix_{tbl}_identity_code")
+            (tbl,)
         )
-        idx = cur.fetchone()
+        idx_rows = cur.fetchall()
+        unique_idx = next((r for r in idx_rows if r["indisunique"]), None)
+
+        # Check for any duplicates
+        cur.execute(
+            f"SELECT identity_code, COUNT(*) as cnt FROM {tbl} WHERE identity_code IS NOT NULL GROUP BY identity_code HAVING COUNT(*) > 1"
+        )
+        dups = cur.fetchall()
+        dup_cnt = len(dups)
 
         col_ok = col and col["data_type"] == "character varying" and col["character_maximum_length"] == 100 and col["is_nullable"] == "YES"
-        idx_ok = idx is not None
+        idx_ok = unique_idx is not None and unique_idx["indisunique"] is True
+        dup_ok = (dup_cnt == 0)
 
-        status = "PARITY_OK" if (col_ok and idx_ok) else "CRITICAL_DRIFT"
-        if not (col_ok and idx_ok):
+        status = "PARITY_OK" if (col_ok and idx_ok and dup_ok) else "CRITICAL_DRIFT"
+        if not (col_ok and idx_ok and dup_ok):
             all_parity = False
 
-        print(f"  • {tbl.ljust(12)}: column={col_ok} (varchar(100) nullable), index={idx_ok} -> Status: {status}")
+        idx_name_str = unique_idx["index_name"] if unique_idx else "NONE"
+        print(f"  • {tbl.ljust(12)}: col={col_ok} (varchar(100) nullable), unique_index={idx_ok} ({idx_name_str}), duplicates={dup_cnt} -> Status: {status}")
 
     print(f"\nTarget Schema Parity: {'PASSED' if all_parity else 'FAILED'}\n")
 
