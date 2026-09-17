@@ -15,7 +15,7 @@ Classification: Internal
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date as datetime_date
 from decimal import Decimal
-from pydantic import BaseModel, ConfigDict, Field, AliasChoices
+from pydantic import BaseModel, ConfigDict, Field, AliasChoices, field_validator
 
 # ─────────────────────────── Sales Invoice ───────────────────────────
 
@@ -321,8 +321,15 @@ class SalesOrderBase(BaseModel):
     po_metadata: Optional[dict] = Field(default_factory=dict, validation_alias=AliasChoices("po_metadata", "poMetadata"))
 
 class SalesOrderCreate(SalesOrderBase):
-    id: str = Field(..., max_length=50)
+    id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     items: List[SalesOrderItemCreate] = []
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 class SalesOrderUpdate(BaseModel):
     order_no: Optional[str] = None

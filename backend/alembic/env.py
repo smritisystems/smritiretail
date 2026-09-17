@@ -90,6 +90,11 @@ from app.models.integration_hub import (
     ProviderRegistry, ConnectorRegistry, IntegrationRegistry,
     IntegrationCredentialReference, IntegrationPolicy, IntegrationVersion,
 )
+# v1464: Unified Identity Control Plane
+from app.models.identity_registry import (
+    SmritiIdentityRegistry, SmritiNumberingRegistry,
+    SmritiIdentityAlias, SmritiIdentityAllocationLog,
+)
 config = context.config
 
 if config.config_file_name is not None:
@@ -212,6 +217,11 @@ def include_object(object, name, type_, reflected, compare_to):
             "integration_credentials_reference",
             "integration_policies",
             "integration_versions",
+            # v1464: Unified Identity Control Plane
+            "smriti_identity_registry",
+            "smriti_numbering_registry",
+            "smriti_identity_alias",
+            "smriti_identity_allocation_log",
         ]
     return True
 

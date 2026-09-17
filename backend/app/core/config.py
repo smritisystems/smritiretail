@@ -19,6 +19,23 @@ import asyncio
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 from pydantic_settings import BaseSettings
+try:
+    from dotenv import load_dotenv
+    _cfg_file = Path(__file__).resolve()
+    # F:\SMRITRretailNX\backend\app\core\config.py -> parents[3] is F:\SMRITRretailNX
+    _env_candidates = [
+        _cfg_file.parents[3] / ".env",
+        Path(".env").resolve(),
+        Path("../.env").resolve(),
+    ]
+    for _p in _env_candidates:
+        if _p.exists():
+            load_dotenv(str(_p), override=False)
+            if not os.getenv("JWT_SECRET_KEY"):
+                load_dotenv(str(_p), override=True)
+            break
+except ImportError:
+    pass
 
 
 def _is_port_open(host: str, port: int, timeout: float = 0.8) -> bool:
@@ -118,6 +135,10 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
     return conn_str
 
 
+_root_dir = Path(__file__).resolve().parent.parent.parent.parent
+_root_env_path = _root_dir / ".env"
+
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
     VERSION: str = "6.32.0"
@@ -170,7 +191,7 @@ class Settings(BaseSettings):
     EWAYBILL_TIMEOUT_SECONDS: float = 30.0
 
     model_config = {
-        "env_file": ".env",
+        "env_file": (str(_root_env_path), ".env"),
         "case_sensitive": True,
         "extra": "ignore"
     }

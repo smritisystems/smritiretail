@@ -12,8 +12,19 @@ License      : Proprietary Commercial Software
 """
 
 import os
+try:
+    from dotenv import dotenv_values
+    root_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env"))
+    if os.path.exists(root_env):
+        for k, v in dotenv_values(root_env).items():
+            if v is not None and k not in os.environ:
+                os.environ[k] = v
+except ImportError:
+    pass
+
 os.environ.setdefault("JWT_SECRET_KEY", "dev-test-jwt-secret-key-32-chars-long-smriti")
 os.environ.setdefault("INTERNAL_SERVICE_KEY", "dev-test-internal-service-key-32-chars")
+os.environ.setdefault("SGIP_VAULT_MASTER_KEY", "CF511BC0139A3F1AF43D6B76639E933983B187C8ECBEE080F540C943E0CDB40A")
 import asyncio
 import re
 import sys

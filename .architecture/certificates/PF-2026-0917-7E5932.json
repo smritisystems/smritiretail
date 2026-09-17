@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0917-7E5932",
+  "entity": "IDENTITY",
+  "capability": "UNIFIED_IDENTITY_CONTROL_PLANE",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "resolver.py",
+  "target_file_path": "backend/app/services/identity/resolver.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/identity/resolver.py",
+  "content_hash": "159d72d388b366e7eb079b547850e84d7d632b1e28b1b3a7d35eb321ccc78a12",
+  "git_commit": "20cd1171feb8d386664e0b84808c0b5b39919327",
+  "issued_at": "2026-09-17T21:38:22.180181+00:00",
+  "expires_at": "2026-09-24T21:38:22.180181+00:00",
+  "status": "ISSUED"
+}

@@ -307,6 +307,35 @@ def check_capability_ownership():
                         pass
 
 
+def check_identity_generation_governance():
+    """
+    Rule 9 (Identity Generation Governance Gate):
+    Enforces that direct low-level identity generation (uuid7) is strictly prohibited outside
+    backend/app/services/identity/. All entity creation and numbering must pass through IdentityEngine.
+    """
+    backend_dir = os.path.join(REPO_ROOT, "backend", "app")
+    pattern = re.compile(r"""from\s+[\w\.]*identity\.uuid7\s+import\s+uuid7""")
+
+    for root, _, files in os.walk(backend_dir):
+        norm_root = os.path.normpath(root).replace("\\", "/")
+        if "backend/app/services/identity" in norm_root or "backend/app/tests" in norm_root:
+            continue
+        for file in files:
+            if file.endswith(".py"):
+                fpath = os.path.join(root, file)
+                rel_path = os.path.relpath(fpath, REPO_ROOT).replace("\\", "/")
+                try:
+                    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                        for idx, line in enumerate(f, 1):
+                            if pattern.search(line):
+                                log_violation(
+                                    "Rule 9 (Bypassing IdentityEngine)",
+                                    f"File '{rel_path}:{idx}' directly imports uuid7! Persistent identity allocation MUST be routed via IdentityEngine."
+                                )
+                except Exception:
+                    pass
+
+
 # ==============================================================================
 # MAIN RUNNER
 # ==============================================================================
@@ -324,8 +353,9 @@ def main():
     check_preflight_certificates_on_new_files()
     check_new_database_models()
     check_capability_ownership()
+    check_identity_generation_governance()
 
-    TOTAL_CHECKS = 10
+    TOTAL_CHECKS = 11
     print(f" Checks Executed:    {TOTAL_CHECKS}")
     print(f" P0/P1 Violations:   {len(VIOLATIONS)}")
     print(f" Registered Debt:    {len(WARNINGS)}")
