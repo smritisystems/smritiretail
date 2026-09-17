@@ -4,14 +4,14 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.17.0
 Created      : 2026-07-12
-Modified     : 2026-07-12
+Modified     : 2026-09-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Text, UniqueConstraint
 from ..db.base import BaseEntity
 
 
@@ -42,6 +42,20 @@ class DocumentSeries(BaseEntity):
     start_number               = Column(Integer, default=1)
     is_void_unified            = Column(Boolean, default=False)
 
+    __table_args__ = (
+        # Prevents two active series with the same display name per company/branch.
+        UniqueConstraint(
+            "company_id", "branch_id", "name",
+            name="uq_document_series_name_per_company"
+        ),
+        # Prevents two active series with identical prefix+suffix+type+terminal config.
+        UniqueConstraint(
+            "company_id", "branch_id", "prefix", "suffix",
+            "document_type", "transaction_group", "terminal_id",
+            name="uq_document_series_prefix_config"
+        ),
+    )
+
 
 class NumberingAuditLog(BaseEntity):
     """
@@ -57,3 +71,4 @@ class NumberingAuditLog(BaseEntity):
     new_value   = Column(String(200), nullable=True)
     details     = Column(Text, nullable=True)
     operator    = Column(String(100), nullable=True)
+
