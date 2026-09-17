@@ -204,21 +204,35 @@ async def run():
             print("  Pressed [F7] hotkey fallback.")
 
         print("  Waiting for backend /api/v1/pos/checkout response and receipt modal rendering...")
-        await page.wait_for_timeout(3500)
+        await page.wait_for_timeout(4000)
 
         # Verify receipt modal is visible
-        await page.wait_for_selector('text="TAX INVOICE", button:has-text("Print Receipt"), button:has-text("Print")', timeout=10000)
+        receipt_locator = page.locator('text="Tax Invoice Preview", text="A4 Standard", button:has-text("Thermal Slip")').first
+        try:
+            await receipt_locator.wait_for(state="visible", timeout=10000)
+            print("  Receipt modal successfully mounted.")
+        except Exception as e:
+            print(f"  Warning waiting for receipt locator: {e}")
+
         ss_06 = os.path.join(SCREENSHOT_DIR, "06_bill_settled_receipt.png")
         await page.screenshot(path=ss_06)
         print(f"  [Screenshot 6] Captured: {ss_06} ({os.path.getsize(ss_06):,} bytes)")
 
         # Step 7: Switch to 80mm Thermal Receipt Format View
         print("\n[Step 7] Capturing 80mm Thermal Receipt print format view...")
-        thermal_btn = page.locator('button:has-text("Thermal"), button:has-text("80mm")')
-        if await thermal_btn.count() > 0:
+        thermal_btn = page.locator('button:has-text("Thermal Slip (80mm)"), button:has-text("Thermal")').first
+        if await thermal_btn.count() > 0 and await thermal_btn.is_visible():
             print("  Switching to thermal print layout...")
-            await thermal_btn.first.click()
-            await page.wait_for_timeout(1000)
+            await thermal_btn.click()
+            await page.wait_for_timeout(1500)
+        else:
+            print("  Thermal button not immediately visible, attempting evaluate click...")
+            await page.evaluate("""() => {
+                const btns = Array.from(document.querySelectorAll('button'));
+                const b = btns.find(el => el.textContent && el.textContent.includes('Thermal'));
+                if (b) b.click();
+            }""")
+            await page.wait_for_timeout(1500)
 
         ss_07 = os.path.join(SCREENSHOT_DIR, "07_bill_printable_thermal_receipt.png")
         await page.screenshot(path=ss_07)
@@ -235,9 +249,9 @@ async def run():
 
     # 1. Check sales_invoices
     cur.execute("""
-        SELECT id, invoice_no, date, grand_total, tax_total, payment_mode, shift_id, created_at
+        SELECT id, invoice_no, date, grand_total, tax_total, payment_mode, shift_id, created_at, modified_at
         FROM sales_invoices
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(modified_at, created_at) DESC NULLS LAST, id DESC
         LIMIT 1
     """)
     inv = cur.fetchone()

@@ -17,13 +17,15 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   Upload, X, FileText, CheckCircle2, AlertTriangle,
   XCircle, ChevronDown, ChevronUp, Tag, Loader2,
-  ShieldAlert, ClipboardList, Info,
+  ShieldAlert, ClipboardList, Info, Building2,
+  Sparkles, CheckSquare, ListOrdered,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
 import {
   CsvImportRow, CsvImportResult, CsvRowStatus,
 } from "./types";
 import { Product } from "../../types";
+import { SmritiSalesPromotionService } from "../../services/smritiSalesPromotionService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
@@ -32,6 +34,13 @@ import { Product } from "../../types";
 interface BarcodeCSVImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  customer?: {
+    id?: string;
+    code?: string;
+    name?: string;
+    customerGroup?: string;
+    customerGroupId?: string;
+  } | null;
   /** Called with validated resolved rows when user confirms import */
   onImportConfirmed: (items: ResolvedCartItem[]) => void;
 }
@@ -340,12 +349,119 @@ function FormatHelp({ detected }: { detected?: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Column Sequence, Alias Mapping & Suggestions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ColumnSequenceStrip({ result }: { result: CsvImportResult }) {
+  if (!result.raw_headers || result.raw_headers.length === 0) return null;
+
+  return (
+    <div className="bg-surface-container-low border border-outline-variant rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-on-surface">
+          <ListOrdered size={14} className="text-primary" />
+          <span>Detected Column Sequence &amp; Alias Mapping ({result.raw_headers.length} columns)</span>
+        </div>
+        <span className="text-[10px] text-on-surface-variant font-mono">Preserved in parsed order</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {result.raw_headers.map((raw, idx) => {
+          const canonical = result.header_mappings?.[raw] || result.canonical_headers?.[idx];
+          const isUnrecognized = result.unrecognized_headers?.includes(raw);
+          const hasAliasTranslation = canonical && canonical.toLowerCase() !== raw.toLowerCase();
+
+          return (
+            <div
+              key={`${raw}-${idx}`}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] border ${
+                isUnrecognized
+                  ? "bg-amber-950/30 border-amber-700/60 text-amber-200"
+                  : "bg-surface-container border-outline-variant text-on-surface"
+              }`}
+            >
+              <span className="text-[10px] text-on-surface-variant font-mono font-bold">#{idx + 1}</span>
+              <span className="font-mono font-semibold">{raw}</span>
+              {canonical && (
+                <span className="flex items-center gap-1 text-[10px]">
+                  <span className="text-on-surface-variant">→</span>
+                  <span className="px-1 py-0.2 rounded bg-primary/20 text-primary font-mono font-bold">
+                    {canonical}
+                  </span>
+                  {hasAliasTranslation && (
+                    <span className="text-[9px] text-emerald-400 font-medium">(alias)</span>
+                  )}
+                </span>
+              )}
+              {isUnrecognized && (
+                <span className="px-1 py-0.2 rounded bg-amber-900/60 text-amber-300 font-bold text-[9px]">
+                  Unmapped
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function HeaderSuggestionsCard({ result }: { result: CsvImportResult }) {
+  const hasSuggestions = result.header_suggestions && result.header_suggestions.length > 0;
+  const hasUnrecognized = result.unrecognized_headers && result.unrecognized_headers.length > 0;
+
+  if (!hasSuggestions && !hasUnrecognized) return null;
+
+  return (
+    <div className="bg-amber-950/25 border border-amber-700/60 rounded-lg p-3 space-y-2 text-xs">
+      <div className="flex items-center gap-2 text-amber-300 font-bold">
+        <Sparkles size={14} className="text-amber-400 shrink-0" />
+        <span>Column Header Validation &amp; Suggestions</span>
+      </div>
+      {hasSuggestions && (
+        <ul className="space-y-1 text-amber-200/90 pl-5 list-disc text-[11px]">
+          {result.header_suggestions!.map((sug, i) => (
+            <li key={i}>{sug}</li>
+          ))}
+        </ul>
+      )}
+      {hasUnrecognized && !hasSuggestions && (
+        <p className="text-[11px] text-amber-300/80">
+          Unrecognized column headers: {result.unrecognized_headers!.join(", ")}. These will be ignored or defaulted during resolution.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DistinguishedValidationsCard({ validations }: { validations?: string[] }) {
+  if (!validations || validations.length === 0) return null;
+
+  return (
+    <div className="bg-surface-container-low border border-outline-variant rounded-lg p-3 space-y-2 text-xs">
+      <div className="flex items-center gap-2 text-on-surface font-semibold">
+        <CheckSquare size={14} className="text-emerald-400 shrink-0" />
+        <span>Active Validation Rules Distinguished by Column Mapping</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+        {validations.map((v, i) => (
+          <div key={i} className="flex items-start gap-1.5 text-[11px] text-on-surface-variant bg-surface-container-lowest border border-outline-variant/60 rounded p-1.5">
+            <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 shrink-0" />
+            <span className="leading-snug">{v}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Modal
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
   isOpen,
   onClose,
+  customer,
   onImportConfirmed,
 }) => {
   const [rawText, setRawText] = useState("");
@@ -358,6 +474,7 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
   const [showAll, setShowAll] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isReliance = SmritiSalesPromotionService.isRelianceCustomer(customer);
 
   // Auto-validate whenever rawText or taxPolicy changes
   useEffect(() => {
@@ -381,6 +498,9 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
             delimiter_hint: null,
             tax_inclusive_default: taxDefault,
             file_name: fileName || "uploaded.csv",
+            customer_id: customer?.id,
+            customer_name: customer?.name,
+            customer_group: customer?.customerGroup || (customer as any)?.customerGroupId,
           }),
           signal: controller.signal,
         });
@@ -402,7 +522,7 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [rawText, taxPolicy, fileName]);
+  }, [rawText, taxPolicy, fileName, customer]);
 
   const loadFile = useCallback((file: File) => {
     setFileName(file.name);
@@ -448,27 +568,35 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
     if (!result) return;
     const items: ResolvedCartItem[] = result.rows
       .filter((r) => r.status !== "REJECTED" && Boolean(r.product_id))
-      .map((r) => ({
-        barcode: r.barcode,
-        resolved_item: r.resolved_item ?? r.barcode,
-        resolved_sku: r.resolved_sku ?? "",
-        product_id: r.product_id!,
-        hsn_code: r.hsn_code,
-        quantity: r.quantity ?? 1,
-        catalog_mrp: r.catalog_mrp ?? 0,
-        effective_selling_price: r.effective_selling_price ?? 0,
-        is_tax_inclusive: r.is_tax_inclusive ?? true,
-        tax_mode_display: r.tax_mode_display,
-        batch_no: r.batch_no,
-        salesperson_id: r.salesperson_id,
-        gst_rate: r.gst_rate ?? 0,
-        taxable_value: r.taxable_value ?? 0,
-        cgst_amount: r.cgst_amount ?? 0,
-        sgst_amount: r.sgst_amount ?? 0,
-        line_total: r.line_total ?? 0,
-        uom: r.uom ?? "PCS",
-        mrp_markdown_display: r.mrp_markdown_display,
-      }));
+      .map((r) => {
+        let effSp = r.effective_selling_price ?? 0;
+        let markdownDisplay = r.mrp_markdown_display;
+        if (isReliance && r.catalog_mrp && r.catalog_mrp > 0) {
+          effSp = Math.round(r.catalog_mrp * (1 - 0.4376) * 100) / 100;
+          markdownDisplay = "43.76% off MRP [REL_RET_4376]";
+        }
+        return {
+          barcode: r.barcode,
+          resolved_item: r.resolved_item ?? r.barcode,
+          resolved_sku: r.resolved_sku ?? "",
+          product_id: r.product_id!,
+          hsn_code: r.hsn_code,
+          quantity: r.quantity ?? 1,
+          catalog_mrp: r.catalog_mrp ?? 0,
+          effective_selling_price: effSp,
+          is_tax_inclusive: r.is_tax_inclusive ?? true,
+          tax_mode_display: r.tax_mode_display,
+          batch_no: r.batch_no,
+          salesperson_id: r.salesperson_id,
+          gst_rate: r.gst_rate ?? 0,
+          taxable_value: r.taxable_value ?? 0,
+          cgst_amount: r.cgst_amount ?? 0,
+          sgst_amount: r.sgst_amount ?? 0,
+          line_total: r.line_total ?? 0,
+          uom: r.uom ?? "PCS",
+          mrp_markdown_display: markdownDisplay,
+        };
+      });
 
     if (items.length === 0) {
       setApiError("No valid products found in the database. Only items verified in the catalogue can be added to billing.");
@@ -518,6 +646,22 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
 
         {/* ── Body (scrollable) ───────────────────────────────────────────── */}
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+
+          {/* Institutional Contract Active: Reliance Retail Ltd. */}
+          {isReliance && (
+            <div id="reliance-contract-banner" className="flex items-start gap-2.5 bg-primary/10 border border-primary/40 rounded-lg px-3.5 py-2.5 text-xs text-on-surface">
+              <Building2 size={16} className="text-primary mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold text-primary flex items-center gap-1.5">
+                  <span>Contract Active: {customer?.name || "Reliance Retail Ltd."}</span>
+                  <span className="bg-primary text-on-primary text-[9px] px-1.5 py-0.5 rounded font-bold">43.76% Markdown</span>
+                </p>
+                <p className="text-on-surface-variant text-[11px] mt-0.5 leading-snug">
+                  Institutional trade agreement active: Flat <strong>43.76% trade discount on MRP</strong> auto-assigned across all imported line items. All other general promotional schemes suppressed.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Format help */}
           <FormatHelp detected={result?.format_detected} />
@@ -587,9 +731,50 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
 
           {/* Paste / manual textarea */}
           <div className="flex flex-col gap-1">
-            <label className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">
-              Or paste raw CSV / PDT text
-            </label>
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <label className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">
+                Or paste raw CSV / PDT text
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-on-surface-variant">Quick Headers:</span>
+                <button
+                  id="btn-quick-standard"
+                  type="button"
+                  onClick={() => setRawText("barcode,quantity\n")}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-primary border border-outline-variant transition-colors"
+                  title="Insert standard barcode,quantity header"
+                >
+                  + Standard
+                </button>
+                <button
+                  id="btn-quick-b2b"
+                  type="button"
+                  onClick={() => setRawText("barcode,quantity,rate\n")}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-cyan-300 border border-cyan-800/60 transition-colors"
+                  title="Insert B2B wholesale rate header"
+                >
+                  + B2B Rate
+                </button>
+                <button
+                  id="btn-quick-retail"
+                  type="button"
+                  onClick={() => setRawText("barcode,quantity,selling_price\n")}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-emerald-300 border border-emerald-800/60 transition-colors"
+                  title="Insert retail selling price header"
+                >
+                  + Retail SP
+                </button>
+                <button
+                  id="btn-quick-commercial"
+                  type="button"
+                  onClick={() => setRawText("barcode,quantity,rate,discount_percent\n")}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-fuchsia-300 border border-fuchsia-800/60 transition-colors"
+                  title="Insert commercial rate + discount header"
+                >
+                  + Commercial
+                </button>
+              </div>
+            </div>
             <textarea
               id="csv-paste-area"
               value={rawText}
@@ -639,6 +824,15 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
                   — {result.format_label}
                 </span>
               </div>
+
+              {/* Column sequence & alias mappings */}
+              <ColumnSequenceStrip result={result} />
+
+              {/* Suggestions for unrecognized / misspelled headers */}
+              <HeaderSuggestionsCard result={result} />
+
+              {/* Distinguished statutory and pricing validation rules */}
+              <DistinguishedValidationsCard validations={result.distinguished_validations} />
 
               {/* Summary strip */}
               <SummaryStrip result={result} />

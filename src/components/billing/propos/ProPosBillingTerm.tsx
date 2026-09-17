@@ -279,32 +279,41 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       ...nextCustomer,
       customerGroup: nextCustomer.customerGroup || nextCustomer.customerGroupId || (nextCustomer.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined)
     };
+    if (SmritiSalesPromotionService.isRelianceCustomer(enrichedCustomer)) {
+      SmritiSalesPromotionService.ensureReliance4376Promotion();
+    }
     setCustomer(enrichedCustomer);
 
     // Alt+M Mid-Bill Customer Switch: Re-evaluate promotions across all active cart lines
     const isCustomerSwitch = prevCustomer.id !== enrichedCustomer.id || prevCustomer.code !== enrichedCustomer.code;
     if (!skipReevaluation && isCustomerSwitch && cartItems.length > 0) {
+      const isReliance = SmritiSalesPromotionService.isRelianceCustomer(enrichedCustomer);
       setCartItems(prevItems => {
         return prevItems.map(it => {
+          const baseRate = (isReliance && it.mrp && it.mrp > 0) ? it.mrp : it.unitPrice;
           const promoRes = SmritiSalesPromotionService.resolveBestItemPromo({
             sku: it.sku,
             barcode: it.barcode,
             brand: it.brand,
-            rate: it.unitPrice,
+            rate: baseRate,
             qty: it.qty,
             customerGroup: enrichedCustomer.customerGroup,
             customerCode: enrichedCustomer.code || enrichedCustomer.id,
+            customerName: enrichedCustomer.name,
             evalDate: new Date()
           });
 
           const discPct = promoRes.promo ? promoRes.discountPct : 0.00;
           const discAmt = promoRes.promo ? promoRes.discountAmt : 0.00;
           const discCode = promoRes.promo ? promoRes.promoCode : "ILD";
+          const finalUnitPrice = (isReliance && it.mrp && it.mrp > 0)
+            ? Math.round(it.mrp * (1 - discPct / 100) * 100) / 100
+            : it.unitPrice;
 
           const gst = calculateGST({
-            unitPrice: it.unitPrice,
+            unitPrice: finalUnitPrice,
             quantity: it.qty,
-            discountAmount: discAmt,
+            discountAmount: (isReliance ? 0 : discAmt),
             gstRate: it.taxPct || 5.00,
             isTaxInclusive: it.isTaxInclusive !== undefined ? it.isTaxInclusive : (taxMode === "inclusive"),
             isInterstate: isInterstate,
@@ -312,6 +321,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
           return {
             ...it,
+            unitPrice: finalUnitPrice,
             discCode,
             discountPct: discPct,
             discountAmt: discAmt,
@@ -967,6 +977,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       itemsCount: totalItemsCount,
       customerGroup: customer.customerGroup || customer.customerGroupId || (customer.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
       customerCode: customer.code || customer.id,
+      customerName: customer.name,
       evalDate: new Date()
     });
 
@@ -1425,35 +1436,74 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       return;
     }
 
-    const converted: ProPosCartItem[] = validDbItems.map((it, idx) => ({
-      id: `csv-${Date.now()}-${idx}`,
-      productId: it.product_id,
-      itemNo: cartItems.length + idx + 1,
-      sku: it.resolved_sku || it.barcode,
-      barcode: it.barcode,
-      name: it.resolved_item || it.barcode,
-      size: "—",
-      color: "—",
-      brand: "—",
-      salesStaff: salesStaff,
-      qty: it.quantity,
-      mrp: it.catalog_mrp,
-      unitPrice: it.effective_selling_price,
-      discCode: "CSVImp",
-      discQty: it.quantity,
-      discountPct: it.catalog_mrp > 0
+    const isReliance = SmritiSalesPromotionService.isRelianceCustomer(customer);
+    if (isReliance) {
+      SmritiSalesPromotionService.ensureReliance4376Promotion();
+    }
+
+    const converted: ProPosCartItem[] = validDbItems.map((it, idx) => {
+      let discCode = "CSVImp";
+      let discPct = it.catalog_mrp > 0
         ? Math.round((it.catalog_mrp - it.effective_selling_price) / it.catalog_mrp * 100 * 100) / 100
-        : 0,
-      discountAmt: (it.catalog_mrp - it.effective_selling_price) * it.quantity,
-      taxPct: it.gst_rate,
-      taxAmt: it.cgst_amount + it.sgst_amount,
-      taxableValue: it.taxable_value,
-      cgstAmount: it.cgst_amount,
-      sgstAmount: it.sgst_amount,
-      hsnCode: it.hsn_code,
-      isTaxInclusive: (it as any).is_tax_inclusive ?? (it as any).isTaxInclusive ?? (taxMode === "inclusive"),
-      lineTotal: it.line_total,
-    }));
+        : 0;
+      let unitPrice = it.effective_selling_price;
+      let promoDesc: string | undefined = undefined;
+      let promoBadge: string | undefined = undefined;
+
+      if (isReliance) {
+        discCode = "REL_RET_4376";
+        discPct = 43.76;
+        unitPrice = it.catalog_mrp > 0
+          ? Math.round(it.catalog_mrp * (1 - 0.4376) * 100) / 100
+          : it.effective_selling_price;
+        promoDesc = "Reliance Retail Trade Concession (43.76% on MRP)";
+        promoBadge = "43.76% [REL_RET_4376]";
+      }
+
+      const discAmt = it.catalog_mrp > 0
+        ? Math.round(((it.catalog_mrp * discPct) / 100) * it.quantity * 100) / 100
+        : (it.catalog_mrp - unitPrice) * it.quantity;
+
+      const isInc = (it as any).is_tax_inclusive ?? (it as any).isTaxInclusive ?? (taxMode === "inclusive");
+      const gst = calculateGST({
+        unitPrice: unitPrice,
+        quantity: it.quantity,
+        discountAmount: 0,
+        gstRate: it.gst_rate || 5.00,
+        isTaxInclusive: isInc,
+        isInterstate: isInterstate,
+      });
+
+      return {
+        id: `csv-${Date.now()}-${idx}`,
+        productId: it.product_id,
+        itemNo: cartItems.length + idx + 1,
+        sku: it.resolved_sku || it.barcode,
+        barcode: it.barcode,
+        name: it.resolved_item || it.barcode,
+        size: "—",
+        color: "—",
+        brand: "—",
+        salesStaff: salesStaff,
+        qty: it.quantity,
+        mrp: it.catalog_mrp,
+        unitPrice: unitPrice,
+        discCode: discCode,
+        discQty: it.quantity,
+        discountPct: discPct,
+        discountAmt: discAmt,
+        promoDescription: promoDesc,
+        promoBadge: promoBadge,
+        taxPct: it.gst_rate,
+        taxAmt: gst.taxAmount,
+        taxableValue: gst.taxableValue,
+        cgstAmount: gst.cgstAmount,
+        sgstAmount: gst.sgstAmount,
+        hsnCode: it.hsn_code,
+        isTaxInclusive: isInc,
+        lineTotal: gst.totalAmount,
+      };
+    });
     setCartItems(prev => [...prev, ...converted]);
     if (rejectedCount > 0) {
       onNotification?.(
@@ -1543,7 +1593,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
   // Settlement Success
   const handleSettlementSuccess = async (tenders: ProPosTenderSplit, changeDue: number) => {
-    const generatedBillNo = `${billDocPrefix}-${billDocNumber}`;
+    const generatedBillNo = (billDocPrefix.endsWith("/") || billDocPrefix.endsWith("-"))
+      ? `${billDocPrefix}${billDocNumber}`
+      : `${billDocPrefix}-${billDocNumber}`;
     const effectiveShiftId = shiftId || activeShiftId;
     if (!effectiveShiftId) {
       onNotification?.("Checkout Blocked", "Open a register shift before finalizing a bill.", "error");
@@ -2174,9 +2226,11 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             />
             <input
               type="text"
-              readOnly
+              name="posDocNumber"
+              aria-label="Document Number"
               value={billDocNumber}
-              className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded px-1.5 h-8 text-xs font-mono font-bold bg-[#f3f4f5] dark:bg-[#2d3133] text-[#00288e] dark:text-[#a8b8ff] outline-none"
+              onChange={e => setBillDocNumber(e.target.value)}
+              className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded px-1.5 h-8 text-xs font-mono font-bold bg-white dark:bg-[#191c1e] text-[#00288e] dark:text-[#a8b8ff] outline-none focus:border-[#00288e]"
             />
             {prefixResolveResult && (
               <span
@@ -3144,6 +3198,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       <BarcodeCSVImportModal
         isOpen={showCsvImportModal}
         onClose={() => setShowCsvImportModal(false)}
+        customer={customer}
         onImportConfirmed={handleCsvImportConfirmed}
       />
 

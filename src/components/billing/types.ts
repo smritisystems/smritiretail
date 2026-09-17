@@ -267,6 +267,12 @@ export interface CsvImportResult {
   warning_rows: number;
   can_proceed: boolean;
   import_log_id?: string;
+  raw_headers?: string[];
+  canonical_headers?: string[];
+  header_mappings?: Record<string, string>;
+  unrecognized_headers?: string[];
+  header_suggestions?: string[];
+  distinguished_validations?: string[];
   rows: CsvImportRow[];
 }
 

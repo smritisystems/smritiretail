@@ -62,6 +62,11 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">(defaultFormat);
   const [zoom, setZoom] = useState<number>(1.0);
 
+  const fmt = (v: any) => {
+    const n = typeof v === "number" ? v : parseFloat(String(v || "0"));
+    return isNaN(n) ? "0.00" : n.toFixed(2);
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -321,8 +326,8 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
                         </div>
                       </td>
                       <td className="py-1.5 text-center font-bold">{it.qty}</td>
-                      <td className="py-1.5 text-right">{it.unitPrice.toFixed(2)}</td>
-                      <td className="py-1.5 text-right font-bold">{it.lineTotal.toFixed(2)}</td>
+                      <td className="py-1.5 text-right">{fmt(it.unitPrice)}</td>
+                      <td className="py-1.5 text-right font-bold">{fmt(it.lineTotal)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -332,13 +337,13 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
               <div className="border-t border-dashed border-gray-400 pt-2 pb-1">
                 <div className="text-[10px] font-bold uppercase text-gray-600 mb-1">GST Tax Analysis:</div>
                 <div className="grid grid-cols-4 text-[10px] text-gray-700 bg-gray-50 p-1 rounded font-mono">
-                  <span>Taxable: ₹{calculatedTaxable.toFixed(2)}</span>
+                  <span>Taxable: ₹{fmt(calculatedTaxable)}</span>
                   {hasIgst ? (
-                    <span className="col-span-3 text-right">IGST: ₹{taxTotal.toFixed(2)}</span>
+                    <span className="col-span-3 text-right">IGST: ₹{fmt(taxTotal)}</span>
                   ) : (
                     <>
-                      <span className="text-center">CGST: ₹{(taxTotal / 2).toFixed(2)}</span>
-                      <span className="col-span-2 text-right">SGST: ₹{(taxTotal / 2).toFixed(2)}</span>
+                      <span className="text-center">CGST: ₹{fmt(Number(taxTotal || 0) / 2)}</span>
+                      <span className="col-span-2 text-right">SGST: ₹{fmt(Number(taxTotal || 0) / 2)}</span>
                     </>
                   )}
                 </div>
@@ -348,21 +353,21 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
               <div className="border-t border-dashed border-gray-400 pt-2 space-y-1 text-[11px]">
                 <div className="flex justify-between">
                   <span>Gross Subtotal:</span>
-                  <span>₹{subTotal.toFixed(2)}</span>
+                  <span>₹{fmt(subTotal)}</span>
                 </div>
-                {discountTotal > 0 && (
+                {Number(discountTotal || 0) > 0 && (
                   <div className="flex justify-between text-gray-700">
                     <span>Total Discounts:</span>
-                    <span>-₹{discountTotal.toFixed(2)}</span>
+                    <span>-₹{fmt(discountTotal)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-gray-700">
                   <span>Total Tax:</span>
-                  <span>₹{taxTotal.toFixed(2)}</span>
+                  <span>₹{fmt(taxTotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold border-t border-gray-400 pt-1 text-black">
                   <span>NET PAYABLE:</span>
-                  <span>₹{netPayable.toFixed(2)}</span>
+                  <span>₹{fmt(netPayable)}</span>
                 </div>
               </div>
 
@@ -370,12 +375,12 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
               {tenders && (
                 <div className="border-t border-dashed border-gray-400 pt-2 space-y-0.5 text-[10px] text-gray-700">
                   <div className="font-bold uppercase text-[11px]">Paid By:</div>
-                  {tenders.cash > 0 && <div className="flex justify-between"><span>Cash:</span><span>₹{tenders.cash.toFixed(2)}</span></div>}
-                  {tenders.card > 0 && <div className="flex justify-between"><span>Card:</span><span>₹{tenders.card.toFixed(2)}</span></div>}
-                  {tenders.upi > 0 && <div className="flex justify-between"><span>UPI:</span><span>₹{tenders.upi.toFixed(2)}</span></div>}
-                  {tenders.credit > 0 && <div className="flex justify-between font-bold"><span>Credit / Pay Later:</span><span>₹{tenders.credit.toFixed(2)}</span></div>}
-                  {tenders.loyaltyAmount > 0 && <div className="flex justify-between"><span>Loyalty Rewards:</span><span>₹{tenders.loyaltyAmount.toFixed(2)}</span></div>}
-                  {changeDue > 0 && <div className="flex justify-between font-bold text-black pt-1"><span>Change Returned:</span><span>₹{changeDue.toFixed(2)}</span></div>}
+                  {Number(tenders.cash || 0) > 0 && <div className="flex justify-between"><span>Cash:</span><span>₹{fmt(tenders.cash)}</span></div>}
+                  {Number(tenders.card || 0) > 0 && <div className="flex justify-between"><span>Card:</span><span>₹{fmt(tenders.card)}</span></div>}
+                  {Number(tenders.upi || 0) > 0 && <div className="flex justify-between"><span>UPI:</span><span>₹{fmt(tenders.upi)}</span></div>}
+                  {Number(tenders.credit || 0) > 0 && <div className="flex justify-between font-bold"><span>Credit / Pay Later:</span><span>₹{fmt(tenders.credit)}</span></div>}
+                  {Number(tenders.loyaltyAmount || 0) > 0 && <div className="flex justify-between"><span>Loyalty Rewards:</span><span>₹{fmt(tenders.loyaltyAmount)}</span></div>}
+                  {Number(changeDue || 0) > 0 && <div className="flex justify-between font-bold text-black pt-1"><span>Change Returned:</span><span>₹{fmt(changeDue)}</span></div>}
                 </div>
               )}
 
