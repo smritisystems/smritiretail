@@ -589,6 +589,8 @@ export interface CustomerGroup {
 
   // Price Policy
   defaultPriceListId?: string;
+  defaultPricingBasis?: "MRP" | "RATE";
+  defaultAllowPromotionsOnRate?: boolean;
   maxDiscountPercent: number;
   minMarginPercent: number;
   roundingRule: RoundingRule;
@@ -660,6 +662,8 @@ export interface Customer {
   priceGroupCode?: string;
   itemClassificationPriceFactorApplicable?: boolean;
   discountPercent?: number;
+  pricingBasis?: "MRP" | "RATE";
+  allowPromotionsOnRate?: boolean;
 
   // Payment overrides
   preferredPaymentMethod?: PaymentMethod;
@@ -734,6 +738,8 @@ export interface ResolvedCustomerPolicy {
   gstPercentageOverride?: number;
   taxCategory?: TaxCategory;
   priceListId?: string;
+  pricingBasis: "MRP" | "RATE";
+  allowPromotionsOnRate: boolean;
   maxDiscountPercent: number;
   minMarginPercent: number;
   roundingRule: RoundingRule;

@@ -1274,6 +1274,8 @@ export class SmritiSalesPromotionService {
     customerGroup?: string;
     customerCode?: string;
     customerName?: string;
+    pricingBasis?: "MRP" | "RATE";
+    allowPromotionsOnRate?: boolean;
     evalDate?: Date;
     asOf?: Date;
     currentTime?: string; // "HH:mm"
@@ -1361,6 +1363,29 @@ export class SmritiSalesPromotionService {
         },
         unclaimedFreeItemOffer: null,
         taxTreatment: "PRE_TAX_TRADE_DISCOUNT"
+      };
+    }
+
+    // Margin Protection Governance for Wholesale Trade Rate:
+    // If customer is billed on RATE, retail promotions (BOGO, ILD, EOSS, Clearance)
+    // are suppressed by default to prevent double-discounting margin destruction.
+    const pricingBasis = params.pricingBasis || "MRP";
+    const allowPromotionsOnRate = Boolean(params.allowPromotionsOnRate);
+
+    if (pricingBasis === "RATE" && !allowPromotionsOnRate) {
+      return {
+        applied: false,
+        promo: null,
+        rule: null,
+        discountPct: 0,
+        discountAmt: 0,
+        promoCode: "",
+        promoDescription: "Retail promotions suppressed: Customer billed on Wholesale Trade Rate",
+        schemeType: null,
+        reason: "Customer pricing basis is RATE (Wholesale/Trade). Retail promotional offers are automatically suppressed to safeguard trade margins.",
+        appliedOnQty: qty,
+        badgeText: "RATE (NET)",
+        ruleDescription: "Trade Rate Net Billing"
       };
     }
 

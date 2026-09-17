@@ -512,18 +512,53 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             />
           </div>
 
-          <div className="flex items-end pb-2 md:col-span-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={customer.isTaxInclusive}
-                onChange={(e) => onChange("isTaxInclusive", e.target.checked)}
-                className="rounded text-[#00355f] focus:ring-[#00355f]"
-              />
-              <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
-                Tax Inclusive Pricing Applicable
-              </span>
+          <div>
+            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+              Billing Basis (Bill On)*
             </label>
+            <select
+              value={customer.pricingBasis || "MRP"}
+              data-field-key="pricing_basis"
+              onChange={e => {
+                const val = e.target.value as "MRP" | "RATE";
+                onChange("pricingBasis", val);
+                if (val === "RATE") {
+                  onChange("isTaxInclusive", false);
+                }
+              }}
+              className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] rounded-lg text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] outline-none"
+            >
+              <option value="MRP">MRP (Retail Maximum Price)</option>
+              <option value="RATE">RATE (Wholesale / Trade Price)</option>
+            </select>
+          </div>
+
+          <div className="flex items-end pb-2 md:col-span-3">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={customer.isTaxInclusive}
+                  onChange={(e) => onChange("isTaxInclusive", e.target.checked)}
+                  className="rounded text-[#00355f] focus:ring-[#00355f]"
+                />
+                <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
+                  Tax Inclusive Pricing Applicable {customer.pricingBasis === "RATE" && "(Note: Wholesale Rate is typically Tax-Exclusive)"}
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={customer.allowPromotionsOnRate || false}
+                  onChange={(e) => onChange("allowPromotionsOnRate", e.target.checked)}
+                  className="rounded text-[#ba1a1a] focus:ring-[#ba1a1a]"
+                />
+                <span className="text-xs font-medium text-[#515f74] dark:text-[#bec6e0]">
+                  <strong className="text-[#ba1a1a] dark:text-[#ffb4ab]">Allow Retail Promotions on Trade Rate</strong> — (Default OFF to prevent double-discounting margin erosion)
+                </span>
+              </label>
+            </div>
           </div>
         </div>
       </div>

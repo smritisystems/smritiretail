@@ -603,6 +603,8 @@ class CustomerGroupBase(BaseModel):
     allow_override: Optional[bool] = False
     tax_inclusive: Optional[bool] = True
     is_tax_inclusive: Optional[bool] = Field(True, alias="isTaxInclusive")
+    default_pricing_basis: Optional[str] = Field("MRP", alias="defaultPricingBasis")
+    default_allow_promotions_on_rate: Optional[bool] = Field(False, alias="defaultAllowPromotionsOnRate")
     max_discount_percent: Optional[Decimal] = Decimal("0.00")
     min_margin_percent: Optional[Decimal] = Decimal("0.00")
     rounding_rule: Optional[str] = "Nearest1"
@@ -632,6 +634,8 @@ class CustomerGroupUpdate(BaseModel):
     allow_override: Optional[bool] = None
     tax_inclusive: Optional[bool] = None
     is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
+    default_pricing_basis: Optional[str] = Field(None, alias="defaultPricingBasis")
+    default_allow_promotions_on_rate: Optional[bool] = Field(None, alias="defaultAllowPromotionsOnRate")
     max_discount_percent: Optional[Decimal] = None
     min_margin_percent: Optional[Decimal] = None
     rounding_rule: Optional[str] = None
@@ -676,6 +680,8 @@ class CustomerBase(BaseModel):
     unlimited_credit: Optional[bool] = Field(None, alias="unlimitedCredit")
     credit_hold: Optional[bool] = Field(None, alias="creditHold")
     is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
+    pricing_basis: Optional[str] = Field("MRP", alias="pricingBasis")
+    allow_promotions_on_rate: Optional[bool] = Field(False, alias="allowPromotionsOnRate")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -716,6 +722,8 @@ class CustomerUpdate(BaseModel):
     email: Optional[str] = None
     gst_number: Optional[str] = Field(None, alias="gstNumber")
     is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
+    pricing_basis: Optional[str] = Field(None, alias="pricingBasis")
+    allow_promotions_on_rate: Optional[bool] = Field(None, alias="allowPromotionsOnRate")
     outstanding: Optional[Decimal] = None
     status: Optional[str] = None
     tags: Optional[List[str]] = None
@@ -806,6 +814,9 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "status": customer.status if customer.status is not None else "Active",
         "created_date": customer.created_date,
         "tags": list(customer.tags or []),
+        "is_tax_inclusive": getattr(customer, "is_tax_inclusive", None),
+        "pricing_basis": getattr(customer, "pricing_basis", "MRP") or "MRP",
+        "allow_promotions_on_rate": bool(getattr(customer, "allow_promotions_on_rate", False)),
         "company_id": customer.company_id,
         "branch_id": customer.branch_id,
         "created_at": customer.created_at,
