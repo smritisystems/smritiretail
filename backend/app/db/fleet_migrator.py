@@ -209,6 +209,10 @@ class FleetMigrator:
                 os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini")
             )
             cfg = Config(alembic_ini_path)
+            scripts_dir = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "..", "alembic")
+            )
+            cfg.set_main_option("script_location", scripts_dir)
             cfg.cmd_opts = argparse.Namespace(x=[f"db={target.database_name}"])
 
             # 4. Execute migration

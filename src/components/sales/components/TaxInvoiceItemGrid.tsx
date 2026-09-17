@@ -299,6 +299,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
               <input
                 ref={scanInputRef}
                 type="text"
+                data-field-key="barcode"
                 value={scanBarcode}
                 onChange={(e) => setScanBarcode(e.target.value)}
                 className="h-8 w-full pl-9 pr-14 text-xs font-mono font-semibold text-slate-800 placeholder:text-slate-400 bg-slate-50 focus:bg-white border border-blue-300 focus:border-blue-600 rounded shadow-2xs focus:outline-none"
@@ -502,6 +503,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                     ref={stockInputRef}
                     id="dist-entry-stockno"
                     data-f2-entity="variant"
+                    data-field-key="item_code"
                     type="text"
                     value={stockNo}
                     onChange={(e) => setStockNo(e.target.value)}
@@ -521,6 +523,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
               <td className="py-1 px-2">
                 <input
                   type="text"
+                  data-field-key="item_name"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   onKeyDown={(e) => {
@@ -537,6 +540,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
               <td className="py-1 px-2">
                 <input
                   type="number"
+                  data-field-key="unit_price"
                   value={rate}
                   onChange={(e) => setRate(e.target.value === "" ? "" : Number(e.target.value))}
                   onKeyDown={(e) => {
@@ -554,6 +558,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                 <input
                   type="number"
                   min="1"
+                  data-field-key="quantity"
                   value={qty}
                   onChange={(e) => setQty(e.target.value === "" ? "" : Number(e.target.value))}
                   onKeyDown={(e) => {
@@ -573,6 +578,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
               <td className="py-1 px-2">
                 <input
                   type="number"
+                  data-field-key="discount_percent"
                   value={discPercent}
                   onChange={(e) => setDiscPercent(e.target.value === "" ? "" : Number(e.target.value))}
                   onKeyDown={(e) => {
@@ -654,6 +660,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                   <td className="py-1 px-2 text-right font-mono">
                     <input
                       type="number"
+                      data-field-key="unit_price"
                       value={item.rate}
                       onChange={(e) => onUpdateItem(idx, { rate: Number(e.target.value) || 0 })}
                       className="h-7 w-24 text-right font-mono text-xs border border-transparent hover:border-slate-300 focus:border-blue-600 rounded px-1"
@@ -663,6 +670,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                     <input
                       type="number"
                       min="1"
+                      data-field-key="quantity"
                       value={item.qty}
                       onChange={(e) => onUpdateItem(idx, { qty: Number(e.target.value) || 1 })}
                       className="h-7 w-16 text-center font-mono font-bold text-xs border border-transparent hover:border-slate-300 focus:border-blue-600 rounded px-1"

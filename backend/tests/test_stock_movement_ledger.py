@@ -64,22 +64,29 @@ async def test_stock_movement_ledger_api_endpoints():
         res = await client.get("/api/v1/inventory/ledger", headers=_get_auth_headers())
         assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
         data = res.json()
-        assert isinstance(data, list)
+        items = data["items"] if isinstance(data, dict) else data
+        assert isinstance(items, list)
 
         # 2. Route alias endpoint
         res_alias = await client.get("/api/v1/inventory/stock-movements", headers=_get_auth_headers())
         assert res_alias.status_code == 200
-        assert isinstance(res_alias.json(), list)
+        data_alias = res_alias.json()
+        items_alias = data_alias["items"] if isinstance(data_alias, dict) else data_alias
+        assert isinstance(items_alias, list)
 
         # 3. Filter by type
         res_filter = await client.get("/api/v1/inventory/ledger?movement_type=OUTWARD_SALE", headers=_get_auth_headers())
         assert res_filter.status_code == 200
-        assert isinstance(res_filter.json(), list)
+        data_filter = res_filter.json()
+        items_filter = data_filter["items"] if isinstance(data_filter, dict) else data_filter
+        assert isinstance(items_filter, list)
 
         # 4. Filter by search
         res_search = await client.get("/api/v1/inventory/ledger?search=INV-TEST", headers=_get_auth_headers())
         assert res_search.status_code == 200
-        assert isinstance(res_search.json(), list)
+        data_search = res_search.json()
+        items_search = data_search["items"] if isinstance(data_search, dict) else data_search
+        assert isinstance(items_search, list)
 
 
 @pytest.mark.asyncio
@@ -95,7 +102,9 @@ async def test_stock_movement_company_and_branch_isolation():
             headers=_get_auth_headers(company_id="COMP-001", branch_id="BR-EMPTY-999")
         )
         assert res_branch.status_code == 200
-        assert res_branch.json() == []
+        branch_data = res_branch.json()
+        branch_items = branch_data["items"] if isinstance(branch_data, dict) else branch_data
+        assert branch_items == []
 
         # Company isolation: unauthorized company is rejected
         res_other = await client.get(
@@ -629,7 +638,8 @@ async def test_stock_movement_ledger_live_api_runtime_response():
                     headers=_get_auth_headers()
                 )
                 assert api_res.status_code == 200
-                rows = api_res.json()
+                res_data = api_res.json()
+                rows = res_data["items"] if isinstance(res_data, dict) else res_data
                 assert len(rows) == 1, f"Expected 1 movement row from API, got {len(rows)}"
 
                 row = rows[0]

@@ -32,7 +32,8 @@ import {
   ShieldCheck, 
   CheckCircle2, 
   AlertCircle,
-  Loader2
+  Loader2,
+  Edit3
 } from "lucide-react";
 import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
@@ -1113,6 +1114,25 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     }
   };
 
+  const handleEdit = () => {
+    setViewMode("catalogue");
+    setActiveTab("form");
+    setIsDirty(true);
+    isDirtyRef.current = true;
+    onNotification?.(
+      "Edit Mode",
+      `Editing customer account ${currentCustomer.name || currentCustomer.code}. Make modifications and press Ctrl+S to save.`,
+      "info"
+    );
+    setTimeout(() => {
+      const nameEl = document.querySelector('input[data-field-key="customer_name"]') as HTMLInputElement;
+      if (nameEl) {
+        nameEl.focus();
+        nameEl.select();
+      }
+    }, 150);
+  };
+
   const handleNew = () => {
     const newRecord = createEmptyCustomer(customers.length + 1);
     setActiveCustomerId(newRecord.id);
@@ -1278,6 +1298,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       } else if (e.altKey && e.key.toLowerCase() === "n") {
         e.preventDefault();
         handleNew();
+      } else if (e.altKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        handleEdit();
       } else if (e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
         handleDelete();
@@ -1369,6 +1392,19 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             <Plus size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
             <span>New</span>
             <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">Alt+N</kbd>
+          </button>
+
+          {/* Edit Button */}
+          <button
+            type="button"
+            onClick={handleEdit}
+            data-testid="edit-customer-btn"
+            className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs text-[#00355f] dark:text-[#8ebdf9]"
+            title="Edit Current Customer Record (Alt+E)"
+          >
+            <Edit3 size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
+            <span>Edit</span>
+            <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">Alt+E</kbd>
           </button>
 
           {/* Search Button */}
@@ -1482,6 +1518,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                     <th className="p-3">Loyalty Tier</th>
                     <th className="p-3">Credit Limit</th>
                     <th className="p-3">Status</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
@@ -1512,6 +1549,39 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#dcfce7] text-[#166534]">
                           {c.status}
                         </span>
+                      </td>
+                      <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentIndex(idx);
+                            setActiveCustomerId(c.id);
+                            activeCustomerIdRef.current = c.id;
+                            setCurrentCustomer(JSON.parse(JSON.stringify(c)));
+                            currentCustomerRef.current = c;
+                            setIsDirty(true);
+                            isDirtyRef.current = true;
+                            setViewMode("catalogue");
+                            setActiveTab("form");
+                            onNotification?.(
+                              "Edit Mode",
+                              `Editing customer account ${c.name} (${c.code}).`,
+                              "info"
+                            );
+                            setTimeout(() => {
+                              const nameEl = document.querySelector('input[data-field-key="customer_name"]') as HTMLInputElement;
+                              if (nameEl) {
+                                nameEl.focus();
+                                nameEl.select();
+                              }
+                            }, 150);
+                          }}
+                          className="px-2.5 py-1 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs"
+                          title={`Edit Customer ${c.code}`}
+                        >
+                          <Edit3 size={12} />
+                          <span>Edit</span>
+                        </button>
                       </td>
                     </tr>
                   ))}

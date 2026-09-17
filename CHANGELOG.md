@@ -28,6 +28,19 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.34.2] - 2026-09-17
+
+#### Customer Catalogue Edit Button & Seamless Workflow Integration
+
+- **Dedicated Edit Action Button & Keyboard Shortcut:**
+  - Added dedicated `Edit (Alt+E)` button to top action toolbar in `CustMasterWs.tsx`, positioned between `New` and `Search`.
+  - Added dedicated `Actions` column with per-row `Edit` button in Customer Directory Grid (`viewMode === "directory"`).
+  - Wired global `Alt+E` shortcut listener into `handleKeyDown`.
+- **Automated Workflow Navigation & Autofocus:**
+  - Added `handleEdit()` function automatically switching view mode from Directory to Catalogue Form (`Alt+1`), marking workspace dirty (`isDirty = true`), dispatching informational toast notification (`Edit Mode`), and focusing/selecting the primary customer name input (`input[data-field-key="customer_name"]`).
+- **End-to-End Headless Certification & DB Audit:**
+  - Verified with automated Playwright test suite (`scripts/verify_customer_edit_button.py`) asserting toolbar button visibility, directory row edit button, form switch, input autofocus, PUT save HTTP 200, and PostgreSQL database persistence. Captured 4 high-resolution screenshots.
+
 ### [6.34.1] - 2026-09-17
 
 #### Customer Catalogue Form Save & PostgreSQL Persistence Remediation

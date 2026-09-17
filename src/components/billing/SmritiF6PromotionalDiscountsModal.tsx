@@ -629,6 +629,7 @@ export const SmritiF6PromotionalDiscountsModal: React.FC<SmritiF6PromotionalDisc
                         type="number"
                         min="0"
                         step="0.01"
+                        data-field-key="calc_base"
                         value={calcBase}
                         onChange={e => handleCalculatedOnBaseChange(parseFloat(e.target.value) || 0)}
                         className="w-24 h-7 px-2 border border-outline-variant rounded font-mono text-xs font-bold text-right bg-surface outline-none focus:border-primary"
@@ -686,6 +687,7 @@ export const SmritiF6PromotionalDiscountsModal: React.FC<SmritiF6PromotionalDisc
                       min="0"
                       max="100"
                       step="0.1"
+                      data-field-key="discount_percent"
                       value={billPromo.discountPct}
                       onChange={e => {
                         const val = parseFloat(e.target.value) || 0;
@@ -709,6 +711,7 @@ export const SmritiF6PromotionalDiscountsModal: React.FC<SmritiF6PromotionalDisc
                       min="0"
                       max={calcBase}
                       step="0.01"
+                      data-field-key="discount_amount"
                       value={billPromo.discountAmt}
                       onChange={e => {
                         const amt = parseFloat(e.target.value) || 0;

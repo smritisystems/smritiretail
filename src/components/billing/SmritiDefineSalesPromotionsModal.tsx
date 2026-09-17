@@ -464,6 +464,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                     <input
                       type="text"
                       required
+                      data-field-key="promo_code"
                       value={editingPromo.code}
                       onChange={e => setEditingPromo({ ...editingPromo, code: e.target.value.toUpperCase() })}
                       placeholder="e.g. EOSS25"
@@ -478,6 +479,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                       type="number"
                       required
                       min="1"
+                      data-field-key="priority"
                       value={editingPromo.priority}
                       onChange={e => setEditingPromo({ ...editingPromo, priority: parseInt(e.target.value) || 1 })}
                       className="w-full h-8 px-2 border border-outline-variant rounded font-mono text-xs font-bold outline-none focus:border-primary bg-surface"
@@ -493,6 +495,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                   <input
                     type="text"
                     required
+                    data-field-key="promo_name"
                     value={editingPromo.name}
                     onChange={e => setEditingPromo({ ...editingPromo, name: e.target.value })}
                     placeholder="e.g. End of Season 25% Off"
@@ -561,6 +564,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                       type="number"
                       min="0"
                       step="0.1"
+                      data-field-key="discount_value"
                       value={editingPromo.discountValue}
                       onChange={e => setEditingPromo({ ...editingPromo, discountValue: parseFloat(e.target.value) || 0 })}
                       className="w-full h-8 px-2 border border-outline-variant rounded font-mono text-xs font-bold outline-none focus:border-primary bg-surface"
@@ -573,6 +577,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                     <input
                       type="number"
                       min="0"
+                      data-field-key="max_discount"
                       placeholder="Optional ceiling cap"
                       value={editingPromo.maxDiscount || ""}
                       onChange={e => setEditingPromo({ ...editingPromo, maxDiscount: e.target.value ? parseFloat(e.target.value) : undefined })}
@@ -590,6 +595,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                     <input
                       type="number"
                       min="0"
+                      data-field-key="min_bill_value"
                       value={editingPromo.minBillValue || 0}
                       onChange={e => setEditingPromo({ ...editingPromo, minBillValue: parseFloat(e.target.value) || 0 })}
                       className="w-full h-8 px-2 border border-outline-variant rounded font-mono text-xs font-bold outline-none focus:border-primary bg-surface"
@@ -605,6 +611,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                     </label>
                     <input
                       type="date"
+                      data-field-key="valid_from"
                       value={editingPromo.validFrom}
                       onChange={e => setEditingPromo({ ...editingPromo, validFrom: e.target.value })}
                       className="w-full h-8 px-2 border border-outline-variant rounded text-xs font-mono outline-none focus:border-primary bg-surface"
@@ -616,6 +623,7 @@ export const SmritiDefineSalesPromotionsModal: React.FC<SmritiDefineSalesPromoti
                     </label>
                     <input
                       type="date"
+                      data-field-key="valid_to"
                       value={editingPromo.validTo}
                       onChange={e => setEditingPromo({ ...editingPromo, validTo: e.target.value })}
                       className="w-full h-8 px-2 border border-outline-variant rounded text-xs font-mono outline-none focus:border-primary bg-surface"
