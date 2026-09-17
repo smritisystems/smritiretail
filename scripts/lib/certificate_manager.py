@@ -139,6 +139,7 @@ class PreflightCertificateManager:
         now = datetime.now(timezone.utc)
         head_commit = get_current_git_commit()
 
+        candidates = []
         for cert_file in os.listdir(CERT_DIR):
             if not cert_file.endswith(".json"):
                 continue
@@ -147,8 +148,6 @@ class PreflightCertificateManager:
                 with open(cert_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
-                cert_id = data.get("certificate_id")
-
                 # Match target path or proposed filename
                 target_path = data.get("target_file_path") or ""
                 target_norm = os.path.normpath(target_path).replace("\\", "/") if target_path else ""
@@ -156,7 +155,6 @@ class PreflightCertificateManager:
                 path_matches = (target_norm == norm_path)
                 name_matches = (data.get("proposed_name") == file_name)
 
-                # Path or filename must match
                 if not (path_matches or name_matches):
                     continue
 
@@ -165,76 +163,83 @@ class PreflightCertificateManager:
                 if capability and data.get("capability") != capability:
                     continue
 
-                # 1. Expiration check
-                cert_exp = datetime.fromisoformat(data["expires_at"])
-                if now > cert_exp:
-                    return {"valid": False, "reason": f"Preflight Certificate '{cert_id}' expired on {cert_exp}."}
-
-                # 2. Git revision check
-                if enforce_git_commit:
-                    cert_commit = data.get("git_commit")
-                    if cert_commit and head_commit != "0000000000000000000000000000000000000000":
-                        if cert_commit != head_commit:
-                            return {
-                                "valid": False,
-                                "reason": f"Git revision mismatch: Certificate '{cert_id}' was issued for commit {cert_commit[:8]}, but repo is at {head_commit[:8]}."
-                            }
-
-                # 3. Content hash check
-                if enforce_content_hash and os.path.exists(file_path):
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        curr_content = f.read()
-                    actual_hash = calculate_content_hash(data.get("proposed_name"), data.get("entity"), data.get("capability"), curr_content)
-                    if data.get("content_hash") != actual_hash:
-                        return {
-                            "valid": False,
-                            "reason": f"Content hash mismatch: File '{file_path}' content was altered after certificate '{cert_id}' was issued!"
-                        }
-
-                # 4. smritisys Database consistency check
-                if enforce_db_consistency:
-                    try:
-                        conn = psycopg2.connect(DB_CONN)
-                        cur = conn.cursor()
-                        cur.execute("""
-                            SELECT entity, capability, content_hash, git_commit, status
-                            FROM architecture_certificates
-                            WHERE certificate_id = %s;
-                        """, (cert_id,))
-                        db_row = cur.fetchone()
-                        conn.close()
-
-                        if not db_row:
-                            return {
-                                "valid": False,
-                                "reason": f"Database consistency error: Certificate '{cert_id}' exists locally but is missing from smritisys control plane!"
-                            }
-
-                        db_ent, db_cap, db_hash, db_commit, db_status = db_row
-                        if (db_ent != data.get("entity") or db_cap != data.get("capability") or
-                                db_hash != data.get("content_hash") or db_commit != data.get("git_commit")):
-                            return {
-                                "valid": False,
-                                "reason": f"Database tampering detected: Local certificate '{cert_id}' differs from smritisys control plane record!"
-                            }
-
-                        if db_status != "ISSUED" and db_status != "USED":
-                            return {
-                                "valid": False,
-                                "reason": f"Certificate '{cert_id}' has revoked status in control plane: {db_status}."
-                            }
-                    except Exception as e:
-                        print(f"[Warning] DB consistency check warning: {e}")
-
-                # Everything verified
-                return {
-                    "valid": True,
-                    "certificate_id": cert_id,
-                    "decision": data["decision"],
-                    "canonical_owner": data.get("canonical_owner"),
-                    "certificate_data": data,
-                }
+                candidates.append(data)
             except Exception:
                 continue
 
-        return {"valid": False, "reason": f"No valid Preflight Certificate found for '{file_path}'."}
+        if not candidates:
+            return {"valid": False, "reason": f"No valid Preflight Certificate found for '{file_path}'."}
+
+        # Sort candidate certificates by issued_at descending (newest first)
+        candidates.sort(key=lambda c: c.get("issued_at", ""), reverse=True)
+
+        last_failure_reason = None
+        for data in candidates:
+            cert_id = data.get("certificate_id")
+
+            # 1. Expiration check
+            try:
+                cert_exp = datetime.fromisoformat(data["expires_at"])
+                if now > cert_exp:
+                    last_failure_reason = f"Preflight Certificate '{cert_id}' expired on {cert_exp}."
+                    continue
+            except Exception:
+                last_failure_reason = f"Invalid expiration date on certificate '{cert_id}'."
+                continue
+
+            # 2. Git revision check
+            if enforce_git_commit:
+                cert_commit = data.get("git_commit")
+                if cert_commit and head_commit != "0000000000000000000000000000000000000000":
+                    if cert_commit != head_commit:
+                        last_failure_reason = f"Git revision mismatch: Certificate '{cert_id}' was issued for commit {cert_commit[:8]}, but repo is at {head_commit[:8]}."
+                        continue
+
+            # 3. Content hash check
+            if enforce_content_hash and os.path.exists(file_path):
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    curr_content = f.read()
+                actual_hash = calculate_content_hash(data.get("proposed_name"), data.get("entity"), data.get("capability"), curr_content)
+                if data.get("content_hash") != actual_hash:
+                    last_failure_reason = f"Content hash mismatch: File '{file_path}' content was altered after certificate '{cert_id}' was issued!"
+                    continue
+
+            # 4. smritisys Database consistency check
+            if enforce_db_consistency:
+                try:
+                    conn = psycopg2.connect(DB_CONN)
+                    cur = conn.cursor()
+                    cur.execute("""
+                        SELECT entity, capability, content_hash, git_commit, status
+                        FROM architecture_certificates
+                        WHERE certificate_id = %s;
+                    """, (cert_id,))
+                    db_row = cur.fetchone()
+                    conn.close()
+
+                    if not db_row:
+                        last_failure_reason = f"Database consistency error: Certificate '{cert_id}' exists locally but is missing from smritisys control plane!"
+                        continue
+
+                    db_ent, db_cap, db_hash, db_commit, db_status = db_row
+                    if (db_ent != data.get("entity") or db_cap != data.get("capability") or
+                            db_hash != data.get("content_hash") or db_commit != data.get("git_commit")):
+                        last_failure_reason = f"Database tampering detected: Local certificate '{cert_id}' differs from smritisys control plane record!"
+                        continue
+
+                    if db_status != "ISSUED" and db_status != "USED":
+                        last_failure_reason = f"Certificate '{cert_id}' has revoked status in control plane: {db_status}."
+                        continue
+                except Exception as e:
+                    print(f"[Warning] DB consistency check warning: {e}")
+
+            # Everything verified for this certificate
+            return {
+                "valid": True,
+                "certificate_id": cert_id,
+                "decision": data["decision"],
+                "canonical_owner": data.get("canonical_owner"),
+                "certificate_data": data,
+            }
+
+        return {"valid": False, "reason": last_failure_reason or f"No valid Preflight Certificate found for '{file_path}'."}

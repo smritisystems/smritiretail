@@ -21,6 +21,8 @@ COLUMN_PATCHES = [
     ("customers", "price_tier_id", "VARCHAR(50)"),
     ("customers", "pricing_basis", "VARCHAR(20) DEFAULT 'MRP'"),
     ("customers", "allow_promotions_on_rate", "BOOLEAN DEFAULT FALSE"),
+    # loyalty_tiers
+    ("loyalty_tiers", "points_per_unit_spend", "NUMERIC(10, 2) DEFAULT 1.00"),
     # customer_groups
     ("customer_groups", "pricing_basis", "VARCHAR(20) DEFAULT 'MRP'"),
     ("customer_groups", "allow_promotions_on_rate", "BOOLEAN DEFAULT FALSE"),

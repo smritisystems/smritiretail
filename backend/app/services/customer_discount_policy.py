@@ -87,7 +87,7 @@ def validate_customer_discount_policy(
     if not policy.customer:
         return
 
-    if not policy.group or not policy.can_receive_discount:
+    if not policy.can_receive_discount:
         raise HTTPException(
             status_code=400,
             detail="Customer group policy does not permit discounts.",
