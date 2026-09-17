@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.27.2
+  * Version    : 6.32.0
   * Created    : 2026-07-11
-  * Modified   : 2026-09-16
+  * Modified   : 2026-09-17
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -28,7 +28,59 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.32.0] - 2026-09-17
+
+#### Numbering Duplicate Prevention — DB Constraints, Pre-Flight Validation & GST Rule 46(b) Schema Enforcement
+
+- **Phase 1 — Alembic Migration v1460 (`v1460_numbering_unique_constraints.py`):**
+  - Created idempotent `DO $$ IF NOT EXISTS` constraints on `document_series`:
+  - `idx_document_series_active_prefix_unique` — UNIQUE PARTIAL INDEX on `(company_id, branch_id, prefix, suffix, document_type, transaction_group, terminal_id) WHERE is_deleted=FALSE AND is_active=TRUE`. Only live active records are enforced; soft-deleted historical rows coexist freely.
+  - `idx_document_series_active_name_unique` — UNIQUE PARTIAL INDEX on `(company_id, branch_id, name) WHERE is_deleted=FALSE`. Prevents name collision across active series.
+  - `chk_document_series_prefix_format` — CHECK: `prefix` must be empty or match `^[A-Z0-9\-\/]{1,10}$` (GST Rule 46(b) compliance).
+  - `chk_document_series_running_length` — CHECK: `running_length BETWEEN 1 AND 10`.
+  - `chk_document_series_start_number` — CHECK: `start_number >= 1`.
+  - `downgrade()` drops all constraints and indexes in reverse order.
+- **Phase 2 — ORM Model (`backend/app/models/numbering.py`):**
+  - Added `UniqueConstraint("company_id", "branch_id", "name", name="uq_document_series_name_per_company")` to `DocumentSeries.__table_args__`.
+  - Added `UniqueConstraint("company_id", "branch_id", "prefix", "suffix", "document_type", "transaction_group", "terminal_id", name="uq_document_series_prefix_config")` to `DocumentSeries.__table_args__`.
+  - Imported `UniqueConstraint` from `sqlalchemy`.
+- **Phase 3 — Service Layer (`backend/app/services/numbering.py`):**
+  - Added `from sqlalchemy.exc import IntegrityError` import.
+  - Pre-flight 1: Name uniqueness check → `HTTP 409 SMRITI-NUM-001` with `field: "name"` if collision detected. Excludes self via `id != item.id` on update.
+  - Pre-flight 2: Prefix+suffix+documentType+transactionGroup+terminalId combo check (active records only) → `HTTP 409 SMRITI-NUM-002` with `field: "prefix"` naming the conflicting series. Excludes self on update.
+  - `IntegrityError` safety net (SMRITI-NUM-003): Catches any constraint violation that slips past pre-flight → `HTTP 409` with structured error code.
+  - `HTTPException` re-raised unchanged through all exception handlers.
+  - Generic `Exception` → `HTTP 500` with user-friendly message (no stack trace exposed — HREP compliant).
+- **Phase 4 — Schema (`backend/app/schemas/numbering.py`, `BillPrefixBatchSaveItem`):**
+  - `validate_name`: strip whitespace, blank-check, max 200 chars.
+  - `validate_prefix`: strip + `.upper()`, then regex `^[A-Z0-9\-\/]{1,10}$` (GST Rule 46b). Empty prefix is permitted.
+  - `runningLength`: `Field(4, ge=1, le=10)` — bounded integer with default.
+  - `startNumber`: `Field(1, ge=1)` — minimum 1 enforced at schema level.
+  - `model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)`.
+  - All `@field_validator` methods decorated with `@classmethod` (Pydantic v2 compliance).
+- **Tests (`backend/tests/test_numbering_duplicate_prevention.py`):**
+  - 5/5 PASSED — `test_duplicate_name_raises_409`, `test_duplicate_prefix_suffix_combo_raises_409`, `test_same_prefix_different_suffix_allowed`, `test_same_prefix_different_terminal_allowed`, `test_soft_deleted_duplicate_allowed`.
+  - Platform: Python 3.13.11, pytest 9.1.1, asyncio mode=AUTO.
+- **Commit:** `a68d1161`
+
 ### [6.31.0] - 2026-09-17
+
+#### Billing PDT Module Retirement & Bill Prefix Batch Save 500 Serialization Hardening
+
+- **Legacy PDT Module Retirement:**
+  - Removed `SmritiPdtImportDlg` modal rendering and imports from `ProPosBillingTerm.tsx`.
+  - Removed `PdtImportModal` and action bar button from `BillingTerm.tsx`.
+  - Deleted legacy modal components `ProPosPdtImportDlg.tsx` and `PdtImportModal.tsx`.
+  - Re-routed global `Alt+I` hotkey and keyboard navigation in retail POS directly to canonical Barcode CSV Import Engine (`BarcodeCSVImportModal.tsx`).
+  - Updated `ProPosHotkeysDlg.tsx` to document `Alt + I` as "Open CSV Import window".
+- **Bill Prefix Batch Save 500 Serialization Fix (`backend/app/schemas/numbering.py`):**
+  - Resolved `ResponseValidationError` causing HTTP 500 on `POST /api/v1/numbering/bill-prefixes/save-batch` by implementing Pydantic v2 `validation_alias=AliasChoices(...)` across all ORM snake_case columns in `DocumentSeriesResponse` and `NumberingAuditLogResponse`.
+  - Added `@field_validator(..., mode="before")` default value coercion on `DocumentSeriesResponse` (`runningLength`, `startNumber`, `currentNumber`, `prefix`, `suffix`, `isActive`, `isVoidUnified`, `isCommonAcrossTerminals`) preventing validation crashes when database models contain `None`.
+  - Added timestamp formatting validator for `created_at` on `NumberingAuditLogResponse`.
+  - Hardened `BillPrefixBatchSaveItem` with safe numeric and boolean converters.
+- **Service Layer Transaction Hardening (`backend/app/services/numbering.py`):**
+  - Hardened `save_bill_prefixes_batch` with safe integer casting before string padding (`zfill`), transaction rollback on database exceptions, and descriptive error logging.
+  - Added unit test coverage `test_document_series_response_serialization_with_orm` and `test_save_batch_with_null_and_missing_attributes` in `backend/tests/test_bill_prefix.py`.
 
 #### POS Line-Level Sales Staff Attribution, Commission Tracking & Shift-End Cashier Handover Thermal Balance Sheet
 
