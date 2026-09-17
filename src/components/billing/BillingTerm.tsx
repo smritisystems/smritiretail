@@ -60,7 +60,6 @@ import {
   SmritiBillPrefixService,
   BillPrefixResolveResult
 } from "../../services/smritiBillPrefixService.ts";
-import { PdtImportModal } from "./PdtImportModal.tsx";
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
 import { InvoicingTransactionBrowserModal, InvoicingBrowserTab } from "./InvoicingTransactionBrowserModal.tsx";
@@ -528,7 +527,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     remarks: ""
   });
   const [isManualBillPromoOverride, setIsManualBillPromoOverride] = useState<boolean>(false);
-  const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
   const [expandedHeldBillId, setExpandedHeldBillId] = useState<string | null>(null);
@@ -1035,9 +1033,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       } else if (e.ctrlKey && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
         handleReprintInvoice();
-      } else if (e.ctrlKey && (e.key === "i" || e.key === "I")) {
-        e.preventDefault();
-        setShowPdtImportModal(true);
       }
     };
 
@@ -1964,37 +1959,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     onNotification?.("Active Billing", "Returned to new bill creation mode.", "success");
   };
 
-  // Handle PDT Import Items
-  const handleImportPdtItems = (imported: { product: Product; qty: number; rate?: number }[]) => {
-    const newLines: BillingLineItem[] = imported.map((imp, idx) => {
-      const rate = imp.rate ?? Number((imp.product as any).sellingPrice || imp.product.price || imp.product.mrp || 0);
-      const qty = imp.qty;
-      const value = rate * qty;
-      return {
-        id: "pdt-item-" + Date.now() + "-" + idx,
-        sNo: items.length + idx + 1,
-        stockNo: imp.product.code || "SKU-PDT",
-        barcode: imp.product.barcode || imp.product.code,
-        itemDescription: imp.product.name,
-        rate,
-        qty,
-        value,
-        discCode: "",
-        discQty: 0,
-        discPercent: 0,
-        discAmt: 0,
-        total: value,
-        salesStaff: headerState.salesStaff,
-        productId: imp.product.id,
-        gstPercentage: imp.product.gstPercentage || 18,
-        taxAmount: (value * (imp.product.gstPercentage || 18)) / 100
-      };
-    });
-
-    setItems(prev => [...prev, ...newLines]);
-    onNotification?.("PDT Imported", `Imported ${newLines.length} items from PDT file.`, "success");
-  };
-
   // Handle Settlement Completion
   const handleCompleteSettlement = async (
     payments: SettlementPaymentRow[],
@@ -2623,15 +2587,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             )}
 
             <div className="flex gap-2 ml-auto">
-              <button
-                type="button"
-                onClick={() => setShowPdtImportModal(true)}
-                className="h-9 px-4 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-title-sm transition-colors flex items-center gap-2 cursor-pointer"
-                title="Import from PDT / File (Ctrl+I)"
-              >
-                <Download size={16} className="text-secondary" />
-                <span>Import</span>
-              </button>
 
               <button
                 type="button"
@@ -3681,13 +3636,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         onClose={() => setShowSettlementModal(false)}
       />
 
-      {/* 2. PDT Import Modal */}
-      <PdtImportModal
-        isOpen={showPdtImportModal}
-        products={liveProducts}
-        onImportItems={handleImportPdtItems}
-        onClose={() => setShowPdtImportModal(false)}
-      />
+
 
       {/* 3. SMRITI F2 Advanced Item Search & Invoicing Browser */}
       <SmritiF2AdvancedItemSearch

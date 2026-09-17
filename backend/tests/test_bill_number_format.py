@@ -16,7 +16,7 @@ Description  : Unit tests for NumberingService._assemble_doc_no — all four
 import pytest
 from unittest.mock import MagicMock
 
-from backend.app.services.numbering import NumberingService
+from app.services.numbering import NumberingService
 
 
 # ---------------------------------------------------------------------------

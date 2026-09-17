@@ -63,10 +63,10 @@ class ReportSchedule(BaseEntity):
     created_by_id = Column(String(100), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     dispatch_logs = relationship(
-        "ReportDispatchLog",
+        "app.models.report_schedule.ReportDispatchLog",
         back_populates="schedule",
         cascade="all, delete-orphan",
-        order_by="desc(ReportDispatchLog.created_at)"
+        order_by="desc(app.models.report_schedule.ReportDispatchLog.created_at)"
     )
 
 
@@ -93,4 +93,4 @@ class ReportDispatchLog(BaseEntity):
     forensic_envelope_hash = Column(String(64), nullable=True, index=True)
     delivery_metadata = Column(JSONB, server_default=text("'{}'"), default=dict)
 
-    schedule = relationship("ReportSchedule", back_populates="dispatch_logs")
+    schedule = relationship("app.models.report_schedule.ReportSchedule", back_populates="dispatch_logs")
