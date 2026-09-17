@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.23.0
 Created      : 2026-07-11
-Modified     : 2026-09-04
+Modified     : 2026-09-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -819,6 +819,7 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "allow_promotions_on_rate": bool(getattr(customer, "allow_promotions_on_rate", False)),
         "company_id": customer.company_id,
         "branch_id": customer.branch_id,
+        "identity_code": getattr(customer, "identity_code", None),
         "created_at": customer.created_at,
         "modified_at": customer.modified_at,
         "is_active": customer.is_active if customer.is_active is not None else True,
@@ -851,6 +852,7 @@ def map_customer_to_response_dict(customer: Any) -> dict:
 class CustomerResponse(CustomerBase):
     id: str
     uuid: Optional[str] = None
+    identity_code: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
     created_at: Optional[datetime] = None

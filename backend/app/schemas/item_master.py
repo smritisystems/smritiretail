@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-09-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -158,6 +158,7 @@ class ItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    identity_code: Optional[str] = None
     item_code: str
     item_name: str
     item_type: str

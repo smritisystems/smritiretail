@@ -28,6 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.35.1] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 1.1 — Business Entity Identity-Code Integration & Legacy Alias Migration
+
+- **Additive Business Entity Identity Architecture (Alembic v1465):**
+  - Added additive `identity_code VARCHAR(100) NULL` column and individual B-tree indexes (`ix_companies_identity_code`, `ix_branches_identity_code`, `ix_items_identity_code`, `ix_customers_identity_code`, `ix_suppliers_identity_code`) to 5 core master business tables (`companies`, `branches`, `items`, `customers`, `suppliers`).
+  - Zero PK/FK mutation: 100% of existing `*.id` primary keys and all 312 foreign key relationships preserved without modification.
+  - Zero disruption to existing human-entered business identifiers (`code`, `item_code`, `company_code`).
+- **Deterministic Historical Backfill & Sequence Synchronization:**
+  - Backfilled 7,071 historical entities with sequential, governed SMRITI Identity Codes (`ORG-CMP`, `ORG-BRN`, `MST-ITM`, `CRM-CUS`, `PUR-SUP`) deterministically ordered by `created_at ASC, id ASC`.
+  - Achieved 100.0% coverage across all 5 tables with zero nulls.
+  - Ingested 3,627 historical Shoper 9 business codes into `smriti_identity_alias` as `LEGACY_IMPORT` / `SHOPER9`.
+  - Audit-logged all 7,071 allocations in `smriti_identity_allocation_log` (`purpose="MIGRATION_BACKFILL"`).
+  - Synchronized and advanced `smriti_numbering_registry` sequence counters for all 5 entity types (`3063`, `3049`, `31`, `655`, `276`).
+- **Engine Hardening & Tenant Isolation:**
+  - Hardened RFC 9562 UUIDv7 generator in `uuid7.py` with monotonic counter reset and millisecond rollover protection, validated across 1,000 rapid allocations.
+  - Enforced strict multi-tenant boundary isolation in `IdentityResolver` (Tier 1A and Tier 1B), preventing cross-tenant leakage.
+  - Updated Pydantic read schemas (`CompanyResponse`, `BranchResponse`, `ItemResponse`, `CustomerResponse`, `SupplierResponse`) with `identity_code`.
+- **Automated Verification:**
+  - Automated AST and Rule 12 Schema Parity audit script `scripts/verify_phase1_1_parity.py` passed with 0 drift and 0 dangling foreign keys.
+  - Phase 1.1 test suite (`test_phase1_1_entity_integration.py`): 5/5 PASSED in 35.51s.
+  - Phase 1 control plane test suite (`test_identity_engine.py`): 7/7 PASSED in 43.97s.
+  - Architecture Duplication Gate (`scripts/architecture_duplication_gate.py`): 11/11 checks passed with 0 P0/P1 violations.
+  - TypeScript compiler (`tsc --noEmit`): 0 errors.
+  - Python bytecode compilation: 0 errors across all modified modules.
+
 ### [6.35.0] - 2026-09-18
 
 #### SMRITI Unified Identity Control Plane & Numbering Engine (Phase 1 - v1.1.0 Frozen)
