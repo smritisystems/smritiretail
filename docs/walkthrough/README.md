@@ -397,9 +397,6 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 | 2026-09-16 | architecture | Stage 4 Platform Event Service & Canonical Table Convergence v6.26.0 — Contract-first Platform Event Service, One-Way Canonical Master to Compatibility Projection Architecture (ADR-005), 5-Gate table retirement for stores via Alembic v1454, CANONICAL_TABLE_DEPENDENCY_MATRIX_2026.md. 9/9 Pytest green, 3,547 modules clean build. | [Stage4_Platform_Event_Service_And_Canonical_Convergence_v6.26.0.md](./architecture/Stage4_Platform_Event_Service_And_Canonical_Convergence_v6.26.0.md) | — | Done |
 | 2026-09-16 | architecture | Stage 5 Transactional Postgres Outbox Engine & Worker Daemon v6.27.0 — Concrete PostgresEventOutbox with SELECT FOR UPDATE SKIP LOCKED batch claiming, PlatformOutboxWorker asynchronous daemon, exponential backoff, dead letter queue routing, and PlatformEventService integration. 7/7 Pytest green, 3,547 modules clean build. | [Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md](./architecture/Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md) | [Plan](../implementation/foundation/Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md) | Done |
 
-
-
-
-
-
 | 2026-09-17 | Billing | [Billing_NumberFormat_MultiArrangement_v3.18.0](billing/Billing_NumberFormat_MultiArrangement_v3.18.0.md) | Multi-arrangement bill number format (4 named codes, full-stack SSOT) | Done |
+| 2026-09-17 | billing | Headless Playwright CSV Import Billing & POS Settlement Flow v6.32.1 — End-to-end headless Playwright automation importing 8-row barcode CSV (tt.csv), validating against catalogue, resolving open shift (sh-B6419F) via multi-alias branch resolution (BR-MAIN-001/MAIN/BR-001), settling bill (TT/-0001) for ₹55,065.96, and producing 6 high-resolution step-by-step screenshots and PostgreSQL invoice verification. | [Billing_Headless_Playwright_CSV_Import_And_Settlement_v6.32.1.md](./billing/Billing_Headless_Playwright_CSV_Import_And_Settlement_v6.32.1.md) | — | Done |
+

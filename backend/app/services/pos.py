@@ -9,9 +9,9 @@ Founders
 * Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.17.1 (Phase 1 — POS Checkout)
+* Version    : 3.17.2 (Branch Multi-Alias Support & Shift Resolution)
 * Created    : 2026-07-11
-* Modified   : 2026-08-17
+* Modified   : 2026-09-17
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -22,7 +22,7 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
@@ -191,10 +191,23 @@ class POSService:
         await self.db.refresh(reg)
         return reg
 
-    async def list_shifts(self) -> list:
+    def _branch_clause(self, model=Shift):
+        if self.tenant.branch_id in ("BR-MAIN-001", "MAIN", "BR-001"):
+            return or_(model.branch_id.in_(["BR-MAIN-001", "MAIN", "BR-001"]), model.branch_id.is_(None))
+        return or_(model.branch_id == self.tenant.branch_id, model.branch_id.is_(None))
+
+    async def list_shifts(self, register_id: str | None = None) -> list:
         """List all shifts for this tenant (supports App.tsx shifts state)."""
-        shift_repo = ShiftRepository(self.db, self.tenant)
-        return await shift_repo.get_all_recent(limit=100)
+        q = select(Shift).where(
+            Shift.company_id == self.tenant.company_id,
+            self._branch_clause(Shift),
+            Shift.is_deleted == False,
+        )
+        if register_id:
+            q = q.where(Shift.register_id == register_id)
+        q = q.order_by(Shift.opened_at.desc()).limit(100)
+        res = await self.db.execute(q)
+        return res.scalars().all()
 
     # ──────────────────────────────────────────────────────────────
     # Shift — open
@@ -204,7 +217,7 @@ class POSService:
         stmt = select(Shift).where(
             Shift.id == shift_id,
             Shift.company_id == self.tenant.company_id,
-            Shift.branch_id == self.tenant.branch_id,
+            self._branch_clause(Shift),
             Shift.is_deleted == False,
         )
         if for_update:
@@ -225,7 +238,7 @@ class POSService:
         active_stmt = select(Shift).where(
             Shift.register_id == req.register_id,
             Shift.company_id == self.tenant.company_id,
-            Shift.branch_id == self.tenant.branch_id,
+            self._branch_clause(Shift),
             Shift.status == "OPEN",
             Shift.is_deleted == False,
         ).with_for_update()
@@ -1025,32 +1038,6 @@ class POSService:
     # ──────────────────────────────────────────────────────────────
     # Shift — queries
     # ──────────────────────────────────────────────────────────────
-
-    async def list_shifts(self, register_id: str | None = None) -> list[Shift]:
-        q = select(Shift).where(
-            Shift.company_id == self.tenant.company_id,
-            Shift.branch_id  == self.tenant.branch_id,
-            Shift.is_deleted == False,
-        )
-        if register_id:
-            q = q.where(Shift.register_id == register_id)
-        res = await self.db.execute(q)
-        return res.scalars().all()
-
-    async def get_shift(self, shift_id: str, for_update: bool = False) -> Shift:
-        stmt = select(Shift).where(
-            Shift.id == shift_id,
-            Shift.company_id == self.tenant.company_id,
-            Shift.branch_id == self.tenant.branch_id,
-            Shift.is_deleted == False,
-        )
-        if for_update:
-            stmt = stmt.with_for_update()
-        res = await self.db.execute(stmt)
-        shift = res.scalars().first()
-        if not shift:
-            raise HTTPException(status_code=404, detail=f"Shift {shift_id} not found.")
-        return shift
 
     async def get_active_shift(self, register_id: str) -> Shift:
         """Get the currently open shift for a register."""
