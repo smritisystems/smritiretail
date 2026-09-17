@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
+Version      : 3.18.0
 Created      : 2026-07-12
 Modified     : 2026-09-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -241,7 +241,11 @@ class NumberingService:
         sfx = sfx.replace("{User}", username)
         sfx = sfx.replace("{Module}", series.module or "")
 
-        allocated_no = f"{pfx}{formatted_num}{sfx}"
+        allocated_no = self._assemble_doc_no(
+            pfx, formatted_num, sfx,
+            series.financial_year,
+            getattr(series, "number_format", None)
+        )
 
         # Write to audit ledger
         log = NumberingAuditLog(
@@ -263,6 +267,47 @@ class NumberingService:
     # =========================================================================
     # Shoper 9 Bill Prefix Resolution, Validation & Lifecycle Engine
     # =========================================================================
+
+    @staticmethod
+    def _assemble_doc_no(
+        prefix: str,
+        num_str: str,
+        suffix: str,
+        financial_year: Optional[str],
+        number_format: Optional[str],
+    ) -> str:
+        """
+        Assembles the final document number string according to the configured
+        segment arrangement.  Four formats are supported:
+
+          PREFIX_NUM_SUFFIX   (default) – {prefix}{num}{suffix}
+          PREFIX_YEAR_SEP_NUM           – {prefix}{year}/{num}
+          NUM_ONLY                      – {num}
+          PREFIX_SEP_NUM                – {prefix}/{num}
+
+        When number_format is None or unrecognised it falls back to
+        PREFIX_NUM_SUFFIX so that all existing series continue working
+        unchanged after the migration.
+        """
+        pfx = prefix or ""
+        sfx = suffix or ""
+        fy  = (financial_year or "").strip()
+        fmt = number_format or "PREFIX_NUM_SUFFIX"
+
+        if fmt == "PREFIX_YEAR_SEP_NUM":
+            # e.g. TT/2026-2027/251
+            year_part = f"/{fy}" if fy else ""
+            return f"{pfx}{year_part}/{num_str}"
+        elif fmt == "NUM_ONLY":
+            # e.g. 251
+            return num_str
+        elif fmt == "PREFIX_SEP_NUM":
+            # e.g. TT/251
+            sep = "/" if pfx else ""
+            return f"{pfx}{sep}{num_str}"
+        else:
+            # PREFIX_NUM_SUFFIX — default
+            return f"{pfx}{num_str}{sfx}"
 
     @staticmethod
     def validate_gst_rule_46b(prefix: str, doc_no: int | str, suffix: str = "") -> dict:
@@ -423,7 +468,13 @@ class NumberingService:
         run_len = series.running_length or 4
         formatted_seq = str(next_num).zfill(run_len)
 
-        full_preview = f"{series.prefix or ''}{formatted_seq}{series.suffix or ''}"
+        full_preview = self._assemble_doc_no(
+            series.prefix or "",
+            formatted_seq,
+            series.suffix or "",
+            series.financial_year,
+            getattr(series, "number_format", None)
+        )
         gst_validation = self.validate_gst_rule_46b(series.prefix, formatted_seq, series.suffix)
 
         return {
@@ -438,7 +489,8 @@ class NumberingService:
             "isCommonAcrossTerminals": series.is_common_across_terminals if series.is_common_across_terminals is not None else True,
             "gstRule46bValid": gst_validation["isValid"],
             "gstRule46bLength": gst_validation["length"],
-            "validationMessage": gst_validation["error"]
+            "validationMessage": gst_validation["error"],
+            "numberFormat": getattr(series, "number_format", None) or "PREFIX_NUM_SUFFIX",
         }
 
     async def list_bill_prefixes(
@@ -630,6 +682,7 @@ class NumberingService:
                     existing.running_length = run_len
                     existing.is_active = is_active
                     existing.is_void_unified = is_void
+                    existing.number_format = getattr(item, "numberFormat", None) or "PREFIX_NUM_SUFFIX"
                     existing.updated_by = operator
                     existing.modified_at = datetime.now(timezone.utc)
                     results.append(existing)
@@ -652,6 +705,7 @@ class NumberingService:
                     running_length=run_len,
                     is_active=is_active,
                     is_void_unified=is_void,
+                    number_format=getattr(item, "numberFormat", None) or "PREFIX_NUM_SUFFIX",
                     reset_rule="Financial Year",
                     mode="Auto",
                     created_by=operator,

@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.18.0
+ * Version      : 6.19.0
  * Created      : 2026-09-14
- * Modified     : 2026-09-14
+ * Modified     : 2026-09-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Description  : Define Bill Prefix & Prefix Management Studio Modal (Shoper 9 Parity & GST Rule 46b Compliance)
@@ -20,7 +20,10 @@ import {
   BillPrefixDefinition,
   TransactionGroup,
   validateGstRule46b,
-  formatBillPreview
+  formatBillPreview,
+  assembleBillNo,
+  NUMBER_FORMATS,
+  NumberFormat
 } from "../../services/smritiBillPrefixService.ts";
 
 interface SmritiDefineBillPrefixModalProps {
@@ -297,6 +300,7 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                     <th className="px-3 py-2.5 font-bold">Suffix (Year No.)</th>
                     <th className="px-2 py-2.5 font-bold text-center">Start No</th>
                     <th className="px-2 py-2.5 font-bold text-center">Padding</th>
+                    <th className="px-3 py-2.5 font-bold">Format</th>
                     <th className="px-3 py-2.5 font-bold">Combined Preview</th>
                     <th className="px-2 py-2.5 font-bold text-center">Rule 46(b)</th>
                     <th className="px-2 py-2.5 font-bold text-center">Active</th>
@@ -308,8 +312,10 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                   ).map((row) => {
                     const actualIdx = definitions.findIndex(d => d.documentType === row.documentType);
                     const padded = (row.startNumber || 1).toString().padStart(row.runningLength || 4, "0");
-                    const preview = formatBillPreview(row.prefix, row.startNumber || 1, row.suffix, row.runningLength || 4);
-                    const gst = validateGstRule46b(row.prefix, padded, row.suffix);
+                    const fmt = row.numberFormat || "PREFIX_NUM_SUFFIX";
+                    const fy  = row.financialYear || "";
+                    const preview = assembleBillNo(row.prefix, padded, row.suffix, fy, fmt);
+                    const gst = validateGstRule46b(preview, "", "");
 
                     return (
                       <tr key={row.id ?? row.documentType} className="hover:bg-black/5 dark:hover:bg-white/5 transition">
@@ -354,6 +360,20 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                             <option value={4}>4</option>
                             <option value={5}>5</option>
                             <option value={6}>6</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={row.numberFormat || "PREFIX_NUM_SUFFIX"}
+                            onChange={e => handleRowChange(actualIdx, "numberFormat" as keyof BillPrefixDefinition, e.target.value as NumberFormat)}
+                            className="border border-[#c4c5d5] dark:border-[#444653] rounded px-1 py-1 text-xs bg-white dark:bg-[#1e2022] min-w-[9rem]"
+                            title="Bill number segment arrangement"
+                          >
+                            {NUMBER_FORMATS.map(f => (
+                              <option key={f.code} value={f.code} title={f.description}>
+                                {f.label}
+                              </option>
+                            ))}
                           </select>
                         </td>
                         <td className="px-3 py-2">

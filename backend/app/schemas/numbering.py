@@ -4,15 +4,25 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
+Version      : 3.18.0
 Created      : 2026-07-12
 Modified     : 2026-09-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, Field, ConfigDict, AliasChoices, field_validator
+
+# ---------------------------------------------------------------------------
+# Bill number segment arrangement enum
+# ---------------------------------------------------------------------------
+NumberFormat = Literal[
+    "PREFIX_NUM_SUFFIX",    # {prefix}{num}{suffix}  ← default / backward-compatible
+    "PREFIX_YEAR_SEP_NUM",  # {prefix}{year}/{num}
+    "NUM_ONLY",             # {num}
+    "PREFIX_SEP_NUM",       # {prefix}/{num}
+]
 
 
 class DocumentSeriesCreate(BaseModel):
@@ -33,6 +43,7 @@ class DocumentSeriesCreate(BaseModel):
     transactionGroup: Optional[str] = Field("SALES", alias="transactionGroup")
     startNumber: Optional[int] = Field(1, alias="startNumber")
     isVoidUnified: Optional[bool] = Field(False, alias="isVoidUnified")
+    numberFormat: Optional[NumberFormat] = Field("PREFIX_NUM_SUFFIX", alias="numberFormat")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -55,6 +66,7 @@ class DocumentSeriesUpdate(BaseModel):
     transactionGroup: Optional[str] = Field(None, alias="transactionGroup")
     startNumber: Optional[int] = Field(None, alias="startNumber")
     isVoidUnified: Optional[bool] = Field(None, alias="isVoidUnified")
+    numberFormat: Optional[NumberFormat] = Field(None, alias="numberFormat")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -80,6 +92,13 @@ class DocumentSeriesResponse(BaseModel):
     transactionGroup: Optional[str] = Field("SALES", validation_alias=AliasChoices("transaction_group", "transactionGroup"), serialization_alias="transactionGroup")
     startNumber: int = Field(1, validation_alias=AliasChoices("start_number", "startNumber"), serialization_alias="startNumber")
     isVoidUnified: bool = Field(False, validation_alias=AliasChoices("is_void_unified", "isVoidUnified"), serialization_alias="isVoidUnified")
+    numberFormat: str = Field("PREFIX_NUM_SUFFIX", validation_alias=AliasChoices("number_format", "numberFormat"), serialization_alias="numberFormat")
+
+    @field_validator("numberFormat", mode="before")
+    @classmethod
+    def default_number_format(cls, v):
+        _valid = {"PREFIX_NUM_SUFFIX", "PREFIX_YEAR_SEP_NUM", "NUM_ONLY", "PREFIX_SEP_NUM"}
+        return v if v in _valid else "PREFIX_NUM_SUFFIX"
 
     @field_validator("prefix", "suffix", mode="before")
     def default_str_empty(cls, v):
@@ -170,6 +189,7 @@ class BillPrefixResolveResponse(BaseModel):
     gstRule46bValid: bool
     gstRule46bLength: int
     validationMessage: Optional[str] = None
+    numberFormat: str = "PREFIX_NUM_SUFFIX"
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -188,6 +208,7 @@ class BillPrefixBatchSaveItem(BaseModel):
     runningLength: int = Field(4, alias="runningLength", ge=1, le=10)
     isActive: bool = Field(True, alias="isActive")
     isVoidUnified: bool = Field(False, alias="isVoidUnified")
+    numberFormat: Optional[NumberFormat] = Field("PREFIX_NUM_SUFFIX", alias="numberFormat")
 
     @field_validator("name", mode="before")
     @classmethod

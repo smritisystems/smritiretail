@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
+Version      : 3.18.0
 Created      : 2026-07-12
 Modified     : 2026-09-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -41,6 +41,14 @@ class DocumentSeries(BaseEntity):
     transaction_group          = Column(String(50), default="SALES")  # SALES, CASH, SLIPS
     start_number               = Column(Integer, default=1)
     is_void_unified            = Column(Boolean, default=False)
+
+    # Bill number segment arrangement — controls how prefix/number/suffix are ordered.
+    # Allowed values (enforced by DB CHECK constraint from migration v1461):
+    #   PREFIX_NUM_SUFFIX   – {prefix}{num}{suffix}  ← default / backward-compatible
+    #   PREFIX_YEAR_SEP_NUM – {prefix}{year}/{num}
+    #   NUM_ONLY            – {num}
+    #   PREFIX_SEP_NUM      – {prefix}/{num}
+    number_format = Column(String(30), default="PREFIX_NUM_SUFFIX", nullable=False)
 
     __table_args__ = (
         # Prevents two active series with the same display name per company/branch.

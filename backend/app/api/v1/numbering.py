@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.18.0
 Created      : 2026-07-12
 Modified     : 2026-07-12
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -278,7 +278,11 @@ async def get_terminal_prefixes_report(
         sfx = s.suffix or ""
         next_n = (s.current_number or (s.start_number - 1)) + 1
         fmt = str(next_n).zfill(s.running_length or 4)
-        preview = f"{pfx}{fmt}{sfx}"
+        preview = service._assemble_doc_no(
+            pfx, fmt, sfx,
+            s.financial_year,
+            getattr(s, "number_format", None)
+        )
         gst_eval = service.validate_gst_rule_46b(pfx, fmt, sfx)
         rows.append({
             "seriesId": s.id,
@@ -297,7 +301,8 @@ async def get_terminal_prefixes_report(
             "financialYear": s.financial_year or "2026-2027",
             "isActive": s.is_active,
             "gstRule46bValid": gst_eval["isValid"],
-            "gstRule46bLength": gst_eval["length"]
+            "gstRule46bLength": gst_eval["length"],
+            "numberFormat": getattr(s, "number_format", None) or "PREFIX_NUM_SUFFIX",
         })
     return {"success": True, "count": len(rows), "items": rows}
 

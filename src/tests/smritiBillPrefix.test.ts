@@ -18,6 +18,7 @@ import { describe, it, expect } from "vitest";
 import {
   validateGstRule46b,
   formatBillPreview,
+  assembleBillNo,
   SmritiBillPrefixService
 } from "../services/smritiBillPrefixService.ts";
 
@@ -126,6 +127,54 @@ describe("SMRITI Bill Prefix & Statutory GST Rule 46(b) Suite", () => {
       expect(res.prefix).toContain("INV/CR/");
       expect(res.gstRule46bValid).toBe(true);
       expect(res.fullPreview).toContain("INV/CR/0001");
+    });
+  });
+
+  describe("Bill Number Format Arrangements (assembleBillNo)", () => {
+    it("PREFIX_NUM_SUFFIX: produces {prefix}{num}{suffix} — default / backward-compatible", () => {
+      expect(assembleBillNo("INV/C/", "0001", "26-27/", "", "PREFIX_NUM_SUFFIX")).toBe("INV/C/000126-27/");
+      expect(assembleBillNo("CRN-", "000042", "", "", "PREFIX_NUM_SUFFIX")).toBe("CRN-000042");
+    });
+
+    it("PREFIX_YEAR_SEP_NUM: produces {prefix}/{year}/{num}", () => {
+      expect(assembleBillNo("TT", "251", "", "2026-2027", "PREFIX_YEAR_SEP_NUM")).toBe("TT/2026-2027/251");
+      expect(assembleBillNo("INV", "0001", "ignored-suffix", "2026-2027", "PREFIX_YEAR_SEP_NUM")).toBe("INV/2026-2027/0001");
+    });
+
+    it("PREFIX_YEAR_SEP_NUM with empty financial year omits year segment gracefully", () => {
+      const result = assembleBillNo("TT", "251", "", "", "PREFIX_YEAR_SEP_NUM");
+      expect(result).toBe("TT/251");
+    });
+
+    it("PREFIX_SEP_NUM: produces {prefix}/{num} — suffix ignored", () => {
+      expect(assembleBillNo("TT", "251", "2026-2027/", "2026-2027", "PREFIX_SEP_NUM")).toBe("TT/251");
+      expect(assembleBillNo("", "099", "", "", "PREFIX_SEP_NUM")).toBe("099"); // no prefix → no slash
+    });
+
+    it("NUM_ONLY: produces bare sequential number — prefix and suffix ignored", () => {
+      expect(assembleBillNo("TT/", "251", "2026-2027/", "2026-2027", "NUM_ONLY")).toBe("251");
+    });
+
+    it("null / undefined format falls back to PREFIX_NUM_SUFFIX", () => {
+      // TypeScript won't normally allow null here, but test the runtime default
+      // @ts-expect-error testing runtime fallback
+      expect(assembleBillNo("INV/", "0001", "26-27/", "", null)).toBe("INV/000126-27/");
+    });
+
+    it("all four formats must produce GST Rule 46(b) compliant output (≤16 chars, valid chars)", () => {
+      const formats = ["PREFIX_NUM_SUFFIX", "PREFIX_YEAR_SEP_NUM", "PREFIX_SEP_NUM", "NUM_ONLY"] as const;
+      const testCases = formats.map(fmt => assembleBillNo("TT", "251", "", "2026-2027", fmt));
+      for (const result of testCases) {
+        expect(result.length).toBeLessThanOrEqual(16);
+        expect(/^[A-Za-z0-9/\-]+$/.test(result)).toBe(true);
+      }
+    });
+
+    it("formatBillPreview delegates to assembleBillNo and stays backward-compatible", () => {
+      // Two-arg call (old signature) must still produce PREFIX_NUM_SUFFIX layout
+      expect(formatBillPreview("INV/", 1, "26-27/", 4)).toBe("INV/000126-27/");
+      // Six-arg call with explicit format
+      expect(formatBillPreview("TT", 251, "", 3, "PREFIX_YEAR_SEP_NUM", "2026-2027")).toBe("TT/2026-2027/251");
     });
   });
 });
