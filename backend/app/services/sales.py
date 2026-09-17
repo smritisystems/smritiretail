@@ -130,7 +130,15 @@ class SalesService:
             if existing_inv:
                 return existing_inv
 
-        invoice_id = idempotency_key or invoice_in.id or f"inv-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        tech_id, identity_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="SALES_INVOICE",
+            tenant_id=getattr(self.tenant_ctx, "tenant_id", None) or self.tenant_ctx.company_id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            purpose="ENTITY_CREATION",
+        )
+        invoice_id = idempotency_key or tech_id
 
         # 2. Canonical Document Number Allocation (Phase 5 & Phase 6)
         # If invoice_no is missing, empty, AUTO, or static default D1DS13-1, allocate next canonical sequence
@@ -777,6 +785,7 @@ class SalesService:
 
         db_invoice = SalesInvoice(
             id=invoice_id,
+            identity_code=identity_code,
             invoice_no=invoice_no,
             date=inv_date,
             customer_id=db_customer_id,

@@ -24,6 +24,7 @@ from ..models.pricing import PriceBook, PriceBookEntry
 from ..schemas.inventory import ProductCreate
 from ..api.deps import TenantContext
 from .attributes import AttributesService
+from .identity.engine import IdentityEngine
 
 class InventoryService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
@@ -65,6 +66,7 @@ class InventoryService:
 
         # Create StockMovement record
         movement = StockMovement(
+            id=IdentityEngine.generate_technical_id(),
             product_id=product.id,
             product_name=product.name,
             sku=product.sku or "",
@@ -354,9 +356,7 @@ class InventoryService:
         if product.tracking_mode != "No-stock" and product.stock < quantity:
             raise HTTPException(status_code=400, detail="Insufficient stock for transfer")
 
-        import uuid
-        from datetime import datetime, timezone
-        movement_id = f"SM-TR-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        movement_id = IdentityEngine.generate_technical_id()
         movement = StockMovement(
             id=movement_id,
             product_id=product.id,
@@ -421,9 +421,7 @@ class InventoryService:
         product.stock = int(new_quantity)
         self.db.add(product)
 
-        import uuid
-        from datetime import datetime, timezone
-        movement_id = f"SM-ADJ-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        movement_id = IdentityEngine.generate_technical_id()
         movement = StockMovement(
             id=movement_id,
             product_id=product.id,

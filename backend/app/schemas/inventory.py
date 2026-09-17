@@ -320,9 +320,16 @@ class StockMovementCreate(BaseModel):
     branch: Optional[str] = Field(None, max_length=100)
     source_module: Optional[str] = Field(None, max_length=50)
     approval: Optional[str] = Field(None, max_length=50)
-    id: Optional[str] = Field(None, max_length=50)
+    id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     company_id: Optional[str] = Field(None, max_length=50)
     branch_id: Optional[str] = Field(None, max_length=50)
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 
 class StockMovementResponse(BaseModel):

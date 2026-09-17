@@ -46,6 +46,7 @@ from ..schemas.purchase import (
     PurchaseOrderCreate, PurchaseOrderAmendRequest,
     PurchaseReceiptCreate,
 )
+from .identity.engine import IdentityEngine
 
 
 def _uid() -> str:
@@ -173,6 +174,16 @@ class PurchaseService:
                 detail="A purchase order must contain at least one item.",
             )
 
+        tech_id, identity_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="PURCHASE_ORDER",
+            tenant_id=getattr(self.tenant, "tenant_id", None) or self.tenant.company_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            purpose="ENTITY_CREATION",
+        )
+        po_id = tech_id
+
         subtotal  = Decimal("0.00")
         tax_total = Decimal("0.00")
         item_rows = []
@@ -202,7 +213,7 @@ class PurchaseService:
 
             item_rows.append(PurchaseOrderItem(
                 id=f"poi-{_uid()}",
-                order_id=req.id,
+                order_id=po_id,
                 product_id=item.product_id,
                 code=item.code,
                 name=item.name,
@@ -216,7 +227,8 @@ class PurchaseService:
             ))
 
         order = PurchaseOrder(
-            id=req.id,
+            id=po_id,
+            identity_code=identity_code,
             order_no=req.order_no,
             supplier_id=req.supplier_id,
             status="CONFIRMED",

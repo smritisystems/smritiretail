@@ -27,7 +27,7 @@ Classification: Internal
 from decimal import Decimal
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ─────────────────────────── Supplier ───────────────────────────
@@ -105,11 +105,18 @@ class PurchaseOrderItemResponse(BaseModel):
 
 
 class PurchaseOrderCreate(BaseModel):
-    id:          str
+    id:          Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     order_no:    str
     supplier_id: str
     notes:       Optional[str] = None
     items:       List[PurchaseOrderItemCreate]
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 class PurchaseOrderCancelRequest(BaseModel):
     """Optional cancellation reason for cancelling a purchase order."""
@@ -121,23 +128,24 @@ class PurchaseOrderAmendRequest(BaseModel):
     Amendment: the original (Confirmed) PO is cancelled and a new Confirmed
     PO is created from the supplied items.
     """
-    new_order_id: str
+    new_order_id: Optional[str] = None
     new_order_no: str
     items:        List[PurchaseOrderItemCreate]
     reason:       Optional[str] = None
 
 class PurchaseOrderResponse(BaseModel):
-    id:          str
-    order_no:    str
-    supplier_id: str
-    status:      str
-    notes:       Optional[str] = None
-    subtotal:    Decimal
-    tax_total:   Decimal
-    grand_total: Decimal
-    items:       List[PurchaseOrderItemResponse] = []
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    id:            str
+    identity_code: Optional[str] = None
+    order_no:      str
+    supplier_id:   str
+    status:        str
+    notes:         Optional[str] = None
+    subtotal:      Decimal
+    tax_total:     Decimal
+    grand_total:   Decimal
+    items:         List[PurchaseOrderItemResponse] = []
+    company_id:    Optional[str] = None
+    branch_id:     Optional[str] = None
 
     model_config = {"from_attributes": True}
 

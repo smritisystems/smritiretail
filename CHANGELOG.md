@@ -28,6 +28,33 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.36.0] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 1.2 — Transactional Document & Ledger Identity Integration
+
+- **Transactional Document Identity Integration (Alembic v1466):**
+  - Added additive `identity_code VARCHAR(100) NULL` column with database-enforced UNIQUE B-tree indexes (`uq_sales_invoices_identity_code`, `uq_purchase_orders_identity_code`, `uq_shifts_identity_code`) to `sales_invoices`, `purchase_orders`, and `shifts` across `smritisys`, `smriti001`, and `smriti002`.
+  - Enforced `indisunique=True` ensuring relational invariant uniqueness with zero duplicate identity codes.
+  - Zero PK/FK mutation: 100% of existing technical primary keys (`id`) and 312+ foreign key constraints preserved without change.
+  - Statutory document numbers (`invoice_no`, `order_no`) remain sovereign business numbering and are never replaced by `identity_code`.
+- **High-Throughput Ledger Boundary Architecture:**
+  - Established architectural boundary for `stock_movements`: as a high-throughput transaction ledger (8,844 rows across databases), `stock_movements` does NOT receive a human sequential `identity_code` column, eliminating POS checkout row-locking contention on `smriti_numbering_registry`.
+  - Assigned technical UUIDv7 primary keys via `IdentityEngine.generate_technical_id()`.
+- **Prohibition of Client-Supplied IDs (HTTP 422 Enforcement):**
+  - Hardened `PurchaseOrderCreate`, `ShiftOpen`, `StockMovementCreate`, and `SalesInvoiceCreate` schemas with Pydantic `@field_validator` rejecting any client-supplied `id`.
+  - Added `identity_code: Optional[str] = None` to `PurchaseOrderResponse`, `ShiftResponse`, and `SalesInvoiceResponse`.
+- **Transactional Service Allocations:**
+  - Integrated `IdentityEngine.allocate_internal()` across `CanonicalSalesPostingWriter`, `SalesService.create_sales_invoice()`, `PurchaseService.create_purchase_order()`, and `POSService.open_shift()`.
+  - Integrated `IdentityEngine.generate_technical_id()` across `InventoryService` (`update_stock`, `transfer_stock`, `adjust_stock`).
+- **Deterministic Historical Backfill & Alias Ingestion:**
+  - Backfilled 1,986 transactional document records across `smritisys` and `smriti001` with zero nulls and zero duplicates (`SAL-INV`, `PUR-ORD`, `POS-SFT`).
+  - Ingested 1,643 historical document identifiers into `smriti_identity_alias` as `HISTORICAL_DOC` / `TRANSACTIONAL`.
+  - Audit-logged 1,986 entries in `smriti_identity_allocation_log` (`purpose="MIGRATION_BACKFILL"`).
+  - Synchronized sequence counters in `smriti_numbering_registry`.
+- **Verification & Parity:**
+  - Automated parity audit script `scripts/verify_phase1_2_parity.py` verified 100% backfill coverage, zero nulls, zero duplicates, and zero dangling FKs on all databases.
+  - Pytest suite `app/tests/test_phase1_2_transactional_integration.py` passed 6/6 tests green.
+
 ### [6.35.1] - 2026-09-18
 
 #### SMRITI Unified Identity Phase 1.1 — Business Entity Identity-Code Integration & Legacy Alias Migration (FROZEN)
