@@ -466,9 +466,30 @@ class NumberingService:
                     DocumentSeries.is_common_across_terminals == True
                 )
             )
-        q = q.order_by(DocumentSeries.transaction_group, DocumentSeries.document_type, DocumentSeries.terminal_id)
+        # Order so terminal-specific rows come before COMMON rows; NULLS LAST for terminal_id
+        q = q.order_by(
+            DocumentSeries.transaction_group,
+            DocumentSeries.document_type,
+            # terminal-specific rows (non-COMMON) sort first so they win dedup
+            DocumentSeries.is_common_across_terminals.asc(),
+            DocumentSeries.terminal_id
+        )
         res = await self.db.execute(q)
-        return list(res.scalars().all())
+        all_rows = list(res.scalars().all())
+
+        # Deduplicate: for each document_type keep only the most-specific row.
+        # If a terminal-specific row exists it takes precedence over any COMMON row.
+        seen: dict[str, DocumentSeries] = {}
+        for row in all_rows:
+            key = row.document_type
+            if key not in seen:
+                seen[key] = row
+            else:
+                existing = seen[key]
+                # Prefer terminal-specific (is_common_across_terminals=False) over COMMON
+                if existing.is_common_across_terminals and not row.is_common_across_terminals:
+                    seen[key] = row
+        return list(seen.values())
 
     async def save_bill_prefixes_batch(
         self,
@@ -503,30 +524,53 @@ class NumberingService:
             is_common = bool(item.isCommonAcrossTerminals) if item.isCommonAcrossTerminals is not None else True
             term_id = item.terminalId or "COMMON"
 
+            existing: Optional[DocumentSeries] = None
+
+            # 1. Try lookup by explicit id
             if item.id:
                 existing = await self.db.get(DocumentSeries, item.id)
-                if existing:
-                    # Restore soft-deleted series rather than creating a duplicate
-                    existing.is_deleted = False
-                    existing.deleted_at = None
-                    existing.deleted_by = None
-                    existing.name = item.name
-                    existing.document_type = item.documentType
-                    existing.transaction_group = item.transactionGroup
-                    existing.terminal_id = term_id
-                    existing.is_common_across_terminals = is_common
-                    existing.prefix = pfx
-                    existing.suffix = sfx
-                    existing.start_number = start_num
-                    existing.running_length = run_len
-                    existing.is_active = is_active
-                    existing.is_void_unified = is_void
-                    existing.updated_by = operator
-                    existing.modified_at = datetime.now(timezone.utc)
-                    results.append(existing)
-                    continue
 
-            # Create new series
+            # 2. Fallback: find by natural key (company_id, document_type, terminal_id)
+            #    This prevents mass-insert duplication when the same row is saved repeatedly
+            if not existing:
+                dup_q = select(DocumentSeries).where(
+                    DocumentSeries.document_type == item.documentType,
+                    DocumentSeries.terminal_id == term_id,
+                    DocumentSeries.is_deleted == False
+                )
+                if company_id:
+                    from sqlalchemy import or_ as _or_
+                    dup_q = dup_q.where(
+                        _or_(
+                            DocumentSeries.company_id == company_id,
+                            DocumentSeries.company_code == company_id
+                        )
+                    )
+                dup_res = await self.db.execute(dup_q.limit(1))
+                existing = dup_res.scalars().first()
+
+            if existing:
+                # Upsert: restore soft-deleted series or update in-place
+                existing.is_deleted = False
+                existing.deleted_at = None
+                existing.deleted_by = None
+                existing.name = item.name
+                existing.document_type = item.documentType
+                existing.transaction_group = item.transactionGroup
+                existing.terminal_id = term_id
+                existing.is_common_across_terminals = is_common
+                existing.prefix = pfx
+                existing.suffix = sfx
+                existing.start_number = start_num
+                existing.running_length = run_len
+                existing.is_active = is_active
+                existing.is_void_unified = is_void
+                existing.updated_by = operator
+                existing.modified_at = datetime.now(timezone.utc)
+                results.append(existing)
+                continue
+
+            # Create new series only when no existing row found
             new_series = DocumentSeries(
                 id=f"SER-{uuid.uuid4().hex[:8]}",
                 company_id=company_id,
