@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.18.0
+ * Version      : 6.19.0
  * Created      : 2026-09-14
- * Modified     : 2026-09-14
+ * Modified     : 2026-09-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Description  : Enterprise Bill Prefix & Document Serialization Service (Shoper 9 Parity & GST Rule 46b Compliance)
@@ -32,6 +32,55 @@ export type BillingTransactionType =
   | "CASH_RECEIPT"
   | "CASH_PAYOUT";
 
+/**
+ * Named bill number segment arrangement codes.
+ * Must stay in sync with NumberFormat in backend/app/schemas/numbering.py
+ * and chk_document_series_number_format DB CHECK constraint (migration v1461).
+ */
+export type NumberFormat =
+  | "PREFIX_NUM_SUFFIX"    // {prefix}{num}{suffix}  ← default / backward-compatible
+  | "PREFIX_YEAR_SEP_NUM"  // {prefix}{year}/{num}
+  | "NUM_ONLY"             // {num}
+  | "PREFIX_SEP_NUM";      // {prefix}/{num}
+
+export interface NumberFormatOption {
+  code: NumberFormat;
+  label: string;
+  description: string;
+  example: (prefix: string, num: string, fy: string) => string;
+}
+
+/**
+ * All valid bill number formats.  Used to populate the Format dropdown
+ * in SmritiDefineBillPrefixModal without hardcoding option text in the UI.
+ */
+export const NUMBER_FORMATS: NumberFormatOption[] = [
+  {
+    code: "PREFIX_NUM_SUFFIX",
+    label: "Prefix + No. + Suffix",
+    description: "Default arrangement: prefix, sequential number, then suffix.",
+    example: (p, n, _fy) => `${p}${n}${_fy ? _fy : ""}`,
+  },
+  {
+    code: "PREFIX_YEAR_SEP_NUM",
+    label: "Prefix / Year / No.",
+    description: "Prefix, financial year, then sequential number separated by /.",
+    example: (p, n, fy) => `${p}${fy ? `/${fy}` : ""}/${n}`,
+  },
+  {
+    code: "PREFIX_SEP_NUM",
+    label: "Prefix / No.",
+    description: "Prefix and sequential number separated by /; suffix ignored.",
+    example: (p, n, _fy) => `${p}${p ? "/" : ""}${n}`,
+  },
+  {
+    code: "NUM_ONLY",
+    label: "No. Only",
+    description: "Bare sequential number — no prefix or suffix.",
+    example: (_p, n, _fy) => n,
+  },
+];
+
 export interface BillPrefixDefinition {
   id?: string;
   name: string;
@@ -46,6 +95,8 @@ export interface BillPrefixDefinition {
   runningLength: number;
   isActive: boolean;
   isVoidUnified: boolean;
+  numberFormat: NumberFormat;
+  financialYear?: string;
 }
 
 export interface BillPrefixResolveResult {
@@ -61,6 +112,8 @@ export interface BillPrefixResolveResult {
   gstRule46bValid: boolean;
   gstRule46bLength: number;
   validationMessage?: string;
+  numberFormat: NumberFormat;
+  financialYear?: string;
 }
 
 export interface GstValidationResult {
@@ -107,16 +160,58 @@ export function validateGstRule46b(
 }
 
 /**
+ * Assembles a document number string from its segments according to the
+ * configured NumberFormat.  Single source of truth on the frontend —
+ * mirrors NumberingService._assemble_doc_no on the backend.
+ *
+ * @param prefix        Raw prefix (e.g. "TT", "INV/C/")
+ * @param padded        Zero-padded sequential number string (e.g. "0251")
+ * @param suffix        Raw suffix (e.g. "2026-2027/", "26-27")
+ * @param financialYear Financial year string from the series (e.g. "2026-2027")
+ * @param fmt           NumberFormat code (defaults to PREFIX_NUM_SUFFIX)
+ */
+export function assembleBillNo(
+  prefix: string = "",
+  padded: string = "",
+  suffix: string = "",
+  financialYear: string = "",
+  fmt: NumberFormat = "PREFIX_NUM_SUFFIX"
+): string {
+  const pfx = prefix || "";
+  const sfx = suffix || "";
+  const fy  = financialYear?.trim() || "";
+
+  switch (fmt) {
+    case "PREFIX_YEAR_SEP_NUM":
+      // TT/2026-2027/251
+      return `${pfx}${fy ? `/${fy}` : ""}/${padded}`;
+    case "NUM_ONLY":
+      // 251
+      return padded;
+    case "PREFIX_SEP_NUM":
+      // TT/251
+      return `${pfx}${pfx ? "/" : ""}${padded}`;
+    case "PREFIX_NUM_SUFFIX":
+    default:
+      // TT2026-2027/251  (existing / backward-compatible)
+      return `${pfx}${padded}${sfx}`;
+  }
+}
+
+/**
  * Formats a preview document number string given prefix, sequence, suffix, and padding.
+ * Delegates to assembleBillNo so that both functions stay in sync.
  */
 export function formatBillPreview(
   prefix: string = "",
   docNo: number = 1,
   suffix: string = "",
-  runningLength: number = 4
+  runningLength: number = 4,
+  fmt: NumberFormat = "PREFIX_NUM_SUFFIX",
+  financialYear: string = ""
 ): string {
   const padded = docNo.toString().padStart(runningLength, "0");
-  return `${prefix || ""}${padded}${suffix || ""}`;
+  return assembleBillNo(prefix, padded, suffix, financialYear, fmt);
 }
 
 export class SmritiBillPrefixService {
@@ -150,7 +245,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Credit Sales Invoice",
@@ -164,7 +261,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Sales Return",
@@ -178,7 +277,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Void Sales",
@@ -192,7 +293,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: true
+        isVoidUnified: true,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
 
       // Cash Group
@@ -208,7 +311,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Cash Payout",
@@ -222,7 +327,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
 
       // Intermediate Slips Group
@@ -238,7 +345,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Sales Order",
@@ -252,7 +361,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Sales Advice Slip",
@@ -266,7 +377,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Service Order",
@@ -280,7 +393,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Delivery Challan",
@@ -294,7 +409,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       },
       {
         name: "Approval DC",
@@ -308,7 +425,9 @@ export class SmritiBillPrefixService {
         currentNumber: 0,
         runningLength: 4,
         isActive: true,
-        isVoidUnified: false
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
       }
     ];
   }
@@ -351,7 +470,9 @@ export class SmritiBillPrefixService {
 
     const defaults = this.getDefaultDefinitions(termId);
     const matched = defaults.find(d => d.documentType === txType) || defaults[0];
-    const preview = formatBillPreview(matched.prefix, matched.startNumber, matched.suffix, matched.runningLength);
+    const fmt = matched.numberFormat || "PREFIX_NUM_SUFFIX";
+    const fy  = matched.financialYear || "";
+    const preview = formatBillPreview(matched.prefix, matched.startNumber, matched.suffix, matched.runningLength, fmt, fy);
     const gst = validateGstRule46b(matched.prefix, matched.startNumber.toString().padStart(matched.runningLength, "0"), matched.suffix);
 
     const fallbackResult: BillPrefixResolveResult = {
@@ -366,7 +487,9 @@ export class SmritiBillPrefixService {
       isCommonAcrossTerminals: matched.isCommonAcrossTerminals,
       gstRule46bValid: gst.isValid,
       gstRule46bLength: gst.length,
-      validationMessage: gst.error
+      validationMessage: gst.error,
+      numberFormat: fmt,
+      financialYear: fy,
     };
 
     return fallbackResult;
@@ -403,7 +526,9 @@ export class SmritiBillPrefixService {
           currentNumber: d.currentNumber || 0,
           runningLength: d.runningLength || 4,
           isActive: d.isActive !== false,
-          isVoidUnified: Boolean(d.isVoidUnified)
+          isVoidUnified: Boolean(d.isVoidUnified),
+          numberFormat: (d.numberFormat || "PREFIX_NUM_SUFFIX") as NumberFormat,
+          financialYear: d.financialYear || "",
         }));
       }
     } catch (err) {

@@ -402,3 +402,4 @@ This directory contains formal walkthroughs documenting major features, bug fixe
 
 
 
+| 2026-09-17 | Billing | [Billing_NumberFormat_MultiArrangement_v3.18.0](billing/Billing_NumberFormat_MultiArrangement_v3.18.0.md) | Multi-arrangement bill number format (4 named codes, full-stack SSOT) | Done |
