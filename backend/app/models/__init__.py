@@ -227,4 +227,10 @@ from .system_parameter import SystemParameter
 # Barcode Billing CSV Templates & Statutory Import Audit Logs
 from .billing_csv import BillingCsvTemplate, BillingCsvImportLog
 
-
+# SMRITI Unified Identity & Governance Control Plane (Phase 1)
+from .identity_registry import (
+    SmritiIdentityRegistry,
+    SmritiNumberingRegistry,
+    SmritiIdentityAlias,
+    SmritiIdentityAllocationLog,
+)

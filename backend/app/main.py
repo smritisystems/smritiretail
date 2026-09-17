@@ -70,6 +70,7 @@ from .api.v1 import (
     governance,
     governed_logic,
     health_flags,
+    identity,
     integration,
     inventory,
     inventory_reports,
@@ -256,6 +257,7 @@ _ROUTER_REGISTRY = [
     (barcode_registry,      "/barcode-registry",     ["Barcode Management"]),
     (barcodes,              "/barcodes",             ["Barcode & Labels Engine"]),
     (product_identity,      "/product-identity",     ["Product Identity Engine"]),
+    (identity,              "/identity",             ["SMRITI Unified Identity Engine"]),
 
     # --- Finance & Accounting ---
     (accounting,            "/accounting",           ["Authoritative Accounting"]),

@@ -59,7 +59,6 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
       const response = await apiFetchV1("/sales/orders", {
         method: "POST",
         body: JSON.stringify({
-          id: crypto.randomUUID(),
           order_no: formData.docNumber || `${formData.docPrefix}-${formData.docDate.replace(/-/g, "")}`,
           date: formData.docDate,
           customer_id: formData.customerId,

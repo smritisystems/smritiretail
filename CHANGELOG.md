@@ -18,7 +18,7 @@
 
   * Version    : 6.32.0
   * Created    : 2026-07-11
-  * Modified   : 2026-09-17
+  * Modified   : 2026-09-18
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,28 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+### [6.35.0] - 2026-09-18
+
+#### SMRITI Unified Identity Control Plane & Numbering Engine (Phase 1 - v1.1.0 Frozen)
+
+- **Universal Identity Control Plane Schema (Alembic v1464):**
+  - Created 4 canonical control-plane tables: `smriti_identity_registry`, `smriti_numbering_registry`, `smriti_identity_alias`, and `smriti_identity_allocation_log`.
+  - Zero PK/FK migration on existing business tables; 100% of 268 tables and 312 FK constraints preserved without disruption.
+  - Pre-seeded 16 canonical domain groups and sequence counters.
+- **RFC 9562 UUIDv7 & Transactional Numbering Engine:**
+  - Implemented bitwise RFC 9562-compliant UUIDv7 generator with millisecond ordering and monotonic counter.
+  - Implemented high-concurrency transactional sequence allocator using PostgreSQL `SELECT FOR UPDATE` row locks with nested savepoints (`begin_nested()`) for race-safe first-touch series initialization.
+  - Verified gapless sequence allocation for committed workloads across 100 concurrent PostgreSQL transactions.
+- **Identity Contract Enforcement & Client ID Rejection:**
+  - Eliminated client-side `crypto.randomUUID()` in `SalesOrderTab.tsx:62`.
+  - Configured `@field_validator("id")` in `SalesOrderCreate` explicitly rejecting client-supplied technical IDs with HTTP 422.
+  - Routed Sales Order persistent technical ID creation strictly through `IdentityEngine.allocate_internal()`.
+- **Preflight Certification & Governance Gate (Rule 9):**
+  - Added Rule 9 Identity Generation Governance Check to `scripts/architecture_duplication_gate.py` actively prohibiting direct `uuid7` imports outside `backend/app/services/identity/`.
+  - Issued preflight architecture certificates across all 9 control plane files with 0 P0/P1 violations.
+- **Multi-Tier Tenant-Isolated Resolution:**
+  - Implemented `IdentityResolver` supporting Tier 1A (Allocation Log), Tier 1B (Primary Table), and Tier 2 (Polymorphic Alias) with mandatory tenant isolation.
 
 ### [6.34.2] - 2026-09-17
 

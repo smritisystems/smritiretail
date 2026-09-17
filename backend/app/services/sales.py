@@ -61,6 +61,7 @@ from ..schemas.promotions import PromotionCartItem, PromotionEvaluationRequest, 
 from .documents_engine import DocumentsEngine
 from .compliance_audit import ComplianceAuditService
 from ..api.deps import TenantContext
+from .identity.engine import IdentityEngine
 
 
 def _uid() -> str:
@@ -1341,8 +1342,17 @@ class SalesService:
                 ,closed_by=item.closed_by
             ))
 
+        tech_id, _identity_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="SALES_ORDER",
+            tenant_id=getattr(self.tenant_ctx, "tenant_id", None),
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            purpose="ENTITY_CREATION",
+        )
+
         db_so = SalesOrder(
-            id=so_in.id,
+            id=tech_id,
             order_no=so_in.order_no,
             date=so_in.date,
             customer_name=so_in.customer_name,
