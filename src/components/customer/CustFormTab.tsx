@@ -419,7 +419,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             <input
               type="text"
               value={customer.companyCode}
-              data-field-key="customer_code"
+              data-field-key="company_code"
               onChange={(e) => onChange("companyCode", e.target.value)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs font-bold"
             />
@@ -517,13 +517,15 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               Billing Basis (Bill On)*
             </label>
             <select
-              value={customer.pricingBasis || "MRP"}
+              value={customer.pricingBasis || customer.pricing_basis || "MRP"}
               data-field-key="pricing_basis"
               onChange={e => {
                 const val = e.target.value as "MRP" | "RATE";
                 onChange("pricingBasis", val);
+                onChange("pricing_basis", val);
                 if (val === "RATE") {
                   onChange("isTaxInclusive", false);
+                  onChange("is_tax_inclusive", false);
                 }
               }}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] rounded-lg text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] outline-none"
@@ -538,8 +540,11 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={customer.isTaxInclusive}
-                  onChange={(e) => onChange("isTaxInclusive", e.target.checked)}
+                  checked={Boolean(customer.isTaxInclusive ?? customer.is_tax_inclusive)}
+                  onChange={(e) => {
+                    onChange("isTaxInclusive", e.target.checked);
+                    onChange("is_tax_inclusive", e.target.checked);
+                  }}
                   className="rounded text-[#00355f] focus:ring-[#00355f]"
                 />
                 <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
@@ -550,8 +555,11 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={customer.allowPromotionsOnRate || false}
-                  onChange={(e) => onChange("allowPromotionsOnRate", e.target.checked)}
+                  checked={Boolean(customer.allowPromotionsOnRate ?? customer.allow_promotions_on_rate)}
+                  onChange={(e) => {
+                    onChange("allowPromotionsOnRate", e.target.checked);
+                    onChange("allow_promotions_on_rate", e.target.checked);
+                  }}
                   className="rounded text-[#ba1a1a] focus:ring-[#ba1a1a]"
                 />
                 <span className="text-xs font-medium text-[#515f74] dark:text-[#bec6e0]">

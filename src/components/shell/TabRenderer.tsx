@@ -238,7 +238,7 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "crm":
       return <CrmStudioTab currentUser={currentUser} />;
     case "customer-master":
-      return <CustomerMasterTab currentUser={currentUser} />;
+      return <CustomerMasterTab currentUser={currentUser} onNotification={addNotification} />;
     case "loyalty":
       return <LoyaltyStudioTab currentUser={currentUser} />;
     case "staff-management":
