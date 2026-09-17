@@ -281,6 +281,8 @@ def do_run_migrations(connection) -> None:
         context.run_migrations()
 
 
+from sqlalchemy import create_engine
+
 async def run_async_migrations() -> None:
     database_url = get_target_db_url()
     connectable = create_async_engine(database_url)
@@ -292,7 +294,12 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    asyncio.run(run_async_migrations())
+    database_url = get_target_db_url()
+    sync_url = database_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+    connectable = create_engine(sync_url)
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
+    connectable.dispose()
 
 if context.is_offline_mode():
     run_migrations_offline()

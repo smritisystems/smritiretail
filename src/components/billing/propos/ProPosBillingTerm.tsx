@@ -20,7 +20,6 @@ import { SmritiProPosCancelDlg } from "./ProPosCancellation.tsx";
 import { SmritiLoyaltyLookupDlgpModal } from "./ProPosLoyaltyLooku.tsx";
 import { SmritiProPosSalesReturnModal } from "./ProPosSalesReturnD.tsx";
 import { SmritiProPosTaxInvoiceReceipt } from "./ProPosTaxInvoiceRc.tsx";
-import { SmritiPdtImportDlg } from "./ProPosPdtImportDlg.tsx";
 import { BarcodeCSVImportModal, ResolvedCartItem } from "../BarcodeCSVImportModal.tsx";
 import { SmritiCustomerBrowseModal } from "./CustBrowseDlg.tsx";
 import { SmritiProPosHotkeysDlg } from "./ProPosHotkeysDlg.tsx";
@@ -67,7 +66,6 @@ import {
   Pause,
   Play,
   CornerDownLeft,
-  UploadCloud,
   FileSpreadsheet,
   Calendar,
   Clock,
@@ -832,7 +830,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showLoyaltyModal, setShowLoyaltyModal] = useState<boolean>(false);
   const [showReturnModal, setShowReturnModal] = useState<boolean>(false);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
-  const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
   const [showCsvImportModal, setShowCsvImportModal] = useState<boolean>(false);
   const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
   const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
@@ -1460,35 +1457,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     }
   };
 
-  // Import PDT Items callback
-  const handlePdtImportSuccess = (imported: Partial<ProPosCartItem>[]) => {
-    const converted: ProPosCartItem[] = imported.map((it, idx) => ({
-      id: `pdt-${Date.now()}-${idx}`,
-      itemNo: cartItems.length + idx + 1,
-      sku: it.sku || `SKU-${idx + 1}`,
-      barcode: it.barcode || it.sku || `SKU-${idx + 1}`,
-      name: it.name || `Imported Item ${it.sku}`,
-      size: it.size || "M",
-      color: it.color || "Standard",
-      brand: it.brand || "SMRITI",
-      salesStaff: salesStaff,
-      qty: it.qty || 1.00,
-      mrp: it.mrp || 999.00,
-      unitPrice: it.unitPrice || 999.00,
-      discCode: "ILD",
-      discQty: it.qty || 1.00,
-      discountPct: it.discountPct || 10.00,
-      discountAmt: it.discountAmt || 99.90,
-      taxPct: it.taxPct || 5.00,
-      taxAmt: it.taxAmt || 42.81,
-      isTaxInclusive: it.isTaxInclusive !== undefined ? it.isTaxInclusive : (taxMode === "inclusive"),
-      lineTotal: it.lineTotal || 899.10
-    }));
-
-    setCartItems(prev => [...prev, ...converted]);
-    onNotification?.("PDT Loaded", `Successfully imported ${converted.length} items from PDT.`, "success");
-  };
-
   // Import CSV Items callback (Barcode CSV Import Engine)
   const handleCsvImportConfirmed = (items: ResolvedCartItem[]) => {
     // Strictly enforce: Allow ONLY items with a valid product_id verified in the database
@@ -1776,7 +1744,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         setShowHotkeysModal(false);
         setShowReprintModal(false);
         setShowCustomerBrowseModal(false);
-        setShowPdtImportModal(false);
+        setShowCsvImportModal(false);
         setShowRecallModal(false);
         setShowCancelModal(false);
         setShowReturnModal(false);
@@ -1838,7 +1806,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         setShowRecallModal(true);
       } else if (e.altKey && (e.key === "i" || e.key === "I")) {
         e.preventDefault();
-        setShowPdtImportModal(true);
+        setShowCsvImportModal(true);
       } else if (e.key === "F6") {
         e.preventDefault();
         setShowF6PromoModal(true);
@@ -2117,24 +2085,13 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    setShowPdtImportModal(true);
-                    setShowOverflowMenu(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3"
-                >
-                  <span className="flex items-center gap-2"><UploadCloud size={13} />PDT Import</span>
-                  <kbd className="text-[10px] font-mono opacity-70">Alt+I</kbd>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
                     setShowCsvImportModal(true);
                     setShowOverflowMenu(false);
                   }}
                   className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3"
                 >
                   <span className="flex items-center gap-2"><FileSpreadsheet size={13} />CSV Import</span>
+                  <kbd className="text-[10px] font-mono opacity-70">Alt+I</kbd>
                 </button>
                 <button
                   type="button"
@@ -2201,7 +2158,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. HEADER GROUP: Bill Type, Tx Type, Doc Prefix, Customer, Staff, PDT    */}
+      {/* 1. HEADER GROUP: Bill Type, Tx Type, Doc Prefix, Customer, Staff, CSV    */}
       {/* ========================================================================= */}
       <section className="bg-white dark:bg-[#131b2e] px-5 py-2.5 border-b border-[#c4c5d5] dark:border-[#444653] shrink-0 flex flex-wrap gap-3 items-end shadow-xs">
         
@@ -3203,7 +3160,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       </footer>
 
       {/* ========================================================================= */}
-      {/* 4. MODALS & POPUPS (Customer Browse, PDT Import, Recall, Void, Settle)    */}
+      {/* 4. MODALS & POPUPS (Customer Browse, CSV Import, Recall, Void, Settle)    */}
       {/* ========================================================================= */}
       {showHotkeysModal && (
         <SmritiProPosHotkeysDlg
@@ -3227,13 +3184,6 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             onNotification?.("Customer Selected", `${c.name} (${c.code}) loaded.`, "success");
           }}
           onClose={() => setShowCustomerBrowseModal(false)}
-        />
-      )}
-
-      {showPdtImportModal && (
-        <SmritiPdtImportDlg
-          onImportItems={handlePdtImportSuccess}
-          onClose={() => setShowPdtImportModal(false)}
         />
       )}
 

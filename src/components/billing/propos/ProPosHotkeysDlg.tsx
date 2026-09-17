@@ -48,7 +48,7 @@ const HOTKEY_GROUPS = [
       { key: "F2", desc: "Open Customer Browse & Universal Lookup Window" },
       { key: "F12 / Alt + S", desc: "Hold / Suspend current active cart to queue (4-hr expire)" },
       { key: "Alt + R", desc: "Recall suspended bills or sales advice slips" },
-      { key: "Alt + I", desc: "Open PDT Import window (File or Transaction)" }
+      { key: "Alt + I", desc: "Open CSV Import window" }
     ]
   },
   {

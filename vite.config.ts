@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 6.27.2
+ * * Version    : 6.32.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-09-09
+ * * Modified   : 2026-09-17
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */

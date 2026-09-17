@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.30.0
+Version      : 6.31.0
 Created      : 2026-07-11
-Modified     : 2026-09-09
+Modified     : 2026-09-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -120,7 +120,7 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
-    VERSION: str = "6.27.2"
+    VERSION: str = "6.32.0"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     

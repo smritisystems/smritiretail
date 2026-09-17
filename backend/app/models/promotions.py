@@ -215,7 +215,7 @@ class SmritiPromotionRedemptionItem(Base):
     uuid = Column(String(36), nullable=False)
     tenant_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     redemption_id = Column(String(50), ForeignKey("smriti_promotion_redemptions.id", ondelete="CASCADE"), nullable=False, index=True)
-    sales_invoice_item_id = Column(String(50), ForeignKey("sales_invoice_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    sales_invoice_item_id = Column(Integer, ForeignKey("sales_invoice_items.id", ondelete="CASCADE"), nullable=False, index=True)
     item_id = Column(String(50), ForeignKey("items.id", ondelete="RESTRICT"), nullable=True)
     barcode = Column(String(100), nullable=False)
     role = Column(String(20), nullable=False) # TRIGGER | REWARD
@@ -252,7 +252,7 @@ class SmritiPromotionOverride(Base):
     uuid = Column(String(36), nullable=False)
     tenant_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     sales_invoice_id = Column(String(50), ForeignKey("sales_invoices.id", ondelete="CASCADE"), nullable=False, index=True)
-    sales_invoice_item_id = Column(String(50), ForeignKey("sales_invoice_items.id", ondelete="SET NULL"), nullable=True)
+    sales_invoice_item_id = Column(Integer, ForeignKey("sales_invoice_items.id", ondelete="SET NULL"), nullable=True)
     requested_by = Column(String(50), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     approved_by = Column(String(50), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     original_discount = Column(Numeric(15, 2), nullable=False, default=0.00)
