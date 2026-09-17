@@ -60,6 +60,7 @@ class Shift(BaseEntity):
     register_id      = Column(String(50), ForeignKey("cash_registers.id", ondelete="RESTRICT"), nullable=False)
     cashier_id       = Column(String(50), ForeignKey("users.id",          ondelete="RESTRICT"), nullable=False)
     status           = Column(String(20), nullable=False, default="OPEN")  # OPEN | CLOSED
+    identity_code    = Column(String(100), nullable=True, unique=True, index=True)
 
     opened_at        = Column(DateTime(timezone=True), nullable=False)
     closed_at        = Column(DateTime(timezone=True), nullable=True)

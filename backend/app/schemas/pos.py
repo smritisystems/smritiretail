@@ -14,7 +14,7 @@ License      : Proprietary Commercial Software
 from decimal import Decimal
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CashRegisterCreate(BaseModel):
@@ -90,9 +90,16 @@ class POSProfileResponse(BaseModel):
 
 
 class ShiftOpen(BaseModel):
-    id:              str = Field(..., max_length=50)
+    id:              Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     register_id:     str = Field(..., max_length=50)
     opening_balance: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 
 class CashDenominationBreakdown(BaseModel):
@@ -197,6 +204,7 @@ class ShiftClose(BaseModel):
 
 class ShiftResponse(BaseModel):
     id:                  str
+    identity_code:       Optional[str] = None
     register_id:         str
     cashier_id:          str
     status:              str

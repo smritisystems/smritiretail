@@ -39,6 +39,7 @@ from ..schemas.pos import (
     ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest,
     POSCheckoutRequest,
 )
+from .identity.engine import IdentityEngine
 
 
 
@@ -255,8 +256,18 @@ class POSService:
                 detail="Opening balance cannot be negative.",
             )
 
+        tech_id, identity_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="POS_SHIFT",
+            tenant_id=getattr(self.tenant, "tenant_id", None) or self.tenant.company_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            purpose="ENTITY_CREATION",
+        )
+
         shift = Shift(
-            id=req.id,
+            id=tech_id,
+            identity_code=identity_code,
             register_id=req.register_id,
             cashier_id=cashier_id,
             status="OPEN",

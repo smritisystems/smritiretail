@@ -59,6 +59,7 @@ class PurchaseOrder(BaseEntity):
     __tablename__ = "purchase_orders"
 
     order_no    = Column(String(100), nullable=False, unique=True)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     supplier_id = Column(String(50),  ForeignKey("suppliers.id",   ondelete="RESTRICT"), nullable=False)
     party_id    = Column(String(50),  ForeignKey("parties.id",     ondelete="SET NULL"), nullable=True, index=True)
     status      = Column(String(20),  nullable=False, default="DRAFT")

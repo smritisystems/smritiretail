@@ -124,8 +124,15 @@ class SalesInvoiceBase(BaseModel):
     promotion_coupon_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("promotion_coupon_id", "promotionCouponId"))
 
 class SalesInvoiceCreate(SalesInvoiceBase):
-    id: Optional[str] = Field(None, max_length=50)
+    id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     items: List[SalesInvoiceItemCreate] = Field(..., min_length=1)
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 class SalesInvoiceUpdate(BaseModel):
     invoice_no: Optional[str] = None
@@ -146,6 +153,7 @@ class SalesInvoiceUpdate(BaseModel):
 
 class SalesInvoiceResponse(SalesInvoiceBase):
     id: str
+    identity_code: Optional[str] = None
     uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None

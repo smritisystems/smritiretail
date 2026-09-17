@@ -23,6 +23,7 @@ class SalesInvoice(BaseEntity):
     __tablename__ = "sales_invoices"
 
     invoice_no   = Column(String(100), nullable=False, unique=True)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     date         = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
     customer_id  = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), index=True)
     party_id     = Column(String(50), ForeignKey("parties.id", ondelete="SET NULL"), nullable=True, index=True)

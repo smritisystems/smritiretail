@@ -48,6 +48,7 @@ from .inventory_wms import InventoryWmsService
 from .payments_engine import PaymentsEngine
 from .outbox_service import OutboxService
 from .numbering import NumberingService
+from .identity.engine import IdentityEngine
 from .customer_discount_policy import resolve_customer_discount_policy, validate_customer_discount_policy
 from .promotions_engine import PromotionsEngine
 from ..schemas.promotions import PromotionCartItem, PromotionEvaluationRequest, PromotionRedemptionRequest
@@ -658,9 +659,18 @@ class CanonicalSalesPostingWriter:
                 }
 
         # 9. Persist SalesInvoice
-        invoice_id = f"inv-{uuid.uuid4().hex[:12]}"
+        tech_id, identity_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="SALES_INVOICE",
+            tenant_id=company_id,
+            company_id=company_id,
+            branch_id=branch_obj.id if branch_obj else branch_id,
+            purpose="ENTITY_CREATION",
+        )
+        invoice_id = tech_id
         db_invoice = SalesInvoice(
             id=invoice_id,
+            identity_code=identity_code,
             company_id=company_id,
             branch_id=branch_obj.id if branch_obj else branch_id,
             invoice_no=invoice_no,
