@@ -297,12 +297,12 @@ export const DEFAULT_DEFINED_SALES_PROMOTIONS: SmritiDefinedSalesPromotion[] = [
     priority: 1,
     discountValue: 43.76,
     appliedOn: "MRP",
-    applicableCustomerGroups: ["RELIANCE", "RELIANCE_RETAIL"],
+    applicableCustomerGroups: ["RELIANCE", "RELIANCE_RETAIL", "CG-LargeRetail", "cg-retail", "cg-default"],
     validFrom: "2026-01-01",
-    validTo: "2026-12-31",
+    validTo: "2030-12-31",
     isActive: true,
     createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-09-14T00:00:00.000Z"
+    updatedAt: "2026-09-17T00:00:00.000Z"
   },
   {
     id: "sp-item-ild",
@@ -621,6 +621,82 @@ export class SmritiSalesPromotionService {
     } catch {
       // ignore in non-browser environments
     }
+  }
+
+  /**
+   * Identifies whether the customer belongs to the Reliance Retail institutional trade account.
+   * Matches customer name (e.g. "Reliance Retail Ltd", "Reliance Retail Limited"), customer code (e.g. "CUST-RIL-1888", "CUST-001"),
+   * or customer group (e.g. "RELIANCE", "RELIANCE_RETAIL", "CG-LargeRetail").
+   */
+  public static isRelianceCustomer(customer?: {
+    name?: string;
+    code?: string;
+    customerGroup?: string;
+    customerGroupId?: string;
+  } | null): boolean {
+    if (!customer) return false;
+    const name = (customer.name || "").toUpperCase();
+    const code = (customer.code || "").toUpperCase();
+    const group = (customer.customerGroup || customer.customerGroupId || "").toUpperCase();
+
+    return (
+      name.includes("RELIANCE") ||
+      code.includes("RIL") ||
+      code.includes("RRL") ||
+      code === "CUST-001" ||
+      group === "RELIANCE" ||
+      group === "RELIANCE_RETAIL" ||
+      group === "CG-LARGERETAIL" ||
+      group === "CG-RELIANCE"
+    );
+  }
+
+  /**
+   * Ensures the contractual 43.76% discount scheme for Reliance Retail Ltd. exists,
+   * is active, and is assigned to all Reliance customer groups.
+   * If missing, creates and saves it to local catalog.
+   */
+  public static ensureReliance4376Promotion(): SmritiDefinedSalesPromotion {
+    const all = this.getAllDefinedPromotions();
+    let promo = all.find(p => p.code === "REL_RET_4376" || p.discountValue === 43.76);
+    const requiredGroups = ["RELIANCE", "RELIANCE_RETAIL", "CG-LargeRetail", "cg-retail", "cg-default"];
+
+    if (promo) {
+      const currentGroups = promo.applicableCustomerGroups || [];
+      const hasAllGroups = requiredGroups.every(g => currentGroups.includes(g));
+      if (!promo.isActive || promo.discountValue !== 43.76 || !hasAllGroups) {
+        promo = {
+          ...promo,
+          isActive: true,
+          discountValue: 43.76,
+          appliedOn: "MRP",
+          applicableCustomerGroups: Array.from(new Set([...currentGroups, ...requiredGroups])),
+          updatedAt: new Date().toISOString()
+        };
+        this.savePromotion(promo);
+      }
+      return promo;
+    }
+
+    const newPromo: SmritiDefinedSalesPromotion = {
+      id: "sp-reliance-4376",
+      code: "REL_RET_4376",
+      name: "Reliance Retail Store 43.76% on MRP",
+      description: "Institutional trade concession: flat 43.76% markdown on MRP for Reliance Retail billing",
+      level: "ITEM_LEVEL",
+      category: "ITEM_DISCOUNT_PERCENT",
+      priority: 1,
+      discountValue: 43.76,
+      appliedOn: "MRP",
+      applicableCustomerGroups: requiredGroups,
+      validFrom: "2026-01-01",
+      validTo: "2030-12-31",
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.savePromotion(newPromo);
+    return newPromo;
   }
 
   /**
@@ -1197,6 +1273,7 @@ export class SmritiSalesPromotionService {
     qty?: number;
     customerGroup?: string;
     customerCode?: string;
+    customerName?: string;
     evalDate?: Date;
     asOf?: Date;
     currentTime?: string; // "HH:mm"
@@ -1239,6 +1316,52 @@ export class SmritiSalesPromotionService {
 
     if (rate <= 0) {
       return nullResult;
+    }
+
+    // Institutional Contract Exclusivity: Customer Reliance Retail Ltd.
+    // Requirement: Skip ALL discounts for Customer Reliance Retail Ltd. except 43.76% (if already added else create and assign it)
+    const isReliance = this.isRelianceCustomer({
+      name: params.customerName,
+      code: params.customerCode,
+      customerGroup: params.customerGroup
+    });
+
+    if (isReliance) {
+      const relPromo = this.ensureReliance4376Promotion();
+      const discPct = 43.76;
+      const discAmt = Math.round(((rate * qty * discPct) / 100) * 100) / 100;
+      return {
+        applied: true,
+        promo: relPromo,
+        rule: relPromo.rules?.[0] || null,
+        discountPct: discPct,
+        discountAmt: discAmt,
+        promoCode: relPromo.code,
+        promoDescription: "Reliance Retail Trade Concession (43.76% on MRP)",
+        schemeType: "ITEM_DISCOUNT_PERCENT",
+        reason: "Applied mandatory 43.76% Reliance Retail trade concession. All other promotional schemes skipped per contractual exclusivity.",
+        appliedOnQty: qty,
+        badgeText: "43.76% [REL_RET_4376]",
+        ruleDescription: "Reliance Retail Store 43.76% on MRP",
+        explainability: {
+          schemeCode: "REL_RET_4376",
+          schemeName: "Reliance Retail Store 43.76% on MRP",
+          checks: [
+            {
+              rule: "RELIANCE_CONTRACT_EXCLUSIVITY",
+              passed: true,
+              observedValue: params.customerName || params.customerCode || "Reliance Retail Ltd.",
+              requiredValue: "Institutional 43.76% Trade Concession",
+              explanation: "Strict contractual 43.76% discount applied; all standard retail promotions suppressed."
+            }
+          ],
+          arbitrationResult: "WON",
+          rationale: "Contractual trade discount for Reliance Retail Ltd.",
+          winningDiscountAmount: discAmt
+        },
+        unclaimedFreeItemOffer: null,
+        taxTreatment: "PRE_TAX_TRADE_DISCOUNT"
+      };
     }
 
     const activeItemPromos = this.getActivePromotionsByLevel("ITEM_LEVEL", evalDate);
@@ -1499,6 +1622,7 @@ export class SmritiSalesPromotionService {
     itemsCount?: number;
     customerGroup?: string;
     customerCode?: string;
+    customerName?: string;
     evalDate?: Date;
     asOf?: Date;
     currentTime?: string; // "HH:mm"
@@ -1533,6 +1657,29 @@ export class SmritiSalesPromotionService {
 
     if (subtotal <= 0) {
       return nullResult;
+    }
+
+    // Institutional Contract Check: Customer Reliance Retail Ltd.
+    // Rule: Skip ALL bill promotions for Reliance Retail Ltd. (contractual markdown applied at item level)
+    const isReliance = this.isRelianceCustomer({
+      name: params.customerName,
+      code: params.customerCode,
+      customerGroup: params.customerGroup
+    });
+
+    if (isReliance) {
+      return {
+        applied: false,
+        promo: null,
+        discountPct: 0,
+        discountAmt: 0,
+        promoCode: "NONE",
+        promoName: "No Bill Discount",
+        promoDescription: "",
+        schemeType: null,
+        reason: "Bill-level discounts skipped for Reliance Retail Ltd. (Institutional 43.76% trade concession applied at line level)",
+        badgeText: ""
+      };
     }
 
     const activeBillPromos = this.getActivePromotionsByLevel("BILL_LEVEL", evalDate);

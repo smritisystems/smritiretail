@@ -43,6 +43,8 @@ const mapToProPosCustomers = (custs: any[]): ProPosCustomer[] => {
       state: c.state || parsed.stateName || undefined,
       stateCode: c.stateCode || parsed.stateCode || undefined,
       registrationType: parsed.isValid ? "REGISTERED" : "UNREGISTERED",
+      customerGroup: c.customerGroup || c.customer_group || c.customerGroupId || c.customer_group_id || (c.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+      customerGroupId: c.customerGroupId || c.customer_group_id || (c.name?.toUpperCase().includes("RELIANCE") ? "CG-LargeRetail" : undefined),
     };
   });
 };

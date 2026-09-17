@@ -218,3 +218,77 @@ def test_positional_5_column_parsing():
     assert data_rows[0]["barcode"] == "8901001"
     assert data_rows[0]["is_tax_inclusive"] == "0"
     assert data_rows[1]["is_tax_inclusive"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_validate_row_reliance_contractual_4376():
+    mock_db = AsyncMock()
+    mock_catalog = {
+        "product_id": "00000000-0000-0000-0000-000000000005",
+        "item_name": "Premium Denim Trouser",
+        "sku": "DNM-001",
+        "barcode": "890100000005",
+        "catalog_mrp": Decimal("2500.00"),
+        "catalog_selling_price": Decimal("2500.00"),
+        "gst_rate": Decimal("12.0"),
+        "hsn_code": "6203",
+        "available_stock": 50,
+        "uom": "PCS",
+    }
+    with patch("app.api.v1.billing_csv._lookup_catalog", new_callable=AsyncMock, return_value=mock_catalog):
+        # Even if CSV specifies selling_price="2200.00" or raw_disc="10.0",
+        # is_reliance=True MUST override and auto-apply exact 43.76% discount on MRP:
+        # Effective SP = 2500 * (1 - 0.4376) = 1406.00
+        # Line Total (2 units) = 2812.00
+        row = await _validate_row(
+            idx=0, raw_id="890100000005", raw_sku=None, raw_qty="2",
+            raw_price="2200.00", raw_disc="10.0", raw_mrp_csv=None, raw_gst_csv=None,
+            fmt="FORMAT_COMMERCIAL_DISC", db=mock_db, company_id="comp-1",
+            raw_disc_amt=None, raw_tax_inc="1", is_reliance=True
+        )
+        assert row.status == "VALID"
+        assert row.effective_selling_price == 1406.00
+        assert row.line_total == 2812.00
+        assert row.mrp_markdown_display == "43.76% off MRP [REL_RET_4376]"
+
+
+def test_parse_input_preserves_header_order_and_aliases():
+    from app.api.v1.billing_csv import _parse_input
+    raw_csv = "ean,qty,base_rate,disc_pct,tax_mode\n8901001,2,500.00,10.0,0"
+    parsed = _parse_input(raw_csv, None)
+    assert parsed.raw_headers == ["ean", "qty", "base_rate", "disc_pct", "tax_mode"]
+    assert parsed.canonical_headers == ["barcode", "quantity", "rate", "discount_percent", "is_tax_inclusive"]
+    assert parsed.header_map["ean"] == "barcode"
+    assert parsed.header_map["qty"] == "quantity"
+    assert parsed.header_map["base_rate"] == "rate"
+    assert parsed.header_map["disc_pct"] == "discount_percent"
+    assert parsed.header_map["tax_mode"] == "is_tax_inclusive"
+    assert len(parsed.unrecognized_headers) == 0
+
+
+def test_header_suggestions_for_misspelled_columns():
+    from app.api.v1.billing_csv import _parse_input, _suggest_header
+    raw_csv = "barcd,quant,prc,cost,disc_rate\n8901001,2,500.00,450.00,5.0"
+    parsed = _parse_input(raw_csv, None)
+    assert "barcd" in parsed.unrecognized_headers
+    assert "quant" in parsed.unrecognized_headers
+    assert "prc" in parsed.unrecognized_headers
+    assert any("barcode" in s for s in parsed.suggestions)
+    assert any("quantity" in s for s in parsed.suggestions)
+    assert any("selling_price" in s for s in parsed.suggestions)
+
+
+def test_distinguished_validations_reporting():
+    from app.api.v1.billing_csv import _resolve_distinguished_validations
+    validations = _resolve_distinguished_validations(
+        canonical_headers=["barcode", "quantity", "rate", "discount_percent"],
+        header_map={"ean": "barcode", "qty": "quantity", "base_rate": "rate", "disc%": "discount_percent"},
+        fmt="FORMAT_COMMERCIAL_DISC",
+        default_tax_inclusive=False,
+        is_reliance=True,
+    )
+    assert any("Wholesale Base Rate Validation" in v for v in validations)
+    assert any("Percentage Discount Validation" in v for v in validations)
+    assert any("Contractual Trade Exclusivity" in v for v in validations)
+    assert any("Discrete UOM Guard" in v for v in validations)
+

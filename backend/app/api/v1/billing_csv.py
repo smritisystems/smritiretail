@@ -16,6 +16,7 @@ Source Module: Barcode Billing CSV Import Engine & Persistent Audit Logging
 from __future__ import annotations
 
 import csv
+import difflib
 import hashlib
 import io
 import uuid
@@ -57,30 +58,31 @@ HEADER_ALIASES: Dict[str, str] = {
     # Barcode / SKU
     "barcode": "barcode", "ean": "barcode", "upc": "barcode",
     "barcode_no": "barcode", "code": "barcode", "ean13": "barcode",
-    "scan_code": "barcode", "bar_code": "barcode",
+    "scan_code": "barcode", "bar_code": "barcode", "product_code": "barcode",
     "sku": "sku", "sku_code": "sku", "item_code": "sku",
-    "stock_no": "sku", "article_no": "sku",
+    "stock_no": "sku", "article_no": "sku", "art_no": "sku",
 
     # Quantity
     "quantity": "quantity", "qty": "quantity", "pcs": "quantity",
-    "units": "quantity", "count": "quantity", "nos": "quantity",
+    "units": "quantity", "count": "quantity", "nos": "quantity", "qnty": "quantity",
 
     # Price / Rate
     "selling_price": "selling_price", "price": "selling_price",
     "sp": "selling_price", "sale_price": "selling_price", "sell_price": "selling_price",
+    "retail_price": "selling_price", "consumer_price": "selling_price",
     "rate": "rate", "unit_rate": "rate", "invoice_rate": "rate", "base_rate": "rate",
-    "base_price": "rate",
+    "base_price": "rate", "wholesale_rate": "rate", "basic_rate": "rate",
 
     # Discounts
     "discount_percent": "discount_percent", "discount": "discount_percent",
     "disc": "discount_percent", "disc_pct": "discount_percent",
-    "off%": "discount_percent", "disc%": "discount_percent",
+    "off%": "discount_percent", "disc%": "discount_percent", "discount%": "discount_percent",
     "discount_amount": "discount_amount", "disc_amt": "discount_amount",
     "disc_val": "discount_amount", "discount_val": "discount_amount",
 
     # Statutory & Catalog
     "mrp": "mrp", "max_price": "mrp", "mrp_price": "mrp", "list_price": "mrp",
-    "gst_rate": "gst_rate", "gst": "gst_rate", "tax_rate": "gst_rate",
+    "gst_rate": "gst_rate", "gst": "gst_rate", "tax_rate": "gst_rate", "gst_pct": "gst_rate",
     "hsn_code": "hsn_code", "hsn": "hsn_code", "hsn_no": "hsn_code",
     "tariff_code": "hsn_code",
 
@@ -88,16 +90,102 @@ HEADER_ALIASES: Dict[str, str] = {
     "is_tax_inclusive": "is_tax_inclusive", "tax_inclusive": "is_tax_inclusive",
     "tax_mode": "is_tax_inclusive", "inclusive": "is_tax_inclusive",
     "price_type": "is_tax_inclusive", "tax_type": "is_tax_inclusive",
-    "tax_inc": "is_tax_inclusive",
+    "tax_inc": "is_tax_inclusive", "tax_status": "is_tax_inclusive",
 
     # Batch, Expiry & Salesperson Attribution
-    "batch_no": "batch_no", "batch": "batch_no", "lot": "batch_no",
+    "batch_no": "batch_no", "batch": "batch_no", "lot": "batch_no", "lot_no": "batch_no",
     "expiry_date": "expiry_date", "exp_date": "expiry_date", "expiry": "expiry_date",
     "salesperson_id": "salesperson_id", "salesperson": "salesperson_id",
-    "attendant": "salesperson_id", "staff": "salesperson_id",
+    "attendant": "salesperson_id", "staff": "salesperson_id", "staff_id": "salesperson_id",
+}
+
+CANONICAL_TARGETS: Dict[str, str] = {
+    "barcode": "Barcode / EAN (Product Scan Code)",
+    "sku": "SKU / Article Code",
+    "quantity": "Quantity (Units / Count)",
+    "selling_price": "Retail Selling Price (Tax-Inclusive MRP Price)",
+    "rate": "Wholesale Base Rate (Pre-tax Base Price)",
+    "discount_percent": "Discount Percentage (0–100%)",
+    "discount_amount": "Discount Amount (Fixed Value in ₹)",
+    "mrp": "Maximum Retail Price (Statutory MRP)",
+    "gst_rate": "GST Tax Rate (%)",
+    "hsn_code": "HSN / SAC Code",
+    "is_tax_inclusive": "Tax Mode (1=Inclusive, 0=Exclusive)",
+    "batch_no": "Batch / Lot Identifier",
+    "expiry_date": "Expiry Date (YYYY-MM-DD)",
+    "salesperson_id": "Sales Staff Identifier",
+}
+
+COMMON_SUGGESTIONS: Dict[str, str] = {
+    "barcd": "barcode",
+    "bar_code_no": "barcode",
+    "prod_code": "barcode",
+    "item_id": "sku",
+    "item_no": "sku",
+    "product": "barcode",
+    "quant": "quantity",
+    "qt": "quantity",
+    "prc": "selling_price",
+    "cost": "rate",
+    "basic_rate": "rate",
+    "net_rate": "rate",
+    "disc_rate": "discount_percent",
+    "discnt": "discount_percent",
+    "tax": "gst_rate",
+    "vat": "gst_rate",
+    "tax_pct": "gst_rate",
+    "hsn_num": "hsn_code",
+    "exp": "expiry_date",
+    "b_no": "batch_no",
+    "staff_id": "salesperson_id",
+    "sales_rep": "salesperson_id",
 }
 
 DISCRETE_UOMS = {"PCS", "PC", "NOS", "NO", "PAIR", "PRS", "BOX", "SET", "UNIT", "DOZ", "EA"}
+
+
+def _suggest_header(raw: str) -> Optional[str]:
+    cleaned = raw.strip().lower().replace(" ", "_")
+    if cleaned in COMMON_SUGGESTIONS:
+        canonical = COMMON_SUGGESTIONS[cleaned]
+        return f"Header '{raw}' matches alias for '{canonical}' ({CANONICAL_TARGETS.get(canonical, canonical)})."
+
+    all_keys = list(HEADER_ALIASES.keys())
+    matches = difflib.get_close_matches(cleaned, all_keys, n=1, cutoff=0.6)
+    if matches:
+        canonical = HEADER_ALIASES[matches[0]]
+        return f"Header '{raw}' is unrecognized. Did you mean '{canonical}' (e.g. alias '{matches[0]}')?"
+
+    return f"Header '{raw}' is unrecognized. Valid canonical headers: {', '.join(CANONICAL_TARGETS.keys())}."
+
+
+class ParsedCsv:
+    """
+    Encapsulates parsed CSV input preserving exact column ordering,
+    raw headers, canonical mappings, unrecognized headers, and suggestions.
+    Enables backward-compatible 3-tuple unpacking:
+      is_pdt, canonical_headers, data_rows = _parse_input(...)
+    """
+    def __init__(
+        self,
+        is_pdt: bool,
+        canonical_headers: List[str],
+        data_rows: List[Dict[str, str]],
+        raw_headers: Optional[List[str]] = None,
+        header_map: Optional[Dict[str, str]] = None,
+        unrecognized_headers: Optional[List[str]] = None,
+        suggestions: Optional[List[str]] = None,
+    ):
+        self.is_pdt = is_pdt
+        self.canonical_headers = canonical_headers
+        self.data_rows = data_rows
+        self.raw_headers = raw_headers or []
+        self.header_map = header_map or {}
+        self.unrecognized_headers = unrecognized_headers or []
+        self.suggestions = suggestions or []
+
+    def __iter__(self):
+        return iter((self.is_pdt, self.canonical_headers, self.data_rows))
 
 
 def _norm_header(h: str) -> str:
@@ -135,6 +223,67 @@ def _detect_format(canonical_headers: List[str], is_pdt: bool) -> str:
     if "barcode" in h or "sku" in h:
         return "FORMAT_1"
     return "FORMAT_2"
+
+
+def _resolve_distinguished_validations(
+    canonical_headers: List[str],
+    header_map: Dict[str, str],
+    fmt: str,
+    default_tax_inclusive: Optional[bool],
+    is_reliance: bool,
+) -> List[str]:
+    validations: List[str] = []
+    h_set = set(canonical_headers)
+
+    # 1. Product Identity
+    if "barcode" in h_set or "sku" in h_set:
+        id_alias = next((raw for raw, can in header_map.items() if can in ("barcode", "sku")), "barcode")
+        validations.append(f"Catalogue Identity Verification [{id_alias}]: Exact product master match against database barcodes and secondary scan codes.")
+    else:
+        validations.append("Catalogue Identity Verification: Resolving items via position 1 product scan code.")
+
+    # 2. Rate vs Selling Price
+    if "rate" in h_set:
+        rate_alias = next((raw for raw, can in header_map.items() if can == "rate"), "rate")
+        validations.append(f"Wholesale Base Rate Validation [{rate_alias}]: Pre-tax rate evaluation with statutory Legal Metrology post-tax MRP ceiling check.")
+    elif "selling_price" in h_set:
+        sp_alias = next((raw for raw, can in header_map.items() if can == "selling_price"), "selling_price")
+        validations.append(f"Retail Selling Price Validation [{sp_alias}]: Tax-inclusive consumer price validated directly against catalogue Maximum Retail Price (MRP).")
+    else:
+        validations.append("Catalogue Selling Price: Defaulted to system catalogue active selling price.")
+
+    # 3. Discounts
+    if "discount_percent" in h_set:
+        disc_alias = next((raw for raw, can in header_map.items() if can == "discount_percent"), "discount_percent")
+        validations.append(f"Percentage Discount Validation [{disc_alias}]: Enforcing strict 0.00% – 100.00% allowable range bounds.")
+    if "discount_amount" in h_set:
+        amt_alias = next((raw for raw, can in header_map.items() if can == "discount_amount"), "discount_amount")
+        validations.append(f"Flat Amount Discount Validation [{amt_alias}]: Enforcing discount amount <= line gross total.")
+
+    # 4. Tax Mode
+    if "is_tax_inclusive" in h_set:
+        tax_alias = next((raw for raw, can in header_map.items() if can == "is_tax_inclusive"), "is_tax_inclusive")
+        validations.append(f"Per-Row Tax Mode Arbitration [{tax_alias}]: Dynamic line-by-line tax policy evaluation (1=Inclusive MRP, 0=Exclusive Base Rate + GST).")
+    elif default_tax_inclusive is not None:
+        mode_str = "Tax Inclusive (MRP/Retail)" if default_tax_inclusive else "Tax Exclusive (Base Rate + GST)"
+        validations.append(f"Terminal Tax Policy: Enforcing active terminal mode [{mode_str}].")
+
+    # 5. Statutory Catalog MRP & GST
+    if "mrp" in h_set:
+        mrp_alias = next((raw for raw, can in header_map.items() if can == "mrp"), "mrp")
+        validations.append(f"Statutory MRP Ceiling Guard [{mrp_alias}]: Verifying file MRP <= Legal Metrology registered MRP (SMRITI-BILL-002).")
+    if "gst_rate" in h_set:
+        gst_alias = next((raw for raw, can in header_map.items() if can == "gst_rate"), "gst_rate")
+        validations.append(f"GST Rate Verification [{gst_alias}]: Cross-checked against catalogue HSN/GST classification (SMRITI-BILL-010).")
+
+    # 6. Discrete Packaging UOM
+    validations.append("Discrete UOM Guard: Enforcing non-fractional whole-number quantities for discrete packaging units (PCS, NOS, PAIR, BOX).")
+
+    # 7. Reliance contract
+    if is_reliance:
+        validations.append("Contractual Trade Exclusivity: Flat 43.76% markdown on MRP enforced for Reliance Retail Ltd.; standard retail promotions suppressed.")
+
+    return validations
 
 
 def _parse_tax_mode(raw: Optional[str], default_mode: Optional[bool] = None) -> Tuple[Optional[bool], Optional[str]]:
@@ -235,6 +384,9 @@ class CsvValidateRequest(BaseModel):
     register_id: Optional[str] = Field(None, description="Active POS register identifier")
     shift_id: Optional[str] = Field(None, description="Active POS shift identifier")
     file_name: Optional[str] = Field("uploaded.csv", description="Imported filename")
+    customer_id: Optional[str] = Field(None, description="Active POS customer identifier")
+    customer_name: Optional[str] = Field(None, description="Active POS customer name")
+    customer_group: Optional[str] = Field(None, description="Active POS customer group code")
 
 
 class CsvRowResult(BaseModel):
@@ -277,6 +429,12 @@ class CsvValidateResponse(BaseModel):
     warning_rows: int
     can_proceed: bool
     import_log_id: Optional[str] = None
+    raw_headers: List[str] = Field(default_factory=list, description="Original headers from uploaded CSV in column order")
+    canonical_headers: List[str] = Field(default_factory=list, description="Canonical headers recognized in column order")
+    header_mappings: Dict[str, str] = Field(default_factory=dict, description="Mapping of raw header/alias to canonical field")
+    unrecognized_headers: List[str] = Field(default_factory=list, description="Uploaded headers that did not match any known alias")
+    header_suggestions: List[str] = Field(default_factory=list, description="Intelligent suggestions for column mapping or unrecognized headers")
+    distinguished_validations: List[str] = Field(default_factory=list, description="Validations distinguished and applied based on detected headers/aliases")
     rows: List[CsvRowResult]
 
 
@@ -319,6 +477,7 @@ async def _validate_row(
     raw_tax_inc: Optional[str] = None, raw_disc_amt: Optional[str] = None,
     raw_batch: Optional[str] = None, raw_exp: Optional[str] = None,
     raw_staff: Optional[str] = None, default_tax_inclusive: Optional[bool] = None,
+    is_reliance: bool = False,
 ) -> CsvRowResult:
 
     identifier = raw_id.strip()
@@ -438,25 +597,34 @@ async def _validate_row(
 
     # Discount calculations
     disc_amount = Decimal("0.00")
-    if raw_disc and raw_disc.strip() and fmt in ("FORMAT_COMMERCIAL_DISC", "FORMAT_5"):
-        try:
-            dp = Decimal(raw_disc.strip())
-            if dp < 0 or dp > 100:
-                return _err(idx, barcode, "SMRITI-BILL-006", f"Discount percent must be 0–100 for barcode {barcode}.")
-            disc_amount += (effective_sp * qty * dp / Decimal("100.00"))
-        except Exception:
-            return _err(idx, barcode, "SMRITI-BILL-006", f"Discount percent '{raw_disc}' is invalid.")
+    if is_reliance:
+        # Contractual Reliance Retail markdown: flat 43.76% on catalogue MRP
+        # Skip and suppress all file discounts, rates, or promotional schemes
+        rel_disc_pct = Decimal("43.76")
+        effective_sp = (catalog_mrp * (Decimal("1.00") - rel_disc_pct / Decimal("100.00"))).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        disc_amount = Decimal("0.00")
+    else:
+        if raw_disc and raw_disc.strip() and fmt in ("FORMAT_COMMERCIAL_DISC", "FORMAT_5"):
+            try:
+                dp = Decimal(raw_disc.strip())
+                if dp < 0 or dp > 100:
+                    return _err(idx, barcode, "SMRITI-BILL-006", f"Discount percent must be 0–100 for barcode {barcode}.")
+                disc_amount += (effective_sp * qty * dp / Decimal("100.00"))
+            except Exception:
+                return _err(idx, barcode, "SMRITI-BILL-006", f"Discount percent '{raw_disc}' is invalid.")
 
-    if raw_disc_amt and raw_disc_amt.strip():
-        try:
-            da = Decimal(raw_disc_amt.strip())
-            if da < 0:
-                return _err(idx, barcode, "SMRITI-BILL-006", f"Discount amount cannot be negative.")
-            disc_amount += da
-        except Exception:
-            return _err(idx, barcode, "SMRITI-BILL-006", f"Discount amount '{raw_disc_amt}' is invalid.")
+        if raw_disc_amt and raw_disc_amt.strip():
+            try:
+                da = Decimal(raw_disc_amt.strip())
+                if da < 0:
+                    return _err(idx, barcode, "SMRITI-BILL-006", f"Discount amount cannot be negative.")
+                disc_amount += da
+            except Exception:
+                return _err(idx, barcode, "SMRITI-BILL-006", f"Discount amount '{raw_disc_amt}' is invalid.")
 
-    disc_amount = min(disc_amount, effective_sp * qty)
+        disc_amount = min(disc_amount, effective_sp * qty)
 
     # Statutory MRP Guard:
     # 1. If Tax Inclusive: effective_sp <= catalog_mrp
@@ -497,10 +665,14 @@ async def _validate_row(
     # MRP markdown — display only, does NOT feed back into price
     markdown_pct = 0
     markdown_display = ""
-    unit_consumer_price = (tax_result["total_amount"] / qty) if qty > 0 else Decimal("0.00")
-    if catalog_mrp > 0 and unit_consumer_price < catalog_mrp:
-        markdown_pct = int(round((catalog_mrp - unit_consumer_price) / catalog_mrp * 100))
-        markdown_display = f"{markdown_pct}% off MRP"
+    if is_reliance:
+        markdown_pct = 44
+        markdown_display = "43.76% off MRP [REL_RET_4376]"
+    else:
+        unit_consumer_price = (tax_result["total_amount"] / qty) if qty > 0 else Decimal("0.00")
+        if catalog_mrp > 0 and unit_consumer_price < catalog_mrp:
+            markdown_pct = int(round((catalog_mrp - unit_consumer_price) / catalog_mrp * 100))
+            markdown_display = f"{markdown_pct}% off MRP"
 
     return CsvRowResult(
         row_index=idx,
@@ -536,17 +708,17 @@ async def _validate_row(
 # Input Parser
 # ---------------------------------------------------------------------------
 
-def _parse_input(raw_text: str, delimiter_hint: Optional[str]):
+def _parse_input(raw_text: str, delimiter_hint: Optional[str]) -> ParsedCsv:
     raw_text = raw_text.lstrip("\ufeff\ufffe")
     lines = [l for l in raw_text.splitlines() if l.strip()]
     if not lines:
-        return False, [], []
+        return ParsedCsv(False, [], [])
 
     first_line = lines[0]
     delimiter = delimiter_hint or _detect_delimiter(first_line)
 
     is_pdt = delimiter in ("~", "|") and not any(
-        k in first_line.lower() for k in ("barcode", "qty", "quantity", "ean")
+        k in first_line.lower() for k in ("barcode", "qty", "quantity", "ean", "sku")
     )
 
     if is_pdt:
@@ -563,12 +735,32 @@ def _parse_input(raw_text: str, delimiter_hint: Optional[str]):
             if len(parts) > 3:
                 row["is_tax_inclusive"] = parts[3]
             data_rows.append(row)
-        return True, list(data_rows[0].keys()) if data_rows else [], data_rows
+        canonical_headers = list(data_rows[0].keys()) if data_rows else []
+        raw_headers = [f"Col_{i+1}" for i in range(len(canonical_headers))]
+        header_map = {r: c for r, c in zip(raw_headers, canonical_headers)}
+        return ParsedCsv(
+            is_pdt=True,
+            canonical_headers=canonical_headers,
+            data_rows=data_rows,
+            raw_headers=raw_headers,
+            header_map=header_map,
+            unrecognized_headers=[],
+            suggestions=["PDT tilde/pipe delimited format detected. Position 1: Barcode, Position 2: Quantity, Position 3: Selling Price, Position 4: Tax Mode."],
+        )
 
     # Check if first line is a header row or data row
     first_cells = next(csv.reader(io.StringIO(first_line), delimiter=delimiter), [])
     first_cells_norm = [_norm_header(c) for c in first_cells]
-    has_header = any(c in set(HEADER_ALIASES.values()) for c in first_cells_norm)
+    has_header = (
+        any(c in set(HEADER_ALIASES.values()) for c in first_cells_norm)
+        or any(c.strip().lower().replace(" ", "_") in COMMON_SUGGESTIONS for c in first_cells)
+        or any(bool(difflib.get_close_matches(c.strip().lower(), list(HEADER_ALIASES.keys()), n=1, cutoff=0.7)) for c in first_cells if not c.replace(".", "").isdigit())
+    )
+    if not has_header and len(lines) > 1:
+        # If first cell is non-numeric text and second row first cell is numeric digits (e.g. barcode)
+        second_cells = next(csv.reader(io.StringIO(lines[1]), delimiter=delimiter), [])
+        if first_cells and second_cells and not first_cells[0].replace(".", "").isdigit() and second_cells[0].replace(".", "").isdigit():
+            has_header = True
 
     if not has_header:
         # Headerless CSV (positional: barcode, quantity[, selling_price, discount_percent, is_tax_inclusive])
@@ -600,19 +792,53 @@ def _parse_input(raw_text: str, delimiter_hint: Optional[str]):
             canonical_headers.append("discount_percent")
         if max_cols > 4:
             canonical_headers.append("is_tax_inclusive")
-        return False, canonical_headers, data_rows
 
+        raw_headers = [f"Col_{i+1}" for i in range(len(canonical_headers))]
+        header_map = {r: c for r, c in zip(raw_headers, canonical_headers)}
+        return ParsedCsv(
+            is_pdt=False,
+            canonical_headers=canonical_headers,
+            data_rows=data_rows,
+            raw_headers=raw_headers,
+            header_map=header_map,
+            unrecognized_headers=[],
+            suggestions=["Headerless CSV detected. Positional ordering applied: [Col_1: barcode, Col_2: quantity, Col_3: selling_price, Col_4: discount_percent, Col_5: is_tax_inclusive]."],
+        )
+
+    # Headered CSV — Preserve exact header order & aliases
     reader = csv.DictReader(io.StringIO(raw_text), delimiter=delimiter)
-    raw_headers = reader.fieldnames or []
+    raw_headers = [h.strip() for h in (reader.fieldnames or []) if h is not None]
     canonical_headers = [_norm_header(h) for h in raw_headers]
     header_map = {raw: can for raw, can in zip(raw_headers, canonical_headers)}
+
+    unrecognized_headers = []
+    suggestions = []
+
+    for raw in raw_headers:
+        cleaned = raw.strip().lower().replace(" ", "_")
+        if cleaned not in HEADER_ALIASES and raw.strip().lower() not in HEADER_ALIASES:
+            unrecognized_headers.append(raw)
+            sugg = _suggest_header(raw)
+            if sugg:
+                suggestions.append(sugg)
+
+    if "barcode" not in canonical_headers and "sku" not in canonical_headers:
+        suggestions.insert(0, "Missing required product identifier. Please include a 'barcode' or 'sku' column (or aliases: 'ean', 'upc', 'code', 'item_code').")
 
     data_rows = []
     for raw_row in reader:
         can_row = {header_map.get(k, _norm_header(k or "")): v for k, v in raw_row.items() if k is not None}
         data_rows.append(can_row)
 
-    return False, canonical_headers, data_rows
+    return ParsedCsv(
+        is_pdt=False,
+        canonical_headers=canonical_headers,
+        data_rows=data_rows,
+        raw_headers=raw_headers,
+        header_map=header_map,
+        unrecognized_headers=unrecognized_headers,
+        suggestions=suggestions,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -641,8 +867,28 @@ async def validate_billing_csv(
     Saves validation audit log into billing_csv_import_logs.
     """
     company_id = tenant.company_id
-    is_pdt, canonical_headers, data_rows = _parse_input(req.raw_text, req.delimiter_hint)
+    parsed = _parse_input(req.raw_text, req.delimiter_hint)
+    is_pdt, canonical_headers, data_rows = parsed
     fmt = _detect_format(canonical_headers, is_pdt)
+
+    c_name = (req.customer_name or "").upper()
+    c_id = (req.customer_id or "").upper()
+    c_grp = (req.customer_group or "").upper()
+    is_reliance = (
+        "RELIANCE" in c_name
+        or "RIL" in c_id
+        or c_id == "CUST-001"
+        or "RELIANCE" in c_grp
+        or "CG-LARGERETAIL" in c_grp
+    )
+
+    distinguished_validations = _resolve_distinguished_validations(
+        canonical_headers=canonical_headers,
+        header_map=parsed.header_map,
+        fmt=fmt,
+        default_tax_inclusive=req.tax_inclusive_default,
+        is_reliance=is_reliance,
+    )
 
     results: List[CsvRowResult] = []
     total_gross = Decimal("0.00")
@@ -652,6 +898,14 @@ async def validate_billing_csv(
     for idx, row in enumerate(data_rows):
         raw_id = row.get("barcode") or row.get("sku") or ""
         sku_hint = row.get("sku") if row.get("barcode") else None
+
+        has_rate = "rate" in row and bool(row.get("rate"))
+        has_sp = "selling_price" in row and bool(row.get("selling_price"))
+        # Distinguish tax default by header: rate implies tax-exclusive unless overridden
+        row_tax_default = req.tax_inclusive_default
+        if row_tax_default is None and has_rate and not has_sp:
+            row_tax_default = False
+
         result = await _validate_row(
             idx=idx,
             raw_id=raw_id,
@@ -669,7 +923,8 @@ async def validate_billing_csv(
             raw_batch=row.get("batch_no"),
             raw_exp=row.get("expiry_date"),
             raw_staff=row.get("salesperson_id"),
-            default_tax_inclusive=req.tax_inclusive_default,
+            default_tax_inclusive=row_tax_default,
+            is_reliance=is_reliance,
         )
         results.append(result)
 
@@ -727,6 +982,12 @@ async def validate_billing_csv(
         warning_rows=warning_rows,
         can_proceed=(valid_rows + warning_rows) > 0,
         import_log_id=import_log_id,
+        raw_headers=parsed.raw_headers,
+        canonical_headers=parsed.canonical_headers,
+        header_mappings=parsed.header_map,
+        unrecognized_headers=parsed.unrecognized_headers,
+        header_suggestions=parsed.suggestions,
+        distinguished_validations=distinguished_validations,
         rows=results,
     )
 

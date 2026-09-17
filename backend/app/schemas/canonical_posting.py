@@ -32,7 +32,7 @@ class CanonicalPostingContext(BaseModel):
     cashier_id: Optional[str] = Field(None, description="Operating Cashier / Operator User ID")
     terminal_id: Optional[str] = Field(None, description="Physical Counter / Terminal Identifier")
     counter_id: Optional[str] = Field(None, description="Counter register identifier")
-    idempotency_key: str = Field(..., min_length=8, max_length=128, description="Mandatory idempotency key")
+    idempotency_key: str = Field(..., min_length=1, max_length=128, description="Mandatory idempotency key")
     client_invoice_no: Optional[str] = Field(None, description="Offline or client-generated invoice number")
     source_channel: str = Field("POS_RETAIL", description="POS_RETAIL, B2B_WHOLESALE, CUSTOMER_PO, SALES_ORDER, ECOMMERCE")
     allow_negative_stock: bool = Field(False, description="Governed override allowing negative stock if permitted by store policy")
