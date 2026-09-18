@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0918-A951C9",
+  "entity": "SALES",
+  "capability": "B2B_DISPATCH_INVOICING_STUDIO",
+  "asset_type": "SERVICE",
+  "proposed_name": "dispatch_matrix_parser.py",
+  "target_file_path": "backend/app/services/dispatch_matrix_parser.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/dispatch_invoicing_engine.py",
+  "content_hash": "36ec9e32e52d0bf7f74307559259b8b491e6a13bff45081a9ac42ad8c2be8b10",
+  "git_commit": "b247be0c03f3b1420c9bfa533db6a572345ea17a",
+  "issued_at": "2026-09-18T14:42:59.419590+00:00",
+  "expires_at": "2027-09-18T14:42:59.419590+00:00",
+  "status": "ISSUED"
+}

@@ -61,6 +61,7 @@ from .api.v1 import (
     database_manager,
     dev_tracker,
     distribution,
+    dispatch_invoicing,
     docs,
     documents,
     ecom,
@@ -226,6 +227,7 @@ _ROUTER_REGISTRY = [
     (sales,                 "/sales-invoices",       ["Sales-Legacy"]),          # LEGACY alias — deprecate at v3.20
     (sales,                 "/sales",                ["Sales"]),
     (sales,                 "/tattly",               ["Tattly Invoices"]),
+    (dispatch_invoicing,    "",                      ["B2B Dispatch Invoicing Studio"]),
     (sales_reports,         "",                      ["Sales Reports"]),
 
     # --- Purchase & Vendors ---
