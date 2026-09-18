@@ -70,6 +70,7 @@ const WmsStudioTab = lazy(() => import("../wms/WmsStudioTab.tsx").then(m => ({ d
 const SetupWizardTab = lazy(() => import("../SetupWizard/SetupWizardTab.tsx").then(m => ({ default: m.SetupWizardTab })));
 const MenuManagerStudioTab = lazy(() => import("../MenuManagerStudioTab.tsx").then(m => ({ default: m.MenuManagerStudioTab })));
 const BillingWorkspace = lazy(() => import("../billing/BillingWorkspace.tsx").then(m => ({ default: m.BillingWorkspace })));
+const DispatchInvoicingStudioTab = lazy(() => import("../sales/DispatchInvoicingStudioTab.tsx").then(m => ({ default: m.DispatchInvoicingStudioTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -160,6 +161,10 @@ export const mapModuleId = (id: string): string => {
     "menu-approval-matrix": "approval-matrix",
     "menu-company-setup": "company-setup",
     "menu-audit-logs": "audit-logs",
+    "b2b-dispatch-studio": "dispatch-studio",
+    "dispatch-studio": "dispatch-studio",
+    "dispatch": "dispatch-studio",
+    "menu-dispatch-studio": "dispatch-studio",
   };
   return map[id] || id;
 };
@@ -443,6 +448,10 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           />
         </div>
       );
+    case "dispatch-studio":
+    case "b2b-dispatch-studio":
+    case "dispatch":
+      return <DispatchInvoicingStudioTab currentUser={currentUser} onNotification={addNotification} />;
     default:
       return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
   }

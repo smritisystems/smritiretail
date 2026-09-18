@@ -151,6 +151,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       icon: "percent",
       category: "Sales & POS",
     },
+    {
+      id: "dispatch-studio",
+      label: "B2B Dispatch Studio",
+      icon: "local_shipping",
+      category: "Sales & POS",
+    },
 
     {
       id: "profiles",

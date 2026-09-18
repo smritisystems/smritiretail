@@ -109,6 +109,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
           { id: 'crm', title: 'Customer 360', icon: 'badge' },
           { id: 'tax-invoice-print', title: 'Statutory A4 Print', icon: 'print' },
+          { id: 'b2b-dispatch-studio', title: 'B2B Dispatch Studio', icon: 'local_shipping' },
           { id: 'reports', title: 'Sales Analytics', icon: 'analytics' },
         ],
         nextBestAction: {
