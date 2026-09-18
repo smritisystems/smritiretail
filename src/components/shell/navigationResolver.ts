@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 3.18.0
  * Created      : 2026-08-16
- * Modified     : 2026-09-11
+ * Modified     : 2026-09-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -41,12 +41,19 @@ export interface NavigationQuery {
   userRole?: string;
 }
 
+export interface BreadcrumbAncestor {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
 export interface ResolvedNavigation {
   context: BusinessContext;
   contextLabel: string;
   contextIcon: string;
   items: ContextualMenuItem[];
   nextBestAction?: ContextualMenuItem;
+  breadcrumbAncestors?: BreadcrumbAncestor[];
 }
 
 const LAUNCHPAD_ITEM: ContextualMenuItem = {
@@ -54,6 +61,24 @@ const LAUNCHPAD_ITEM: ContextualMenuItem = {
   title: 'SMRITI Launchpad',
   icon: 'grid_view',
 };
+
+function getAncestorsForContext(context: BusinessContext, isDocumentActive: boolean): BreadcrumbAncestor[] {
+  if (context === 'launchpad') return [];
+  const home: BreadcrumbAncestor = { id: 'launchpad', label: 'Home', icon: 'home' };
+  if (!isDocumentActive) {
+    return [home];
+  }
+  const contextLabels: Record<BusinessContext, string> = {
+    sales: 'Sales & Billing',
+    purchase: 'Purchase & Procurement',
+    inventory: 'Stock & Inventory',
+    masters: 'Master Data',
+    reports: 'BI Reports',
+    system: 'System Governance',
+    launchpad: 'Home',
+  };
+  return [home, { id: context, label: contextLabels[context] || context }];
+}
 
 export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
   const role = query.userRole || 'Operator';
@@ -94,6 +119,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         title: 'View Stock Impact',
         icon: 'warehouse',
       },
+      breadcrumbAncestors: getAncestorsForContext(query.context, true),
     };
   }
 
@@ -117,6 +143,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Open Sales Billing',
           icon: 'point_of_sale',
         },
+        breadcrumbAncestors: getAncestorsForContext('sales', false),
       };
 
     case 'purchase':
@@ -138,6 +165,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Create Purchase Order',
           icon: 'add_shopping_cart',
         },
+        breadcrumbAncestors: getAncestorsForContext('purchase', false),
       };
 
     case 'inventory':
@@ -158,6 +186,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'View Stock Movement',
           icon: 'insights',
         },
+        breadcrumbAncestors: getAncestorsForContext('inventory', false),
       };
 
     case 'masters':
@@ -180,6 +209,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Open Excel Bulk Grid',
           icon: 'grid_on',
         },
+        breadcrumbAncestors: getAncestorsForContext('masters', false),
       };
 
     case 'reports':
@@ -200,6 +230,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Launch BI Studio',
           icon: 'analytics',
         },
+        breadcrumbAncestors: getAncestorsForContext('reports', false),
       };
 
     case 'system':
@@ -221,6 +252,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Check Diagnostics',
           icon: 'speed',
         },
+        breadcrumbAncestors: getAncestorsForContext('system', false),
       };
 
     case 'launchpad':
@@ -237,6 +269,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Fiori Launchpad',
           icon: 'grid_view',
         },
+        breadcrumbAncestors: getAncestorsForContext('launchpad', false),
       };
   }
 }
