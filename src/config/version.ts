@@ -14,9 +14,9 @@
 /**
  * Single source of truth for application version throughout the frontend UI.
  */
-export const APP_VERSION = "6.37.0";
+export const APP_VERSION = "6.40.1";
 export const APP_RELEASE_STAGE = "Production";
 export const APP_VERSION_LABEL = `v${APP_VERSION} ${APP_RELEASE_STAGE}`;
 export const APP_BUILD_NAME = "SMRITI Retail OS";
-export const ENTERPRISE_BILLING_SUITE_VERSION = "6.37.0";
+export const ENTERPRISE_BILLING_SUITE_VERSION = "6.40.1";
 export const ENTERPRISE_BILLING_SUITE_VERSION_LABEL = `v${ENTERPRISE_BILLING_SUITE_VERSION}`;

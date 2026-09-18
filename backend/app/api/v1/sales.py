@@ -25,6 +25,7 @@ from ...schemas.sales import (
     SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse, SalesOrderLineActionRequest,
     SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
     SalesReturnContextResponse,
+    EWayBillCreate, EWayBillResponse,
 )
 
 from ...repositories.sales import SalesInvoiceRepository
@@ -849,4 +850,149 @@ async def get_invoice_eway_bill_payload(
         trans_mode=trans_mode,
         strict_validation=strict_validation
     )
+
+
+# ───────────────────────────────────────── E-Way Bills / Dispatch ─────────────────────────────────────────
+
+@router.post(
+    "/eway-bills",
+    response_model=EWayBillResponse,
+    status_code=201,
+)
+@router.post(
+    "/eway-bills/",
+    response_model=EWayBillResponse,
+    status_code=201,
+)
+async def create_eway_bill(
+    req: EWayBillCreate,
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Create a registered E-Way Bill / dispatch record for a sales invoice."""
+    from sqlalchemy.future import select
+    from decimal import Decimal
+    from datetime import datetime, timezone
+    from ...models.distribution import EWayBill
+    from ...models.sales import SalesInvoice
+    from ...services.identity.engine import IdentityEngine
+
+    tech_id, id_code = await IdentityEngine.allocate_internal(
+        session=db,
+        entity_type="EWAY_BILL",
+        group_code="TAX",
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        purpose="EWAY_BILL_CREATION",
+    )
+    ewb_id = tech_id
+    ewb_no = req.eway_bill_no or id_code
+
+    # Register statutory NIC E-Way Bill Number as sovereign alias if supplied
+    if req.eway_bill_no and req.eway_bill_no != id_code:
+        await IdentityEngine.register_alias(
+            session=db,
+            entity_type="EWAY_BILL",
+            entity_id=ewb_id,
+            alias_code=req.eway_bill_no,
+            alias_type="NIC_EWAY",
+            source_system="NIC_PORTAL",
+            canonical_identity_code=id_code,
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            notes="Statutory NIC E-Way Bill Number",
+        )
+
+    ewb = EWayBill(
+        id=ewb_id,
+        uuid=ewb_id,
+        identity_code=id_code,
+        eway_bill_no=ewb_no,
+        invoice_id=req.invoice_id,
+        consignment_value=req.consignment_value or Decimal("0.00"),
+        transporter_id=req.transporter_id,
+        transporter_name=req.transporter_name,
+        transport_mode=req.transport_mode or "Road",
+        vehicle_no=req.vehicle_no,
+        distance_km=req.distance_km or Decimal("0.00"),
+        status=req.status or "DISPATCHED",
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(ewb)
+
+    inv_res = await db.execute(
+        select(SalesInvoice).where(
+            SalesInvoice.id == req.invoice_id,
+            SalesInvoice.company_id == tenant_ctx.company_id,
+            SalesInvoice.branch_id == tenant_ctx.branch_id,
+        )
+    )
+    inv = inv_res.scalars().first()
+    if inv:
+        inv.eway_bill_no = ewb_no
+
+    from ...services.outbox_service import OutboxService
+    await OutboxService.record_event(
+        session=db,
+        target_channel="SALES_DISPATCH_QUEUE",
+        event_type="EWAY_BILL_DISPATCH_RECORDED",
+        aggregate_type="EWayBill",
+        aggregate_id=ewb_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        payload={
+            "eway_bill_no": ewb_no,
+            "identity_code": id_code,
+            "invoice_id": req.invoice_id,
+            "vehicle_no": req.vehicle_no,
+            "transporter_name": req.transporter_name,
+            "consignment_value": str(req.consignment_value or Decimal("0.00")),
+        }
+    )
+    await db.commit()
+    return EWayBillResponse(
+        id=ewb_id,
+        identity_code=id_code,
+        eway_bill_no=ewb_no,
+        invoice_id=req.invoice_id,
+        consignment_value=req.consignment_value or Decimal("0.00"),
+        transporter_id=req.transporter_id,
+        transporter_name=req.transporter_name,
+        transport_mode=req.transport_mode,
+        vehicle_no=req.vehicle_no,
+        distance_km=req.distance_km,
+        status=req.status or "DISPATCHED",
+        created_at=ewb.created_at,
+    )
+
+
+@router.get(
+    "/eway-bills",
+    response_model=List[EWayBillResponse],
+)
+@router.get(
+    "/eway-bills/",
+    response_model=List[EWayBillResponse],
+)
+async def list_eway_bills(
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """List all registered E-Way Bills / dispatch records."""
+    from sqlalchemy.future import select
+    from ...models.distribution import EWayBill
+
+    res = await db.execute(
+        select(EWayBill)
+        .where(
+            EWayBill.company_id == tenant_ctx.company_id,
+            EWayBill.branch_id == tenant_ctx.branch_id,
+        )
+        .order_by(EWayBill.created_at.desc())
+    )
+    rows = res.scalars().all()
+    return [EWayBillResponse.model_validate(r) for r in rows]
+
 

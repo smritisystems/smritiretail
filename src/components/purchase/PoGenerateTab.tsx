@@ -22,6 +22,7 @@ import {
   PurchaseOrderSummaryTotals
 } from "./types.ts";
 import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
+import { GrnReceiptTab } from "./GrnReceiptTab.tsx";
 import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 
@@ -44,7 +45,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [suppliersList, setSuppliersList] = useState<{ id: string; name: string; code?: string }[]>([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [suppliersError, setSuppliersError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"generation" | "size_pivot" | "other">("generation");
+  const [activeTab, setActiveTab] = useState<"generation" | "size_pivot" | "other" | "grn">("generation");
   const [showF2Hint, setShowF2Hint] = useState(true);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState<number>(0);
@@ -542,9 +543,26 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           >
             Other Details
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("grn")}
+            className={`px-4 py-1 text-xs font-mono font-bold rounded-t transition-colors ${
+              activeTab === "grn"
+                ? "bg-white text-[#00296d] border-t border-x border-[#c4c6d4]"
+                : "text-[#434652] hover:bg-[#e2e2e8]"
+            }`}
+          >
+            GRN &amp; Bills
+          </button>
         </div>
       </div>
 
+      {activeTab === "grn" ? (
+        <div className="flex-1 overflow-hidden">
+          <GrnReceiptTab currentUser={currentUser} onNotification={onNotification as any} />
+        </div>
+      ) : (
+        <>
       {/* Form Header Area (Split Pane) */}
       <div className="p-3 shrink-0 bg-[#faf9ff] border-b border-[#c4c6d4] grid grid-cols-1 lg:grid-cols-12 gap-3 text-xs">
         {/* Document Details */}
@@ -1169,6 +1187,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           Exit
         </button>
       </div>
+        </>
+      )}
 
       {/* Footer Status Bar */}
       <footer className="bg-[#e2e2e8] text-[#434652] font-mono text-[11px] border-t border-[#c4c6d4] flex justify-between items-center px-4 py-1 w-full shrink-0">

@@ -103,6 +103,7 @@ class PurchaseReceipt(BaseEntity):
     __tablename__ = "purchase_receipts"
 
     receipt_no   = Column(String(100), nullable=False, unique=True)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     supplier_id  = Column(String(50),  ForeignKey("suppliers.id",       ondelete="RESTRICT"), nullable=False)
     order_id     = Column(String(50),  ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True)
     warehouse_id = Column(String(50),  ForeignKey("warehouses.id",      ondelete="RESTRICT"), nullable=True)

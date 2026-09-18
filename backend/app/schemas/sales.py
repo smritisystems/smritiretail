@@ -491,3 +491,35 @@ class SalesReturnContextResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class EWayBillCreate(BaseModel):
+    id:                 Optional[str] = None
+    eway_bill_no:       Optional[str] = None
+    invoice_id:         str
+    consignment_value:  Optional[Decimal] = Decimal("0.00")
+    transporter_id:     Optional[str] = None
+    transporter_name:   Optional[str] = None
+    transport_mode:     Optional[str] = "Road"
+    vehicle_no:         Optional[str] = None
+    distance_km:        Optional[Decimal] = Decimal("0.00")
+    status:             Optional[str] = "DISPATCHED"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EWayBillResponse(BaseModel):
+    id:                 str
+    identity_code:      Optional[str] = None
+    eway_bill_no:       str
+    invoice_id:         str
+    consignment_value:  Decimal
+    transporter_id:     Optional[str] = None
+    transporter_name:   Optional[str] = None
+    transport_mode:     Optional[str] = None
+    vehicle_no:         Optional[str] = None
+    distance_km:        Optional[Decimal] = None
+    status:             str
+    created_at:         Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
