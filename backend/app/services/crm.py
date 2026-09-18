@@ -261,7 +261,23 @@ class CrmService:
                 cust_dict["customer_group_id"] = None
 
         if not cust_dict.get("id"):
-            cust_dict["id"] = IdentityEngine.generate_technical_id()
+            tech_id, id_code = await IdentityEngine.allocate_internal(
+                session=self.db,
+                entity_type="CUSTOMER",
+                tenant_id=self.tenant_ctx.company_id or "COMP-001",
+                company_id=self.tenant_ctx.company_id or "COMP-001",
+            )
+            cust_dict["id"] = tech_id
+            cust_dict["identity_code"] = id_code
+        elif not cust_dict.get("identity_code"):
+            _, id_code = await IdentityEngine.allocate_internal(
+                session=self.db,
+                entity_type="CUSTOMER",
+                tenant_id=self.tenant_ctx.company_id or "COMP-001",
+                company_id=self.tenant_ctx.company_id or "COMP-001",
+            )
+            cust_dict["identity_code"] = id_code
+
         if not cust_dict.get("code"):
             cust_dict["code"] = f"CUST-{cust_dict['id'][:8].upper()}"
 
