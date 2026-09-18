@@ -39,6 +39,16 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.40.2] - 2026-09-18
+
+#### SMRITI Breadcrumb Engine v1.0 — Architecture & Controlled Policy Migration
+- **Canonical Breadcrumb Engine Subsystem:** Created `src/navigation/breadcrumb/` containing `BreadcrumbTypes.ts`, `BreadcrumbRegistry.ts`, `BreadcrumbResolver.ts`, `BreadcrumbContext.tsx`, `breadcrumbUtils.ts`, `Breadcrumb.tsx`, `BreadcrumbItem.tsx`, `BreadcrumbCompat.tsx`, and `index.ts`.
+- **Global Header Modernization:** Replaced legacy unlinked 2-segment label (`storeName / activeModuleTitle`) in `GlobalHeader.tsx` with canonical `<Breadcrumb onNavigate={onSelectModule} />`.
+- **Shell State Injection:** Wrapped `AppShell.tsx` with `<BreadcrumbProvider>` to supply deterministic hierarchical navigation context across the enterprise shell.
+- **Contextual Navigation Alignment:** Extended `navigationResolver.ts` with `breadcrumbAncestors` output across all operational contexts and dynamic document inspection views.
+- **Policy & Governance Standard:** Authored `SMRITI_BREADCRUMB_POLICY_V1.md` and repository-wide `SMRITI_BREADCRUMB_POLICY_INVENTORY.md`.
+- **Automated Verification:** Added 20-scenario Vitest test suite (`src/tests/breadcrumb.test.ts`), CI guard scanner (`scripts/smriti_breadcrumb_guard.py` scanning 594 files with 0 violations), and passed `tsc --noEmit`.
+
 ### [6.40.1] - 2026-09-18
 
 #### SMRITI Go-Live Remediation Phase 3 — Identity Governance Remediation & Release Certification

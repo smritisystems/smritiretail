@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 3.18.0
  * Created      : 2026-08-16
- * Modified     : 2026-09-11
+ * Modified     : 2026-09-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -15,6 +15,7 @@ import { GlobalHeader } from './GlobalHeader';
 import { NavRail, NavRailState } from './NavRail';
 import { BusinessContext, TransactionState } from './navigationResolver';
 import { WorkspaceStatusBar } from './WorkspaceStatusBar';
+import { BreadcrumbProvider } from '../../navigation/breadcrumb/index.ts';
 
 interface AppShellProps {
   activeModuleId: string;
@@ -113,6 +114,11 @@ export const AppShell: React.FC<AppShellProps> = ({
   const canNavigateBack = navigationHistory.length > 1;
 
   return (
+    <BreadcrumbProvider
+      activeModuleId={activeModuleId}
+      userRole={userRole}
+      onNavigate={onSelectModule}
+    >
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#f8f9ff] text-[#0b1c30] font-sans antialiased">
       {/* Global Header */}
       {!isFocusMode ? (
@@ -183,6 +189,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         userName={userName}
         userRole={userRole}
       />
-    </div>
+      </div>
+    </BreadcrumbProvider>
   );
 };
