@@ -28,6 +28,7 @@ from ..models.inventory import (
     Warehouse, Product, StockMovement,
     ProductBatchStock, StockTransfer, StockTransferItem, TransferStatus
 )
+from .identity.engine import IdentityEngine
 
 
 class InventoryWmsService:
@@ -140,9 +141,10 @@ class InventoryWmsService:
         res_count = await self.db.execute(q_count)
         batch_count = res_count.scalar() or 0
         if batch_count == 0 and (product.stock or 0) > 0 and qty_delta > 0:
+            opening_pbs_id = IdentityEngine.generate_technical_id()
             opening_batch = ProductBatchStock(
-                id=f"pbs-{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
+                id=opening_pbs_id,
+                uuid=opening_pbs_id,
                 company_id=self.tenant_ctx.company_id,
                 branch_id=self.tenant_ctx.branch_id,
                 product_id=product_id,
@@ -173,9 +175,10 @@ class InventoryWmsService:
                 # If product has aggregate stock >= requested deduction, initialize opening batch
                 agg_stock = Decimal(str(product.stock or 0))
                 if agg_stock >= abs(qty_delta_dec):
+                    pbs_id = IdentityEngine.generate_technical_id()
                     batch_stock = ProductBatchStock(
-                        id=f"pbs-{uuid.uuid4().hex[:12]}",
-                        uuid=str(uuid.uuid4()),
+                        id=pbs_id,
+                        uuid=pbs_id,
                         company_id=self.tenant_ctx.company_id,
                         branch_id=self.tenant_ctx.branch_id,
                         product_id=product_id,
@@ -202,9 +205,10 @@ class InventoryWmsService:
                         )
                     )
             else:
+                pbs_id = IdentityEngine.generate_technical_id()
                 batch_stock = ProductBatchStock(
-                    id=f"pbs-{uuid.uuid4().hex[:12]}",
-                    uuid=str(uuid.uuid4()),
+                    id=pbs_id,
+                    uuid=pbs_id,
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
                     product_id=product_id,
@@ -243,9 +247,10 @@ class InventoryWmsService:
                 batch_stock.sale_rate = sale_rate
 
         # 3. Create immutable StockMovement audit record
+        sm_id = IdentityEngine.generate_technical_id()
         movement = StockMovement(
-            id=f"sm-{uuid.uuid4().hex[:12]}",
-            uuid=str(uuid.uuid4()),
+            id=sm_id,
+            uuid=sm_id,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             product_id=product_id,
@@ -326,10 +331,11 @@ class InventoryWmsService:
             if existing:
                 return existing
 
-        transfer_no = f"STO-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        st_id = IdentityEngine.generate_technical_id()
+        transfer_no = f"STO-{datetime.now().strftime('%Y%m%d')}-{st_id[:8].upper()}"
         transfer = StockTransfer(
-            id=f"st-{uuid.uuid4().hex[:12]}",
-            uuid=str(uuid.uuid4()),
+            id=st_id,
+            uuid=st_id,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             transfer_no=transfer_no,
@@ -362,9 +368,10 @@ class InventoryWmsService:
                     raise HTTPException(status_code=400, detail=f"Duplicate product/batch entry in transfer: {item_key}.")
                 seen_items.add(item_key)
 
+                sti_id = IdentityEngine.generate_technical_id()
                 transfer_item = StockTransferItem(
-                    id=f"sti-{uuid.uuid4().hex[:12]}",
-                    uuid=str(uuid.uuid4()),
+                    id=sti_id,
+                    uuid=sti_id,
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
                     transfer_id=transfer.id,

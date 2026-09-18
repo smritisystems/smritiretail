@@ -26,6 +26,7 @@ from ..models.crm import Customer
 from ..models.party import Party
 from ..platform.events import EventEnvelope, get_platform_event_service
 from .outbox_service import OutboxService
+from .identity.engine import IdentityEngine
 
 
 def _quantize_currency(val: float | Decimal) -> Decimal:
@@ -70,7 +71,7 @@ class UnifiedSalesLedgerService:
         if existing:
             raise ValueError(f"Invoice '{clean_inv_no}' already exists in company database.")
 
-        invoice_id = f"inv_{uuid.uuid4().hex[:12]}"
+        invoice_id = IdentityEngine.generate_technical_id()
         total_taxable = Decimal("0.00")
         total_tax = Decimal("0.00")
         grand_total = Decimal("0.00")
@@ -79,7 +80,7 @@ class UnifiedSalesLedgerService:
         stock_movements: List[StockMovement] = []
 
         for idx, itm in enumerate(items_data, start=1):
-            product_id = itm.get("product_id") or itm.get("item_id") or itm.get("id") or f"prod_adhoc_{uuid.uuid4().hex[:8]}"
+            product_id = itm.get("product_id") or itm.get("item_id") or itm.get("id") or IdentityEngine.generate_technical_id()
             code = itm.get("code") or itm.get("sku") or f"PROD-{idx}"
             name = itm.get("name") or itm.get("item_name") or "Sales Item"
             qty = Decimal(str(itm.get("quantity", 1.0)))
@@ -135,8 +136,10 @@ class UnifiedSalesLedgerService:
             invoice_items.append(inv_item)
 
             # 3. Stock Movement Ledger Entry (Authoritative Stock Truth)
+            sm_id = IdentityEngine.generate_technical_id()
             movement = StockMovement(
-                id=f"smv_{uuid.uuid4().hex[:12]}",
+                id=sm_id,
+                uuid=sm_id,
                 company_id=company_id,
                 branch_id=branch_id,
                 product_id=product_id,
@@ -266,8 +269,10 @@ class UnifiedSalesLedgerService:
         # Reversal movements
         for itm in invoice.items:
             qty = Decimal(str(itm.quantity))
+            rev_sm_id = IdentityEngine.generate_technical_id()
             rev_movement = StockMovement(
-                id=f"smv_{uuid.uuid4().hex[:12]}",
+                id=rev_sm_id,
+                uuid=rev_sm_id,
                 company_id=company_id,
                 branch_id=branch_id,
                 product_id=itm.product_id,

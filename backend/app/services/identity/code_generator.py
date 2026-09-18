@@ -15,7 +15,7 @@ Classification: Internal
 # smriti_capability(entity="IDENTITY", capability="UNIFIED_IDENTITY_CONTROL_PLANE", role="ADAPTER", canonicalOwner="backend/app/services/identity/engine.py")
 
 from typing import Optional
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models.identity_registry import (
@@ -137,22 +137,8 @@ class IdentityCodeGenerator:
             allocated_seq = numbering_record.sequence_value
             padding = numbering_record.padding or padding
 
-        # Collision-proof loop: if target table already contains this candidate code, advance sequence
-        if reg and reg.database_table and reg.identity_code_field:
-            while True:
-                candidate_code = f"{actual_prefix}-{allocated_seq:0{padding}d}"
-                exists_check = await session.execute(
-                    text(f"SELECT 1 FROM {reg.database_table} WHERE {reg.identity_code_field} = :c"),
-                    {"c": candidate_code},
-                )
-                if not exists_check.scalar():
-                    identity_code = candidate_code
-                    break
-                allocated_seq += 1
-                if numbering_record:
-                    numbering_record.sequence_value = allocated_seq
-        else:
-            identity_code = f"{actual_prefix}-{allocated_seq:0{padding}d}"
+        # Format human-friendly identity code
+        identity_code = f"{actual_prefix}-{allocated_seq:0{padding}d}"
 
         # 4. Record provenance in allocation log if canonical technical ID is provided
         if canonical_id:

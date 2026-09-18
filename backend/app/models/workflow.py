@@ -16,7 +16,7 @@ from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from ..db.base import Base
-from ..services.identity.uuid7 import uuid7
+from ..services.identity.engine import IdentityEngine
 
 
 class WorkflowEvent(Base):
@@ -30,7 +30,7 @@ class WorkflowEvent(Base):
     """
     __tablename__ = "workflow_events"
 
-    id               = Column(String(50), primary_key=True, default=uuid7)
+    id               = Column(String(50), primary_key=True, default=IdentityEngine.generate_technical_id)
     doc_type         = Column(String(50), nullable=False,
                               comment="E.g. PurchaseOrder, SalesInvoice, SalesQuotation")
     doc_id           = Column(String(50), nullable=False,

@@ -54,12 +54,17 @@ def test_ast_scan_forbidden_persistent_id_generators():
     target_files = [
         os.path.join(backend_dir, "services", "purchase.py"),
         os.path.join(backend_dir, "services", "sales.py"),
+        os.path.join(backend_dir, "services", "canonical_sales_writer.py"),
+        os.path.join(backend_dir, "services", "sales_ledger_svc.py"),
+        os.path.join(backend_dir, "services", "inventory_wms.py"),
+        os.path.join(backend_dir, "services", "univ_party_svc.py"),
+        os.path.join(backend_dir, "services", "crm.py"),
         os.path.join(backend_dir, "api", "v1", "sales.py"),
     ]
 
     for file_path in target_files:
         assert os.path.exists(file_path), f"File {file_path} not found"
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8-sig") as f:
             source = f.read()
 
         tree = ast.parse(source, filename=file_path)
@@ -74,8 +79,20 @@ def test_ast_scan_forbidden_persistent_id_generators():
             "create_purchase_receipt",
             "create_debit_note",
             "create_purchase_bill",
+            "create_purchase_order",
+            "create_from_reorder_trigger",
+            "amend_purchase_order",
             "create_eway_bill",
             "create_sales_return",
+            "convert_order_to_invoice",
+            "convert_quotation_to_invoice",
+            "post_sales_invoice",
+            "create_party",
+            "converge_customer_to_party",
+            "converge_supplier_to_party",
+            "create_customer",
+            "atomic_mutate_batch_stock",
+            "create_stock_transfer",
         }
 
         for node in ast.walk(tree):

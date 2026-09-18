@@ -26,6 +26,7 @@ from ..models.crm import (
     Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation,
     CustomerBillingLocation, CustomerExternalIdentity,
 )
+from .identity.engine import IdentityEngine
 from ..models.sales import SalesInvoice
 from ..schemas.crm import (
     CustomerCreate, CustomerUpdate, CustomerGroupCreate,
@@ -260,11 +261,9 @@ class CrmService:
                 cust_dict["customer_group_id"] = None
 
         if not cust_dict.get("id"):
-            import uuid
-            cust_dict["id"] = f"cust-{uuid.uuid4().hex[:8]}"
+            cust_dict["id"] = IdentityEngine.generate_technical_id()
         if not cust_dict.get("code"):
-            import uuid
-            cust_dict["code"] = f"CUST-{uuid.uuid4().hex[:8].upper()}"
+            cust_dict["code"] = f"CUST-{cust_dict['id'][:8].upper()}"
 
         # Clean virtual policy and control fields before database column instantiation
         cust_dict.pop("credit_limit", None)

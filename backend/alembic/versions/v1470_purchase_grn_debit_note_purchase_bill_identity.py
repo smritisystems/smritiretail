@@ -118,7 +118,7 @@ def upgrade() -> None:
                     ") VALUES ("
                     "  :id, :uuid, :entity_type, :identity_group, :group_code, :entity_code, :display_name, :description, "
                     "  'UUIDv7', 'UUID_HYPHENATED', true, "
-                    "  true, '{group_code}-{entity_code}-{seq:08d}', :identity_code_prefix, 'SEQUENTIAL', 'COMPANY', true, "
+                    "  true, '{group_code}-{entity_code}-{seq:08d}', :identity_code_prefix, 'SEQUENTIAL', 'TENANT', true, "
                     "  true, :business_code_field, 'DOCUMENT_SERIES', "
                     "  true, true, false, false, "
                     "  :database_table, :primary_key_field, :identity_code_field, "
