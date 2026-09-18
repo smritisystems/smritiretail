@@ -154,7 +154,7 @@ class IdentityEngine:
             - If it points to the SAME canonical entity_id: reuses and returns the existing alias (idempotent retry safe).
             - If it points to a DIFFERENT canonical entity_id: raises ValueError to prevent competing identity mappings.
         """
-        from sqlalchemy import select
+        from sqlalchemy import select, func
         from app.models.identity_registry import SmritiIdentityAlias
 
         clean_code = str(alias_code).strip()
@@ -163,7 +163,7 @@ class IdentityEngine:
 
         stmt = select(SmritiIdentityAlias).where(
             SmritiIdentityAlias.entity_type == entity_type,
-            SmritiIdentityAlias.alias_code == clean_code,
+            func.lower(SmritiIdentityAlias.alias_code) == clean_code.lower(),
         )
         if company_id:
             stmt = stmt.where(SmritiIdentityAlias.company_id == company_id)
@@ -198,7 +198,22 @@ class IdentityEngine:
             is_deleted=False,
             version=1,
         )
-        session.add(alias)
+
+        try:
+            async with session.begin_nested():
+                session.add(alias)
+                await session.flush()
+        except Exception:
+            # Race condition under high concurrency: check if another worker just registered it
+            res_concurrent = await session.execute(stmt)
+            existing_concurrent = res_concurrent.scalars().first()
+            if existing_concurrent:
+                if existing_concurrent.entity_id != entity_id:
+                    raise ValueError(
+                        f"Identity alias collision: alias '{clean_code}' for {entity_type} is already bound to entity {existing_concurrent.entity_id}, cannot rebind to {entity_id}"
+                    )
+                return existing_concurrent
+            raise
 
         # Invalidate resolution cache for this alias
         from .cache import get_identity_cache

@@ -73,6 +73,52 @@ class UniversalSearchEngine:
         """
         raw_code = req.barcode.strip()
 
+        # Tier 0: Master Identity Resolver (O(1) in-memory cache, Governed Identity Code, or Registered External Alias)
+        from .identity.resolver import IdentityResolver
+        id_res = await IdentityResolver.resolve(
+            session=session,
+            identifier=raw_code,
+            company_id=company_id,
+            use_cache=True,
+        )
+        if id_res.found and id_res.entity_id and id_res.entity_type == "ITEM":
+            stmt_item = (
+                select(Item, ItemVariant)
+                .outerjoin(ItemVariant, Item.id == ItemVariant.item_id)
+                .where(
+                    Item.id == id_res.entity_id,
+                    Item.company_id == company_id,
+                    Item.is_deleted == False,
+                )
+            )
+            item_match = (await session.execute(stmt_item)).first()
+            if item_match:
+                item_row, var_row = item_match
+                selling_price = var_row.selling_price if var_row and var_row.selling_price else item_row.selling_price
+                mrp = var_row.mrp if var_row and var_row.mrp else item_row.mrp
+                sku = var_row.variant_sku if var_row else item_row.item_code
+                return BarcodeQuickScanResponse(
+                    found=True,
+                    scan_type="MASTER_IDENTITY_RESOLVER",
+                    item_id=item_row.id,
+                    item_code=item_row.item_code,
+                    item_name=item_row.item_name,
+                    variant_id=var_row.id if var_row else None,
+                    sku=sku,
+                    barcode=raw_code,
+                    uom=item_row.primary_uom or "PCS",
+                    mrp=mrp,
+                    selling_price=selling_price,
+                    hsn_sac=item_row.hsn_code,
+                    tax_rate=item_row.tax_rate or Decimal("18.00"),
+                    metadata={
+                        "brand": item_row.brand,
+                        "category": item_row.category,
+                        "identity_code": id_res.identity_code,
+                        "resolution_tier": id_res.resolution_tier,
+                    },
+                )
+
         # Tier 1: Search ItemBarcode table
         stmt_bc = (
             select(ItemBarcode, Item, ItemVariant)
