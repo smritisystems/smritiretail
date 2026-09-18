@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.19.0
+Version      : 6.41.0
 Created      : 2026-09-14
-Modified     : 2026-09-14
+Modified     : 2026-09-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -30,6 +30,7 @@ class SystemParameter(BaseEntity):
     __tablename__ = "system_parameters"
 
     param_code = Column(String(100), nullable=False, index=True)
+    canonical_code = Column(String(150), nullable=True, index=True)  # SMRITI.DOMAIN.FEATURE dot-notation; None for pre-backfilled rows
     category = Column(String(50), nullable=False, index=True)
     category_name = Column(String(100), nullable=False)
     description = Column(String(255), nullable=False)
@@ -53,6 +54,7 @@ class SystemParameter(BaseEntity):
         Index("idx_sys_param_comp_code_term", "company_id", "param_code", "terminal_id"),
         Index("idx_sys_param_cat", "category"),
         Index("idx_sys_param_code", "param_code"),
+        Index("idx_sys_param_canonical_code", "canonical_code"),
     )
 
     @property

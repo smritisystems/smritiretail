@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.19.0
+Version      : 6.41.0
 Created      : 2026-09-14
-Modified     : 2026-09-14
+Modified     : 2026-09-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -23,6 +23,7 @@ class SystemParameterResponse(BaseModel):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
     param_code: str
+    canonical_code: Optional[str] = None  # SMRITI.DOMAIN.FEATURE dot-notation key
     category: str
     category_name: str
     description: str

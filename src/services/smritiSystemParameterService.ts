@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.19.0
+ * Version      : 6.41.0
  * Created      : 2026-09-14
- * Modified     : 2026-09-14
+ * Modified     : 2026-09-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -18,6 +18,7 @@ export interface SystemParameterDefinition {
   id: string;
   uuid?: string;
   param_code: string;
+  canonical_code?: string | null; // SMRITI.DOMAIN.FEATURE dot-notation key (ADR-042)
   category: string;
   category_name: string;
   description: string;
@@ -42,8 +43,15 @@ export interface ParametersMapResponse {
 }
 
 class SmritiSystemParameterService {
+  /** Primary cache: param_code -> effective_value (legacy Shoper 9 keys) */
   private cache: Map<string, any> = new Map();
+  /** Definitions cache: param_code -> full definition */
   private definitions: Map<string, SystemParameterDefinition> = new Map();
+  /**
+   * Canonical alias map: canonical_code (SMRITI.*) -> param_code
+   * Enables dual-key resolution without duplicating cache entries.
+   */
+  private canonicalAlias: Map<string, string> = new Map();
   private isLoaded: boolean = false;
   private loadPromise: Promise<void> | null = null;
 
@@ -65,6 +73,7 @@ class SmritiSystemParameterService {
         if (res && res.values) {
           this.cache.clear();
           this.definitions.clear();
+          this.canonicalAlias.clear();
 
           Object.entries(res.values).forEach(([code, val]) => {
             this.cache.set(code, val);
@@ -73,6 +82,10 @@ class SmritiSystemParameterService {
           if (res.definitions) {
             Object.entries(res.definitions).forEach(([code, def]) => {
               this.definitions.set(code, def);
+              // Build canonical alias: SMRITI.DOMAIN.FEATURE -> param_code
+              if (def.canonical_code) {
+                this.canonicalAlias.set(def.canonical_code, code);
+              }
             });
           }
           this.isLoaded = true;
@@ -88,13 +101,26 @@ class SmritiSystemParameterService {
   }
 
   /**
+   * Resolves a key to the underlying param_code used in the primary cache.
+   * Accepts both SMRITI.* canonical keys and legacy Shoper 9 param_code values.
+   * @internal
+   */
+  private _resolveKey(key: string): string {
+    if (key.startsWith("SMRITI.")) {
+      return this.canonicalAlias.get(key) ?? key;
+    }
+    return key;
+  }
+
+  /**
    * Synchronous Boolean parameter accessor with fallback.
    */
   public getBoolean(paramCode: string, defaultValue: boolean = false): boolean {
-    if (!this.cache.has(paramCode)) {
+    const key = this._resolveKey(paramCode);
+    if (!this.cache.has(key)) {
       return defaultValue;
     }
-    const val = this.cache.get(paramCode);
+    const val = this.cache.get(key);
     if (typeof val === "boolean") return val;
     if (typeof val === "number") return val !== 0;
     if (typeof val === "string") {
@@ -108,10 +134,11 @@ class SmritiSystemParameterService {
    * Synchronous Numeric parameter accessor with fallback.
    */
   public getNumber(paramCode: string, defaultValue: number = 0): number {
-    if (!this.cache.has(paramCode)) {
+    const key = this._resolveKey(paramCode);
+    if (!this.cache.has(key)) {
       return defaultValue;
     }
-    const val = this.cache.get(paramCode);
+    const val = this.cache.get(key);
     const num = Number(val);
     return isNaN(num) ? defaultValue : num;
   }
@@ -120,10 +147,11 @@ class SmritiSystemParameterService {
    * Synchronous String parameter accessor with fallback.
    */
   public getString(paramCode: string, defaultValue: string = ""): string {
-    if (!this.cache.has(paramCode)) {
+    const key = this._resolveKey(paramCode);
+    if (!this.cache.has(key)) {
       return defaultValue;
     }
-    const val = this.cache.get(paramCode);
+    const val = this.cache.get(key);
     return val !== null && val !== undefined ? String(val) : defaultValue;
   }
 
@@ -131,17 +159,20 @@ class SmritiSystemParameterService {
    * Synchronous generic value accessor.
    */
   public getValue<T>(paramCode: string, defaultValue?: T): T {
-    if (!this.cache.has(paramCode)) {
+    const key = this._resolveKey(paramCode);
+    if (!this.cache.has(key)) {
       return defaultValue as T;
     }
-    return this.cache.get(paramCode) as T;
+    return this.cache.get(key) as T;
   }
 
   /**
    * Returns complete definition for a parameter code.
+   * Accepts both SMRITI.* canonical keys and legacy param_code values.
    */
   public getDefinition(paramCode: string): SystemParameterDefinition | undefined {
-    return this.definitions.get(paramCode);
+    const key = this._resolveKey(paramCode);
+    return this.definitions.get(key);
   }
 
   /**

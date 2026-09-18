@@ -4,15 +4,16 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.19.0
+Version      : 6.41.0
 Created      : 2026-09-14
-Modified     : 2026-09-14
+Modified     : 2026-09-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
@@ -31,22 +32,86 @@ from ..schemas.system_parameter import (
 class SystemParameterService:
     """
     SMRITI System Parameters Governance Service.
-    
+
     Provides profile seeding (RETAIL vs DISTRIBUTOR), 4-tier hierarchical resolution
     (Terminal > Branch > Company > Global), and 5-tier mutability governance
     (Fixed, Installation, One Time, Variable, Hidden).
+
+    Dual-Key Resolution (ADR-042):
+      - SMRITI.DOMAIN.FEATURE format keys are resolved via the `canonical_code` column.
+      - Legacy Shoper 9 PascalCase keys are resolved via the `param_code` column.
+      - Both key types are valid and backward-compatible at every call site.
     """
+
+    _canonical_map_cache: Optional[Dict[str, str]] = None  # param_code -> canonical_code
 
     @staticmethod
     def _get_blueprint_path() -> Path:
         base_dir = Path(__file__).resolve().parents[3]
         blueprint = base_dir / "docs" / "legacy_blueprints" / "shoper9" / "parameters.json"
         if not blueprint.exists():
-            # Fallback for relative executions
             alt_path = Path("docs/legacy_blueprints/shoper9/parameters.json")
             if alt_path.exists():
                 return alt_path
         return blueprint
+
+    @classmethod
+    def _get_canonical_map(cls) -> Dict[str, str]:
+        """
+        Returns the canonical param_code -> canonical_code mapping.
+        Loaded once from canonical_mapping.json, then cached in memory.
+        Falls back to re-deriving from parameters.json if the pre-built file
+        is absent (e.g. clean-checkout without the generated file).
+        """
+        if cls._canonical_map_cache is not None:
+            return cls._canonical_map_cache
+
+        base_dir = Path(__file__).resolve().parents[3]
+        mapping_file = base_dir / "docs" / "legacy_blueprints" / "shoper9" / "canonical_mapping.json"
+        if mapping_file.exists():
+            with open(mapping_file, "r", encoding="utf-8") as f:
+                cls._canonical_map_cache = json.load(f)
+            return cls._canonical_map_cache
+
+        # Fallback: derive at runtime from parameters.json
+        domain_map = {
+            "01. Setup": "SETUP", "02. Franchisee": "FRANCHISE",
+            "03. Item Classification": "CATALOG.CLASSIFICATION", "04. Item Master": "CATALOG.ITEM",
+            "05. Customer": "CUSTOMER", "06. Tax": "TAX",
+            "07. Purchase Order": "PURCHASE.ORDER", "08. Physical Stock": "STOCK.PHYSICAL",
+            "09. Inwards": "STOCK.INWARDS", "10. Outwards": "STOCK.OUTWARDS",
+            "11. Billing": "BILLING", "12. Slips": "SLIPS",
+            "13. POS Device": "TERMINAL", "14. Bill - Printing": "BILLING.PRINT",
+            "15. Reports": "REPORTS", "16. Browse": "UI.BROWSE",
+            "17. House Keeping": "HOUSEKEEPING", "18. Walkin": "CUSTOMER.WALKIN",
+            "19. Misc": "MISC", "21. Data Sync.": "SYNC",
+        }
+
+        def _to_upper_snake(name: str) -> str:
+            s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
+            s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
+            return s.replace("-", "_").replace(" ", "_").replace(".", "_").upper()
+
+        bp = cls._get_blueprint_path()
+        if bp.exists():
+            with open(bp, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            mapping: Dict[str, str] = {}
+            for p in data.get("parameters", []):
+                code = p["paramCode"]
+                cat = p.get("category", "01. Setup")
+                domain = domain_map.get(cat, "MISC")
+                mapping[code] = f"SMRITI.{domain}.{_to_upper_snake(code)}"
+            cls._canonical_map_cache = mapping
+        else:
+            cls._canonical_map_cache = {}
+
+        return cls._canonical_map_cache
+
+    @staticmethod
+    def _is_canonical_key(key: str) -> bool:
+        """Returns True if key is a SMRITI dot-notation canonical code (SMRITI.*)."""
+        return key.startswith("SMRITI.")
 
     @classmethod
     async def seed_default_parameters(
@@ -143,15 +208,20 @@ class SystemParameterService:
                     existing.description = descr
                     existing.profile_type = profile_type
                     existing.set_value(raw_val)
+                    # Backfill canonical_code if not yet set
+                    if not existing.canonical_code:
+                        existing.canonical_code = cls._get_canonical_map().get(p_code)
                     count += 1
             else:
                 comp_tag = company_id or "GLOBAL"
                 rec_id = f"SP-{comp_tag}-{p_code}"[:50]
+                canonical_code = cls._get_canonical_map().get(p_code)
                 new_param = SystemParameter(
                     id=rec_id,
                     company_id=company_id,
                     branch_id=None,
                     param_code=p_code,
+                    canonical_code=canonical_code,
                     category=category,
                     category_name=category_name,
                     description=descr,
@@ -224,14 +294,22 @@ class SystemParameterService:
         2. Branch-specific (company_id + branch_id + COMMON terminal)
         3. Company-specific (company_id + COMMON terminal)
         4. Global template (company_id IS NULL + COMMON terminal)
+
+        Dual-key resolution (ADR-042):
+          - If param_code starts with 'SMRITI.' it is matched against the
+            `canonical_code` column.
+          - All other keys are matched against `param_code` (legacy Shoper 9).
         """
+        is_canonical = cls._is_canonical_key(param_code)
+        col = SystemParameter.canonical_code if is_canonical else SystemParameter.param_code
+
         # Tier 1: Terminal specific
         if terminal_id and terminal_id != "COMMON" and company_id:
             res = await db.execute(
                 select(SystemParameter).where(
                     SystemParameter.company_id == company_id,
                     SystemParameter.terminal_id == terminal_id,
-                    SystemParameter.param_code == param_code,
+                    col == param_code,
                 )
             )
             p = res.scalar_one_or_none()
@@ -245,7 +323,7 @@ class SystemParameterService:
                     SystemParameter.company_id == company_id,
                     SystemParameter.branch_id == branch_id,
                     SystemParameter.terminal_id == "COMMON",
-                    SystemParameter.param_code == param_code,
+                    col == param_code,
                 )
             )
             p = res.scalar_one_or_none()
@@ -258,7 +336,7 @@ class SystemParameterService:
                 select(SystemParameter).where(
                     SystemParameter.company_id == company_id,
                     SystemParameter.terminal_id == "COMMON",
-                    SystemParameter.param_code == param_code,
+                    col == param_code,
                 )
             )
             p = res.scalar_one_or_none()
@@ -270,7 +348,7 @@ class SystemParameterService:
             select(SystemParameter).where(
                 SystemParameter.company_id.is_(None),
                 SystemParameter.terminal_id == "COMMON",
-                SystemParameter.param_code == param_code,
+                col == param_code,
             )
         )
         return res.scalar_one_or_none()
@@ -325,6 +403,7 @@ class SystemParameterService:
             code: {
                 "id": p.id,
                 "param_code": p.param_code,
+                "canonical_code": p.canonical_code,  # SMRITI.DOMAIN.FEATURE dot-notation key
                 "category": p.category,
                 "category_name": p.category_name,
                 "description": p.description,
@@ -360,10 +439,13 @@ class SystemParameterService:
         """
         Updates a system parameter enforcing 5-tier mutability rules.
         """
-        # Find exact scoped parameter record or resolve
+        # Dual-key: canonical SMRITI.* or legacy param_code
+        is_canonical = cls._is_canonical_key(param_code)
+        col = SystemParameter.canonical_code if is_canonical else SystemParameter.param_code
+
         query = select(SystemParameter).where(
             SystemParameter.company_id == company_id,
-            SystemParameter.param_code == param_code,
+            col == param_code,
             SystemParameter.terminal_id == terminal_id,
         )
         if branch_id:
@@ -388,12 +470,14 @@ class SystemParameterService:
                 )
 
             comp_tag = company_id or "GLOBAL"
-            rec_id = f"SP-{comp_tag}-{param_code}-{terminal_id}"[:50]
+            legacy_code = resolved.param_code  # always the Shoper 9 key
+            rec_id = f"SP-{comp_tag}-{legacy_code}-{terminal_id}"[:50]
             param = SystemParameter(
                 id=rec_id,
                 company_id=company_id,
                 branch_id=branch_id,
-                param_code=param_code,
+                param_code=legacy_code,
+                canonical_code=resolved.canonical_code,  # inherit from resolved record
                 category=resolved.category,
                 category_name=resolved.category_name,
                 description=resolved.description,
