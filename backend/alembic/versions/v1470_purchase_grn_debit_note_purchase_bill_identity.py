@@ -142,6 +142,15 @@ def upgrade() -> None:
                 }
             )
 
+    # Align PURCHASE_ORDER to TENANT scope to match table-level unique constraint
+    conn.execute(
+        sa.text(
+            "UPDATE smriti_identity_registry "
+            "SET identity_code_scope = 'TENANT' "
+            "WHERE entity_type = 'PURCHASE_ORDER'"
+        )
+    )
+
     # =========================================================================
     # Step 3: Ensure sequence rows exist in smriti_numbering_registry
     # =========================================================================

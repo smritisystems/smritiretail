@@ -73,6 +73,14 @@ async def write_invoice_lines(
     inserted = 0
     try:
         async with db.begin_nested():
+            # If items already exist in sales_invoice_items (inserted via SalesInvoice.items relationship), do not double-insert
+            existing_check = await db.execute(
+                text("SELECT count(*) FROM sales_invoice_items WHERE invoice_id = :invoice_id"),
+                {"invoice_id": invoice_id}
+            )
+            if (existing_check.scalar() or 0) > 0:
+                return len(items)
+
             for idx, item in enumerate(items, start=1):
                 qty        = Decimal(str(getattr(item, "quantity", 1) or 1))
                 price      = Decimal(str(getattr(item, "price", 0) or 0))
