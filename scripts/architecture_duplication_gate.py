@@ -313,7 +313,13 @@ def check_identity_generation_governance():
 
     for root, _, files in os.walk(backend_dir):
         norm_root = os.path.normpath(root).replace("\\", "/")
-        if "backend/app/services/identity" in norm_root or "backend/app/tests" in norm_root:
+        # Exclusion zones:
+        # 1. backend/app/services/identity/ — canonical source of uuid7 and IdentityEngine
+        # 2. backend/app/tests/             — test isolation allowed to use low-level primitives
+        # 3. backend/app/models/            — SQLAlchemy Column(default=callable) is synchronous;
+        #    models cannot call async IdentityEngine. uuid7 is allowed here for technical PK defaults
+        #    only. Governed business identity codes (identity_code) must still be allocated in services.
+        if "backend/app/services/identity" in norm_root or "backend/app/tests" in norm_root or "backend/app/models" in norm_root:
             continue
         for file in files:
             if file.endswith(".py"):
