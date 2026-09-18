@@ -28,9 +28,56 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
-### [6.38.0] - 2026-09-18
+## [Upcoming Features / Roadmap]
+
+### SMRITI B2B Dispatch & Tax Invoicing Studio (`B2BDispatchStudio`)
+- **Plan Specification:** `docs/implementation/sales/Sales_B2B_Dispatch_Invoicing_Studio_Plan_v1.0.0.md` (Approved)
+- **Dynamic Excel Matrix Parsing:** Ingest client dispatch sheets (`STORE NAME`, `ARTICLE`, `COLOR`, `MRP`, size columns `36`..`42`, `TOTAL`) dynamically.
+- **Automated Store & PO Resolution:** Automatic lookup of shipping addresses, GSTINs, distance in km, and active PO numbers from PostgreSQL master tables (`customer_delivery_locations`, `sales_orders`).
+- **Interactive Pre-Flight Audit:** Real-time dry-run preview displaying total stores, billed pairs, taxable value, estimated GST, and unmapped store warnings before database commit.
+- **Transactional Statutory Invoicing:** Concurrency-hardened sequence allocation (`TT2026-2027/{seq}` via `SELECT ... FOR UPDATE`), GST tax calculation (IGST vs CGST/SGST), and atomic ledger writes.
+- **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
+- **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
+
+### [6.39.0] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 2 — Business Module Hardening & Canonical Authority Convergence
+
+- **Universal Search & CSV Billing Resolver Convergence:**
+  - Integrated `IdentityResolver.resolve()` into `UniversalSearchEngine.quick_barcode_scan()` (`backend/app/services/search_engine.py`) with Tier 0 in-memory fast path and governed code hydration.
+  - Routed catalog barcode queries in CSV Billing import (`backend/app/api/v1/billing_csv.py`) through `IdentityResolver.resolve()`.
+- **Canonical Sales Posting Authority Convergence:**
+  - Converged checkout and invoicing writes into `CanonicalSalesPostingWriter` (`backend/app/services/canonical_sales_writer.py`), allocating governed `SAL-INV-*` codes for `sales_invoices`.
+  - Enforced strict RFC 9562 UUIDv7 ledger boundaries on `stock_movements` and `payment_transactions` (`identity_code_enabled=False`, zero row-locking latency).
+  - Hardened `CanonicalSalesPostingWriter` with caller session control and atomic `session.rollback()` on stock mutations or validation rejections.
+  - Enforced Income Tax Act Section 269ST compliance rejecting single cash receipts >= ₹2,00,000.
+  - Modernized POS shift lifecycle fixtures (`backend/app/tests/test_pos.py`) eliminating legacy client-supplied shift IDs.
+- **Alembic Migration v1469 & Concurrency Hardening:**
+  - Deployed `v1469_phase2_alias_atomic_upsert_and_hardening.py` creating unique functional index `uq_smriti_identity_alias_lower` on `smriti_identity_alias(entity_type, LOWER(alias_code), COALESCE(company_id, ''))`.
+  - Absorbed high-concurrency alias insert race conditions via PostgreSQL savepoint nested subtransactions (`session.begin_nested()`).
+  - Restored 100% column parity across all 3 databases (`smritisys`, `smriti001`, `smriti002`) for `items`, `item_variants`, and `sales_invoices`.
+- **Architectural Legacy Debt Retirement:**
+  - Consolidated 4 duplicate modal pairs (`POApprovalMatchModal.tsx`, `WavePickingStudioModal.tsx`, `InterBranchTransferModal.tsx`, `ShiftCommissionStudioModal.tsx`) into their canonical studio implementations (`ThreeWayMatchingModal.tsx`, `WarehouseWavePickingModal.tsx`, `StockTransferStudioModal.tsx`, `CommissionStudioModal.tsx`).
+  - Retired `src/components/hrm` domain folder and merged into `src/components/hr`.
+  - Verified backend router `barcodes.py` mounted at `/api/v1/barcodes`.
+  - Achieved **0 Registered Debt** and **0 P0/P1 Violations** on `scripts/architecture_duplication_gate.py`.
+
+### [6.38.0] - 2026-09-18 🔒 FROZEN
 
 #### SMRITI Unified Identity Phase 1.4 — Master Identity Index & Universal Cross-Domain Entity Resolver
+
+> **Freeze Gate — Final Verification Record**
+> | Gate | Result | Mechanism |
+> |---|---|---|
+> | Phase 1.4 dedicated tests | **8/8 PASS** | `app/tests/test_phase1_4_master_resolver.py` — resolver tiers, batch, envelope, cache, search |
+> | Full identity regression | **34/34 PASS** | Frozen Phases 1.1–1.3 suites + concurrency + tenant-isolation |
+> | Multi-DB parity | **3/3 PASS** | `scripts/verify_phase1_4_parity.py` — schema · constraint · index · lineage on smritisys · smriti001 · smriti002 |
+> | Architecture duplication gate | **11/11 PASS** | `scripts/architecture_duplication_gate.py` — 0 P0/P1 violations |
+> | v1468 lineage | **Verified all 3 DBs** | Alembic `v1468_phase1_4_master_identity_index_and_resolver` stamped |
+> | Duplicate identity codes | **0** | `uq_smriti_identity_alias_lower` functional index enforced |
+> | Dangling FKs | **0** | Column-level FK diff passed |
+> | TypeScript compilation | **0 errors** | Vite build clean |
+> | Python compilation | **0 errors** | FastAPI import scan clean |
 
 - **Universal Multi-Tier Cross-Domain Resolver (`resolver.py`):**
   - **Tier 1 (Governed Identity Code O(1)):** Instant prefix-routed resolution via `smriti_identity_registry` (`MST-PRT-*`, `TAX-EWB-*`, `SAL-INV-*`, `MST-ITM-*`, `CRM-CUS-*`, `ORG-CMP-*`, `PUR-SUP-*`).
