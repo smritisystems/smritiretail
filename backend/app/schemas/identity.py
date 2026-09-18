@@ -104,3 +104,63 @@ class IdentityValidateResponse(BaseModel):
     entity_code: Optional[str] = None
     sequence_number: Optional[int] = None
     canonical_code: Optional[str] = None
+
+
+class IdentityEnvelopeResponse(BaseModel):
+    found: bool
+    canonical_id: Optional[str] = None
+    entity_type: Optional[str] = None
+    identity_code: Optional[str] = None
+    database_table: Optional[str] = None
+    resolution_tier: Optional[str] = None
+    aliases: List[Dict[str, Any]] = Field(default_factory=list)
+    alias_count: int = 0
+    deep_link: Optional[str] = None
+    allocation_audit: Dict[str, Any] = Field(default_factory=dict)
+
+
+class IdentityBatchResolveRequest(BaseModel):
+    identifiers: List[str] = Field(..., max_length=100, description="List of identifiers to batch resolve")
+    entity_type_hint: Optional[str] = None
+    company_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    use_cache: bool = True
+
+
+class IdentityBatchResolveResponse(BaseModel):
+    results: Dict[str, IdentityResolveResponse]
+    total_requested: int
+    total_resolved: int
+
+
+class IdentitySearchRequest(BaseModel):
+    query: str = Field(..., min_length=2, description="Search query string")
+    entity_types: Optional[List[str]] = Field(None, description="Optional entity types filter, e.g. ['ITEM', 'PARTY']")
+    company_id: Optional[str] = None
+    limit: int = Field(20, ge=1, le=100)
+
+
+class IdentitySearchItem(BaseModel):
+    entity_type: str
+    entity_id: str
+    identity_code: Optional[str] = None
+    match_type: str
+    matched_value: str
+    source_system: str
+    deep_link: str
+
+
+class IdentitySearchResponse(BaseModel):
+    query: str
+    total_matches: int
+    matches: List[IdentitySearchItem]
+
+
+class IdentityCacheStatsResponse(BaseModel):
+    size: int
+    max_size: int
+    hits: int
+    misses: int
+    evictions: int
+    hit_ratio_percent: float
+
