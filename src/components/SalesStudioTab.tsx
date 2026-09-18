@@ -17,8 +17,11 @@ import { Printer, MessageCircle, Mail, AlignJustify,
   ArrowRight, FileCheck, AlertCircle, ShoppingCart,
   CheckCircle2, X, Eye, Layers, Undo2, Ban, ShieldAlert,
   UserCheck, UserX, CreditCard, Check, MoreVertical,
-  Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet
+  Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet,
+  Truck
 } from "lucide-react";
+import { PrepareDispatchModal } from "./PrepareDispatchDlg.tsx";
+import { ProcessSalesReturnModal } from "./ProcessSalesReturn.tsx";
 import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
@@ -304,6 +307,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [returnReason, setReturnReason] = useState<string>("Standard Return");
   const [returnIsInterstate, setReturnIsInterstate] = useState<boolean>(false);
   const [returnStatus, setReturnStatus] = useState<"Draft" | "Submitted">("Draft");
+
+  // Modal states for ProcessSalesReturn and PrepareDispatch
+  const [dispatchModalInvoice, setDispatchModalInvoice] = useState<any | null>(null);
+  const [returnModalInvoice, setReturnModalInvoice] = useState<any | null>(null);
 
   // CSV Import States
   const [isImportingCustomers, setIsImportingCustomers] = useState<boolean>(false);
@@ -2949,6 +2956,26 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      setDispatchModalInvoice(si);
+                                    }}
+                                    className="p-1 rounded hover:bg-theme-surface-3 text-amber-400 hover:text-amber-300"
+                                    title="Prepare Dispatch / E-Way Bill"
+                                  >
+                                    <Truck size={13} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReturnModalInvoice(si);
+                                    }}
+                                    className="p-1 rounded hover:bg-theme-surface-3 text-rose-400 hover:text-rose-300"
+                                    title="Process Sales Return"
+                                  >
+                                    <Undo2 size={13} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       openMenu(e, {
                                         module: "sales",
                                         type: "sales-invoice",
@@ -3953,6 +3980,37 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           </div>
         </div>
       )}
+
+      {/* Prepare Dispatch / E-Way Bill Modal */}
+      <PrepareDispatchModal
+        isOpen={Boolean(dispatchModalInvoice)}
+        onClose={() => setDispatchModalInvoice(null)}
+        onDispatchPrepared={() => {
+          onNotification(
+            "Dispatch Prepared",
+            "E-Way Bill registered and invoice marked for dispatch.",
+            "success"
+          );
+          fetchSalesInvoices();
+        }}
+        invoice={dispatchModalInvoice}
+      />
+
+      {/* Process Sales Return Modal */}
+      <ProcessSalesReturnModal
+        isOpen={Boolean(returnModalInvoice)}
+        onClose={() => setReturnModalInvoice(null)}
+        onReturnProcessed={() => {
+          onNotification(
+            "Return Processed",
+            "Credit note generated and stock reinstated into inventory.",
+            "success"
+          );
+          fetchSalesInvoices();
+          fetchSalesReturns();
+        }}
+        invoice={returnModalInvoice}
+      />
 
         </motion.div>
       </SmritiScrollArea>

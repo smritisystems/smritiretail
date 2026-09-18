@@ -33,15 +33,10 @@ TOTAL_CHECKS = 9
 VIOLATIONS = []
 WARNINGS = []
 
-# Registered Historical Baseline Debt (Frozen until Phase 2 Cleanup)
-BASELINE_DUAL_DIRS = {("hr", "hrm"), ("billing", "pos")}
-BASELINE_MODAL_PAIRS = {
-    ("ThreeWayMatchingModal.tsx", "POApprovalMatchModal.tsx"),
-    ("WavePickingStudioModal.tsx", "WarehouseWavePickingModal.tsx"),
-    ("InterBranchTransferModal.tsx", "StockTransferStudioModal.tsx"),
-    ("CommissionStudioModal.tsx", "ShiftCommissionStudioModal.tsx"),
-}
-BASELINE_UNMOUNTED_ROUTERS = {"barcodes.py"}
+# Registered Historical Baseline Debt (Phase 2 Cleanup Complete — Zero Registered Debt)
+BASELINE_DUAL_DIRS = set()
+BASELINE_MODAL_PAIRS = set()
+BASELINE_UNMOUNTED_ROUTERS = set()
 
 
 def log_violation(rule: str, details: str):

@@ -193,13 +193,69 @@ class PurchaseReceiptItemResponse(BaseModel):
 
 
 class PurchaseReceiptCreate(BaseModel):
-    id:           str
-    receipt_no:   str
+    id:           Optional[str] = None
+    receipt_no:   Optional[str] = None
     supplier_id:  str
     warehouse_id: Optional[str] = None  # target godown — optional (defaults to Central Godown)
     order_id:     Optional[str] = None   # link to PO — optional
     notes:        Optional[str] = None
     items:        List[PurchaseReceiptItemCreate]
+
+
+class DebitNoteCreate(BaseModel):
+    id:                 Optional[str] = None
+    debit_note_no:      Optional[str] = None
+    supplier_id:        str
+    receipt_id:         Optional[str] = None
+    claim_amount:       Decimal
+    tax_amount:         Optional[Decimal] = Decimal("0.00")
+    total_debit_amount: Decimal
+    status:             Optional[str] = "ISSUED"
+    reason:             Optional[str] = None
+
+
+class DebitNoteResponse(BaseModel):
+    id:                 str
+    debit_note_no:      str
+    supplier_id:        str
+    receipt_id:         Optional[str] = None
+    claim_amount:       Decimal
+    tax_amount:         Decimal
+    total_debit_amount: Decimal
+    status:             str
+    reason:             Optional[str] = None
+    created_at:         Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class PurchaseBillCreate(BaseModel):
+    id:                 Optional[str] = None
+    bill_no:            str
+    supplier_id:        str
+    receipt_id:         Optional[str] = None
+    order_id:           Optional[str] = None
+    bill_date:          Optional[date] = None
+    taxable_amount:     Decimal
+    tax_amount:         Decimal
+    total_amount:       Decimal
+    notes:              Optional[str] = None
+
+
+class PurchaseBillResponse(BaseModel):
+    id:                 str
+    bill_no:            str
+    supplier_id:        str
+    receipt_id:         Optional[str] = None
+    order_id:           Optional[str] = None
+    bill_date:          Optional[date] = None
+    taxable_amount:     Decimal
+    tax_amount:         Decimal
+    total_amount:       Decimal
+    status:             str
+    notes:              Optional[str] = None
+
+    model_config = {"from_attributes": True}
 
 
 class PurchaseReceiptResponse(BaseModel):

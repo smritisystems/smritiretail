@@ -64,8 +64,6 @@ from ..api.deps import TenantContext
 from .identity.engine import IdentityEngine
 
 
-def _uid() -> str:
-    return uuid.uuid4().hex[:8]
 
 
 def _integrity_error_detail(error: IntegrityError) -> str:
@@ -1582,7 +1580,7 @@ class SalesService:
             created_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
         )
         invoice_no = seq_alloc.document_no
-        invoice_id = f"inv-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        invoice_id = IdentityEngine.generate_technical_id()
 
         items_to_convert = [
             item for item in items
@@ -2037,8 +2035,10 @@ class SalesService:
         elif not credit_note_required and not auto_generate_credit_note:
             credit_note_no = None
 
+        sr_tech_id = sr_in.id or IdentityEngine.generate_technical_id()
         db_sr = SalesReturn(
-            id=sr_in.id,
+            id=sr_tech_id,
+            uuid=sr_tech_id,
             return_no=sr_in.return_no,
             original_invoice_id=sr_in.original_invoice_id,
             credit_note_number=credit_note_no,
@@ -2075,11 +2075,11 @@ class SalesService:
                 product.modified_at = datetime.now(timezone.utc)
                 self.db.add(product)
 
-                movement_id = f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+                movement_id = IdentityEngine.generate_technical_id()
                 resolved_warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
                 db_movement = StockMovement(
                     id=movement_id,
-                    uuid=str(uuid.uuid4()),
+                    uuid=movement_id,
                     product_id=product.id,
                     product_name=product.name,
                     sku=product.sku or product.code,
@@ -2718,12 +2718,22 @@ class SalesService:
             raise HTTPException(status_code=400, detail="Quotation has no line items to convert.")
 
         # Build invoice from quotation
-        invoice_id = _uid()
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="SALES_INVOICE",
+            group_code="SAL",
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            purpose="CONVERT_QUOTATION",
+        )
+        invoice_id = tech_id
         invoice = SalesInvoice(
             id           = invoice_id,
+            uuid         = invoice_id,
+            identity_code= id_code,
             company_id   = self.tenant_ctx.company_id,
             branch_id    = self.tenant_ctx.branch_id,
-            invoice_no   = f"INV-{invoice_id[:6].upper()}",
+            invoice_no   = id_code,
             status       = "Draft",
             payment_mode = "Cash",
             tax_total    = Decimal("0.00"),
@@ -2735,7 +2745,10 @@ class SalesService:
             line_price = Decimal(str(q_item.price))
             line_qty   = Decimal(str(q_item.quantity))
             line_total = line_price * line_qty
+            inv_item_id = IdentityEngine.generate_technical_id()
             inv_item = SalesInvoiceItem(
+                id           = inv_item_id,
+                uuid         = inv_item_id,
                 invoice_id   = invoice.id,
                 product_id   = q_item.product_id,
                 code         = q_item.code,

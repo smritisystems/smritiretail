@@ -39,6 +39,25 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.40.1] - 2026-09-18
+
+#### SMRITI Go-Live Remediation Phase 3 — Identity Governance Remediation
+- **Universal Identity Engine Elevation:** Eliminated all ad-hoc persistent ID generation functions (`_uid()`) and random UUID manufacturing (`uuid.uuid4()`) from backend transactional creation paths (`create_purchase_receipt`, `create_debit_note`, `create_purchase_bill`, `create_eway_bill`, `create_sales_return`).
+- **Alembic Migration `v1470`:** Added `identity_code VARCHAR(100) UNIQUE NULL` to `purchase_receipts` table. Formally registered `PURCHASE_RECEIPT` (`PUR-GRN`), `DEBIT_NOTE` (`PUR-DN`), and `PURCHASE_BILL` (`PUR-BIL`) in `smriti_identity_registry`, and seeded sequence counters in `smriti_numbering_registry`.
+- **Sovereign & Statutory External Alias Ingestion:** Routed external identifier tracking through `IdentityEngine.register_alias()` into `smriti_identity_alias` for NIC E-Way Bill numbers (`NIC_EWAY`) and vendor tax invoice numbers (`SUPPLIER_INVOICE`) with duplicate collision safety.
+- **Static AST & Verification Governance:** Added `backend/app/tests/test_identity_governance_remediation.py` asserting zero AST occurrences of `_uid` or `uuid.uuid4()` across creation routines. Verified 5/5 identity governance tests green, 6/6 Go-Live Phase 3 automated workflow tests green, and 27/27 identity regression tests green.
+
+### [6.40.0] - 2026-09-18
+
+#### SMRITI Go-Live Remediation Phase 3 — End-to-End Operational Flow Verification
+- **Blocker 3 (GRN / Material Receipt UI & Inwarding):** Created `src/components/purchase/GrnReceiptTab.tsx` with `@SmritiCapability("PURCHASE", "GRN_RECEIPT")`. Integrated PO selection, physical verification against ordered quantities, damaged and shortage detection, direct Debit Note creation trigger, and automated WMS batch stock increment via `InventoryWmsService.atomic_mutate_batch_stock(..., movement_type="INWARD_GRN")`.
+- **Blocker 4 (Supplier Purchase Bill Booking):** Implemented `POST /api/v1/purchase/bills/` and `/invoices/` in `backend/app/api/v1/purchase.py` and `PurchaseService.create_purchase_bill`. Auto-computes taxable base and GST tax breakdown from verified GRNs, updates supplier ledger, and posts transactional outbox events to `PURCHASE_BILLS`.
+- **Blocker 5 (Debit Note Modal in Procurement):** Wired `CreateDebitNoteModal` (`CreateDebitNoteDlg.tsx`) into Procurement workflows. Implemented `POST /api/v1/purchase/debit-notes/` and `PurchaseService.create_debit_note`, atomically adjusting supplier liabilities (`supplier.outstanding -= claim_amount`) and publishing `PURCHASE_DEBIT_NOTE_ISSUED` outbox events.
+- **Blocker 6 (Sales Return & Credit Note Modal in Sales Studio):** Mounted `ProcessSalesReturnModal` (`ProcessSalesReturn.tsx`) on finalized invoice rows in `src/components/SalesStudioTab.tsx`. Fully backed by `POST /api/v1/sales/returns/` with credit note number assignment and inventory restoration.
+- **Blocker 7 (E-Way Bill & Dispatch Modal in Sales Studio):** Mounted `PrepareDispatchModal` (`PrepareDispatchDlg.tsx`) on invoice rows in `src/components/SalesStudioTab.tsx`. Mounted backend endpoints `POST /api/v1/sales/eway-bills/` and `GET /api/v1/sales/eway-bills/`, persisting `EWayBill` records, updating `SalesInvoice.eway_bill_no`, and publishing to `SALES_DISPATCH_QUEUE`.
+- **Blocker 8 (De-hardcoding KPI literals):** De-hardcoded mock KPI literals across `CrmStudioTab.tsx` and `QuickReportsWidget.tsx` in favor of live streaming from `GET /api/v1/crm/customers` and `GET /api/v1/reports/daily-sales`.
+- **Verification & Acceptance:** 6/6 tests passed in 72.27s (`test_golive_phase3.py`), TypeScript check 0 errors (`npx tsc --noEmit`), and 11/11 architecture gate checks passed (`scripts/architecture_duplication_gate.py`).
+
 ### [6.39.0] - 2026-09-18
 
 #### SMRITI Unified Identity Phase 2 — Business Module Hardening & Canonical Authority Convergence

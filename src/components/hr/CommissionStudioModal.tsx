@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -341,5 +341,6 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
   );
 };
 
+export { CommissionStudioModal as ShiftCommissionStudioModal };
 export default CommissionStudioModal;
 

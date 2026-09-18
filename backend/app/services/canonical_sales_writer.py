@@ -825,7 +825,13 @@ class CanonicalSalesPostingWriter:
                     if req.context.allow_negative_stock:
                         logger.warning("Negative stock override permitted on line %d: %s", ded["line_no"], he.detail)
                     else:
+                        if commit:
+                            await session.rollback()
                         raise
+                except Exception:
+                    if commit:
+                        await session.rollback()
+                    raise
 
         # 12. Payments Engine Multi-Tender Recording
         # POS does not send a client-derived tender amount. Create the tender

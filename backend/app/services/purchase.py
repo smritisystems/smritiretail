@@ -45,12 +45,9 @@ from ..schemas.purchase import (
     SupplierCreate, SupplierUpdate,
     PurchaseOrderCreate, PurchaseOrderAmendRequest,
     PurchaseReceiptCreate,
+    DebitNoteCreate, PurchaseBillCreate,
 )
 from .identity.engine import IdentityEngine
-
-
-def _uid() -> str:
-    return uuid.uuid4().hex[:8]
 
 
 # Default fallback specs for reorders matching legacy Express store
@@ -212,7 +209,8 @@ class PurchaseService:
             tax_total += tax_amt
 
             item_rows.append(PurchaseOrderItem(
-                id=f"poi-{_uid()}",
+                id=IdentityEngine.generate_technical_id(),
+                uuid=IdentityEngine.generate_technical_id(),
                 order_id=po_id,
                 product_id=item.product_id,
                 code=item.code,
@@ -326,7 +324,34 @@ class PurchaseService:
         tax_total = Decimal("0.00")
         item_rows = []
 
-        for item in req.items:
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="PURCHASE_RECEIPT",
+            group_code="PUR",
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            purpose="GRN_CREATION",
+        )
+        receipt_id = tech_id
+        receipt_no = req.receipt_no or id_code
+        identity_code = id_code
+
+        # Register external challan/paper GRN as alias if custom number provided
+        if req.receipt_no and req.receipt_no != id_code:
+            await IdentityEngine.register_alias(
+                session=self.db,
+                entity_type="PURCHASE_RECEIPT",
+                entity_id=receipt_id,
+                alias_code=req.receipt_no,
+                alias_type="PHYSICAL_GRN",
+                source_system="CHALLAN",
+                canonical_identity_code=id_code,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                notes="Supplier physical challan GRN reference",
+            )
+
+        for idx, item in enumerate(req.items, start=1):
             if item.quantity_received <= Decimal("0.00"):
                 raise HTTPException(
                     status_code=400,
@@ -342,12 +367,13 @@ class PurchaseService:
             subtotal += item.cost_price * item.quantity_received
             tax_total += tax_amt
 
-            batch_no = item.batch_no or f"BATCH-GRN-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+            item_tech_id = IdentityEngine.generate_technical_id()
+            batch_no = item.batch_no or f"BATCH-{receipt_no}-{idx:02d}"
 
             item_rows.append(PurchaseReceiptItem(
-                id=_uid(),
-                uuid=str(uuid.uuid4()),
-                receipt_id=req.id,
+                id=item_tech_id,
+                uuid=item_tech_id,
+                receipt_id=receipt_id,
                 product_id=item.product_id,
                 code=item.code,
                 name=item.name,
@@ -379,15 +405,17 @@ class PurchaseService:
                 purchase_rate=item.cost_price,
                 unit_cost=item.cost_price,
                 reference_doc_type="Purchase Receipt",
-                reference_doc_id=req.id,
-                remarks=f"Inward GRN receipt {req.receipt_no} from supplier {req.supplier_id}",
+                reference_doc_id=receipt_id,
+                remarks=f"Inward GRN receipt {receipt_no} from supplier {req.supplier_id}",
             )
 
         grand_total = (subtotal + tax_total).quantize(Decimal("0.01"))
 
         receipt = PurchaseReceipt(
-            id=req.id,
-            receipt_no=req.receipt_no,
+            id=receipt_id,
+            uuid=receipt_id,
+            receipt_no=receipt_no,
+            identity_code=identity_code,
             supplier_id=req.supplier_id,
             warehouse_id=warehouse_id,
             order_id=req.order_id,
@@ -598,6 +626,8 @@ class PurchaseService:
         tax_total = Decimal("0.00")
         item_rows: list[PurchaseOrderItem] = []
 
+        order_id = IdentityEngine.generate_technical_id()
+
         for suggestion in items_data:
             product_res = await self.db.execute(
                 select(Product).where(
@@ -623,9 +653,11 @@ class PurchaseService:
             subtotal += cost_price * quantity
             tax_total += tax_amount
 
+            poi_id = IdentityEngine.generate_technical_id()
             item_rows.append(PurchaseOrderItem(
-                id=f"poi-{_uid()}",
-                order_id=f"po-{_uid()}",
+                id=poi_id,
+                uuid=poi_id,
+                order_id=order_id,
                 product_id=product.id,
                 code=product.code,
                 name=product.name,
@@ -638,7 +670,6 @@ class PurchaseService:
                 branch_id=self.tenant.branch_id,
             ))
 
-        order_id = f"po-{_uid()}"
         order_no = f"PO-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
         order = PurchaseOrder(
             id=order_id,
@@ -704,8 +735,10 @@ class PurchaseService:
             cfg.company_state = state
             cfg.modified_at = datetime.now(timezone.utc)
         else:
+            jur_id = IdentityEngine.generate_technical_id()
             cfg = PurchaseJurisdictionConfig(
-                id=f"jur-{_uid()}",
+                id=jur_id,
+                uuid=jur_id,
                 company_state=state,
                 company_id=self.tenant.company_id,
                 branch_id=self.tenant.branch_id
@@ -843,8 +876,10 @@ class PurchaseService:
             line_tot = (item.cost_price * item.quantity + tax_amt).quantize(Decimal("0.01"))
             subtotal += item.cost_price * item.quantity
             tax_total += tax_amt
+            amend_poi_id = IdentityEngine.generate_technical_id()
             item_rows.append(PurchaseOrderItem(
-                id=f"poi-{_uid()}",
+                id=amend_poi_id,
+                uuid=amend_poi_id,
                 order_id=req.new_order_id,
                 product_id=item.product_id,
                 code=item.code,
@@ -1067,3 +1102,137 @@ class PurchaseService:
             status_code=404,
             detail=f"No purchase history found for supplier '{supplier_id}' and product '{product_id}'.",
         )
+
+    # ─── Debit Notes ────────────────────────────────────────────────────────
+    async def create_debit_note(self, req: DebitNoteCreate) -> dict:
+        supplier = await self._get_supplier(req.supplier_id)
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="DEBIT_NOTE",
+            group_code="PUR",
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            purpose="DEBIT_NOTE_CREATION",
+        )
+        dn_id = tech_id
+        dn_no = req.debit_note_no or id_code
+
+        # Register external debit note reference as alias if supplied
+        if req.debit_note_no and req.debit_note_no != id_code:
+            await IdentityEngine.register_alias(
+                session=self.db,
+                entity_type="DEBIT_NOTE",
+                entity_id=dn_id,
+                alias_code=req.debit_note_no,
+                alias_type="EXTERNAL_DEBIT_NOTE",
+                source_system="SUPPLIER_PORTAL",
+                canonical_identity_code=id_code,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                notes="External debit note reference",
+            )
+
+        supplier.outstanding = (supplier.outstanding - req.total_debit_amount).quantize(Decimal("0.01"))
+        supplier.modified_at = datetime.now(timezone.utc)
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_DEBIT_NOTES",
+            event_type="PURCHASE_DEBIT_NOTE_ISSUED",
+            aggregate_type="PurchaseDebitNote",
+            aggregate_id=dn_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "debit_note_no": dn_no,
+                "identity_code": id_code,
+                "supplier_id": supplier.id,
+                "supplier_name": supplier.name,
+                "receipt_id": req.receipt_id,
+                "claim_amount": str(req.claim_amount),
+                "tax_amount": str(req.tax_amount or Decimal("0.00")),
+                "total_debit_amount": str(req.total_debit_amount),
+                "reason": req.reason,
+            },
+        )
+        await self.db.commit()
+        return {
+            "id": dn_id,
+            "debit_note_no": dn_no,
+            "identity_code": id_code,
+            "supplier_id": supplier.id,
+            "receipt_id": req.receipt_id,
+            "claim_amount": req.claim_amount,
+            "tax_amount": req.tax_amount or Decimal("0.00"),
+            "total_debit_amount": req.total_debit_amount,
+            "status": req.status or "ISSUED",
+            "reason": req.reason,
+            "created_at": datetime.now(timezone.utc),
+        }
+
+    # ─── Purchase Bills ─────────────────────────────────────────────────────
+    async def create_purchase_bill(self, req: PurchaseBillCreate) -> dict:
+        supplier = await self._get_supplier(req.supplier_id)
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="PURCHASE_BILL",
+            group_code="PUR",
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            purpose="PURCHASE_BILL_CREATION",
+        )
+        bill_id = tech_id
+        bill_no = req.bill_no or id_code
+
+        # Register external supplier invoice number as sovereign alias
+        if req.bill_no and req.bill_no != id_code:
+            await IdentityEngine.register_alias(
+                session=self.db,
+                entity_type="PURCHASE_BILL",
+                entity_id=bill_id,
+                alias_code=req.bill_no,
+                alias_type="SUPPLIER_INVOICE",
+                source_system="SUPPLIER",
+                canonical_identity_code=id_code,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                notes="External supplier invoice reference",
+            )
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_BILLS",
+            event_type="PURCHASE_BILL_POSTED",
+            aggregate_type="PurchaseBill",
+            aggregate_id=bill_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "bill_no": bill_no,
+                "identity_code": id_code,
+                "supplier_id": supplier.id,
+                "supplier_name": supplier.name,
+                "receipt_id": req.receipt_id,
+                "order_id": req.order_id,
+                "taxable_amount": str(req.taxable_amount),
+                "tax_amount": str(req.tax_amount),
+                "total_amount": str(req.total_amount),
+            },
+        )
+        await self.db.commit()
+        return {
+            "id": bill_id,
+            "bill_no": bill_no,
+            "identity_code": id_code,
+            "supplier_id": supplier.id,
+            "receipt_id": req.receipt_id,
+            "order_id": req.order_id,
+            "bill_date": req.bill_date or datetime.now(timezone.utc).date(),
+            "taxable_amount": req.taxable_amount,
+            "tax_amount": req.tax_amount,
+            "total_amount": req.total_amount,
+            "status": "POSTED",
+            "notes": req.notes,
+        }

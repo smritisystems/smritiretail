@@ -37,6 +37,7 @@ from ...schemas.purchase import (
     PurchaseReceiptCreate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
     PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
     PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
+    DebitNoteCreate, DebitNoteResponse, PurchaseBillCreate, PurchaseBillResponse,
 )
 from ...services.purchase import PurchaseService
 
@@ -514,4 +515,61 @@ async def get_supplier_default_rate(
     Falls back to last PO unit cost if no GRN exists.
     """
     return await PurchaseService(db, tenant_ctx).get_supplier_default_rate(supplier_id, product_id)
+
+
+# ───────────────────────────────────────── Purchase Debit Notes ─────────────────────────────────────────
+
+@router.post(
+    "/debit-notes",
+    response_model=DebitNoteResponse,
+    status_code=201,
+)
+@router.post(
+    "/debit-notes/",
+    response_model=DebitNoteResponse,
+    status_code=201,
+)
+async def create_debit_note(
+    req: DebitNoteCreate,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Post a purchase debit note against a supplier/GRN."""
+    service = PurchaseService(db, tenant)
+    res = await service.create_debit_note(req)
+    return DebitNoteResponse.model_validate(res)
+
+
+# ───────────────────────────────────────── Purchase Bills / Invoices ─────────────────────────────────────────
+
+@router.post(
+    "/bills",
+    response_model=PurchaseBillResponse,
+    status_code=201,
+)
+@router.post(
+    "/bills/",
+    response_model=PurchaseBillResponse,
+    status_code=201,
+)
+@router.post(
+    "/invoices",
+    response_model=PurchaseBillResponse,
+    status_code=201,
+)
+@router.post(
+    "/invoices/",
+    response_model=PurchaseBillResponse,
+    status_code=201,
+)
+async def create_purchase_bill(
+    req: PurchaseBillCreate,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Post a supplier purchase bill/invoice linked to a GRN."""
+    service = PurchaseService(db, tenant)
+    res = await service.create_purchase_bill(req)
+    return PurchaseBillResponse.model_validate(res)
+
 

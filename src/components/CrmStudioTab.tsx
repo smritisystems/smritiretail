@@ -60,6 +60,25 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
     { id: "LD-003", name: "Karan Johar", email: "karan@dharmaprod.com", phone: "9910011223", source: "In-Store", status: "Qualified", date: "2026-07-13" },
   ]);
 
+  const [customersCount, setCustomersCount] = useState<number>(0);
+  const [campaignsCount, setCampaignsCount] = useState<number>(2);
+  const [crmLoading, setCrmLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function loadCrmStats() {
+      try {
+        const res = await apiFetchV1("/crm/customers");
+        const list = Array.isArray(res) ? res : res?.items || [];
+        setCustomersCount(list.length);
+      } catch (e) {
+        console.error("Failed to load live CRM customer count:", e);
+      } finally {
+        setCrmLoading(false);
+      }
+    }
+    loadCrmStats();
+  }, []);
+
   // Telemetry Audit log triggers
   useEffect(() => {
     recordAuditAction("VIEW", "crm", activeSubTab, `Switched CRM dashboard view to: ${activeSubTab}`);
@@ -168,12 +187,16 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
                 
                 <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 space-y-2 shadow-xs">
                   <div className="flex justify-between items-center text-theme-muted text-xs">
-                    <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Total Leads Collected</span>
+                    <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Total Leads &amp; Accounts</span>
                     <Users size={16} className="text-theme-primary" />
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-theme-body font-mono">1,408</span>
-                    <span className="text-[10px] text-emerald-600 font-mono font-bold">+12% vs last month</span>
+                    <span className="text-2xl font-bold text-theme-body font-mono">
+                      {crmLoading ? "..." : (leads.length + customersCount).toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-mono font-bold">
+                      {customersCount} verified accounts
+                    </span>
                   </div>
                 </div>
 
@@ -183,19 +206,25 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
                     <TrendingUp size={16} className="text-emerald-600" />
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-emerald-600 font-mono">24.5%</span>
-                    <span className="text-[10px] text-emerald-600 font-mono font-bold">+1.2% efficiency</span>
+                    <span className="text-2xl font-bold text-emerald-600 font-mono">
+                      {crmLoading ? "..." : `${(leads.length + customersCount) > 0 ? (((leads.filter(l => l.status === "Qualified").length + Math.min(customersCount, 5)) / (leads.length + customersCount)) * 100).toFixed(1) : "0.0"}%`}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-mono font-bold">
+                      {leads.filter(l => l.status === "Qualified").length} qualified leads
+                    </span>
                   </div>
                 </div>
 
                 <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 space-y-2 shadow-xs">
                   <div className="flex justify-between items-center text-theme-muted text-xs">
-                    <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Active ROI Campaigns</span>
+                    <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Active Marketing Campaigns</span>
                     <Megaphone size={16} className="text-indigo-600" />
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-theme-body font-mono">3</span>
-                    <span className="text-[10px] text-theme-muted font-mono">Targeting 15k customers</span>
+                    <span className="text-2xl font-bold text-theme-body font-mono">{campaignsCount}</span>
+                    <span className="text-[10px] text-theme-muted font-mono">
+                      Targeting {customersCount > 0 ? `${customersCount} verified customers` : "retail cohort"}
+                    </span>
                   </div>
                 </div>
 

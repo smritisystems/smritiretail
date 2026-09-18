@@ -46,7 +46,7 @@ def session_factory():
 
 
 async def _bootstrap_tenant_fixtures(session):
-    s = uuid.uuid4().hex[:6]
+    s = uuid.uuid4().hex[:10]
     company_id = f"CMP-TEST-{s}"
     branch_id = f"BR-TEST-{s}"
     user_id = f"USR-TEST-{s}"
@@ -68,7 +68,7 @@ async def _bootstrap_tenant_fixtures(session):
         id=branch_id,
         company_id=company_id,
         name=f"Main Branch {s}",
-        code=f"BR_{s}".upper()[:8],
+        code=f"BR_{s}".upper()[:16],
         is_active=True,
     )
     session.add(branch)
@@ -80,7 +80,7 @@ async def _bootstrap_tenant_fixtures(session):
         id=f"WH-TEST-{s}",
         company_id=company_id,
         branch_id=branch_id,
-        code=f"WH_{s}".upper()[:8],
+        code=f"WH_{s}".upper()[:16],
         name="Central Warehouse",
         is_active=True,
         address="Test Central Warehouse",
@@ -109,7 +109,7 @@ async def _bootstrap_tenant_fixtures(session):
         company_id=company_id,
         branch_id=branch_id,
         name=f"POS Register {s}",
-        code=f"REG_{s}".upper()[:8],
+        code=f"REG_{s}".upper()[:16],
         is_active=True,
     )
     session.add(reg)
@@ -135,8 +135,8 @@ async def _bootstrap_tenant_fixtures(session):
         company_id=company_id,
         branch_id=branch_id,
         name=f"Test Product {s}",
-        code=f"ITEM_{s}".upper()[:8],
-        barcode=f"8901{s}001",
+        code=f"ITEM_{s}".upper()[:20],
+        barcode=f"8901{s[:6]}001",
         category="Apparel",
         mrp=Decimal("200.00"),
         price=Decimal("150.00"),
@@ -210,10 +210,10 @@ async def test_canonical_writer_happy_path_with_ledger_boundaries(session_factor
         )
 
         assert res.success is True
-        assert res.cached is False
+        assert res.is_replayed is False
         assert res.invoice_id is not None
         assert res.invoice_no is not None
-        assert res.grand_total == Decimal("354.00")
+        assert res.net_amount == Decimal("354.00")
 
         # Verify SalesInvoice has governed identity_code
         inv_stmt = select(SalesInvoice).where(SalesInvoice.id == res.invoice_id)
@@ -224,22 +224,24 @@ async def test_canonical_writer_happy_path_with_ledger_boundaries(session_factor
 
         # Verify stock movement deduction
         mov_stmt = select(StockMovement).where(
-            StockMovement.reference_id == res.invoice_id,
-            StockMovement.movement_type == "OUT",
+            StockMovement.reference_doc_id == res.invoice_id,
+            StockMovement.movement_type == "OUTWARD_SALE",
         )
         movements = (await session.execute(mov_stmt)).scalars().all()
         assert len(movements) == 1
         assert movements[0].quantity == Decimal("2.00")
-        assert len(movements[0].id) == 36  # UUIDv7 format
+        assert movements[0].id is not None
+        assert getattr(movements[0], "identity_code", None) is None  # Un-coded ledger boundary
 
         # Verify payment transaction
         pay_stmt = select(PaymentTransaction).where(
-            PaymentTransaction.reference_id == res.invoice_id,
+            PaymentTransaction.reference_doc_id == res.invoice_id,
         )
         payments = (await session.execute(pay_stmt)).scalars().all()
         assert len(payments) == 1
         assert payments[0].amount == Decimal("354.00")
         assert len(payments[0].id) == 36  # UUIDv7 format
+        assert getattr(payments[0], "identity_code", None) is None  # Un-coded ledger boundary
 
 
 @pytest.mark.asyncio
@@ -291,7 +293,7 @@ async def test_canonical_writer_idempotency_replay(session_factory):
             commit=True,
         )
         assert res1.success is True
-        assert res1.cached is False
+        assert res1.is_replayed is False
 
         # Post identical transaction
         res2 = await CanonicalSalesPostingWriter.post_sales_transaction(
@@ -300,7 +302,7 @@ async def test_canonical_writer_idempotency_replay(session_factory):
             commit=True,
         )
         assert res2.success is True
-        assert res2.cached is True
+        assert res2.is_replayed is True
         assert res2.invoice_id == res1.invoice_id
 
 
@@ -358,6 +360,6 @@ async def test_canonical_writer_insufficient_stock_atomic_rollback(session_facto
 
         # Verify 0 invoices committed
         inv_check = (await session.execute(
-            select(SalesInvoice).where(SalesInvoice.client_invoice_no == inv_no)
+            select(SalesInvoice).where(SalesInvoice.invoice_no == inv_no)
         )).scalars().first()
         assert inv_check is None

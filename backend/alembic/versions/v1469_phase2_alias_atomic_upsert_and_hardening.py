@@ -76,6 +76,11 @@ def upgrade() -> None:
     op.execute("ALTER TABLE IF EXISTS sales_invoices ADD COLUMN IF NOT EXISTS dispatch_from_location_id VARCHAR(50);")
     op.execute("ALTER TABLE IF EXISTS sales_invoices ADD COLUMN IF NOT EXISTS dispatch_from_snapshot JSONB DEFAULT '{}'::jsonb;")
 
+    # =========================================================================
+    # Step 5: Align transactional identity code scope to TENANT for global uniqueness
+    # =========================================================================
+    op.execute("UPDATE smriti_identity_registry SET identity_code_scope = 'TENANT' WHERE entity_type IN ('SALES_INVOICE', 'SALES_ORDER');")
+
 
 def downgrade() -> None:
     # Drop unique index

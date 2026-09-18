@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0918-1E19FD",
+  "entity": "PURCHASE",
+  "capability": "GRN_RECEIPT",
+  "asset_type": "UI_COMPONENT",
+  "proposed_name": "GrnReceiptTab",
+  "target_file_path": "src/components/purchase/GrnReceiptTab.tsx",
+  "decision": "APPROVED",
+  "canonical_owner": "PurchaseService",
+  "content_hash": "6eb5c888d2ae3e31861e7976a5f24b00ea31408bc01a78731aea12333e92c9ae",
+  "git_commit": "a768b88bb2bd9f3aaa097f7e3aaf75cd752a8848",
+  "issued_at": "2026-09-18T11:13:44.398790+00:00",
+  "expires_at": "2026-09-25T11:13:44.398790+00:00",
+  "status": "ISSUED"
+}
