@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.19.0
+Version      : 6.41.0
 Created      : 2026-09-14
-Modified     : 2026-09-14
+Modified     : 2026-09-18
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -172,3 +172,66 @@ async def test_06_hierarchical_resolution():
         )
         assert resolved_comp is not None
         assert resolved_comp.effective_value is True
+
+
+@pytest.mark.asyncio
+async def test_07_canonical_code_populated():
+    """Verify canonical_code is populated for all system_parameters rows (ADR-042)."""
+    async with async_session() as db:
+        from sqlalchemy import text
+        result = await db.execute(
+            text("SELECT count(*) FROM system_parameters WHERE canonical_code IS NULL")
+        )
+        null_count = result.scalar()
+        assert null_count == 0, (
+            f"Found {null_count} rows with canonical_code = NULL after backfill migration."
+        )
+
+        # Verify specific high-priority mappings
+        result = await db.execute(
+            text(
+                "SELECT param_code, canonical_code FROM system_parameters "
+                "WHERE param_code IN ('AllowCreditBilling', 'SHOPEREnv', 'GIRWithoutPORef', "
+                "'CompanyCode', 'InBillingCustSelectionCompulsary', 'StockOutActionInBill') "
+                "AND company_id IS NULL"
+            )
+        )
+        rows = result.fetchall()
+        mapping = {r[0]: r[1] for r in rows}
+
+        assert mapping.get("AllowCreditBilling") == "SMRITI.BILLING.ALLOW_CREDIT_BILLING"
+        assert mapping.get("SHOPEREnv") == "SMRITI.SETUP.SHOPER_ENV"
+        assert mapping.get("GIRWithoutPORef") == "SMRITI.STOCK.INWARDS.GIR_WITHOUT_PO_REF"
+        assert mapping.get("CompanyCode") == "SMRITI.SETUP.COMPANY_CODE"
+        assert mapping.get("InBillingCustSelectionCompulsary") == "SMRITI.BILLING.IN_BILLING_CUST_SELECTION_COMPULSARY"
+        assert mapping.get("StockOutActionInBill") == "SMRITI.BILLING.STOCK_OUT_ACTION_IN_BILL"
+
+
+@pytest.mark.asyncio
+async def test_08_dual_key_resolution():
+    """Verify dual-key resolution: canonical SMRITI.* key resolves the same parameter
+    as the legacy Shoper 9 param_code key (ADR-042)."""
+    async with async_session() as db:
+        # Resolve via legacy key
+        by_legacy = await SystemParameterService.resolve_parameter(
+            db=db,
+            param_code="AllowCreditBilling",
+            company_id="COMP-001",
+        )
+        # Resolve via canonical key
+        by_canonical = await SystemParameterService.resolve_parameter(
+            db=db,
+            param_code="SMRITI.BILLING.ALLOW_CREDIT_BILLING",
+            company_id="COMP-001",
+        )
+
+        assert by_legacy is not None, "Legacy key resolution failed"
+        assert by_canonical is not None, "Canonical key resolution failed"
+
+        # Both must resolve to the same database row
+        assert by_legacy.id == by_canonical.id, (
+            f"Legacy ({by_legacy.id}) and canonical ({by_canonical.id}) resolve to different rows."
+        )
+        assert by_legacy.param_code == by_canonical.param_code
+        assert by_canonical.canonical_code == "SMRITI.BILLING.ALLOW_CREDIT_BILLING"
+        assert by_legacy.effective_value == by_canonical.effective_value

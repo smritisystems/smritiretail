@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.19.0
+ * Version      : 6.41.0
  * Created      : 2026-09-14
- * Modified     : 2026-09-14
+ * Modified     : 2026-09-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -21,6 +21,7 @@ describe("SMRITI System Parameters Subsystem & 5-Tier Mutability Governance", ()
     // Reset service state before each test
     (smritiSystemParameterService as any).cache.clear();
     (smritiSystemParameterService as any).definitions.clear();
+    (smritiSystemParameterService as any).canonicalAlias.clear();
     (smritiSystemParameterService as any).isLoaded = false;
   });
 
@@ -125,6 +126,63 @@ describe("SMRITI System Parameters Subsystem & 5-Tier Mutability Governance", ()
       const varDef = smritiSystemParameterService.getDefinition("AllowCreditBilling");
       expect(varDef?.mutability).toBe("Variable");
       expect(varDef?.is_locked).toBe(false);
+    });
+  });
+
+  describe("Dual-Key Resolution (ADR-042)", () => {
+    it("should resolve SMRITI.* canonical keys to the same value as the legacy param_code", () => {
+      const cache = (smritiSystemParameterService as any).cache;
+      const canonicalAlias = (smritiSystemParameterService as any).canonicalAlias;
+
+      // Simulate what load() does: populate cache with legacy keys and build alias map
+      cache.set("AllowCreditBilling", true);
+      cache.set("SHOPEREnv", "R");
+      cache.set("StockOutActionInBill", 3);
+
+      canonicalAlias.set("SMRITI.BILLING.ALLOW_CREDIT_BILLING", "AllowCreditBilling");
+      canonicalAlias.set("SMRITI.SETUP.SHOPER_ENV", "SHOPEREnv");
+      canonicalAlias.set("SMRITI.BILLING.STOCK_OUT_ACTION_IN_BILL", "StockOutActionInBill");
+
+      // Both key forms must resolve to the same value
+      expect(smritiSystemParameterService.getBoolean("AllowCreditBilling")).toBe(true);
+      expect(smritiSystemParameterService.getBoolean("SMRITI.BILLING.ALLOW_CREDIT_BILLING")).toBe(true);
+
+      expect(smritiSystemParameterService.getString("SHOPEREnv")).toBe("R");
+      expect(smritiSystemParameterService.getString("SMRITI.SETUP.SHOPER_ENV")).toBe("R");
+
+      expect(smritiSystemParameterService.getNumber("StockOutActionInBill")).toBe(3);
+      expect(smritiSystemParameterService.getNumber("SMRITI.BILLING.STOCK_OUT_ACTION_IN_BILL")).toBe(3);
+    });
+
+    it("should return defaultValue when SMRITI.* key has no alias mapping", () => {
+      // No entries in canonicalAlias — unmapped SMRITI.* key should fall back to default
+      expect(smritiSystemParameterService.getBoolean("SMRITI.BILLING.UNKNOWN_PARAM", false)).toBe(false);
+      expect(smritiSystemParameterService.getString("SMRITI.SETUP.UNKNOWN_PARAM", "FALLBACK")).toBe("FALLBACK");
+      expect(smritiSystemParameterService.getNumber("SMRITI.STOCK.INWARDS.UNKNOWN", 99)).toBe(99);
+    });
+
+    it("should return canonical definition via getDefinition using SMRITI.* key", () => {
+      const defs = (smritiSystemParameterService as any).definitions;
+      const canonicalAlias = (smritiSystemParameterService as any).canonicalAlias;
+
+      defs.set("AllowCreditBilling", {
+        param_code: "AllowCreditBilling",
+        canonical_code: "SMRITI.BILLING.ALLOW_CREDIT_BILLING",
+        category: "11. Billing",
+        data_type: "Boolean",
+        mutability: "Variable",
+        effective_value: true,
+        is_locked: false,
+      });
+      canonicalAlias.set("SMRITI.BILLING.ALLOW_CREDIT_BILLING", "AllowCreditBilling");
+
+      const byLegacy = smritiSystemParameterService.getDefinition("AllowCreditBilling");
+      const byCanonical = smritiSystemParameterService.getDefinition("SMRITI.BILLING.ALLOW_CREDIT_BILLING");
+
+      expect(byLegacy).toBeDefined();
+      expect(byCanonical).toBeDefined();
+      expect(byLegacy?.param_code).toBe(byCanonical?.param_code);
+      expect(byCanonical?.canonical_code).toBe("SMRITI.BILLING.ALLOW_CREDIT_BILLING");
     });
   });
 });
