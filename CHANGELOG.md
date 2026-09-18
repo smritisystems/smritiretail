@@ -39,6 +39,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.42.1] - 2026-09-19
+
+#### SMRITI Unified Identity Phase 1 — Service Wiring, Migration Hardening & Phase 1 Verification Suite
+- **`item_master_svc.py` Identity Wiring:** Replaced both ad-hoc `f"itm_{uuid.uuid4().hex[:12]}"` technical ID generators in `UniversalItemMasterService.create_item()` (schema path and direct-parameter path) with `IdentityEngine.allocate_internal()`, setting `Item.id` (UUIDv7) and `Item.identity_code` (`MST-ITM-{seq:08d}`).
+- **`crm.py` Identity Wiring:** Replaced `IdentityEngine.generate_technical_id()` in `CrmService.create_customer()` with `IdentityEngine.allocate_internal()`, setting both `id` (UUIDv7) and `identity_code` (`CRM-CUS-{seq:08d}`) on new and identity-code-absent customers.
+- **Migration v1471 Hardening:** Added `sa.inspect(bind).get_table_names()` guard; if `system_parameters` is absent in an ephemeral test database, creates the full table including `canonical_code` column; if present, adds column and index idempotently.
+- **Migration v1472 Hardening:** Added early-return if `system_parameters` table absent — prevents backfill failure on ephemeral test databases.
+- **`workflow.py` Circular Import Resolution:** Resolved a Python circular import chain (`identity/__init__ → code_generator → models/__init__ → workflow → engine → code_generator`) by reverting `WorkflowEvent.id` default to direct `uuid7` import. SQLAlchemy `Column(default=callable)` is synchronous and cannot invoke async `IdentityEngine`.
+- **Architecture Gate Rule 9 Extension:** Extended `check_identity_generation_governance()` exclusion list to include `backend/app/models/` — ORM models are a synchronous layer that cannot call async `IdentityEngine`; direct `uuid7` is correct and permitted for technical PK defaults only.
+- **Phase 1 Verification Suite:** Created `backend/tests/test_identity_engine_phase1.py` with 5 tests: (1) UUIDv7 technical ID and MST-ITM format via `allocate_internal`; (2) sequential consecutive code guarantee; (3) existing items backfilled with MST-ITM codes; (4) 100-worker concurrent allocation with 0 collisions and sequences 1..100 consecutive; (5) registry seed completeness (21 active entity types including ITEM=MST-ITM, CUSTOMER=CRM-CUS, POS_SHIFT=POS-SFT).
+- **Verification:** 5/5 pytest green in 6.16s; Identity Governance Scan 893 files 0 violations; Architecture Gate 11/11 passed 0 violations; Breadcrumb Guard 594 files 0 violations; commits `308f9aa5`, `6ddc97e0`, `5c907bea`.
+
 ### [6.40.2] - 2026-09-18
 
 #### SMRITI Breadcrumb Engine v1.0 — Architecture & Controlled Policy Migration
