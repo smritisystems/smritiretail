@@ -216,6 +216,7 @@ class DebitNoteCreate(BaseModel):
 
 class DebitNoteResponse(BaseModel):
     id:                 str
+    identity_code:      Optional[str] = None
     debit_note_no:      str
     supplier_id:        str
     receipt_id:         Optional[str] = None
@@ -244,6 +245,7 @@ class PurchaseBillCreate(BaseModel):
 
 class PurchaseBillResponse(BaseModel):
     id:                 str
+    identity_code:      Optional[str] = None
     bill_no:            str
     supplier_id:        str
     receipt_id:         Optional[str] = None
@@ -259,8 +261,9 @@ class PurchaseBillResponse(BaseModel):
 
 
 class PurchaseReceiptResponse(BaseModel):
-    id:           str
-    receipt_no:   str
+    id:            str
+    identity_code: Optional[str] = None
+    receipt_no:    str
     supplier_id:  str
     warehouse_id: Optional[str] = None
     order_id:     Optional[str] = None
