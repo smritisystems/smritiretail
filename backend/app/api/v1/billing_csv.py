@@ -334,6 +334,49 @@ async def _lookup_catalog(
 ) -> Optional[Dict[str, Any]]:
     identifier = identifier.strip()
     sku_hint = sku_hint.strip() if sku_hint else None
+
+    # Step 0: Try Universal Identity Resolver (In-Memory Cache, Governed MST-ITM, or External Alias)
+    from ...services.identity.resolver import IdentityResolver
+    try:
+        id_res = await IdentityResolver.resolve(
+            session=db,
+            identifier=identifier,
+            entity_type_hint="ITEM",
+            company_id=company_id,
+            use_cache=True,
+        )
+        if id_res.found and id_res.entity_id:
+            sql_resolved = text("""
+                SELECT
+                    p.id                            AS product_id,
+                    p.name                          AS item_name,
+                    COALESCE(p.code, p.sku, '')     AS sku,
+                    p.barcode                       AS barcode,
+                    COALESCE(p.mrp, 0)              AS catalog_mrp,
+                    COALESCE(p.price, p.mrp, 0)     AS catalog_selling_price,
+                    COALESCE(p.gst_percentage, 0)   AS gst_rate,
+                    COALESCE(p.hsn_code, '')        AS hsn_code,
+                    COALESCE(p.stock, 0)            AS available_stock,
+                    'PCS'                           AS uom,
+                    COALESCE(p.brand, '')           AS brand,
+                    COALESCE(p.color, '')           AS color,
+                    COALESCE(p.size, '')            AS size_variant
+                FROM products p
+                WHERE (p.company_id = CAST(:company_id AS VARCHAR) OR CAST(:company_id AS VARCHAR) IS NULL)
+                  AND p.is_deleted = FALSE
+                  AND (p.id = :entity_id OR p.barcode = :entity_id OR p.code = :entity_id)
+                LIMIT 1
+            """)
+            res_id = await db.execute(sql_resolved, {
+                "company_id": company_id,
+                "entity_id": id_res.entity_id,
+            })
+            row_id = res_id.mappings().first()
+            if row_id:
+                return dict(row_id)
+    except Exception:
+        pass
+
     sql = text("""
         SELECT
             p.id                            AS product_id,

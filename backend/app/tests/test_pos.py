@@ -170,7 +170,7 @@ async def test_open_shift(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         res = await c.post("/api/v1/pos/shifts/open",
-                           json={"id": f"sh-{s}", "register_id": reg.id,
+                           json={"register_id": reg.id,
                                  "opening_balance": "500.00"},
                            headers=_bearer(cashier, comp.id, br.id))
     assert res.status_code == 201
@@ -190,12 +190,12 @@ async def test_cannot_open_two_shifts_same_register(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r1 = await c.post("/api/v1/pos/shifts/open",
-                          json={"id": f"sh1-{s}", "register_id": reg.id},
+                          json={"register_id": reg.id},
                           headers=_bearer(cashier, comp.id, br.id))
         assert r1.status_code == 201
 
         r2 = await c.post("/api/v1/pos/shifts/open",
-                          json={"id": f"sh2-{s}", "register_id": reg.id},
+                          json={"register_id": reg.id},
                           headers=_bearer(cashier, comp.id, br.id))
     assert r2.status_code == 400
     assert "already has an open shift" in r2.json()["detail"].lower()
@@ -210,7 +210,7 @@ async def test_open_shift_invalid_register_returns_404(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         res = await c.post("/api/v1/pos/shifts/open",
-                           json={"id": f"sh-{s}", "register_id": "nonexistent"},
+                           json={"register_id": "nonexistent"},
                            headers=_bearer(cashier, comp.id, br.id))
     assert res.status_code == 404
 
@@ -227,12 +227,13 @@ async def test_close_shift_no_sales(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         open_res = await c.post("/api/v1/pos/shifts/open",
-                                json={"id": f"sh-{s}", "register_id": reg.id,
+                                json={"register_id": reg.id,
                                       "opening_balance": "1000.00"},
                                 headers=_bearer(cashier, comp.id, br.id))
         assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
 
-        close_res = await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        close_res = await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                                  json={"closing_balance": "1000.00"},
                                  headers=_bearer(cashier, comp.id, br.id))
 
@@ -310,13 +311,15 @@ async def test_close_already_closed_shift_returns_400(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        await c.post("/api/v1/pos/shifts/open",
-                     json={"id": f"sh-{s}", "register_id": reg.id},
-                     headers=_bearer(cashier, comp.id, br.id))
-        await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        open_res = await c.post("/api/v1/pos/shifts/open",
+                                json={"register_id": reg.id},
+                                headers=_bearer(cashier, comp.id, br.id))
+        assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
+        await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                      json={"closing_balance": "0.00"},
                      headers=_bearer(cashier, comp.id, br.id))
-        second_close = await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        second_close = await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                                     json={"closing_balance": "0.00"},
                                     headers=_bearer(cashier, comp.id, br.id))
     assert second_close.status_code == 400
@@ -338,13 +341,15 @@ async def test_get_active_shift(db_session):
         assert r1.status_code == 404
 
         # Open a shift → 200
-        await c.post("/api/v1/pos/shifts/open",
-                     json={"id": f"sh-{s}", "register_id": reg.id},
-                     headers=_bearer(cashier, comp.id, br.id))
+        open_res = await c.post("/api/v1/pos/shifts/open",
+                                json={"register_id": reg.id},
+                                headers=_bearer(cashier, comp.id, br.id))
+        assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
         r2 = await c.get(f"/api/v1/shifts/active/{reg.id}",
                          headers=_bearer(cashier, comp.id, br.id))
         assert r2.status_code == 200
-        assert r2.json()["id"] == f"sh-{s}"
+        assert r2.json()["id"] == shift_id
 
 
 # ─────────────────────────── POS Checkout tests (Phase 1) ───────────────────────────
@@ -596,7 +601,7 @@ async def test_open_shift_contract_url(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r = await c.post(
             "/api/v1/pos/shifts/open",
-            json={"id": f"sh4a-{s}", "register_id": reg.id, "opening_balance": "500.00"},
+            json={"register_id": reg.id, "opening_balance": "500.00"},
             headers=_bearer(cashier, comp.id, br.id),
         )
     assert r.status_code == 201, r.text
@@ -616,7 +621,7 @@ async def test_close_shift_contract_url(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         open_r = await c.post(
             "/api/v1/pos/shifts/open",
-            json={"id": f"sh4b-{s}", "register_id": reg.id, "opening_balance": "100.00"},
+            json={"register_id": reg.id, "opening_balance": "100.00"},
             headers=hdrs,
         )
         assert open_r.status_code == 201, open_r.text

@@ -660,7 +660,7 @@ class CanonicalSalesPostingWriter:
 
         # 9. Persist SalesInvoice
         tech_id, identity_code = await IdentityEngine.allocate_internal(
-            session=self.db,
+            session=session,
             entity_type="SALES_INVOICE",
             tenant_id=company_id,
             company_id=company_id,
