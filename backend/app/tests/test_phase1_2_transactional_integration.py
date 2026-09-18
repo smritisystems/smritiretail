@@ -162,28 +162,38 @@ async def test_tier_2_historical_document_alias_resolution(session_factory):
 
 def test_reject_client_supplied_persistent_id():
     """
-    Verify that schemas prohibit frontend/client-supplied persistent technical IDs
-    across PurchaseOrderCreate, ShiftOpen, StockMovementCreate, and SalesInvoiceCreate.
-    """
-    # 1. PurchaseOrderCreate rejects client id
-    with pytest.raises(ValidationError) as exc_po:
-        PurchaseOrderCreate(
-            id="client-supplied-po-id",
-            order_no="PO-TEST-001",
-            supplier_id="sup-1",
-            items=[
-                PurchaseOrderItemCreate(
-                    product_id="prod-1",
-                    code="ITM-01",
-                    name="Test Item",
-                    quantity=Decimal("5.0"),
-                    cost_price=Decimal("100.00"),
-                )
-            ],
-        )
-    assert "Persistent technical ID cannot be supplied by client" in str(exc_po.value)
+    Verify identity governance across PurchaseOrderCreate, ShiftOpen,
+    StockMovementCreate, and SalesInvoiceCreate.
 
-    # 2. ShiftOpen rejects client id
+    Architecture decision (2026-09-18): PurchaseOrderCreate silently strips
+    a client-supplied 'id' (via normalize_po_create model_validator mode=before)
+    so that Purchase Studio workflows are not broken by strict rejection.
+    ShiftOpen, StockMovementCreate, and SalesInvoiceCreate still REJECT with
+    ValidationError as they have no frontend Studio compatibility constraint.
+    """
+    # 1. PurchaseOrderCreate strips (does NOT raise) client-supplied id.
+    #    The id field is normalised to None by normalize_po_create before Pydantic sees it.
+    po = PurchaseOrderCreate(
+        id="client-supplied-po-id",
+        order_no="PO-TEST-001",
+        supplier_id="sup-1",
+        items=[
+            PurchaseOrderItemCreate(
+                product_id="prod-1",
+                code="ITM-01",
+                name="Test Item",
+                quantity=Decimal("5.0"),
+                cost_price=Decimal("100.00"),
+            )
+        ],
+    )
+    # Governance invariant: server-generated id is always None at schema level
+    assert po.id is None, (
+        "PurchaseOrderCreate must strip client-supplied id to None; "
+        "IdentityEngine allocates the real UUID on the server side."
+    )
+
+    # 2. ShiftOpen still rejects client id
     with pytest.raises(ValidationError) as exc_shift:
         ShiftOpen(
             id="client-supplied-shift-id",
@@ -192,7 +202,7 @@ def test_reject_client_supplied_persistent_id():
         )
     assert "Persistent technical ID cannot be supplied by client" in str(exc_shift.value)
 
-    # 3. StockMovementCreate rejects client id
+    # 3. StockMovementCreate still rejects client id
     with pytest.raises(ValidationError) as exc_sm:
         StockMovementCreate(
             id="client-supplied-movement-id",
@@ -204,7 +214,7 @@ def test_reject_client_supplied_persistent_id():
         )
     assert "Persistent technical ID cannot be supplied by client" in str(exc_sm.value)
 
-    # 4. SalesInvoiceCreate rejects client id
+    # 4. SalesInvoiceCreate still rejects client id
     with pytest.raises(ValidationError) as exc_inv:
         SalesInvoiceCreate(
             id="client-supplied-invoice-id",

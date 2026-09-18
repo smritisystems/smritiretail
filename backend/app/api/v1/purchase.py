@@ -46,6 +46,13 @@ router = APIRouter()
 # ─────────────────────────── Suppliers ───────────────────────────
 
 @router.post(
+    "/suppliers",
+    response_model=SupplierResponse,
+    status_code=201,
+    include_in_schema=False,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.post(
     "/suppliers/",
     response_model=SupplierResponse,
     status_code=201,
@@ -61,6 +68,11 @@ async def create_supplier(
     return await service.create_supplier(req)
 
 
+@router.get(
+    "/suppliers",
+    response_model=List[SupplierResponse],
+    include_in_schema=False,
+)
 @router.get(
     "/suppliers/",
     response_model=List[SupplierResponse],
@@ -93,6 +105,7 @@ async def get_supplier(
 # Contract URLs: when mounted at /api/v1/purchase, /orders/ resolves to /api/v1/purchase/orders/
 # Legacy /purchase-orders/ routes remain for backward compatibility (deprecated at v3.20.0).
 
+@router.get("/orders", response_model=List[PurchaseOrderResponse], include_in_schema=False)
 @router.get("/orders/", response_model=List[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
 async def list_purchase_orders_contract(
     db: AsyncSession = Depends(get_company_db),
@@ -102,6 +115,9 @@ async def list_purchase_orders_contract(
     return await PurchaseService(db, tenant_ctx).list_purchase_orders()
 
 
+@router.post("/orders", response_model=PurchaseOrderResponse, status_code=201,
+             include_in_schema=False,
+             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
 @router.post("/orders/", response_model=PurchaseOrderResponse, status_code=201,
              summary="Create Purchase Order (Contract URL)",
              dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])

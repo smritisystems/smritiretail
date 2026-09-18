@@ -316,10 +316,10 @@ async def clear_db(db_session: AsyncSession):
         "sales_invoices",
         "shifts",
         "cash_registers",
-        "purchase_order_items",
-        "purchase_orders",
         "purchase_receipt_items",
         "purchase_receipts",
+        "purchase_order_items",
+        "purchase_orders",
         "supplier_payments",
         "suppliers",
         "stock_movements",
@@ -357,6 +357,9 @@ async def clear_db(db_session: AsyncSession):
         "company_tax_profiles",
         "company_database_registry",
         "company_center",
+        "smriti_identity_allocation_log",
+        "smriti_identity_alias",
+        "smriti_numbering_registry",
         "smriti_theme_variants",
         "smriti_themes",
         "smriti_workspace_profiles",
@@ -371,7 +374,8 @@ async def clear_db(db_session: AsyncSession):
     await db_session.commit()
     for tbl in delete_order:
         try:
-            await db_session.execute(text(f"TRUNCATE TABLE {tbl} RESTART IDENTITY CASCADE;"))
+            async with db_session.begin_nested():
+                await db_session.execute(text(f"TRUNCATE TABLE {tbl} RESTART IDENTITY CASCADE;"))
         except Exception:
             try:
                 async with db_session.begin_nested():
