@@ -250,6 +250,8 @@ class EWayBillGenerationRequest(BaseModel):
 
 class EWayBillResponse(BaseModel):
     status: str
+    id: str | None = None
+    identity_code: str | None = None
     invoice_id: str
     doc_no: str
     eway_bill_no: str

@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PartyRoleItem(BaseModel):
@@ -67,6 +67,7 @@ class SupplierProfileData(BaseModel):
 
 
 class PartyCreateRequest(BaseModel):
+    id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     party_code: Optional[str] = None
     party_type: str = "ORGANIZATION"
     legal_name: str
@@ -87,6 +88,13 @@ class PartyCreateRequest(BaseModel):
     contacts: List[PartyContactItem] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     metadata_json: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 
 class PartyUpdateRequest(BaseModel):
@@ -112,6 +120,7 @@ class PartyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    identity_code: Optional[str] = None
     party_code: str
     party_type: str
     legal_name: str

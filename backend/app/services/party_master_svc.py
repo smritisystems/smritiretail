@@ -36,6 +36,7 @@ from ..schemas.party_master import (
     LegacyCustomerAdapterResponse,
     LegacySupplierAdapterResponse,
 )
+from .identity.engine import IdentityEngine
 
 
 class UniversalPartyMasterService:
@@ -95,10 +96,15 @@ class UniversalPartyMasterService:
         Atomically creates a Universal Party with multiple roles, operational profiles, addresses, and contacts.
         """
         code = req.party_code or f"PTY-{uuid.uuid4().hex[:8].upper()}"
-        party_id = f"pty_{uuid.uuid4().hex[:12]}"
+        tech_id, identity_code = await IdentityEngine.allocate_internal(
+            session=session,
+            entity_type="PARTY",
+            purpose="ENTITY_CREATION",
+        )
 
         party = Party(
-            id=party_id,
+            id=tech_id,
+            identity_code=identity_code,
             party_code=code,
             party_type=req.party_type,
             legal_name=req.legal_name,
@@ -118,6 +124,41 @@ class UniversalPartyMasterService:
         )
         session.add(party)
         await session.flush()
+
+        # Register external and statutory party aliases via IdentityEngine
+        if party.party_code and party.party_code.strip():
+            await IdentityEngine.register_alias(
+                session=session,
+                entity_type="PARTY",
+                entity_id=party.id,
+                alias_code=party.party_code.strip(),
+                alias_type="HISTORICAL_CODE",
+                source_system="SMRITI",
+                canonical_identity_code=party.identity_code,
+                notes="Universal Party Master code",
+            )
+        if party.gstin and party.gstin.strip():
+            await IdentityEngine.register_alias(
+                session=session,
+                entity_type="PARTY",
+                entity_id=party.id,
+                alias_code=party.gstin.strip().upper(),
+                alias_type="STATUTORY_ID",
+                source_system="GSTN",
+                canonical_identity_code=party.identity_code,
+                notes="Statutory GSTIN registered on party creation",
+            )
+        if party.pan and party.pan.strip():
+            await IdentityEngine.register_alias(
+                session=session,
+                entity_type="PARTY",
+                entity_id=party.id,
+                alias_code=party.pan.strip().upper(),
+                alias_type="STATUTORY_ID",
+                source_system="INCOME_TAX_DEPT",
+                canonical_identity_code=party.identity_code,
+                notes="Statutory PAN registered on party creation",
+            )
 
         # 1. Assign Roles (CUSTOMER, SUPPLIER, DEALER, DISTRIBUTOR, SALESMAN, TRANSPORTER, EMPLOYEE)
         for role_name in req.roles:

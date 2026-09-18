@@ -22,6 +22,8 @@ from sqlalchemy.orm import selectinload
 from ..models.party import Party, PartyRole, CustomerProfile, SupplierProfile
 from ..models.crm import Customer, CustomerGSTRegistration, CustomerGroup
 from ..models.purchase import Supplier
+from ..models.identity_registry import SmritiIdentityAlias
+from .identity.engine import IdentityEngine
 
 
 class UniversalPartyService:
@@ -101,8 +103,17 @@ class UniversalPartyService:
         existing = await cls.get_party_by_code(session, clean_code)
 
         if not existing:
+            tech_id, identity_code = await IdentityEngine.allocate_internal(
+                session=session,
+                entity_type="PARTY",
+                tenant_id=company_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                purpose="ENTITY_CREATION",
+            )
             party = Party(
-                id=f"pty_{uuid.uuid4().hex[:12]}",
+                id=tech_id,
+                identity_code=identity_code,
                 company_id=company_id,
                 branch_id=branch_id,
                 party_code=clean_code,
@@ -120,6 +131,47 @@ class UniversalPartyService:
             )
             session.add(party)
             await session.flush()
+
+            # Register external and statutory party aliases via IdentityEngine
+            if party.party_code and party.party_code.strip():
+                await IdentityEngine.register_alias(
+                    session=session,
+                    entity_type="PARTY",
+                    entity_id=party.id,
+                    alias_code=party.party_code.strip(),
+                    alias_type="HISTORICAL_CODE",
+                    source_system="SMRITI",
+                    canonical_identity_code=party.identity_code,
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    notes="Universal Party code",
+                )
+            if party.gstin and party.gstin.strip():
+                await IdentityEngine.register_alias(
+                    session=session,
+                    entity_type="PARTY",
+                    entity_id=party.id,
+                    alias_code=party.gstin.strip().upper(),
+                    alias_type="STATUTORY_ID",
+                    source_system="GSTN",
+                    canonical_identity_code=party.identity_code,
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    notes="Statutory GSTIN registered on party creation",
+                )
+            if party.pan and party.pan.strip():
+                await IdentityEngine.register_alias(
+                    session=session,
+                    entity_type="PARTY",
+                    entity_id=party.id,
+                    alias_code=party.pan.strip().upper(),
+                    alias_type="STATUTORY_ID",
+                    source_system="INCOME_TAX_DEPT",
+                    canonical_identity_code=party.identity_code,
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    notes="Statutory PAN registered on party creation",
+                )
         else:
             party = existing
             party.legal_name = legal_name

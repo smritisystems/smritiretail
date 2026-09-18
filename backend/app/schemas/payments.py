@@ -15,7 +15,7 @@ Classification: Internal
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 # ============================================================================
@@ -34,6 +34,7 @@ class PaymentTenderItem(BaseModel):
 
 
 class ProcessPaymentRequest(BaseModel):
+    id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     reference_doc_type: str = Field(..., description="SALES_INVOICE, POS_BILL, PURCHASE_BILL, SALES_RETURN")
     reference_doc_id: str
     party_id: Optional[str] = None
@@ -42,6 +43,13 @@ class ProcessPaymentRequest(BaseModel):
     branch_id: str = "BR-001"
     currency: str = "INR"
     auto_allocate: bool = True
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 
 class PaymentAllocationDetail(BaseModel):
