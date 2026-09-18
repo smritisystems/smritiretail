@@ -28,6 +28,41 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.37.0] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 1.3 — External & Partner Integration Identity (FROZEN)
+
+- **External Partner & Statutory Identity Integration (Alembic v1467):**
+  - Added additive `identity_code VARCHAR(100) NULL` column with database-enforced UNIQUE B-tree indexes (`uq_parties_identity_code`, `uq_eway_bills_identity_code`, `indisunique=True`) to `parties` and `eway_bills` across `smritisys`, `smriti001`, and `smriti002`.
+  - Zero PK/FK mutation: 100% of existing technical primary keys (`id`) and relational foreign key constraints preserved without change.
+  - Sovereign business identifiers (`party_code`, `eway_bill_no`, `transaction_no`) remain canonical and are never replaced by `identity_code`.
+- **High-Throughput Settlement Ledger Boundary Architecture:**
+  - Established architectural boundary for `payment_transactions`: as a high-frequency settlement ledger (1,329 rows across databases), `payment_transactions` does NOT receive a human sequential `identity_code` column, eliminating POS checkout row-locking contention on `smriti_numbering_registry`.
+  - Generated technical primary keys strictly via `IdentityEngine.generate_technical_id()` (UUIDv7).
+- **Centralized Alias Architecture & Governance Remediation:**
+  - Implemented `IdentityEngine.register_alias()`: all external and statutory alias records (`SmritiIdentityAlias`) strictly generate their technical primary key `id` and `uuid` via `IdentityEngine.generate_technical_id()` (RFC 9562 UUIDv7), fully abolishing ad-hoc local `uuid.uuid4()` generation.
+  - Granular `source_system` resolution: implemented `_resolve_gateway_source_system()` mapping payment references to external providers (`RAZORPAY`, `STRIPE`, `PAYTM`, `PINE_LABS`, `PHONEPE`, `GOOGLE_PAY`, `BHIM`, `CRED`, `BILLDESK`, `CCAVENUE`, `CASHFREE`) or rails (`UPI`, `CARD`, `NETBANKING`, `WALLET`, `BANK_TRANSFER`), while retaining `GATEWAY` as a deliberate transitional fallback.
+  - Database-enforced idempotency and collision protection: duplicate ingest of identical `(entity_type, alias_code, company_id)` pointing to the same entity reuses the registered alias safely; competing rebind attempts to a different entity raise `ValueError("Identity alias collision")`.
+  - Integrated `IdentityEngine.register_alias()` across `EWayBillService` (statutory NIC EWB numbers), `PaymentsEngine` (gateway transaction references), `PartyMasterService`, and `UnivPartyService` (party codes, GSTIN, PAN).
+- **Prohibition of Client-Supplied IDs (HTTP 422 Enforcement):**
+  - Hardened `PartyCreateRequest` and `ProcessPaymentRequest` schemas with Pydantic `@field_validator` rejecting client-supplied persistent IDs.
+  - Added `identity_code: Optional[str] = None` to `PartyResponse` and `EWayBillResponse`.
+- **Domain & Compliance Service Allocations:**
+  - Integrated `IdentityEngine.allocate_internal()` across `UnivPartyService.create_party()`, `PartyMasterService.create_party()`, and `EWayBillService.generate_eway_bill()`.
+  - Integrated `IdentityEngine.generate_technical_id()` across `PaymentsEngine.process_payment()` and `SalesReturnRefundAdapter`.
+- **Deterministic Historical Backfill & Alias Ingestion:**
+  - Backfilled 195 `parties` (`MST-PRT-00000001` ... `MST-PRT-00000195`) and 64 `eway_bills` (`TAX-EWB-00000001` ... `TAX-EWB-00000064`) across `smritisys`, `smriti001`, and `smriti002` with zero nulls and zero duplicates.
+  - Ingested 934 external aliases into `smriti_identity_alias` (`GSTIN`, `PAN`, `HISTORICAL_CODE`, `NIC_EWAY`, `GATEWAY_REF`).
+  - Audit-logged 259 entries in `smriti_identity_allocation_log` (`purpose="MIGRATION_BACKFILL"`).
+  - Synchronized sequence counters in `smriti_numbering_registry`.
+- **Verification & Parity:**
+  - Automated parity audit script `scripts/verify_phase1_3_parity.py` verified 100% backfill coverage, zero nulls, zero duplicates, and zero dangling FKs across all 3 databases.
+  - Dedicated Pytest suite `app/tests/test_phase1_3_external_integration.py` passed 8/8 tests green (including Test A for UUIDv7 alias IDs and Test B for idempotency/collision protection).
+  - Combined identity regression suite passed 26/26 tests green (Phases 1.0, 1.1, 1.2, 1.3).
+  - Architecture duplication gate passed 11/11 checks with 0 P0/P1 violations.
+  - TypeScript compiler (`npx tsc --noEmit`) clean exit 0.
+
+
 ### [6.36.0] - 2026-09-18
 
 #### SMRITI Unified Identity Phase 1.2 — Transactional Document & Ledger Identity Integration

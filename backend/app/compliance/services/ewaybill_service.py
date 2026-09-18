@@ -36,6 +36,8 @@ from app.compliance.schemas.compliance import (
 )
 from app.models.distribution import EWayBill
 from app.core.config import settings
+from app.services.identity.engine import IdentityEngine
+from app.models.identity_registry import SmritiIdentityAlias
 
 
 class EWayBillService:
@@ -156,8 +158,19 @@ class EWayBillService:
         ewb_record = existing_res.scalars().first()
 
         if not ewb_record:
+            company_id = self.tenant_ctx.company_id if self.tenant_ctx else None
+            branch_id = self.tenant_ctx.branch_id if self.tenant_ctx else None
+            tech_id, identity_code = await IdentityEngine.allocate_internal(
+                session=self.db,
+                entity_type="EWAY_BILL",
+                tenant_id=company_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                purpose="ENTITY_CREATION",
+            )
             ewb_record = EWayBill(
-                id=f"EWB-{uuid.uuid4().hex[:12].upper()}",
+                id=tech_id,
+                identity_code=identity_code,
                 eway_bill_no=result["eway_bill_no"],
                 document_type=request.doc_type or "INVOICE",
                 document_id=request.invoice_id,
@@ -200,8 +213,8 @@ class EWayBillService:
                 valid_from=ewb_date_dt,
                 valid_until=valid_upto_dt,
                 status="GENERATED",
-                company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
-                branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
+                company_id=company_id,
+                branch_id=branch_id,
             )
             self.db.add(ewb_record)
         else:
@@ -217,6 +230,24 @@ class EWayBillService:
             ewb_record.part_b_status = "UPDATED" if result.get("vehicle_no") else "PENDING"
             if request.irn:
                 ewb_record.irn = request.irn
+
+        # Ingest statutory government eway_bill_no into alias registry via IdentityEngine
+        if result.get("eway_bill_no"):
+            company_id = self.tenant_ctx.company_id if self.tenant_ctx else None
+            branch_id = self.tenant_ctx.branch_id if self.tenant_ctx else None
+            await IdentityEngine.register_alias(
+                session=self.db,
+                entity_type="EWAY_BILL",
+                entity_id=ewb_record.id,
+                alias_code=str(result["eway_bill_no"]).strip().upper(),
+                alias_type="STATUTORY_ID",
+                source_system="NIC_EWAY",
+                canonical_identity_code=ewb_record.identity_code,
+                company_id=company_id,
+                branch_id=branch_id,
+                notes="Statutory E-Way Bill Number generated via NIC connector",
+                created_by="NIC_CONNECTOR",
+            )
 
         # Record Audit Log
         audit_log = ComplianceAuditLog(
@@ -235,6 +266,8 @@ class EWayBillService:
 
         return EWayBillResponse(
             status="SUCCESS",
+            id=ewb_record.id,
+            identity_code=ewb_record.identity_code,
             invoice_id=request.invoice_id,
             doc_no=request.doc_no,
             eway_bill_no=result["eway_bill_no"],

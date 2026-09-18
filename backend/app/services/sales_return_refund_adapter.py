@@ -25,6 +25,7 @@ from ..models.payment_ledger import PaymentTransaction, PaymentAllocation
 from ..models.crm import Customer
 from ..services.sales_return_policy import ResolvedSalesReturnPolicy
 from ..services.compliance_audit import ComplianceAuditService
+from ..services.identity.engine import IdentityEngine
 
 
 class SalesReturnRefundAdapter:
@@ -115,7 +116,7 @@ class SalesReturnRefundAdapter:
             tender_type = mode
 
         now = datetime.now(timezone.utc)
-        tx_id = f"pay_tx_{uuid.uuid4().hex[:12]}"
+        tx_id = IdentityEngine.generate_technical_id()
         tx_no = f"REF-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
         refund_tx = PaymentTransaction(

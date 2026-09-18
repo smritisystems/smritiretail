@@ -130,3 +130,74 @@ class IdentityEngine:
             company_id=company_id,
             branch_id=branch_id,
         )
+
+    @classmethod
+    async def register_alias(
+        cls,
+        session: AsyncSession,
+        entity_type: str,
+        entity_id: str,
+        alias_code: str,
+        alias_type: str = "STATUTORY_ID",
+        source_system: str = "EXTERNAL",
+        canonical_identity_code: Optional[str] = None,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        notes: Optional[str] = None,
+        created_by: str = "SYSTEM",
+    ):
+        """
+        Atomically and idempotently register an external, statutory, or partner identifier in smriti_identity_alias.
+        - Primary key `id` and `uuid` are generated strictly via IdentityEngine.generate_technical_id() (RFC 9562 UUIDv7).
+        - Idempotency & Collision Protection:
+          If an alias for (entity_type, alias_code, company_id) already exists:
+            - If it points to the SAME canonical entity_id: reuses and returns the existing alias (idempotent retry safe).
+            - If it points to a DIFFERENT canonical entity_id: raises ValueError to prevent competing identity mappings.
+        """
+        from sqlalchemy import select
+        from app.models.identity_registry import SmritiIdentityAlias
+
+        clean_code = str(alias_code).strip()
+        if not clean_code:
+            raise ValueError("alias_code cannot be empty")
+
+        stmt = select(SmritiIdentityAlias).where(
+            SmritiIdentityAlias.entity_type == entity_type,
+            SmritiIdentityAlias.alias_code == clean_code,
+        )
+        if company_id:
+            stmt = stmt.where(SmritiIdentityAlias.company_id == company_id)
+        else:
+            stmt = stmt.where(SmritiIdentityAlias.company_id.is_(None))
+
+        res = await session.execute(stmt)
+        existing = res.scalars().first()
+
+        if existing:
+            if existing.entity_id != entity_id:
+                raise ValueError(
+                    f"Identity alias collision: alias '{clean_code}' for {entity_type} is already bound to entity {existing.entity_id}, cannot rebind to {entity_id}"
+                )
+            return existing
+
+        alias_tech_id = cls.generate_technical_id()
+        alias = SmritiIdentityAlias(
+            id=alias_tech_id,
+            uuid=alias_tech_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            canonical_identity_code=canonical_identity_code,
+            alias_code=clean_code,
+            alias_type=alias_type,
+            source_system=source_system,
+            company_id=company_id,
+            branch_id=branch_id,
+            notes=notes,
+            created_by=created_by,
+            is_active=True,
+            is_deleted=False,
+            version=1,
+        )
+        session.add(alias)
+        return alias
+

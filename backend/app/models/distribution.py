@@ -220,6 +220,7 @@ class EWayBill(BaseEntity):
 
     # Core Identifiers & Document Linkage
     eway_bill_no = Column(String(50), nullable=True, unique=True, index=True)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     document_type = Column(String(50), nullable=True, default="INVOICE")  # INVOICE, DELIVERY_CHALLAN, CREDIT_NOTE
     document_id = Column(String(50), nullable=True, index=True)
     document_no = Column(String(50), nullable=True)

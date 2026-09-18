@@ -28,6 +28,7 @@ class Party(BaseEntity):
     __tablename__ = "parties"
 
     party_code = Column(String(50), nullable=False, unique=True, index=True)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     party_type = Column(String(30), nullable=False, default="ORGANIZATION")  # INDIVIDUAL, ORGANIZATION
     legal_name = Column(String(255), nullable=False)
     trade_name = Column(String(255), nullable=True)
