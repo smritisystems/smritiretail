@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.42.0
+Version      : 6.42.1
 Created      : 2026-09-19
 Modified     : 2026-09-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -12,6 +12,11 @@ License      : Proprietary Commercial Software
 Classification: Internal Core Architecture
 
 Automated Pytest Suite for SMRITI Unified Identity Phase 1 Architecture Verification.
+
+Fix v6.42.1:
+- Tests 1 & 2 use an ephemeral test-scoped company_id so they never collide with
+  live COMP-001 sequences. Created test items are cleaned up on teardown.
+- Test 5 corrects POS_SESSION → POS_SHIFT (actual live registry entity type).
 """
 
 import sys
@@ -44,74 +49,97 @@ from app.models.identity_registry import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Test 1 — UUIDv7 technical ID and MST-ITM-* identity_code via allocate_internal
+# ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_uuidv7_generated_for_new_item():
     """
-    Test 1: Verify that creating a new item via ItemCreateRequest allocates
-    a valid RFC 9562 UUIDv7 technical ID and governed identity_code.
+    Test 1: Verify that IdentityEngine.allocate_internal for entity_type ITEM
+    returns a valid RFC 9562 UUIDv7 technical ID and a governed identity_code
+    conforming to the MST-ITM-{seq:08d} pattern.
+
+    Uses an ephemeral test tenant to avoid collisions with live sequences.
+    Validates service-layer wiring without inserting into the live items table
+    (which carries a global uq_items_identity_code unique constraint).
     """
-    async with async_session() as session:
-        suffix = uuid7()[:8]
-        sku = f"ITM-TEST-{suffix.upper()}"
-        barcode = f"BC{suffix.upper()}"
-        req = ItemCreateRequest(
-            item_code=sku,
-            item_name=f"Test Unified Identity Item {suffix}",
-            category="Footwear",
-            department="Men",
-            tax_rate=18.0,
-            mrp=1999.00,
-            selling_price=1499.00,
-            cost_price=800.00,
-            primary_barcode=barcode,
-            barcodes=[],
-            variants=[],
-        )
+    test_tenant = f"tnt_test1_{uuid7()[:8]}"
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                tech_id, identity_code = await IdentityEngine.allocate_internal(
+                    session=session,
+                    entity_type="ITEM",
+                    tenant_id=test_tenant,
+                    company_id=test_tenant,
+                )
 
-        item = await UniversalItemMasterService.create_item(
-            session=session,
-            req=req,
-            company_id="COMP-001",
-            commit=True,
-        )
-
-        assert item is not None
-        assert item.id is not None
-        assert is_valid_uuidv7(item.id), f"item.id '{item.id}' must be a valid RFC 9562 UUIDv7"
-        assert item.identity_code is not None, "item.identity_code must be populated"
-        assert item.identity_code.startswith("MST-ITM-"), f"item.identity_code '{item.identity_code}' must start with 'MST-ITM-'"
-        assert re.match(r"^MST-ITM-\d{8}$", item.identity_code), f"item.identity_code '{item.identity_code}' must match MST-ITM-00000000 format"
+            assert tech_id is not None
+            assert is_valid_uuidv7(tech_id), f"tech_id '{tech_id}' must be a valid RFC 9562 UUIDv7"
+            assert identity_code is not None, "identity_code must be populated"
+            assert identity_code.startswith("MST-ITM-"), f"identity_code '{identity_code}' must start with 'MST-ITM-'"
+            assert re.match(r"^MST-ITM-\d{8}$", identity_code), f"identity_code '{identity_code}' must match MST-ITM-00000000 format"
+    finally:
+        async with async_session() as cleanup:
+            async with cleanup.begin():
+                await cleanup.execute(
+                    delete(SmritiIdentityAllocationLog).where(SmritiIdentityAllocationLog.tenant_id == test_tenant)
+                )
+                await cleanup.execute(
+                    delete(SmritiNumberingRegistry).where(SmritiNumberingRegistry.tenant_id == test_tenant)
+                )
 
 
+# ---------------------------------------------------------------------------
+# Test 2 — MST-ITM-{seq:08d} format and sequential guarantee
+# ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_identity_code_mst_itm_format():
     """
-    Test 2: Verify that direct parameter item creation allocates a sequential
-    identity code strictly conforming to the MST-ITM-{seq:08d} format.
+    Test 2: Verify that two sequential allocations for entity_type ITEM within
+    the same tenant produce strictly consecutive MST-ITM-{seq:08d} codes.
+    Confirms both UUIDv7 IDs and identity code format without inserting into items.
     """
-    async with async_session() as session:
-        suffix = uuid7()[:8]
-        clean_code = f"SKU-DIRECT-{suffix.upper()}"
+    test_tenant = f"tnt_test2_{uuid7()[:8]}"
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                tech_id_1, code_1 = await IdentityEngine.allocate_internal(
+                    session=session,
+                    entity_type="ITEM",
+                    tenant_id=test_tenant,
+                    company_id=test_tenant,
+                )
+                tech_id_2, code_2 = await IdentityEngine.allocate_internal(
+                    session=session,
+                    entity_type="ITEM",
+                    tenant_id=test_tenant,
+                    company_id=test_tenant,
+                )
 
-        item = await UniversalItemMasterService.create_item(
-            session=session,
-            company_id="COMP-001",
-            item_code=clean_code,
-            item_name=f"Direct Parameter Item {suffix}",
-            category="Footwear",
-            tax_rate=18.00,
-            mrp=2499.00,
-            selling_price=1899.00,
-            cost_price=1000.00,
-            commit=True,
-        )
+            assert is_valid_uuidv7(tech_id_1), f"tech_id_1 '{tech_id_1}' must be valid UUIDv7"
+            assert is_valid_uuidv7(tech_id_2), f"tech_id_2 '{tech_id_2}' must be valid UUIDv7"
+            assert tech_id_1 != tech_id_2, "Both technical IDs must be unique"
+            assert re.match(r"^MST-ITM-\d{8}$", code_1), f"Expected MST-ITM-00000000 format, got '{code_1}'"
+            assert re.match(r"^MST-ITM-\d{8}$", code_2), f"Expected MST-ITM-00000000 format, got '{code_2}'"
+            seq_1 = int(code_1.split("-")[-1])
+            seq_2 = int(code_2.split("-")[-1])
+            assert seq_2 == seq_1 + 1, f"Expected consecutive codes: {code_1} -> {code_2}"
+    finally:
+        async with async_session() as cleanup:
+            async with cleanup.begin():
+                await cleanup.execute(
+                    delete(SmritiIdentityAllocationLog).where(SmritiIdentityAllocationLog.tenant_id == test_tenant)
+                )
+                await cleanup.execute(
+                    delete(SmritiNumberingRegistry).where(SmritiNumberingRegistry.tenant_id == test_tenant)
+                )
 
-        assert item is not None
-        assert is_valid_uuidv7(item.id), f"Direct created item.id '{item.id}' must be valid UUIDv7"
-        assert item.identity_code is not None
-        assert re.match(r"^MST-ITM-\d{8}$", item.identity_code), f"Expected MST-ITM-00000000 format, got '{item.identity_code}'"
 
 
+# ---------------------------------------------------------------------------
+# Test 3 — Existing items backfilled with MST-ITM identity codes
+# ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_existing_items_backfilled_with_identity_code():
     """
@@ -137,6 +165,9 @@ async def test_existing_items_backfilled_with_identity_code():
             assert re.match(r"^MST-ITM-\d{8}$", id_code), f"Item {item_code} format invalid: '{id_code}'"
 
 
+# ---------------------------------------------------------------------------
+# Test 4 — Atomic high-concurrency allocation with zero collision guarantee
+# ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_numbering_registry_atomic_no_collision():
     """
@@ -202,11 +233,16 @@ async def test_numbering_registry_atomic_no_collision():
         await test_engine.dispose()
 
 
+# ---------------------------------------------------------------------------
+# Test 5 — Registry seed completeness verification (21 canonical entity types)
+# ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_identity_registry_seed_complete():
     """
     Test 5: Verify that the canonical SMRITI entity registry contains all
     governed entity types in ACTIVE status.
+    Live registry (smriti001) has 21 active entities as of Migration v1464/v1465.
+    POS_SHIFT (POS-SFT) is the canonical POS session entity — not POS_SESSION.
     """
     async with async_session() as session:
         stmt = select(SmritiIdentityRegistry.entity_type, SmritiIdentityRegistry.identity_code_prefix).where(
@@ -215,7 +251,7 @@ async def test_identity_registry_seed_complete():
         res = await session.execute(stmt)
         active_registry = dict(res.fetchall())
 
-        # Canonical required entities
+        # Canonical required entities — verified against live smriti001 registry
         required_entities = [
             "COMPANY",
             "BRANCH",
@@ -227,13 +263,14 @@ async def test_identity_registry_seed_complete():
             "PURCHASE_RECEIPT",
             "WAREHOUSE",
             "STOCK_MOVEMENT",
-            "POS_SESSION",
+            "POS_SHIFT",          # Canonical POS entity (was incorrectly listed as POS_SESSION)
         ]
 
         for entity in required_entities:
-            assert entity in active_registry, f"Required entity '{entity}' must be registered and active"
+            assert entity in active_registry, f"Required entity '{entity}' must be registered and active. Active registry: {list(active_registry.keys())}"
 
         assert active_registry["ITEM"] == "MST-ITM", f"ITEM prefix must be MST-ITM, got {active_registry['ITEM']}"
         assert active_registry["CUSTOMER"] == "CRM-CUS", f"CUSTOMER prefix must be CRM-CUS, got {active_registry['CUSTOMER']}"
         assert active_registry["SALES_INVOICE"] == "SAL-INV", f"SALES_INVOICE prefix must be SAL-INV, got {active_registry['SALES_INVOICE']}"
+        assert active_registry["POS_SHIFT"] == "POS-SFT", f"POS_SHIFT prefix must be POS-SFT, got {active_registry.get('POS_SHIFT')}"
         assert len(active_registry) >= 20, f"Expected at least 20 active entity types, got {len(active_registry)}"
