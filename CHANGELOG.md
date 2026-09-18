@@ -28,6 +28,34 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.38.0] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 1.4 — Master Identity Index & Universal Cross-Domain Entity Resolver
+
+- **Universal Multi-Tier Cross-Domain Resolver (`resolver.py`):**
+  - **Tier 1 (Governed Identity Code O(1)):** Instant prefix-routed resolution via `smriti_identity_registry` (`MST-PRT-*`, `TAX-EWB-*`, `SAL-INV-*`, `MST-ITM-*`, `CRM-CUS-*`, `ORG-CMP-*`, `PUR-SUP-*`).
+  - **Tier 2 (Case-Insensitive External Aliases):** Polymorphic bridge lookup across GSTIN, PAN, NIC E-Way Bill numbers, payment gateway references, Bank UTRs, and legacy import identifiers, backed by PostgreSQL functional index `LOWER(alias_code)`.
+  - **Tier 3 (Unscoped Technical UUIDv7):** Fast reverse resolution from raw technical IDs (`uuid` or `id`) via `smriti_identity_allocation_log(canonical_id)` and fallback core table scans.
+  - **Tier 4 (Sovereign Business Identifiers):** Scoped fallback resolution for commercial `party_code`, statutory `eway_bill_no`, invoice numbers, barcodes, SKUs, and legacy numbers.
+- **In-Memory Tenant-Isolated LRU/TTL Cache (`cache.py`):**
+  - Sub-millisecond identity resolution cache (`IdentityResolutionCache`) with tenant isolation, TTL expiration, least-recently-used eviction tracking, hit/miss metrics, and automated invalidation on alias or entity mutations.
+- **Batch Resolution Engine (`resolve_batch`):**
+  - High-performance resolution for POS billing carts, bulk CSV imports, and dispatch runs, resolving heterogeneous identifiers in a single round-trip with grouped domain queries.
+- **Unified Identity Envelope Hydration (`get_identity_envelope`):**
+  - Complete 360-degree identity envelope aggregating canonical technical UUID, governed identity code, primary business code, entity status, associated aliases, allocation audit history, and deep navigation links.
+- **Omnichannel Cross-Domain Search (`search_entities`):**
+  - Prefix and partial matching across all registered entity domains, powering universal lookup dialogs (`F2 Browse`, `UniversalBrowseEngine`).
+- **Frontend F2 Lookup Integration:**
+  - Integrated `searchMasterIdentity()` adapter and `MasterIdentityMatch` interface in `src/services/f2LookupRegistry.ts` connecting client UI to the Master Identity Index.
+- **Ledger Boundary Registration & Schema Hardening (Alembic `v1468`):**
+  - Registered `PAYMENT_TRANSACTION` (`FIN-PAY`) and `STOCK_MOVEMENT` (`INV-MOV`) as governed ledger boundary tables (`identity_code_enabled=False`, `system_id_strategy='UUIDv7'`).
+  - Dropped `NOT NULL` constraint on `smriti_identity_registry.identity_code_field` across all 3 databases (`smritisys`, `smriti001`, `smriti002`) to properly support tables without sequential identity codes.
+  - Created indexes `ix_smriti_alloc_log_canonical_id` and `ix_smriti_alias_lower_code`.
+- **Verification & Parity:**
+  - Automated parity audit script `scripts/verify_phase1_4_parity.py` verified 100% schema, constraint, index, and lineage parity across `smritisys`, `smriti001`, and `smriti002`.
+  - Dedicated Pytest suite `app/tests/test_phase1_4_master_resolver.py` passed 8/8 tests green in 43.68s.
+  - Combined full identity regression suite passed 34/34 tests green.
+
 ### [6.37.0] - 2026-09-18
 
 #### SMRITI Unified Identity Phase 1.3 — External & Partner Integration Identity (FROZEN)

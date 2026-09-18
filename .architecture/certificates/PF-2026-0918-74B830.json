@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0918-74B830",
+  "entity": "IDENTITY",
+  "capability": "UNIFIED_IDENTITY_CONTROL_PLANE",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "cache.py",
+  "target_file_path": "backend/app/services/identity/cache.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/identity/engine.py",
+  "content_hash": "f867f077effe820585a47d654da59267bd298fd5b9f26506c7dc25a24a4d7012",
+  "git_commit": "c7f1c9d71c1585321de15ea258c251a935cfb582",
+  "issued_at": "2026-09-18T06:47:20.588505+00:00",
+  "expires_at": "2026-09-25T06:47:20.588505+00:00",
+  "status": "ISSUED"
+}

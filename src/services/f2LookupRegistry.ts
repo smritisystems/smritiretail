@@ -611,3 +611,39 @@ export function hasLookupPermission(entity: LookupEntity, userRole: string): boo
   }
   return entry.permissions.some((permission) => permission.toUpperCase() === normalizedRole);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 1.4: MASTER IDENTITY CROSS-DOMAIN SEARCH INTEGRATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface MasterIdentityMatch {
+  entity_type: string;
+  entity_id: string;
+  identity_code?: string | null;
+  match_type: string;
+  matched_value: string;
+  source_system: string;
+  deep_link: string;
+}
+
+export async function searchMasterIdentity(
+  query: string,
+  entityTypes?: string[],
+  limit: number = 20
+): Promise<MasterIdentityMatch[]> {
+  try {
+    const { apiFetchV1 } = await import("../lib/apiFetchV1.ts");
+    const res = await apiFetchV1<{ query: string; total_matches: number; matches: MasterIdentityMatch[] }>(
+      "/identity/search",
+      {
+        method: "POST",
+        body: { query, entity_types: entityTypes, limit },
+      }
+    );
+    return res?.matches ?? [];
+  } catch (err) {
+    console.warn("[f2LookupRegistry] searchMasterIdentity failed:", err);
+    return [];
+  }
+}
+

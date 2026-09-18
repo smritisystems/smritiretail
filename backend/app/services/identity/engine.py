@@ -14,7 +14,7 @@ Classification: Internal
 
 # smriti_capability(entity="IDENTITY", capability="UNIFIED_IDENTITY_CONTROL_PLANE", role="CANONICAL")
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from .uuid7 import uuid7, is_valid_uuidv7
 from .code_generator import IdentityCodeGenerator
@@ -199,5 +199,78 @@ class IdentityEngine:
             version=1,
         )
         session.add(alias)
+
+        # Invalidate resolution cache for this alias
+        from .cache import get_identity_cache
+        await get_identity_cache().invalidate(clean_code, company_id=company_id)
+
         return alias
+
+    @staticmethod
+    async def resolve_batch(
+        session: AsyncSession,
+        identifiers: List[str],
+        entity_type_hint: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        use_cache: bool = True,
+    ) -> Dict[str, IdentityResolutionResult]:
+        """Batch resolve up to 100 identifiers across architectural tiers."""
+        return await IdentityResolver.resolve_batch(
+            session=session,
+            identifiers=identifiers,
+            entity_type_hint=entity_type_hint,
+            tenant_id=tenant_id,
+            company_id=company_id,
+            branch_id=branch_id,
+            use_cache=use_cache,
+        )
+
+    @staticmethod
+    async def get_identity_envelope(
+        session: AsyncSession,
+        identifier: str,
+        company_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Hydrate full Identity Envelope with active aliases, audit trail, and UI deep link."""
+        return await IdentityResolver.get_identity_envelope(
+            session=session,
+            identifier=identifier,
+            company_id=company_id,
+            tenant_id=tenant_id,
+        )
+
+    @staticmethod
+    async def search_entities(
+        session: AsyncSession,
+        query: str,
+        entity_types: Optional[List[str]] = None,
+        company_id: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Omnichannel cross-domain entity discovery matching across codes and aliases."""
+        return await IdentityResolver.search_entities(
+            session=session,
+            query=query,
+            entity_types=entity_types,
+            company_id=company_id,
+            limit=limit,
+        )
+
+    @staticmethod
+    async def invalidate_cache(
+        identifier: str,
+        tenant_id: Optional[str] = None,
+        company_id: Optional[str] = None,
+    ) -> bool:
+        """Explicitly purge an identifier from the resolution cache."""
+        from .cache import get_identity_cache
+        return await get_identity_cache().invalidate(
+            identifier=identifier,
+            tenant_id=tenant_id,
+            company_id=company_id,
+        )
+
 

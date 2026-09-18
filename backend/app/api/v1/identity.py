@@ -31,11 +31,19 @@ from ...schemas.identity import (
     IdentityResolveResponse,
     IdentityValidateRequest,
     IdentityValidateResponse,
+    IdentityEnvelopeResponse,
+    IdentityBatchResolveRequest,
+    IdentityBatchResolveResponse,
+    IdentitySearchRequest,
+    IdentitySearchResponse,
+    IdentitySearchItem,
+    IdentityCacheStatsResponse,
 )
 from ...services.identity import (
     IdentityEngine,
     IdentityValidator,
 )
+from ...services.identity.cache import get_identity_cache
 
 router = APIRouter()
 
@@ -197,3 +205,111 @@ async def list_numbering_series(
     stmt = stmt.order_by(SmritiNumberingRegistry.group_code, SmritiNumberingRegistry.entity_type)
     res = await db.execute(stmt)
     return res.scalars().all()
+
+
+@router.post(
+    "/resolve-batch",
+    response_model=IdentityBatchResolveResponse,
+    summary="Batch resolve up to 100 identifiers across architectural tiers",
+)
+async def resolve_batch_identifiers(
+    req: IdentityBatchResolveRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    cid = req.company_id or getattr(tenant_ctx, "company_id", None)
+    bid = req.branch_id or getattr(tenant_ctx, "branch_id", None)
+    tid = getattr(tenant_ctx, "tenant_id", None)
+
+    batch_map = await IdentityEngine.resolve_batch(
+        session=db,
+        identifiers=req.identifiers,
+        entity_type_hint=req.entity_type_hint,
+        tenant_id=tid,
+        company_id=cid,
+        branch_id=bid,
+        use_cache=req.use_cache,
+    )
+
+    serialized_results = {
+        k: IdentityResolveResponse(**v.to_dict()) for k, v in batch_map.items()
+    }
+    resolved_count = sum(1 for v in batch_map.values() if v.found)
+
+    return IdentityBatchResolveResponse(
+        results=serialized_results,
+        total_requested=len(req.identifiers),
+        total_resolved=resolved_count,
+    )
+
+
+@router.get(
+    "/envelope/{identifier}",
+    response_model=IdentityEnvelopeResponse,
+    summary="Hydrate full Identity Envelope with active aliases, audit trail, and UI deep link",
+)
+async def get_identity_envelope(
+    identifier: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    cid = getattr(tenant_ctx, "company_id", None)
+    tid = getattr(tenant_ctx, "tenant_id", None)
+
+    envelope = await IdentityEngine.get_identity_envelope(
+        session=db,
+        identifier=identifier,
+        company_id=cid,
+        tenant_id=tid,
+    )
+    if not envelope:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Identifier '{identifier}' could not be resolved to a canonical entity.",
+        )
+    return IdentityEnvelopeResponse(**envelope)
+
+
+@router.post(
+    "/search",
+    response_model=IdentitySearchResponse,
+    summary="Omnichannel cross-domain entity discovery matching across codes and aliases",
+)
+async def search_entities(
+    req: IdentitySearchRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    cid = req.company_id or getattr(tenant_ctx, "company_id", None)
+
+    raw_matches = await IdentityEngine.search_entities(
+        session=db,
+        query=req.query,
+        entity_types=req.entity_types,
+        company_id=cid,
+        limit=req.limit,
+    )
+
+    items = [IdentitySearchItem(**m) for m in raw_matches]
+    return IdentitySearchResponse(
+        query=req.query,
+        total_matches=len(items),
+        matches=items,
+    )
+
+
+@router.get(
+    "/cache/stats",
+    response_model=IdentityCacheStatsResponse,
+    summary="Get in-memory resolution cache diagnostic and telemetry metrics",
+    dependencies=[Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER))],
+)
+async def get_cache_stats(
+    current_user: User = Depends(get_current_user),
+):
+    stats = await get_identity_cache().get_stats()
+    return IdentityCacheStatsResponse(**stats)
+
