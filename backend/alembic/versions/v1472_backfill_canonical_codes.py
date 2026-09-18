@@ -101,6 +101,10 @@ def _build_canonical_map() -> dict:
 
 def upgrade() -> None:
     conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if "system_parameters" not in inspector.get_table_names():
+        return
+
     mapping = _build_canonical_map()
     if not mapping:
         print("WARNING: canonical_mapping.json not found. Skipping backfill.")
@@ -131,4 +135,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if "system_parameters" not in inspector.get_table_names():
+        return
     conn.execute(sa.text("UPDATE system_parameters SET canonical_code = NULL"))

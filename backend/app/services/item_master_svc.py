@@ -21,6 +21,8 @@ from sqlalchemy import select, or_, and_, text, case, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from .identity.engine import IdentityEngine
+
 from ..models.item_master import (
     Item,
     ItemVariant,
@@ -132,11 +134,18 @@ class UniversalItemMasterService:
         """
         if req is not None:
             sku = req.item_code or f"ITM-{uuid.uuid4().hex[:8].upper()}"
-            item_id = f"itm_{uuid.uuid4().hex[:12]}"
             if await cls.get_item_by_code(session, sku):
                 raise ValueError(
                     f"Item code '{sku}' already exists; item identity and details are immutable after creation"
                 )
+
+            effective_company_id = company_id or getattr(req, "company_id", None) or "COMP-001"
+            item_id, item_identity_code = await IdentityEngine.allocate_internal(
+                session=session,
+                entity_type="ITEM",
+                tenant_id=effective_company_id,
+                company_id=effective_company_id,
+            )
 
             requested_barcodes = [bc.barcode.strip().upper() for bc in req.barcodes]
             requested_barcodes.extend(
@@ -213,6 +222,9 @@ class UniversalItemMasterService:
 
             item = Item(
                 id=item_id,
+                identity_code=item_identity_code,
+                company_id=effective_company_id,
+                branch_id=branch_id,
                 item_code=sku,
                 item_name=req.item_name,
                 item_type=req.item_type,
@@ -380,9 +392,18 @@ class UniversalItemMasterService:
         normalized_size = await CatalogDimensionValidator.validate_and_normalize_dimension("size", raw_size, strict=True) if raw_size else None
         normalized_vendor = await CatalogDimensionValidator.validate_and_normalize_dimension("vendor_code", raw_vendor, strict=True) if raw_vendor else None
 
+        effective_company_id = company_id or "COMP-001"
+        tech_id, item_identity_code = await IdentityEngine.allocate_internal(
+            session=session,
+            entity_type="ITEM",
+            tenant_id=effective_company_id,
+            company_id=effective_company_id,
+        )
+
         item = Item(
-            id=f"itm_{uuid.uuid4().hex[:12]}",
-            company_id=company_id or "COMP-001",
+            id=tech_id,
+            identity_code=item_identity_code,
+            company_id=effective_company_id,
             branch_id=branch_id,
             item_code=clean_code,
             item_name=item_name or clean_code,
