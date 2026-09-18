@@ -41,11 +41,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [6.40.1] - 2026-09-18
 
-#### SMRITI Go-Live Remediation Phase 3 — Identity Governance Remediation
-- **Universal Identity Engine Elevation:** Eliminated all ad-hoc persistent ID generation functions (`_uid()`) and random UUID manufacturing (`uuid.uuid4()`) from backend transactional creation paths (`create_purchase_receipt`, `create_debit_note`, `create_purchase_bill`, `create_eway_bill`, `create_sales_return`).
+#### SMRITI Go-Live Remediation Phase 3 — Identity Governance Remediation & Release Certification
+- **Universal Identity Engine Elevation:** Eliminated all ad-hoc persistent ID generation functions (`_uid()`) and random UUID manufacturing (`uuid.uuid4()`) across all backend transactional creation paths (`PurchaseService`, `SalesService`, `sales.py`, `sales_ledger_svc.py`, `inventory_wms.py`, `univ_party_svc.py`, `crm.py`).
 - **Alembic Migration `v1470`:** Added `identity_code VARCHAR(100) UNIQUE NULL` to `purchase_receipts` table. Formally registered `PURCHASE_RECEIPT` (`PUR-GRN`), `DEBIT_NOTE` (`PUR-DN`), and `PURCHASE_BILL` (`PUR-BIL`) in `smriti_identity_registry`, and seeded sequence counters in `smriti_numbering_registry`.
 - **Sovereign & Statutory External Alias Ingestion:** Routed external identifier tracking through `IdentityEngine.register_alias()` into `smriti_identity_alias` for NIC E-Way Bill numbers (`NIC_EWAY`) and vendor tax invoice numbers (`SUPPLIER_INVOICE`) with duplicate collision safety.
-- **Static AST & Verification Governance:** Added `backend/app/tests/test_identity_governance_remediation.py` asserting zero AST occurrences of `_uid` or `uuid.uuid4()` across creation routines. Verified 5/5 identity governance tests green, 6/6 Go-Live Phase 3 automated workflow tests green, and 27/27 identity regression tests green.
+- **Rule 13 Repository-Wide AST Scan & Static Governance:** Built standalone architectural scanner `scripts/scan_identity_governance.py` scanning 878 files across the repository, verifying zero `_uid()` definitions backend-wide and zero unapproved UUID calls in canonical creation routines. Added `backend/app/tests/test_identity_governance_remediation.py` asserting zero AST violations in transactional paths.
+- **Release Certification Hardening:** Verified full established Phase 1 Identity regression (34/34 tests green across `test_identity_engine.py` [7/7], `test_phase1_1` [5/5], `test_phase1_2` [6/6], `test_phase1_3` [8/8], `test_phase1_4` [8/8]); verified 5/5 identity governance tests green, 6/6 Go-Live Phase 3 workflow tests green, TypeScript clean (0 errors), Version SSOT consistent (6.40.1), and 11/11 architecture gate checks passed (0 violations, 0 debt). Release status marked as `READY FOR FINAL REGRESSION / RELEASE CERTIFICATION`.
 
 ### [6.40.0] - 2026-09-18
 

@@ -200,7 +200,7 @@ class UniversalPartyService:
             existing_role = (await session.execute(existing_role_stmt)).scalar_one_or_none()
             if not existing_role:
                 new_role = PartyRole(
-                    id=f"ptyr_{uuid.uuid4().hex[:12]}",
+                    id=IdentityEngine.generate_technical_id(),
                     company_id=company_id,
                     branch_id=branch_id,
                     party_id=party.id,
@@ -220,7 +220,7 @@ class UniversalPartyService:
             cust_prof = (await session.execute(prof_stmt)).scalar_one_or_none()
             if not cust_prof:
                 cust_prof = CustomerProfile(
-                    id=f"cprof_{uuid.uuid4().hex[:12]}",
+                    id=IdentityEngine.generate_technical_id(),
                     company_id=company_id,
                     branch_id=branch_id,
                     party_id=party.id,
@@ -245,7 +245,7 @@ class UniversalPartyService:
             supp_prof = (await session.execute(supp_prof_stmt)).scalar_one_or_none()
             if not supp_prof:
                 supp_prof = SupplierProfile(
-                    id=f"sprof_{uuid.uuid4().hex[:12]}",
+                    id=IdentityEngine.generate_technical_id(),
                     company_id=company_id,
                     branch_id=branch_id,
                     party_id=party.id,
@@ -345,7 +345,7 @@ class UniversalPartyService:
 
         if not party:
             party = Party(
-                id=f"pty_{uuid.uuid4().hex[:12]}",
+                id=IdentityEngine.generate_technical_id(),
                 party_code=code,
                 party_type="ORGANIZATION" if gstin else "INDIVIDUAL",
                 legal_name=name,
@@ -371,7 +371,7 @@ class UniversalPartyService:
         role_match = (await session.execute(role_stmt)).scalars().first()
         if not role_match:
             role = PartyRole(
-                id=f"pr_{uuid.uuid4().hex[:12]}",
+                id=IdentityEngine.generate_technical_id(),
                 party_id=party.id,
                 role_type="CUSTOMER",
                 is_active=True
@@ -389,7 +389,7 @@ class UniversalPartyService:
                     select(CustomerGroup).where(CustomerGroup.id == customer.customer_group_id)
                 )).scalars().first()
             cp = CustomerProfile(
-                id=f"cp_{uuid.uuid4().hex[:12]}",
+                id=IdentityEngine.generate_technical_id(),
                 party_id=party.id,
                 customer_group_id=getattr(customer, "customer_group_id", None),
                 customer_category="RETAIL",
@@ -434,7 +434,7 @@ class UniversalPartyService:
 
         if not party:
             party = Party(
-                id=f"pty_{uuid.uuid4().hex[:12]}",
+                id=IdentityEngine.generate_technical_id(),
                 party_code=code,
                 party_type="ORGANIZATION" if gstin else "INDIVIDUAL",
                 legal_name=name,
@@ -460,7 +460,7 @@ class UniversalPartyService:
         role_match = (await session.execute(role_stmt)).scalars().first()
         if not role_match:
             role = PartyRole(
-                id=f"pr_{uuid.uuid4().hex[:12]}",
+                id=IdentityEngine.generate_technical_id(),
                 party_id=party.id,
                 role_type="SUPPLIER",
                 is_active=True
@@ -473,7 +473,7 @@ class UniversalPartyService:
         sp_match = (await session.execute(sp_stmt)).scalars().first()
         if not sp_match:
             sp = SupplierProfile(
-                id=f"sp_{uuid.uuid4().hex[:12]}",
+                id=IdentityEngine.generate_technical_id(),
                 party_id=party.id,
                 supplier_type="DISTRIBUTOR",
                 payment_terms_days=30,
