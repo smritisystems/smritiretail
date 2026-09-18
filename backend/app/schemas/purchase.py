@@ -27,7 +27,7 @@ Classification: Internal
 from decimal import Decimal
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ─────────────────────────── Supplier ───────────────────────────
@@ -64,7 +64,6 @@ class SupplierResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-
 class SupplierUpdate(BaseModel):
     """Partial-update schema for a supplier. All fields optional."""
     name:       Optional[str] = None
@@ -80,13 +79,33 @@ class SupplierUpdate(BaseModel):
 # ─────────────────────────── Purchase Order ───────────────────────────
 
 class PurchaseOrderItemCreate(BaseModel):
-    product_id: str
-    item_id: Optional[str] = None
-    code:       str
-    name:       str
+    product_id: Optional[str] = None
+    item_id:    Optional[str] = None
+    code:       Optional[str] = None
+    name:       Optional[str] = None
     quantity:   Decimal
-    cost_price: Decimal
+    cost_price: Optional[Decimal] = None
     gst_rate:   Decimal = Decimal("18.00")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_line_item(cls, data: any) -> any:
+        if isinstance(data, dict):
+            if not data.get("code") and data.get("item_code"):
+                data["code"] = str(data["item_code"])
+            if not data.get("product_id"):
+                data["product_id"] = data.get("code") or data.get("item_code") or "PROD-GENERIC"
+            if not data.get("name") and data.get("item_name"):
+                data["name"] = str(data["item_name"])
+            elif not data.get("name"):
+                data["name"] = data.get("code") or "Item"
+            if data.get("cost_price") is None and data.get("rate") is not None:
+                data["cost_price"] = data["rate"]
+            elif data.get("cost_price") is None:
+                data["cost_price"] = Decimal("0.00")
+            if data.get("gst_rate") is None and data.get("tax_percent") is not None:
+                data["gst_rate"] = data["tax_percent"]
+        return data
 
 
 class PurchaseOrderItemResponse(BaseModel):
@@ -105,18 +124,30 @@ class PurchaseOrderItemResponse(BaseModel):
 
 
 class PurchaseOrderCreate(BaseModel):
-    id:          Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
-    order_no:    str
+    id:          Optional[str] = Field(None, max_length=50, description="Persistent technical IDs are governed and generated server-side by IdentityEngine.")
+    order_no:    Optional[str] = None
     supplier_id: str
     notes:       Optional[str] = None
-    items:       List[PurchaseOrderItemCreate]
+    items:       Optional[List[PurchaseOrderItemCreate]] = None
 
-    @field_validator("id")
+    @model_validator(mode="before")
     @classmethod
-    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v.strip():
-            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
-        return None
+    def normalize_po_create(cls, data: any) -> any:
+        if isinstance(data, dict):
+            data["id"] = None
+            if not data.get("order_no") and data.get("order_number"):
+                data["order_no"] = str(data["order_number"])
+            if data.get("items") is None and data.get("lines") is not None:
+                data["items"] = data["lines"]
+        return data
+
+    @field_validator("order_no")
+    @classmethod
+    def validate_order_no(cls, v: Optional[str]) -> str:
+        if not v or not v.strip():
+            raise ValueError("order_no is required")
+        return v.strip()
+
 
 class PurchaseOrderCancelRequest(BaseModel):
     """Optional cancellation reason for cancelling a purchase order."""

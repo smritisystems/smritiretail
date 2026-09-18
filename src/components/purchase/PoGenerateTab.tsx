@@ -144,7 +144,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         const list = Array.isArray(prodRes) ? prodRes : prodRes?.items || [];
         if (list.length > 0) setProducts(list);
       }
-      const supRes = await apiFetchV1("/purchase/suppliers");
+      const supRes = await apiFetchV1("/purchase/suppliers/");
       const supList = Array.isArray(supRes) ? supRes : supRes?.items || [];
       if (supList.length > 0) {
         const suppliers = supList.map((s: any) => ({ id: s.id, name: s.name, code: s.vendor_code || s.code }));
@@ -420,14 +420,33 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
     setSaving(true);
     try {
+      const orderNumber = `${header.prefix}-${header.orderNumber}`;
       const payload = {
-        order_number: `${header.prefix}-${header.orderNumber}`,
+        order_no: orderNumber,
+        order_number: orderNumber,
         order_date: new Date().toISOString().split("T")[0],
         supplier_id: header.supplierId,
         supplier_name: header.supplierName,
         delivery_date: new Date(Date.now() + header.leadTimeDays * 86400000).toISOString().split("T")[0],
         total_amount: totals.totalValue,
         status: "Draft",
+        items: activeTab === "generation"
+          ? lineItems.filter(l => l.stockNo && l.orderQty > 0).map(l => ({
+              product_id: l.originalProduct?.id || l.stockNo,
+              code: l.stockNo,
+              name: l.product || l.stockNo,
+              quantity: l.orderQty,
+              cost_price: l.rate,
+              gst_rate: l.taxPercent || 5.0
+            }))
+          : sizePivotRows.filter(r => r.articleNo && r.totalQty > 0).map(r => ({
+              product_id: r.originalProduct?.id || r.articleNo,
+              code: r.articleNo,
+              name: r.product || r.articleNo,
+              quantity: r.totalQty,
+              cost_price: r.rate,
+              gst_rate: r.gstPercent || 5.0
+            })),
         lines: activeTab === "generation"
           ? lineItems.filter(l => l.stockNo).map(l => ({
               item_code: l.stockNo,
@@ -446,7 +465,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             }))
       };
 
-      await apiFetchV1("/purchase/orders", {
+      await apiFetchV1("/purchase/orders/", {
         method: "POST",
         body: JSON.stringify(payload)
       });
@@ -454,10 +473,10 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       if (onNotification) onNotification("Success", `Purchase Order ${payload.order_number} saved successfully!`, "success");
       // Advance order number
       setHeader(h => ({ ...h, orderNumber: String(parseInt(h.orderNumber) + 1 || 47) }));
-    } catch {
-      // Offline / Local success fallback
-      if (onNotification) onNotification("PO Saved (Local)", `Purchase Order ${header.prefix}-${header.orderNumber} stored in session.`, "success");
-      setHeader(h => ({ ...h, orderNumber: String(parseInt(h.orderNumber) + 1 || 47) }));
+    } catch (err) {
+      // Show error notification
+      const msg = err instanceof Error ? err.message : "Failed to commit Purchase Order to backend.";
+      if (onNotification) onNotification("PO Save Error", msg, "error");
     } finally {
       setSaving(false);
     }
