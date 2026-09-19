@@ -52,7 +52,7 @@ def upgrade() -> None:
             text(
                 "INSERT INTO master_types (id, code, label, field_schema, ui_schema, "
                 "version, evidence_level) "
-                "VALUES (:id, :code, :label, :fs::jsonb, NULL, 1, 'A')"
+                "VALUES (:id, :code, :label, CAST(:fs AS jsonb), NULL, 1, 'A')"
             ),
             {
                 "id": mt_id,
