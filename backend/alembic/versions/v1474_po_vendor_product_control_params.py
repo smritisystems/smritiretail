@@ -8,6 +8,7 @@ Migration Safety (Execution Command Rule 28-29):
 - Idempotent: safe to run multiple times.
 """
 from typing import Sequence, Union
+import uuid as _uuid
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.sql import text
@@ -124,6 +125,8 @@ def upgrade() -> None:
 
     cols = {c["name"] for c in inspector.get_columns("system_parameters")}
     has_canonical = "canonical_code" in cols
+    has_uuid = "uuid" in cols
+    use_val_cols = "val_text" in cols
 
     for p in _PARAMS:
         # Check if this param_code already exists at GLOBAL scope
@@ -153,61 +156,51 @@ def upgrade() -> None:
         bool_val = p.get("bool_value")
         text_val = p.get("text_value", "")
 
-        if has_canonical:
-            conn.execute(
-                text(
-                    "INSERT INTO system_parameters "
-                    "(id, company_id, branch_id, param_code, canonical_code, "
-                    " description, category, category_name, data_type, "
-                    " text_value, bool_value, integer_value, decimal_value, "
-                    " mutability, profile_type, scope_level, terminal_id, is_locked) "
-                    "VALUES "
-                    "(:id, NULL, NULL, :pc, :cc, "
-                    " :desc, :cat, :cat_name, :dt, "
-                    " :tv, :bv, NULL, NULL, "
-                    " :mut, :pt, 'GLOBAL', 'COMMON', FALSE)"
-                ),
-                {
-                    "id": rec_id,
-                    "pc": p["param_code"],
-                    "cc": p.get("canonical_code"),
-                    "desc": p["description"],
-                    "cat": p["category"],
-                    "cat_name": p["category_name"],
-                    "dt": p["data_type"],
-                    "tv": text_val,
-                    "bv": bool_val,
-                    "mut": p["mutability"],
-                    "pt": p["profile_type"],
-                },
-            )
+        insert_data = {
+            "id": rec_id,
+            "pc": p["param_code"],
+            "desc": p["description"],
+            "cat": p["category"],
+            "cat_name": p["category_name"],
+            "dt": p["data_type"],
+            "mut": p["mutability"],
+            "pt": p["profile_type"],
+            "tv": text_val,
+            "bv": bool_val,
+        }
+        col_names = [
+            "id", "company_id", "branch_id", "param_code",
+            "description", "category", "category_name", "data_type",
+            "mutability", "profile_type", "scope_level", "terminal_id", "is_locked"
+        ]
+        val_placeholders = [
+            ":id", "NULL", "NULL", ":pc",
+            ":desc", ":cat", ":cat_name", ":dt",
+            ":mut", ":pt", "'GLOBAL'", "'COMMON'", "FALSE"
+        ]
+
+        if has_uuid:
+            col_names.append("uuid")
+            val_placeholders.append(":uuid")
+            insert_data["uuid"] = str(_uuid.uuid4())
+
+        if has_canonical and p.get("canonical_code"):
+            col_names.append("canonical_code")
+            val_placeholders.append(":cc")
+            insert_data["cc"] = p["canonical_code"]
+
+        if use_val_cols:
+            col_names.extend(["val_text", "val_boolean", "val_integer", "val_decimal"])
+            val_placeholders.extend([":tv", ":bv", "NULL", "NULL"])
         else:
-            conn.execute(
-                text(
-                    "INSERT INTO system_parameters "
-                    "(id, company_id, branch_id, param_code, "
-                    " description, category, category_name, data_type, "
-                    " text_value, bool_value, integer_value, decimal_value, "
-                    " mutability, profile_type, scope_level, terminal_id, is_locked) "
-                    "VALUES "
-                    "(:id, NULL, NULL, :pc, "
-                    " :desc, :cat, :cat_name, :dt, "
-                    " :tv, :bv, NULL, NULL, "
-                    " :mut, :pt, 'GLOBAL', 'COMMON', FALSE)"
-                ),
-                {
-                    "id": rec_id,
-                    "pc": p["param_code"],
-                    "desc": p["description"],
-                    "cat": p["category"],
-                    "cat_name": p["category_name"],
-                    "dt": p["data_type"],
-                    "tv": text_val,
-                    "bv": bool_val,
-                    "mut": p["mutability"],
-                    "pt": p["profile_type"],
-                },
-            )
+            col_names.extend(["text_value", "bool_value", "integer_value", "decimal_value"])
+            val_placeholders.extend([":tv", ":bv", "NULL", "NULL"])
+
+        insert_sql = (
+            f"INSERT INTO system_parameters ({', '.join(col_names)}) "
+            f"VALUES ({', '.join(val_placeholders)})"
+        )
+        conn.execute(text(insert_sql), insert_data)
 
 
 def downgrade() -> None:

@@ -26,6 +26,7 @@ def upgrade() -> None:
         "po_product_decision_log",
         # ── BaseEntity ───────────────────────────────────────────────────────
         sa.Column("id", sa.String(50), primary_key=True),
+        sa.Column("uuid", sa.String(36), nullable=False, unique=True, server_default=text("gen_random_uuid()::text")),
         sa.Column("company_id", sa.String(50), nullable=True, index=True),
         sa.Column("branch_id", sa.String(50), nullable=True),
         sa.Column(
@@ -34,6 +35,14 @@ def upgrade() -> None:
             nullable=False,
             server_default=text("NOW()"),
         ),
+        sa.Column("modified_at", sa.DateTime(timezone=True), nullable=True, server_default=text("NOW()")),
+        sa.Column("created_by", sa.String(100), nullable=True),
+        sa.Column("updated_by", sa.String(100), nullable=True),
+        sa.Column("is_active", sa.Boolean, nullable=False, server_default=text("TRUE")),
+        sa.Column("is_deleted", sa.Boolean, nullable=False, server_default=text("FALSE")),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("deleted_by", sa.String(100), nullable=True),
+        sa.Column("version", sa.Integer, nullable=False, server_default=text("1")),
 
         # ── PO Context ───────────────────────────────────────────────────────
         sa.Column(
