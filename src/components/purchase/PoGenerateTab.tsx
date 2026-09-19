@@ -38,6 +38,7 @@ import { POIssuesSummaryBar } from "./POIssuesSummaryBar.tsx";
 import { POProductStatusBadge } from "./POProductStatusBadge.tsx";
 import type { POProductDecision } from "./POProductStatusBadge.tsx";
 import { POPrintPreviewModal } from "./POPrintPreviewModal.tsx";
+import { SupplierScorecardModal } from "./SupplierScorecardModal.tsx";
 
 interface PurchaseOrderGenerationTabProps {
   products?: Product[];
@@ -61,6 +62,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [suppliersError, setSuppliersError] = useState<string | null>(null);
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [isScorecardOpen, setIsScorecardOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"generation" | "size_pivot" | "other">("generation");
   const [showF2Hint, setShowF2Hint] = useState(true);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
@@ -929,7 +931,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         {/* Supplier Details */}
         <div className="lg:col-span-6 bg-white p-2.5 border border-[#c4c6d4] rounded shadow-2xs flex flex-col justify-between">
           <div className="grid grid-cols-12 gap-1.5 items-center mb-1">
-            <label className="col-span-3 font-semibold text-[#434652]">Supplier</label>
+            <div className="col-span-3 flex flex-col gap-1">
+              <label className="font-semibold text-[#434652]">Supplier</label>
+              {header.supplierId && (
+                <button
+                  type="button"
+                  onClick={() => setIsScorecardOpen(true)}
+                  title="View Vendor SLA Scorecard & Compliance Audit"
+                  className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition text-left flex items-center gap-1 w-fit"
+                >
+                  <span>★</span>
+                  <span>SLA Scorecard</span>
+                </button>
+              )}
+            </div>
             <div className="col-span-9 flex flex-col gap-0.5">
               {/* Supplier live search filter */}
               <input
@@ -1844,6 +1859,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           vendor={suppliersList.find(
             (s) => s.id === header.supplierId || s.code === header.supplierId || s.name === header.supplierName
           )}
+        />
+      )}
+
+      {/* ── Supplier SLA Scorecard & Audit Modal ── */}
+      {isScorecardOpen && (
+        <SupplierScorecardModal
+          isOpen={isScorecardOpen}
+          onClose={() => setIsScorecardOpen(false)}
+          initialSupplierId={header.supplierId}
+          onNotification={onNotification}
         />
       )}
     </div>
