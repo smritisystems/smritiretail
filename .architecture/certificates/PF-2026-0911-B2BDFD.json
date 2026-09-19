@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-B2BDFD",
+  "entity": "vendor",
+  "capability": "vendor.commercial",
+  "asset_type": "component",
+  "proposed_name": "VendorCommercialTab.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorCommercialTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "1d7357a8dc42e4eaf3f22b80d342bdcfa4540ff198b7adaca3261a42db8becd5",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:58.987601+00:00",
+  "expires_at": "2026-09-18T05:21:58.987601+00:00",
+  "status": "ISSUED"
+}

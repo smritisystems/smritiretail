@@ -12,7 +12,12 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import os
+os.environ.setdefault("JWT_SECRET_KEY", "dev-test-jwt-secret-key-32-chars-long-smriti")
+os.environ.setdefault("INTERNAL_SERVICE_KEY", "dev-test-internal-service-key-32-chars")
+
 # ruff: noqa: F403, F401
 
 # Inherit and expose all standard testing fixtures from the main backend test suite
 from app.tests.conftest import *
+

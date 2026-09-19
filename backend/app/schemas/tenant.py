@@ -32,9 +32,10 @@ class CompanyUpdate(BaseModel):
 class CompanyResponse(CompanyBase):
     id: str
     uuid: str
-    is_deleted: bool
-    created_at: datetime
-    modified_at: datetime
+    identity_code: Optional[str] = None
+    is_deleted: bool = False
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,8 +58,9 @@ class BranchResponse(BranchBase):
     id: str
     uuid: str
     company_id: str
-    is_deleted: bool
-    created_at: datetime
-    modified_at: datetime
+    identity_code: Optional[str] = None
+    is_deleted: bool = False
+    created_at: Optional[datetime] = None
+    modified_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -24,44 +24,59 @@ CONTROL_PLANE_DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT
 def generate_company_database_name(company_code: str) -> str:
     """
     Official Server-Side SMRITI Company Business Database Name Generator.
-    Alphanumeric 3-Character Standard Rules:
+    Configurable alphanumeric company-code rules:
       1. Prefix MUST be exactly 'smriti'.
       2. No separator (underscore, hyphen, space).
-    3. Company code MUST be exactly 3 alphanumeric characters [A-Z0-9].
-    4. Lowercase input is automatically normalized to uppercase (e.g. 'abc' -> 'ABC').
-    5. '000' is permanently reserved (forbidden).
-    6. 'SYS' is permanently reserved for SMRITI Control Plane (forbidden).
+      3. Company code MUST be 4 alphanumeric characters [A-Z0-9] or 3 numeric digits.
+      4. 3-digit numeric code is normalized/padded to 4 digits (e.g. '001' -> '0001').
+      5. Lowercase input is automatically normalized to uppercase (e.g. 'abc1' -> 'ABC1').
+      6. '0000' and 'SYS0' are permanently reserved (forbidden).
     Examples:
-    '001' -> 'smriti001'
-    'ABC' -> 'smritiABC'
-    'MUM' -> 'smritiMUM'
+      '001' -> 'smriti0001'
+      'ABC1' -> 'smritiABC1'
+      'MUM1' -> 'smritiMUM1'
     """
     if not company_code:
         raise ValueError("Company code is required.")
 
     code = str(company_code).strip().upper()
 
-    if len(code) != 3 or not code.isalnum():
-        raise ValueError(f"Company code '{company_code}' must be exactly 3 alphanumeric characters [A-Z0-9].")
+    if not code.isalnum():
+        raise ValueError(f"Company code '{company_code}' contains invalid characters.")
 
-    if code == "000":
-        raise ValueError("Company code '000' is permanently reserved and cannot be assigned.")
+    if len(code) == 3 and code.isdigit():
+        code = code.zfill(4)
+    elif len(code) != 4:
+        raise ValueError(f"Company code '{company_code}' must be 4 alphanumeric characters [A-Z0-9] or 3 numeric digits.")
 
-    if code == "SYS":
-        raise ValueError("Company code 'SYS' is permanently reserved for SMRITI Control Plane.")
+    if code == "0000":
+        raise ValueError("Company code '0000' is permanently reserved and cannot be assigned.")
+
+    if code == "SYS0":
+        raise ValueError("Company code 'SYS0' is permanently reserved for SMRITI Control Plane.")
 
     return f"smriti{code}"
 
+
 def validate_company_database_name(database_name: str) -> bool:
     """
-    Validates if a database name adheres to the official naming standard: smriti<3-character-alphanumeric-code>.
+    Validates if a database name adheres to the official naming standard: smriti<4-character-alphanumeric-code>
+    or legacy 3-digit code smriti001.
     """
     if not database_name:
         return False
     if database_name == "smritisys":
         return True  # Control Plane DB
-    pattern = r"^smriti(?!(?:000|SYS)$)[A-Z0-9]{3}$"
-    return bool(re.match(pattern, database_name))
+    if not database_name.startswith("smriti"):
+        return False
+    code = database_name[6:]
+    if code in ("0000", "SYS0"):
+        return False  # Reserved
+    if len(code) == 3 and code.isdigit():
+        return True  # Legacy smriti001
+    if len(code) == 4 and code.isalnum():
+        return True
+    return False
 
 class CompanyDatabaseResolver:
     """
@@ -133,8 +148,8 @@ class CompanyDatabaseResolver:
                 try:
                     cur.execute("""
                         SELECT role FROM users 
-                        WHERE id = %s AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
-                    """, (user_id,))
+                        WHERE (id = %s OR username = %s) AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
+                    """, (user_id, user_id))
                     u_row = cur.fetchone()
                     if u_row and str(u_row[0]).strip().upper() in ("SYSADMIN", "USERROLE.SYSADMIN"):
                         is_sysadmin = True
@@ -148,8 +163,8 @@ class CompanyDatabaseResolver:
                 try:
                     cur.execute("""
                         SELECT 1 FROM user_company_assignments 
-                        WHERE user_id = %s AND company_id = %s AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
-                    """, (user_id, clean_company_id))
+                        WHERE (user_id = %s OR user_id IN (SELECT id FROM users WHERE username = %s)) AND company_id = %s AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
+                    """, (user_id, user_id, clean_company_id))
                     row = cur.fetchone()
                     if row:
                         assigned = True

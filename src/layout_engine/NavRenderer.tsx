@@ -518,7 +518,6 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     // Show 4 core items + a More button
     const coreItems = [
       { id: "dashboard", label: "Dashboard", icon: "dashboard" },
-      { id: "pos", label: "POS Billing", icon: "point_of_sale" },
       { id: "sales", label: "Sales", icon: "receipt_long" },
       { id: "item-master", label: "Items", icon: "inventory_2" }
     ];

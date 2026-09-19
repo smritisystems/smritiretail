@@ -76,6 +76,19 @@ export const GoodsReceiptNoteA4: React.FC<{ data: any }> = ({ data }) => {
         <div className="w-1/3 border-t border-black pt-2 font-bold">Quality Inspector</div>
         <div className="w-1/3 border-t border-black pt-2 font-bold">Authorised Signatory</div>
       </div>
+
+      {/* SMRITI RETAIL OS MANDATORY FOOTER BRANDING */}
+      <div className="mt-12 pt-3 border-t border-gray-300 flex justify-between items-center text-[10px] text-gray-500 font-mono">
+        <div className="flex items-center gap-1.5">
+          <span className="bg-black text-white font-bold px-1.5 py-0.5 rounded text-[8px]">SMRITI</span>
+          <span className="font-bold text-gray-800">SMRITI Retail OS</span>
+          <span>|</span>
+          <span>Goods Receipt Note (GRN) Module</span>
+        </div>
+        <div>
+          <span>smritibooks.com • Verified Document</span>
+        </div>
+      </div>
     </div>
   );
 };

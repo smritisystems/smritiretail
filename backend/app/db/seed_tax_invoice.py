@@ -135,7 +135,7 @@ CANONICAL_LAYOUT_CONFIG = {
         "branch": os.getenv("DEFAULT_BANK_BRANCH", "")
     },
     "terms_configuration": {
-        "terms_text": "Goods once sold will not be taken back without prior written approval. All disputes subject to Mumbai Jurisdiction."
+        "terms_text": "Goods once sold will not be taken back without prior written approval. All disputes subject to Nagpur Jurisdiction."
     },
     "signatory_configuration": {
         "company_name": "TATTLY THREADS",
@@ -143,7 +143,7 @@ CANONICAL_LAYOUT_CONFIG = {
     },
     "footer_configuration": {
         "disclaimer_line1": "This is a computer-generated tax invoice and does not require a physical signature.",
-        "disclaimer_line2": "SUBJECT TO MUMBAI JURISDICTION.",
+        "disclaimer_line2": "SUBJECT TO NAGPUR JURISDICTION.",
         "powered_by": "SMRITI OS Retail Suite - Powered by SMRITI SYSTEMS"
     }
 }

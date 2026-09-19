@@ -21,6 +21,8 @@ from . import (
     auth,
     assignments,
     barcode,
+    billing_csv,
+    barcode_registry,
     changelog,
     crm,
     crm_reports,
@@ -52,4 +54,5 @@ from . import (
     supplier_payment,
     terms,
     users,
+    vendor,
 )

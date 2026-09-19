@@ -104,7 +104,19 @@ def build_error_response(
     dict_entry = ERROR_DICTIONARY.get(error_code, ERROR_DICTIONARY["SMRITI-SYS-001"])
     ref_id = generate_reference_id(reference_msg or dict_entry["title"])
     
-    explanation = custom_explanation or dict_entry["explanation"]
+    raw_exp = custom_explanation or dict_entry["explanation"]
+    if isinstance(raw_exp, dict):
+        if "message" in raw_exp and "errors" in raw_exp and isinstance(raw_exp["errors"], list):
+            explanation = f"{raw_exp['message']}: {', '.join(str(e) for e in raw_exp['errors'])}"
+        elif "message" in raw_exp:
+            explanation = str(raw_exp["message"])
+        else:
+            explanation = str(raw_exp)
+    elif isinstance(raw_exp, list):
+        explanation = ", ".join(str(x) for x in raw_exp)
+    else:
+        explanation = str(raw_exp)
+
     # Avoid technical words in the explanation
     technical_words = ["SQL", "API", "repository", "exception", "traceback", "object", "attribute", "stack", "json"]
     for word in technical_words:

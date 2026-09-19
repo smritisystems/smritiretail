@@ -166,7 +166,7 @@ export const SmritiAdvancedCustomerSearchModal: React.FC<SmritiAdvancedCustomerS
                   type="text"
                   value={filters.name}
                   onChange={e => handleFilterChange("name", e.target.value)}
-                  placeholder="e.g. Farida Jameel"
+                  placeholder="Customer Name / Company Name"
                   className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs"
                 />
               </div>

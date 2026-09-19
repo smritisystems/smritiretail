@@ -325,7 +325,7 @@ export const getCanonicalMenuTree = (): MenuItemPermission[] => [
     children: [
       { menuId: "hk_backup", menuName: "Database Backup", isAccessible: true },
       { menuId: "hk_restore", menuName: "Database Restore", isAccessible: false },
-      { menuId: "hk_reindex", menuName: "Re-index PostgreSQL Sequences", isAccessible: true },
+      { menuId: "hk_reindex", menuName: "Re-index Database Sequences", isAccessible: true },
       { menuId: "hk_purge_logs", menuName: "Purge Temporary Audit Files", isAccessible: true },
     ],
   },

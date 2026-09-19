@@ -11,16 +11,12 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import uuid as _uuid
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from ..db.base import Base
-
-
-def _uid() -> str:
-    return str(_uuid.uuid4())
+from ..services.identity.uuid7 import uuid7
 
 
 class WorkflowEvent(Base):
@@ -34,7 +30,7 @@ class WorkflowEvent(Base):
     """
     __tablename__ = "workflow_events"
 
-    id               = Column(String(50), primary_key=True, default=_uid)
+    id               = Column(String(50), primary_key=True, default=uuid7)
     doc_type         = Column(String(50), nullable=False,
                               comment="E.g. PurchaseOrder, SalesInvoice, SalesQuotation")
     doc_id           = Column(String(50), nullable=False,

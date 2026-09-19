@@ -28,7 +28,7 @@ import {
   Filter
 } from "lucide-react";
 
-export const SmritiPromotionEngineine: React.FC = () => {
+export const SmritiPromotionEngine: React.FC = () => {
   const [promotions, setPromotions] = useState<PromotionRule[]>([
     {
       id: "promo-1",
@@ -157,4 +157,4 @@ export const SmritiPromotionEngineine: React.FC = () => {
   );
 };
 
-export default SmritiPromotionEngineine;
+export default SmritiPromotionEngine;

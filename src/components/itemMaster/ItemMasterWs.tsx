@@ -30,12 +30,14 @@ import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
 import { AttrMgmtStudio } from "./AttrMgmtStudio.tsx";
 import { ImgPathStudio } from "./ImgPathStudio.tsx";
 import { VariantTplSec } from "../VariantTemplateSec.tsx";
+import { hydrateRoleGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 
 interface SmritiItemMasterWorkspaceProps {
   products?: Product[];
   onRefreshProducts?: () => Promise<void>;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string } | null;
+  initialSubTab?: string;
   onClose?: () => void;
 }
 
@@ -46,6 +48,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   onRefreshProducts,
   onNotification,
   currentUser,
+  initialSubTab,
   onClose
 }) => {
   const [activeNav, setActiveNav] = useState<WorkspaceNavTab>("item_details");
@@ -54,7 +57,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
     viewMode: "grid",
     visibleColumns: [
       "code", "barcode", "name", "brand", "styleCode", "colour", "size",
-      "mrp", "price", "gst_percentage", "hsn_code",
+      "buyingPrice", "mrp", "price", "costPrice", "gst_percentage", "hsn_code",
       "a1", "a2", "a3", "a4", "a5"
     ],
     frozenColumns: 2
@@ -64,6 +67,10 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   const handleRefresh = onRefreshProducts || (async () => {});
 
   // Global Alt+1, Alt+2, Alt+3 tab switching
+  useEffect(() => {
+    void hydrateRoleGlobalFieldVisibility(currentUser?.role);
+  }, [currentUser?.role]);
+
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "1") {
@@ -189,7 +196,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
             }`}
           >
             <Layers size={15} />
-            <span>Variant Templates</span>
+            <span>Article / Style Matrix</span>
           </button>
         </div>
 
@@ -254,6 +261,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
           {activeNav === "view_config" && (
             <ItemViewConfig
               currentConfig={viewConfig}
+              userRole={currentUser?.role}
               onSaveConfig={(cfg) => {
                 setItemViewConfig(cfg);
                 setActiveNav("item_details");

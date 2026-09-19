@@ -13,6 +13,7 @@ License      : Proprietary Commercial Software
 
 import uuid
 import json
+from datetime import date
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -29,8 +30,66 @@ class AttributesService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def validate_product_attributes(self, values: dict | None, company_id: str | None = None) -> None:
+        """Validate governed dynamic attributes while preserving legacy unknown keys."""
+        provided = values or {}
+        filters = [
+            AttributeDefinition.is_deleted == False,
+            AttributeDefinition.is_enabled == True,
+        ]
+        if company_id:
+            filters.append(
+                (AttributeDefinition.company_id == company_id) |
+                AttributeDefinition.company_id.is_(None)
+            )
+        result = await self.db.execute(select(AttributeDefinition).where(*filters))
+        definitions = list(result.scalars().all())
+        errors: list[str] = []
+        for definition in definitions:
+            raw_value = provided.get(definition.name)
+            is_blank = raw_value is None or (isinstance(raw_value, str) and not raw_value.strip())
+            if definition.is_mandatory and is_blank:
+                errors.append(f"{definition.label} is required")
+                continue
+            if is_blank:
+                continue
+
+            data_type = (definition.data_type or "Text").strip().lower()
+            if data_type in {"number", "numeric", "decimal", "integer"}:
+                try:
+                    float(raw_value)
+                except (TypeError, ValueError):
+                    errors.append(f"{definition.label} must be numeric")
+            elif data_type == "date":
+                try:
+                    date.fromisoformat(str(raw_value).strip())
+                except ValueError:
+                    errors.append(f"{definition.label} must use YYYY-MM-DD format")
+            elif data_type in {"boolean", "bool"} and not isinstance(raw_value, bool):
+                if str(raw_value).strip().lower() not in {"true", "false", "1", "0", "yes", "no"}:
+                    errors.append(f"{definition.label} must be boolean")
+            elif data_type in {"select", "dropdown", "multi_select", "multiselect"}:
+                try:
+                    allowed = json.loads(definition.valid_values or "[]")
+                except json.JSONDecodeError:
+                    allowed = []
+                allowed_values = {str(value).strip().casefold() for value in allowed}
+                submitted = raw_value if isinstance(raw_value, list) else [raw_value]
+                invalid = [str(value) for value in submitted if str(value).strip().casefold() not in allowed_values]
+                if invalid:
+                    errors.append(f"{definition.label} contains invalid value(s): {', '.join(invalid)}")
+
+        if errors:
+            raise HTTPException(status_code=422, detail={"message": "Dynamic attribute validation failed", "errors": errors})
+
     async def list_definitions(self) -> list[AttributeDefinition]:
-        q = select(AttributeDefinition).where(AttributeDefinition.is_deleted == False)
+        q = select(AttributeDefinition).where(
+            AttributeDefinition.is_deleted == False
+        ).order_by(
+            AttributeDefinition.display_order.asc(),
+            AttributeDefinition.created_at.asc(),
+            AttributeDefinition.id.asc(),
+        )
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
@@ -104,6 +163,33 @@ class AttributesService:
         defn = await self.db.get(AttributeDefinition, id)
         if not defn or defn.is_deleted:
             raise HTTPException(status_code=404, detail="Attribute definition not found")
+
+        groups = await self.db.execute(
+            select(AttributeGroup).where(AttributeGroup.is_deleted == False)
+        )
+        for group in groups.scalars().all():
+            try:
+                member_ids = json.loads(group.attribute_ids or "[]")
+            except json.JSONDecodeError:
+                member_ids = []
+            if id in member_ids:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Attribute '{defn.label}' is used by group '{group.name}'. Remove it from the group before deactivation.",
+                )
+
+        product = await self.db.scalar(
+            select(Product.id).where(
+                Product.is_deleted == False,
+                Product.attributes.has_key(defn.name),
+            ).limit(1)
+        )
+        if product:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Attribute '{defn.label}' has stored product values. Deactivate it only after a data-retention review.",
+            )
+
         defn.is_deleted = True
         defn.is_active = False
         defn.deleted_at = datetime.now(timezone.utc)
@@ -111,18 +197,29 @@ class AttributesService:
         await self.db.commit()
 
     async def list_groups(self) -> list[AttributeGroup]:
-        q = select(AttributeGroup).where(AttributeGroup.is_deleted == False)
+        q = select(AttributeGroup).where(
+            AttributeGroup.is_deleted == False
+        ).order_by(
+            AttributeGroup.name.asc(),
+            AttributeGroup.id.asc(),
+        )
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
     async def create_group(self, data, creator: str) -> AttributeGroup:
         new_id = f"grp-{data.name.lower().replace(' ', '')}-{uuid.uuid4().hex[:4]}"
+        size_grp_id = data.sizeGroupId or (
+            "FOOTWEAR_EU" if ("footwear" in data.name.lower() or "shoe" in data.name.lower()) else "APPAREL_ALPHA"
+        )
+        color_grp_id = data.colorGroupId or "COLOR_BASIC"
         group = AttributeGroup(
             id=new_id,
             name=data.name,
             attribute_ids=json.dumps(data.attributeIds),
             grid_column_attribute_id=data.gridColumnAttributeId,
             grid_row_attribute_id=data.gridRowAttributeId,
+            size_group_id=size_grp_id,
+            color_group_id=color_grp_id,
             created_by=creator,
             updated_by=creator
         )
@@ -140,6 +237,8 @@ class AttributesService:
         if data.attributeIds is not None: group.attribute_ids = json.dumps(data.attributeIds)
         if data.gridColumnAttributeId is not None: group.grid_column_attribute_id = data.gridColumnAttributeId
         if data.gridRowAttributeId is not None: group.grid_row_attribute_id = data.gridRowAttributeId
+        if data.sizeGroupId is not None: group.size_group_id = data.sizeGroupId
+        if data.colorGroupId is not None: group.color_group_id = data.colorGroupId
         group.updated_by = updater
         group.modified_at = datetime.now(timezone.utc)
 
@@ -164,24 +263,48 @@ class AttributesService:
 
     async def create_template(self, data, creator: str) -> VariantTemplate:
         # Check if style code exists
-        q = select(VariantTemplate).where(
-            VariantTemplate.style_code == data.styleCode,
-            VariantTemplate.is_deleted == False
-        )
+        q = select(VariantTemplate).where(VariantTemplate.style_code == data.styleCode)
         existing = (await self.db.execute(q)).scalars().first()
         if existing:
-            raise HTTPException(status_code=400, detail=f"Template Style Code '{data.styleCode}' already exists.")
+            if not existing.is_deleted:
+                raise HTTPException(status_code=409, detail=f"Template Style Code '{data.styleCode}' already exists. Select the existing Article / Style template or use a different code.")
+
+            existing.vendor_code = data.vendorCode
+            existing.master_value_id = data.masterValueId
+            existing.name = data.name
+            existing.brand = data.brand or "SMRITI"
+            existing.category = data.category or "General"
+            existing.hsn_code = data.hsnCode or "61091000"
+            existing.base_price = int(data.basePrice or 0)
+            existing.base_mrp = int(data.baseMrp or 0)
+            existing.base_cost_price = float(data.baseCostPrice or 0)
+            existing.gst_percentage = int(data.gstPercentage or 18)
+            existing.attribute_group_id = data.attributeGroupId
+            existing.pricing_mode = data.pricingMode or "Fixed"
+            existing.tracking_mode = data.trackingMode or "Standard"
+            existing.is_deleted = False
+            existing.is_active = True
+            existing.deleted_at = None
+            existing.deleted_by = None
+            existing.updated_by = creator
+            existing.modified_at = datetime.now(timezone.utc)
+            await self.db.commit()
+            await self.db.refresh(existing)
+            return existing
 
         new_id = f"vt-{uuid.uuid4().hex[:8]}"
         template = VariantTemplate(
             id=new_id,
             style_code=data.styleCode,
+            vendor_code=data.vendorCode,
+            master_value_id=data.masterValueId,
             name=data.name,
             brand=data.brand or "SMRITI",
             category=data.category or "General",
             hsn_code=data.hsnCode or "61091000",
             base_price=int(data.basePrice or 0),
             base_mrp=int(data.baseMrp or 0),
+            base_cost_price=float(data.baseCostPrice or 0),
             gst_percentage=int(data.gstPercentage or 18),
             attribute_group_id=data.attributeGroupId,
             pricing_mode=data.pricingMode or "Fixed",
@@ -200,12 +323,15 @@ class AttributesService:
             raise HTTPException(status_code=404, detail="Variant template not found")
 
         if data.styleCode is not None: template.style_code = data.styleCode
+        if data.vendorCode is not None and not template.vendor_code: template.vendor_code = data.vendorCode
+        if data.masterValueId is not None and not template.master_value_id: template.master_value_id = data.masterValueId
         if data.name is not None: template.name = data.name
         if data.brand is not None: template.brand = data.brand
         if data.category is not None: template.category = data.category
         if data.hsnCode is not None: template.hsn_code = data.hsnCode
         if data.basePrice is not None: template.base_price = int(data.basePrice)
         if data.baseMrp is not None: template.base_mrp = int(data.baseMrp)
+        if data.baseCostPrice is not None: template.base_cost_price = float(data.baseCostPrice)
         if data.gstPercentage is not None: template.gst_percentage = int(data.gstPercentage)
         if data.attributeGroupId is not None: template.attribute_group_id = data.attributeGroupId
         if data.pricingMode is not None: template.pricing_mode = data.pricingMode
@@ -274,7 +400,9 @@ class AttributesService:
                     {"name": "sole_type", "label": "Sole Type", "data_type": "select", "valid_values": ["Rubber", "PU", "PVC", "Leather"], "display_order": 5}
                 ],
                 "grid_col": "size",
-                "grid_row": "color"
+                "grid_row": "color",
+                "size_group_id": "FOOTWEAR_EU",
+                "color_group_id": "COLOR_BASIC"
             },
             "apparel": {
                 "group_name": "Apparel Basic",
@@ -288,7 +416,9 @@ class AttributesService:
                     {"name": "fabric", "label": "Fabric", "data_type": "select", "valid_values": ["Cotton", "Polyester", "Wool", "Linen"], "display_order": 6}
                 ],
                 "grid_col": "size",
-                "grid_row": "color"
+                "grid_row": "color",
+                "size_group_id": "APPAREL_ALPHA",
+                "color_group_id": "COLOR_BASIC"
             },
             "grocery": {
                 "group_name": "Grocery Pack",
@@ -403,6 +533,8 @@ class AttributesService:
                 attribute_ids=json.dumps(attr_ids),
                 grid_column_attribute_id=grid_col_id,
                 grid_row_attribute_id=grid_row_id,
+                size_group_id=data.get("size_group_id"),
+                color_group_id=data.get("color_group_id"),
                 created_by=operator,
                 updated_by=operator
             )
@@ -413,6 +545,10 @@ class AttributesService:
             group.attribute_ids = json.dumps(attr_ids)
             group.grid_column_attribute_id = grid_col_id
             group.grid_row_attribute_id = grid_row_id
+            if data.get("size_group_id") and not group.size_group_id:
+                group.size_group_id = data.get("size_group_id")
+            if data.get("color_group_id") and not group.color_group_id:
+                group.color_group_id = data.get("color_group_id")
             group.updated_by = operator
             group.modified_at = datetime.now(timezone.utc)
             await self.db.commit()

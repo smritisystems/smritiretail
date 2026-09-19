@@ -53,7 +53,7 @@ def dispatch_response(request: Request, exc: Exception | None, status_code: int,
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         stack_trace = ""
-        if settings.ENVIRONMENT == "development" and exc:
+        if settings.ENVIRONMENT == "development" and exc and status_code >= 500:
             stack_trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
             
         request_id = getattr(request.state, "request_id", None)
@@ -137,9 +137,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 
 async def db_exception_handler(request: Request, exc: SQLAlchemyError):
-    print("DB EXCEPTION TRIGGERED:", repr(exc))
-    import traceback
-    traceback.print_exc()
+    from app.core.logging import logger
+    logger.error("[SMRITI DB] SQLAlchemyError: %s", repr(exc), exc_info=True)
     res = build_error_response(
         error_code="SMRITI-DATA-001",
         custom_explanation="A database operations conflict occurred or referential integrity check failed.",

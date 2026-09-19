@@ -90,10 +90,17 @@ export const posProfilesConfig: MasterConfig<POSProfile> = {
       colSpan: 1
     },
     {
+      name: "code",
+      label: "Terminal / Register Code",
+      type: "text",
+      placeholder: "e.g. REG-01 (leave blank to auto-generate)",
+      colSpan: 1
+    },
+    {
       name: "cashier",
       label: "Default Cashier Operator",
       type: "text",
-      required: true,
+      required: false,
       placeholder: "e.g. Cashier 01 / John Doe",
       colSpan: 1
     },
@@ -101,11 +108,27 @@ export const posProfilesConfig: MasterConfig<POSProfile> = {
       name: "warehouse",
       label: "Stock Warehouse",
       type: "text",
-      required: true,
+      required: false,
       placeholder: "e.g. Central Retail Floor / Main Store",
       colSpan: 1
+    },
+    {
+      name: "notes",
+      label: "Terminal Notes / Location",
+      type: "textarea",
+      placeholder: "Physical counter location, dedicated receipt printer, or scanner details...",
+      colSpan: 2
     }
   ],
+
+  payloadTransform: (formData) => ({
+    name: formData.name?.trim() || "",
+    code: formData.code?.trim() || `REG-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+    cashier: formData.cashier?.trim() || null,
+    warehouse: formData.warehouse?.trim() || null,
+    notes: formData.notes?.trim() || null,
+    is_locked: Boolean(formData.is_locked || formData.isLocked)
+  }),
 
   customActions: [
     {

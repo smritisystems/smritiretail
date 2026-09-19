@@ -21,22 +21,26 @@ import {
 const REGISTERED_APP_TABS = [
   "dashboard",
   "launchpad",
-  "pos",
+  "billing-workspace",
   "sales",
-  "create-tax-invoice",
   "customer-master",
   "crm",
   "loyalty",
   "profiles",
+  "sales-promotions",
   "purchase",
+  "grn-studio",
   "supplier-mgmt",
+  "vendor-360",
   "business-ledger",
   "accounting-sync",
   "report-designer",
   "item-master",
   "item-create-grid",
   "barcode",
+  "barcode-management",
   "stock-ledger",
+  "wms-dashboard",
   "masters",
   "ufe",
   "formulas",
@@ -61,7 +65,8 @@ const REGISTERED_APP_TABS = [
   "legacy-migration",
   "physical-stock",
   "wiki",
-  "training-academy"
+  "training-academy",
+  "ewaybill-management"
 ];
 
 describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
@@ -113,16 +118,16 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     const quickActions = LAUNCHPAD_CATALOG.filter((t) => t.isQuickAction);
     expect(quickActions.length).toBeGreaterThanOrEqual(4);
     const qaIds = quickActions.map((t) => t.id);
-    expect(qaIds).toContain("pos");
+    expect(qaIds).not.toContain("pos");
     expect(qaIds).toContain("item-master");
     expect(qaIds).toContain("stock-ledger");
-    expect(qaIds).toContain("create-tax-invoice");
+    expect(qaIds).not.toContain("create-tax-invoice");
   });
 
   it("should allow cashiers access to core POS, Item Master, and Stock Ledger", () => {
     const cashierTiles = getVisibleLaunchpadTiles("CASHIER");
     const cashierIds = cashierTiles.map((t) => t.id);
-    expect(cashierIds).toContain("pos");
+    expect(cashierIds).not.toContain("pos");
     expect(cashierIds).toContain("item-master");
     expect(cashierIds).toContain("stock-ledger");
     expect(cashierIds).not.toContain("company-setup");
@@ -154,7 +159,7 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     const cashierQA = getQuickActionTiles("CASHIER");
     expect(cashierQA.length).toBeGreaterThanOrEqual(4);
     const qaIds = cashierQA.map((t) => t.id);
-    expect(qaIds).toContain("pos");
+    expect(qaIds).not.toContain("pos");
     expect(qaIds).toContain("item-master");
   });
 });

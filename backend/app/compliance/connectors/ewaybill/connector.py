@@ -24,12 +24,19 @@ from typing import Any, Dict
 
 from app.compliance.connectors.base import ConnectorV1
 from app.compliance.exceptions import PolicyViolationException
+from app.core.config import settings
 
 
 class EWayBillConnector(ConnectorV1):
     """
     Stateless NIC E-Way Bill Gateway Connector adhering to ConnectorV1.
     """
+
+    def __init__(self) -> None:
+        self._live_client = None
+        if settings.EWAYBILL_LIVE_ENABLED:
+            from app.compliance.connectors.ewaybill.nic_client import NICV103EWayBillClient
+            self._live_client = NICV103EWayBillClient()
 
     @classmethod
     def compute_validity_hours(cls, distance_km: int) -> int:
@@ -60,6 +67,8 @@ class EWayBillConnector(ConnectorV1):
         password = credentials.get("password")
         if not username or not password:
             raise PolicyViolationException("SGIP-AUTH-001: Missing NIC EWB username or password.")
+        if self._live_client:
+            return self._live_client.authenticate(credentials)
         return f"EWB-TOKEN-{uuid.uuid4().hex[:16].upper()}"
 
     def submit(self, payload: dict, token: str) -> dict:
@@ -68,6 +77,8 @@ class EWayBillConnector(ConnectorV1):
         """
         if not token:
             raise PolicyViolationException("SGIP-AUTH-002: Active Auth Token required for E-Way Bill submission.")
+        if self._live_client:
+            return self._live_client.generate(payload, token)
 
         supply_type = payload.get("supplyType", "O")  # Outward / Inward
         sub_supply_type = payload.get("subSupplyType", "1")  # Supply
@@ -107,6 +118,8 @@ class EWayBillConnector(ConnectorV1):
             raise PolicyViolationException("SGIP-AUTH-002: Active Auth Token required for cancellation.")
         if not document_no:
             raise PolicyViolationException("SGIP-VAL-005: 12-digit E-Way Bill Number required for cancellation.")
+        if self._live_client:
+            return self._live_client.cancel(document_no, 2, reason, token)
 
         return {
             "status": "CANCELLED",

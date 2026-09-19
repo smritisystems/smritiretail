@@ -97,6 +97,8 @@ class AttributeGroupCreate(BaseModel):
     attributeIds: List[str] = Field(..., alias="attributeIds")
     gridColumnAttributeId: Optional[str] = Field(None, alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, alias="gridRowAttributeId")
+    sizeGroupId: Optional[str] = Field(None, alias="sizeGroupId")
+    colorGroupId: Optional[str] = Field(None, alias="colorGroupId")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -106,6 +108,8 @@ class AttributeGroupUpdate(BaseModel):
     attributeIds: Optional[List[str]] = Field(None, alias="attributeIds")
     gridColumnAttributeId: Optional[str] = Field(None, alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, alias="gridRowAttributeId")
+    sizeGroupId: Optional[str] = Field(None, alias="sizeGroupId")
+    colorGroupId: Optional[str] = Field(None, alias="colorGroupId")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -116,6 +120,8 @@ class AttributeGroupResponse(BaseModel):
     attributeIds: List[str] = Field(..., serialization_alias="attributeIds")
     gridColumnAttributeId: Optional[str] = Field(None, serialization_alias="gridColumnAttributeId")
     gridRowAttributeId: Optional[str] = Field(None, serialization_alias="gridRowAttributeId")
+    sizeGroupId: Optional[str] = Field(None, serialization_alias="sizeGroupId")
+    colorGroupId: Optional[str] = Field(None, serialization_alias="colorGroupId")
 
     model_config = {
         "from_attributes": True,
@@ -125,12 +131,15 @@ class AttributeGroupResponse(BaseModel):
 
 class VariantTemplateCreate(BaseModel):
     styleCode: str = Field(..., alias="styleCode")
+    vendorCode: str = Field(..., alias="vendorCode")
+    masterValueId: Optional[str] = Field(None, alias="masterValueId")
     name: str
     brand: Optional[str] = "SMRITI"
     category: Optional[str] = "General"
     hsnCode: Optional[str] = "61091000"
     basePrice: Optional[float] = Field(0.0, alias="basePrice")
     baseMrp: Optional[float] = Field(0.0, alias="baseMrp")
+    baseCostPrice: Optional[float] = Field(0.0, alias="baseCostPrice")
     gstPercentage: Optional[float] = Field(18.0, alias="gstPercentage")
     attributeGroupId: str = Field(..., alias="attributeGroupId")
     pricingMode: Optional[str] = Field("Fixed", alias="pricingMode")
@@ -141,12 +150,15 @@ class VariantTemplateCreate(BaseModel):
 
 class VariantTemplateUpdate(BaseModel):
     styleCode: Optional[str] = Field(None, alias="styleCode")
+    vendorCode: Optional[str] = Field(None, alias="vendorCode")
+    masterValueId: Optional[str] = Field(None, alias="masterValueId")
     name: Optional[str] = None
     brand: Optional[str] = None
     category: Optional[str] = None
     hsnCode: Optional[str] = None
     basePrice: Optional[float] = Field(None, alias="basePrice")
     baseMrp: Optional[float] = Field(None, alias="baseMrp")
+    baseCostPrice: Optional[float] = Field(None, alias="baseCostPrice")
     gstPercentage: Optional[float] = Field(None, alias="gstPercentage")
     attributeGroupId: Optional[str] = Field(None, alias="attributeGroupId")
     pricingMode: Optional[str] = Field(None, alias="pricingMode")
@@ -158,12 +170,15 @@ class VariantTemplateUpdate(BaseModel):
 class VariantTemplateResponse(BaseModel):
     id: str
     styleCode: str = Field(..., serialization_alias="styleCode")
+    vendorCode: Optional[str] = Field(None, serialization_alias="vendorCode")
+    masterValueId: Optional[str] = Field(None, serialization_alias="masterValueId")
     name: str
     brand: str
     category: str
     hsnCode: str = Field(..., serialization_alias="hsnCode")
     basePrice: float = Field(..., serialization_alias="basePrice")
     baseMrp: float = Field(..., serialization_alias="baseMrp")
+    baseCostPrice: float = Field(..., serialization_alias="baseCostPrice")
     gstPercentage: float = Field(..., serialization_alias="gstPercentage")
     attributeGroupId: str = Field(..., serialization_alias="attributeGroupId")
     pricingMode: str = Field(..., serialization_alias="pricingMode")

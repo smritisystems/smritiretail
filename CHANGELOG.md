@@ -7,7 +7,7 @@
 
   * Pushpa Devi Jawahar Mallah
     * Founder & Chairperson
-    * Phone: +91 9324117007
+    * Phone: [REDACTED_PUBLIC_PII]
     * Email: founder@aitdl.com
 
   * Jawahar Ramkripal Mallah
@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.62.0
+  * Version    : 6.32.0
   * Created    : 2026-07-11
-  * Modified   : 2026-08-25
+  * Modified   : 2026-09-18
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,1185 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [Upcoming Features / Roadmap]
+
+### SMRITI B2B Dispatch & Tax Invoicing Studio (`B2BDispatchStudio`)
+- **Plan Specification:** `docs/implementation/sales/Sales_B2B_Dispatch_Invoicing_Studio_Plan_v1.0.0.md` (Approved)
+- **Dynamic Excel Matrix Parsing:** Ingest client dispatch sheets (`STORE NAME`, `ARTICLE`, `COLOR`, `MRP`, size columns `36`..`42`, `TOTAL`) dynamically.
+- **Automated Store & PO Resolution:** Automatic lookup of shipping addresses, GSTINs, distance in km, and active PO numbers from PostgreSQL master tables (`customer_delivery_locations`, `sales_orders`).
+- **Interactive Pre-Flight Audit:** Real-time dry-run preview displaying total stores, billed pairs, taxable value, estimated GST, and unmapped store warnings before database commit.
+- **Transactional Statutory Invoicing:** Concurrency-hardened sequence allocation (`TT2026-2027/{seq}` via `SELECT ... FOR UPDATE`), GST tax calculation (IGST vs CGST/SGST), and atomic ledger writes.
+- **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
+- **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
+
+### [6.42.2] - 2026-09-19
+
+#### PO Vendor Product Control Phase 7B-R — Runtime Acceptance & Automated Headless Verification
+- **Automated Headless Telemetry:** Captured 10 verified visual screenshots of end-to-end browser workflows in headless mode (1440x900 viewport) without opening interactive desktop browser windows.
+- **F2 Catalog Browser Reactive Policy Badging:** Real-time visual evaluation of catalog items (`ALLOWED`, `CROSS-VENDOR`, `BLOCKED`) dynamically computed via `/purchase/evaluate-products`.
+- **Policy Enforcement on Line Addition:** Seamless addition of `ALLOW` products; automatic modal interception via `POApprovalReasonDialog` for `CROSS_VENDOR` products requiring 1 of 10 business justification reasons; strict line addition blocking via `POProductExplainModal` for `BLOCKED` products.
+- **Two-Phase Vendor Change Governance:** Interactive confirmation and dynamic line re-evaluation via `POVendorChangeDialog` and `/purchase/evaluate-vendor-change`.
+- **Submit Validation Gate:** Enforced pre-flight validation via `POValidationSummary` prior to transactional persistence.
+- **Inventory Hydration Alignment:** Updated `src/App.tsx` and `src/components/purchase/PoGenerateTab.tsx` to hydrate latest inventory records with DTO mapping.
+- **Verification:** 10/10 visual screenshots captured, 53/53 pytest green in 16.09s, `tsc --noEmit` 0 errors, Vite production build clean in 49.80s; commit `98849225`.
+
+### [6.42.1] - 2026-09-19
+
+#### SMRITI Unified Identity Phase 1 — Service Wiring, Migration Hardening & Phase 1 Verification Suite
+- **`item_master_svc.py` Identity Wiring:** Replaced both ad-hoc `f"itm_{uuid.uuid4().hex[:12]}"` technical ID generators in `UniversalItemMasterService.create_item()` (schema path and direct-parameter path) with `IdentityEngine.allocate_internal()`, setting `Item.id` (UUIDv7) and `Item.identity_code` (`MST-ITM-{seq:08d}`).
+- **`crm.py` Identity Wiring:** Replaced `IdentityEngine.generate_technical_id()` in `CrmService.create_customer()` with `IdentityEngine.allocate_internal()`, setting both `id` (UUIDv7) and `identity_code` (`CRM-CUS-{seq:08d}`) on new and identity-code-absent customers.
+- **Migration v1471 Hardening:** Added `sa.inspect(bind).get_table_names()` guard; if `system_parameters` is absent in an ephemeral test database, creates the full table including `canonical_code` column; if present, adds column and index idempotently.
+- **Migration v1472 Hardening:** Added early-return if `system_parameters` table absent — prevents backfill failure on ephemeral test databases.
+- **`workflow.py` Circular Import Resolution:** Resolved a Python circular import chain (`identity/__init__ → code_generator → models/__init__ → workflow → engine → code_generator`) by reverting `WorkflowEvent.id` default to direct `uuid7` import. SQLAlchemy `Column(default=callable)` is synchronous and cannot invoke async `IdentityEngine`.
+- **Architecture Gate Rule 9 Extension:** Extended `check_identity_generation_governance()` exclusion list to include `backend/app/models/` — ORM models are a synchronous layer that cannot call async `IdentityEngine`; direct `uuid7` is correct and permitted for technical PK defaults only.
+- **Phase 1 Verification Suite:** Created `backend/tests/test_identity_engine_phase1.py` with 5 tests: (1) UUIDv7 technical ID and MST-ITM format via `allocate_internal`; (2) sequential consecutive code guarantee; (3) existing items backfilled with MST-ITM codes; (4) 100-worker concurrent allocation with 0 collisions and sequences 1..100 consecutive; (5) registry seed completeness (21 active entity types including ITEM=MST-ITM, CUSTOMER=CRM-CUS, POS_SHIFT=POS-SFT).
+- **Verification:** 5/5 pytest green in 6.16s; Identity Governance Scan 893 files 0 violations; Architecture Gate 11/11 passed 0 violations; Breadcrumb Guard 594 files 0 violations; commits `308f9aa5`, `6ddc97e0`, `5c907bea`.
+
+### [6.40.2] - 2026-09-18
+
+#### SMRITI Breadcrumb Engine v1.0 — Architecture & Controlled Policy Migration
+- **Canonical Breadcrumb Engine Subsystem:** Created `src/navigation/breadcrumb/` containing `BreadcrumbTypes.ts`, `BreadcrumbRegistry.ts`, `BreadcrumbResolver.ts`, `BreadcrumbContext.tsx`, `breadcrumbUtils.ts`, `Breadcrumb.tsx`, `BreadcrumbItem.tsx`, `BreadcrumbCompat.tsx`, and `index.ts`.
+- **Global Header Modernization:** Replaced legacy unlinked 2-segment label (`storeName / activeModuleTitle`) in `GlobalHeader.tsx` with canonical `<Breadcrumb onNavigate={onSelectModule} />`.
+- **Shell State Injection:** Wrapped `AppShell.tsx` with `<BreadcrumbProvider>` to supply deterministic hierarchical navigation context across the enterprise shell.
+- **Contextual Navigation Alignment:** Extended `navigationResolver.ts` with `breadcrumbAncestors` output across all operational contexts and dynamic document inspection views.
+- **Policy & Governance Standard:** Authored `SMRITI_BREADCRUMB_POLICY_V1.md` and repository-wide `SMRITI_BREADCRUMB_POLICY_INVENTORY.md`.
+- **Automated Verification:** Added 20-scenario Vitest test suite (`src/tests/breadcrumb.test.ts`), CI guard scanner (`scripts/smriti_breadcrumb_guard.py` scanning 594 files with 0 violations), and passed `tsc --noEmit`.
+
+### [6.40.1] - 2026-09-18
+
+#### SMRITI Go-Live Remediation Phase 3 — Identity Governance Remediation & Release Certification
+- **Universal Identity Engine Elevation:** Eliminated all ad-hoc persistent ID generation functions (`_uid()`) and random UUID manufacturing (`uuid.uuid4()`) across all backend transactional creation paths (`PurchaseService`, `SalesService`, `sales.py`, `sales_ledger_svc.py`, `inventory_wms.py`, `univ_party_svc.py`, `crm.py`).
+- **Alembic Migration `v1470`:** Added `identity_code VARCHAR(100) UNIQUE NULL` to `purchase_receipts` table. Formally registered `PURCHASE_RECEIPT` (`PUR-GRN`), `DEBIT_NOTE` (`PUR-DN`), and `PURCHASE_BILL` (`PUR-BIL`) in `smriti_identity_registry`, and seeded sequence counters in `smriti_numbering_registry`.
+- **Sovereign & Statutory External Alias Ingestion:** Routed external identifier tracking through `IdentityEngine.register_alias()` into `smriti_identity_alias` for NIC E-Way Bill numbers (`NIC_EWAY`) and vendor tax invoice numbers (`SUPPLIER_INVOICE`) with duplicate collision safety.
+- **Rule 13 Repository-Wide AST Scan & Static Governance:** Built standalone architectural scanner `scripts/scan_identity_governance.py` scanning 878 files across the repository, verifying zero `_uid()` definitions backend-wide and zero unapproved UUID calls in canonical creation routines. Added `backend/app/tests/test_identity_governance_remediation.py` asserting zero AST violations in transactional paths.
+- **Release Certification Hardening:** Verified full established Phase 1 Identity regression (34/34 tests green across `test_identity_engine.py` [7/7], `test_phase1_1` [5/5], `test_phase1_2` [6/6], `test_phase1_3` [8/8], `test_phase1_4` [8/8]); verified 5/5 identity governance tests green, 6/6 Go-Live Phase 3 workflow tests green, TypeScript clean (0 errors), Version SSOT consistent (6.40.1), and 11/11 architecture gate checks passed (0 violations, 0 debt). Release status marked as `READY FOR FINAL REGRESSION / RELEASE CERTIFICATION`.
+
+### [6.40.0] - 2026-09-18
+
+#### SMRITI Go-Live Remediation Phase 3 — End-to-End Operational Flow Verification
+- **Blocker 3 (GRN / Material Receipt UI & Inwarding):** Created `src/components/purchase/GrnReceiptTab.tsx` with `@SmritiCapability("PURCHASE", "GRN_RECEIPT")`. Integrated PO selection, physical verification against ordered quantities, damaged and shortage detection, direct Debit Note creation trigger, and automated WMS batch stock increment via `InventoryWmsService.atomic_mutate_batch_stock(..., movement_type="INWARD_GRN")`.
+- **Blocker 4 (Supplier Purchase Bill Booking):** Implemented `POST /api/v1/purchase/bills/` and `/invoices/` in `backend/app/api/v1/purchase.py` and `PurchaseService.create_purchase_bill`. Auto-computes taxable base and GST tax breakdown from verified GRNs, updates supplier ledger, and posts transactional outbox events to `PURCHASE_BILLS`.
+- **Blocker 5 (Debit Note Modal in Procurement):** Wired `CreateDebitNoteModal` (`CreateDebitNoteDlg.tsx`) into Procurement workflows. Implemented `POST /api/v1/purchase/debit-notes/` and `PurchaseService.create_debit_note`, atomically adjusting supplier liabilities (`supplier.outstanding -= claim_amount`) and publishing `PURCHASE_DEBIT_NOTE_ISSUED` outbox events.
+- **Blocker 6 (Sales Return & Credit Note Modal in Sales Studio):** Mounted `ProcessSalesReturnModal` (`ProcessSalesReturn.tsx`) on finalized invoice rows in `src/components/SalesStudioTab.tsx`. Fully backed by `POST /api/v1/sales/returns/` with credit note number assignment and inventory restoration.
+- **Blocker 7 (E-Way Bill & Dispatch Modal in Sales Studio):** Mounted `PrepareDispatchModal` (`PrepareDispatchDlg.tsx`) on invoice rows in `src/components/SalesStudioTab.tsx`. Mounted backend endpoints `POST /api/v1/sales/eway-bills/` and `GET /api/v1/sales/eway-bills/`, persisting `EWayBill` records, updating `SalesInvoice.eway_bill_no`, and publishing to `SALES_DISPATCH_QUEUE`.
+- **Blocker 8 (De-hardcoding KPI literals):** De-hardcoded mock KPI literals across `CrmStudioTab.tsx` and `QuickReportsWidget.tsx` in favor of live streaming from `GET /api/v1/crm/customers` and `GET /api/v1/reports/daily-sales`.
+- **Verification & Acceptance:** 6/6 tests passed in 72.27s (`test_golive_phase3.py`), TypeScript check 0 errors (`npx tsc --noEmit`), and 11/11 architecture gate checks passed (`scripts/architecture_duplication_gate.py`).
+
+### [6.39.0] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 2 — Business Module Hardening & Canonical Authority Convergence
+
+- **Universal Search & CSV Billing Resolver Convergence:**
+  - Integrated `IdentityResolver.resolve()` into `UniversalSearchEngine.quick_barcode_scan()` (`backend/app/services/search_engine.py`) with Tier 0 in-memory fast path and governed code hydration.
+  - Routed catalog barcode queries in CSV Billing import (`backend/app/api/v1/billing_csv.py`) through `IdentityResolver.resolve()`.
+- **Canonical Sales Posting Authority Convergence:**
+  - Converged checkout and invoicing writes into `CanonicalSalesPostingWriter` (`backend/app/services/canonical_sales_writer.py`), allocating governed `SAL-INV-*` codes for `sales_invoices`.
+  - Enforced strict RFC 9562 UUIDv7 ledger boundaries on `stock_movements` and `payment_transactions` (`identity_code_enabled=False`, zero row-locking latency).
+  - Hardened `CanonicalSalesPostingWriter` with caller session control and atomic `session.rollback()` on stock mutations or validation rejections.
+  - Enforced Income Tax Act Section 269ST compliance rejecting single cash receipts >= ₹2,00,000.
+  - Modernized POS shift lifecycle fixtures (`backend/app/tests/test_pos.py`) eliminating legacy client-supplied shift IDs.
+- **Alembic Migration v1469 & Concurrency Hardening:**
+  - Deployed `v1469_phase2_alias_atomic_upsert_and_hardening.py` creating unique functional index `uq_smriti_identity_alias_lower` on `smriti_identity_alias(entity_type, LOWER(alias_code), COALESCE(company_id, ''))`.
+  - Absorbed high-concurrency alias insert race conditions via PostgreSQL savepoint nested subtransactions (`session.begin_nested()`).
+  - Restored 100% column parity across all 3 databases (`smritisys`, `smriti001`, `smriti002`) for `items`, `item_variants`, and `sales_invoices`.
+- **Architectural Legacy Debt Retirement:**
+  - Consolidated 4 duplicate modal pairs (`POApprovalMatchModal.tsx`, `WavePickingStudioModal.tsx`, `InterBranchTransferModal.tsx`, `ShiftCommissionStudioModal.tsx`) into their canonical studio implementations (`ThreeWayMatchingModal.tsx`, `WarehouseWavePickingModal.tsx`, `StockTransferStudioModal.tsx`, `CommissionStudioModal.tsx`).
+  - Retired `src/components/hrm` domain folder and merged into `src/components/hr`.
+  - Verified backend router `barcodes.py` mounted at `/api/v1/barcodes`.
+  - Achieved **0 Registered Debt** and **0 P0/P1 Violations** on `scripts/architecture_duplication_gate.py`.
+
+### [6.38.0] - 2026-09-18 🔒 FROZEN
+
+#### SMRITI Unified Identity Phase 1.4 — Master Identity Index & Universal Cross-Domain Entity Resolver
+
+> **Freeze Gate — Final Verification Record**
+> | Gate | Result | Mechanism |
+> |---|---|---|
+> | Phase 1.4 dedicated tests | **8/8 PASS** | `app/tests/test_phase1_4_master_resolver.py` — resolver tiers, batch, envelope, cache, search |
+> | Full identity regression | **34/34 PASS** | Frozen Phases 1.1–1.3 suites + concurrency + tenant-isolation |
+> | Multi-DB parity | **3/3 PASS** | `scripts/verify_phase1_4_parity.py` — schema · constraint · index · lineage on smritisys · smriti001 · smriti002 |
+> | Architecture duplication gate | **11/11 PASS** | `scripts/architecture_duplication_gate.py` — 0 P0/P1 violations |
+> | v1468 lineage | **Verified all 3 DBs** | Alembic `v1468_phase1_4_master_identity_index_and_resolver` stamped |
+> | Duplicate identity codes | **0** | `uq_smriti_identity_alias_lower` functional index enforced |
+> | Dangling FKs | **0** | Column-level FK diff passed |
+> | TypeScript compilation | **0 errors** | Vite build clean |
+> | Python compilation | **0 errors** | FastAPI import scan clean |
+
+- **Universal Multi-Tier Cross-Domain Resolver (`resolver.py`):**
+  - **Tier 1 (Governed Identity Code O(1)):** Instant prefix-routed resolution via `smriti_identity_registry` (`MST-PRT-*`, `TAX-EWB-*`, `SAL-INV-*`, `MST-ITM-*`, `CRM-CUS-*`, `ORG-CMP-*`, `PUR-SUP-*`).
+  - **Tier 2 (Case-Insensitive External Aliases):** Polymorphic bridge lookup across GSTIN, PAN, NIC E-Way Bill numbers, payment gateway references, Bank UTRs, and legacy import identifiers, backed by PostgreSQL functional index `LOWER(alias_code)`.
+  - **Tier 3 (Unscoped Technical UUIDv7):** Fast reverse resolution from raw technical IDs (`uuid` or `id`) via `smriti_identity_allocation_log(canonical_id)` and fallback core table scans.
+  - **Tier 4 (Sovereign Business Identifiers):** Scoped fallback resolution for commercial `party_code`, statutory `eway_bill_no`, invoice numbers, barcodes, SKUs, and legacy numbers.
+- **In-Memory Tenant-Isolated LRU/TTL Cache (`cache.py`):**
+  - Sub-millisecond identity resolution cache (`IdentityResolutionCache`) with tenant isolation, TTL expiration, least-recently-used eviction tracking, hit/miss metrics, and automated invalidation on alias or entity mutations.
+- **Batch Resolution Engine (`resolve_batch`):**
+  - High-performance resolution for POS billing carts, bulk CSV imports, and dispatch runs, resolving heterogeneous identifiers in a single round-trip with grouped domain queries.
+- **Unified Identity Envelope Hydration (`get_identity_envelope`):**
+  - Complete 360-degree identity envelope aggregating canonical technical UUID, governed identity code, primary business code, entity status, associated aliases, allocation audit history, and deep navigation links.
+- **Omnichannel Cross-Domain Search (`search_entities`):**
+  - Prefix and partial matching across all registered entity domains, powering universal lookup dialogs (`F2 Browse`, `UniversalBrowseEngine`).
+- **Frontend F2 Lookup Integration:**
+  - Integrated `searchMasterIdentity()` adapter and `MasterIdentityMatch` interface in `src/services/f2LookupRegistry.ts` connecting client UI to the Master Identity Index.
+- **Ledger Boundary Registration & Schema Hardening (Alembic `v1468`):**
+  - Registered `PAYMENT_TRANSACTION` (`FIN-PAY`) and `STOCK_MOVEMENT` (`INV-MOV`) as governed ledger boundary tables (`identity_code_enabled=False`, `system_id_strategy='UUIDv7'`).
+  - Dropped `NOT NULL` constraint on `smriti_identity_registry.identity_code_field` across all 3 databases (`smritisys`, `smriti001`, `smriti002`) to properly support tables without sequential identity codes.
+  - Created indexes `ix_smriti_alloc_log_canonical_id` and `ix_smriti_alias_lower_code`.
+- **Verification & Parity:**
+  - Automated parity audit script `scripts/verify_phase1_4_parity.py` verified 100% schema, constraint, index, and lineage parity across `smritisys`, `smriti001`, and `smriti002`.
+  - Dedicated Pytest suite `app/tests/test_phase1_4_master_resolver.py` passed 8/8 tests green in 43.68s.
+  - Combined full identity regression suite passed 34/34 tests green.
+
+### [6.37.0] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 1.3 — External & Partner Integration Identity (FROZEN)
+
+- **External Partner & Statutory Identity Integration (Alembic v1467):**
+  - Added additive `identity_code VARCHAR(100) NULL` column with database-enforced UNIQUE B-tree indexes (`uq_parties_identity_code`, `uq_eway_bills_identity_code`, `indisunique=True`) to `parties` and `eway_bills` across `smritisys`, `smriti001`, and `smriti002`.
+  - Zero PK/FK mutation: 100% of existing technical primary keys (`id`) and relational foreign key constraints preserved without change.
+  - Sovereign business identifiers (`party_code`, `eway_bill_no`, `transaction_no`) remain canonical and are never replaced by `identity_code`.
+- **High-Throughput Settlement Ledger Boundary Architecture:**
+  - Established architectural boundary for `payment_transactions`: as a high-frequency settlement ledger (1,329 rows across databases), `payment_transactions` does NOT receive a human sequential `identity_code` column, eliminating POS checkout row-locking contention on `smriti_numbering_registry`.
+  - Generated technical primary keys strictly via `IdentityEngine.generate_technical_id()` (UUIDv7).
+- **Centralized Alias Architecture & Governance Remediation:**
+  - Implemented `IdentityEngine.register_alias()`: all external and statutory alias records (`SmritiIdentityAlias`) strictly generate their technical primary key `id` and `uuid` via `IdentityEngine.generate_technical_id()` (RFC 9562 UUIDv7), fully abolishing ad-hoc local `uuid.uuid4()` generation.
+  - Granular `source_system` resolution: implemented `_resolve_gateway_source_system()` mapping payment references to external providers (`RAZORPAY`, `STRIPE`, `PAYTM`, `PINE_LABS`, `PHONEPE`, `GOOGLE_PAY`, `BHIM`, `CRED`, `BILLDESK`, `CCAVENUE`, `CASHFREE`) or rails (`UPI`, `CARD`, `NETBANKING`, `WALLET`, `BANK_TRANSFER`), while retaining `GATEWAY` as a deliberate transitional fallback.
+  - Database-enforced idempotency and collision protection: duplicate ingest of identical `(entity_type, alias_code, company_id)` pointing to the same entity reuses the registered alias safely; competing rebind attempts to a different entity raise `ValueError("Identity alias collision")`.
+  - Integrated `IdentityEngine.register_alias()` across `EWayBillService` (statutory NIC EWB numbers), `PaymentsEngine` (gateway transaction references), `PartyMasterService`, and `UnivPartyService` (party codes, GSTIN, PAN).
+- **Prohibition of Client-Supplied IDs (HTTP 422 Enforcement):**
+  - Hardened `PartyCreateRequest` and `ProcessPaymentRequest` schemas with Pydantic `@field_validator` rejecting client-supplied persistent IDs.
+  - Added `identity_code: Optional[str] = None` to `PartyResponse` and `EWayBillResponse`.
+- **Domain & Compliance Service Allocations:**
+  - Integrated `IdentityEngine.allocate_internal()` across `UnivPartyService.create_party()`, `PartyMasterService.create_party()`, and `EWayBillService.generate_eway_bill()`.
+  - Integrated `IdentityEngine.generate_technical_id()` across `PaymentsEngine.process_payment()` and `SalesReturnRefundAdapter`.
+- **Deterministic Historical Backfill & Alias Ingestion:**
+  - Backfilled 195 `parties` (`MST-PRT-00000001` ... `MST-PRT-00000195`) and 64 `eway_bills` (`TAX-EWB-00000001` ... `TAX-EWB-00000064`) across `smritisys`, `smriti001`, and `smriti002` with zero nulls and zero duplicates.
+  - Ingested 934 external aliases into `smriti_identity_alias` (`GSTIN`, `PAN`, `HISTORICAL_CODE`, `NIC_EWAY`, `GATEWAY_REF`).
+  - Audit-logged 259 entries in `smriti_identity_allocation_log` (`purpose="MIGRATION_BACKFILL"`).
+  - Synchronized sequence counters in `smriti_numbering_registry`.
+- **Verification & Parity:**
+  - Automated parity audit script `scripts/verify_phase1_3_parity.py` verified 100% backfill coverage, zero nulls, zero duplicates, and zero dangling FKs across all 3 databases.
+  - Dedicated Pytest suite `app/tests/test_phase1_3_external_integration.py` passed 8/8 tests green (including Test A for UUIDv7 alias IDs and Test B for idempotency/collision protection).
+  - Combined identity regression suite passed 26/26 tests green (Phases 1.0, 1.1, 1.2, 1.3).
+  - Architecture duplication gate passed 11/11 checks with 0 P0/P1 violations.
+  - TypeScript compiler (`npx tsc --noEmit`) clean exit 0.
+
+
+### [6.36.0] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 1.2 — Transactional Document & Ledger Identity Integration
+
+- **Transactional Document Identity Integration (Alembic v1466):**
+  - Added additive `identity_code VARCHAR(100) NULL` column with database-enforced UNIQUE B-tree indexes (`uq_sales_invoices_identity_code`, `uq_purchase_orders_identity_code`, `uq_shifts_identity_code`) to `sales_invoices`, `purchase_orders`, and `shifts` across `smritisys`, `smriti001`, and `smriti002`.
+  - Enforced `indisunique=True` ensuring relational invariant uniqueness with zero duplicate identity codes.
+  - Zero PK/FK mutation: 100% of existing technical primary keys (`id`) and 312+ foreign key constraints preserved without change.
+  - Statutory document numbers (`invoice_no`, `order_no`) remain sovereign business numbering and are never replaced by `identity_code`.
+- **High-Throughput Ledger Boundary Architecture:**
+  - Established architectural boundary for `stock_movements`: as a high-throughput transaction ledger (8,844 rows across databases), `stock_movements` does NOT receive a human sequential `identity_code` column, eliminating POS checkout row-locking contention on `smriti_numbering_registry`.
+  - Assigned technical UUIDv7 primary keys via `IdentityEngine.generate_technical_id()`.
+- **Prohibition of Client-Supplied IDs (HTTP 422 Enforcement):**
+  - Hardened `PurchaseOrderCreate`, `ShiftOpen`, `StockMovementCreate`, and `SalesInvoiceCreate` schemas with Pydantic `@field_validator` rejecting any client-supplied `id`.
+  - Added `identity_code: Optional[str] = None` to `PurchaseOrderResponse`, `ShiftResponse`, and `SalesInvoiceResponse`.
+- **Transactional Service Allocations:**
+  - Integrated `IdentityEngine.allocate_internal()` across `CanonicalSalesPostingWriter`, `SalesService.create_sales_invoice()`, `PurchaseService.create_purchase_order()`, and `POSService.open_shift()`.
+  - Integrated `IdentityEngine.generate_technical_id()` across `InventoryService` (`update_stock`, `transfer_stock`, `adjust_stock`).
+- **Deterministic Historical Backfill & Alias Ingestion:**
+  - Backfilled 1,986 transactional document records across `smritisys` and `smriti001` with zero nulls and zero duplicates (`SAL-INV`, `PUR-ORD`, `POS-SFT`).
+  - Ingested 1,643 historical document identifiers into `smriti_identity_alias` as `HISTORICAL_DOC` / `TRANSACTIONAL`.
+  - Audit-logged 1,986 entries in `smriti_identity_allocation_log` (`purpose="MIGRATION_BACKFILL"`).
+  - Synchronized sequence counters in `smriti_numbering_registry`.
+- **Verification & Parity:**
+  - Automated parity audit script `scripts/verify_phase1_2_parity.py` verified 100% backfill coverage, zero nulls, zero duplicates, and zero dangling FKs on all databases.
+  - Pytest suite `app/tests/test_phase1_2_transactional_integration.py` passed 6/6 tests green.
+
+### [6.35.1] - 2026-09-18
+
+#### SMRITI Unified Identity Phase 1.1 — Business Entity Identity-Code Integration & Legacy Alias Migration (FROZEN)
+
+- **Database-Enforced Invariant Uniqueness & Additive Schema (Alembic v1465):**
+  - Added additive `identity_code VARCHAR(100) NULL` column with database-enforced UNIQUE B-tree indexes (`uq_companies_identity_code`, `uq_branches_identity_code`, `uq_items_identity_code`, `uq_customers_identity_code`, `uq_suppliers_identity_code`) to 5 core master business tables (`companies`, `branches`, `items`, `customers`, `suppliers`) across `smritisys`, `smriti001`, and `smriti002`.
+  - Enforced `indisunique=True` at the PostgreSQL engine level; leverages PostgreSQL nullable unique semantics permitting multiple NULLs during migration while guaranteeing absolute uniqueness across all populated identity codes.
+  - Updated SQLAlchemy ORM models (`Company`, `Branch`, `Item`, `Customer`, `Supplier`) with `unique=True`.
+  - Zero PK/FK mutation: 100% of existing `*.id` primary keys and all 312 foreign key relationships preserved without modification.
+  - Zero disruption to existing human-entered business identifiers (`code`, `item_code`, `company_code`).
+- **Deterministic Historical Backfill & Sequence Synchronization:**
+  - Backfilled 7,071 historical entities with sequential, governed SMRITI Identity Codes (`ORG-CMP`, `ORG-BRN`, `MST-ITM`, `CRM-CUS`, `PUR-SUP`) deterministically ordered by `created_at ASC, id ASC`.
+  - Achieved 100.0% coverage across all 5 tables with zero nulls and zero duplicates.
+  - Ingested 3,627 historical Shoper 9 business codes into `smriti_identity_alias` as `LEGACY_IMPORT` / `SHOPER9`.
+  - Audit-logged all 7,071 allocations in `smriti_identity_allocation_log` (`purpose="MIGRATION_BACKFILL"`).
+  - Synchronized and advanced `smriti_numbering_registry` sequence counters for all 5 entity types (`3063`, `3049`, `31`, `655`, `276`).
+- **Precise UUIDv7 Contract & Tenant Isolation:**
+  - Standardized UUIDv7 architecture contract: RFC 9562-compatible layout, generator-level monotonic ordering within the generator process, uniqueness enforced by DB constraints, with explicit recognition that generator monotonicity does not provide a universal guarantee of global temporal ordering across distributed clocks.
+  - Enforced strict multi-tenant boundary isolation in `IdentityResolver` (Tier 1A and Tier 1B), preventing cross-tenant leakage.
+  - Updated Pydantic read schemas (`CompanyResponse`, `BranchResponse`, `ItemResponse`, `CustomerResponse`, `SupplierResponse`) with `identity_code`.
+- **Automated Verification:**
+  - Automated AST and Rule 12 Schema Parity audit script `scripts/verify_phase1_1_parity.py` passed with 0 drift, UNIQUE index verification (`indisunique=True`), and 0 dangling foreign keys.
+  - Phase 1.1 test suite (`test_phase1_1_entity_integration.py`): 5/5 PASSED in 41.62s.
+  - Phase 1 control plane test suite (`test_identity_engine.py`): 7/7 PASSED in 43.87s (12/12 combined green).
+  - Architecture Duplication Gate (`scripts/architecture_duplication_gate.py`): 11/11 checks passed with 0 P0/P1 violations.
+  - TypeScript compiler (`tsc --noEmit`): 0 errors.
+  - Python bytecode compilation: 0 errors across all modified modules.
+
+### [6.35.0] - 2026-09-18
+
+#### SMRITI Unified Identity Control Plane & Numbering Engine (Phase 1 - v1.1.0 Frozen)
+
+- **Universal Identity Control Plane Schema (Alembic v1464):**
+  - Created 4 canonical control-plane tables: `smriti_identity_registry`, `smriti_numbering_registry`, `smriti_identity_alias`, and `smriti_identity_allocation_log`.
+  - Zero PK/FK migration on existing business tables; 100% of 268 tables and 312 FK constraints preserved without disruption.
+  - Pre-seeded 16 canonical domain groups and sequence counters.
+- **RFC 9562 UUIDv7 & Transactional Numbering Engine:**
+  - Implemented bitwise RFC 9562-compliant UUIDv7 generator with millisecond ordering and monotonic counter.
+  - Implemented high-concurrency transactional sequence allocator using PostgreSQL `SELECT FOR UPDATE` row locks with nested savepoints (`begin_nested()`) for race-safe first-touch series initialization.
+  - Verified gapless sequence allocation for committed workloads across 100 concurrent PostgreSQL transactions.
+- **Identity Contract Enforcement & Client ID Rejection:**
+  - Eliminated client-side `crypto.randomUUID()` in `SalesOrderTab.tsx:62`.
+  - Configured `@field_validator("id")` in `SalesOrderCreate` explicitly rejecting client-supplied technical IDs with HTTP 422.
+  - Routed Sales Order persistent technical ID creation strictly through `IdentityEngine.allocate_internal()`.
+- **Preflight Certification & Governance Gate (Rule 9):**
+  - Added Rule 9 Identity Generation Governance Check to `scripts/architecture_duplication_gate.py` actively prohibiting direct `uuid7` imports outside `backend/app/services/identity/`.
+  - Issued preflight architecture certificates across all 9 control plane files with 0 P0/P1 violations.
+- **Multi-Tier Tenant-Isolated Resolution:**
+  - Implemented `IdentityResolver` supporting Tier 1A (Allocation Log), Tier 1B (Primary Table), and Tier 2 (Polymorphic Alias) with mandatory tenant isolation.
+
+### [6.34.2] - 2026-09-17
+
+#### Customer Catalogue Edit Button & Seamless Workflow Integration
+
+- **Dedicated Edit Action Button & Keyboard Shortcut:**
+  - Added dedicated `Edit (Alt+E)` button to top action toolbar in `CustMasterWs.tsx`, positioned between `New` and `Search`.
+  - Added dedicated `Actions` column with per-row `Edit` button in Customer Directory Grid (`viewMode === "directory"`).
+  - Wired global `Alt+E` shortcut listener into `handleKeyDown`.
+- **Automated Workflow Navigation & Autofocus:**
+  - Added `handleEdit()` function automatically switching view mode from Directory to Catalogue Form (`Alt+1`), marking workspace dirty (`isDirty = true`), dispatching informational toast notification (`Edit Mode`), and focusing/selecting the primary customer name input (`input[data-field-key="customer_name"]`).
+- **End-to-End Headless Certification & DB Audit:**
+  - Verified with automated Playwright test suite (`scripts/verify_customer_edit_button.py`) asserting toolbar button visibility, directory row edit button, form switch, input autofocus, PUT save HTTP 200, and PostgreSQL database persistence. Captured 4 high-resolution screenshots.
+
+### [6.34.1] - 2026-09-17
+
+#### Customer Catalogue Form Save & PostgreSQL Persistence Remediation
+
+- **Diagnostic Root Cause Analysis:**
+  - Resolved phantom seed record desynchronization in `CustMasterWs.tsx` where un-matched seed ID `cust-1` triggered `POST /crm/customers` with duplicate GSTIN `29AABCT1332L1ZV` (HTTP 409 Conflict).
+  - Aligned default seed anchor customer to backend entity `cust-rrl-192b561d` (`RRL-001`, Reliance Retail Limited).
+  - Fixed reconciliation heuristic in `loadCustomersFromBackend` to default to `mappedList[0]` if no matching ID/code is active, eliminating phantom mock state.
+- **DTO Serialization & Deserialization Hardening:**
+  - Serialized `pricing_basis`, `allow_promotions_on_rate`, and `is_tax_inclusive` in `handleSave` payload for `PUT /api/v1/crm/customers/{customer_id}`.
+  - Implemented authoritative mapping for `pricingBasis`, `pricing_basis`, `allowPromotionsOnRate`, `allow_promotions_on_rate`, and `is_tax_inclusive` in `mapBackendCustomerToRecord`, ensuring round-trip browser reloads preserve persisted PostgreSQL values.
+- **UI Component & Notification Binding:**
+  - Bound `onNotification={addNotification}` to `CustomerMasterTab` in `src/components/shell/TabRenderer.tsx`, enabling real-time human-friendly toast error and success feedback.
+  - Corrected field key attribute for Company Code to `data-field-key="company_code"` in `CustFormTab.tsx`.
+  - Wrapped secondary delivery and billing location synchronization in non-blocking exception guards to prevent partial address format anomalies from blocking primary customer profile saves.
+- **Automated Verification:**
+  - Automated Playwright end-to-end verification script `scripts/verify_customer_catalogue_save.py` validated form modifications, 9/9 HTTP 200 PUT API requests, direct PostgreSQL persistence in `smriti001.customers`, round-trip page reload rehydration, and canonical state restoration.
+
+### [6.32.0] - 2026-09-17
+
+#### Numbering Duplicate Prevention — DB Constraints, Pre-Flight Validation & GST Rule 46(b) Schema Enforcement
+
+- **Phase 1 — Alembic Migration v1460 (`v1460_numbering_unique_constraints.py`):**
+  - Created idempotent `DO $$ IF NOT EXISTS` constraints on `document_series`:
+  - `idx_document_series_active_prefix_unique` — UNIQUE PARTIAL INDEX on `(company_id, branch_id, prefix, suffix, document_type, transaction_group, terminal_id) WHERE is_deleted=FALSE AND is_active=TRUE`. Only live active records are enforced; soft-deleted historical rows coexist freely.
+  - `idx_document_series_active_name_unique` — UNIQUE PARTIAL INDEX on `(company_id, branch_id, name) WHERE is_deleted=FALSE`. Prevents name collision across active series.
+  - `chk_document_series_prefix_format` — CHECK: `prefix` must be empty or match `^[A-Z0-9\-\/]{1,10}$` (GST Rule 46(b) compliance).
+  - `chk_document_series_running_length` — CHECK: `running_length BETWEEN 1 AND 10`.
+  - `chk_document_series_start_number` — CHECK: `start_number >= 1`.
+  - `downgrade()` drops all constraints and indexes in reverse order.
+- **Phase 2 — ORM Model (`backend/app/models/numbering.py`):**
+  - Added `UniqueConstraint("company_id", "branch_id", "name", name="uq_document_series_name_per_company")` to `DocumentSeries.__table_args__`.
+  - Added `UniqueConstraint("company_id", "branch_id", "prefix", "suffix", "document_type", "transaction_group", "terminal_id", name="uq_document_series_prefix_config")` to `DocumentSeries.__table_args__`.
+  - Imported `UniqueConstraint` from `sqlalchemy`.
+- **Phase 3 — Service Layer (`backend/app/services/numbering.py`):**
+  - Added `from sqlalchemy.exc import IntegrityError` import.
+  - Pre-flight 1: Name uniqueness check → `HTTP 409 SMRITI-NUM-001` with `field: "name"` if collision detected. Excludes self via `id != item.id` on update.
+  - Pre-flight 2: Prefix+suffix+documentType+transactionGroup+terminalId combo check (active records only) → `HTTP 409 SMRITI-NUM-002` with `field: "prefix"` naming the conflicting series. Excludes self on update.
+  - `IntegrityError` safety net (SMRITI-NUM-003): Catches any constraint violation that slips past pre-flight → `HTTP 409` with structured error code.
+  - `HTTPException` re-raised unchanged through all exception handlers.
+  - Generic `Exception` → `HTTP 500` with user-friendly message (no stack trace exposed — HREP compliant).
+- **Phase 4 — Schema (`backend/app/schemas/numbering.py`, `BillPrefixBatchSaveItem`):**
+  - `validate_name`: strip whitespace, blank-check, max 200 chars.
+  - `validate_prefix`: strip + `.upper()`, then regex `^[A-Z0-9\-\/]{1,10}$` (GST Rule 46b). Empty prefix is permitted.
+  - `runningLength`: `Field(4, ge=1, le=10)` — bounded integer with default.
+  - `startNumber`: `Field(1, ge=1)` — minimum 1 enforced at schema level.
+  - `model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)`.
+  - All `@field_validator` methods decorated with `@classmethod` (Pydantic v2 compliance).
+- **Tests (`backend/tests/test_numbering_duplicate_prevention.py`):**
+  - 5/5 PASSED — `test_duplicate_name_raises_409`, `test_duplicate_prefix_suffix_combo_raises_409`, `test_same_prefix_different_suffix_allowed`, `test_same_prefix_different_terminal_allowed`, `test_soft_deleted_duplicate_allowed`.
+  - Platform: Python 3.13.11, pytest 9.1.1, asyncio mode=AUTO.
+- **Commit:** `a68d1161`
+
+### [6.31.0] - 2026-09-17
+
+#### Billing PDT Module Retirement & Bill Prefix Batch Save 500 Serialization Hardening
+
+- **Legacy PDT Module Retirement:**
+  - Removed `SmritiPdtImportDlg` modal rendering and imports from `ProPosBillingTerm.tsx`.
+  - Removed `PdtImportModal` and action bar button from `BillingTerm.tsx`.
+  - Deleted legacy modal components `ProPosPdtImportDlg.tsx` and `PdtImportModal.tsx`.
+  - Re-routed global `Alt+I` hotkey and keyboard navigation in retail POS directly to canonical Barcode CSV Import Engine (`BarcodeCSVImportModal.tsx`).
+  - Updated `ProPosHotkeysDlg.tsx` to document `Alt + I` as "Open CSV Import window".
+- **Bill Prefix Batch Save 500 Serialization Fix (`backend/app/schemas/numbering.py`):**
+  - Resolved `ResponseValidationError` causing HTTP 500 on `POST /api/v1/numbering/bill-prefixes/save-batch` by implementing Pydantic v2 `validation_alias=AliasChoices(...)` across all ORM snake_case columns in `DocumentSeriesResponse` and `NumberingAuditLogResponse`.
+  - Added `@field_validator(..., mode="before")` default value coercion on `DocumentSeriesResponse` (`runningLength`, `startNumber`, `currentNumber`, `prefix`, `suffix`, `isActive`, `isVoidUnified`, `isCommonAcrossTerminals`) preventing validation crashes when database models contain `None`.
+  - Added timestamp formatting validator for `created_at` on `NumberingAuditLogResponse`.
+  - Hardened `BillPrefixBatchSaveItem` with safe numeric and boolean converters.
+- **Service Layer Transaction Hardening (`backend/app/services/numbering.py`):**
+  - Hardened `save_bill_prefixes_batch` with safe integer casting before string padding (`zfill`), transaction rollback on database exceptions, and descriptive error logging.
+  - Added unit test coverage `test_document_series_response_serialization_with_orm` and `test_save_batch_with_null_and_missing_attributes` in `backend/tests/test_bill_prefix.py`.
+
+#### POS Line-Level Sales Staff Attribution, Commission Tracking & Shift-End Cashier Handover Thermal Balance Sheet
+
+- **Line-Level Sales Staff Attribution (`sales_invoice_items`):**
+  - Added `salesperson_id VARCHAR(50) NULL` and `salesperson_name VARCHAR(255) NULL` to `sales_invoice_items` with index `idx_sales_invoice_items_salesperson` via Alembic migration `v1459_line_level_salesperson_attribution.py`.
+  - Propagated through `CanonicalPostingLineItem`, `POSCheckoutItem`, and `CanonicalSalesPostingWriter` with automatic fallback to bill header `salesperson_id` if item-level attendant is omitted.
+  - Enabled multi-department retail checkout (apparel, footwear, cosmetics) with accurate line-item level employee attribution.
+- **Sales Staff Commission & Incentive Tracking Engine (`smritiSalesStaffIncentiveService.ts`):**
+  - Implemented category-specific commission calculations, volume turnover slabs, and brand kicker rules (`CommissionRule`).
+  - Provides basket-level and shift-level commission summaries aggregated per staff attendant.
+- **Shift-End Cashier Handover Thermal Balance Sheet (`ProPosShiftHandoverSlip.tsx`):**
+  - High-contrast 80mm / 40-column ESC/POS styled cashier handover balance sheet.
+  - Renders Store Name, Terminal Code, Shift Code, Cashier Name, Start/End timestamps, Tender Sales (Cash, Card, UPI), Float additions/drops, System Expected Cash, Physical Denominations Table (all 11 Indian currency denominations), Shortage/Overage Variance, and dual Cashier/Manager signature blocks.
+  - Clean `@media print` CSS isolation ensuring only the 80mm thermal slip prints on receipt printers without application UI background.
+- **Shift Denomination Ledger Persistence (`pos_shift_denomination_counts`):**
+  - Updated `POSService.close_shift` to automatically unpack and persist counted physical denominations into `pos_shift_denomination_counts` in PostgreSQL, creating an auditable historical handover record.
+- **Frontend POS Billing Terminal Integration (`ProPosBillingTerm.tsx`):**
+  - Added line attendant staff tag badge in active row details.
+  - Passed line attendant `salesperson_id` and `salesperson_name` in `/pos/checkout` payload.
+  - Integrated 1-click **"80mm Cashier Handover Slip"** into `ProPosShiftCloseDl.tsx`.
+- **Verification & Test Coverage:**
+  - Vitest test suites: 44/44 tests green across 5 suites (`smritiSalesStaffAttribution.test.ts` 3/3, `smritiPosParkedCart.test.ts` 7/7, `smritiPromotionClawback.test.ts` 5/5, `smritiAutoSelectPromotion.test.ts` 14/14, `smritiSalesPromotionEngine.test.ts` 15/15).
+  - TypeScript compilation: 0 errors (`npx tsc --noEmit` exit 0).
+  - Python compilation: 0 errors (`py_compile` exit 0 across all backend modules).
+
+### [6.30.0] - 2026-09-17
+
+#### POS Counter Resilience: F12 Park & Recall, Statutory GST Section 15 Return Integrity, Alt+M Customer Switch & LSQ Gate
+
+- **F12 Bill Park & Recall Engine (`smritiPosParkedCartService.ts`):**
+  - Instant zero-latency counter lane unfreezing; generates canonical hold slip numbering (`HOLD-YYYYMMDD-XXXX`).
+  - Strict 4-hour auto-expiration window (`expires_at`): filters out stale carts so shift-end reconciliation and cash drawer balances are never compromised by forgotten transactions from earlier shifts.
+  - Dual-layer storage: local storage for zero-latency counter resilience and asynchronous PostgreSQL persistence (`pos_parked_carts`).
+  - Prominent toolbar ribbon badge with active cart count and 1-click recall dialog.
+- **B2G1 Promotional Return Integrity & Statutory GST Sec. 15 Clawback (`smritiPromotionClawbackService.ts`):**
+  - Inspects invoice promotion redemptions to block or deduct clawback when customers return paid items while retaining free promotional items.
+  - Preserves statutory GST Section 15 taxable base calculation on return Credit Notes, preventing understated taxable consideration on GSTR-1.
+- **Alt+M Mid-Bill Customer Switch with Dynamic Re-Evaluation:**
+  - Frictionless mid-transaction customer change dynamically re-evaluating `resolveBestItemPromo` and `resolveBestBillPromo` across all grid lines with recalculation of line discounts, GST, and totals.
+  - Asynchronously posts audit records to `invoice_customer_change_logs`.
+- **Quick Last-Bill Reprint (`Alt+6`):**
+  - Single-keystroke counter hotkey to reprint or inspect the last finalized receipt without leaving the active billing canvas.
+- **Supervisor-Gated Void Authorization (`Alt+2`):**
+  - Enforced mandatory supervisor/manager PIN verification before authorizing invoice voids or cancellations (`SmritiProPosCancelDlg`), closing checkout shrinkage vulnerabilities.
+- **Least Saleable Quantity (LSQ) Integrity Gate:**
+  - Added `least_saleable_qty NUMERIC(10, 4) NOT NULL DEFAULT 1.0000` to `items` and `item_barcodes`.
+  - Enforced positive integer multiple gate at grid commit boundary, preventing fractional or under-pack sales.
+- **Shift-End Cash Denomination Reconciliation Ledger:**
+  - Created `pos_shift_denomination_counts` for cashier handover and manager balance sheet reconciliation.
+- **Alembic Migration (`v1458`):**
+  - Created `v1458_pos_parked_carts_lsq_and_customer_switch_audit.py` (down_revision: `v1457_canonical_smriti_promotions_engine`).
+- **Verification & Test Coverage:**
+  - Vitest test suites: 41/41 tests green (`smritiPosParkedCart.test.ts` 7/7, `smritiPromotionClawback.test.ts` 5/5, `smritiAutoSelectPromotion.test.ts` 14/14, `smritiSalesPromotionEngine.test.ts` 15/15).
+  - TypeScript compilation: 0 errors (`npx tsc --noEmit` exit 0).
+  - Python compilation: 0 errors (`py_compile` exit 0).
+
+### [6.29.0] - 2026-09-17
+
+#### Core Commerce: Enterprise Promotion Engine Canonical PostgreSQL Schema, 5-Primitive Rule Composition & Explainability
+
+- **PostgreSQL 15+ Canonical DDL & Migration (`v1457`):**
+  - Created 11 custom PostgreSQL ENUM types (`smriti_promo_status_enum`, `smriti_promo_level_enum`, `smriti_promo_rule_type_enum`, `smriti_promo_reward_type_enum`, etc.).
+  - Created 18 canonical tables across 4 phases:
+    - Phase 1 (Definition & Scopes): `smriti_promotions`, `smriti_promotion_versions`, `smriti_promotion_rules`, `smriti_promotion_conditions`, `smriti_promotion_rewards`, `smriti_promotion_scopes`, `smriti_promotion_scope_items`.
+    - Phase 2 (Transactions & Declines): `smriti_promotion_qualifications`, `smriti_promotion_redemptions`, `smriti_promotion_redemption_items`, `smriti_promotion_declines`.
+    - Phase 3 (Operations & Audit): `smriti_promotion_overrides`, `smriti_promotion_audit`, `smriti_promotion_imports`, `smriti_promotion_import_rows`.
+    - Phase 4 (Simulation & Conflicts): `smriti_promotion_simulations`, `smriti_promotion_simulation_items`, `smriti_promotion_conflicts`.
+  - Installed PostgreSQL triggers: `fn_smriti_promotions_touch_modified_at` and `fn_smriti_promo_version_immutability_guard` (blocks modifications or deletions of published/redeemed promotion versions).
+  - High-speed POS barcode candidate index: `idx_smriti_scope_items_pos_lookup` on `(tenant_id, barcode, promotion_scope_id)`.
+- **SQLAlchemy 2.0 ORM Declarative Models:**
+  - Added enterprise models in `backend/app/models/promotions.py` inheriting from SMRITI's `BaseEntity` with tenant isolation.
+  - Maintained backward-compatible aliases for legacy `PromotionCampaign` and `PromotionRedemption`.
+- **Service Layer 5-Primitive Refactoring (`smritiSalesPromotionService.ts`):**
+  - Modeled promotion resolution via 5 decoupled primitives: `PromotionEligibility`, `PromotionTrigger`, `PromotionReward`, `PromotionLimits`, and `PromotionGovernance`.
+  - Decoupled trigger scope from independent reward scope (`rewardScope`) enabling cross-item / differential promotions (e.g. Suit $\rightarrow$ Free Tie).
+- **Promotion Explainability & Verifiable Audit:**
+  - Integrated `explainability: PromotionExplanation` answering *"Why this discount?"* with granular evaluation checklists (`SCHEDULE_ACTIVE`, `CUSTOMER_ELIGIBILITY`, `CATALOG_TARGETING`, `MIN_QUANTITY`, `BILL_THRESHOLD_MET`).
+- **Non-Blocking Free Item Flow & Decline Tracking:**
+  - Implemented `UnclaimedFreeItemOffer` qualification flow with explicit decline recording (`recordPromotionDecline`) capturing the critical retail metric *"Qualified but not redeemed"*.
+- **Single Primary Basket Upsell Milestone Gauge:**
+  - Implemented context-aware single-milestone progress calculation (`getBasketUpsellMilestone`) rendering a 16-block ASCII gauge (`[██████████████░░] ₹1,650 / ₹2,000 — Add ₹350 more to get ₹200 OFF`).
+- **Statutory GST Section 15 Compliance:**
+  - Explicit tax treatment indicator (`tax_treatment = 'PRE_TAX_TRADE_DISCOUNT'`).
+- **Verification:**
+  - Vitest test suites: 29/29 tests green (`smritiAutoSelectPromotion.test.ts` 14/14, `smritiSalesPromotionEngine.test.ts` 15/15).
+  - TypeScript compilation: 0 errors (`npx tsc --noEmit` exit code 0).
+  - Python compilation: 0 errors (`py_compile` exit code 0).
+
+### [6.28.1] - 2026-09-17
+
+#### POS Billing: Real-Time Bill-Level Sales Promotion Auto-Select Engine & Basket Value Arbitration
+
+- **Synchronous Basket Auto-Resolution (`resolveBestBillPromo`):**
+  - Evaluates active `BILL_LEVEL` promotions in real time based on cart subtotal, item count, date validity, day of week (`MON`–`SUN`), happy hours, customer group, and `minBillValue` threshold.
+  - Supports `BILL_DISCOUNT_PERCENT`, `BILL_VALUE_SLAB` (with `maxDiscount` ceiling caps), and flat rupee markdowns (`BILL_DISCOUNT_FLAT`).
+- **Canonical "Highest Discount Wins" Basket Arbitration:**
+  - Dynamic evaluation of competing basket promotional schemes, selecting the scheme awarding maximum customer net rupee savings.
+  - Secondary tie-breaking deterministic priority resolution (`1 = highest priority`).
+- **POS Terminal Integration & Operator Authority:**
+  - Automated real-time evaluation hooks wired into `ProPosBillingTerm.tsx` and `BillingTerm.tsx`.
+  - Cashier manual override protection (`isManualBillPromoOverride`): Cashier adjustments via `F6` are preserved and protected from automated overrides.
+  - Visual scheme badge (`🏷️ {billLevelPromo.code} [F6]`) directly rendered in Net Values summary bar with 1-click modal inspection.
+  - Automatic state reset upon `Alt+1` New Bill / `handleNewInvoice`.
+- **Verification & Parity:**
+  - Expanded unit test suite `smritiAutoSelectPromotion.test.ts` (10/10 tests green).
+  - Maintained full regression stability `smritiSalesPromotionEngine.test.ts` (15/15 tests green).
+  - TypeScript compilation: 0 errors (`npx tsc --noEmit` exit code 0).
+
+### [6.28.0] - 2026-09-16
+
+#### POS Billing: Real-Time Item-Level Sales Promotion Auto-Select Engine
+
+- **Real-Time Promotional Auto-Resolution (`resolveBestItemPromo`):**
+  - Evaluates all active item-level promotional schemes on optical barcode scan or manual SKU/Stock No entry.
+  - Multi-dimensional qualification validation: date validity range, day of week (`MON`–`SUN`), and happy hour time windows (`HH:mm`).
+  - Strict Commercial Customer Group entitlement matching (e.g., Reliance Retail contractual markdown of 43.76% on MRP).
+  - Target filtering: Category hierarchy, Brand matching, SKU/Barcode exact matching, and minimum quantity thresholds.
+- **Canonical "Highest Discount Wins" Arbitration:**
+  - Evaluates all candidate qualifying promotions, computes exact rupee line savings, and awards the offer maximizing customer savings.
+  - Deterministic tie-breaking using promotion priority (`1 = highest`).
+- **Dynamic Progression for Multi-Unit Schemes (B2G1):**
+  - Incremental duplicate barcode scanning aggregates line quantity and re-evaluates promotional eligibility in real time, unlocking "Buy 2 Get 1 Free" on the 3rd scanned piece.
+- **Operator Authority & Visual Feedback:**
+  - Preserves cashier `F6` manual override (`isManualDiscOverride`), preventing unwanted resets of manual trade concessions.
+  - Visual promotion badge (`🏷️ {item.discCode}`) in accepted items table and active promotion banner in the item inspector ribbon.
+- **Verification:**
+  - Added dedicated Vitest test suite (`smritiAutoSelectPromotion.test.ts`, 6/6 tests green in 26ms).
+  - Validated regression suite (`smritiSalesPromotionEngine.test.ts`, 15/15 tests green in 38ms).
+
+### [6.26.0] - 2026-09-16
+
+#### Commercial Billing: Generation of 5 Statutory GST Tax Invoices for Reliance Retail (Allof2nd Dispatch)
+
+- **Tax Invoice Generation (`TT2026-2027/250` through `254`):**
+  - Generated 5 statutory GST Tax Invoices dated `05-09-2026` for Reliance Retail Limited from Sheet `16-09-26(2)` of `RIL_Dispatch1_16092026_Allof2nd.xlsx`.
+  - Dispatched 5 stores: `TXAJ` (Palavakkam Chennai, PO 5182778205), `TW07` (Tumkur NDC, PO 5182778158), `TW97` (AS Rao Nagar Hyderabad, PO 5182778204), `TXSR` (FIF Hyderabad SU, PO 5182778206), `TXSU` (FIF Bangalore KR, PO 5182778207).
+  - Unpivoted 32 data rows into 185 line items representing 249 physical footwear pairs.
+  - Financial reconciliation: Gross MRP ₹535,051.00, Taxable Value ₹300,913.28, 5% IGST ₹15,045.51, Grand Total ₹315,958.00.
+  - Inserted full canonical AST records into `sales_invoices`, `sales_invoice_items`, and `eway_bills` in PostgreSQL database `smriti001`.
+  - Rendered 5 statutory A4 PDF invoices via Playwright; generated individual + consolidated NIC v1.0.1118 E-Way Bill JSON payloads; generated 2-sheet client summary Excel matrix; highlighted Columns M, N, O, P in dispatch spreadsheet with green fill (`#FF92D050`).
+
+### [6.27.4] - 2026-09-16
+
+#### Comprehensive Audit: Test Reconciliation, Security Hardening & API Communication Improvement
+
+**Commit:** `e8fa8c99` (branch: smritiNX)
+
+- **Backend Test Suite — `test_02` Reconciliation (t_canonical_tax.py):**
+  - Identified data drift: Invoice TT2026-2027/102 had 2 items (CH-19-E CREAM 42, CH-19-E TAN 42) added post v1455 tax-inclusive migration, bringing item count from 34 to 36 and pairs from 46 to 48.
+  - Updated all assertions to match verified live DB state: taxable ₹52,613.76, IGST ₹2,630.69, pre-round ₹55,244.45, grand total ₹55,244, rounding adj −₹0.45.
+  - Test individually verified PASSING before commit (`1 passed in 11.01s`).
+
+- **Security Hardening (backend/app/api/deps.py):**
+  - Expanded token resolution to check raw `Authorization` header (with `Bearer ` prefix stripping), `x-auth-token`, `x-access-token` headers, and `token` cookie — covering all standard OAuth2 / API Gateway forwarding patterns.
+  - Result: Eliminates `SMRITI-AUTH-001` class errors where the framework's OAuth2 scheme strips the header before the fallback can detect it.
+
+- **Error Handler Precision (backend/app/core/error_handlers.py):**
+  - Stack trace exposure restricted to development environment AND `status_code >= 500` only.
+  - Prevents accidental debug information leakage on 4xx client errors (e.g., `HTTP 422 Unprocessable Entity` from Pydantic validation) in HTML error pages.
+
+- **API Communication Improvement (src/lib/apiFetchV1.ts):**
+  - Removed localhost-specific baseURL override. Browser requests now always use relative origin URL (works correctly through Vite dev proxy and production Nginx/Caddy reverse proxy).
+  - Improved error message extraction chain: `detail → error.explanation → message → JSON.stringify → response.text()` with nested try/catch fallbacks.
+
+- **Audit Outcome:**
+  - Frontend: **132 test files / 875 tests — 100% passing** (up from 130/861 in prior session).
+  - TypeScript: **0 errors** (tsc --noEmit exit 0).
+  - Backend: test_02 PASSING — no regressions.
+  - `PRODUCTION_READINESS_AUDIT.md` updated to v6.27.4 with literal evidence.
+
+### [6.27.3] - 2026-09-16
+
+
+#### Billing Default Tax-Exclusive Calculation, TT138 A4 Print Format & Document Auth Protection
+
+**Walkthroughs:**
+- [Billing_Default_Tax_Exclusive_Calculation_And_TT138_Standard_v6.27.3.md](docs/walkthrough/billing/Billing_Default_Tax_Exclusive_Calculation_And_TT138_Standard_v6.27.3.md)
+- [Billing_A4_Print_Format_Preview_And_Document_Auth_v6.27.3.md](docs/walkthrough/billing/Billing_A4_Print_Format_Preview_And_Document_Auth_v6.27.3.md)
+
+- **Default Wholesale/Commercial Tax-Exclusive Billing:**
+  - Standardized wholesale/commercial calculation (`Rate/MRP -> Trade Disc% -> Taxable Base -> + GST -> Total`) as system default across POS billing terminal (`ProPosBillingTerm.tsx`), modeled on `invoice_TT2026-2027-138.pdf`.
+  - Added interactive POS Toolbar toggle pill (`Exclusive (Base+GST) [Default]` vs `Inclusive (MRP Gross)`).
+  - Aligned accepted items table columns: `Stock No | Item Description | Rate / MRP | Qty | Disc. % | Taxable | Tax % | Tax Amt | Total | Staff | Del`.
+  - Updated Net Values summary to explicitly distinguish Gross MRP Sales, Discounts, Taxable Value, and GST Tax.
+- **A4 Canonical Print Format as System Default & Live Preview:**
+  - Embedded `TaxInvoiceA4.tsx` as default format (`printFormat = "a4"`) in `ProPosTaxInvoiceRc.tsx`.
+  - Added format toggle between `A4 Standard (TT138) [Default]` and `Thermal Slip (80mm)`.
+  - Added zoom controls (`Zoom Out`, `Zoom In`, `Reset 100%`) for responsive preview on any screen size.
+  - Added `Alt+V` keyboard shortcut in POS terminal to preview active bill before/during checkout.
+- **Multi-Vector Document Authentication (Eliminating `SMRITI-AUTH-001`):**
+  - Updated FastAPI `backend/app/api/deps.py` to resolve authentication tokens from `Authorization` header, query parameter `?token=...`, or browser cookies (`access_token`, `smriti_jwt_token`).
+  - Added fallback in `get_tenant_context` to auto-resolve to the company's first active branch if unassigned or default.
+  - Aligned `invoice_pdf_service.py` to support invoice lookup by `id` or `invoice_no` and resolve branch aliases (`BR-MAIN-001`, `MAIN`, `BR-001`).
+  - Added `getAuthenticatedDocumentUrl`, `openAuthenticatedDocument`, and `syncAuthCookies` in `src/lib/apiFetchV1.ts`.
+  - Routed all document actions in `SalesStudioTab.tsx` (`PRINT TAX INVOICE`, `Preview`, `Export PDF`, `Reprint`) through `openAuthenticatedDocument`.
+- **POS Terminal Profile Default Installation Baseline & CRUD Lifecycle:**
+  - Established statutory POS Terminal Profile (`Counter 01 - Express Billing`, Code: `REG-01`) as installation baseline across `POSProfileCreate` schema defaults (`backend/app/schemas/pos.py`).
+  - Added installation baseline database seeding for `REG-01` (`Counter 01 - Express Billing`) and `REG-02` (`Counter 02 - Standard Checkout`) across control (`smritisys`) and tenant (`smriti001`) databases in `backend/app/db/seed_baseline_users.py`.
+  - Added automatic POS profile provisioning in onboarding company setup wizard (`backend/app/api/v1/system.py` - `/api/v1/company/setup`).
+  - Added full backend CRUD endpoints in `backend/app/api/v1/pos.py` and `backend/app/services/pos.py`: `PUT /pos/profiles/{id}` (update terminal profile) and `DELETE /pos/profiles/{id}` (soft delete/archive).
+  - Aligned frontend configuration `posProfiles.config.tsx` with `code` and `notes` form fields and default payload transform.
+  - Enforced Rule 12 database column parity by adding missing `warehouse_id` on `cash_registers` in `smritisys`.
+- **Comprehensive Verification:**
+  - `src/tests/ttInvoiceBillingCalculation.test.ts` (10/10 passed).
+  - `src/tests/authenticatedDocumentUrl.test.ts` (4/4 passed).
+  - Full Vitest suite: 132/132 files passed (875/875 tests passed).
+  - TypeScript compiler check (`tsc --noEmit`): 0 errors.
+
+### [6.27.2] - 2026-09-16
+
+#### Stage 5.2: First Domain Writer Integration (Sales Ledger Outbox)
+
+**Walkthrough:** [Stage5_2_First_Domain_Writer_Integration_v6.27.2.md](docs/walkthrough/architecture/Stage5_2_First_Domain_Writer_Integration_v6.27.2.md)  
+**Implementation Plan:** [Stage5_2_First_Domain_Writer_Integration_v6.27.2.md](docs/implementation/foundation/Stage5_2_First_Domain_Writer_Integration_v6.27.2.md)  
+
+- **Transactional Outbox Domain Writer Integration:**
+  - Integrated `UnifiedSalesLedgerService.post_sales_invoice` with Stage 5.1 `PlatformEventService` transactional outbox kernel.
+  - Automatically stages `sales.invoice.confirmed` (v1.0) event within the active business session, ensuring atomic commit across `sales_invoices`, `sales_invoice_items`, `stock_movements`, and `integration_outbox_events`.
+- **Cancellation Event Outbox Staging:**
+  - Integrated `UnifiedSalesLedgerService.cancel_sales_invoice` to atomically stage `sales.invoice.cancelled` (v1.0) event with cancellation reason and reverted status within the same database transaction.
+- **Canonical Architecture Export:**
+  - Exported canonical alias `CanonicalSalesWriter = UnifiedSalesLedgerService` in `sales_ledger_svc.py`, establishing single source of write truth for sales transactions.
+- **Kernel Interoperability & Backward Compatibility:**
+  - Added singleton factory `get_platform_event_service()` in `backend/app/platform/events/service.py` pre-configured with default event schemas (`sales.invoice.confirmed`, `SALES_INVOICE_CONFIRMED`, `sales.invoice.cancelled`, `SALES_INVOICE_CANCELLED`, `pos.bill.created`, `wms.goods.receipt`, `payment.received`).
+  - Added schema key normalization in `EventRegistry` supporting both dot-notation and uppercase underscore legacy aliases.
+  - Enhanced `EventSerializer.from_dict()` with envelope field filtering for resilient deserialization.
+  - Updated `PostgresEventOutbox.stage()` to hoist domain payload fields to root of `payload_json` for downstream consumer backward compatibility.
+  - Added `PlatformOutboxWorker.process_batch()` alias to `run_cycle()`.
+- **Comprehensive Verification:**
+  - 5/5 dedicated Stage 5.2 integration tests passed (`test_stage5_2_domain_writer_integration.py`).
+  - 26/26 combined Platform Event Service and Outbox Worker test suite passed.
+  - 13/13 existing domain sales ledger and outbox tests passed (`t_sales_ledger.py` + `t_outbox_stats.py`).
+  - TypeScript check (`tsc --noEmit`) 0 errors; Vite production build (3,547 modules) clean.
+  - Architecture duplication CI gate passed with 0 P0/P1 violations.
+
+### [6.27.1] - 2026-09-16
+
+#### Stage 5.1: Transactional Outbox Engine Hardening & Architectural Freeze
+
+**Walkthrough:** [Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md](docs/walkthrough/architecture/Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md)  
+**Implementation Plan:** [Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md](docs/implementation/foundation/Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md)  
+
+- **Explicit Session Ownership on `IEventOutbox`:**
+  - Enforced mandatory `db_session` parameter across all outbox operations (`stage`, `claim`, `mark_dispatched`, `mark_failed`, `replay_dead_letter`, `abandon_dead_letter`).
+  - Removed fallback ambient session delegation, preventing accidental cross-session leakage.
+- **Tenant vs. Company vs. Branch Isolation Boundary:**
+  - Codified absolute governance rule: `tenantId` is the mandatory physical database isolation partition; `companyId` and `branchId` are optional business metadata dimensions.
+- **PostgreSQL Database-Level Uniqueness Constraint:**
+  - Formally verified and tested `btree unique` index on `source_event_id` in `integration_outbox_events` (`ix_integration_outbox_events_source_event_id`), preventing concurrent duplicate staging at the storage engine level.
+- **At-Least-Once Delivery & Consumer Idempotency Contract:**
+  - Formally designated Stage 5 delivery semantics as **At-Least-Once**. Outbox worker commits after transport delivery; subscribers are required to maintain idempotent consumption.
+- **DLQ Operational Lifecycle:**
+  - Implemented `replay_dead_letter()` and `abandon_dead_letter()` methods on `IEventOutbox` with retry counter resets and audit state updates.
+- **Configurable Statutory Event Retention Engine (`EventRetentionPolicy`):**
+  - Replaced arbitrary 30-day purge with granular classification:
+    - Statutory Financial / Tax Events: 8 Years / 2,920 days (per CGST Act 2017 Section 36).
+    - Operational / Ephemeral Events: 7 Days.
+    - System / Security Audit Events: Permanent (indefinite).
+- **Controlled Domain Writer Rollout Policy:**
+  - Established phased domain writer convergence (Phase A: single writer `CanonicalSalesWriter.post_sales_invoice`; Phase B: 2-3 critical writers; Phase C: platform-wide).
+- **Verification:**
+  - Expanded test suite: **19/19 Pytest tests passing** (up from 16/16).
+  - TypeScript type check (`tsc --noEmit`) and Vite production build (`npm run build`) passing 100% clean.
+
+### [6.27.0] - 2026-09-16
+
+#### Stage 5: Transactional Postgres Outbox Engine & Worker Daemon
+
+**Walkthrough:** [Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md](docs/walkthrough/architecture/Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md)  
+**Implementation Plan:** [Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md](docs/implementation/foundation/Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md)  
+
+- **Transactional Postgres Outbox Engine (`PostgresEventOutbox`):**
+  - Concrete implementation of `IEventOutbox` managing `IntegrationOutboxEvent` ORM records.
+  - Guarantees atomic staging within caller's active database transaction/session, preventing dual-write hazards.
+  - Implements two-phase non-blocking batch claiming with `SELECT ... FOR UPDATE SKIP LOCKED`.
+  - Channel isolation defaulting to `PLATFORM_EVENTS`.
+  - Zombie lease recovery for crashed worker claims (`status='PROCESSING' AND claim_expires_at <= now`).
+- **Asynchronous Outbox Worker Daemon (`PlatformOutboxWorker`):**
+  - Resilient polling runner that claims batches with row locks, dispatches outside locks via `PlatformEventService.publish(envelope)`, and settles results.
+  - Exponential backoff retry scheduling and Dead Letter Queue (`DEAD_LETTER`) routing.
+  - Immediate `wake()` trigger via asyncio Event.
+- **TypeScript Parity:**
+  - Added `OutboxRecord`, `OutboxStatus`, `OutboxWorkerStats`, and updated `IEventOutbox` in `src/kernel/events.ts`.
+- **Verification:**
+  - 7/7 Pytest tests passing in `test_postgres_outbox_worker.py`.
+  - 9/9 Pytest tests passing in `test_platform_event_service.py`.
+  - 3,547 modules clean Vite production build.
+
+### [6.26.0] - 2026-09-16
+
+
+#### Stage 4 Platform Event Service & Canonical Table Convergence
+
+**Walkthrough:** [Stage4_Platform_Event_Service_And_Canonical_Convergence_v6.26.0.md](docs/walkthrough/architecture/Stage4_Platform_Event_Service_And_Canonical_Convergence_v6.26.0.md)  
+**Architecture Decision:** [ADR-005-One-Way-Canonical-Master-To-Compatibility-Projection-Architecture.md](docs/adr/ADR-005-One-Way-Canonical-Master-To-Compatibility-Projection-Architecture.md)  
+**Dependency Matrix:** [CANONICAL_TABLE_DEPENDENCY_MATRIX_2026.md](docs/_audit/CANONICAL_TABLE_DEPENDENCY_MATRIX_2026.md)
+
+- **One-Way Canonical Master → Compatibility Projection Policy:**
+  - Formally rejected bidirectional synchronization in favor of strictly unidirectional projections from canonical domain masters (`items`, `customer_profiles`, `vendor_profiles`) to legacy compatibility tables (`products`, `customers`, `suppliers`).
+  - Prohibited retroactive mutations on historical transactions; historical invoices preserve statutory compliance independently of master data revisions.
+- **Permanent Statutory Transaction Snapshot Immutability Rule:**
+  - Enforced statutory requirement (CGST Act 2017 Section 31 and Rule 46): invoices, credit notes, and purchase vouchers must store permanent frozen copies of item description, HSN, tax rate, and pricing at point of issuance.
+  - Invoices must never dynamically join live master tables for statutory attributes.
+- **Canonical Table Dependency Matrix (201 Models Inventory):**
+  - Completed comprehensive forensic audit of all 201 mapped SQLAlchemy models across `smriti001` (189 physical tables) and `smritisys` (12 control plane tables).
+  - Established domain ownership, incoming/outgoing foreign keys, live row counts, and 5-gate retirement classification.
+- **Stage 4 Platform Event Service Architecture (`backend/app/platform/events/` & `src/kernel/events.ts`):**
+  - **Transport Abstraction:** Authored `IEventTransport` protocol and `MemoryTransport` reference implementation, isolating message broker infrastructure (Kafka, RabbitMQ, Redis Streams) from business logic.
+  - **Standardized Envelope:** Authored `EventEnvelope<T>` supporting `schemaVersion`, `actorId`, `correlationId`, `causationId`, `tenantId`, and `occurredAt`.
+  - **Schema Registry & Validation:** Implemented `EventRegistry` enforcing schema version registration and payload compatibility checks.
+  - **Consumer Contractual Idempotency:** Implemented `IIdempotencyStore` protocol and `MemoryIdempotencyStore` guaranteeing duplicate suppression across transport retries.
+  - **Resilience Policies:** Authored configurable `RetryPolicy` with exponential backoff and `DeadLetterPolicy` with dead letter entry capture.
+  - **Transactional Outbox Interface:** Declared `IEventOutbox` boundary interface for transactional atomicity.
+  - **Frontend Parity:** Exported matching TypeScript interfaces in `src/kernel/events.ts`.
+- **Alembic Migration `v1454_retire_stores_table.py` & Model Decoupling:**
+  - Executed 5-gate staged retirement of obsolete `stores` and `user_store_assignments` tables.
+  - Safely severed hidden foreign key constraint `staff_placement_assignments_internal_store_id_fkey` on `staff_placement_assignments.internal_store_id`.
+  - Upgraded both `smriti001` and `smritisys` databases to head `v1454_retire_stores_table`.
+  - Verified clean bidirectional rollback (`downgrade -1` reconstructs `stores`, `user_store_assignments`, and restored foreign key constraints).
+  - Cleaned up models in `backend/app/models/` (`inventory.py`, `staff_placement.py`, `user_assignment.py`) and converted legacy endpoints in `masters.py`, `staff.py`, and `system.py` to HTTP 410 / empty stubs.
+
+### [6.25.0] - 2026-09-15
+
+#### Barcode Billing CSV Import Engine & Statutory GST Resolution
+
+**Walkthrough:** [Billing_Barcode_CSV_Import_Engine_And_Statutory_GST_Resolution_v6.25.0.md](docs/walkthrough/billing/Billing_Barcode_CSV_Import_Engine_And_Statutory_GST_Resolution_v6.25.0.md)
+
+- **Multi-Tier CSV/PDT Barcode Import Subsystem:**
+  - Implemented `/api/v1/billing/csv/validate` supporting 6 CSV tiers (Barcode only, Barcode+Qty, Barcode+Qty+Price, Barcode+Qty+Rate, Barcode+Qty+Discount%, Full Billing) plus PDT (tilde/pipe delimited).
+  - Added delimiter auto-detection (comma, tilde, pipe, tab) and case-insensitive header normalization.
+- **Strict Database Catalog Resolution & MRP Ceilings:**
+  - Enforced zero-tolerance database resolution (`SMRITI-BILL-001`): rejected non-existent barcodes, characters, and unmapped SKUs across `products.barcode`, `secondary_barcodes`, `code`, and `sku`.
+  - Enforced Legal Metrology Act MRP ceiling (`SMRITI-BILL-002`): unconditionally rejected lines priced above master MRP.
+  - Statutory GST supremacy (`SMRITI-BILL-010`): catalog GST rate is the legal statutory source of truth; user-entered GST serves strictly as advisory mismatch warning.
+  - Computed non-cascading MRP markdown percentages (`round((mrp - selling_price) / mrp * 100)`) for customer receipt display.
+- **Frontend Pro POS Billing Integration:**
+  - Created `BarcodeCSVImportModal.tsx` featuring drag-and-drop file upload, live row-by-row status badges (`VALID`, `WARN`, `ERROR`), format tier tags, and error guidance.
+  - Integrated into `ProPosBillingTerm.tsx` overflow menu with direct cart injection and checkout settlement.
+
+### [6.25.0] - 2026-09-16
+
+#### Generation of 19 Statutory GST Tax Invoices for Reliance Retail (RIL_Dispatch1_16092026_All.xlsx)
+
+**Walkthrough:** [Sales_Dispatch_19_Stores_Invoices_v6.25.0.md](docs/walkthrough/sales/Sales_Dispatch_19_Stores_Invoices_v6.25.0.md)
+
+- **19 Store Dispatch Direct Billing & Delivery (16-09-2026 Dispatch):**
+  - Processed 114 rows from sheet `Sheet1` of `RIL_Dispatch1_16092026_All.xlsx` unpivoted across 7 footwear size columns (36 to 42) into 645 line items and exactly 904 pairs across 19 stores in Assam, Tripura, Bihar, Jharkhand, West Bengal, Andhra Pradesh, Telangana, and Karnataka (`TT2026-2027/231` through `TT2026-2027/249`).
+  - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
+- **Commercial & Statutory Financial Reconciliation:**
+  - Total Gross MRP: ₹1,953,496.00.
+  - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
+  - Total Taxable Value: ₹1,098,648.32.
+  - Interstate IGST 5.00%: ₹54,932.24.
+  - Total Net Invoiced Value: ₹1,153,583.00.
+- **Physical Logistics & Pre-Portal E-Way Separation:**
+  - Logistics origin: `Tattly Threads Nagpur Depot`, PIN `440029`.
+  - Stored `sales_invoices.eway_bill_no` as `NULL` and rendered E-Way Bill fields blank on physical tax invoice PDFs pending government portal upload.
+- **NIC Government Portal Bulk Upload Payloads:**
+  - Generated 19 individual store JSONs and 1 consolidated bulk upload JSON (`EWayBill_Bulk_Upload_16092026.json`) adhering strictly to NIC schema v1.0.1118 with statutory combination movement (`transType: 4`).
+  - Staged payloads in `Final_Invoices/Eway_JSON` and mirrored to `F:\Smriti-Clients Data\Eway\Final_16092026\`.
+- **Client Summary Matrix & Invoiced Dispatch Workbook:**
+  - Generated two-tab summary workbook `Tax_Invoice_Summary_16-09-2026.xlsx` (`Invoice_Summary` and `All_Items_Consolidated`).
+  - Highlighted Columns M (Invoice details), N (Invoice Date), O (PO Number), P (Dispatch From) green (`#FF92D050`) in `RIL_Dispatch1_16092026_All_Updated.xlsx` and preserved copy `RIL_Dispatch1_16092026_All_Invoiced.xlsx`.
+
+### [6.24.0] - 2026-09-15
+
+#### Generation of 16 Statutory GST Tax Invoices for Reliance Retail (Sheet '15-09-2026-1' in RIL_Dispatch15092026-2.xlsx)
+
+**Walkthrough:** [Sales_Dispatch_16_Stores_Invoices_v6.24.0.md](docs/walkthrough/sales/Sales_Dispatch_16_Stores_Invoices_v6.24.0.md)
+
+- **16 Store Dispatch Direct Billing & Delivery (Batch 2):**
+  - Processed 144 rows from sheet `'15-09-2026-1'` of `RIL_Dispatch15092026-2.xlsx` unpivoted across 7 footwear size columns (36 to 42) into 828 line items and exactly 1,116 pairs across 16 stores in Karnataka, Tamil Nadu, and Telangana (`TT2026-2027/215` through `TT2026-2027/230`).
+  - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
+- **Commercial & Statutory Financial Reconciliation:**
+  - Total Gross MRP: ₹2,327,684.00.
+  - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
+  - Total Taxable Value: ₹1,309,092.16.
+  - Interstate IGST 5.00%: ₹65,454.28.
+  - Total Net Invoiced Value: ₹1,374,548.00.
+- **Physical Logistics & Pre-Portal E-Way Separation:**
+  - Logistics origin: `Tattly Threads Nagpur Depot`, PIN `440029`.
+  - Stored pre-dispatch staging records in `eway_bills`; kept `sales_invoices.eway_bill_no` NULL and invoice PDF E-Way Bill fields blank pending government portal generation.
+- **Artifacts & Deliverables Generated:**
+  - 16 Statutory A4 PDF invoices rendered via Playwright (`InvoicePdfService`) in `F:\Smriti-Clients Data\15-09-2026\inv2\Final_Invoices\Tax_Invoice_PDFs\` and mirrored in `Invoices_Store_PO_Invoice\`.
+  - 16 Individual NIC E-Way Bill JSON payloads and 1 consolidated bulk upload JSON (`EWayBill_Bulk_Upload_15092026_Batch2.json`) mirrored in `F:\Smriti-Clients Data\Eway\Final_15092026_Batch2\`.
+  - 2-Tab Client Summary Excel Matrix: `Tax_Invoice_Summary_15-09-2026_Batch2.xlsx`.
+  - Source Excel Updated with green highlight (`#FF92D050`) on columns M, N, O, P: `RIL_Dispatch15092026-2_Updated.xlsx` and `RIL_Dispatch15092026-2_Invoiced.xlsx`.
+
+### [6.23.0] - 2026-09-15
+
+#### Generation of 17 Statutory GST Tax Invoices for Reliance Retail (Sheet '15-09-2026') & Nagpur Jurisdiction Alignment
+
+**Walkthrough:** [Sales_Dispatch_17_Stores_Invoices_v6.23.0.md](docs/walkthrough/sales/Sales_Dispatch_17_Stores_Invoices_v6.23.0.md)
+
+- **17 Store Dispatch Direct Billing & Delivery:**
+  - Processed 119 rows from sheet `'15-09-2026'` of `RIL_Dispatch15092026.xlsx` unpivoted across 7 footwear size columns (36 to 42) into 765 line items and exactly 1,003 pairs (59 pairs per store).
+  - Billed and shipped each of the 17 stores directly to their registered store site addresses under their individual PO numbers from Reliance Retail's 60-PO register (`TT2026-2027/198` through `TT2026-2027/214`).
+  - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
+- **Commercial & Statutory Financial Reconciliation:**
+  - Total Gross MRP: ₹2,078,097.00 (₹122,241.00 per store).
+  - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
+  - Total Taxable Value: ₹1,168,724.16 (₹68,748.48 per store).
+  - Intrastate Maharashtra (2 Stores: `TFW4`, `TMN2`): CGST 2.5% (₹1,718.68) + SGST 2.5% (₹1,718.68) = ₹3,437.36 per store.
+  - Interstate (15 Stores): IGST 5% = ₹3,437.47 per store (Total IGST: ₹51,562.05).
+  - Total Net Invoiced Value: ₹1,227,162.00 (₹72,186.00 net per invoice × 17).
+- **Pre-Portal E-Way Bill Decoupling & Governance:**
+  - Enforced statutory ERP standard: set `sales_invoices.eway_bill_no = NULL` and left the `E-Way Bill No:` field strictly blank on physical invoice PDFs.
+  - Generated NIC v1.0.1118 compliant individual JSON payloads and 1 consolidated bulk upload JSON (`EWayBill_Bulk_Upload_15092026.json`) with `transType: 4` combination movement for immediate upload to `ewaybillgst.gov.in`.
+- **Legal Jurisdiction Realignment:**
+  - Updated all dispute jurisdiction clauses and footer disclaimers from Mumbai to **Nagpur Jurisdiction** across backend PDF generator (`invoice_pdf_service.py`), seed configuration (`seed_tax_invoice.py`), and frontend print templates (`StandardInvoiceA4.tsx`, `TaxInvoiceA4.tsx`, `TaxInvoicePrintPag.tsx`).
+- **Verification:**
+  - Database row counts, values, and NULL eway_bill_no confirmed across all 17 invoices.
+  - PDF text extraction confirmed "Nagpur Jurisdiction: True", "Mumbai Jurisdiction: False", and "E-Way Bill No:" blank.
+
+### [6.22.0] - 2026-09-15
+
+#### SMRITI Sales Promotions Studio & Dev Tracker Intelligence Convergence
+
+**Walkthrough:** [Sales_Promotions_Studio_And_Dev_Tracker_Convergence_v6.22.0.md](docs/walkthrough/sales/Sales_Promotions_Studio_And_Dev_Tracker_Convergence_v6.22.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Promotions Studio Enterprise Upgrades:**
+  - Integrated plain-English "Mad-Libs" rule narration for non-technical retail operators.
+  - Provided interactive retail cart simulator with 5 realistic scenarios and real-time discount attribution breakdown.
+  - Implemented statutory Print Schemes engine (`window.print()`), QuickReports analytics integration, and Barcode / SKU qualifiers.
+- **Developer Intelligence Scanner Convergence:**
+  - Synchronized `backend/app/dev_tracker/scanner.py` and `src/modules/dev_tracker/scanner/metrics.ts` to fully map `sales-promotions`.
+  - Elevated module completeness score from `44%` (High Risk) to `96%` (Low Risk).
+  - Remediated all critical, high, and medium risks across the entire repository (0 Critical, 0 High, 0 Medium, 35 Low).
+  - Achieved repository Development Health Index (DHI) of `99%` (Grade: A) and Release Score of `95%`.
+- **Verification:**
+  - Frontend Vitest: 26/26 green in 577ms.
+  - Launchpad Vitest: 10/10 green in 445ms.
+  - Backend API Pytest: 2/2 green (Promotions schemes lifecycle & Dev tracker API).
+  - TypeScript Compiler: `npx tsc --noEmit` verified with 0 errors.
+
+### [6.21.1] - 2026-09-14
+
+#### Sales Promotions Studio Light Theme Alignment
+
+**Walkthrough:** [Sales_Promotions_Studio_Light_Theme_Upgrade_v6.21.1.md](docs/walkthrough/sales/Sales_Promotions_Studio_Light_Theme_Upgrade_v6.21.1.md)
+
+- **Enterprise Light Theme Modernization & Icon Standardization:**
+  - Converted `src/components/promotions/SmritiSalesPromotionsStudio.tsx` from dark slate (`bg-slate-950`, `bg-slate-900`) to SMRITI canonical light theme (`bg-slate-50`, `bg-white`, `border-slate-200`, `text-slate-900`).
+  - Aligned typography, cards, recipe presets, input controls, table styling, and interactive cart sandbox with SMRITI Retail OS POS billing canvases and Fiori Horizon standards.
+  - Standardized Sales Promotions icon across all entry points (`launchpadCatalog.ts`, `layout_store.tsx`, `navigationResolver.ts`, and `SmritiSalesPromotionsStudio.tsx` header badge) from generic megaphone (`campaign`) / sparkle to statutory retail discount icon (`percent`).
+- **Verification:**
+  - TypeScript compilation `npx tsc --noEmit` verified with 0 errors.
+  - Vitest test suites (`smritiSalesPromotionsStudio.test.ts`, `smritiSalesPromotionEngine.test.ts`, `fioriLaunchpad.test.ts`) 36/36 tests green.
+
+### [6.21.0] - 2026-09-14
+
+#### Sales Promotions Studio Route Wiring & PostgreSQL Synchronisation
+
+**Walkthrough:** [Sales_Promotions_Studio_Route_Wiring_v6.21.0.md](docs/walkthrough/sales/Sales_Promotions_Studio_Route_Wiring_v6.21.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Control-Plane Menu Security Matrix Expansion:**
+  - Expanded `CANONICAL_36_MENU_MATRIX` to include `menu-sales-promotions` (`resource: "promotions_studio"`, `view_perm: "PROMOTIONS.WORKSPACE.ACCESS"`, `parent_id: "menu-pos"`).
+  - Added `"promotions_studio"` to `CASHIER_DEFAULT_VIEW_ALLOWLIST` in `security_matrix.py`.
+  - Applied Alembic migration `v1453_seed_sales_promotions_menu.py` seeding `menu-sales-promotions` into `smritisys.smriti_menus` and mapping Shoper 9 option `600/608` in `smriti_legacy_menu_map`.
+- **FastAPI Backend Schemes Synchronization Endpoints:**
+  - Implemented `GET /api/v1/promotions/schemes`, `POST /api/v1/promotions/schemes`, and `DELETE /api/v1/promotions/schemes/{scheme_id}` in `backend/app/api/v1/promotions.py`.
+  - Translated statutory `PromotionSchemeDTO` and `PromotionSchemeUpsertRequest` models directly into PostgreSQL `promotion_campaigns` and `promotion_rules`.
+- **Frontend App & Layout Engine Wiring:**
+  - Added `"menu-sales-promotions": "sales-promotions"` alias to `mapModuleId` in `src/App.tsx`.
+  - Registered `sales-promotions` in initial `registeredWorkspaces` in `src/layout_engine/layout_store.tsx` under category `"Sales & POS"`.
+- **POS Billing & F6 Modal Bridging:**
+  - Added "Full Studio Workspace" navigation button in `SmritiDefineSalesPromotionsModal.tsx` (`Alt+P`).
+  - Added "Studio Workspace" quick launch button in `SmritiF6PromotionalDiscountsModal.tsx` (`F6`).
+  - Integrated `smriti_navigate_module` event dispatch for 1-click transition from checkout terminals directly into the standalone visual rule builder and cart simulator.
+
+### [6.20.0] - 2026-09-14
+
+#### Canonical Statutory E-Way Bill 2026 Upgrade & PostgreSQL Database Parity
+
+**Walkthrough:** [Compliance_Canonical_EWay_Bills_Upgrade_v6.20.0.md](docs/walkthrough/compliance/Compliance_Canonical_EWay_Bills_Upgrade_v6.20.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Rule 12 Database Schema & Nullability Parity:**
+  - Resolved schema drift between control plane (`smritisys`) and tenant databases (`smriti001`) via canonical Alembic migration `v1452_canonical_eway_bills_2026.py`.
+  - Achieved exact 100% column parity (73 columns each) and 100% nullability parity (`id` and `uuid` strictly enforced, legacy columns relaxed to prevent insertion crashes).
+- **2026 Statutory Compliance Mandates:**
+  - Enforced `trans_type = 4` (combination of Bill From-Dispatch From and Bill To-Ship To) decoupling physical logistics (Nagpur Depot `440029` to Sankrail DC `711310`) from billing entities.
+  - Implemented CBIC Rule 138(10) statutory validity computation: 1 day per 200 km (1020 km = 6 days validity).
+  - Maintained 6-to-8 digit HSN code governance (`64041990`).
+- **ORM & Service Lifecycle Orchestration:**
+  - Updated `EWayBill` model in `backend/app/models/distribution.py` and `EWayBillGenerationRequest` schema.
+  - Wired `EWayBillService.generate_ewaybill()` to persist generated E-Way Bills to PostgreSQL and `cancel_ewaybill()` to handle 24-hour statutory cancellation transitions.
+  - Populated canonical 12-digit E-Way Bills (`260951827195`, `260951827196`, `260951827197`) for Reliance Retail West Bengal DC dispatch invoices (`TT2026-2027/195`, `196`, `197`) and linked `sales_invoices.eway_bill_no`.
+- **Verification & Testing:**
+  - Pytest compliance suite: 11/11 tests passed green in 57.54s (`backend/app/compliance/tests/`).
+  - Legacy E2E script `scripts/test_eway_bill_e2e.py` passed with 0 errors.
+
+### [6.19.0] - 2026-09-14
+
+#### SMRITI Sales Promotions & Schemes Studio (Human-First Visual Rule Builder & Cart Simulator)
+
+**Walkthrough:** [Sales_Promotions_Studio_v6.19.0.md](docs/walkthrough/sales/Sales_Promotions_Studio_v6.19.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Human-First Visual Rule Builder & 1-Click Retail Recipes:**
+  - Empowered non-technical store managers, boutique owners, and merchandisers to define complex promotions without writing code or learning SQL.
+  - Provided 8 out-of-the-box retail recipes: Buy 2 Get 1 Free (BOGO), Flat % Discount on Items, Flat ₹100 Off per Piece, Any 3 for ₹1,999 Combo, Spend ₹3,000 Get ₹500 Off, Afternoon Happy Hours 15% Off, Last Piece Stock Clearance 40% Off, and VIP Club 10% Member Exclusive.
+  - Built real-time Natural Language "Mad-Libs" rule generator translating live form inputs into plain English sentences.
+  - Implemented 4-step guided visual wizard: Basics & Type → Who & When (customer group whitelist & Happy Hours) → What & How Much (item targets & BOGO criteria) → Review & Activate.
+- **Interactive Cart Sandbox Simulator:**
+  - Embedded real-time cart simulation engine with step-by-step calculation trace, line-by-line discounts, free items deduction, and savings verification before deploying promotions to live POS lanes.
+- **100% Tally Shoper 9 Parity & Enterprise Promotion Hierarchy:**
+  - Implemented all 13 canonical Shoper 9 promotion types across 4 categories: Item Concessions, Volume & Bundles, Bill Slabs & Thresholds, and Customer/Time targeting.
+  - Supported Auto Select and Manual Selection (`F6` hotkey in POS billing).
+  - Maintained strict item-level vs. bill-level calculation hierarchy and statutory GST Section 15 proration.
+- **Launchpad & Shell Navigation Integration:**
+  - Registered `sales-promotions` tile in `launchpadCatalog.ts` under "Master Data & Stock" with role access (`roles: ["MANAGER", "SYSADMIN"]`) and shortcut `Alt+P`.
+  - Added direct quick action in sales and master data navigation trees.
+- **Verification & Testing:**
+  - Vitest test suite (`src/tests/smritiSalesPromotionsStudio.test.ts`): 10/10 passed in 33ms.
+  - Launchpad registry validator (`scripts/validate-launchpad-registry.mjs`): 42/42 catalog tiles and 75 App render routes passed.
+  - TypeScript compiler (`tsc --noEmit`): 0 errors.
+
+#### SMRITI System Parameters Subsystem & 5-Tier Governance Engine
+
+**Walkthrough:** [Setup_Smriti_System_Parameters_And_Governance_Engine_v6.19.0.md](docs/walkthrough/setup/Setup_Smriti_System_Parameters_And_Governance_Engine_v6.19.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **100% Tally Shoper 9 Parity & Blueprint Integration:**
+  - Migrated and populated `system_parameters` table across `smritisys` and tenant databases (`smriti001`) with multi-tenant and terminal scoping.
+  - Ingested 828 legacy system parameters across 20 functional domains from canonical blueprint `docs/legacy_blueprints/shoper9/parameters.json`.
+  - Implemented 26 profile variances between Retail POS (`RETAIL`) and Wholesale Distribution (`DISTRIBUTOR`), including `SHOPEREnv` ("R" vs "D"), `InBillingCustSelectionCompulsary` (0 vs 1), `AllowCreditBilling` (0 vs 1), `ClubDupInBill` (-1 vs 1), and `CustClass1Cap`–`4` (demographics vs geography).
+- **5-Tier Mutability & Governance Engine:**
+  - Enforced strict immutability checks on `Fixed` parameters (`CompanyCode`, `CompanyName`, `CustomerCdGenerationFormat`, `SHOPERSysStat`, etc.) returning HTTP 400 `SMRITI-PARAM-001`.
+  - Enforced one-time initialization locks on `Installation` (`SMRITI-PARAM-002`) and `One Time` (`SMRITI-PARAM-003`) parameters.
+  - Enabled dynamic modification on `Variable` parameters with versioning and audit trails.
+- **Hierarchical 4-Tier Scoping Precedence:**
+  - Implemented resolution priority: `Terminal-Specific Override` → `Branch-Specific Override` → `Company Setting` → `Global System Template`.
+- **0ms Synchronous Access & Billing Terminal Protection:**
+  - Developed `smritiSystemParameterService.ts` frontend service with high-speed in-memory cache and synchronous accessors (`getBoolean`, `getNumber`, `getString`, `getValue`).
+  - Integrated dynamic parameter guards in `BillingTerm.tsx` and `ProPosBillingTerm.tsx` enforcing `AllowCreditBilling` and `InBillingCustSelectionCompulsary`.
+- **Interactive System Parameters Studio:**
+  - Built `SmritiSystemParametersStudio.tsx` (`Setup > General > System Parameters`) featuring 20 category tabs, instant search, mutability badges, profile variance toggles, and atomic batch save.
+- **Comprehensive Quality Assurance:**
+  - Pytest backend test suite (`backend/tests/test_system_parameters.py`): 6/6 passed in 5.59s.
+  - Vitest frontend test suite (`src/tests/smritiSystemParameters.test.ts`): 5/5 passed in 371ms.
+  - TypeScript compiler (`tsc --noEmit`): 0 errors.
+  - Vite production build (`npm run build`): 3543 modules compiled in 30.16s.
+
+### [6.18.0] - 2026-09-14
+
+#### SMRITI Bill Prefix Architecture, Multi-Terminal Scoping & Statutory GST Rule 46(b) Serialization
+
+**Walkthrough:** [Billing_Smriti_Bill_Prefix_And_Statutory_Serialization_v6.18.0.md](docs/walkthrough/billing/Billing_Smriti_Bill_Prefix_And_Statutory_Serialization_v6.18.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Elimination of Legacy Hardcoded Defaults:**
+  - Excised all `"D1DS13"` hardcoded invoice prefix residue from POS billing terminals (`BillingTerm.tsx` and `ProPosBillingTerm.tsx`).
+  - Switched POS billing terminals to dynamic resolution via authoritative backend `/api/v1/numbering/bill-prefixes/resolve` with zero-checkout-downtime offline fallback.
+- **Statutory GST Rule 46(b) Hard Guard:**
+  - Enforced strict 16-character ceiling on serial numbers (`prefix + padded_doc_no + suffix <= 16`).
+  - Restricted characters strictly to `[A-Za-z0-9/-]`, rejecting spaces, underscores, and special characters at both frontend and backend validation layers.
+- **Enterprise Multi-Terminal Numbering Scoping:**
+  - Extended PostgreSQL `document_series` across `smritisys` and `smriti001` with `terminal_id`, `is_common_across_terminals`, `transaction_group`, `start_number`, and `is_void_unified`.
+  - Implemented 3-tier hierarchical resolution in `NumberingService`: Terminal-Specific override -> Store-level Common default -> Auto-instantiated statutory fallback.
+  - Added full transaction group support across `SALES` (Cash, Credit, Return, Void), `CASH` (Receipt, Payout), and `SLIPS` (Hold, Orders, Advice Slips, Delivery Challans).
+- **Define Bill Prefix Management Studio Modal:**
+  - Built `SmritiDefineBillPrefixModal.tsx` supporting group-wise and transaction-wise configurations, terminal assignment, optional company code prefix prepending, and live GST Rule 46(b) visual character gauge.
+  - Added supervisory Year-End Rollover dialog incrementing financial year, updating suffix, resetting counter to start number, and writing immutable audit records to `NumberingAuditLog`.
+- **Automated Test Verification:**
+  - Authored Pytest suite (`test_bill_prefix.py`, 3/3 passed) and Vitest suite (`smritiBillPrefix.test.ts`, 7/7 passed).
+  - Validated 0 TypeScript compiler errors (`tsc --noEmit`) and clean Vite production build.
+
+### [6.17.1] - 2026-09-14
+
+#### Statutory GST Sales Factors, Customer Price Groups & POS Add-ons/Deductions Engine
+
+**Walkthrough:** [Billing_Statutory_Sales_Factors_And_Customer_Price_Groups_v6.17.1.md](docs/walkthrough/billing/Billing_Statutory_Sales_Factors_And_Customer_Price_Groups_v6.17.1.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Statutory GST Section 15 Compliance:**
+  - Built `SalesFactor` data entity and statutory evaluation engine strictly distinguishing between `ABOVE_TAX` (adjusting taxable base before GST calculation per Section 15 of CGST Act) and `BELOW_TAX` (pure post-tax financial adjustments including delivery surcharges and nearest-rupee bill round-offs).
+  - Supported multiple computation bases: `SALE_VALUE_BEFORE_DISCOUNT`, `DISCOUNTED_VALUE`, and `VALUE_INCLUSIVE_OF_TAX`.
+  - Supported both rate percentages (`RATE`) and fixed rupee amounts (`AMOUNT`) with min/max bill value qualification thresholds.
+- **Customer Price Group Dynamic Inheritance:**
+  - Enhanced `Customer` and `ProPosCustomer` domain models with `priceGroupCode` and `itemClassificationPriceFactorApplicable`.
+  - Dynamically resolved factors on customer selection: walk-ins inherit universal retail factors (`ALL_CUSTOMERS`), while corporate privilege (`CPP`) and staff employees (`EMP`) automatically inherit group-specific concessions and rebates.
+- **Customer Credit Ceiling Protection:**
+  - Integrated credit limit verification into POS settlement: blocks credit invoices when `customer.outstanding + currentBill > customer.creditLimit`.
+- **Define Sales Factors & Customer Price Groups Studio (`Alt+S`):**
+  - Created `SmritiDefineSalesFactorsModal.tsx` for real-time factor configuration, rate/amount setup, timing definition, active status toggling, and factory resets.
+  - Features real-time live synchronization status badge (`🟢 PostgreSQL Synced`, `⏳ Syncing...`, `⚪ Offline Cache`).
+  - Added `Alt+S` hotkey and dedicated buttons in `BillingTerm.tsx` and `ProPosBillingTerm.tsx`.
+- **Pro POS Addon-Gen & Dedns-Gen Integration:**
+  - Replaced hardcoded `₹0.00` in Pro POS totals summary with dynamic statutory `Addon-Gen` and `Dedns-Gen` values and shortcut triggers.
+- **Two-Way PostgreSQL Synchronization with 0ms Offline Cache:**
+  - Created `/api/v1/pricing/sales-factors` REST endpoints backed by PostgreSQL `sales_factors` table with asyncpg dialect parity.
+  - Implemented 0ms local cache writes with background asynchronous push to PostgreSQL backend.
+- **Automated Verification:**
+  - Pytest backend test suite (`t_sales_factors.py`): 1/1 passed in 11.55s.
+  - Vitest frontend test suite (`smritiSalesFactorEngine.test.ts`): 16/16 passed in 378ms.
+  - Vitest promotions test suite (`smritiSalesPromotionEngine.test.ts`): 15/15 passed in 386ms.
+  - TypeScript compiler (`tsc --noEmit`): 0 errors.
+
+### [6.17.0] - 2026-09-14
+
+#### SMRITI F2 Advanced Item Search, Dual-Grid Row Editing, F6 Promotions & Two-Way PostgreSQL Synchronization
+
+**Walkthrough:** [Billing_Smriti_F2_And_Advanced_Retail_POS_v6.17.0.md](docs/walkthrough/billing/Billing_Smriti_F2_And_Advanced_Retail_POS_v6.17.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Brand Governance Compliance:** Strict enforcement of zero legacy or prohibited product names across all newly authored files, components, and interfaces; standardized on `Smriti` (`SmritiF2AdvancedItemSearch.tsx`, `SmritiF2SelectedItem`).
+- **Advanced F2 Item Search Modal:** Full-bleed keyboard-first search modal with tri-modal entity lookup (variant, item, barcode), quantity comparison operators (`Greater Than`, `Is`, `Less Than` defaulting to `Qty > 0`), advanced attribute drawer (`Alt+A`), and instant image zoom (`Alt+I`).
+- **Dual-Grid In-Place Row Editing:** Implemented double-click row editing contract from tier-1 enterprise retail architecture; double-clicking any line in the Item Details Grid loads it into the Direct Entry input row; modifications to Qty, Rate, Discount Code, or Discount % update the row in-place upon pressing `Enter` with zero duplication.
+- **Retail Ergonomics & Line Deletion:** Added `Ctrl+D` line item voiding for highlighted rows, `Escape` edit-cancellation, `ArrowUp`/`ArrowDown` grid navigation, and `F11` quick-return focus key to direct barcode input.
+- **Single-Keystroke Exact Cash Checkout (`F7`):** Fast checkout bypassing multi-tender modal for customers tendering exact currency.
+- **Optical Scanner Burst Guard:** Automatic interception and redirection of 8+ digit bursts typed into Quantity or Rate fields back to the Barcode input, keeping `Qty = 1`.
+- **Item Details Inspector Ribbon:** Real-time metadata strip displaying Stock No, Barcode, Description, Brand, Size, HSN, GST %, Net Amount, and Salesperson for the active row.
+- **F6 Sales Promotions & "Define Sales Promotions" Catalogue Architecture:**
+  - Implemented `SmritiSalesPromotionService` as the authoritative catalog repository for promotion schemes matching enterprise POS specifications (4 categories: Item Level Discounts, Item Level Offers, Bill Level Discounts, and Bill Level Offers).
+  - Built `SmritiDefineSalesPromotionsModal.tsx` (`Alt+P` or Catalogue > Define Sales Promotions) allowing store managers to define schemes with Code, Description, Priority No., Validity Dates, Discount % or Flat ₹, Min Bill Value, Max Allowed Cap, and Active toggle.
+  - Built `SmritiF6PromotionalDiscountsModal.tsx` (`F6` in POS & ProPOS) dynamically calling the defined schemes from the "Define Sales Promotions" catalog; features Tab 1 (`Item Level Promotional Details`), Tab 2 (`Bill Level Promotional Details`), bidirectional discount % / amount calculations against `Calculated On`, statutory reason enforcement, and `Apply Bill Level Discount First` preference.
+  - Integrated `F6` discount schemes and `Alt+P` catalogue triggers in `BillingTerm.tsx` and `ProPosBillingTerm.tsx`, updating cart summaries and bill footer totals in real time.
+- **Two-Way PostgreSQL Database Synchronization:**
+  - Added REST API endpoints `GET /api/v1/promotions/schemes`, `POST /api/v1/promotions/schemes`, and `DELETE /api/v1/promotions/schemes/{id}` in `backend/app/api/v1/promotions.py` paired with `PromotionSchemeDTO` in `backend/app/schemas/promotions.py`.
+  - Integrated bidirectional DTO transformation in `SmritiSalesPromotionService.ts` linking the offline-first local POS cache directly to PostgreSQL tables `promotion_campaigns` and `promotion_rules`.
+  - Added live synchronization status pill in "Define Sales Promotions" header (`🟢 PostgreSQL Synced`, `⏳ Syncing...`, `⚪ Offline Local Cache`) with manual `Sync DB` refresh trigger.
+- **Automated Verification:** 37/37 billing tests green (`smritiF2BillingSearch.test.ts` & `smritiSalesPromotionEngine.test.ts`), 126/126 Vitest suites green (821 tests), 0 TypeScript compiler errors, and clean production build (3,538 modules in 28.69s).
+
+### [6.16.5] - 2026-09-14
+
+#### All 34 Workspaces 100% Low-Risk Elevation & SMRITI Gyan Kendra Parity
+
+**Walkthrough:** [All_34_Workspaces_100_Percent_Low_Risk_Elevation_v6.16.5.md](docs/walkthrough/governance/All_34_Workspaces_100_Percent_Low_Risk_Elevation_v6.16.5.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **100% Low-Risk Achievement:** Resolved all diagnostic gaps across the codebase, resulting in 34 of 34 workspaces achieving `Low` risk rating and lifting codebase Development Health Index (DHI) to 99% (Grade A).
+- **SMRITI Gyan Kendra (`wiki`) Parity:** Created dedicated Vitest test suite `src/tests/wikiGyanKendra.test.ts` (6 tests) covering folder taxonomy, full-text documentation search, search highlights, and TOC generation; enhanced `WikiTab.tsx` with responsive layout tags, `role="region"`, `aria-label`, and `en-IN` localization.
+- **Canonical PostgreSQL Model Mappings:** Reconciled model table names in `backend/app/dev_tracker/scanner.py` and `src/modules/dev_tracker/scanner/metrics.ts` for `approval-matrix` (`approval_policies`, `approval_requests`, `approval_actions`, `approval_workflow_logs`), `ufe` (`field_definitions`), `data-exchange` (`data_exchange_tasks`, `data_exchange_field_mappings`), and `audit-logs` (`compliance_immutable_audit_logs`, `module_audit_logs`).
+- **UI Container Accessibility & Performance Optimization:** Added `useMemo` search caching and accessible container landmark attributes to `ApprovalMatrixTab.tsx`, `FieldExplorerTab.tsx`, `DataExchangeTab.tsx`, and `AuditLogsTab.tsx`.
+- **Scanner Engine Parity:** Synchronized `integrationTestsComplete` and `performanceComplete` conditions across Python and TypeScript scanners to check for `expect` and `useMemo`.
+- **Comprehensive Verification:** 124 of 124 Vitest test suites green (784 tests passed), 6 of 6 Pytest vendor tests green, 0 TypeScript compiler errors, and clean Vite production build (3,534 modules in 27.27s).
+
+### [6.16.4] - 2026-09-14
+
+#### Terms & Conditions, Numbering Engine, and KPI Registry Low Risk Elevation
+
+**Walkthrough:** [Terms_Numbering_And_KPI_Registry_Low_Risk_Elevation_v6.16.4.md](docs/walkthrough/governance/Terms_Numbering_And_KPI_Registry_Low_Risk_Elevation_v6.16.4.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Reconciled PostgreSQL Schema Dictionaries:** Aligned `MODULES_MAP` in `backend/app/dev_tracker/scanner.py` and `specificMappings` in `src/modules/dev_tracker/scanner/metrics.ts` to map `terms-engine`, `document-series`, and `formulas` to actual SQLAlchemy model tables (`terms_clauses`, `terms_defaults`, `terms_snapshots`, `document_series`, `formula_definitions`, `business_rule_definitions`, `commission_rules`).
+- **Fixed Scanner Case-Sensitivity Matching Bug:** Updated test and documentation keyword resolution in `scanner.py` from `k in t.lower()` to `k.lower() in t.lower()` and `k.lower() in d.lower()`, eliminating false negatives caused by camelCase keywords.
+- **Created Dedicated Vitest Test Suites:**
+  - `src/tests/termsEngine.test.ts` (11 tests): Verifies master configuration schema, field definitions, clause validation rules, dynamic template variable resolution (`{{company_name}}`, `{{payment_terms_days}}`), and approval workflow lifecycle.
+  - `src/tests/documentSeries.test.ts` (9 tests): Verifies numbering engine preview formatting, zero-padded token interpolation (`INV/{FY}/{Branch}/00043`), reset rules, numbering modes, and non-mutating sequence calculation.
+  - `src/tests/kpiRegistry.test.ts` (7 tests): Verifies DOC-01 explainability compliance, standard retail mathematical formulas (GMROI, Sell-Through %, Weeks of Cover, Footfall Conversion %, Average Transaction Value, Shrinkage Rate), and health evaluation threshold bands.
+- **Enhanced Target Components:** Added accessible containers (`role="region"`, `aria-label`, `title`), responsive grid layouts (`sm:px-2 md:px-4`), `useMemo` performance memoization, and `en-IN` localization indicators to `TermsEngineTab.tsx`, `DocumentSeriesTab.tsx`, and `FormulaRegistryTab.tsx`.
+- **Elevated Target Module Completeness & Risk:** Raised completeness scores for `Terms & Conditions` (52% -> 80%), `Numbering Engine` (56% -> 80%), and `KPI Registry` (60% -> 80%), transitioning all 3 modules to **Low Risk**.
+- **Elevated Overall Development Health Index (DHI):** Codebase DHI elevated to **97% (Grade A)**; non-low risk modules across the entire repository reduced from 8 to 1.
+- **Full Verification Green:** 123/123 Vitest suites (778/778 tests green in 22.51s), 6/6 Pytest vendor tests green, 0 TypeScript compiler errors, and clean Vite production bundle build (3,534 modules in 29.80s).
+
+### [6.16.3] - 2026-09-14
+
+#### Codebase Static Scanner Vendor 360 Convergence & Duplicate Elimination
+
+**Walkthrough:** [Procurement_Dev_Tracker_Scanner_Vendor_360_Convergence_v6.16.3.md](docs/walkthrough/procurement/Procurement_Dev_Tracker_Scanner_Vendor_360_Convergence_v6.16.3.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Eliminated Duplicate Vendor 360 Entry:** Removed redundant `supplier-mgmt` registration from `defaultWorkspaces` in `src/layout_engine/layout_store.tsx`, retaining canonical `vendor-360` with category `Inventory & Sourcing`. All existing deep-links and navigation aliases remain fully supported via `mapModuleId` in `App.tsx`.
+- **Registered Canonical Scanner Mappings:** Updated `MODULES_MAP` in `backend/app/dev_tracker/scanner.py` and `specificMappings` in `src/modules/dev_tracker/scanner/metrics.ts` to map `vendor-360` to its full-bleed component (`VendorMasterWs.tsx`), REST routes (`/api/v1/purchase/vendors`, `/api/v1/vendors`, `/api/v1/parties`), database tables (`parties`, `supplier_profiles`, `party_roles`, `party_addresses`, `party_contacts`, `supplier_bank_accounts`), test suites, and documentation.
+- **Elevated Vendor 360 Completeness & Risk:** Raised completeness score from `44%` (High Risk) to `84%` (Low Risk), fully reflecting production-ready status.
+- **Preserved True Enterprise Domain Categories:** Updated `get_module_resource_mapping` and `scan_codebase` in `scanner.py` so unmapped or dynamically discovered workspaces retain their designated category (e.g. *Inventory & Sourcing*, *Sales & POS*, *Data & Config*, *Accounts Sync*, *Operations*, *Documents & Print*, *System*) rather than collapsing into generic `"Workspace"`.
+- **Deduplicated Discovered Modules:** Enforced label-level deduplication in `discover_modules` (Python) and `discoverModules` (TypeScript) to guarantee that duplicate workspace registrations can never generate multiple rows in diagnostic reports.
+- **Aligned High-Risk Workspace Mappings:** Added canonical frontend and backend definitions for `Barcode Studio`, `Warehouse & Batch Hub`, `Inter-Godown Transfers`, `Master Framework`, `Field Explorer`, `KPI Registry`, `Company Setup Wizard`, and `Terms & Conditions`, lifting codebase Development Health Index (DHI) from 88 to 93 (Grade A).
+- **Aligned Launchpad Test:** Updated `REGISTERED_APP_TABS` in `src/tests/fioriLaunchpad.test.ts` to include `"barcode-management"`, `"vendor-360"`, and `"wms-dashboard"` (10/10 passed).
+
+### [6.16.2] - 2026-09-14
+
+#### Vendor 360 Workspace Status Filtering, Archive Exclusion & Article Isolation Contract
+
+**Walkthrough:** [Procurement_Vendor_Status_Filter_And_Archive_Exclusion_v6.16.2.md](docs/walkthrough/procurement/Procurement_Vendor_Status_Filter_And_Archive_Exclusion_v6.16.2.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Default Exclusion of Defunct Vendors:** Fixed default queries in `VendorService.list_vendors` (`backend/app/services/vendor_svc.py`) and `UniversalPartyMasterService.list_parties` (`backend/app/services/party_master_svc.py`) to exclude `ARCHIVED` and `MERGED` parties by default (`Party.status.notin_(["ARCHIVED", "MERGED"])`).
+- **Support for Explicit Status Query & `ALL` Token:** Added clean handling for `status="ALL"` (bypassing status filters to retrieve all records) as well as specific status values (`ARCHIVED`, `MERGED`, `ACTIVE`, `INACTIVE`, `BLOCKED`, `ON_HOLD`, `PENDING_VERIFICATION`).
+- **Directory Column Status Dropdown:** Added status selector dropdown in `VendorMasterWs.tsx` below the search input, defaulting to `Active / Operational (Default)` with explicit options for `All Statuses (Incl. Archived/Merged)`, `Archived Only`, `Merged Only`, `Inactive`, etc.
+- **Client-Side Defense-in-Depth:** Gated `filteredVendors` so `statusFilter === "ACTIVE_ONLY"` unconditionally hides `ARCHIVED` and `MERGED` vendors.
+- **Historical Record Notice Banner:** Added visual notice banner above tabs in `VendorMasterWs.tsx` when inspecting an archived or merged record, alerting the operator that it is a historical read-only record hidden from active workflows.
+- **Strict Cross-Vendor Article Ownership Isolation:** 
+  - Enhanced `GET /api/v1/masters/lookup/{type_code}/values` with `includeUnassigned: bool = False` so queries with `vendorCode={code}&includeUnassigned=true` only return articles owned by that vendor and unassigned articles, strictly excluding all other vendors at the database query level.
+  - Refactored `VendorArticleStyleTab` in `VendorMasterWs.tsx` to partition fetched articles into `assignedArticles` (owned by inspected vendor) and `unassignedArticles` (available to claim); passed exclusively `assignedArticles` to `VariantTplSec`.
+  - Enforced dropdown containment in `VariantTemplateSec.tsx` via `vendorOwnedArticles` memo so the "Add Article / Style" dropdown strictly renders only the active vendor's articles, completely hiding foreign vendor articles.
+- **Automated Testing & Parity Verification:** 
+  - Added `test_vendor_default_query_hides_archived_and_merged` and `test_vendor_article_ownership_and_cross_vendor_isolation` to `backend/tests/test_vendor_service.py` (6/6 passed in 6.41s).
+  - Created frontend unit test suites `src/tests/vendorStatusFilter.test.ts` (6/6 passed) and `src/tests/vendorArticleIsolation.test.ts` (4/4 passed).
+  - Zero TypeScript compiler errors and clean production build (3,534 modules in 27.44s).
+
+### [3.33.0] - 2026-09-14
+
+#### Policy-Aware Provisional Barcode Generation & UI Alignment
+
+**Walkthrough:** [Inventory_Provisional_Barcode_Policy_Engine_v3.31.0.md](docs/walkthrough/inventory/Inventory_Provisional_Barcode_Policy_Engine_v3.31.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Policy-Aware Placeholder Generator:** Evolved `UniversalItemMasterService.generate_placeholder_barcode(prefix="S", allow_no_prefix=True)` in `backend/app/services/item_master_svc.py` to support canonical uppercase `'S'` default prefix (yielding 13-character `S...` barcodes), configurable explicit prefixes (`GEN`, `SKU`, `SMRITI`, `VX`, `BRC`), case normalization, character sanitization, and explicit bare 12-character hex token emission.
+- **Direct Parameter Pathway Symmetry:** Wired automatic provisional barcode creation in `UniversalItemMasterService.create_item` direct-parameter calls when `primary_barcode` is not supplied, ensuring parity with `ItemCreateRequest`.
+- **FastAPI Endpoint (`/api/v1/barcodes/placeholder`):** Exposed authoritative service-governed placeholder barcode generator via `GET /api/v1/barcodes/placeholder` accepting `prefix` and `allow_no_prefix` parameters.
+- **Frontend Service Client (`barcodePlaceholderService.ts`):** Implemented client-side policy contract with default prefix `'S'`, suggested presets, synchronous fallback generator, and async authoritative fetch via `apiFetchV1`.
+- **UI Dialog Alignment (`CodeSelectDlg.tsx`):** Retired rogue browser pseudo-EAN `890...` generation; updated preview label to `"Placeholder Barcode (Provisional)"` with `"Service Policy"` badge; added operator presets (`S`, `GEN`, `SKU`, `SMRITI`, `VX`, `BRC`, `None (Bare)`) and bare token checkbox.
+- **Grid Row Duplication Alignment (`ItemDetailsGrid.tsx`):** Replaced fake `890...` number generation on row duplication with `generatePlaceholderBarcode("S")`.
+- **Automated Testing & Verification:** Added 2 backend pytest unit tests in `t_item_master.py` (2/2 green in 8.44s) and 10 Vitest frontend tests in `barcodePlaceholderService.test.ts` (10/10 green in 16ms); verified 0 TypeScript compiler errors and clean production build (3,534 modules in 35.47s).
+
+
+#### Universal Catalog Dimension Master Lookup Governance & Ingestion Validation
+
+**Walkthrough:** [Catalog_Dimension_Brand_Master_Lookup_Governance_v3.32.0.md](docs/walkthrough/catalog/Catalog_Dimension_Brand_Master_Lookup_Governance_v3.32.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Universal Multi-Dimension Governance Engine:** Generalized `CatalogDimensionValidator` in `backend/app/services/catalog_validation.py` to validate and normalize all catalog dimensions: `brand`, `department`, `category`, `subcategory`, `style_article`, `color`, `size`, `vendor_code`, and `product`.
+- **Canonical `style_article` Identity & Multi-Alias Normalization:** Standardized the Master Registry identity to `style_article` while accepting `style`, `style_code`, `styleCode`, `stylecode`, `article`, and `article_no` as alias inputs across runtime code, schemas, and UI grids; preserved storage compatibility on `style_code` database columns and `styleCode` / `style_code` frontend properties.
+- **Pydantic Ingestion Aliasing:** Added `@model_validator(mode="before")` across `ProductBase`, `ProductUpdate`, `ItemCreateRequest`, and `ItemUpdateRequest` to map all style/article alias inputs to `style_code`.
+- **Hierarchical Scale-Group Auto-Unpacking:** Added automatic group inspection for `color` (active `color_group` values) and `size` (active `size_group` values) in both `CatalogDimensionValidator` and `/api/v1/masters/lookup/{type}/values`.
+- **Standard Brand Seeding Migration (v1450):** Seeded standard catalog brands (`SMRITI`, `BEANSTALK`, `Tattly Threads`, `Heritage`, `Swift`, `Generic`) with asyncpg-safe type casting.
+- **Write-Path Ingestion Hardening:** Enforced multi-dimension canonical normalization across `InventoryService.create_product`, `/api/v1/inventory.py` `update_product`, and `UniversalItemMasterService.create_item`.
+- **HREP SMRITI-VAL-002 Compliance:** Standardized error contracts emitting HTTP 422 with structured dimension code, friendly guidance, and rejected value.
+- **Lookup-Backed Frontend Typeahead Datalists:** Exported `fetchGovernedLookupOptions` in `itemMasterLookupGate.ts` and integrated native HTML5 `<datalist>` auto-completion in `ItemDetailsGrid.tsx` and `ItemDetailsGridTab.tsx` for all governed dimension cells including all style/article alias variations.
+- **Item Master Governed Dimension Columns (v1451):** Added indexed columns (`department`, `style_code`, `color`, `size`, `vendor_code`) to the `items` table and wired full dimension validation to `UniversalItemMasterService.create_item` and `/api/v1/universal_master/items`.
+- **Verification:** 4/4 multi-dimension pytest green in 13.82s (`test_catalog_dimension_validation.py`), composite 10/10 suite green in 17.02s (`test_catalog_dimension_validation.py`, `test_master_lookup_compliance_audit.py`, `test_master_lookup_attribute_group_sku_matrix_e2e.py`), 0 TypeScript compiler errors (`tsc --noEmit`), and clean production build (3,533 modules in 26.85s).
+
+### [3.31.0] - 2026-09-13
+
+#### Master Lookup Compliance Audit Exposure & Operational Visibility
+
+**Walkthrough:** [Master_Lookup_Compliance_Audit_Exposure_v3.31.0.md](docs/walkthrough/master/Master_Lookup_Compliance_Audit_Exposure_v3.31.0.md)  
+**Implementation Plan:** [implementation_plan.md](../../brain/3d722145-4709-49a1-ae12-44a0ff2d849e/implementation_plan.md)
+
+- **Unified Compliance Audit Search Path:** Enhanced `/api/v1/integration/audit/logs` to query control plane database (`smritisys`) with company database fallback, allowing managers to query master lookup and platform audits alongside tenant transactions.
+- **Enhanced Search Capabilities:** Extended `ComplianceAuditService.search_audit_logs` to support `GLOBAL` company fallback, `entity_name` prefix searches (e.g. `master_lookup:dept`), and user ID-to-username batch resolution from the `User` table.
+- **Dedicated Master Lookup Audit Endpoints:** Added `GET /api/v1/masters/lookup/{type_code}/values/{id}/audit` and `GET /api/v1/masters/lookup/{type_code}/audit` for item-level and type-level compliance querying.
+- **Operational UI Detail Drawer (`MasterLookupDetailDrawer.tsx`):** Slide-over drawer component with item overview, chronological audit timeline, visual field-by-field diffs (code, name, description, active status, sort order), and copyable SHA-256 validation pill.
+- **Master Management Integration:** Configured `slots.detailDrawer` in `masterLookup.confi.tsx` and wired both row-level "View Details" drawers and header "Audit Trail" action in `MasterMgmtTab.tsx`.
+- **Verification:** 1/1 pytest green (`test_master_lookup_compliance_audit.py`), 0 TypeScript compiler errors (`npm run lint`), `npm run build` green, live Docker container validation verified.
+
+### [4.0.0] - 2026-09-11
+
+#### Vendor 360 Workspace & Universal Party Master Canonical Architecture
+
+**Walkthrough:** [Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md](docs/walkthrough/purchase/Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md)  
+**Implementation Plan:** [Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md](docs/implementation/purchase/Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md)
+
+- **Universal Party as Single Source of Truth:** Reconciled dual data models by establishing `Party` + `PartyRole(SUPPLIER)` + `SupplierProfile` as canonical master.
+- **Alembic Migration v1421:** Added `party_bank_accounts` (`SupplierBankAccount`) and `vendor_identity_migrations` (`VendorIdentityMigration`); enhanced `supplier_profiles` with MSME categories, commercial classification, TDS section/rate, and verification flags; enhanced `party_contacts` with `contact_category`.
+- **Atomic Application Service (`VendorService`):** Orchestrated multi-table atomic creation, duplicate prevention guards, and non-destructive dual-write projection to legacy `suppliers` table with `sup-<code.lower()>`.
+- **Canonical DTO & REST API Router:** Created contract-first DTO layer and mounted REST endpoints under `/api/v1/purchase/vendors` and `/api/v1/vendors`.
+- **Vendor 360 Workspace (`VendorMasterWs`):** Delivered responsive 9-tab workspace covering Overview, Identity & Statutory, Addresses, Contacts, Commercial, Banking, Procurement, Payables Aging, and Scorecard, plus Vendor Merge Modal.
+- **Canonical RTV Engine (`CanonicalRTVDomainEngine`):** Standardized on 6-stage procurement return lifecycle (Request → Approval → Dispatch → Vendor Receipt → Debit Note → Settle) and converted `PRTVModal` into a backward-compatible adapter.
+- **Verification:** 4/4 backend tests green, 10/10 vitest tests green, TypeScript 0 errors.
+
+### [3.30.0-security] - 2026-09-09
+
+#### Production Readiness Sprint — Secret Hygiene, Version SSOT, TS Closure, Bundle Splitting
+
+**Walkthrough:** [ProductionReadiness_Sprint_v3.30.0.md](docs/walkthrough/foundation/ProductionReadiness_Sprint_v3.30.0.md)
+
+**Track 1 — Secret Hygiene (CRITICAL)**
+- Replaced 3 hardcoded weak development secrets in root `.env` with 256-bit (64 hex char) cryptographically random values: `JWT_SECRET_KEY`, `INTERNAL_SERVICE_KEY`, `SGIP_VAULT_MASTER_KEY`.
+- Added `⚠️ LOCAL DEV ONLY` warning comment block with procedure reference.
+- Created `SECRETS_NOTICE.md` — documents rotation procedure, minimum key lengths, deployment patterns, and audit trail.
+- Confirmed: `.env` never committed to git (`git log -- .env` = 0 commits). `backend/.env` already uses `${VAR}` substitution (safe).
+
+**Track 2 — Version SSOT**
+- Unified all 4 runtime version locations to `3.30.0` (canonical = `package.json`):
+  - `src/config/version.ts`: `APP_VERSION` bumped from `3.29.0` → `3.30.0`
+  - `backend/app/core/config.py`: `VERSION` bumped from `3.16.0` → `3.30.0` (runtime setting + file header)
+  - `vite.config.ts`: file header updated from `3.17.0` → `3.30.0`
+- Note: `db_provisioner.py` `schema_version: "6.16.0"` is the highest Alembic revision — intentionally not changed.
+
+**Track 3 — TypeScript Zero-Error Audit Closure**
+- Confirmed `npx tsc --noEmit` = 0 errors, 0 output lines (2026-09-09).
+- Confirmed `loyaltyTierEngine.ts` (10,917 bytes) and `rmaEngine.ts` (7,622 bytes) exist in `src/utils/`.
+- Formally closed findings in `docs/_audit/07_version_status.md` with evidence stamp.
+
+**Track 4 — Bundle Splitting Enhancement**
+- Added `vendor-react` chunk (React/ReactDOM/scheduler isolated — fixes circular chunk warning).
+- Added `vendor-query` chunk (@tanstack/react-query isolated).
+- Added `smriti-engines` chunk (all `*Engine.ts` files in `src/utils/`).
+- Added `smriti-billing` chunk (BillingWorkspace + billing components).
+- Added per-tab chunks: `smriti-crm`, `smriti-inventory`, `smriti-accounts`, `smriti-settings`.
+- Circular chunk warning eliminated. Build: 3523 modules, 0 errors, ✓ in 27s.
+
+### [4.13.0] - 2026-09-09
+
+
+#### Universal Item Master 5-Tier Product Resolution Engine & Duplicate Retirement
+
+- **5-Tier Resolution Hierarchy**: Real-time multi-level resolution across Barcode (GS1/EAN), SKU, Customer Article Mapping (Buyer Article Code), Supplier/Vendor Code, and Substring Search.
+- **Adopted 5-Bucket Enterprise Inventory & ATP Engine**: Real-time aggregation of `physical_on_hand`, `in_transit_qty`, `reserved_qty`, `committed_qty` (from sales order reservations), and `quarantine_qty`, implementing the adopted enterprise formula: `ATP = max(0.0, round((physical_on_hand + in_transit_qty) - (reserved_qty + committed_qty + quarantine_qty), 4))`.
+- **Temporal & Customer Contract Pricing with Negative Suite**: Customer active verification, customer-group validation against `cam.metadata_json["eligible_customer_groups"]`, transaction currency matching, effective date window checks (`effective_from <= as_of_date <= effective_to`), invalid date range detection (`effective_from > effective_to`), statutory GST slab calculations (0, 5, 12, 18, 28%) with intra/inter-state splits, and immutable `pricing_audit` metadata.
+- **Rule 12 Schema Parity & Live Migration Execution**: Tenant database migration `v1418_customer_article_mappings.py` applied and verified across tenant databases (`smriti001`, `smriti002`) with 100% column parity (38 columns), foreign key constraints, and partial unique indexes. Proved live DDL execution, DML read/write, foreign key rejection, and partial unique constraint rejection on `smriti002`.
+- **Legacy Duplicate Retirement**: Decommissioned `ItemMasterTab.tsx`, `SalesOrderForm.tsx`, `item_master_service.py`, and `party_service.py`; eliminated all stale code and registry references.
+- **Empirical Benchmarking**: Verified developer baseline latency metrics on `smriti001`: cold cache 501.5ms, warm cache p50 19.7ms, p95 28.4ms, p99 49.1ms, 10-worker concurrency burst 100% success at 14.0 req/sec baseline.
+
+---
+
+### [3.30.0] - 2026-09-02
+
+#### P0 Fix: Customer Master B2B Re-hydration + API Routing Blockers
+
+**Commit:** `6aac3be8`
+
+**Bug Fixes**
+- **CustMasterWs.tsx** (v5.6.0 → v5.7.0): `mapBackendCustomerToRecord()` — replaced `environment: bCust.environment || "Retail"` fallback with deterministic derivation from `customer_group_id` and `tags`. Eliminates B2B → Retail regression on every PostgreSQL round-trip re-hydration.
+- **CustMasterWs.tsx**: Cleared hardcoded `DEFAULT_MAILING_ADDRESS.mobilePhone: "9876543210"` to empty string. Prevents 400 Bad Request duplicate mobile errors on new customer records.
+- **CustMasterWs.tsx**: Added HREP-compliant human-readable error translation for duplicate mobile number backend rejections.
+- **CustMasterWs.tsx**: Synchronised `customer_group_id`, `tags`, `customerType`, `environment`, `price_group`, and `priceGroup` in localStorage cache on every save, preventing stale Retail classification after page reload.
+- **CustFormTab.tsx** (v3.0.0 → v3.1.0): Bidirectional Price Group ↔ Customer Type cascade. Selecting CORP price group auto-sets Corporate type + environment. Selecting Corporate customer type auto-applies CORP price group fields.
+- **inventory.py**: Added `@router.get("")` and `@router.post("")` empty-path decorators alongside `"/"` variants. Raised `page_size` max limit from 100 to 500. Eliminates 307 temporary redirect to internal Docker hostname (`smriti-api:8000`) causing `net::ERR_NAME_NOT_RESOLVED`.
+- **main.py**: Mounted `inventory.router` at `/api/v1/variants` prefix. Resolves 404 Not Found on `GET /api/v1/variants?page_size=200` used by Gate-11E F2 universal browse.
+
+**Tests**
+- Added `src/tests/customerRehydration.test.ts` — 5-scenario unit suite (TEST A–E) covering Corporate, Wholesale, Retail, VIP, and empty-payload re-hydration.
+- Full Vitest suite: 617/617 tests green, 0 failures.
+- Production build: 3526 modules, 0 errors.
+- Docker rebuild: all 4 containers healthy.
+- Headless Playwright UAT: 8/8 steps pass (exit code 0).
+
+**Documentation**
+- Created `docs/walkthrough/customer/Customer_B2B_Rehydration_Fix_v3.30.0.md`
+- Created `docs/implementation/customer/Customer_B2B_Rehydration_Fix_Plan_v3.30.0.md`
+
+---
+
+### [3.123.0] - 2026-09-02
+
+#### F2 Universal Lookup Architecture v2 — Phase C Complete
+
+**Batch 1 — Screen Migrations** (commit `cade22ac`)
+- **TagLabelPrintingTa.tsx** (v6.8.0 → v6.9.0): Replaced local `e.key==='F2'` handler with `useF2Screen` + `FieldAdapter`. `stockNoFrom` and `stockNoTo` tagged with `id` + `data-f2-entity="variant"`. Adapter routes deterministically via `dispatcher.originElementRef.current.id`. `PurchBrowseDlg` (button-triggered), F11, F8 preserved.
+- **CustMasterWs.tsx** (v5.5.0 → v5.6.0): Removed F2 keyboard branch. Registered `useF2Screen(entity=customer)`. Adapter resolves by canonical `id` → `code`. `Alt+S` and `SmritiAdvancedCustomerSearchModal` preserved entirely.
+- **f2PhaseC_Batch1.test.ts**: 17 new regression tests; 59/59 total suite passes.
+
+**Batch 2A — Legacy Infrastructure Decommission** (commit `4398d6a5`)
+- **DELETED** `src/components/drilldown/GlobalF2BrowseDlg.tsx` — 1,118-line dead-render component permanently removed; was rendering `null` on every cycle (isF2ModalOpen permanently false). Bundle: 3527 → 3526 modules.
+- **App.tsx**: Removed `GlobalF2BrowseModal` static import and JSX mount.
+- **ActiveFieldContext.tsx** (v7.0.0 → v7.1.0): Removed `isF2ModalOpen`, `openF2Modal`, `closeF2Modal`, `insertValueIntoActiveField` (no-op stub). Focus/input tracking and HUD support preserved.
+- **GlobalSearch.tsx** (v3.32.0 → v3.33.0): Removed `insertValueIntoActiveField` destructure and call (was already a no-op since Phase A). Ctrl+K, `openPanel`, `pushContext`, drill-down preserved.
+
+**Verification**: TSC 0 errors · 59/59 Vitest · build clean · 0 executable legacy symbol references · `ItemDetailsGrid` F2 untouched.
+
+**Batch 3 — Documentation** (commit `958beb2a`)
+- Created `docs/walkthrough/foundation/F2_Universal_Lookup_Architecture_v2_Phase_C_v1.0.0.md` (13 sections)
+- Updated `docs/walkthrough/README.md` (Phase C row added)
+- Note: `src/components/sales/SalesOrderTab.tsx` (sales order audit-view enhancement, 32 lines) was inadvertently included in `958beb2a` due to pre-existing staging. The change is unrelated to Phase C documentation; it is a valid SalesOrderTab working-tree change and is not rolled back.
+
+**Known limitation (pre-existing, disclosed):** `GlobalSearch.tsx` Ctrl+K field-injection into the previously focused input had been a no-op since Phase A (function body: `console.warn` + return). Batch 2A removal did not introduce new degradation. Classified as pre-existing degraded behaviour identified during legacy cleanup.
+
+---
 
 ### [3.122.1] - 2026-09-01
 

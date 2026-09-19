@@ -78,6 +78,12 @@ export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
         <div className="w-3/4 h-8 bg-black"></div>
       </div>
       <p className="text-center mt-1 text-[10px]">{data.receiptNo || "RCT-001"}</p>
+
+      {/* SMRITI RETAIL OS MANDATORY FOOTER BRANDING */}
+      <div className="text-center mt-3 pt-2 border-t border-dashed border-gray-400 text-[9px] font-mono text-gray-600">
+        <p className="font-bold tracking-wider">POWERED BY SMRITI RETAIL OS</p>
+        <p>smritibooks.com</p>
+      </div>
     </div>
   );
 };

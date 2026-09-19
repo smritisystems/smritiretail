@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 3.18.0
  * Created      : 2026-08-16
- * Modified     : 2026-08-16
+ * Modified     : 2026-09-18
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -14,6 +14,7 @@ import React, { useState } from 'react';
 import { useActiveField } from '../../context/ActiveFieldContext.tsx';
 import { useDrillDown } from '../drilldown/drilldown_store.tsx';
 import { CompanySelector } from '../layout/CompanySelector.tsx';
+import { Breadcrumb } from '../../navigation/breadcrumb/index.ts';
 
 interface GlobalHeaderProps {
   activeModuleTitle: string;
@@ -128,10 +129,8 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
         </div>
 
         {/* Context & Breadcrumb Display */}
-        <div className="hidden md:flex items-center text-xs text-indigo-200 gap-1.5 ml-2 font-medium">
-          <span className="text-indigo-300">{storeName}</span>
-          <span>/</span>
-          <span className="text-white font-semibold">{activeModuleTitle}</span>
+        <div className="hidden md:flex items-center ml-2">
+          <Breadcrumb onNavigate={onSelectModule} />
         </div>
       </div>
 

@@ -29,7 +29,7 @@ from ...models.auth import User, UserRole
 from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
 from ...models.tenant import Company, Branch
-from ...models.inventory import Store
+from ...models.pos import CashRegister
 from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
@@ -64,6 +64,7 @@ LICENSE_STATUS_KEY = "license_status"
 LICENSE_TYPE_KEY = "license_type"
 LICENSE_MODE_KEY = "license_mode"
 LICENSE_EXPIRES_KEY = "license_expires_at"
+ITEM_MASTER_PROFILE_PREFIX = "item_master_profile"
 
 layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
 
@@ -350,6 +351,12 @@ async def list_psv_parties(
     for party in parties:
         result.append({
             "id": party.id,
+            "company_id": party.company_id,
+            "host_customer_id": party.host_customer_id,
+            "delivery_location_id": party.delivery_location_id,
+            "store_code": party.store_code,
+            "store_name_snapshot": party.store_name_snapshot,
+            "stock_model": party.stock_model or "OUTRIGHT_SALE",
             "name": party.name,
             "location": party.location,
             "stock_count": int(party.stock_count or 0),
@@ -479,6 +486,19 @@ async def save_layout_preferences(
         "favorites": payload.get("favorites", current_layout.get("favorites", ["pos", "sales"])) or ["pos", "sales"],
     }
 
+    item_master = payload.get("itemMaster")
+    if isinstance(item_master, dict):
+        current_item_master = current_layout.get("itemMaster", {})
+        if not isinstance(current_item_master, dict):
+            current_item_master = {}
+        visible_fields = item_master.get("visibleFields", current_item_master.get("visibleFields", []))
+        if not isinstance(visible_fields, list) or not all(isinstance(value, str) for value in visible_fields):
+            raise HTTPException(status_code=400, detail="itemMaster.visibleFields must be a list of field keys.")
+        new_layout["itemMaster"] = {
+            "visibleFields": list(dict.fromkeys(visible_fields)),
+            "updatedAt": item_master.get("updatedAt", current_item_master.get("updatedAt")),
+        }
+
     existing_prefs["layout"] = new_layout
     current_user.preferences_json = json.dumps(existing_prefs)
     db.add(current_user)
@@ -486,6 +506,56 @@ async def save_layout_preferences(
     await db.refresh(current_user)
 
     return {"success": True, "prefs": new_layout}
+
+
+@router.get("/layout/item-master-profile")
+async def get_item_master_profile(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the shared ItemMaster field profile for the active company and role."""
+    company_id = getattr(current_user, "company_id", None) or "GLOBAL"
+    role = str(getattr(current_user, "role", "OPERATOR")).upper()
+    config = await get_system_config(db, f"{ITEM_MASTER_PROFILE_PREFIX}:{company_id}:{role}")
+    if not config:
+        return {"visibleFields": [], "scope": {"companyId": company_id, "role": role}}
+    try:
+        payload = json.loads(config.value)
+    except (TypeError, json.JSONDecodeError):
+        payload = {}
+    visible_fields = payload.get("visibleFields", []) if isinstance(payload, dict) else []
+    if not isinstance(visible_fields, list) or not all(isinstance(value, str) for value in visible_fields):
+        visible_fields = []
+    return {
+        "visibleFields": list(dict.fromkeys(visible_fields)),
+        "scope": {"companyId": company_id, "role": role},
+    }
+
+
+@router.post(
+    "/layout/item-master-profile",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def save_item_master_profile(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Save a shared ItemMaster field profile for the active company and role."""
+    visible_fields = payload.get("visibleFields")
+    if not isinstance(visible_fields, list) or not all(isinstance(value, str) for value in visible_fields):
+        raise HTTPException(status_code=400, detail="visibleFields must be a list of field keys.")
+    company_id = getattr(current_user, "company_id", None) or "GLOBAL"
+    role = str(payload.get("role") or getattr(current_user, "role", "OPERATOR")).upper()
+    if current_user.role != UserRole.SYSADMIN and role != str(current_user.role).upper():
+        raise HTTPException(status_code=403, detail="You may only update the active role profile.")
+    config = await set_system_config(
+        db,
+        f"{ITEM_MASTER_PROFILE_PREFIX}:{company_id}:{role}",
+        json.dumps({"visibleFields": list(dict.fromkeys(visible_fields))}),
+        current_user,
+    )
+    return {"success": True, "visibleFields": list(dict.fromkeys(visible_fields)), "configId": config.id}
 
 
 @router.get(
@@ -621,22 +691,12 @@ async def company_setup(
             await db.flush()
             created_branches.append(branch)
 
-            store_id = f"stor-{timestamp_ms + idx}"
-            store_record = Store(
-                id=store_id,
-                company_id=company_id,
-                branch_id=branch_id,
-                code=branch_code,
-                name=branch_name,
-                store_type=store.type or "Company Owned",
-                address=store.address or "",
-                is_active=True,
-                is_deleted=False,
-                created_by=current_user.username,
-                updated_by=current_user.username,
-            )
-            db.add(store_record)
-            created_stores.append(store_record)
+            created_stores.append({
+                "id": branch_id,
+                "name": branch_name,
+                "code": branch_code,
+                "branch_id": branch_id,
+            })
 
         for idx, staff in enumerate(staff_entries):
             username = (staff.username or "").strip()
@@ -719,6 +779,30 @@ async def company_setup(
 
             await numbering_service.create_series(series_req, current_user.username, commit=False)
 
+        # Provision default statutory POS Terminal Profile (REG-01) if none exists
+        existing_reg = await db.execute(
+            select(CashRegister).where(
+                CashRegister.company_id == company_id,
+                CashRegister.is_deleted == False,
+            )
+        )
+        if not existing_reg.scalars().first():
+            assigned_branch = created_branches[0] if created_branches else None
+            default_reg = CashRegister(
+                id=f"PROF-{uuid.uuid4().hex[:8].upper()}",
+                name="Counter 01 - Express Billing",
+                code="REG-01",
+                notes="Default installation POS terminal profile",
+                cashier=created_users[0]["username"] if created_users else "EMP001 - John Doe",
+                warehouse="Main Store",
+                is_locked=False,
+                is_active=True,
+                is_deleted=False,
+                company_id=company_id,
+                branch_id=assigned_branch.id if assigned_branch is not None else None,
+            )
+            db.add(default_reg)
+
         await set_system_config(db, CURRENT_FINANCIAL_YEAR_KEY, business_financial_year, current_user, commit=False)
         await set_system_config(db, BOOKS_START_DATE_KEY, books_start_date, current_user, commit=False)
         await set_system_config(db, BUSINESS_TRADE_NAME_KEY, trade_name, current_user, commit=False)
@@ -742,7 +826,7 @@ async def company_setup(
                 for b in created_branches
             ],
             "stores": [
-                {"id": s.id, "name": s.name, "code": s.code, "branch_id": s.branch_id}
+                {"id": s["id"], "name": s["name"], "code": s["code"], "branch_id": s["branch_id"]}
                 for s in created_stores
             ],
             "users": created_users,

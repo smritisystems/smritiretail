@@ -352,6 +352,7 @@
 	white-space: nowrap;
 	word-wrap: normal;
 	direction: ltr;
+	font-feature-settings: "liga";
 	-webkit-font-smoothing: antialiased;
 }
 
@@ -379,67 +380,91 @@
   }
 }
 
-/* SMRITI Industrial Logic Design System Tokens (Stitch Barcode Label Designer & Printer) */
+/* SMRITI Industrial Logic Design System Tokens — Theme-Aware */
+/* Maps Material Design 3 surface/token classes to SMRITI Fiori theme variables.  */
+/* These respond to [data-theme="dark"] / .dark exactly like the rest of the app. */
 :root {
-  --color-surface: #fbf8fb;
-  --color-surface-dim: #dbd9dc;
-  --color-surface-bright: #fbf8fb;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f5f3f6;
-  --color-surface-container: #efedf0;
-  --color-surface-container-high: #eae7ea;
-  --color-surface-container-highest: #e4e2e5;
-  --color-on-surface: #1b1b1e;
-  --color-on-surface-variant: #44474d;
-  --color-outline: #75777e;
-  --color-outline-variant: #c5c6ce;
-  --color-primary: #041632;
-  --color-on-primary: #ffffff;
-  --color-primary-container: #1b2b48;
-  --color-on-primary-container: #8393b5;
-  --color-secondary: #3e5f90;
-  --color-on-secondary: #ffffff;
-  --color-secondary-container: #a7c8ff;
+  /* Surface scale — maps to Fiori surface tier */
+  --color-surface:                   var(--c-theme-surface-1);
+  --color-surface-dim:               var(--c-theme-surface-3);
+  --color-surface-bright:            var(--c-theme-surface-1);
+  --color-surface-container-lowest:  var(--c-theme-surface-1);
+  --color-surface-container-low:     var(--c-theme-surface-2);
+  --color-surface-container:         var(--c-theme-surface-3);
+  --color-surface-container-high:    var(--c-theme-surface-4);
+  --color-surface-container-highest: var(--c-theme-surface-4);
+
+  /* Text */
+  --color-on-surface:         var(--c-theme-text-primary);
+  --color-on-surface-variant: var(--c-theme-text-secondary);
+
+  /* Borders */
+  --color-outline:         var(--c-theme-border-strong);
+  --color-outline-variant: var(--c-theme-border);
+
+  /* Primary action */
+  --color-primary:              var(--c-theme-primary);
+  --color-on-primary:           #ffffff;
+  --color-primary-container:    var(--c-theme-surface-4);
+  --color-on-primary-container: var(--c-theme-text-secondary);
+
+  /* Secondary */
+  --color-secondary:              #3e5f90;
+  --color-on-secondary:           #ffffff;
+  --color-secondary-container:    #a7c8ff;
   --color-on-secondary-container: #315384;
-  --color-secondary-fixed: #d5e3ff;
-  --color-on-secondary-fixed: #001b3c;
-  --color-error: #ba1a1a;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #93000a;
+  --color-secondary-fixed:        #d5e3ff;
+  --color-on-secondary-fixed:     #001b3c;
+
+  /* Error */
+  --color-error:              var(--c-theme-error);
+  --color-error-container:    var(--c-theme-error-bg);
+  --color-on-error-container: var(--c-theme-error);
 }
 
-.bg-background { background-color: #fbf8fb; }
-.text-on-background { color: #1b1b1e; }
-.bg-surface { background-color: #fbf8fb; }
-.bg-surface-dim { background-color: #dbd9dc; }
-.bg-surface-container-lowest { background-color: #ffffff; }
-.bg-surface-container-low { background-color: #f5f3f6; }
-.bg-surface-container { background-color: #efedf0; }
-.bg-surface-container-high { background-color: #eae7ea; }
-.bg-surface-container-highest { background-color: #e4e2e5; }
-.bg-surface-variant { background-color: #e4e2e5; }
-.text-on-surface { color: #1b1b1e; }
-.text-on-surface-variant { color: #44474d; }
-.border-outline { border-color: #75777e; }
-.border-outline-variant { border-color: #c5c6ce; }
-.border-surface-variant { border-color: #e4e2e5; }
-.bg-primary { background-color: #041632; }
-.text-primary { color: #041632; }
-.text-primary-fixed { color: #d7e2ff; }
-.text-on-primary { color: #ffffff; }
-.bg-primary-container { background-color: #1b2b48; }
-.text-on-primary-container { color: #8393b5; }
-.bg-secondary { background-color: #3e5f90; }
-.text-secondary { color: #3e5f90; }
-.text-on-secondary { color: #ffffff; }
-.bg-secondary-container { background-color: #a7c8ff; }
-.text-on-secondary-container { color: #315384; }
-.bg-secondary-fixed { background-color: #d5e3ff; }
-.text-on-secondary-fixed { color: #001b3c; }
-.border-error { border-color: #ba1a1a; }
-.text-error { color: #ba1a1a; }
-.bg-error-container { background-color: #ffdad6; }
-.text-on-error-container { color: #93000a; }
+/* Background / surface utilities */
+.bg-background                { background-color: var(--color-surface); }
+.text-on-background           { color: var(--color-on-surface); }
+.bg-surface                   { background-color: var(--color-surface) !important; }
+.bg-surface-dim               { background-color: var(--color-surface-dim); }
+.bg-surface-container-lowest  { background-color: var(--color-surface-container-lowest) !important; }
+.bg-surface-container-low     { background-color: var(--color-surface-container-low) !important; }
+.bg-surface-container         { background-color: var(--color-surface-container) !important; }
+.bg-surface-container-high    { background-color: var(--color-surface-container-high) !important; }
+.bg-surface-container-highest { background-color: var(--color-surface-container-highest) !important; }
+.bg-surface-variant           { background-color: var(--color-surface-container-high); }
+
+/* Text utilities */
+.text-on-surface         { color: var(--color-on-surface) !important; }
+.text-on-surface-variant { color: var(--color-on-surface-variant) !important; }
+
+/* Border utilities */
+.border-outline         { border-color: var(--color-outline) !important; }
+.border-outline-variant { border-color: var(--color-outline-variant) !important; }
+.border-surface-variant { border-color: var(--color-surface-container-high); }
+
+/* Primary */
+.bg-primary              { background-color: var(--color-primary) !important; }
+.text-primary            { color: var(--color-primary) !important; }
+.text-primary-fixed      { color: #d7e2ff; }
+.text-on-primary         { color: var(--color-on-primary) !important; }
+.bg-primary-container    { background-color: var(--color-primary-container); }
+.text-on-primary-container { color: var(--color-on-primary-container); }
+
+/* Secondary */
+.bg-secondary              { background-color: var(--color-secondary); }
+.text-secondary            { color: var(--color-secondary); }
+.text-on-secondary         { color: var(--color-on-secondary); }
+.bg-secondary-container    { background-color: var(--color-secondary-container); }
+.text-on-secondary-container { color: var(--color-on-secondary-container); }
+.bg-secondary-fixed        { background-color: var(--color-secondary-fixed); }
+.text-on-secondary-fixed   { color: var(--color-on-secondary-fixed); }
+
+/* Error */
+.border-error          { border-color: var(--color-error); }
+.text-error            { color: var(--color-error); }
+.bg-error-container    { background-color: var(--color-error-container); }
+.text-on-error-container { color: var(--color-on-error-container); }
 
 .font-headline-lg { font-family: Inter, sans-serif; font-size: 24px; font-weight: 600; line-height: 32px; }
 .font-headline-md { font-family: Inter, sans-serif; font-size: 20px; font-weight: 600; line-height: 28px; }

@@ -46,6 +46,8 @@ from .api.v1 import (
     auth,
     assignments,
     barcode,
+    barcode_registry,
+    billing_csv,
     barcodes,
     boundaries,
     capability_registry,
@@ -59,6 +61,7 @@ from .api.v1 import (
     database_manager,
     dev_tracker,
     distribution,
+    dispatch_invoicing,
     docs,
     documents,
     ecom,
@@ -68,6 +71,7 @@ from .api.v1 import (
     governance,
     governed_logic,
     health_flags,
+    identity,
     integration,
     inventory,
     inventory_reports,
@@ -104,11 +108,14 @@ from .api.v1 import (
     training,
     ui_control_plane,
     universal_master,
+    universal_import,
     users,
+    vendor,
     wms,
     workflow,
     workspace_ui,
     cge_unified,
+    system_parameters,
 )
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
@@ -116,6 +123,11 @@ from .core.error_handlers import register_error_handlers
 from .core.logging import logger
 from .db.session import verify_db_connectivity
 from .middleware.request_logger import RequestLoggerMiddleware
+from .middleware.rate_limiter import limiter, SLOWAPI_AVAILABLE
+if SLOWAPI_AVAILABLE:
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.middleware import SlowAPIMiddleware
 
 STARTUP_TIME = time.time()
 
@@ -156,96 +168,159 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # 2. Register Request Logger & ID Middleware
 app.add_middleware(RequestLoggerMiddleware)
 
-# 3. Register Versioned Router Endpoints
-app.include_router(health_flags.router, prefix=settings.API_V1_STR + "/health",    tags=["Health"])
-app.include_router(workflow.router,     prefix=settings.API_V1_STR + "/workflow",  tags=["Workflow"])  # AD-3: Core Workflow
-app.include_router(metadata.router,     prefix=settings.API_V1_STR)
-app.include_router(changelog.router, prefix=settings.API_V1_STR)
-app.include_router(dev_tracker.router, prefix=settings.API_V1_STR)
-app.include_router(auth.router,      prefix=settings.API_V1_STR + "/auth",          tags=["Authentication"])
-app.include_router(users.router,     prefix=settings.API_V1_STR + "/users",         tags=["User Management"])
-app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory",          tags=["Inventory"])
-app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/products",           tags=["Inventory"])
-app.include_router(inventory.router,         prefix=settings.API_V1_STR + "/inventory/products", tags=["Inventory"])
-app.include_router(inventory_reports.router, prefix=settings.API_V1_STR,                          tags=["Inventory Reports"])
-app.include_router(crm.router,          prefix=settings.API_V1_STR,           tags=["CRM"])
-app.include_router(crm.router,          prefix=settings.API_V1_STR + "/crm",  tags=["CRM"])
-app.include_router(crm_reports.router,  prefix=settings.API_V1_STR,           tags=["CRM Reports"])
-app.include_router(staff.router,        prefix=settings.API_V1_STR,           tags=["Staff Management"])
-app.include_router(sales.router,         prefix=settings.API_V1_STR + "/sales-invoices", tags=["Sales-Legacy"])  # Deprecated -- remove at v3.20.0
-app.include_router(sales.router,         prefix=settings.API_V1_STR + "/sales",          tags=["Sales"])         # Contract URL (Phase 4A)
-app.include_router(sales.router,         prefix=settings.API_V1_STR + "/tattly",         tags=["Tattly Invoices"])
-app.include_router(sales_reports.router, prefix=settings.API_V1_STR,                     tags=["Sales Reports"])
-app.include_router(purchase.router,  prefix=settings.API_V1_STR,                    tags=["Purchase-Legacy"])  # Deprecated — remove at v3.20.0
-app.include_router(purchase.router,  prefix=settings.API_V1_STR + "/purchase",      tags=["Purchase"])         # Contract URL (Phase 4A)
-app.include_router(pos.router,            prefix=settings.API_V1_STR,           tags=["POS Shift"])
-app.include_router(physical_stock.router, prefix=settings.API_V1_STR,           tags=["Physical Stock"])
-app.include_router(supplier_payment.router, prefix=settings.API_V1_STR,                    tags=["Supplier Payments"])
-app.include_router(reports.router,          prefix=settings.API_V1_STR,                    tags=["Reports"])
-app.include_router(reporting_governance.router, prefix=settings.API_V1_STR,           tags=["Reporting Governance"])
-app.include_router(master_lookup.router,    prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
-app.include_router(masters.router,          prefix=settings.API_V1_STR + "/masters",       tags=["Masters"])
-app.include_router(assignments.router,      prefix=settings.API_V1_STR,                      tags=["Assignments"])
-app.include_router(numbering.router,        prefix=settings.API_V1_STR + "/numbering",     tags=["Numbering Engine"])
-app.include_router(terms.router,            prefix=settings.API_V1_STR + "/terms",         tags=["Terms & Conditions"])
-app.include_router(attributes.router,       prefix=settings.API_V1_STR + "/attributes",    tags=["Attributes & Variants"])  # noqa: E501
-app.include_router(barcode.router,          prefix=settings.API_V1_STR + "/barcode",       tags=["Barcode Studio"])
-app.include_router(product_identity.router, prefix=settings.API_V1_STR + "/product-identity", tags=["Product Identity Engine"])
-app.include_router(exchange.router,         prefix=settings.API_V1_STR + "/exchange",      tags=["Data Exchange Hub"])
-app.include_router(ai.router,               prefix=settings.API_V1_STR + "/ai",            tags=["AI Assistant"])
-app.include_router(docs.router,             prefix=settings.API_V1_STR + "/docs",          tags=["Documentation"])
-app.include_router(system.router,           prefix=settings.API_V1_STR,                     tags=["System"])
-app.include_router(roles.router,            prefix=settings.API_V1_STR + "/roles",         tags=["Role Matrix"])
-app.include_router(menus.router,            prefix=settings.API_V1_STR + "/menus",         tags=["Menu Governance"])
-app.include_router(security.router,         prefix=settings.API_V1_STR + "/security",      tags=["Security Management"])
-app.include_router(ui_control_plane.router, prefix=settings.API_V1_STR + "/ui",            tags=["UI Control Plane"])
-app.include_router(workspace_ui.router,      prefix=settings.API_V1_STR)
-app.include_router(training.router,         prefix=settings.API_V1_STR,                     tags=["Training Academy"])
-app.include_router(ecom.router,             prefix=settings.API_V1_STR,                     tags=["eCommerce / Omnichannel Engine"])
-app.include_router(company_center.router, prefix=settings.API_V1_STR, tags=["Company Control Center"])
-app.include_router(database_manager.router,       prefix=settings.API_V1_STR + "/database-manager", tags=["Database Manager"])
-app.include_router(compliance_router,       prefix=settings.API_V1_STR)
-app.include_router(approval_matrix.router,  prefix=settings.API_V1_STR + "/approval-matrix", tags=["Approval Matrix"])
-app.include_router(wms.router,              prefix=settings.API_V1_STR + "/wms", tags=["Warehouse & Batch Management"])
-app.include_router(accounting.router,       prefix=settings.API_V1_STR + "/accounting", tags=["Authoritative Accounting"])
-app.include_router(finance.router,          prefix=settings.API_V1_STR + "/finance",     tags=["Finance & Cash Reports"])
-app.include_router(governance.router,       prefix=settings.API_V1_STR + "/governance",  tags=["Governance & System Config"])
-app.include_router(reference_data.router,    prefix=settings.API_V1_STR, tags=["Global Reference Data & Localization"])
-app.include_router(localization.router,      prefix=settings.API_V1_STR)
-app.include_router(capability_registry.router, prefix=settings.API_V1_STR, tags=["Capability & Module Registry"])
-app.include_router(governed_logic.router, prefix=settings.API_V1_STR + "/governed-logic", tags=["Governed Logic & Reproducibility"])
-app.include_router(universal_master.router, prefix=settings.API_V1_STR + "/universal", tags=["Universal Party & Item Master"])
-app.include_router(boundaries.router, prefix=settings.API_V1_STR + "/boundaries", tags=["Stock & Accounting Boundaries"])
-app.include_router(pricing.router, prefix=settings.API_V1_STR + "/pricing", tags=["Pricing Engine"])
-app.include_router(promotions.router, prefix=settings.API_V1_STR + "/promotions", tags=["Promotions & Offers Engine"])
-app.include_router(payments.router, prefix=settings.API_V1_STR + "/payments", tags=["Payments Engine"])
-app.include_router(documents.router, prefix=settings.API_V1_STR + "/documents", tags=["Documents Engine"])
-app.include_router(fulfillment.router, prefix=settings.API_V1_STR + "/fulfillment", tags=["Fulfillment Engine"])
-app.include_router(barcodes.router, prefix=settings.API_V1_STR + "/barcodes", tags=["Barcode & Labels Engine"])
-app.include_router(approval.router, prefix=settings.API_V1_STR + "/approval", tags=["Approval Matrix Engine"])
-app.include_router(search.router, prefix=settings.API_V1_STR + "/search", tags=["Universal Search Engine"])
-app.include_router(communicator.router, prefix=settings.API_V1_STR + "/communicator", tags=["Communicator Engine"])
-app.include_router(crm_cge.router, prefix=settings.API_V1_STR + "/crm-growth", tags=["CRM & Commercial Growth Engine"])
-app.include_router(distribution.router, prefix=settings.API_V1_STR + "/distribution", tags=["Distribution Core"])
-app.include_router(psv.router, prefix=settings.API_V1_STR, tags=["Projected Stock Visibility"])
-app.include_router(pdt.router, prefix=settings.API_V1_STR, tags=["Predictive Distribution Twin"])
-app.include_router(cge_unified.router, prefix=settings.API_V1_STR, tags=["CGE Unified Policies"])
-app.include_router(cge.router, prefix=settings.API_V1_STR + "/cge", tags=["Commercial Growth Engine & PDT"])
-app.include_router(sync.router, prefix=settings.API_V1_STR + "/sync", tags=["Offline-First Synchronization"])
-app.include_router(analytics.router, prefix=settings.API_V1_STR + "/analytics", tags=["Analytics & Intelligence Plane"])
-app.include_router(integration.router, prefix=settings.API_V1_STR + "/integration", tags=["Integration Hub & Audit"])
-app.include_router(legacy_menu_map.router, prefix=settings.API_V1_STR + "/legacy-menu-map", tags=["Legacy Migration Registry"])  # Sprint 2/3: read-only Shoper9->SMRITI lineage
-app.include_router(scheduled_reports.router, prefix=settings.API_V1_STR)
+# 3. Register Rate Limiting Middleware (slowapi — tenant-scoped, 300/min default)
+app.state.limiter = limiter
+if SLOWAPI_AVAILABLE:
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
 
 
+# ============================================================
+# 4. SMRITI Router Registry (Data-Driven Mounting)
+# ============================================================
+# Format: (router_module, prefix_suffix, tags, [deprecated])
+# Prefix suffix is appended to settings.API_V1_STR
+# ============================================================
+_ROUTER_REGISTRY = [
+    # --- Platform & System ---
+    (health_flags,          "/health",               ["Health"]),
+    (workflow,              "/workflow",             ["Workflow"]),
+    (metadata,              "",                      ["Metadata"]),
+    (changelog,             "",                      ["Changelog"]),
+    (dev_tracker,           "",                      ["Dev Tracker"]),
+    (system,                "",                      ["System"]),
+    (governance,            "/governance",           ["Governance & System Config"]),
+    (system_parameters,     "",                      ["System Parameters"]),
+    (capability_registry,   "",                      ["Capability & Module Registry"]),
+    (reference_data,        "",                      ["Global Reference Data & Localization"]),
+    (localization,          "",                      ["Localization"]),
 
+    # --- Auth & Users ---
+    (auth,                  "/auth",                 ["Authentication"]),
+    (users,                 "/users",                ["User Management"]),
+    (roles,                 "/roles",                ["Role Matrix"]),
+    (menus,                 "/menus",                ["Menu Governance"]),
+    (security,              "/security",             ["Security Management"]),
+    (ui_control_plane,      "/ui",                   ["UI Control Plane"]),
+    (workspace_ui,          "",                      ["Workspace UI"]),
+    (assignments,           "",                      ["Assignments"]),
+
+    # --- Inventory & Products ---
+    (inventory,             "/inventory",            ["Inventory"]),
+    (inventory,             "/products",             ["Inventory"]),             # LEGACY alias — deprecate at v4.0
+    (inventory,             "/inventory/products",   ["Inventory"]),             # LEGACY alias — deprecate at v4.0
+    (inventory,             "/variants",             ["Variants"]),              # LEGACY alias — deprecate at v4.0
+    (inventory_reports,     "",                      ["Inventory Reports"]),
+    (physical_stock,        "",                      ["Physical Stock"]),
+    (wms,                   "/wms",                  ["Warehouse & Batch Management"]),
+    (boundaries,            "/boundaries",           ["Stock & Accounting Boundaries"]),
+    (psv,                   "",                      ["Projected Stock Visibility"]),
+
+    # --- Sales ---
+    (sales,                 "/sales-invoices",       ["Sales-Legacy"]),          # LEGACY alias — deprecate at v3.20
+    (sales,                 "/sales",                ["Sales"]),
+    (sales,                 "/tattly",               ["Tattly Invoices"]),
+    (dispatch_invoicing,    "",                      ["B2B Dispatch Invoicing Studio"]),
+    (sales_reports,         "",                      ["Sales Reports"]),
+
+    # --- Purchase & Vendors ---
+    (purchase,              "",                      ["Purchase-Legacy"]),        # LEGACY alias — deprecate at v3.20
+    (purchase,              "/purchase",             ["Purchase"]),
+    (vendor,                "/purchase",             ["Vendors"]),
+    (vendor,                "",                      ["Vendors"]),
+    (supplier_payment,      "",                      ["Supplier Payments"]),
+
+    # --- CRM ---
+    (crm,                   "",                      ["CRM"]),
+    (crm,                   "/crm",                  ["CRM"]),                   # LEGACY alias — deprecate at v4.0
+    (crm_reports,           "",                      ["CRM Reports"]),
+    (crm_cge,               "/crm-growth",           ["CRM & Commercial Growth Engine"]),
+
+    # --- POS ---
+    (pos,                   "",                      ["POS Shift"]),
+
+    # --- Masters & Configuration ---
+    (master_lookup,         "/masters",              ["Masters"]),
+    (masters,               "/masters",              ["Masters"]),
+    (numbering,             "/numbering",            ["Numbering Engine"]),
+    (terms,                 "/terms",                ["Terms & Conditions"]),
+    (attributes,            "/attributes",           ["Attributes & Variants"]),
+
+    # --- Barcode & Labels ---
+    (barcode,               "/barcode",              ["Barcode Studio"]),
+    (billing_csv,           "/billing",              ["Barcode Billing CSV Import"]),
+    (barcode_registry,      "/barcode-registry",     ["Barcode Management"]),
+    (barcodes,              "/barcodes",             ["Barcode & Labels Engine"]),
+    (product_identity,      "/product-identity",     ["Product Identity Engine"]),
+    (identity,              "/identity",             ["SMRITI Unified Identity Engine"]),
+
+    # --- Finance & Accounting ---
+    (accounting,            "/accounting",           ["Authoritative Accounting"]),
+    (finance,               "/finance",              ["Finance & Cash Reports"]),
+    (payments,              "/payments",             ["Payments Engine"]),
+
+    # --- Engines ---
+    (pricing,               "/pricing",              ["Pricing Engine"]),
+    (promotions,            "/promotions",           ["Promotions & Offers Engine"]),
+    (documents,             "/documents",            ["Documents Engine"]),
+    (fulfillment,           "/fulfillment",          ["Fulfillment Engine"]),
+    (approval_matrix,       "/approval-matrix",      ["Approval Matrix"]),
+    (approval,              "/approval",             ["Approval Matrix Engine"]),
+    (search,                "/search",               ["Universal Search Engine"]),
+    (communicator,          "/communicator",         ["Communicator Engine"]),
+    (governed_logic,        "/governed-logic",       ["Governed Logic & Reproducibility"]),
+    (universal_master,      "/universal",            ["Universal Party & Item Master"]),
+
+    # --- Intelligence & Distribution ---
+    (distribution,          "/distribution",         ["Distribution Core"]),
+    (pdt,                   "",                      ["Predictive Distribution Twin"]),
+    (cge_unified,           "",                      ["CGE Unified Policies"]),
+    (cge,                   "/cge",                  ["Commercial Growth Engine & PDT"]),
+    (analytics,             "/analytics",            ["Analytics & Intelligence Plane"]),
+    (reports,               "",                      ["Reports"]),
+    (reporting_governance,  "",                      ["Reporting Governance"]),
+    (scheduled_reports,     "",                      ["Scheduled Reports"]),
+
+    # --- Integration & Data ---
+    (exchange,              "/exchange",             ["Data Exchange Hub"]),
+    (universal_import,      "/import",               ["Universal Import"]),
+    (sync,                  "/sync",                 ["Offline-First Synchronization"]),
+    (integration,           "/integration",          ["Integration Hub & Audit"]),
+    (ecom,                  "",                      ["eCommerce / Omnichannel Engine"]),
+
+    # --- Platform Infrastructure ---
+    (ai,                    "/ai",                   ["AI Assistant"]),
+    (docs,                  "/docs",                 ["Documentation"]),
+    (company_center,        "",                      ["Company Control Center"]),
+    (database_manager,      "/database-manager",     ["Database Manager"]),
+    (training,              "",                      ["Training Academy"]),
+    (staff,                 "",                      ["Staff Management"]),
+
+    # --- Legacy & Migration ---
+    (legacy_menu_map,       "/legacy-menu-map",      ["Legacy Migration Registry"]),
+]
+
+# Mount all routers from the registry
+for _entry in _ROUTER_REGISTRY:
+    _router_module, _prefix_suffix, _tags = _entry
+    _router = getattr(_router_module, "router", None) if not hasattr(_router_module, "routes") else _router_module
+    if _router is None:
+        continue
+    app.include_router(
+        _router,
+        prefix=settings.API_V1_STR + _prefix_suffix,
+        tags=_tags,
+    )
+
+# Compliance module uses its own namespaced router variable
+app.include_router(compliance_router, prefix=settings.API_V1_STR)
 
 # 4. Standard Health Diagnostics Endpoints
 @app.get("/health", tags=["Health Diagnostics"])

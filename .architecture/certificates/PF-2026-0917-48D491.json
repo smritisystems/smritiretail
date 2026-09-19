@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0917-48D491",
+  "entity": "IDENTITY",
+  "capability": "UNIFIED_IDENTITY_CONTROL_PLANE",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "code_generator.py",
+  "target_file_path": "backend/app/services/identity/code_generator.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/identity/code_generator.py",
+  "content_hash": "a430b905f7d8d1abc216717a58a0affaba5b13c44db235fb9b659f6cc8a95d0c",
+  "git_commit": "20cd1171feb8d386664e0b84808c0b5b39919327",
+  "issued_at": "2026-09-17T21:38:22.015048+00:00",
+  "expires_at": "2026-09-24T21:38:22.015048+00:00",
+  "status": "ISSUED"
+}

@@ -26,6 +26,7 @@ class ReportSchedule(BaseEntity):
     Stores report automation schedule metadata per tenant with multi-channel distribution.
     """
     __tablename__ = "report_schedules"
+    __table_args__ = {"extend_existing": True}
 
     schedule_name = Column(String(150), nullable=False, index=True)
     report_code = Column(String(50), nullable=False, index=True)  # e.g., 'RPT-SAL-001', 'RPT-TAX-006'
@@ -62,10 +63,10 @@ class ReportSchedule(BaseEntity):
     created_by_id = Column(String(100), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     dispatch_logs = relationship(
-        "ReportDispatchLog",
+        "app.models.report_schedule.ReportDispatchLog",
         back_populates="schedule",
         cascade="all, delete-orphan",
-        order_by="desc(ReportDispatchLog.created_at)"
+        order_by="desc(app.models.report_schedule.ReportDispatchLog.created_at)"
     )
 
 
@@ -75,6 +76,7 @@ class ReportDispatchLog(BaseEntity):
     Records delivery statuses, SHA-256 integrity digests, and channel latency metrics.
     """
     __tablename__ = "report_dispatch_logs"
+    __table_args__ = {"extend_existing": True}
 
     schedule_id = Column(String(50), ForeignKey("report_schedules.id", ondelete="CASCADE"), nullable=False, index=True)
     report_code = Column(String(50), nullable=False, index=True)
@@ -91,4 +93,4 @@ class ReportDispatchLog(BaseEntity):
     forensic_envelope_hash = Column(String(64), nullable=True, index=True)
     delivery_metadata = Column(JSONB, server_default=text("'{}'"), default=dict)
 
-    schedule = relationship("ReportSchedule", back_populates="dispatch_logs")
+    schedule = relationship("app.models.report_schedule.ReportSchedule", back_populates="dispatch_logs")

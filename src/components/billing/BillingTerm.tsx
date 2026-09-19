@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.8.0
+ * Version      : 6.28.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-25
+ * Modified     : 2026-09-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -16,9 +16,11 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Product, Customer, POSProfile, Shift } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
 import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
-import { getCustomers, saveCustomers, initialCustomers } from "../../services/customerStore.ts";
+import { getCustomers, saveCustomers } from "../../services/customerStore.ts";
 import { 
   searchBackendCustomers, 
   searchBackendProducts, 
@@ -35,13 +37,32 @@ import {
   BillingSummaryTotals,
   TransporterRow,
   AddonDeductionRow,
-  SettlementPaymentRow
+  SettlementPaymentRow,
+  CustomerGSTRegistrationDTO,
+  CustomerDeliveryLocationDTO,
+  CustomerBillingLocationDTO
 } from "./types.ts";
-import { ProductSearchBrowserModal } from "./ProductSearchBrows.tsx";
-import { ItemBrowseOverlayModal } from "./ItemBrowseOverlayD.tsx";
-import { PdtImportModal } from "./PdtImportModal.tsx";
+import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "./SmritiF2AdvancedItemSearch.tsx";
+import {
+  SmritiF6PromotionalDiscountsModal,
+  SmritiBillLevelPromoState
+} from "./SmritiF6PromotionalDiscountsModal.tsx";
+import { SmritiDefineSalesPromotionsModal } from "./SmritiDefineSalesPromotionsModal.tsx";
+import { SmritiDefineSalesFactorsModal } from "../pricing/SmritiDefineSalesFactorsModal.tsx";
+import { SmritiSalesFactorService } from "../../services/smritiSalesFactorService.ts";
+import {
+  SmritiSalesPromotionService,
+  ItemPromoResolutionResult
+} from "../../services/smritiSalesPromotionService.ts";
+import { SmritiDefineBillPrefixModal } from "./SmritiDefineBillPrefixModal.tsx";
+import { smritiSystemParameterService } from "../../services/smritiSystemParameterService.ts";
+import {
+  SmritiBillPrefixService,
+  BillPrefixResolveResult
+} from "../../services/smritiBillPrefixService.ts";
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
+import { InvoicingTransactionBrowserModal, InvoicingBrowserTab } from "./InvoicingTransactionBrowserModal.tsx";
 import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel.tsx";
 import type { TransactionAttachment } from "../../domain/attachment";
 import { 
@@ -66,7 +87,10 @@ import {
   Maximize2,
   Minimize2,
   ExternalLink,
-  Paperclip
+  Paperclip,
+  Banknote,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 interface SmritiBillingTerminalProps {
@@ -76,7 +100,7 @@ interface SmritiBillingTerminalProps {
   shifts?: Shift[];
   currentUser?: { role: string; name: string; companyId?: string; branchId?: string } | null;
   onRefreshData?: () => void;
-  onNotification?: (title: string, message: string, type: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
   isStandaloneTab?: boolean;
 }
 
@@ -88,21 +112,292 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   onNotification,
   isStandaloneTab = false
 }) => {
+  const invoiceCustomerScope = { series: "TT2026-2027", from: 18, to: 137 };
+
   // Main Line Items Table State
   const [items, setItems] = useState<BillingLineItem[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [customerPOs, setCustomerPOs] = useState<any[]>([]);
+  const [selectedCustomerPO, setSelectedCustomerPO] = useState<any | null>(null);
+  const [isLoadingCustomerPOs, setIsLoadingCustomerPOs] = useState(false);
 
   // Header State
   const [headerState, setHeaderState] = useState<BillingHeaderState>({
     billType: "Product",
     transaction: "Credit",
-    docPrefix: "D1DS13",
-    docNo: "1",
+    docPrefix: "",
+    docNo: "",
     billDate: new Date().toLocaleDateString("en-GB"),
     customer: null,
     salesStaff: currentUser?.name || "EMP001 - John Doe",
-    remarks: ""
+    remarks: "",
+    billedPartyGstinId: null,
+    billedGstin: null,
+    deliveryLocationId: null,
+    deliveryStoreCode: null,
+    deliveryGstin: null,
+    deliveryLocationSnapshot: null,
+    placeOfSupplyCode: null,
+    poReference: "",
+    billingSource: "DIRECT",
+    customerPoId: null
   });
+
+  const loadCustomerPOs = async (customerId: string) => {
+    if (!customerId || customerId === "CUST-WALKIN") {
+      setCustomerPOs([]);
+      setSelectedCustomerPO(null);
+      return;
+    }
+    setIsLoadingCustomerPOs(true);
+    try {
+      const response = await apiFetchV1<any>(`/sales/customer-pos?customer_id=${encodeURIComponent(customerId)}&status=OPEN`);
+      setCustomerPOs(Array.isArray(response) ? response : response?.items || []);
+    } catch {
+      setCustomerPOs([]);
+    } finally {
+      setIsLoadingCustomerPOs(false);
+    }
+  };
+
+  const selectCustomerPO = async (poId: string) => {
+    if (!poId) {
+      setSelectedCustomerPO(null);
+      setItems([]);
+      setHeaderState(prev => ({ ...prev, customerPoId: null, poReference: "" }));
+      return;
+    }
+    try {
+      const po = await apiFetchV1<any>(`/sales/customer-pos/${poId}`);
+      setSelectedCustomerPO(po);
+      setHeaderState(prev => ({ ...prev, customerPoId: po.id, poReference: po.po_number, billingSource: "CUSTOMER_PO" }));
+      setItems((po.lines || []).filter((line: any) => Number(line.quantity_remaining || 0) > 0).map((line: any, index: number) => ({
+        id: `customer-po-${line.id}`,
+        sNo: index + 1,
+        stockNo: line.code,
+        barcode: line.code,
+        itemDescription: line.description,
+        rate: Number(line.unit_price || 0),
+        qty: Number(line.quantity_remaining || 0),
+        value: Number(line.unit_price || 0) * Number(line.quantity_remaining || 0),
+        discCode: "",
+        discQty: 0,
+        discPercent: 0,
+        discAmt: 0,
+        total: Number(line.unit_price || 0) * Number(line.quantity_remaining || 0),
+        salesStaff: headerState.salesStaff,
+        productId: line.product_id,
+        hsnCode: line.hsn_code,
+        gstPercentage: Number(line.gst_rate || 18),
+        customerPoLineId: line.id
+      })));
+    } catch (error: any) {
+      onNotification?.("Customer PO Unavailable", error?.message || "Unable to load the selected Customer PO.", "error");
+    }
+  };
+
+  useEffect(() => {
+    if (headerState.customer?.id) void loadCustomerPOs(headerState.customer.id);
+  }, [headerState.customer?.id]);
+
+  useEffect(() => {
+    void smritiSystemParameterService.load();
+  }, []);
+
+  // Corporate B2B Multi-State GST, Billing & Delivery Location State
+  const [customerGstRegistrations, setCustomerGstRegistrations] = useState<CustomerGSTRegistrationDTO[]>([]);
+  const [customerDeliveryLocations, setCustomerDeliveryLocations] = useState<CustomerDeliveryLocationDTO[]>([]);
+  const [customerBillingLocations, setCustomerBillingLocations] = useState<CustomerBillingLocationDTO[]>([]);
+  const [isLoadingB2BData, setIsLoadingB2BData] = useState<boolean>(false);
+  const activeCustomerFetchIdRef = useRef<string | null>(null);
+
+  const fetchCustomerB2BData = async (customerId: string) => {
+    activeCustomerFetchIdRef.current = customerId;
+    setIsLoadingB2BData(true);
+    try {
+      const [regsRes, locsRes, blocRes] = await Promise.all([
+        apiFetchV1(`/crm/customers/${customerId}/gst-registrations`).catch(() => []),
+        apiFetchV1(`/crm/customers/${customerId}/delivery-locations`).catch(() => []),
+        apiFetchV1(`/crm/customers/${customerId}/billing-locations`).catch(() => []),
+      ]);
+      if (activeCustomerFetchIdRef.current !== customerId) return;
+
+      const regs: CustomerGSTRegistrationDTO[] = (Array.isArray(regsRes) ? regsRes : (regsRes?.items || [])).map((raw: any) => ({
+        ...raw,
+        customer_id: raw.customer_id ?? raw.customerId,
+        state_code: raw.state_code ?? raw.stateCode,
+        state_name: raw.state_name ?? raw.stateName,
+        registration_type: raw.registration_type ?? raw.registrationType,
+        is_primary: raw.is_primary ?? raw.isPrimary,
+        is_active: raw.is_active ?? raw.isActive,
+      }));
+      const locs: CustomerDeliveryLocationDTO[] = (Array.isArray(locsRes) ? locsRes : (locsRes?.items || [])).map((raw: any) => ({
+        ...raw,
+        customer_id: raw.customer_id ?? raw.customerId,
+        store_code: raw.store_code ?? raw.storeCode,
+        location_name: raw.location_name ?? raw.locationName,
+        address_line1: raw.address_line1 ?? raw.addressLine1,
+        address_line2: raw.address_line2 ?? raw.addressLine2,
+        state_code: raw.state_code ?? raw.stateCode,
+        state_name: raw.state_name ?? raw.stateName ?? raw.state,
+        pin_code: raw.pin_code ?? raw.pincode,
+        gst_registration_id: raw.gst_registration_id ?? raw.gstRegistrationId,
+        delivery_gstin: raw.delivery_gstin ?? raw.gstin,
+        contact_person: raw.contact_person ?? raw.contactPerson,
+        contact_phone: raw.contact_phone ?? raw.phone,
+        contact_email: raw.contact_email ?? raw.email,
+        is_default: raw.is_default ?? raw.isDefault,
+        is_active: raw.is_active ?? raw.isActive,
+      }));
+      const blocs: CustomerBillingLocationDTO[] = (Array.isArray(blocRes) ? blocRes : (blocRes?.items || [])).map((raw: any) => ({
+        ...raw,
+        customer_id: raw.customer_id ?? raw.customerId,
+        billing_store_code: raw.billing_store_code ?? raw.billingStoreCode,
+        name: raw.name ?? raw.location_name ?? raw.locationName,
+        address_line1: raw.address_line1 ?? raw.addressLine1,
+        address_line2: raw.address_line2 ?? raw.addressLine2,
+        state_code: raw.state_code ?? raw.stateCode,
+        pincode: raw.pincode ?? raw.pinCode,
+        gst_registration_id: raw.gst_registration_id ?? raw.gstRegistrationId,
+        contact_person: raw.contact_person ?? raw.contactPerson,
+        contact_phone: raw.contact_phone ?? raw.phone,
+        contact_email: raw.contact_email ?? raw.email,
+        is_default: raw.is_default ?? raw.isDefault,
+      }));
+      setCustomerGstRegistrations(regs);
+      setCustomerDeliveryLocations(locs);
+      setCustomerBillingLocations(blocs);
+
+      // 1. Primary GST auto-selection:
+      const primaryReg = regs.find(r => r.is_primary) || (regs.length === 1 ? regs[0] : null);
+
+      // 2. Default Billing Location auto-selection:
+      const defaultBloc = blocs.find(b => b.is_default) || (blocs.length === 1 ? blocs[0] : null);
+
+      // 3. Default Shipping / Delivery Location auto-selection:
+      const defaultDelLoc = locs.find(l => l.is_default) || (locs.length === 1 ? locs[0] : null);
+
+      const delSnapshot = defaultDelLoc ? {
+        id: defaultDelLoc.id,
+        store_code: defaultDelLoc.store_code,
+        location_name: defaultDelLoc.location_name,
+        address_line1: defaultDelLoc.address_line1,
+        address_line2: defaultDelLoc.address_line2,
+        city: defaultDelLoc.city,
+        state_code: defaultDelLoc.state_code,
+        state_name: defaultDelLoc.state_name,
+        pin_code: defaultDelLoc.pin_code,
+        delivery_gstin: defaultDelLoc.delivery_gstin,
+        contact_person: defaultDelLoc.contact_person,
+        contact_phone: defaultDelLoc.contact_phone
+      } : null;
+
+      setHeaderState(prev => ({
+        ...prev,
+        billedPartyGstinId: primaryReg?.id || null,
+        billedGstin: primaryReg?.gstin || null,
+        placeOfSupplyCode: defaultDelLoc?.state_code || primaryReg?.state_code || prev.placeOfSupplyCode,
+        billingLocationId: defaultBloc?.id || null,
+        billingStoreCode: defaultBloc?.billing_store_code || null,
+        billingAddress: defaultBloc ? [defaultBloc.address_line1, defaultBloc.city, defaultBloc.state].filter(Boolean).join(", ") : null,
+        deliveryLocationId: defaultDelLoc?.id || null,
+        deliveryStoreCode: defaultDelLoc?.store_code || null,
+        deliveryGstin: defaultDelLoc?.delivery_gstin || null,
+        deliveryLocationSnapshot: delSnapshot,
+        shippingAddress: defaultDelLoc ? [defaultDelLoc.address_line1, defaultDelLoc.city, defaultDelLoc.state_name].filter(Boolean).join(", ") : null,
+      }));
+    } catch {
+      // Offline fallback
+    } finally {
+      if (activeCustomerFetchIdRef.current === customerId) {
+        setIsLoadingB2BData(false);
+      }
+    }
+  };
+
+  const handleBilledGstinChange = (regId: string) => {
+    if (!regId) {
+      setHeaderState(prev => ({
+        ...prev,
+        billedPartyGstinId: null,
+        billedGstin: null
+      }));
+      return;
+    }
+    const reg = customerGstRegistrations.find(r => r.id === regId);
+    if (!reg) return;
+    setHeaderState(prev => ({
+      ...prev,
+      billedPartyGstinId: reg.id,
+      billedGstin: reg.gstin,
+      placeOfSupplyCode: prev.deliveryLocationId ? prev.placeOfSupplyCode : reg.state_code
+    }));
+  };
+
+  const handleDeliveryLocationChange = (locId: string) => {
+    if (!locId) {
+      setHeaderState(prev => {
+        const billedReg = customerGstRegistrations.find(r => r.id === prev.billedPartyGstinId);
+        return {
+          ...prev,
+          deliveryLocationId: null,
+          deliveryStoreCode: null,
+          deliveryGstin: null,
+          deliveryLocationSnapshot: null,
+          placeOfSupplyCode: billedReg?.state_code || null
+        };
+      });
+      return;
+    }
+    const loc = customerDeliveryLocations.find(l => l.id === locId);
+    if (!loc) return;
+    const snapshot = {
+      id: loc.id,
+      store_code: loc.store_code,
+      location_name: loc.location_name,
+      site_type: loc.site_type,
+      address_line1: loc.address_line1,
+      address_line2: loc.address_line2,
+      city: loc.city,
+      district: loc.district,
+      state_code: loc.state_code,
+      state_name: loc.state_name,
+      pin_code: loc.pin_code,
+      delivery_gstin: loc.delivery_gstin,
+      contact_person: loc.contact_person,
+      contact_phone: loc.contact_phone
+    };
+    setHeaderState(prev => ({
+      ...prev,
+      deliveryLocationId: loc.id,
+      deliveryStoreCode: loc.store_code,
+      deliveryGstin: loc.delivery_gstin || null,
+      deliveryLocationSnapshot: snapshot,
+      placeOfSupplyCode: loc.state_code
+    }));
+  };
+
+  const handleBillingLocationChange = (locId: string) => {
+    if (!locId) {
+      setHeaderState(prev => ({
+        ...prev,
+        billingLocationId: null,
+        billingStoreCode: null,
+        billingAddress: null
+      }));
+      return;
+    }
+    const loc = customerBillingLocations.find(l => l.id === locId);
+    if (!loc) return;
+    setHeaderState(prev => ({
+      ...prev,
+      billingLocationId: loc.id,
+      billingStoreCode: loc.billing_store_code,
+      billingAddress: [loc.address_line1, loc.address_line2, loc.city, `${loc.state} - ${loc.pincode}`]
+        .filter(Boolean).join(", ")
+    }));
+  };
 
   // Direct Entry Row (F11) State
   const [directEntry, setDirectEntry] = useState<{
@@ -154,10 +449,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   ]);
 
   // Customers State & Auto-Populate Search
+  // getCustomers() returns backend-seeded cache (populated by refreshCustomerCache on login).
+  // Empty array on cold start is correct — Billing search uses backend typeahead, not this list.
   const [customers, setCustomers] = useState<Customer[]>(() => {
     if (initialCustomersProp && initialCustomersProp.length > 0) return initialCustomersProp;
-    const local = getCustomers();
-    return (local && local.length > 0) ? local : initialCustomers;
+    return getCustomers(); // returns [] if cache not yet warm; backend typeahead still works
   });
   const [customerSearchInput, setCustomerSearchInput] = useState<string>("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
@@ -183,15 +479,130 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [newCustGstin, setNewCustGstin] = useState<string>("");
 
   // Modals State
-  const [showProductSearchModal, setShowProductSearchModal] = useState<boolean>(false);
-  const [showItemBrowseModal, setShowItemBrowseModal] = useState<boolean>(false);
-  const [showPdtImportModal, setShowPdtImportModal] = useState<boolean>(false);
+  const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
+  const [showF6PromoModal, setShowF6PromoModal] = useState<boolean>(false);
+  const [showDefinePromosModal, setShowDefinePromosModal] = useState<boolean>(false);
+  const [showDefineFactorsModal, setShowDefineFactorsModal] = useState<boolean>(false);
+
+  // Synchronize applicable sales factors (universal + customer price group specific)
+  const refreshSalesFactors = () => {
+    const customer = headerState.customer;
+    const applicable = SmritiSalesFactorService.getFactorsForCustomerAndPriceGroup(
+      customer?.priceGroupCode,
+      customer?.id
+    );
+    if (applicable.length > 0) {
+      const mappedRows: AddonDeductionRow[] = applicable
+        .filter(f => f.factorType === "ADD_ON" || f.factorType === "DEDUCTION")
+        .map((f, idx) => ({
+          sNo: idx + 1,
+          type: f.factorType === "ADD_ON" ? "Addon" : "Deduction",
+          code: f.code,
+          description: f.description,
+          rateType: f.rateOrAmount === "RATE" ? "Percentage" : "Fixed",
+          rate: f.rateOrAmount === "RATE" ? f.value : 0,
+          amount: f.rateOrAmount === "AMOUNT" ? f.value : 0,
+          timing: f.computationTiming,
+          priceGroupCode: f.priceGroupCode,
+          isVariable: f.isVariable
+        }));
+      setAddonRows(mappedRows);
+    }
+  };
+
+  useEffect(() => {
+    refreshSalesFactors();
+  }, [headerState.customer?.priceGroupCode, headerState.customer?.id]);
+
+  const [billLevelPromo, setBillLevelPromo] = useState<SmritiBillLevelPromoState>({
+    code: "NONE",
+    description: "No bill discount applied",
+    discountPct: 0,
+    discountAmt: 0,
+    calculatedOn: 0,
+    priceOffs: 0,
+    maxAllowed: undefined,
+    applyBillLevelFirst: false,
+    reason: "Generally Allowed Discount",
+    remarks: ""
+  });
+  const [isManualBillPromoOverride, setIsManualBillPromoOverride] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
+  const [expandedHeldBillId, setExpandedHeldBillId] = useState<string | null>(null);
+  const [showTransactionBrowserModal, setShowTransactionBrowserModal] = useState<boolean>(false);
+  const [isReadOnlyView, setIsReadOnlyView] = useState<boolean>(false);
+  const [loadedDocMetadata, setLoadedDocMetadata] = useState<{
+    id: string;
+    docNo: string;
+    docType: string;
+    status: string;
+    date: string;
+    customerName: string;
+    grandTotal: number;
+  } | null>(null);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [showAttachmentPanel, setShowAttachmentPanel] = useState<boolean>(false);
   const [suspendedBills, setSuspendedBills] = useState<{ id: string; header: BillingHeaderState; items: BillingLineItem[]; date: string; netAmount: number }[]>([]);
   const [lastCompletedInvoice, setLastCompletedInvoice] = useState<any>(null);
+
+  const [showDefinePrefixModal, setShowDefinePrefixModal] = useState<boolean>(false);
+  const [resolvedPrefixInfo, setResolvedPrefixInfo] = useState<BillPrefixResolveResult | null>(null);
+
+  // Dynamic Bill Prefix Resolution (Shoper 9 Parity & GST Rule 46b)
+  useEffect(() => {
+    let txType = headerState.transaction === "Cash" ? "SALES_CASH" : "SALES_CREDIT";
+    if (items.length > 0 && items.every(i => (i.qty || 0) < 0)) {
+      txType = "SALES_RETURN";
+    }
+    void SmritiBillPrefixService.resolveActivePrefix({
+      transactionType: txType,
+      terminalId: (currentUser as any)?.terminalId || "COMMON",
+      branchId: headerState.deliveryLocationId || undefined,
+      billType: headerState.billType
+    }).then(res => {
+      setResolvedPrefixInfo(res);
+      setHeaderState(prev => {
+        if (isReadOnlyView || loadedDocMetadata) return prev;
+        return {
+          ...prev,
+          docPrefix: res.prefix,
+          docNo: res.formattedDocNo
+        };
+      });
+    });
+  }, [headerState.transaction, headerState.billType, isReadOnlyView, loadedDocMetadata, items.length]);
+
+  const hasGstProfile = Boolean(headerState.customer?.gstNumber || headerState.billedGstin);
+
+  const openSettlement = () => {
+    if (items.length === 0) {
+      onNotification?.("Settlement", "Add items to invoice before opening settlement.", "error");
+      return;
+    }
+    if (!hasGstProfile) {
+      onNotification?.("GST profile pending", "Add a customer GSTIN before opening settlement.", "error");
+      return;
+    }
+    // Credit ceiling check when billing on credit
+    if (headerState.customer && headerState.transaction === "Credit") {
+      const limit = headerState.customer.creditLimit;
+      const currentOutstanding = headerState.customer.outstanding || 0;
+      const billTotal = summaryTotals.netAmount;
+      if (limit !== undefined && limit > 0 && (currentOutstanding + billTotal > limit)) {
+        onNotification?.(
+          "Credit Ceiling Exceeded",
+          `Customer credit ceiling ₹${limit.toFixed(2)} exceeded! Current Outstanding: ₹${currentOutstanding.toFixed(2)}, Current Bill: ₹${billTotal.toFixed(2)} (Total: ₹${(currentOutstanding + billTotal).toFixed(2)}).`,
+          "error"
+        );
+        return;
+      }
+    }
+    setShowSettlementModal(true);
+  };
+
+  // Enterprise Retail: F7 Exact Cash Instant Checkout Ref
+  const handleExactCashSettlementRef = useRef<() => void>();
 
   // Fullscreen State & Terminal Ref
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -232,16 +643,30 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Quick Action Handlers
   const handleNewInvoice = () => {
-    if (items.length > 0) {
+    if (!isReadOnlyView && items.length > 0) {
       if (!window.confirm("Start a new invoice? Current unsaved items will be cleared.")) return;
     }
+    setIsReadOnlyView(false);
+    setLoadedDocMetadata(null);
     setItems([]);
     setHeaderState(prev => ({
       ...prev,
       docNo: String((parseInt(prev.docNo) || 1) + 1),
       customer: null,
-      remarks: ""
+      remarks: "",
+      billedPartyGstinId: null,
+      billedGstin: null,
+      deliveryLocationId: null,
+      deliveryStoreCode: null,
+      deliveryGstin: null,
+      deliveryLocationSnapshot: null,
+      placeOfSupplyCode: null,
+      poReference: "",
+      customerPoId: null
     }));
+    setSelectedCustomerPO(null);
+    setCustomerGstRegistrations([]);
+    setCustomerDeliveryLocations([]);
     setDirectEntry({
       barcode: "",
       stockNo: "",
@@ -255,6 +680,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     });
     setCustomerSearchInput("");
     setSelectedItemProductMeta(null);
+    setIsManualBillPromoOverride(false);
+    setBillLevelPromo({
+      code: "NONE",
+      description: "No bill discount applied",
+      discountPct: 0,
+      discountAmt: 0,
+      calculatedOn: 0,
+      priceOffs: 0,
+      maxAllowed: undefined,
+      applyBillLevelFirst: false,
+      reason: "Generally Allowed Discount",
+      remarks: ""
+    });
     onNotification?.("New Invoice", "Fresh billing canvas initialized.", "success");
     directStockNoRef.current?.focus();
   };
@@ -270,8 +708,27 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
   };
 
+  const openCanonicalInvoicePrint = async (invoiceId: string) => {
+    const printWindow = window.open("", "_blank");
+    try {
+      const pdf = await apiFetchV1<Blob>(`/sales/invoices/${invoiceId}/pdf`);
+      const pdfUrl = URL.createObjectURL(pdf);
+      if (!printWindow) {
+        URL.revokeObjectURL(pdfUrl);
+        throw new Error("The print window was blocked. Please allow pop-ups and retry.");
+      }
+      printWindow.location.href = pdfUrl;
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+    } catch (error: any) {
+      printWindow?.close();
+      onNotification?.("Print Error", error?.message || "Unable to render the canonical tax invoice.", "error");
+    }
+  };
+
   const handleReprintInvoice = () => {
-    if (lastCompletedInvoice || items.length > 0) {
+    if (lastCompletedInvoice?.invoiceId) {
+      void openCanonicalInvoicePrint(lastCompletedInvoice.invoiceId);
+    } else if (items.length > 0) {
       setShowPrintModal(true);
     } else {
       onNotification?.("Reprint", "No recent invoice to reprint.", "error");
@@ -281,6 +738,123 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   // References
   const directStockNoRef = useRef<HTMLInputElement>(null);
   const customerInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration ───────────
+  // F2 when focus is on the customer field → entity=customer (Tier 1 data-f2-entity).
+  // F2 on the direct-entry stockNo field → entity=variant (Tier 1 data-f2-entity).
+  // Resolution priority:
+  //   Tier 1: data-f2-entity attribute on the focused element (customerSearch, directStockNo)
+  //   Tier 2: fieldOverrides map below (belt-and-suspenders for the stockNo field)
+  //   Tier 3: defaultEntity = "customer" (fallback for untagged fields)
+  // The click-triggered ProductSearchBrowserModal (setShowProductSearchModal) is NOT
+  // affected — it is a non-F2 consumer and is preserved.
+  useF2Screen({
+    screenId: "BillingTerm",
+    defaultEntity: "customer",
+    fieldOverrides: new Map([
+      ["customerSearch",  "customer" as const],
+      ["directStockNo",   "variant"  as const],
+    ]),
+    adapter: (result: LookupResult) => {
+      // ── Customer lookup ────────────────────────────────────────────────────
+      if (result.entity === "customer") {
+        const custObj: Customer = {
+          id: result.id ?? "",
+          name: result.displayValue || "",
+          mobile: (result.record?.mobile as string) || (result.record?.phone as string) || "",
+          gstNumber: (result.record?.gst_number as string) || (result.record?.gstNumber as string) || "",
+          customerGroupId: (result.record?.customer_group_id as string) || (result.record?.customerGroupId as string) || "CG-Retail",
+          priceGroupCode: (result.record?.price_group_code as string) || (result.record?.priceGroupCode as string) || undefined,
+          itemClassificationPriceFactorApplicable: Boolean(result.record?.item_classification_price_factor_applicable ?? result.record?.itemClassificationPriceFactorApplicable),
+          creditLimit: Number(result.record?.credit_limit ?? result.record?.creditLimit ?? 0) || undefined,
+          creditDays: Number(result.record?.credit_days ?? result.record?.creditDays ?? 0) || undefined,
+          status: (result.record?.status as string) || "Active",
+          outstanding: Number(result.record?.outstanding_balance ?? result.record?.outstanding ?? 0),
+          createdDate: (result.record?.created_at as string) || new Date().toISOString().split("T")[0],
+        };
+        setHeaderState(prev => ({
+          ...prev,
+          customer: custObj,
+          billedPartyGstinId: null,
+          billedGstin: null,
+          deliveryLocationId: null,
+          deliveryStoreCode: null,
+          deliveryGstin: null,
+          deliveryLocationSnapshot: null,
+          placeOfSupplyCode: null,
+          poReference: ""
+        }));
+        setCustomerSearchInput(result.displayValue || "");
+        if (custObj.id) {
+          fetchCustomerB2BData(custObj.id);
+        } else {
+          setCustomerGstRegistrations([]);
+          setCustomerDeliveryLocations([]);
+        }
+        return;
+      }
+
+      // ── Variant / Item / Barcode lookup (direct entry row) ─────────────────
+      if (result.entity === "variant" || result.entity === "item" || result.entity === "item_barcode") {
+        const stockVal  = (result.record?.stock_no as string)
+                       || (result.record?.style_code as string)
+                       || result.returnValue
+                       || "";
+        const barcodeVal = (result.record?.barcode as string)
+                        || (result.record?.default_barcode as string)
+                        || stockVal;
+        const descVal   = result.displayValue
+                       || (result.record?.name as string)
+                       || "";
+        const rateVal   = String(
+                          (result.record?.selling_price as number)
+                       || (result.record?.mrp as number)
+                       || (result.record?.price as number)
+                       || 0
+                        );
+        const numRate = parseFloat(rateVal) || 0;
+        const numQty = parseFloat(directEntry.qty) || 1;
+        const bestPromo = SmritiSalesPromotionService.resolveBestItemPromo({
+          sku: stockVal,
+          barcode: barcodeVal,
+          category: (result.record?.category as string) || "",
+          brand: (result.record?.brand as string) || undefined,
+          rate: numRate,
+          qty: numQty,
+          customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+          customerCode: headerState.customer?.id,
+          evalDate: new Date()
+        });
+
+        setDirectEntry(prev => ({
+          ...prev,
+          stockNo:         stockVal,
+          barcode:         barcodeVal,
+          itemDescription: descVal,
+          rate:            rateVal,
+          discCode:        bestPromo.promo ? bestPromo.promoCode : (prev.discCode || "ILD"),
+          discPercent:     bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (prev.discPercent || "0.00"),
+          discQty:         prev.discQty || prev.qty || "1"
+        }));
+        // Keep focus in the direct-entry row after selection (focus restoration
+        // is handled by F2Dispatcher.closeLookup → originElementRef, which points
+        // back to the directStockNoRef input automatically).
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[BillingTerm][F2] variant adapter applied:", { stockVal, rateVal });
+        }
+        return;
+      }
+
+      // ── Unresolved entity — development-only warning ───────────────────────
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[BillingTerm][F2] FieldAdapter received unhandled entity:",
+          result.entity,
+          "— no state update performed."
+        );
+      }
+    }
+  });
 
   // Live Products State for item browse, modals, and search
   const [liveProducts, setLiveProducts] = useState<Product[]>(products);
@@ -299,7 +873,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   const fetchCustomers = async () => {
     try {
-      const res = await apiFetchV1("/crm/customers?page_size=100");
+      const params = new URLSearchParams({
+        limit: "100",
+        invoice_series: invoiceCustomerScope.series,
+        invoice_from: String(invoiceCustomerScope.from),
+        invoice_to: String(invoiceCustomerScope.to),
+      });
+      const res = await apiFetchV1(`/crm/customers?${params.toString()}`);
       const list = Array.isArray(res) ? res : (res?.items || []);
       if (list.length > 0) {
         setCustomers(list);
@@ -366,27 +946,81 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     directStockNoRef.current?.focus();
   }, []);
 
-  // Global Keyboard Shortcuts Listener
+  // Global Keyboard Shortcuts Listener #1
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
-        e.preventDefault();
-        customerInputRef.current?.focus();
-        setShowCustomerDropdown(true);
-      } else if (e.key === "F11" || e.key === "F1") {
+      // F2 handled by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
+      // This screen registers via useF2Screen() above. No screen-level F2 handler.
+      if (e.key === "F11" || e.key === "F1") {
         e.preventDefault();
         if (activeItemSearchField === "barcode") {
           directBarcodeRef.current?.focus();
         } else {
           directStockNoRef.current?.focus();
         }
+      } else if (e.key === "F6") {
+        e.preventDefault();
+        setShowF6PromoModal(true);
+      } else if (e.altKey && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        setShowDefinePromosModal(true);
+      } else if (e.altKey && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        setShowDefineFactorsModal(true);
+      } else if (e.key === "F4" || (e.altKey && e.key === "6")) {
+        e.preventDefault();
+        setShowTransactionBrowserModal(true);
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        handleExactCashSettlementRef.current?.();
       } else if (e.key === "F8") {
         e.preventDefault();
-        if (items.length > 0) setShowSettlementModal(true);
-        else onNotification?.("Settlement", "Add items to invoice before opening settlement.", "error");
+        openSettlement();
       } else if (e.key === "F12") {
         e.preventDefault();
         handleSuspendInvoice();
+      } else if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        if (selectedRowIndex >= 0 && selectedRowIndex < items.length) {
+          const toRemove = items[selectedRowIndex];
+          handleRemoveItem(toRemove.id);
+          setSelectedRowIndex(-1);
+          if (editingLineId === toRemove.id) {
+            setEditingLineId(null);
+          }
+          onNotification?.("Item Deleted", `Removed line item #${toRemove.sNo} (${toRemove.stockNo}) [Ctrl+D].`, "success");
+        } else {
+          onNotification?.("Delete Item", "Select an item from the table before pressing Ctrl+D.", "error");
+        }
+      } else if (e.key === "Escape") {
+        if (editingLineId) {
+          e.preventDefault();
+          setEditingLineId(null);
+          setDirectEntry({
+            barcode: "",
+            stockNo: "",
+            itemDescription: "",
+            rate: "",
+            qty: "1",
+            discCode: "",
+            discQty: "",
+            discPercent: "",
+            staff: directEntry.staff
+          });
+          onNotification?.("Edit Cancelled", "Direct entry reset to scan mode.", "info");
+        }
+      } else if (e.key === "ArrowUp") {
+        const activeTag = (document.activeElement?.tagName || "").toLowerCase();
+        if (activeTag !== "input" && activeTag !== "select" && activeTag !== "textarea") {
+          e.preventDefault();
+          setSelectedRowIndex(prev => Math.max(0, prev - 1));
+        }
+      } else if (e.key === "ArrowDown") {
+        const activeTag = (document.activeElement?.tagName || "").toLowerCase();
+        if (activeTag !== "input" && activeTag !== "select" && activeTag !== "textarea") {
+          e.preventDefault();
+          setSelectedRowIndex(prev => Math.min(items.length - 1, prev + 1));
+        }
       } else if (e.ctrlKey && (e.key === "n" || e.key === "N")) {
         e.preventDefault();
         handleNewInvoice();
@@ -399,20 +1033,34 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       } else if (e.ctrlKey && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
         handleReprintInvoice();
-      } else if (e.ctrlKey && (e.key === "i" || e.key === "I")) {
-        e.preventDefault();
-        setShowPdtImportModal(true);
       }
     };
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [items, headerState, lastCompletedInvoice, activeItemSearchField]);
+  }, [items, headerState, lastCompletedInvoice, activeItemSearchField, hasGstProfile, selectedRowIndex, editingLineId]);
 
   const handleSelectCustomer = (c: Customer | null) => {
-    setHeaderState(prev => ({ ...prev, customer: c }));
+    setHeaderState(prev => ({
+      ...prev,
+      customer: c,
+      billedPartyGstinId: null,
+      billedGstin: null,
+      deliveryLocationId: null,
+      deliveryStoreCode: null,
+      deliveryGstin: null,
+      deliveryLocationSnapshot: null,
+      placeOfSupplyCode: null,
+      poReference: "",
+      customerPoId: null
+    }));
+    setSelectedCustomerPO(null);
     if (c) {
       setCustomerSearchInput(c.name);
+      fetchCustomerB2BData(c.id);
+    } else {
+      setCustomerGstRegistrations([]);
+      setCustomerDeliveryLocations([]);
     }
     setShowCustomerDropdown(false);
   };
@@ -424,6 +1072,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       mobile: (r as any).mobile || (r as any).phone || "",
       gstNumber: (r as any).gstNumber || (r as any).gst_number,
       customerGroupId: (r as any).customerGroupId || (r as any).customer_group_id || "CG-Retail",
+      priceGroupCode: (r as any).priceGroupCode || (r as any).price_group_code || undefined,
+      itemClassificationPriceFactorApplicable: Boolean((r as any).itemClassificationPriceFactorApplicable ?? (r as any).item_classification_price_factor_applicable),
+      creditLimit: Number((r as any).creditLimit ?? (r as any).credit_limit ?? 0) || undefined,
       status: (r as any).status || "Active",
       outstanding: (r as any).outstanding || (r as any).outstanding_balance || 0,
       createdDate: (r as any).createdDate || (r as any).created_at || new Date().toISOString().split("T")[0]
@@ -432,11 +1083,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setHeaderState(prev => ({
       ...prev,
       customer: custObj,
-      transaction: (r as any).allowCreditInvoice !== false ? prev.transaction : "Cash"
+      transaction: (r as any).allowCreditInvoice !== false ? prev.transaction : "Cash",
+      billedPartyGstinId: null,
+      billedGstin: null,
+      deliveryLocationId: null,
+      deliveryStoreCode: null,
+      deliveryGstin: null,
+      deliveryLocationSnapshot: null,
+      placeOfSupplyCode: null,
+      poReference: ""
     }));
 
     setCustomerSearchInput(r.name);
     setShowCustomerDropdown(false);
+    if (custObj.id) {
+      fetchCustomerB2BData(custObj.id);
+    }
     onNotification?.("Customer Auto-Populated", `Auto-populated ${r.name} from backend.`, "success");
   };
 
@@ -445,8 +1107,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setShowCustomerDropdown(true);
 
     if (!val.trim()) {
-      setHeaderState(prev => ({ ...prev, customer: null }));
+      setHeaderState(prev => ({
+        ...prev,
+        customer: null,
+        billedPartyGstinId: null,
+        billedGstin: null,
+        deliveryLocationId: null,
+        deliveryStoreCode: null,
+        deliveryGstin: null,
+        deliveryLocationSnapshot: null,
+        placeOfSupplyCode: null,
+        poReference: ""
+      }));
       setCustomerSuggestions([]);
+      setCustomerGstRegistrations([]);
+      setCustomerDeliveryLocations([]);
       return;
     }
 
@@ -455,7 +1130,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     customerDebounceRef.current = setTimeout(async () => {
       try {
-        const results = await searchBackendCustomers(val);
+        const results = await searchBackendCustomers(val, invoiceCustomerScope);
         const options: TypeaheadOption[] = results.map(r => ({
           id: r.id,
           title: r.name,
@@ -485,40 +1160,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }, 150);
   };
 
-  // Keyboard Shortcuts Listener
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is inside a popup modal
-      if (showSettlementModal || showPdtImportModal || showProductSearchModal || showItemBrowseModal || showAddCustomerModal || showRecallModal || showPrintModal || showAttachmentPanel) {
-        return;
-      }
-
-      if (e.key === "F2") {
-        e.preventDefault();
-        if (document.activeElement === customerInputRef.current) {
-          setShowCustomerDropdown(true);
-        } else {
-          setShowProductSearchModal(true);
-        }
-      } else if (e.key === "F11") {
-        e.preventDefault();
-        directStockNoRef.current?.focus();
-      } else if (e.key === "F7" || e.key === "F8") {
-        e.preventDefault();
-        if (items.length > 0) {
-          setShowSettlementModal(true);
-        } else {
-          alert("Please add at least one item before opening settlement.");
-        }
-      } else if (e.key === "F12") {
-        e.preventDefault();
-        handleSuspendInvoice();
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [items, headerState, showSettlementModal, showPdtImportModal, showProductSearchModal, showItemBrowseModal, showAddCustomerModal, showRecallModal, showPrintModal, showAttachmentPanel]);
+  // NOTE: Legacy Keyboard Shortcuts Listener #2 has been removed as part of
+  // F2 Universal Lookup Architecture v2 Phase B Batch 1 (2026-09-02).
+  // Its unique hotkeys (F7/F8 settlement) are already covered by Listener #1
+  // above. F2 routing is now exclusively handled by F2DispatcherProvider.
 
   // Derived Direct Entry Calculations
   const directRateNum = parseFloat(directEntry.rate) || 0;
@@ -532,7 +1177,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const summaryTotals: BillingSummaryTotals = useMemo(() => {
     const transaction: SalesTransaction = {
       docType: "billing",
-      docPrefix: headerState.docPrefix || "D1DS13",
+      docPrefix: headerState.docPrefix || "INV",
       docNumber: headerState.docNo || "1",
       docDate: headerState.billDate || new Date().toISOString().split("T")[0],
       docTime: liveTime || new Date().toTimeString().slice(0, 5),
@@ -568,10 +1213,52 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const recomputed = recomputeTransaction(transaction);
     const itemCount = items.length;
     const totalQty = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
-    const billDiscount = 0;
-    const totalAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) + addonRows.filter(a => a.type === "Addon").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const totalDeductions = addonRows.filter(a => a.type === "Deduction").reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const netAmount = Math.max(0, Math.round((recomputed.netAmount + totalAddons - totalDeductions) * 100) / 100);
+    const billDiscount = billLevelPromo.discountAmt || ((recomputed.subtotal * billLevelPromo.discountPct) / 100);
+    // Statutory GST Section 15 Addon/Deduction Calculation
+    let aboveTaxAddons = 0;
+    let aboveTaxDeductions = 0;
+    let belowTaxAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    let belowTaxDeductions = 0;
+
+    const baseForPerc = Math.max(0, recomputed.subtotal - recomputed.discountTotal);
+
+    addonRows.forEach(a => {
+      let val = Number(a.amount) || 0;
+      if (a.rateType === "Percentage" && a.rate > 0) {
+        val = Math.round((baseForPerc * (a.rate / 100)) * 100) / 100;
+      }
+      if (a.type === "Addon") {
+        if (a.timing === "ABOVE_TAX") {
+          aboveTaxAddons += val;
+        } else {
+          belowTaxAddons += val;
+        }
+      } else {
+        if (a.timing === "ABOVE_TAX") {
+          aboveTaxDeductions += val;
+        } else {
+          belowTaxDeductions += val;
+        }
+      }
+    });
+
+    const rawTaxable = Math.max(0, baseForPerc - billDiscount + aboveTaxAddons - aboveTaxDeductions);
+    const adjustedTaxableValue = Math.round(rawTaxable * 100) / 100;
+
+    // Statutorily recalculate GST tax if above-tax adjustments are present
+    let effectiveTax = recomputed.taxTotal;
+    if (aboveTaxAddons > 0 || aboveTaxDeductions > 0) {
+      const baseTaxable = Math.max(0.01, baseForPerc - billDiscount);
+      const taxRatio = effectiveTax / baseTaxable;
+      effectiveTax = Math.round(adjustedTaxableValue * taxRatio * 100) / 100;
+    }
+
+    const totalAddons = Math.round((aboveTaxAddons + belowTaxAddons) * 100) / 100;
+    const totalDeductions = Math.round((aboveTaxDeductions + belowTaxDeductions) * 100) / 100;
+    const unroundedNet = Math.max(0, adjustedTaxableValue + effectiveTax + belowTaxAddons - belowTaxDeductions);
+    const roundedNet = Math.round(unroundedNet);
+    const roundOff = Math.round((roundedNet - unroundedNet) * 100) / 100;
+    const netAmount = roundedNet;
 
     return {
       itemCount,
@@ -579,28 +1266,120 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       salesValue: recomputed.subtotal,
       itemDiscount: recomputed.discountTotal,
       billDiscount,
-      totalTax: recomputed.taxTotal,
+      totalTax: effectiveTax,
       totalAddons,
       totalDeductions,
-      roundOff: 0,
+      aboveTaxAddons: Math.round(aboveTaxAddons * 100) / 100,
+      aboveTaxDeductions: Math.round(aboveTaxDeductions * 100) / 100,
+      belowTaxAddons: Math.round(belowTaxAddons * 100) / 100,
+      belowTaxDeductions: Math.round(belowTaxDeductions * 100) / 100,
+      adjustedTaxableValue,
+      roundOff,
       netAmount
     };
-  }, [items, transporterRows, addonRows, headerState, liveTime]);
+  }, [items, transporterRows, addonRows, headerState, liveTime, billLevelPromo]);
+
+  // Real-Time Bill-Level Promotion Auto-Select Engine (Cart Threshold / Highest Discount Wins)
+  useEffect(() => {
+    if (isManualBillPromoOverride) return;
+
+    const subtotal = summaryTotals.salesValue;
+    if (items.length === 0 || subtotal <= 0) {
+      if (billLevelPromo.code !== "NONE") {
+        setBillLevelPromo({
+          code: "NONE",
+          description: "No bill discount applied",
+          discountPct: 0,
+          discountAmt: 0,
+          calculatedOn: 0,
+          priceOffs: 0,
+          maxAllowed: undefined,
+          applyBillLevelFirst: false,
+          reason: "Generally Allowed Discount",
+          remarks: ""
+        });
+      }
+      return;
+    }
+
+    const res = SmritiSalesPromotionService.resolveBestBillPromo({
+      subtotal,
+      itemsCount: items.length,
+      customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+      customerCode: headerState.customer?.id,
+      evalDate: new Date()
+    });
+
+    if (res.applied && res.promo) {
+      if (billLevelPromo.code !== res.promoCode || Math.abs(billLevelPromo.discountAmt - res.discountAmt) > 0.01) {
+        setBillLevelPromo({
+          code: res.promoCode,
+          description: res.promoDescription,
+          discountPct: res.discountPct,
+          discountAmt: res.discountAmt,
+          calculatedOn: subtotal,
+          priceOffs: 0,
+          maxAllowed: res.promo.maxDiscount,
+          applyBillLevelFirst: false,
+          reason: res.reason,
+          remarks: res.badgeText
+        });
+        onNotification?.("Bill Promotion Qualified", `${res.promoName} applied (Save ₹${res.discountAmt.toFixed(2)} on bill).`, "info");
+      }
+    } else {
+      if (billLevelPromo.code !== "NONE") {
+        setBillLevelPromo({
+          code: "NONE",
+          description: "No bill discount applied",
+          discountPct: 0,
+          discountAmt: 0,
+          calculatedOn: 0,
+          priceOffs: 0,
+          maxAllowed: undefined,
+          applyBillLevelFirst: false,
+          reason: "Generally Allowed Discount",
+          remarks: ""
+        });
+      }
+    }
+  }, [summaryTotals.salesValue, items.length, headerState.customer?.customerGroupId, headerState.customer?.name, headerState.customer?.id, isManualBillPromoOverride]);
 
   const applyProductAutoPopulate = (p: AutoPopulateProductResult | Product) => {
     const rateVal = String((p as any).sellingPrice || (p as any).mrp || (p as any).price || 0);
     const stockVal = (p as any).stockNo || (p as any).styleCode || (p as any).style_code || p.code || "";
     const barcodeVal = p.barcode || (p as any).code || "";
+    const numRate = parseFloat(rateVal) || 0;
+    const numQty = parseFloat(directEntry.qty) || 1;
+
+    // Auto-evaluate promotional scheme on item auto-population
+    const bestPromo = SmritiSalesPromotionService.resolveBestItemPromo({
+      sku: stockVal,
+      barcode: barcodeVal,
+      category: (p as any).category,
+      brand: (p as any).brand,
+      rate: numRate,
+      qty: numQty,
+      customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+      customerCode: headerState.customer?.id,
+      evalDate: new Date()
+    });
+
     setDirectEntry(prev => ({
       ...prev,
       stockNo: stockVal,
       barcode: barcodeVal,
       itemDescription: p.name || (p as any).itemDescription || (p as any).description || "",
-      rate: rateVal
+      rate: rateVal,
+      discCode: bestPromo.promo ? bestPromo.promoCode : (prev.discCode || "ILD"),
+      discPercent: bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (prev.discPercent || "0.00"),
+      discQty: prev.discQty || prev.qty || "1"
     }));
     setSelectedItemProductMeta(p as AutoPopulateProductResult);
     setShowProductDropdown(false);
     setProductSearchError(null);
+    if (bestPromo.promo) {
+      onNotification?.("Promotion Auto-Applied", `${bestPromo.promoCode} applied (${bestPromo.discountPct.toFixed(2)}% off, saving ₹${bestPromo.discountAmt.toFixed(2)}).`, "info");
+    }
     setTimeout(() => {
       directStockNoRef.current?.focus();
     }, 10);
@@ -691,6 +1470,26 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const handleCommitDirectEntry = () => {
     if (!directEntry.stockNo && !directEntry.barcode && !directEntry.itemDescription) return;
 
+    // Strict Quantity Validation
+    if (isNaN(directQtyNum) || directQtyNum <= 0) {
+      onNotification?.("Validation Error", "Quantity must be a positive number greater than 0.", "error");
+      return;
+    }
+    if (directQtyNum > 99999) {
+      onNotification?.("Validation Error", "Quantity exceeds maximum limit of 99,999 units.", "error");
+      return;
+    }
+
+    // Strict Rate Validation
+    if (isNaN(directRateNum) || directRateNum < 0) {
+      onNotification?.("Validation Error", "Selling rate cannot be negative.", "error");
+      return;
+    }
+    if (directRateNum > 9999999.99) {
+      onNotification?.("Validation Error", "Selling rate exceeds maximum limit of ₹9,999,999.99.", "error");
+      return;
+    }
+
     const matched = products.find(p => 
       p.code === directEntry.stockNo || 
       p.barcode === directEntry.barcode || 
@@ -698,7 +1497,49 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     ) || selectedItemProductMeta;
 
     const rate = directRateNum > 0 ? directRateNum : Number((matched as any)?.sellingPrice || (matched as any)?.mrp || 0);
-    const qty = directQtyNum > 0 ? directQtyNum : 1;
+    const qty = directQtyNum;
+
+    // Statutory MRP Ceiling Check: Selling price cannot exceed declared MRP
+    const effectiveMrp = Number((matched as any)?.mrp || 0);
+    if (effectiveMrp > 0 && rate > effectiveMrp) {
+      onNotification?.(
+        "Statutory Price Violation",
+        `Selling price (₹${rate.toFixed(2)}) cannot exceed statutory MRP (₹${effectiveMrp.toFixed(2)}) for item '${directEntry.itemDescription || (matched as any)?.name || directEntry.stockNo}'.`,
+        "error"
+      );
+      return;
+    }
+
+    // Discount Bounding Validations
+    if (directDiscPctNum < 0 || directDiscPctNum > 100) {
+      onNotification?.("Validation Error", "Discount percentage must be between 0% and 100%.", "error");
+      return;
+    }
+    if (directDiscAmt < 0) {
+      onNotification?.("Validation Error", "Discount amount cannot be negative.", "error");
+      return;
+    }
+    const lineGrossValue = rate * qty;
+    if (directDiscAmt > lineGrossValue) {
+      onNotification?.(
+        "Validation Error",
+        `Discount amount (₹${directDiscAmt.toFixed(2)}) cannot exceed line item gross value (₹${lineGrossValue.toFixed(2)}).`,
+        "error"
+      );
+      return;
+    }
+    // Discrete UoM Check: PCS/NOS/PAIR cannot have fractional decimals
+    const itemUom = (matched as any)?.uom || (matched as any)?.unit || "PCS";
+    const discreteUoms = ["PCS", "PC", "NOS", "NO", "PAIR", "PRS", "BOX", "SET", "UNIT", "DOZ"];
+    if (discreteUoms.includes(itemUom.toUpperCase()) && qty % 1 !== 0) {
+      onNotification?.(
+        "Validation Error",
+        `Fractional quantity (${qty}) is not permitted for discrete unit '${itemUom}'. Please enter a whole integer quantity.`,
+        "error"
+      );
+      return;
+    }
+
     const lineItem: SalesLineItem = {
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       productId: (matched as any)?.id,
@@ -716,30 +1557,140 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     };
 
     const computedLine = calculateLineTotal(lineItem);
-    const newLine: BillingLineItem = {
-      id: computedLine.id,
-      sNo: items.length + 1,
-      stockNo: computedLine.stockNo || "SKU-GEN",
-      barcode: computedLine.barcode || "",
-      itemDescription: computedLine.itemDescription,
-      rate: computedLine.rate,
-      qty: computedLine.qty,
-      value: computedLine.value,
-      discCode: directEntry.discCode,
-      discQty: parseFloat(directEntry.discQty) || 0,
-      discPercent: Number(computedLine.discPercent ?? 0),
-      discAmt: Number(computedLine.discAmt ?? 0),
-      total: computedLine.total,
-      salesStaff: directEntry.staff,
-      productId: (matched as any)?.id,
-      hsnCode: (matched as any)?.hsnCode,
-      gstPercentage: Number(computedLine.taxPercent ?? 18),
-      taxAmount: Number(computedLine.taxAmount ?? 0),
-      brand: (matched as any)?.brand,
-      size: (matched as any)?.size
-    };
 
-    setItems(prev => [...prev, newLine]);
+    // If currently editing an existing line item (Shoper 9 double-click edit contract)
+    if (editingLineId) {
+      const existingIndex = items.findIndex(it => it.id === editingLineId);
+      if (existingIndex !== -1) {
+        const existing = items[existingIndex];
+        setItems(prev => prev.map((it, idx) => {
+          if (idx === existingIndex) {
+            return {
+              ...it,
+              stockNo: directEntry.stockNo || it.stockNo,
+              barcode: directEntry.barcode || it.barcode,
+              itemDescription: directEntry.itemDescription || it.itemDescription,
+              rate: computedLine.rate,
+              qty: computedLine.qty,
+              value: computedLine.value,
+              discCode: directEntry.discCode,
+              discQty: parseFloat(directEntry.discQty) || 0,
+              discPercent: Number(computedLine.discPercent ?? 0),
+              discAmt: Number(computedLine.discAmt ?? 0),
+              total: computedLine.total,
+              taxAmount: Number(computedLine.taxAmount ?? 0),
+              salesStaff: directEntry.staff
+            };
+          }
+          return it;
+        }));
+
+        onNotification?.("Item Updated", `Line #${existing.sNo} (${existing.stockNo}) updated successfully.`, "success");
+        setEditingLineId(null);
+        setDirectEntry({
+          barcode: "",
+          stockNo: "",
+          itemDescription: "",
+          rate: "",
+          qty: "1",
+          discCode: "",
+          discQty: "",
+          discPercent: "",
+          staff: directEntry.staff
+        });
+        setSelectedItemProductMeta(null);
+        setShowProductDropdown(false);
+        if (activeItemSearchField === "barcode") {
+          directBarcodeRef.current?.focus();
+        } else {
+          directStockNoRef.current?.focus();
+        }
+        return;
+      }
+    }
+
+    // Duplicate scan aggregation: if identical item exists at same rate, increment its quantity and dynamically re-evaluate promotions
+    const existingIndex = items.findIndex(it =>
+      ((it.barcode && computedLine.barcode && it.barcode === computedLine.barcode) ||
+       (it.stockNo && computedLine.stockNo && it.stockNo === computedLine.stockNo)) &&
+      it.rate === computedLine.rate
+    );
+
+    if (existingIndex !== -1) {
+      const existing = items[existingIndex];
+      const updatedQty = existing.qty + qty;
+
+      // Dynamic re-evaluation of promotional scheme on aggregated quantity (e.g. B2G1 on 3 units)
+      let updatedDiscPct = existing.discPercent || 0;
+      let updatedDiscCode = existing.discCode || "ILD";
+
+      const promoRes = SmritiSalesPromotionService.resolveBestItemPromo({
+        sku: existing.stockNo,
+        barcode: existing.barcode,
+        rate: existing.rate,
+        qty: updatedQty,
+        customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+        customerCode: headerState.customer?.id,
+        evalDate: new Date()
+      });
+
+      if (promoRes.promo) {
+        updatedDiscPct = promoRes.discountPct;
+        updatedDiscCode = promoRes.promoCode;
+      }
+
+      const recomputed = calculateLineTotal({
+        ...existing,
+        qty: updatedQty,
+        value: existing.rate * updatedQty,
+        discPercent: updatedDiscPct,
+        discCode: updatedDiscCode,
+        taxPercent: existing.gstPercentage || 18,
+      });
+
+      setItems(prev => prev.map((it, idx) => {
+        if (idx === existingIndex) {
+          return {
+            ...it,
+            qty: updatedQty,
+            value: recomputed.value,
+            discPercent: updatedDiscPct,
+            discCode: updatedDiscCode,
+            discAmt: Number(recomputed.discAmt ?? 0),
+            total: recomputed.total,
+            taxAmount: Number(recomputed.taxAmount ?? 0),
+          };
+        }
+        return it;
+      }));
+      onNotification?.("Item Quantity Updated", `Incremented quantity of '${computedLine.itemDescription}' to ${updatedQty} units (${updatedDiscCode}: ${updatedDiscPct}% off).`, "success");
+    } else {
+      const newLine: BillingLineItem = {
+        id: computedLine.id,
+        sNo: items.length + 1,
+        stockNo: computedLine.stockNo || "SKU-GEN",
+        barcode: computedLine.barcode || "",
+        itemDescription: computedLine.itemDescription,
+        rate: computedLine.rate,
+        qty: computedLine.qty,
+        value: computedLine.value,
+        discCode: directEntry.discCode,
+        discQty: parseFloat(directEntry.discQty) || 0,
+        discPercent: Number(computedLine.discPercent ?? 0),
+        discAmt: Number(computedLine.discAmt ?? 0),
+        total: computedLine.total,
+        salesStaff: directEntry.staff,
+        productId: (matched as any)?.id,
+        hsnCode: (matched as any)?.hsnCode,
+        gstPercentage: Number(computedLine.taxPercent ?? 18),
+        taxAmount: Number(computedLine.taxAmount ?? 0),
+        brand: (matched as any)?.brand,
+        size: (matched as any)?.size
+      };
+
+      setItems(prev => [...prev, newLine]);
+      onNotification?.("Item Added", `${newLine.itemDescription} added to invoice.`, "success");
+    }
 
     // Reset direct entry row
     setDirectEntry({
@@ -761,12 +1712,34 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     } else {
       directStockNoRef.current?.focus();
     }
-    onNotification?.("Item Added", `${newLine.itemDescription} added to invoice.`, "success");
   };
 
   // Remove Item
   const handleRemoveItem = (id: string) => {
     setItems(prev => prev.filter(it => it.id !== id).map((it, idx) => ({ ...it, sNo: idx + 1 })));
+    if (editingLineId === id) {
+      setEditingLineId(null);
+    }
+  };
+
+  // Enterprise Retail: Double-click row to edit in Direct Entry Grid (Shoper 9 contract)
+  const handleRowDoubleClick = (item: BillingLineItem, idx: number) => {
+    if (isReadOnlyView) return;
+    setSelectedRowIndex(idx);
+    setEditingLineId(item.id);
+    setDirectEntry({
+      barcode: item.barcode || "",
+      stockNo: item.stockNo || "",
+      itemDescription: item.itemDescription || "",
+      rate: String(item.rate),
+      qty: String(item.qty),
+      discCode: item.discCode || "",
+      discQty: String(item.discQty || ""),
+      discPercent: item.discPercent ? String(item.discPercent) : "",
+      staff: item.salesStaff || directEntry.staff
+    });
+    onNotification?.("Editing Line Item", `Item #${item.sNo} (${item.stockNo}) loaded into Direct Entry. Modify and press Enter to save.`, "info");
+    directStockNoRef.current?.focus();
   };
 
   const handleReturnInvoice = () => {
@@ -787,7 +1760,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       date: new Date().toISOString().split("T")[0],
       customer_id: headerState.customer?.id || null,
       customer_name: headerState.customer?.name || "Counter Cash Sale",
-      customer_gstin: headerState.customer?.gstNumber || null,
+      customer_gstin: headerState.billedGstin || headerState.customer?.gstNumber || null,
+      billed_party_gstin_id: headerState.billedPartyGstinId || null,
+      delivery_location_id: headerState.deliveryLocationId || null,
+      delivery_store_code: headerState.deliveryStoreCode || null,
+      delivery_gstin: headerState.deliveryGstin || null,
+      delivery_location_snapshot: headerState.deliveryLocationSnapshot || null,
+      place_of_supply_code: headerState.placeOfSupplyCode || null,
+      po_reference: headerState.poReference || null,
       status: "Suspended",
       payment_mode: "CREDIT",
       items: items.map((it, idx) => ({
@@ -831,7 +1811,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         customer: null
       }));
       setCustomerSearchInput("");
-      onNotification?.("Invoice Suspended", `Bill ${suspended.header.docPrefix}-${suspended.header.docNo} held in PostgreSQL database.`, "success");
+      onNotification?.("Invoice Suspended", `Bill ${suspended.header.docPrefix}-${suspended.header.docNo} held in system database.`, "success");
     } catch {
       // Local fallback
       const suspended = {
@@ -862,38 +1842,121 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
     setSuspendedBills(prev => prev.filter(b => b.id !== suspended.id));
     setShowRecallModal(false);
+    setIsReadOnlyView(false);
+    setLoadedDocMetadata(null);
     onNotification?.("Invoice Recalled", `Restored bill ${suspended.header.docPrefix}-${suspended.header.docNo}`, "success");
   };
 
-  // Handle PDT Import Items
-  const handleImportPdtItems = (imported: { product: Product; qty: number; rate?: number }[]) => {
-    const newLines: BillingLineItem[] = imported.map((imp, idx) => {
-      const rate = imp.rate ?? Number((imp.product as any).sellingPrice || imp.product.price || imp.product.mrp || 0);
-      const qty = imp.qty;
-      const value = rate * qty;
-      return {
-        id: "pdt-item-" + Date.now() + "-" + idx,
-        sNo: items.length + idx + 1,
-        stockNo: imp.product.code || "SKU-PDT",
-        barcode: imp.product.barcode || imp.product.code,
-        itemDescription: imp.product.name,
-        rate,
-        qty,
-        value,
-        discCode: "",
-        discQty: 0,
-        discPercent: 0,
-        discAmt: 0,
-        total: value,
-        salesStaff: headerState.salesStaff,
-        productId: imp.product.id,
-        gstPercentage: imp.product.gstPercentage || 18,
-        taxAmount: (value * (imp.product.gstPercentage || 18)) / 100
-      };
-    });
+  // Select and load document from Invoicing Transaction Browser (Read-Only Mode)
+  const handleSelectDocumentFromBrowser = async (docType: InvoicingBrowserTab, doc: any) => {
+    try {
+      if (docType === "SUSPENDED") {
+        handleRecallInvoice(doc);
+        return;
+      }
 
-    setItems(prev => [...prev, ...newLines]);
-    onNotification?.("PDT Imported", `Imported ${newLines.length} items from PDT file.`, "success");
+      let fullDoc = doc;
+      if (doc.id && (docType === "INVOICES" || docType === "CANCELLED")) {
+        try {
+          const fetched = await apiFetchV1<any>(`/sales/invoices/${doc.id}`);
+          if (fetched) fullDoc = fetched;
+        } catch {
+          fullDoc = doc;
+        }
+      } else if (doc.id && docType === "ORDERS") {
+        try {
+          const fetched = await apiFetchV1<any>(`/sales/orders/${doc.id}`);
+          if (fetched) fullDoc = fetched;
+        } catch {
+          fullDoc = doc;
+        }
+      }
+
+      const docNo = fullDoc.invoice_no || fullDoc.order_no || fullDoc.return_no || fullDoc.po_number || "DOC";
+      const dateStr = fullDoc.date || fullDoc.billDate || new Date().toLocaleDateString("en-GB");
+
+      setHeaderState(prev => ({
+        ...prev,
+        docNo: docNo,
+        docPrefix: "",
+        billDate: dateStr,
+        customer: {
+          id: fullDoc.customer_id || "CUST-WALK",
+          name: fullDoc.customer_name || "Counter Walk-in",
+          gstNumber: fullDoc.customer_gstin || "",
+          email: "",
+          phone: "",
+          address: fullDoc.billing_address || "",
+        } as any,
+        billedGstin: fullDoc.customer_gstin || null,
+        billedPartyGstinId: fullDoc.billed_party_gstin_id || null,
+        deliveryLocationId: fullDoc.delivery_location_id || null,
+        deliveryStoreCode: fullDoc.delivery_store_code || null,
+        deliveryGstin: fullDoc.delivery_gstin || null,
+        deliveryLocationSnapshot: fullDoc.delivery_location_snapshot || null,
+        placeOfSupplyCode: fullDoc.place_of_supply_code || null,
+        poReference: fullDoc.po_reference || fullDoc.po_number || null,
+        remarks: fullDoc.remarks || `Audit View: ${fullDoc.status || "Finalized"}`,
+      }));
+
+      const rawItems = fullDoc.items || [];
+      const mappedItems: BillingLineItem[] = rawItems.map((it: any, idx: number) => {
+        const rate = Number(it.price || it.rate || 0);
+        const qty = Number(it.quantity || it.qty || 1);
+        const taxable = Number(it.taxable_value || (rate * qty));
+        const discAmt = Number(it.disc_amt || 0);
+        const total = Number(it.total_amount || it.total || (taxable + Number(it.tax_amount || 0)));
+        return {
+          id: it.id ? String(it.id) : `audit-item-${idx}`,
+          sNo: idx + 1,
+          stockNo: it.code || it.stock_no || "SKU",
+          barcode: it.barcode || it.ean || it.code || "",
+          itemDescription: it.name || it.description || "Line Item",
+          rate,
+          qty,
+          value: taxable,
+          discCode: "",
+          discQty: 0,
+          discPercent: Number(it.disc_pct || 0),
+          discAmt,
+          total,
+          salesStaff: headerState.salesStaff,
+          productId: it.product_id,
+          hsnCode: it.hsn_code,
+          gstPercentage: Number(it.gst_rate || 0),
+          taxAmount: Number(it.tax_amount || 0),
+          mrp: it.mrp ? Number(it.mrp) : undefined,
+        };
+      });
+
+      setItems(mappedItems);
+      setIsReadOnlyView(true);
+      setLoadedDocMetadata({
+        id: fullDoc.id,
+        docNo: docNo,
+        docType: docType,
+        status: fullDoc.status || "Completed",
+        date: dateStr,
+        customerName: fullDoc.customer_name || "Counter Walk-in",
+        grandTotal: Number(fullDoc.grand_total || fullDoc.total_amount || 0),
+      });
+
+      onNotification?.(
+        "Audit Mode Active",
+        `Loaded ${docNo} in Read-Only Mode. All modifications locked.`,
+        "success"
+      );
+    } catch (err: any) {
+      console.error("[BillingTerm] Failed to inspect document:", err);
+      onNotification?.("Error", "Failed to load document into terminal.", "error");
+    }
+  };
+
+  const handleExitReadOnlyMode = () => {
+    setIsReadOnlyView(false);
+    setLoadedDocMetadata(null);
+    handleNewInvoice();
+    onNotification?.("Active Billing", "Returned to new bill creation mode.", "success");
   };
 
   // Handle Settlement Completion
@@ -903,24 +1966,55 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     changeDue: number,
     denominations?: any
   ) => {
-    const invNo = `${headerState.docPrefix}-${headerState.docNo}`;
+    const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
+
+    // Governed System Parameter Checks
+    if (isCreditTx && !smritiSystemParameterService.getBoolean("AllowCreditBilling", true)) {
+      onNotification?.("Credit Billing Disabled", "Credit billing is prohibited by System Parameter [AllowCreditBilling].", "error");
+      return;
+    }
+
+    if (!headerState.customer && smritiSystemParameterService.getBoolean("InBillingCustSelectionCompulsary", false)) {
+      onNotification?.("Customer Required", "Customer selection is mandatory for billing per System Parameter [InBillingCustSelectionCompulsary].", "error");
+      return;
+    }
+
+    // Format invoice number from resolved prefix and sequence; omit if empty so backend allocates sequence atomically
+    const invNo = (headerState.docPrefix && headerState.docNo)
+      ? `${headerState.docPrefix}${headerState.docNo}`
+      : undefined;
+
     const invoicePayload = {
       invoice_no: invNo,
       date: new Date().toISOString().split("T")[0],
       customer_id: headerState.customer?.id || null,
       customer_name: headerState.customer?.name || "Counter Cash Sale",
-      customer_gstin: headerState.customer?.gstNumber || null,
+      customer_gstin: headerState.billedGstin || headerState.customer?.gstNumber || null,
+      billed_party_gstin_id: headerState.billedPartyGstinId || null,
+      billing_location_id: headerState.billingLocationId || null,
+      billing_store_code: headerState.billingStoreCode || null,
+      billing_address: headerState.billingAddress || null,
+      delivery_location_id: headerState.deliveryLocationId || null,
+      delivery_store_code: headerState.deliveryStoreCode || null,
+      delivery_gstin: headerState.deliveryGstin || null,
+      delivery_location_snapshot: headerState.deliveryLocationSnapshot || null,
+      shipping_address: headerState.shippingAddress || null,
+      place_of_supply_code: headerState.placeOfSupplyCode || null,
+      po_reference: headerState.poReference || null,
+      customer_po_id: headerState.customerPoId || null,
+      source_document_type: headerState.billingSource || "DIRECT",
+      source_document_id: headerState.customerPoId || null,
       status: "Completed",
-      payment_mode: payments[0]?.mode.toUpperCase() || "CASH",
-      paid_amount: totalTendered,
-      balance_amount: changeDue > 0 ? 0 : Math.max(0, summaryTotals.netAmount - totalTendered),
+      payment_mode: isCreditTx ? "CREDIT" : (payments[0]?.mode.toUpperCase() || "CASH"),
+      paid_amount: isCreditTx ? 0 : totalTendered,
+      balance_amount: isCreditTx ? summaryTotals.netAmount : (changeDue > 0 ? 0 : Math.max(0, summaryTotals.netAmount - totalTendered)),
       discount_amount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
       net_amount: summaryTotals.netAmount,
       taxable_value: summaryTotals.salesValue,
       tax_total: summaryTotals.totalTax,
       grand_total: summaryTotals.netAmount,
       salesperson_name: headerState.salesStaff,
-      remarks: headerState.remarks || "B2B Distributor Invoice",
+      remarks: headerState.remarks || (isCreditTx ? "B2B Corporate Credit Invoice" : "B2B Distributor Invoice"),
       items: items.map((it, idx) => ({
         product_id: it.productId || it.stockNo,
         code: it.stockNo,
@@ -930,26 +2024,43 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         disc_pct: it.discPercent,
         gst_rate: it.gstPercentage,
         line_no: idx + 1
+        ,customer_po_line_id: it.customerPoLineId || null
+        ,source_line_type: it.customerPoLineId ? "CUSTOMER_PO" : null
+        ,source_line_id: it.customerPoLineId || null
       })),
       rule_snapshots: {
-        payments,
-        denominations,
+        transaction_type: isCreditTx ? "Credit" : "Cash",
+        credit_terms: isCreditTx ? {
+          credit_days: (headerState.customer as any)?.creditDays ?? (headerState.customer as any)?.credit_days ?? null,
+          credit_limit: (headerState.customer as any)?.creditLimit ?? (headerState.customer as any)?.credit_limit ?? null,
+          previous_outstanding: (headerState.customer as any)?.outstanding || 0,
+          projected_outstanding: ((headerState.customer as any)?.outstanding || 0) + summaryTotals.netAmount
+        } : undefined,
+        payments: isCreditTx ? [{ mode: "On Account", amount: summaryTotals.netAmount }] : payments,
+        denominations: isCreditTx ? undefined : denominations,
         transporterRows,
         addonRows
       }
     };
 
     try {
-      const saved = await apiFetchV1("/sales/invoices", {
+      const saveUrl = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+        ? `/sales/customer-pos/${headerState.customerPoId}/bill`
+        : "/sales/invoices";
+      const saveBody = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+        ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
+        : invoicePayload;
+      const saved = await apiFetchV1(saveUrl, {
         method: "POST",
-        body: JSON.stringify(invoicePayload)
+        body: JSON.stringify(saveBody)
       });
 
       const completedInvoice = {
-        invoiceNumber: saved.invoice_no || invNo,
+        invoiceId: saved.id,
+        invoiceNumber: saved.invoice_no || invNo || "INV-CONFIRMED",
         date: saved.date || headerState.billDate,
         customerName: headerState.customer?.name || "Counter Cash Sale",
-        customerGstin: headerState.customer?.gstNumber || "",
+        customerGstin: headerState.billedGstin || headerState.customer?.gstNumber || "",
         items: items.map(it => ({
           sku: it.stockNo,
           description: it.itemDescription,
@@ -963,14 +2074,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         discount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
         tax: summaryTotals.totalTax,
         total: summaryTotals.netAmount,
-        totalTendered,
-        changeDue,
-        paymentMode: payments.map(p => p.mode).join(", ")
+        totalTendered: isCreditTx ? 0 : totalTendered,
+        changeDue: isCreditTx ? 0 : changeDue,
+        paymentMode: isCreditTx ? "CREDIT" : payments.map(p => p.mode).join(", ")
       };
 
       setLastCompletedInvoice(completedInvoice);
       setShowSettlementModal(false);
-      setShowPrintModal(true);
+      setShowPrintModal(false);
+      void openCanonicalInvoicePrint(saved.id);
 
       // Reset for next invoice
       setItems([]);
@@ -978,29 +2090,136 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         ...prev,
         docNo: String((parseInt(prev.docNo) || 1) + 1),
         customer: null,
-        remarks: ""
+        remarks: "",
+        billedPartyGstinId: null,
+        billedGstin: null,
+        billingLocationId: null,
+        billingStoreCode: null,
+        billingAddress: null,
+        shippingAddress: null,
+        deliveryLocationId: null,
+        deliveryStoreCode: null,
+        deliveryGstin: null,
+        deliveryLocationSnapshot: null,
+        placeOfSupplyCode: null,
+        poReference: ""
       }));
+      setCustomerGstRegistrations([]);
+      setCustomerDeliveryLocations([]);
+      setCustomerBillingLocations([]);
       setCustomerSearchInput("");
-      onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} saved to PostgreSQL database.`, "success");
+      onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} saved successfully.`, "success");
       onRefreshData?.();
     } catch (err: any) {
-      alert(`Database Settlement Error: ${err?.message || "Failed to commit transaction."}. Your invoice items are preserved. Please retry.`);
+      const message = err?.message || "Failed to commit transaction.";
+      console.error("[BillingTerm] Invoice settlement failed:", err);
+      onNotification?.(
+        "Settlement Error",
+        `Bill could not be saved: ${message}. Your invoice items are preserved in the cart. Correct the indicated data and retry.`,
+        "error"
+      );
     }
   };
 
+  // Enterprise Retail: F7 Exact Cash Instant Checkout
+  const handleExactCashSettlement = async () => {
+    if (items.length === 0) {
+      onNotification?.("Settlement", "Add items to invoice before exact cash settlement [F7].", "error");
+      return;
+    }
+    if (!hasGstProfile) {
+      onNotification?.("GST profile pending", "Add a customer GSTIN before exact cash settlement [F7].", "error");
+      return;
+    }
+    const exactPayment: SettlementPaymentRow[] = [
+      {
+        id: "pay-exact-cash-f7",
+        mode: "Cash",
+        refNo: "F7",
+        amount: summaryTotals.netAmount,
+        bankDetails: ""
+      }
+    ];
+    await handleCompleteSettlement(exactPayment, summaryTotals.netAmount, 0);
+  };
+
+  handleExactCashSettlementRef.current = handleExactCashSettlement;
+
   // Add Quick Customer
-  const handleCreateCustomer = () => {
-    if (!newCustName.trim()) return;
+  const handleCreateCustomer = async () => {
+    const trimmedName = newCustName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      onNotification?.("Validation Error", "Customer name must be at least 2 characters long.", "error");
+      return;
+    }
+
+    const trimmedMobile = newCustMobile.trim();
+    if (trimmedMobile) {
+      const mobileRegex = /^[6-9]\d{9}$/;
+      const intlMobileRegex = /^\+[1-9]\d{7,14}$/;
+      if (!mobileRegex.test(trimmedMobile) && !intlMobileRegex.test(trimmedMobile)) {
+        onNotification?.("Validation Error", "Please enter a valid 10-digit mobile number.", "error");
+        return;
+      }
+    }
+
+    const trimmedGstin = newCustGstin.trim().toUpperCase();
+    if (trimmedGstin) {
+      const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+      if (!gstinRegex.test(trimmedGstin)) {
+        onNotification?.(
+          "Validation Error",
+          "Invalid GSTIN format. Statutory GSTIN must be 15 alphanumeric characters (e.g. 27AAAAA0000A1Z5).",
+          "error"
+        );
+        return;
+      }
+      const validStates = new Set([
+        "01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+        "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
+        "31", "32", "33", "34", "35", "36", "37", "38", "97"
+      ]);
+      const stateCode = trimmedGstin.substring(0, 2);
+      if (!validStates.has(stateCode)) {
+        onNotification?.(
+          "Validation Error",
+          `Invalid GSTIN state code '${stateCode}'. State code must be between 01 and 38 or 97.`,
+          "error"
+        );
+        return;
+      }
+    }
+
     const newCust: Customer = {
       id: "CUST-" + Date.now().toString().slice(-4),
       customerGroupId: "CG-Retail",
-      name: newCustName.trim(),
-      mobile: newCustMobile.trim() || "0000000000",
-      gstNumber: newCustGstin.trim() || undefined,
+      name: trimmedName,
+      mobile: trimmedMobile || "0000000000",
+      gstNumber: trimmedGstin || undefined,
       status: "Active",
       outstanding: 0,
       createdDate: new Date().toISOString().split("T")[0]
     };
+    try {
+      const res = await apiFetchV1("/crm/customers", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newCust.name,
+          mobile: newCust.mobile,
+          gst_number: newCust.gstNumber,
+          customer_group_id: newCust.customerGroupId,
+          status: newCust.status
+        })
+      });
+      if (res && res.id) {
+        newCust.id = res.id;
+        newCust.code = res.code || res.id;
+      }
+      window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+    } catch (e) {
+      console.warn("[Quick Customer] Backend persistence fallback to local:", e);
+    }
     setCustomers(prev => [newCust, ...prev]);
     handleSelectCustomer(newCust);
     setShowAddCustomerModal(false);
@@ -1040,7 +2259,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <Receipt size={26} className="text-secondary" />
             </span>
             <span className="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed tracking-tight">
-              Smriti Distributor
+              Billing Desk
+              <span className="text-[10px] font-normal uppercase tracking-wider text-on-surface-variant dark:text-primary-fixed/70">
+                Distributor Workspace
+              </span>
             </span>
           </div>
 
@@ -1087,6 +2309,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               >
                 <Printer size={18} />
               </button>
+              <button
+                type="button"
+                onClick={() => setShowTransactionBrowserModal(true)}
+                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
+                title="Commercial Transactions & Audit (F4 / Alt+6)"
+              >
+                <History size={18} className="text-secondary" />
+              </button>
             </div>
 
             {/* Vertical Separator */}
@@ -1104,9 +2334,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setShowItemBrowseModal(true)}
+                onClick={() => setShowSmritiItemSearchModal(true)}
                 className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Settings / Item Master (F3)"
+                title="Item Search (F2)"
               >
                 <Settings size={17} />
               </button>
@@ -1146,22 +2376,107 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             {/* Settlement F8 Primary Action */}
-            <button
-              type="button"
-              onClick={() => {
-                if (items.length > 0) setShowSettlementModal(true);
-                else alert("Add items before settlement.");
-              }}
-              className="h-9 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
-              title="Settlement (F8)"
-            >
-              <CreditCard size={15} />
-              <span>Settlement (F8)</span>
-            </button>
+            {isReadOnlyView ? (
+              <button
+                type="button"
+                onClick={() => loadedDocMetadata?.id && void openCanonicalInvoicePrint(loadedDocMetadata.id)}
+                className="h-9 px-4 bg-secondary hover:bg-secondary-container text-on-secondary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
+                title="Print Canonical Document"
+              >
+                <Printer size={15} />
+                <span>Print Document</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={items.length === 0 || !hasGstProfile}
+                  onClick={handleExactCashSettlement}
+                  className="h-9 px-3 bg-secondary hover:bg-secondary-container text-on-secondary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Exact Cash Checkout (F7)"
+                >
+                  <Banknote size={15} />
+                  <span>Exact Cash (F7)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={items.length === 0 || !hasGstProfile}
+                  onClick={openSettlement}
+                  className="h-9 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Settlement (F8)"
+                >
+                  <CreditCard size={15} />
+                  <span>Settle &amp; Save (F8)</span>
+                </button>
+              </div>
+            )}
 
           </div>
         </div>
       </header>
+
+      {/* Audit Read-Only Mode Banner */}
+      {isReadOnlyView && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-margin-page py-2.5 flex items-center justify-between animate-in fade-in shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white font-mono uppercase tracking-wider">
+              Audit Read-Only Mode
+            </span>
+            <div className="text-xs text-amber-950 dark:text-amber-200">
+              Viewing finalized document <strong className="font-mono font-bold">{loadedDocMetadata?.docNo}</strong> • Status: <span className="font-bold uppercase">{loadedDocMetadata?.status}</span> • All modifications locked
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {loadedDocMetadata?.id && (
+              <button
+                type="button"
+                onClick={() => void openCanonicalInvoicePrint(loadedDocMetadata.id)}
+                className="px-3 py-1 bg-primary text-on-primary hover:bg-primary-container rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Printer size={13} />
+                <span>Print A4 PDF</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleExitReadOnlyMode}
+              className="px-3 py-1 bg-surface-container-highest hover:bg-surface-container border border-outline-variant text-on-surface rounded text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw size={13} />
+              <span>Exit Audit Mode (Ctrl+N)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="border-b border-outline-variant bg-surface-container-lowest/95 px-margin-page py-2 shadow-xs">
+        <div className="max-w-container-max-width mx-auto flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+          <span className="rounded-full bg-primary-container px-3 py-1 text-on-primary" data-testid="invoice-workspace-mode">
+            {headerState.transaction === "Credit" ? "B2B CREDIT" : "B2B CASH"}
+          </span>
+          <span className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1 text-on-surface-variant">
+            {items.length} {items.length === 1 ? "item" : "items"}
+          </span>
+          <span className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1 text-on-surface-variant">
+            {headerState.customer?.name || "Customer required"}
+          </span>
+          <span className={`rounded-full border px-3 py-1 ${
+            headerState.customer?.gstNumber || headerState.billedGstin
+              ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+              : "border-amber-300 bg-amber-50 text-amber-800"
+          }`}>
+            {headerState.customer?.gstNumber || headerState.billedGstin ? "GST profile ready" : "GST profile pending"}
+          </span>
+          {headerState.poReference && (
+            <span className="rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-blue-800">
+              PO {headerState.poReference}
+            </span>
+          )}
+          <span className="ml-auto font-code-md text-sm font-bold text-primary">
+            Net ₹{summaryTotals.netAmount.toFixed(2)}
+          </span>
+        </div>
+      </div>
 
       {/* Main Invoicing Canvas */}
       <main className="flex-1 flex flex-col p-stack-gap gap-stack-gap overflow-y-auto max-w-container-max-width mx-auto w-full">
@@ -1171,6 +2486,25 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           
           {/* Row 1: Bill Type, Transaction, Doc Prefix, Doc No, Action Buttons */}
           <div className="flex flex-wrap items-end gap-gutter">
+            <div className="flex flex-col gap-unit w-48">
+              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Billing Source</label>
+              <select
+                aria-label="Billing Source"
+                value={headerState.billingSource || "DIRECT"}
+                onChange={event => {
+                  const source = event.target.value as BillingHeaderState["billingSource"];
+                  setHeaderState(prev => ({ ...prev, billingSource: source, customerPoId: null, poReference: "" }));
+                  setSelectedCustomerPO(null);
+                  if (source !== "CUSTOMER_PO") setItems([]);
+                }}
+                className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 bg-surface-container-lowest px-2.5 font-medium border"
+              >
+                <option value="DIRECT">Direct Invoice</option>
+                <option value="CUSTOMER_PO">Customer PO</option>
+                <option value="SALES_ORDER" disabled>Sales Order (Not configured)</option>
+                <option value="DELIVERY" disabled>Delivery (Not configured)</option>
+              </select>
+            </div>
             <div className="flex flex-col gap-unit w-48">
               <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Bill Type</label>
               <select
@@ -1197,36 +2531,62 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </select>
             </div>
 
-            <div className="flex flex-col gap-unit w-32">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Doc Prefix</label>
-              <input
-                type="text"
-                value={headerState.docPrefix}
-                readOnly
-                className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border"
-              />
+            <div className="flex flex-col gap-unit w-36">
+              <div className="flex items-center justify-between">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Doc Prefix</label>
+                <button
+                  type="button"
+                  onClick={() => setShowDefinePrefixModal(true)}
+                  className="text-[10px] text-primary hover:underline font-bold"
+                  title="Define Bill Prefix (Setup > General > Bill Prefix)"
+                >
+                  Define ⚙️
+                </button>
+              </div>
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={headerState.docPrefix}
+                  readOnly
+                  placeholder="INV/"
+                  className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border flex-1"
+                />
+                {resolvedPrefixInfo && (
+                  <span
+                    className={`text-[9px] font-bold px-1.5 py-1 rounded ${
+                      resolvedPrefixInfo.gstRule46bValid
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-rose-100 text-rose-800"
+                    }`}
+                    title={resolvedPrefixInfo.validationMessage || "Statutory GST Rule 46(b) compliant"}
+                  >
+                    {resolvedPrefixInfo.gstRule46bLength}/16
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-unit w-32">
+            <div className="flex flex-col gap-unit w-28">
               <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Doc No.</label>
               <input
                 type="text"
                 value={headerState.docNo}
                 readOnly
+                placeholder="0001"
                 className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border"
               />
             </div>
 
+            {lastCompletedInvoice?.invoiceNumber && (
+              <div className="flex flex-col gap-unit min-w-44">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Last Saved Bill No.</label>
+                <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded h-9 px-2.5 flex items-center font-code-md font-bold">
+                  {lastCompletedInvoice.invoiceNumber}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 ml-auto">
-              <button
-                type="button"
-                onClick={() => setShowPdtImportModal(true)}
-                className="h-9 px-4 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-title-sm transition-colors flex items-center gap-2 cursor-pointer"
-                title="Import from PDT / File (Ctrl+I)"
-              >
-                <Download size={16} className="text-secondary" />
-                <span>Import</span>
-              </button>
 
               <button
                 type="button"
@@ -1255,7 +2615,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     type="text"
                     name="customerSearch"
                     aria-label="Search customer (F2)"
-                    data-f2-browse="customer"
+                    data-f2-entity="customer"
                     data-context-type="customer"
                     data-lookup="customer"
                     value={customerSearchInput}
@@ -1342,6 +2702,183 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
           </div>
 
+          {/* Row 3: Corporate B2B Multi-State GST & Delivery Location Strip */}
+          {headerState.customer && (
+            <div className="flex flex-wrap items-end gap-gutter pt-2 border-t border-outline-variant/60" data-testid="b2b-corporate-strip">
+              {headerState.billingSource === "CUSTOMER_PO" && (
+                <div className="flex flex-col gap-unit flex-1 min-w-[320px]">
+                  <div className="flex items-center justify-between">
+                    <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Customer PO</label>
+                    <span className="text-[10px] text-blue-700 font-semibold">
+                      {selectedCustomerPO ? `${selectedCustomerPO.status} · ${selectedCustomerPO.remaining_quantity} remaining` : `${customerPOs.length} available`}
+                    </span>
+                  </div>
+                  <select
+                    aria-label="Customer PO"
+                    data-testid="customer-po-select"
+                    value={headerState.customerPoId || ""}
+                    onChange={event => void selectCustomerPO(event.target.value)}
+                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                    disabled={isLoadingCustomerPOs}
+                  >
+                    <option value="">{isLoadingCustomerPOs ? "Loading Customer POs..." : "-- Select Customer PO --"}</option>
+                    {customerPOs.map(po => (
+                      <option key={po.id} value={po.id}>
+                        {po.po_number} · {po.status} · Remaining {po.remaining_quantity}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
+              {/* Billed GST Registration */}
+              <div className="flex flex-col gap-unit flex-1 min-w-[240px]">
+                <div className="flex items-center justify-between">
+                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
+                    <span>Billed GST Registration</span>
+                    {customerGstRegistrations.length > 1 && (
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
+                        {customerGstRegistrations.length} GSTINs (Select)
+                      </span>
+                    )}
+                  </label>
+                  {isLoadingB2BData && (
+                    <span className="text-[10px] text-secondary animate-pulse">Loading B2B data...</span>
+                  )}
+                </div>
+                <select
+                  aria-label="Billed GST Registration"
+                  data-testid="billed-gst-registration"
+                  value={headerState.billedPartyGstinId || ""}
+                  onChange={e => handleBilledGstinChange(e.target.value)}
+                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                >
+                  <option value="">
+                    {customerGstRegistrations.length === 0
+                      ? (headerState.customer.gstNumber ? `Default (${headerState.customer.gstNumber})` : "Unregistered / Counter Cash")
+                      : "-- Select Billed GSTIN --"}
+                  </option>
+                  {customerGstRegistrations.map(reg => (
+                    <option key={reg.id} value={reg.id}>
+                      {reg.gstin} — {reg.state_name} ({reg.state_code}){reg.trade_name ? ` • ${reg.trade_name}` : ""}{reg.is_primary ? " [Primary]" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Billing Location / Store */}
+              <div className="flex flex-col gap-unit flex-1 min-w-[280px]">
+                <div className="flex items-center justify-between">
+                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
+                    <span>Billing Location / Store</span>
+                    {customerBillingLocations.length > 0 && (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                        {customerBillingLocations.length} Billing Sites
+                      </span>
+                    )}
+                  </label>
+                </div>
+                {customerBillingLocations.length > 1 ? (
+                  <select
+                    aria-label="Billing Location"
+                    data-testid="billing-location-select"
+                    value={headerState.billingLocationId || ""}
+                    onChange={e => handleBillingLocationChange(e.target.value)}
+                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                  >
+                    <option value="">-- Select Billing Location / Store --</option>
+                    {customerBillingLocations.map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        [{loc.billing_store_code}] {loc.name || "Billing Location"} — {loc.city}, {loc.state} ({loc.gstin || "No GSTIN"})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="h-9 px-2.5 flex items-center border border-outline-variant rounded bg-surface-container-low text-body-md font-medium">
+                    {customerBillingLocations.length === 1
+                      ? `${customerBillingLocations[0].name || "Billing Location"} — ${customerBillingLocations[0].city}, ${customerBillingLocations[0].state}`
+                      : "No registered billing location"}
+                  </div>
+                )}
+              </div>
+
+              {/* Delivery Location / Store */}
+              <div className="flex flex-col gap-unit flex-1 min-w-[280px]">
+                <div className="flex items-center justify-between">
+                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
+                    <span>Delivery Location / Store</span>
+                    {customerDeliveryLocations.length > 0 && (
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
+                        {customerDeliveryLocations.length} Stores
+                      </span>
+                    )}
+                  </label>
+                </div>
+                {customerDeliveryLocations.length > 1 ? (
+                  <select
+                    aria-label="Delivery Location"
+                    data-testid="delivery-location-select"
+                    value={headerState.deliveryLocationId || ""}
+                    onChange={e => handleDeliveryLocationChange(e.target.value)}
+                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                  >
+                    <option value="">-- Select Delivery Location / Store --</option>
+                    {customerDeliveryLocations.map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        [{loc.store_code}] {loc.location_name} — {loc.city}, {loc.state_name} ({loc.delivery_gstin || "No GSTIN"})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="h-9 px-2.5 flex items-center border border-outline-variant rounded bg-surface-container-low text-body-md font-medium">
+                    {customerDeliveryLocations.length === 1
+                      ? `${customerDeliveryLocations[0].location_name} — ${customerDeliveryLocations[0].city}, ${customerDeliveryLocations[0].state_name}`
+                      : "No registered delivery location"}
+                  </div>
+                )}
+              </div>
+
+              {/* Store Code Badge */}
+              <div className="flex flex-col gap-unit w-28">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Store Code</label>
+                <div 
+                  data-testid="delivery-store-code-display"
+                  className="h-9 px-2.5 flex items-center bg-surface-container-low border border-outline-variant rounded text-body-md font-mono font-bold text-primary"
+                >
+                  {headerState.deliveryStoreCode || "—"}
+                </div>
+              </div>
+
+              {/* Place of Supply (POS) */}
+              <div className="flex flex-col gap-unit w-24">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">POS State</label>
+                <div 
+                  data-testid="pos-code-display"
+                  title={headerState.placeOfSupplyCode || "Default POS"}
+                  className="h-9 px-2.5 flex items-center bg-surface-container-low border border-outline-variant rounded text-body-md font-mono font-bold text-secondary"
+                >
+                  {headerState.placeOfSupplyCode || "—"}
+                </div>
+              </div>
+
+              {/* PO Reference */}
+              <div className="flex flex-col gap-unit w-36">
+                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">PO Reference</label>
+                <input
+                  type="text"
+                  name="poReference"
+                  aria-label="PO Reference"
+                  data-testid="po-reference-input"
+                  placeholder="PO / Order Ref"
+                  value={headerState.poReference || ""}
+                  onChange={e => setHeaderState(prev => ({ ...prev, poReference: e.target.value }))}
+                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 px-2.5 border bg-surface-container-lowest font-medium"
+                />
+              </div>
+
+            </div>
+          )}
+
         </section>
 
         {/* DETAIL SECTION (MAIN WORKSPACE) */}
@@ -1402,11 +2939,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <tr
                     key={item.id}
                     onClick={() => setSelectedRowIndex(idx)}
-                    className={`transition-colors ${
-                      selectedRowIndex === idx
+                    onDoubleClick={() => handleRowDoubleClick(item, idx)}
+                    className={`transition-colors cursor-pointer ${
+                      editingLineId === item.id
+                        ? "bg-primary/20 ring-2 ring-primary font-bold"
+                        : selectedRowIndex === idx
                         ? "bg-secondary-fixed/40 font-semibold"
                         : "hover:bg-surface-container-low"
                     }`}
+                    title="Double-click to edit line in Direct Entry (Ctrl+D to delete)"
                   >
                     <td className="px-3 py-2 text-center border-r border-outline-variant bg-surface-container-low">
                       {item.sNo}
@@ -1445,17 +2986,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       {item.salesStaff}
                     </td>
                     <td className="px-2 py-2 text-center">
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleRemoveItem(item.id);
-                        }}
-                        className="text-on-surface-variant hover:text-error transition-colors p-1 cursor-pointer"
-                        title="Delete Row"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {!isReadOnlyView && (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleRemoveItem(item.id);
+                          }}
+                          className="text-on-surface-variant hover:text-error transition-colors p-1 cursor-pointer"
+                          title="Delete Row"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -1473,6 +3016,66 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </table>
           </div>
 
+          {/* Active Line Inspector Ribbon when row is selected */}
+          {selectedRowIndex >= 0 && selectedRowIndex < items.length && (() => {
+            const sel = items[selectedRowIndex];
+            return (
+              <div className="bg-surface-container border-t border-outline-variant/60 px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-3 font-code-md text-[11px] overflow-x-auto">
+                  <span className="font-bold text-primary">Line #{sel.sNo}: {sel.stockNo}</span>
+                  <span className="text-on-surface font-sans font-medium">{sel.itemDescription}</span>
+                  {sel.brand && <span className="text-on-surface-variant bg-surface-variant px-1.5 py-0.5 rounded text-[10px]">Brand: {sel.brand}</span>}
+                  {sel.size && <span className="text-on-surface-variant bg-surface-variant px-1.5 py-0.5 rounded text-[10px]">Size: {sel.size}</span>}
+                  {sel.hsnCode && <span className="text-on-surface-variant text-[10px]">HSN: {sel.hsnCode}</span>}
+                  <span className="text-on-surface-variant text-[10px]">GST: {sel.gstPercentage}% (₹{(sel.taxAmount || 0).toFixed(2)})</span>
+                  {(sel.discAmt || 0) > 0 && <span className="text-secondary font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{(sel.discAmt || 0).toFixed(2)} ({sel.discPercent || 0}%)</span>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-on-surface-variant text-[10px] hidden md:inline">Double-click to edit | Ctrl+D to delete</span>
+                  {!isReadOnlyView && (
+                    <button
+                      type="button"
+                      onClick={() => handleRowDoubleClick(sel, selectedRowIndex)}
+                      className="px-2 py-0.5 bg-secondary hover:bg-secondary-container text-on-secondary rounded text-[10px] font-bold cursor-pointer"
+                    >
+                      Edit Line
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Active In-Place Editing Banner */}
+          {editingLineId && (
+            <div className="bg-primary/10 border-t border-b border-primary/30 px-3 py-1.5 text-xs text-primary flex items-center justify-between font-medium shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">Editing Line #{items.find(it => it.id === editingLineId)?.sNo} ({items.find(it => it.id === editingLineId)?.stockNo})</span>
+                <span className="text-on-surface-variant text-[11px]">— Modify Rate, Qty, or Discount in Direct Entry and press Enter to save.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingLineId(null);
+                  setDirectEntry({
+                    barcode: "",
+                    stockNo: "",
+                    itemDescription: "",
+                    rate: "",
+                    qty: "1",
+                    discCode: "",
+                    discQty: "",
+                    discPercent: "",
+                    staff: directEntry.staff
+                  });
+                }}
+                className="text-xs text-error hover:underline font-bold cursor-pointer"
+              >
+                Cancel Edit (Esc)
+              </button>
+            </div>
+          )}
+
           {/* Direct Entry Row (F11 / F1) at Bottom of Detail Card */}
           <div className="bg-surface-container-low border-t border-outline-variant p-2 flex gap-2 items-center shrink-0">
             <span className="font-label-caps text-label-caps text-on-surface-variant bg-surface-variant px-2 py-1 rounded w-10 text-center font-bold">
@@ -1481,11 +3084,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
             {/* Inputs aligned with table columns */}
             <div className="flex-1 flex gap-2 items-center">
-              {/* Stock / Barcode Search */}
+              {/* Stock / Barcode Search — data-f2-entity="variant" enables F2 → UniversalBrowseEngine (variant) */}
               <div className="w-[100px] relative">
                 <input
                   ref={directStockNoRef}
                   type="text"
+                  id="directStockNo"
+                  name="directStockNo"
+                  aria-label="Stock No (F2 to browse)"
+                  data-f2-entity="variant"
                   value={directEntry.stockNo}
                   onChange={e => handleItemSearchChange(e.target.value, "stockNo")}
                   onFocus={() => {
@@ -1528,6 +3135,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <input
                 type="number"
                 step="0.01"
+                min="0"
+                max="9999999.99"
                 value={directEntry.rate}
                 onChange={e => setDirectEntry({ ...directEntry, rate: e.target.value })}
                 onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
@@ -1535,12 +3144,26 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
               />
 
-              {/* Qty */}
+              {/* Qty with Retail Barcode Scanner Guard */}
               <input
-                type="number"
-                min="1"
+                type="text"
                 value={directEntry.qty}
-                onChange={e => setDirectEntry({ ...directEntry, qty: e.target.value })}
+                onChange={e => {
+                  const clean = e.target.value.trim();
+                  // Retail Scanner Guard: if barcode scanner fires into quantity field (8+ digits)
+                  if (clean.length >= 8 && /^\d+$/.test(clean)) {
+                    setDirectEntry(prev => ({
+                      ...prev,
+                      barcode: clean,
+                      stockNo: prev.stockNo || clean,
+                      qty: "1"
+                    }));
+                    onNotification?.("Barcode Intercepted", `Barcode ${clean} scanned into Qty was redirected to Barcode field.`, "info");
+                    directBarcodeRef.current?.focus();
+                    return;
+                  }
+                  setDirectEntry(prev => ({ ...prev, qty: e.target.value }));
+                }}
                 onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
                 placeholder="Qty"
                 className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
@@ -1567,6 +3190,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {/* Disc Qty */}
               <input
                 type="number"
+                min="0"
                 value={directEntry.discQty}
                 onChange={e => setDirectEntry({ ...directEntry, discQty: e.target.value })}
                 placeholder="Disc Qty"
@@ -1576,6 +3200,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {/* Disc % */}
               <input
                 type="number"
+                min="0"
+                max="100"
+                step="0.01"
                 value={directEntry.discPercent}
                 onChange={e => setDirectEntry({ ...directEntry, discPercent: e.target.value })}
                 placeholder="Disc %"
@@ -1741,7 +3368,24 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
               {/* Tab 3: Addons & Deductions */}
               {activeFooterTab === "addons" && (
-                <div className="p-2 overflow-x-auto flex-1 max-h-36">
+                <div className="p-2 overflow-x-auto flex-1 max-h-40 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between pb-1 shrink-0">
+                    <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+                      <span>Statutory Section 15 GST Factors</span>
+                      {headerState.customer?.priceGroupCode && (
+                        <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.2 rounded font-bold">
+                          Group: {headerState.customer.priceGroupCode}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDefineFactorsModal(true)}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <span>Define Factors (Alt+S)</span>
+                    </button>
+                  </div>
                   <table className="w-full text-left border border-outline-variant text-xs">
                     <thead className="bg-surface-container-high border-b border-outline-variant font-label-caps text-label-caps text-on-surface-variant font-bold">
                       <tr>
@@ -1749,6 +3393,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         <th className="px-2 py-1 w-24 border-r border-outline-variant">Type</th>
                         <th className="px-2 py-1 w-20 border-r border-outline-variant">Code</th>
                         <th className="px-2 py-1 border-r border-outline-variant">Description</th>
+                        <th className="px-2 py-1 w-28 border-r border-outline-variant text-center">Timing (GST)</th>
                         <th className="px-2 py-1 w-24 text-right">Amount</th>
                       </tr>
                     </thead>
@@ -1757,20 +3402,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         <tr key={idx} className="border-b border-outline-variant">
                           <td className="px-2 py-1 border-r border-outline-variant text-center bg-surface-container-low">{a.sNo}</td>
                           <td className="px-2 py-1 border-r border-outline-variant">
-                            <select
-                              value={a.type}
-                              onChange={e => {
-                                const val = e.target.value as "Addon" | "Deduction";
-                                setAddonRows(prev => prev.map((r, i) => i === idx ? { ...r, type: val } : r));
-                              }}
-                              className="bg-transparent border-none text-xs p-0 outline-none"
-                            >
-                              <option value="Addon">Addon (+)</option>
-                              <option value="Deduction">Deduction (-)</option>
-                            </select>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              a.type === "Addon" ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
+                            }`}>
+                              {a.type === "Addon" ? "Addon (+)" : "Deduction (-)"}
+                            </span>
                           </td>
-                          <td className="px-2 py-1 border-r border-outline-variant">{a.code}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant font-mono font-bold">{a.code}</td>
                           <td className="px-2 py-1 border-r border-outline-variant">{a.description}</td>
+                          <td className="px-2 py-1 border-r border-outline-variant text-center">
+                            <span className={`text-[9px] font-bold font-mono px-1 py-0.2 rounded ${
+                              a.timing === "ABOVE_TAX" ? "bg-indigo-500/10 text-indigo-600" : "bg-teal-500/10 text-teal-600"
+                            }`}>
+                              {a.timing === "ABOVE_TAX" ? "Above Tax" : "Below Tax"}
+                            </span>
+                          </td>
                           <td className="px-2 py-1 text-right font-bold text-primary">
                             <input
                               type="number"
@@ -1827,13 +3473,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-1.5 text-on-surface-variant font-medium">Discounts</td>
+                    <td
+                      onClick={() => setShowF6PromoModal(true)}
+                      className="py-1.5 text-on-surface-variant font-medium cursor-pointer hover:text-primary transition-colors flex items-center gap-1.5"
+                      title="Open Sales Promo & Discounts [F6]"
+                    >
+                      <span>Discounts</span>
+                      <span className="font-mono text-[9px] px-1 py-0.5 rounded bg-surface-variant text-on-surface-variant font-bold">F6</span>
+                    </td>
                     <td className="py-1.5">
                       <input
                         type="text"
-                        value={summaryTotals.itemDiscount.toFixed(2)}
+                        value={(summaryTotals.itemDiscount + summaryTotals.billDiscount).toFixed(2)}
                         readOnly
-                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
+                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface cursor-pointer"
+                        onClick={() => setShowF6PromoModal(true)}
+                        title="Click to manage promotional discounts [F6]"
                       />
                     </td>
                   </tr>
@@ -1898,9 +3553,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.itemDiscount.toFixed(2)}</span>
             </div>
 
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">Bill Discount</span>
-              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.billDiscount.toFixed(2)}</span>
+            <div
+              onClick={() => setShowF6PromoModal(true)}
+              className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30 cursor-pointer hover:bg-white/10 transition-colors"
+              title="Open Sales Promo & Discounts [F6]"
+            >
+              <span className="opacity-70 uppercase tracking-wider flex items-center gap-1">
+                <span>Bill Discount</span>
+                <span className="font-mono text-[8px] px-0.5 rounded bg-white/20 text-white font-bold">F6</span>
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.billDiscount.toFixed(2)}</span>
+                {billLevelPromo.code !== "NONE" && (
+                  <span className="text-[9px] bg-amber-400 text-slate-900 font-bold px-1 rounded uppercase tracking-wider" title={billLevelPromo.description}>
+                    {billLevelPromo.code}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
@@ -1947,7 +3616,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       {/* Persistent Bottom Shortcut Footer */}
       <footer className="bg-surface-container-highest border-t border-outline-variant mt-auto w-full flex justify-between items-center px-margin-page py-2 shrink-0 z-30 font-label-caps text-label-caps">
         <span className="text-on-surface-variant font-medium">
-          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">F7/F8:</strong> Settlement | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
+          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">Alt+P:</strong> Define Promos | <strong className="text-primary">Alt+S:</strong> Define Factors | <strong className="text-primary">F7:</strong> Exact Cash | <strong className="text-primary">F8:</strong> Settle | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
         </span>
         <span className="text-primary font-bold">© 2026 smritisys.com</span>
       </footer>
@@ -1961,34 +3630,62 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         billDate={headerState.billDate}
         customer={headerState.customer}
         netAmount={summaryTotals.netAmount}
+        transaction={headerState.transaction}
         onCompleteSettlement={handleCompleteSettlement}
         onSuspendBill={handleSuspendInvoice}
         onClose={() => setShowSettlementModal(false)}
       />
 
-      {/* 2. PDT Import Modal */}
-      <PdtImportModal
-        isOpen={showPdtImportModal}
-        products={liveProducts}
-        onImportItems={handleImportPdtItems}
-        onClose={() => setShowPdtImportModal(false)}
-      />
 
-      {/* 3. Product Search / Catalog F2 Browser */}
-      <ProductSearchBrowserModal
-        isOpen={showProductSearchModal}
+
+      {/* 3. SMRITI F2 Advanced Item Search & Invoicing Browser */}
+      <SmritiF2AdvancedItemSearch
+        isOpen={showSmritiItemSearchModal}
         products={liveProducts}
-        onSelectProduct={product => {
+        initialSearchQuery={directEntry.stockNo || directEntry.itemDescription}
+        onSelectProduct={(item: SmritiF2SelectedItem) => {
           setDirectEntry({
             ...directEntry,
-            stockNo: product.code,
-            itemDescription: product.name,
-            rate: String((product as any).sellingPrice || product.price || product.mrp || 0)
+            stockNo: item.stockNo,
+            barcode: item.barcode || item.stockNo,
+            itemDescription: item.name,
+            rate: String(item.rate || item.mrp || 0)
           });
-          setShowProductSearchModal(false);
+          setShowSmritiItemSearchModal(false);
           directStockNoRef.current?.focus();
         }}
-        onClose={() => setShowProductSearchModal(false)}
+        onClose={() => setShowSmritiItemSearchModal(false)}
+      />
+
+      {/* 3b. SMRITI F6 Promotional Discounts & Sales Schemes Modal */}
+      <SmritiF6PromotionalDiscountsModal
+        isOpen={showF6PromoModal}
+        onClose={() => setShowF6PromoModal(false)}
+        items={items}
+        subtotal={summaryTotals.salesValue}
+        billLevelPromo={billLevelPromo}
+        onApplyPromos={(updatedItems, updatedBillPromo) => {
+          setItems(updatedItems);
+          setIsManualBillPromoOverride(true);
+          setBillLevelPromo(updatedBillPromo);
+          onNotification?.("Discounts Applied", `Applied ${updatedBillPromo.code} bill discount and updated line item promos.`, "success");
+        }}
+        onNotification={onNotification}
+      />
+
+      {/* 3c. SMRITI Define Sales Promotions Master Modal */}
+      <SmritiDefineSalesPromotionsModal
+        isOpen={showDefinePromosModal}
+        onClose={() => setShowDefinePromosModal(false)}
+        onNotification={onNotification}
+      />
+
+      {/* 3d. SMRITI Define Sales Factors & Customer Price Groups Modal */}
+      <SmritiDefineSalesFactorsModal
+        isOpen={showDefineFactorsModal}
+        onClose={() => setShowDefineFactorsModal(false)}
+        onFactorsUpdated={refreshSalesFactors}
+        onNotification={onNotification}
       />
 
       {/* 4. Recall Suspended Invoices Modal */}
@@ -2017,26 +3714,65 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   {suspendedBills.map((bill, idx) => (
                     <div
                       key={bill.id}
-                      className="bg-surface-container-low border border-outline-variant p-3 rounded flex justify-between items-center hover:bg-secondary-fixed/30 transition"
+                      className="bg-surface-container-low border border-outline-variant p-3 rounded flex flex-col hover:bg-secondary-fixed/30 transition"
                     >
-                      <div>
-                        <p className="font-code-md text-xs font-bold text-primary">
-                          {bill.header.docPrefix}-{bill.header.docNo}
-                        </p>
-                        <p className="text-[11px] text-on-surface-variant">
-                          {bill.header.customer?.name || "Counter Cash"} • {bill.items.length} items • Held at {bill.date}
-                        </p>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-code-md text-xs font-bold text-primary">
+                            {bill.header.docPrefix}-{bill.header.docNo}
+                          </p>
+                          <p className="text-[11px] text-on-surface-variant">
+                            {bill.header.customer?.name || "Counter Cash"} • {bill.items.length} items • Held at {bill.date}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-code-md text-xs font-bold text-primary">₹{bill.netAmount.toFixed(2)}</span>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedHeldBillId(prev => prev === bill.id ? null : bill.id)}
+                            className="p-1 border border-outline-variant hover:bg-surface-container rounded text-on-surface-variant text-[11px] flex items-center gap-1 font-semibold"
+                            title="Inspect items [F2]"
+                          >
+                            <span>Inspect</span>
+                            {expandedHeldBillId === bill.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRecallInvoice(bill)}
+                            className="bg-primary hover:bg-primary-container text-on-primary px-3 py-1 rounded text-xs font-bold transition"
+                          >
+                            Recall
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-code-md text-xs font-bold text-primary">₹{bill.netAmount.toFixed(2)}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRecallInvoice(bill)}
-                          className="bg-primary hover:bg-primary-container text-on-primary px-3 py-1 rounded text-xs font-bold transition"
-                        >
-                          Recall
-                        </button>
-                      </div>
+
+                      {/* Nested Document Line Item Inspection */}
+                      {expandedHeldBillId === bill.id && (
+                        <div className="mt-2 pt-2 border-t border-outline-variant bg-surface-container-lowest/60 rounded p-2">
+                          <table className="w-full text-[11px] font-mono">
+                            <thead>
+                              <tr className="text-on-surface-variant border-b border-outline-variant text-left">
+                                <th className="pb-1">Stock No</th>
+                                <th className="pb-1">Description</th>
+                                <th className="pb-1 text-right">Qty</th>
+                                <th className="pb-1 text-right">Rate</th>
+                                <th className="pb-1 text-right">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bill.items.map((it, itemIdx) => (
+                                <tr key={itemIdx} className="border-b border-outline-variant/30">
+                                  <td className="py-0.5 font-bold text-primary">{it.stockNo}</td>
+                                  <td className="py-0.5 truncate max-w-[160px]">{it.itemDescription}</td>
+                                  <td className="py-0.5 text-right">{it.qty}</td>
+                                  <td className="py-0.5 text-right">₹{Number(it.rate).toFixed(2)}</td>
+                                  <td className="py-0.5 text-right font-bold">₹{(Number(it.qty) * Number(it.rate)).toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2154,6 +3890,38 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         />
       )}
 
+      {/* 7. Commercial Transactions & Audit Browser Modal (F4 / Alt+6) */}
+      <InvoicingTransactionBrowserModal
+        isOpen={showTransactionBrowserModal}
+        onClose={() => setShowTransactionBrowserModal(false)}
+        onSelectDocument={handleSelectDocumentFromBrowser}
+        onPrintPdf={(docId) => void openCanonicalInvoicePrint(docId)}
+        onNotification={(title, msg, type) => onNotification?.(title, msg, type === "error" ? "error" : "success")}
+      />
+
+      {/* 8. Shoper 9 Parity: Define Bill Prefix Management Studio Modal */}
+      <SmritiDefineBillPrefixModal
+        isOpen={showDefinePrefixModal}
+        onClose={() => setShowDefinePrefixModal(false)}
+        onSaved={() => {
+          const txType = headerState.transaction === "Cash" ? "SALES_CASH" : "SALES_CREDIT";
+          void SmritiBillPrefixService.resolveActivePrefix({
+            transactionType: txType,
+            terminalId: (currentUser as any)?.terminalId || "COMMON",
+            branchId: headerState.deliveryLocationId || undefined,
+            billType: headerState.billType
+          }).then(res => {
+            setResolvedPrefixInfo(res);
+            setHeaderState(prev => ({
+              ...prev,
+              docPrefix: res.prefix,
+              docNo: res.formattedDocNo
+            }));
+          });
+        }}
+        terminalId={(currentUser as any)?.terminalId || "COMMON"}
+        companyCode={(currentUser as any)?.companyCode || currentUser?.companyId || "SMRITI"}
+      />
     </div>
   );
 };

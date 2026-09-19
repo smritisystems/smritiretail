@@ -24,7 +24,7 @@ Founders
 Classification: Internal
 """
 
-from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Date, text
+from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Date, text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
@@ -39,6 +39,7 @@ class Supplier(BaseEntity):
 
     name       = Column(String(255), nullable=False)
     code       = Column(String(50),  nullable=False)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     gst_number = Column(String(20),  nullable=True)
     mobile     = Column(String(20),  nullable=True)
     email      = Column(String(255), nullable=True)
@@ -57,7 +58,8 @@ class PurchaseOrder(BaseEntity):
     """
     __tablename__ = "purchase_orders"
 
-    order_no    = Column(String(100), nullable=False, unique=True)
+    order_no    = Column(String(100), nullable=False, index=True)  # unique per company via __table_args__
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     supplier_id = Column(String(50),  ForeignKey("suppliers.id",   ondelete="RESTRICT"), nullable=False)
     party_id    = Column(String(50),  ForeignKey("parties.id",     ondelete="SET NULL"), nullable=True, index=True)
     status      = Column(String(20),  nullable=False, default="DRAFT")
@@ -72,6 +74,11 @@ class PurchaseOrder(BaseEntity):
     tax_total   = Column(Numeric(15, 2), nullable=False, default=0.00)
     grand_total = Column(Numeric(15, 2), nullable=False, default=0.00)
 
+    __table_args__ = (
+        # order_no is unique per company (not globally) — supports multi-tenant same numbering
+        UniqueConstraint("order_no", "company_id", name="uq_purchase_orders_order_no_company"),
+    )
+
 
 class PurchaseOrderItem(BaseEntity):
     """
@@ -81,6 +88,8 @@ class PurchaseOrderItem(BaseEntity):
 
     order_id   = Column(String(50),   ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False)
     product_id = Column(String(50),   ForeignKey("products.id",        ondelete="RESTRICT"), nullable=False)
+    item_id    = Column(String(50),   ForeignKey("items.id",            ondelete="SET NULL"), nullable=True, index=True)
+    variant_id = Column(String(50),   nullable=True, index=True)
     code       = Column(String(50),   nullable=False)
     name       = Column(String(255),  nullable=False)
     quantity   = Column(Numeric(10, 2), nullable=False)
@@ -99,6 +108,7 @@ class PurchaseReceipt(BaseEntity):
     __tablename__ = "purchase_receipts"
 
     receipt_no   = Column(String(100), nullable=False, unique=True)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     supplier_id  = Column(String(50),  ForeignKey("suppliers.id",       ondelete="RESTRICT"), nullable=False)
     order_id     = Column(String(50),  ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True)
     warehouse_id = Column(String(50),  ForeignKey("warehouses.id",      ondelete="RESTRICT"), nullable=True)
@@ -122,6 +132,8 @@ class PurchaseReceiptItem(BaseEntity):
 
     receipt_id         = Column(String(50),   ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
     product_id         = Column(String(50),   ForeignKey("products.id",          ondelete="RESTRICT"), nullable=False)
+    item_id            = Column(String(50),   ForeignKey("items.id",              ondelete="SET NULL"), nullable=True, index=True)
+    variant_id         = Column(String(50),   nullable=True, index=True)
     code               = Column(String(50),   nullable=False)
     name               = Column(String(255),  nullable=False)
     batch_no           = Column(String(100),  nullable=True)

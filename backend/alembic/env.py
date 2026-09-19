@@ -23,19 +23,35 @@ backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
+# Load root .env if present before importing settings
+try:
+    from dotenv import dotenv_values
+    root_env = os.path.abspath(os.path.join(backend_dir, "..", ".env"))
+    if os.path.exists(root_env):
+        for k, v in dotenv_values(root_env).items():
+            if v is not None and k not in os.environ:
+                os.environ[k] = v
+except ImportError:
+    pass
+
 # Import our settings and base metadata
 from app.core.config import settings
 from app.db.base import Base
 
 # Import all models to ensure they are registered on Base.metadata
-from app.models.crm import CustomerGroup, Customer
-from app.models.inventory import Product, StockMovement, Store, Warehouse
+from app.models.crm import (
+    CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation,
+    CustomerBillingLocation, CustomerExternalIdentity,
+)
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.sales import (
     SalesInvoice, SalesInvoiceItem,
     SalesQuotation, SalesQuotationItem,
     SalesOrder, SalesOrderItem,
     SalesReturn, SalesReturnItem,
 )
+from app.models.customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
+from app.models.customer_article_mapping import CustomerArticleMapping
 from app.models.tenant import Company, Branch
 from app.models.auth import User, RefreshTokenBlacklist
 from app.models.purchase import (
@@ -55,12 +71,15 @@ from app.compliance.models import (
 from app.models.numbering import DocumentSeries, NumberingAuditLog
 from app.models.terms import TermsClause, TermsDefault, TermsSnapshot, ApprovalWorkflowLog
 from app.models.attributes import AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
+from app.models.size_groups import SizeGroup, SizeGroupValue
 from app.models.barcode import BarcodeLayout, PrintTemplate, PrintProfile
 from app.models.exchange import DataExchangeTask, DataExchangeFieldMapping
 from app.models.product_identity import BarcodeProvider, IdentityRule, ProductIdentity
 from app.models.role import Role
 from app.models.master_lookup import MasterType, MasterValue
-from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
+from app.models.user_assignment import UserCompanyAssignment, UserBranchAssignment
+from app.models.staff_profile import StaffProfile
+from app.models.staff_profile_history import StaffProfileHistory
 # v1368: UI/Experience Engine (smritisys Control Plane)
 from app.models.ui_control_plane import (
     SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile,
@@ -70,6 +89,11 @@ from app.models.ui_control_plane import (
 from app.models.integration_hub import (
     ProviderRegistry, ConnectorRegistry, IntegrationRegistry,
     IntegrationCredentialReference, IntegrationPolicy, IntegrationVersion,
+)
+# v1464: Unified Identity Control Plane
+from app.models.identity_registry import (
+    SmritiIdentityRegistry, SmritiNumberingRegistry,
+    SmritiIdentityAlias, SmritiIdentityAllocationLog,
 )
 config = context.config
 
@@ -87,10 +111,18 @@ def include_object(object, name, type_, reflected, compare_to):
         return name in [
             "customer_groups",
             "customers",
+            "customer_gst_registrations",
+            "customer_delivery_locations",
+            "customer_billing_locations",
+            "customer_external_identities",
             "products",
             "stock_movements",
             "sales_invoices",
             "sales_invoice_items",
+            "customer_purchase_orders",
+            "customer_purchase_order_lines",
+            "customer_po_invoice_allocations",
+            "customer_article_mappings",
             "companies",
             "branches",
             "user_company_assignments",
@@ -120,6 +152,8 @@ def include_object(object, name, type_, reflected, compare_to):
             "attribute_groups",
             "variant_templates",
             "category_attribute_group_mappings",
+            "size_groups",
+            "size_group_values",
             "barcode_layouts",
             "print_templates",
             "print_profiles",
@@ -131,6 +165,10 @@ def include_object(object, name, type_, reflected, compare_to):
             "barcode_providers",
             "identity_rules",
             "product_identities",
+            "items",
+            "item_variants",
+            "item_barcodes",
+            "barcode_registry_audit",
             "master_types",
             "master_values",
             "sales_quotations",
@@ -179,6 +217,11 @@ def include_object(object, name, type_, reflected, compare_to):
             "integration_credentials_reference",
             "integration_policies",
             "integration_versions",
+            # v1464: Unified Identity Control Plane
+            "smriti_identity_registry",
+            "smriti_numbering_registry",
+            "smriti_identity_alias",
+            "smriti_identity_allocation_log",
         ]
     return True
 
@@ -226,8 +269,29 @@ def do_run_migrations(connection) -> None:
         include_object=include_object
     )
 
+    # Candidate #5 Track 1: Fresh-Install Bootstrap Prerequisite Hook
+    # Ensures sales_orders.po_number is present on fresh installs before v1403 executes.
+    mig_ctx = context.get_context()
+    orig_migrations_fn = mig_ctx._migrations_fn
+
+    if orig_migrations_fn is not None:
+        def wrapped_migrations_fn(heads, m_ctx):
+            for step in orig_migrations_fn(heads, m_ctx):
+                if step.is_upgrade and "v1403_so_line_reconcile" in getattr(step, "to_revisions_no_deps", ()):
+                    orig_step_fn = step.migration_fn
+                    def wrapped_step_fn(**kw):
+                        from app.db.bootstrap import bootstrap_company_database_prerequisites
+                        bootstrap_company_database_prerequisites(connection)
+                        return orig_step_fn(**kw)
+                    step.migration_fn = wrapped_step_fn
+                yield step
+        mig_ctx._migrations_fn = wrapped_migrations_fn
+
     with context.begin_transaction():
         context.run_migrations()
+
+
+from sqlalchemy import create_engine
 
 async def run_async_migrations() -> None:
     database_url = get_target_db_url()
@@ -240,7 +304,12 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    asyncio.run(run_async_migrations())
+    database_url = get_target_db_url()
+    sync_url = database_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+    connectable = create_engine(sync_url)
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
+    connectable.dispose()
 
 if context.is_offline_mode():
     run_migrations_offline()

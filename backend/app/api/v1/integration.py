@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.25.0
+Version      : 3.31.0
 Created      : 2026-08-23
-Modified     : 2026-08-24
+Modified     : 2026-09-13
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -80,22 +80,45 @@ async def search_compliance_audit_logs(
     entity_id: Optional[str] = None,
     event_type: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
-    db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """
-    Searches tamper-evident regulatory compliance audit logs.
+    Searches tamper-evident regulatory compliance audit logs across control-plane and company ledgers.
     """
+    include_all = tenant_ctx.company_id is None or tenant_ctx.company_id == "GLOBAL"
     logs = await ComplianceAuditService.search_audit_logs(
-        session=db,
-        company_id=tenant_ctx.company_id,
+        session=control_db,
+        company_id=tenant_ctx.company_id or "GLOBAL",
         entity_name=entity_name,
         entity_id=entity_id,
         event_type=event_type,
-        limit=limit
+        limit=limit,
+        include_all_companies=include_all,
     )
+    if not logs and tenant_ctx.company_id and tenant_ctx.company_id != "GLOBAL":
+        try:
+            from ...db.session import resolve_company_database_name, get_company_sessionmaker
+            target_db_name = await resolve_company_database_name(tenant_ctx.company_id)
+            if target_db_name != "smritisys":
+                session_factory = get_company_sessionmaker(target_db_name)
+                async with session_factory() as comp_session:
+                    comp_logs = await ComplianceAuditService.search_audit_logs(
+                        session=comp_session,
+                        company_id=tenant_ctx.company_id,
+                        entity_name=entity_name,
+                        entity_id=entity_id,
+                        event_type=event_type,
+                        limit=limit,
+                        include_all_companies=False,
+                    )
+                    if comp_logs:
+                        logs = comp_logs
+        except Exception:
+            pass
+
     return {
-        "company_id": tenant_ctx.company_id,
+        "company_id": tenant_ctx.company_id or "GLOBAL",
         "count": len(logs),
         "logs": logs
     }

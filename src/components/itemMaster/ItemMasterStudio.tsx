@@ -24,6 +24,7 @@ import {
   Database
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { validateItemMasterLookupOptions } from "../../services/itemMasterLookupGate.ts";
 import { HeaderMappingEngine } from "../../lib/headerMapping/HeaderMappingEngine.ts";
 import { ColumnMappingResult } from "../../lib/headerMapping/types.ts";
 import { 
@@ -301,6 +302,19 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     const errorDetails: string[] = [];
 
     try {
+      const lookupErrors = await validateItemMasterLookupOptions(activeRows.map((row) => {
+        const values: Record<string, unknown> = {};
+        row.tokens.forEach((value, colIdx) => {
+          const fieldKey = effectiveMapping.get(colIdx);
+          if (fieldKey) values[fieldKey] = value.trim();
+        });
+        return values;
+      }));
+      if (lookupErrors.length > 0) {
+        onNotification?.("System Lookup Required", lookupErrors.slice(0, 5).join(" "), "error");
+        return;
+      }
+
       for (const row of activeRows) {
         const rawRowObj: Record<string, any> = {};
 
@@ -324,6 +338,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           name: rawRowObj.name || rawRowObj.product || `Item ${rawRowObj.code || row.rowIndex}`,
           barcode: rawRowObj.barcode || rawRowObj.code || `BAR-${Date.now()}-${row.rowIndex}`,
           brand: rawRowObj.brand || "SMRITI",
+          vendor_code: rawRowObj.vendorCode || rawRowObj.vendor_code || "",
           category: rawRowObj.category || "Footwear",
           cost_price: parseFloat(String(rawRowObj.costPrice || rawRowObj.cost_price || "0").replace(/,/g, "")) || 0,
           price: parseFloat(String(rawRowObj.price || rawRowObj.sellingPrice || "0").replace(/,/g, "")) || 0,
@@ -346,9 +361,13 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           failCount++;
           const rawMsg = err?.message || "Validation Error";
           let friendlyMsg = rawMsg;
-          if (rawMsg.includes("code already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("code")) {
+          try {
+            const parsed = JSON.parse(rawMsg);
+            if (parsed?.message) friendlyMsg = parsed.message;
+          } catch {}
+          if (rawMsg.includes("code already exists") || (rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("code"))) {
             friendlyMsg = `Stock No "${productPayload.code}" already exists in the database.`;
-          } else if (rawMsg.includes("barcode already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("barcode")) {
+          } else if (rawMsg.includes("barcode already exists") || (rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("barcode"))) {
             friendlyMsg = `Barcode "${productPayload.barcode}" is already registered in the database for another item.`;
           } else if (rawMsg.includes("401") || rawMsg.includes("Token") || rawMsg.includes("Unauthorized")) {
             friendlyMsg = "Your session has expired. Please log in again.";
@@ -402,7 +421,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
             </span>
           </div>
           <p className="text-xs text-[#515f74] dark:text-[#a0a5b5] mt-0.5">
-            Real-time spreadsheet parser, canonical schema alignment, and PostgreSQL persistence.
+            Real-time spreadsheet parser, canonical schema alignment, and database persistence.
           </p>
         </div>
 

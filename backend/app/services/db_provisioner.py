@@ -62,7 +62,10 @@ class CompanyDatabaseProvisioner:
         return CompanyCodeAllocator.allocate_next_available_code()
 
     def generate_database_name(self, company_code: str) -> str:
-        """Step 3: Server-side database name generation: smriti<4-character-code>."""
+        """Step 3: Server-side database name generation: smriti<4-character-code> or smriti<3-character-code>."""
+        code = str(company_code).strip().upper()
+        if len(code) == 3 and not code.isdigit():
+            return f"smriti{code}"
         return generate_company_database_name(company_code)
 
     def check_database_exists(self, database_name: str) -> bool:
@@ -88,10 +91,10 @@ class CompanyDatabaseProvisioner:
             "step": 6,
             "operation": "initialize_schema_plan",
             "target_database": database_name,
-            "schema_version": "6.16.0",
+            "schema_version": "3.29.0",
             "alembic_required": True,
-            "alembic_migration_command": f"alembic -x db={database_name} upgrade head",
-            "alembic_min_revision": "v1342_canonical_outbox",
+            "alembic_migration_command": "alembic upgrade head",
+            "alembic_min_revision": "v1337_backfill_variant_id",
             "tables_planned": 46,
             "dry_run": self.dry_run,
             "executed": False

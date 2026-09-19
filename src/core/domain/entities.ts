@@ -39,7 +39,7 @@ export interface Product {
   isFavorite?: boolean;
   barcode: string;
   secondaryBarcodes?: string[];
-  barcodes?: { type: string; value: string; isPrimary?: boolean }[];
+  barcodes?: { type: string; value: string; isPrimary?: boolean; is_tax_inclusive?: boolean; isTaxInclusive?: boolean }[];
   brand?: string;
   color?: string;
   size?: string;

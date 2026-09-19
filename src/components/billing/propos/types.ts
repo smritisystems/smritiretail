@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.28.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-09-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,6 +14,7 @@
 
 export interface ProPosCartItem {
   id: string;
+  productId?: string;
   itemNo: number;
   sku: string;
   barcode: string;
@@ -29,6 +30,8 @@ export interface ProPosCartItem {
   discQty?: number;
   discountPct: number;
   discountAmt: number;
+  promoDescription?: string;
+  promoBadge?: string;
   taxPct: number;
   taxAmt: number;
   taxableValue?: number;
@@ -51,10 +54,19 @@ export interface ProPosCustomer {
   creditLimit?: number;
   currentBalance?: number;
   address?: string;
+  city?: string;
+  pincode?: string;
+  stateName?: string;
   gstin?: string;
   state?: string;
   stateCode?: string;
+  customerGroup?: string;
+  customerGroupId?: string;
+  priceGroupCode?: string;
+  itemClassificationPriceFactorApplicable?: boolean;
   registrationType?: "REGISTERED" | "UNREGISTERED";
+  pricingBasis?: "MRP" | "RATE";
+  allowPromotionsOnRate?: boolean;
 }
 
 export interface ProPosTenderSplit {
@@ -64,6 +76,7 @@ export interface ProPosTenderSplit {
   cardAuthCode?: string;
   upi: number;
   upiRef?: string;
+  credit: number;
   creditNote: number;
   creditNoteNo?: string;
   giftVoucher: number;
