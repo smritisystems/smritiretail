@@ -62,6 +62,8 @@ except ImportError:
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 # Logo Asset Paths
 TATTLY_LOGO_PATH = str(WORKSPACE_ROOT / "TT" / "logo" / "tattly_logo_black.png")
+TATTLY_SIGNATURE_PATH = str(WORKSPACE_ROOT / "TT" / "signature" / "krutika_signature.png")
+UPI_BADGE_PATH = str(WORKSPACE_ROOT / "static" / "upi_badge_clean.png")
 
 
 def number_to_indian_words(num: float) -> str:
@@ -202,6 +204,43 @@ def get_tattly_logo_rotated_anticlockwise_base64() -> str:
     return ""
 
 
+def get_krutika_signature_base64() -> str:
+    """Loads Krutika 2K enhanced signature transparent PNG asset as base64 data URI."""
+    paths = [
+        str(WORKSPACE_ROOT / "TT" / "signature" / "krutika_signature_2k.png"),
+        TATTLY_SIGNATURE_PATH,
+        str(WORKSPACE_ROOT / "static" / "krutika_signature.png"),
+        str(WORKSPACE_ROOT / "assets" / "Media" / "signature" / "krutika_signature.png")
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("utf-8")
+                    return f"data:image/png;base64,{b64}"
+            except Exception:
+                pass
+    return ""
+
+
+def get_upi_badge_base64() -> str:
+    """Loads UPI Scan to Pay badge asset as base64 data URI."""
+    paths = [
+        UPI_BADGE_PATH,
+        str(WORKSPACE_ROOT / "static" / "upi_badge_clean.png"),
+        str(WORKSPACE_ROOT / "static" / "upi_scan_to_pay.png"),
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("utf-8")
+                    return f"data:image/png;base64,{b64}"
+            except Exception:
+                pass
+    return ""
+
+
 # ==============================================================================
 # GST STATE DIRECTORY & PLACE OF SUPPLY FORMATTER
 # ==============================================================================
@@ -283,6 +322,43 @@ CANONICAL_INVOICE_LAYOUT_CONFIG: Dict[str, Any] = {
     },
     "zero_text_wrapping": True,
     "footer_disclaimer": "SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS"
+}
+
+# ==============================================================================
+# CANONICAL INVOICE BRANDING & VISUAL ELEMENT SIZING CONTROLS
+# ==============================================================================
+DEFAULT_INVOICE_BRANDING_CONFIG: Dict[str, Any] = {
+    # 1. Authorised Signatory Controls (Option 3 Recommended Executive Standard)
+    "signature_height": 60,              # Recommended executive height in px (+50% scale)
+    "signature_max_width": 175,          # Maximum signature graphic width in px
+    "signature_box_height": 62,          # Container height in px
+    "signature_opacity": 1.0,            # Signature opacity (0.0 to 1.0)
+    "signature_visible": True,           # Toggle signature graphic
+    
+    # 2. Watermark Logo Controls (Elevated non-destructive blending)
+    "watermark_width": "75%",            # Watermark scale width (e.g. "75%", "80%", "400px")
+    "watermark_opacity": 0.11,           # Contrast opacity
+    "watermark_z_index": 50,             # Stacking layer level
+    "watermark_blend_mode": "multiply",  # Multiply blend preserves crisp black text
+    "watermark_top": "50%",              # Vertical center
+    "watermark_left": "50%",             # Horizontal center
+    "watermark_visible": True,           # Toggle watermark graphic
+    
+    # 3. Header Company Logo Controls
+    "header_logo_height": None,          # None = dynamic (182px for separate dispatch, else 95px)
+    "header_logo_visible": True,         # Toggle header logo graphic
+    "header_logo_rotated": True,         # Use rotated logo (anticlockwise vertical)
+    
+    # 4. Instant UPI Settlement & Banking Card Controls
+    "upi_qr_size": 68,                   # UPI payment QR dimension in px
+    "upi_badge_width": 72,               # UPI Pay badge width in px
+    "upi_qr_visible": True,              # Toggle UPI payment QR
+    "banking_card_bg": "rgba(250, 250, 250, 0.70)", # Translucent executive card background
+    "signatory_card_bg": "rgba(255, 255, 255, 0.70)", # Translucent signatory background
+    
+    # 5. Barcode & Verification QR Controls
+    "barcode_height": 26,                # Barcode height in px
+    "compliance_qr_size": 56,            # Top compliance QR size in px
 }
 
 
@@ -475,6 +551,49 @@ class InvoicePdfService:
         qr_uri = generate_qr_base64(qr_data_str)
         logo_uri = get_tattly_logo_base64()
         logo_rotated_uri = get_tattly_logo_rotated_anticlockwise_base64()
+        signature_uri = get_krutika_signature_base64()
+        upi_badge_uri = get_upi_badge_base64()
+
+        # Dynamic Payment UPI QR Payload
+        upi_id = meta.get("upi_id", "tattlythreads@sbi")
+        upi_payload = f"upi://pay?pa={upi_id}&pn=TATTLY%20THREADS&am={float(grand_total):.2f}&tn={invoice_no}&mam=0.01"
+        upi_qr_uri = generate_qr_base64(upi_payload)
+
+        # Resolve Dynamic Branding & Element Sizing Controls (Option 3 Recommended Defaults)
+        user_branding = meta.get("branding") or meta.get("layout_config") or {}
+        branding = {**DEFAULT_INVOICE_BRANDING_CONFIG, **user_branding}
+        for k in DEFAULT_INVOICE_BRANDING_CONFIG.keys():
+            if k in meta:
+                branding[k] = meta[k]
+
+        sig_h = int(branding.get("signature_height", 60))
+        sig_max_w = int(branding.get("signature_max_width", 175))
+        sig_box_h = int(branding.get("signature_box_height") or (sig_h + 2))
+        sig_opacity = float(branding.get("signature_opacity", 1.0))
+        sig_visible = bool(branding.get("signature_visible", True))
+
+        wm_width = str(branding.get("watermark_width", "75%"))
+        wm_opacity = float(branding.get("watermark_opacity", 0.11))
+        wm_z_index = int(branding.get("watermark_z_index", 50))
+        wm_blend = str(branding.get("watermark_blend_mode", "multiply"))
+        wm_top = str(branding.get("watermark_top", "50%"))
+        wm_left = str(branding.get("watermark_left", "50%"))
+        wm_visible = bool(branding.get("watermark_visible", True))
+
+        header_logo_h = branding.get("header_logo_height")
+        if header_logo_h is None:
+            header_logo_h = 182 if has_separate_dispatch else 95
+        else:
+            header_logo_h = int(header_logo_h)
+        header_logo_visible = bool(branding.get("header_logo_visible", True))
+
+        upi_qr_size = int(branding.get("upi_qr_size", 68))
+        upi_badge_w = int(branding.get("upi_badge_width", 72))
+        upi_visible = bool(branding.get("upi_qr_visible", True))
+        bank_bg = str(branding.get("banking_card_bg", "rgba(250, 250, 250, 0.70)"))
+        sig_bg = str(branding.get("signatory_card_bg", "rgba(255, 255, 255, 0.70)"))
+        barcode_h = int(branding.get("barcode_height", 26))
+        compliance_qr_sz = int(branding.get("compliance_qr_size", 56))
 
         # Process Items
         items_data = []
@@ -591,7 +710,11 @@ class InvoicePdfService:
         amount_words = number_to_indian_words(float(grand_total))
 
         def format_rate(value: Decimal) -> str:
-          return f"{value:.0f}%" if value % 1 == 0 else f"{value:.2f}%".rstrip("0").rstrip(".") + "%"
+            val = round(value, 2)
+            if val % 1 == 0:
+                return f"{val:.0f}%"
+            val_str = f"{val:.2f}".rstrip("0").rstrip(".")
+            return f"{val_str}%"
 
         if is_interstate:
           gst_summary_rows = "".join(
@@ -765,9 +888,9 @@ class InvoicePdfService:
                       <div style="display: flex; gap: 10px; align-items: flex-start;">
                         {f'''
                         <div style="border-right: 0.5px dashed #cbd5e1; padding-right: 9px; margin-right: 2px;">
-                          <img src="{logo_rotated_uri or logo_uri}" style="height: {182 if has_separate_dispatch else 95}px; width: auto; object-fit: contain; margin-top: 0px; display: block;"/>
+                          <img src="{logo_rotated_uri or logo_uri}" style="height: {header_logo_h}px; width: auto; object-fit: contain; margin-top: 0px; display: block;"/>
                         </div>
-                        ''' if (logo_rotated_uri or logo_uri) else ''}
+                        ''' if ((logo_rotated_uri or logo_uri) and header_logo_visible) else ''}
                         <div>
                           <div class="company-name">{company_name}</div>
                           <div class="company-details">
@@ -797,14 +920,15 @@ class InvoicePdfService:
                     <td style="width: 42%; border-left: 1px solid #d1d5db; padding-left: 8px;">
                       <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; margin-bottom: 3px;">
                         <div>
-                          <div style="display: flex; align-items: center; gap: 6px;">
+                          <div style="display: flex; align-items: baseline; gap: 6px;">
                             <div class="invoice-title">TAX INVOICE</div>
+                            <span style="font-size: 6.2pt; font-weight: 700; color: #64748b; font-family: monospace; letter-spacing: 0.5px;">(E. &amp; O.E.)</span>
                             {f'<span style="color: #dc2626; border: 1.5px solid #dc2626; border-radius: 3px; font-weight: 800; font-size: 7.5px; padding: 1px 4px; text-transform: uppercase; letter-spacing: 0.5px;">CANCELLED</span>' if is_cancelled else ''}
                           </div>
-                          {f'<div style="margin-top: 2px;"><img src="{barcode_uri}" style="height: 26px; width: auto; max-width: 145px; object-fit: contain;"/><div style="font-family: monospace; font-size: 7.5px; font-weight: 800; color: #111827; letter-spacing: 0.5px; margin-top: 1px;">{invoice_no}</div></div>' if barcode_uri else ''}
+                          {f'<div style="margin-top: 2px;"><img src="{barcode_uri}" style="height: {barcode_h}px; width: auto; max-width: 145px; object-fit: contain;"/><div style="font-family: monospace; font-size: 7.5px; font-weight: 800; color: #111827; letter-spacing: 0.5px; margin-top: 1px;">{invoice_no}</div></div>' if barcode_uri else ''}
                         </div>
                         <div style="text-align: center; margin-left: 6px;">
-                          {f'<img src="{qr_uri}" style="width: 56px; height: 56px; border: 1.5px solid #0f172a; padding: 2px; border-radius: 4px; background: #ffffff; object-fit: contain;"/>' if qr_uri else ''}
+                          {f'<img src="{qr_uri}" style="width: {compliance_qr_sz}px; height: {compliance_qr_sz}px; border: 1.5px solid #0f172a; padding: 2px; border-radius: 4px; background: #ffffff; object-fit: contain;"/>' if qr_uri else ''}
                           <div style="font-family: monospace; font-size: 6.5px; font-weight: 700; color: #1e293b; text-transform: uppercase; margin-top: 1px;">{qr_label}</div>
                         </div>
                       </div>
@@ -908,7 +1032,7 @@ class InvoicePdfService:
                 <div class="summary-grid">
                   <div class="words-box">
                     <div style="font-size: 7px; font-weight: 700; color: #6b7280; font-family: monospace; text-transform: uppercase; margin-bottom: 2px;">
-                      AMOUNT IN WORDS:
+                      AMOUNT IN WORDS (E. &amp; O.E.):
                     </div>
                     <div style="font-size: 9px; font-weight: 700; color: #111827; font-family: monospace; line-height: 1.35;">
                       {amount_words}
@@ -941,34 +1065,76 @@ class InvoicePdfService:
                 <!-- GST Breakdown Table -->
                 {gst_table_content}
                 
-                <!-- Bank & Signatory -->
-                <div class="bottom-grid">
-                  <div style="width: 60%;">
-                    <div class="bank-box" style="border: 1px solid #d1d5db; border-radius: 3px; padding: 5px 8px; background: rgba(249, 250, 251, 0.70);">
-                      <div style="font-size: 6.00pt; font-weight: 800; color: #374151; font-family: monospace; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px; margin-bottom: 3px;">&#127970; BANK DETAILS</div>
-                      <div style="font-family: monospace; font-size: 6.58pt; color: #6b7280; margin-bottom: 1px;">A/C Name: <b style="color: #111827;">{company_name}</b></div>
-                      <div style="font-weight: 800; color: #111827; font-size: 8.2pt; font-family: sans-serif; margin-bottom: 1px;">{bank_name}</div>
-                      <div style="font-family: monospace; font-size: 7.31pt; color: #374151; margin-bottom: 1px;">A/C No: <b style="color: #111827; letter-spacing: 0.5px;">{account_no}</b></div>
-                      <div style="font-family: monospace; font-size: 7.31pt; color: #374151;">IFSC: <b style="color: #111827;">{ifsc_code}</b>&nbsp;&nbsp;|&nbsp;&nbsp;Branch: {bank_branch}</div>
-                    </div>
-                    
-                    <div>
-                      <div style="font-size: 6.5px; font-weight: 700; color: #6b7280; font-family: monospace; text-transform: uppercase;">TERMS &amp; CONDITIONS</div>
-                      <div style="font-size: 6.5px; color: #4b5563; line-height: 1.3;">
-                        Goods once sold will not be taken back without prior written approval. All disputes subject to Nagpur Jurisdiction.
-                      </div>
-                    </div>
-                  </div>
+                <!-- Bank & Signatory Premium Executive Card -->
+                <div class="bottom-grid" style="display: flex; justify-content: space-between; align-items: stretch; margin-top: 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: {bank_bg}; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03); overflow: hidden;">
                   
-                  <div style="width: 38%; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end;">
-                    <div class="signatory-box">
-                      <div style="font-size: 6.5px; color: #6b7280; text-transform: uppercase;">FOR {company_name}</div>
-                      <div style="height: 25px;"></div>
-                      <div style="border-top: 1px solid #d1d5db; padding-top: 2px; font-weight: 700; font-size: 7.5px; text-transform: uppercase;">
-                        AUTHORISED SIGNATORY
+                  <!-- Left: Banking & Digital Settlement Section -->
+                  <div style="flex: 1; padding: 8px 12px; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
+                      <div style="font-size: 6.8pt; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.8px; display: flex; align-items: center; gap: 5px;">
+                        <span style="display: inline-block; width: 6px; height: 6px; background: #16a34a; border-radius: 50%;"></span>
+                        PAYMENT &amp; BANKING DETAILS
+                      </div>
+                      <div style="font-size: 5.8pt; font-weight: 700; color: #059669; background: #ecfdf5; border: 0.5px solid #a7f3d0; border-radius: 3px; padding: 1px 5px; letter-spacing: 0.4px;">
+                        INSTANT UPI SETTLEMENT
+                      </div>
+                    </div>
+
+                    <div style="display: flex; gap: 14px; align-items: center;">
+                      <!-- QR & UPI Badge Container -->
+                      <div style="display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0;">
+                        <div class="upi-qr-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); position: relative; z-index: 60;">
+                          {f'<img src="{upi_qr_uri}" style="width: {upi_qr_size}px; height: {upi_qr_size}px; display: block; object-fit: contain;" alt="UPI QR"/>' if (upi_qr_uri and upi_visible) else ''}
+                        </div>
+                        {f'<img src="{upi_badge_uri}" style="width: {upi_badge_w}px; height: auto; object-fit: contain;" alt="UPI Pay"/>' if (upi_badge_uri and upi_visible) else ''}
+                      </div>
+
+                      <!-- Structured Key-Value Banking Specs -->
+                      <div style="flex: 1; font-size: 6.8pt; color: #334155; line-height: 1.45; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 6.8pt;">
+                          <tr>
+                            <td style="color: #64748b; font-weight: 600; width: 34%; padding: 1.5px 0; text-transform: uppercase; font-size: 6.2pt;">Account Name:</td>
+                            <td style="color: #0f172a; font-weight: 700; padding: 1.5px 0;">{company_name}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748b; font-weight: 600; padding: 1.5px 0; text-transform: uppercase; font-size: 6.2pt;">Bank Name:</td>
+                            <td style="color: #0f172a; font-weight: 700; padding: 1.5px 0;">{bank_name}{f', {bank_branch}' if bank_branch else ''}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748b; font-weight: 600; padding: 1.5px 0; text-transform: uppercase; font-size: 6.2pt;">Account No.:</td>
+                            <td style="color: #0f172a; font-family: monospace; font-size: 7.6pt; font-weight: 800; letter-spacing: 0.6px; padding: 1.5px 0;">{account_no}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748b; font-weight: 600; padding: 1.5px 0; text-transform: uppercase; font-size: 6.2pt;">IFSC Code:</td>
+                            <td style="color: #0f172a; font-family: monospace; font-size: 7.4pt; font-weight: 800; letter-spacing: 0.6px; padding: 1.5px 0;">{ifsc_code}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748b; font-weight: 600; padding: 1.5px 0; text-transform: uppercase; font-size: 6.2pt;">UPI VPA:</td>
+                            <td style="color: #1e3a8a; font-family: monospace; font-size: 6.6pt; font-weight: 700; padding: 1.5px 0;">{upi_id}</td>
+                          </tr>
+                        </table>
                       </div>
                     </div>
                   </div>
+
+                  <!-- Right: Corporate Signatory Authority Section -->
+                  <div style="width: 32%; padding: 8px 12px; display: flex; flex-direction: column; justify-content: space-between; background: {sig_bg};">
+                    <div style="text-align: right;">
+                      <div style="font-size: 6.6pt; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.6px;">FOR {company_name}</div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; height: 100%; margin-top: 4px;">
+                      <div style="height: {sig_box_h}px; display: flex; align-items: center; justify-content: flex-end; width: 100%;">
+                        {f'<img src="{signature_uri}" style="height: {sig_h}px; max-width: {sig_max_w}px; opacity: {sig_opacity}; object-fit: contain;" alt="Krutika" />' if (signature_uri and sig_visible) else f'<div style="height: {sig_h}px;"></div>'}
+                      </div>
+                      <div style="width: 100%; border-top: 1.5px solid #0f172a; margin-top: 2px; padding-top: 2px; text-align: right;">
+                        <div style="font-weight: 800; font-size: 7.2pt; color: #0f172a; text-transform: uppercase; letter-spacing: 0.8px;">
+                          AUTHORISED SIGNATORY
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
                 
 """
@@ -976,7 +1142,7 @@ class InvoicePdfService:
             is_last_page = (p_idx == total_pages)
             disclaimer_html = f"""
               <div style="font-size: 6.00pt; color: #6b7280; text-align: center;">This is a computer-generated tax invoice and does not require a physical signature.</div>
-              <div style="font-size: 6.00pt; font-weight: 700; text-transform: uppercase; color: #374151; text-align: center;">SUBJECT TO NAGPUR JURISDICTION.</div>
+              <div style="font-size: 6.00pt; font-weight: 700; text-transform: uppercase; color: #374151; text-align: center;">E. &amp; O.E. &nbsp;—&nbsp; SUBJECT TO NAGPUR JURISDICTION.</div>
             """ if is_last_page else ""
             footer_html = f"""
             <div class="page-footer" style="flex-direction: column; text-align: center; gap: 1px;">
@@ -1035,6 +1201,18 @@ class InvoicePdfService:
           <title>Tax Invoice - {invoice_no}</title>
           <style>
             {css}
+
+            /* Dynamic Branding & Visual Element Sizing Overrides */
+            .watermark-logo {{
+              width: {wm_width} !important;
+              max-width: {wm_width} !important;
+              opacity: {wm_opacity} !important;
+              z-index: {wm_z_index} !important;
+              mix-blend-mode: {wm_blend} !important;
+              top: {wm_top} !important;
+              left: {wm_left} !important;
+              display: {'block' if wm_visible else 'none'} !important;
+            }}
           </style>
         </head>
         <body>
