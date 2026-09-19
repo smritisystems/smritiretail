@@ -228,21 +228,23 @@ async def create_purchase_receipt(
     """
     service = PurchaseService(db, tenant)
     receipt = await service.create_purchase_receipt(req)
-    _, items = await service.get_purchase_receipt(receipt.id)
+    receipt_loaded, items = await service.get_purchase_receipt(receipt.id)
     return PurchaseReceiptResponse(
-        id=receipt.id,
-        receipt_no=receipt.receipt_no,
-        supplier_id=receipt.supplier_id,
-        warehouse_id=receipt.warehouse_id,
-        order_id=receipt.order_id,
-        status=receipt.status,
-        notes=receipt.notes,
-        subtotal=receipt.subtotal,
-        tax_total=receipt.tax_total,
-        grand_total=receipt.grand_total,
-        company_id=receipt.company_id,
-        branch_id=receipt.branch_id,
+        id=receipt_loaded.id,
+        identity_code=receipt_loaded.identity_code,
+        receipt_no=receipt_loaded.receipt_no,
+        supplier_id=receipt_loaded.supplier_id,
+        warehouse_id=receipt_loaded.warehouse_id,
+        order_id=receipt_loaded.order_id,
+        status=receipt_loaded.status,
+        notes=receipt_loaded.notes,
+        subtotal=receipt_loaded.subtotal,
+        tax_total=receipt_loaded.tax_total,
+        grand_total=receipt_loaded.grand_total,
+        company_id=receipt_loaded.company_id,
+        branch_id=receipt_loaded.branch_id,
         items=[PurchaseReceiptItemResponse.model_validate(i) for i in items],
+        cost_components=[InwardCostComponentResponse.model_validate(c) for c in (receipt_loaded.cost_components or [])],
     )
 
 

@@ -176,9 +176,14 @@ def run_verification():
     import psycopg2
     conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
     cur = conn.cursor()
-    cur.execute("SELECT id FROM suppliers WHERE is_active = True LIMIT 1;")
+    cur.execute("SELECT id FROM suppliers WHERE (company_id = 'COMP-001' OR company_id IS NULL) AND is_active = True AND is_deleted = False LIMIT 1;")
     row = cur.fetchone()
-    supplier_id = row[0] if row else "sup-v-0aa"
+    if not row:
+        cur.execute("INSERT INTO suppliers (id, name, code, company_id, branch_id, is_active, is_deleted, outstanding) VALUES ('sup-comp-001', 'Primary Vendor COMP-001', 'SUP-C001', 'COMP-001', 'BR-MAIN-001', True, False, 0.00) ON CONFLICT (id) DO NOTHING;")
+        conn.commit()
+        supplier_id = "sup-comp-001"
+    else:
+        supplier_id = row[0]
 
     cur.execute("SELECT id, name, sku FROM products WHERE company_id = 'COMP-001' OR company_id IS NULL LIMIT 2;")
     prod_rows = cur.fetchall()
