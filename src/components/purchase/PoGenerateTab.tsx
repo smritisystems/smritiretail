@@ -312,6 +312,19 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
   // ─── Handle product selected from F2 browse ──────────────────────────────────
   const handleSelectProduct = async (product: Product) => {
+    // § 24 — Duplicate product detection (warn before evaluate)
+    const productRef = product.barcode || product.code || product.id || "";
+    if (header.supplierId && productRef) {
+      const existingRefs = lineItems
+        .filter((l, i) => i !== activeRowIndex && l.stockNo?.trim())
+        .map(l => l.stockNo);
+      if (existingRefs.includes(productRef)) {
+        if (!window.confirm(
+          `"${product.name}" is already in the PO (line ${existingRefs.indexOf(productRef) + 1}).\n\nAdd it again?`
+        )) return;
+      }
+    }
+
     const decision = await evaluateProductForVendor(product, activeRowIndex, "BROWSE");
 
     // Spec §11: action routing — backend is authoritative
@@ -514,10 +527,27 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         if (activeRowIndex > 0) {
           if (activeTab === "generation") {
             const prevRow = lineItems[activeRowIndex - 1];
-            updateLineItem(activeRowIndex, { ...prevRow, id: lineItems[activeRowIndex].id, sNo: activeRowIndex + 1 });
+            updateLineItem(activeRowIndex, {
+              ...prevRow,
+              id: lineItems[activeRowIndex].id,
+              sNo: activeRowIndex + 1,
+              isReadOnly: false,       // reset — decision must be re-evaluated for this row
+              approvalReasonCode: undefined,
+              approvalReasonNote: undefined,
+            });
+            // Mark the copied row's decision as stale (§16) — must re-evaluate at submit
+            const copiedLineId = lineItems[activeRowIndex - 1].id;
+            const prevDec = lineDecisions[copiedLineId];
+            if (prevDec) {
+              const newLineId = lineItems[activeRowIndex].id;
+              setLineDecisions(prev => ({
+                ...prev,
+                [newLineId]: { ...prevDec, lineId: newLineId, isStale: true, entryPath: "COPY" },
+              }));
+            }
           } else {
             const prevRow = sizePivotRows[activeRowIndex - 1];
-            updatePivotRow(activeRowIndex, { ...prevRow, id: sizePivotRows[activeRowIndex].id, sNo: activeRowIndex + 1 });
+            updatePivotRow(activeRowIndex, { ...prevRow, id: sizePivotRows[activeRowIndex].id, sNo: activeRowIndex + 1, isReadOnly: false });
           }
         }
       }
