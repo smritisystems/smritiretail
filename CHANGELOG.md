@@ -39,6 +39,14 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.43.2] - 2026-09-20
+
+#### Procurement Supplier SLA Scorecard Live Database Wiring & PO Print De-Hardcoding
+- **Live Database Vendor Compliance:** Refactored `SupplierScorecardModal.tsx` to asynchronously load vendors from `GET /api/v1/purchase/suppliers/` and confirmed purchase orders from `GET /api/v1/purchase/orders/`, calculating real-time on-time delivery %, fill rate %, quality rejections, and composite scores across active database records.
+- **In-Context PO Studio SLA Integration:** Mounted an interactive "★ SLA Scorecard" trigger button directly beside the Supplier dropdown in `PoGenerateTab.tsx`, allowing procurement managers to evaluate supplier compliance before releasing orders.
+- **PO Print Preview De-Hardcoding:** Replaced static mock company names (`TATTLY FOOTWEAR & LEATHER APPAREL PVT LTD`), vendor fallbacks, and dummy article mock items in `POPrintPreviewModal.tsx` with dynamic properties from `header` and `vendor`.
+- **Verification:** 4/4 Vitest unit tests green, 2/2 Pytest backend tests green, 0 TypeScript errors, 11/11 architecture gate checks passed.
+
 ### [6.43.1] - 2026-09-20
 
 #### Procurement GRN Studio UI Hardcoded Elimination, Direct Inward & Statutory A4 Slip
