@@ -71,9 +71,16 @@ interface GrnLineRow {
 interface GrnReceiptTabProps {
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
+  onClose?: () => void;
+  initialOrderId?: string;
 }
 
-export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({ currentUser, onNotification }) => {
+export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
+  currentUser,
+  onNotification,
+  onClose,
+  initialOrderId,
+}) => {
   const [orders, setOrders] = useState<PurchaseOrderOption[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
@@ -134,6 +141,12 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({ currentUser, onNot
     loadReceipts();
     loadSuppliers();
   }, [loadOrders, loadReceipts, loadSuppliers]);
+
+  useEffect(() => {
+    if (initialOrderId && orders.length > 0 && selectedOrderId !== initialOrderId) {
+      handleSelectOrder(initialOrderId);
+    }
+  }, [initialOrderId, orders]);
 
   const handleSelectOrder = async (orderId: string) => {
     setSelectedOrderId(orderId);
@@ -350,6 +363,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({ currentUser, onNot
             <Plus size={12} className="inline mr-1" />
             Issue Debit Note
           </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1 text-xs font-bold rounded bg-rose-600 text-white hover:bg-rose-700 ml-2 transition-colors"
+              title="Close Goods Receipt Studio"
+            >
+              Exit
+            </button>
+          )}
         </div>
       </div>
 
