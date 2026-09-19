@@ -234,3 +234,9 @@ from .identity_registry import (
     SmritiIdentityAlias,
     SmritiIdentityAllocationLog,
 )
+
+# PO Vendor Product Control — Phase 2 (v6.42.0)
+from .vendor_product_assignment import (
+    VendorProductAssignment,
+    POProductDecisionLog,
+)

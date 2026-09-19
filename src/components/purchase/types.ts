@@ -29,6 +29,10 @@ export interface PurchaseOrderHeader {
   deliveryLocation: string;
   commonTaxPercent: number;
   pictureUrl?: string;
+  // Commercial terms (Other Details tab)
+  paymentTerms: string;
+  freightCharges: string;
+  specialInstructions: string;
 }
 
 export interface PurchaseOrderLineItem {
