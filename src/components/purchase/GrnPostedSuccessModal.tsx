@@ -24,6 +24,7 @@ interface GrnPostedSuccessModalProps {
   onClose: () => void;
   summary: GrnPostedSummary | null;
   onViewGrn?: () => void;
+  onPrintSlip?: () => void;
 }
 
 export const GrnPostedSuccessModal: React.FC<GrnPostedSuccessModalProps> = ({
@@ -31,6 +32,7 @@ export const GrnPostedSuccessModal: React.FC<GrnPostedSuccessModalProps> = ({
   onClose,
   summary,
   onViewGrn,
+  onPrintSlip,
 }) => {
   if (!isOpen || !summary) return null;
 
@@ -90,6 +92,17 @@ export const GrnPostedSuccessModal: React.FC<GrnPostedSuccessModalProps> = ({
 
         {/* Action Buttons */}
         <div className="space-y-2">
+          {onPrintSlip && (
+            <button
+              onClick={() => {
+                onPrintSlip();
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Statutory A4 Slip</span>
+            </button>
+          )}
           <button
             onClick={() => {
               onClose();
