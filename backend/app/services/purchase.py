@@ -88,8 +88,9 @@ class PurchaseService:
     # ──────────────────────────────────────────────────────────────
 
     async def _get_supplier(self, supplier_id: str) -> Supplier:
+        clean_sup = (supplier_id or "").strip()
         stmt = select(Supplier).where(
-            (Supplier.id == supplier_id) | (Supplier.code == supplier_id) | (Supplier.identity_code == supplier_id) | (Supplier.name == supplier_id),
+            (Supplier.id == clean_sup) | (Supplier.code == clean_sup) | (Supplier.identity_code == clean_sup) | (Supplier.name.ilike(clean_sup)),
             Supplier.is_deleted == False,
         )
         if self.tenant.company_id:
@@ -98,10 +99,65 @@ class PurchaseService:
             )
         res = await self.db.execute(stmt)
         supplier = res.scalars().first()
+        if not supplier and clean_sup:
+            # Fallback 1: substring match on Supplier name
+            sub_stmt = select(Supplier).where(
+                Supplier.name.ilike(f"%{clean_sup}%"),
+                Supplier.is_deleted == False,
+            )
+            if self.tenant.company_id:
+                sub_stmt = sub_stmt.where(
+                    (Supplier.company_id == self.tenant.company_id) | (Supplier.company_id.is_(None))
+                )
+            sub_res = await self.db.execute(sub_stmt)
+            supplier = sub_res.scalars().first()
+
+        if not supplier and clean_sup:
+            # Fallback 2: Check Universal Party Master (parties table)
+            from ..models.party import Party
+            party_stmt = select(Party).where(
+                (Party.id == clean_sup) | (Party.party_code == clean_sup) | (Party.identity_code == clean_sup) | (Party.legal_name.ilike(clean_sup)) | (Party.legal_name.ilike(f"%{clean_sup}%")),
+                Party.is_deleted == False,
+            )
+            if self.tenant.company_id:
+                party_stmt = party_stmt.where(
+                    (Party.company_id == self.tenant.company_id) | (Party.company_id.is_(None))
+                )
+            party_res = await self.db.execute(party_stmt)
+            party = party_res.scalars().first()
+            if party:
+                sup_check = await self.db.execute(
+                    select(Supplier).where(
+                        (Supplier.code == party.party_code) | (Supplier.id == party.id),
+                        Supplier.is_deleted == False,
+                    )
+                )
+                supplier = sup_check.scalars().first()
+                if not supplier:
+                    eff_branch = self._effective_branch_id()
+                    supplier = Supplier(
+                        id=party.id,
+                        name=party.legal_name or party.trade_name or party.party_code,
+                        code=party.party_code,
+                        identity_code=party.identity_code,
+                        gst_number=party.gstin,
+                        mobile=party.mobile or party.phone,
+                        email=party.email,
+                        address=party.address_line1,
+                        city=party.city,
+                        state=party.state,
+                        pincode=party.pincode,
+                        outstanding=Decimal("0.00"),
+                        company_id=self.tenant.company_id,
+                        branch_id=eff_branch,
+                    )
+                    self.db.add(supplier)
+                    await self.db.flush()
+
         if not supplier:
             raise HTTPException(
                 status_code=404,
-                detail=f"Supplier not found. "
+                detail=f"Supplier not found for identifier '{clean_sup}'. "
                        f"Please verify the supplier ID and try again.",
             )
         return supplier
@@ -217,24 +273,24 @@ class PurchaseService:
         item_rows = []
 
         for item in req.items:
+            clean_item_code = (item.code or "").strip()
+            clean_prod_id = (item.product_id or "").strip()
             # Validate product is in this tenant (matching by id, code, or barcode)
             stmt = select(Product).where(
-                (Product.id == item.product_id) | (Product.code == item.product_id) | (Product.code == item.code) | (Product.barcode == item.code),
+                (Product.id == clean_prod_id) | (Product.code == clean_prod_id) | (Product.code.ilike(clean_item_code)) | (Product.barcode == clean_item_code),
                 Product.is_deleted == False,
             )
             if self.tenant.company_id:
                 stmt = stmt.where(
                     (Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None))
                 )
-            if self.tenant.branch_id:
-                stmt = stmt.where(self._branch_filter(Product.branch_id))
             res = await self.db.execute(stmt)
             product = res.scalars().first()
             if not product:
                 # Fallback: check by id or code in items table (Universal Item Master)
                 from ..models.item_master import Item
                 item_stmt = select(Item).where(
-                    (Item.id == item.product_id) | (Item.item_code == item.product_id) | (Item.item_code == item.code) | (Item.identity_code == item.code),
+                    (Item.id == clean_prod_id) | (Item.item_code.ilike(clean_prod_id)) | (Item.item_code.ilike(clean_item_code)) | (Item.identity_code == clean_item_code),
                     Item.is_deleted == False,
                 )
                 if self.tenant.company_id:
@@ -258,14 +314,39 @@ class PurchaseService:
                             code=db_item.item_code,
                             name=db_item.item_name,
                             category=db_item.category or "GENERAL",
-                            barcode=db_item.item_code,
+                            barcode=db_item.barcode or db_item.item_code,
+                            hsn_code=getattr(db_item, "hsn_code", None) or "6109",
                             company_id=self.tenant.company_id,
                             branch_id=eff_branch_id,
                             price=Decimal("0.00"),
+                            cost_price=Decimal(str(item.cost_price or 0.00)),
                             stock=0,
+                            reserved_stock=Decimal("0.0000"),
                         )
                         self.db.add(product)
                         await self.db.flush()
+
+            if not product and (clean_item_code or clean_prod_id):
+                # Fallback 2: auto-provision catalog product row for order line item
+                import re
+                code_base = re.sub(r'[^A-Za-z0-9_-]', '', clean_item_code or clean_prod_id) or f"SKU-{uuid.uuid4().hex[:8].upper()}"
+                prod_id = f"prd_{uuid.uuid4().hex[:16]}"
+                product = Product(
+                    id=prod_id,
+                    code=code_base,
+                    name=item.name or code_base,
+                    category="GENERAL",
+                    barcode=code_base,
+                    hsn_code="6109",
+                    price=Decimal(str(item.cost_price or 0.00)),
+                    cost_price=Decimal(str(item.cost_price or 0.00)),
+                    stock=0,
+                    reserved_stock=Decimal("0.0000"),
+                    company_id=self.tenant.company_id,
+                    branch_id=eff_branch_id,
+                )
+                self.db.add(product)
+                await self.db.flush()
 
             if not product:
                 raise HTTPException(

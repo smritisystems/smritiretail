@@ -155,7 +155,9 @@ async def get_purchase_order_contract(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Get a purchase order by ID — canonical contract URL."""
-    return await PurchaseService(db, tenant_ctx).get_purchase_order(order_id)
+    order, items = await PurchaseService(db, tenant_ctx).get_purchase_order(order_id)
+    order.items = items
+    return order
 
 
 @router.post("/orders/{order_id}/cancel", response_model=dict, status_code=200,

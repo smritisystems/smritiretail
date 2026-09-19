@@ -706,7 +706,9 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                   <div className="mt-2 border-t border-slate-200 pt-1.5 text-center text-[8.5px] text-slate-500 font-medium leading-tight">
                     <p className="m-0">This is a computer-generated tax invoice and does not require a physical signature.</p>
                     <p className="m-0 font-bold text-slate-700 tracking-wider">SUBJECT TO NAGPUR JURISDICTION.</p>
-                    <p className="m-0 text-[8px] text-slate-400 font-mono tracking-tight mt-0.5">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</p>
+                    <p className="m-0 text-[8.5px] text-slate-500 font-mono tracking-tight mt-0.5">
+                      <strong className="text-slate-800">Powered by SMRITI Retail OS</strong> • Enterprise Commerce Suite • smritibooks.com
+                    </p>
                   </div>
 
                 </div>
@@ -714,8 +716,13 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
             </div>
 
             {/* 5. RUNNING PAGE FOOTER (Page X of Y) */}
-            <div className="flex justify-between items-center text-[8.5px] text-slate-500 border-t border-slate-200 pt-1 mt-1">
-              <div>TATTLY THREADS — TAX INVOICE</div>
+            <div className="flex justify-between items-center text-[8.5px] text-slate-500 border-t border-slate-200 pt-1 mt-1 font-mono">
+              <div className="flex items-center gap-1.5">
+                <span className="bg-slate-900 text-white font-black px-1.5 py-0.5 rounded text-[7.5px]">SMRITI</span>
+                <span className="font-bold text-slate-800">SMRITI Retail OS</span>
+                <span className="text-slate-400">|</span>
+                <span>Tax Invoice</span>
+              </div>
               <div>Page {pageNum} of {totalPages} &nbsp;|&nbsp; Invoice No: <span className="font-mono">{invoiceNo}</span></div>
             </div>
 
