@@ -26,8 +26,9 @@ Classification: Internal
 
 from decimal import Decimal
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from .inward_cost import InwardCostComponentCreate, InwardCostComponentResponse
 
 
 # ─────────────────────────── Supplier ───────────────────────────
@@ -187,19 +188,41 @@ from datetime import datetime, date
 # ─────────────────────────── Purchase Receipt (GRN) ───────────────────────────
 
 class PurchaseReceiptItemCreate(BaseModel):
-    product_id:        str
+    product_id:        Optional[str] = None
     item_id:           Optional[str] = None
-    code:              str
-    name:              str
+    code:              Optional[str] = None
+    name:              Optional[str] = None
     batch_no:          Optional[str] = None
     mfg_date:          Optional[date] = None
     expiry_date:       Optional[date] = None
     mrp:               Optional[Decimal] = None
     quantity_ordered:  Optional[Decimal] = None
-    quantity_received: Decimal
+    quantity_received: Optional[Decimal] = None
     quantity_damaged:  Optional[Decimal] = Decimal("0.00")
-    cost_price:        Decimal
+    cost_price:        Optional[Decimal] = None
     gst_rate:          Decimal = Decimal("18.00")
+    landed_cost:       Optional[Decimal] = None
+    freight_allocated: Optional[Decimal] = Decimal("0.00")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_receipt_item(cls, data: any) -> any:
+        if isinstance(data, dict):
+            if not data.get("product_id") and (data.get("item_id") or data.get("code")):
+                data["product_id"] = data.get("item_id") or data.get("code")
+            if not data.get("code") and (data.get("item_code") or data.get("item_id") or data.get("product_id")):
+                data["code"] = data.get("item_code") or data.get("item_id") or data.get("product_id")
+            if not data.get("name") and (data.get("item_name") or data.get("product_name")):
+                data["name"] = data.get("item_name") or data.get("product_name")
+            elif not data.get("name"):
+                data["name"] = data.get("code") or "Item"
+            if data.get("quantity_received") is None:
+                data["quantity_received"] = data.get("received_qty") or data.get("accepted_qty") or data.get("quantity") or Decimal("0.00")
+            if data.get("cost_price") is None:
+                data["cost_price"] = data.get("unit_price") or data.get("purchase_rate") or data.get("rate") or Decimal("0.00")
+            if data.get("gst_rate") is None and data.get("tax_rate") is not None:
+                data["gst_rate"] = data.get("tax_rate")
+        return data
 
 
 class PurchaseReceiptItemResponse(BaseModel):
@@ -219,18 +242,30 @@ class PurchaseReceiptItemResponse(BaseModel):
     gst_rate:          Decimal
     tax_amount:        Decimal
     line_total:        Decimal
+    landed_cost:       Optional[Decimal] = None
+    freight_allocated: Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
 
 
 class PurchaseReceiptCreate(BaseModel):
-    id:           Optional[str] = None
-    receipt_no:   Optional[str] = None
-    supplier_id:  str
-    warehouse_id: Optional[str] = None  # target godown — optional (defaults to Central Godown)
-    order_id:     Optional[str] = None   # link to PO — optional
-    notes:        Optional[str] = None
-    items:        List[PurchaseReceiptItemCreate]
+    id:                 Optional[str] = None
+    receipt_no:         Optional[str] = None
+    supplier_id:        str
+    warehouse_id:       Optional[str] = None  # target godown — optional (defaults to Central Godown)
+    order_id:           Optional[str] = None   # link to PO — optional
+    notes:              Optional[str] = None
+    transporter_name:   Optional[str] = None
+    lr_number:          Optional[str] = None
+    lr_date:            Optional[date] = None
+    vehicle_number:     Optional[str] = None
+    freight_amount:     Optional[Decimal] = Decimal("0.00")
+    handling_amount:    Optional[Decimal] = Decimal("0.00")
+    insurance_amount:   Optional[Decimal] = Decimal("0.00")
+    pkg_forward_amount: Optional[Decimal] = Decimal("0.00")
+    allocation_method:  Optional[str] = "VALUE"
+    cost_components:    Optional[List[InwardCostComponentCreate]] = None
+    items:              List[PurchaseReceiptItemCreate]
 
 
 class DebitNoteCreate(BaseModel):
@@ -304,6 +339,7 @@ class PurchaseReceiptResponse(BaseModel):
     tax_total:    Decimal
     grand_total:  Decimal
     items:        List[PurchaseReceiptItemResponse] = []
+    cost_components: Optional[List[InwardCostComponentResponse]] = []
     company_id:   Optional[str] = None
     branch_id:    Optional[str] = None
 

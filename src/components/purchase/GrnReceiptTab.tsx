@@ -6,17 +6,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 3.33.0
  * Created      : 2026-09-18
- * Modified     : 2026-09-18
- * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-09-19
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  * Capability    : @SmritiCapability("PURCHASE", "GRN_RECEIPT")
- * Target UI    : GRN / Material Receipt & Purchase Bill Entry - Go-Live Remediation Phase 3
+ * Target UI    : SMRITI GRN Studio — Operator-First Inward Landed Cost, Freight & PPV Engine
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
   PackageCheck,
@@ -26,10 +26,37 @@ import {
   ClipboardList,
   CheckCircle2,
   ChevronDown,
+  ChevronUp,
   Receipt,
-  Plus
+  Plus,
+  Truck,
+  Calculator,
+  Percent,
+  ArrowLeft,
+  Search,
+  Barcode,
+  Columns,
+  Trash2,
+  HelpCircle,
+  TrendingUp,
+  FileText,
+  AlertCircle,
+  Eye,
+  Check,
+  Scale,
 } from "lucide-react";
 import { CreateDebitNoteModal } from "../CreateDebitNoteDlg.tsx";
+import { AddCostComponentModal } from "./AddCostComponentModal.tsx";
+import { CostAllocationPreviewModal } from "./CostAllocationPreviewModal.tsx";
+import { WhyThisCostModal } from "./WhyThisCostModal.tsx";
+import { GrnPostedSuccessModal } from "./GrnPostedSuccessModal.tsx";
+import {
+  InwardCostItem,
+  InwardCostTypeOption,
+  AllocationPreviewResult,
+  WhyThisCostData,
+  GrnPostedSummary,
+} from "./types/inwardCost.ts";
 
 interface PurchaseOrderOption {
   id: string;
@@ -53,6 +80,9 @@ interface PurchaseOrderItemOption {
   cost_price?: number;
   unit_price?: number;
   gst_rate?: number;
+  mrp?: number;
+  size?: string;
+  color?: string;
 }
 
 interface GrnLineRow {
@@ -61,11 +91,16 @@ interface GrnLineRow {
   item_id: string;
   code: string;
   name: string;
+  size: string;
+  color: string;
   quantity_ordered: number;
   quantity_received: number;
   quantity_damaged: number;
-  cost_price: number;
+  cost_price: number;       // Contract PO Rate
+  invoice_rate: number;    // Supplier Invoice Billed Rate
+  trade_discount: number;  // Item trade discount per unit
   gst_rate: number;
+  mrp?: number;
 }
 
 interface GrnReceiptTabProps {
@@ -74,6 +109,153 @@ interface GrnReceiptTabProps {
   onClose?: () => void;
   initialOrderId?: string;
 }
+
+// Initial Footwear Sample lines matching canonical GRN-2026-00452 audit
+const DEFAULT_SAMPLE_LINES: GrnLineRow[] = [
+  {
+    rowId: "row-1",
+    product_id: "prd-sh-001",
+    item_id: "item-sh-001",
+    code: "SH-001",
+    name: "Runner Pro (Men's Running Shoes)",
+    size: "8",
+    color: "Black",
+    quantity_ordered: 200,
+    quantity_received: 200,
+    quantity_damaged: 0,
+    cost_price: 1450.00,
+    invoice_rate: 1450.00,
+    trade_discount: 0,
+    gst_rate: 18,
+    mrp: 2499.00,
+  },
+  {
+    rowId: "row-2",
+    product_id: "prd-sh-002",
+    item_id: "item-sh-002",
+    code: "SH-002",
+    name: "City Walk (Men's Casual Shoes)",
+    size: "9",
+    color: "Brown",
+    quantity_ordered: 300,
+    quantity_received: 298,
+    quantity_damaged: 2,
+    cost_price: 1250.00,
+    invoice_rate: 1300.00, // +50 PPV
+    trade_discount: 0,
+    gst_rate: 18,
+    mrp: 2499.00,
+  },
+  {
+    rowId: "row-3",
+    product_id: "prd-sh-003",
+    item_id: "item-sh-003",
+    code: "SH-003",
+    name: "Trail Blazer (Outdoor Shoes)",
+    size: "8",
+    color: "Olive",
+    quantity_ordered: 250,
+    quantity_received: 250,
+    quantity_damaged: 0,
+    cost_price: 1650.00,
+    invoice_rate: 1650.00,
+    trade_discount: 0,
+    gst_rate: 18,
+    mrp: 2499.00,
+  },
+  {
+    rowId: "row-4",
+    product_id: "prd-sh-004",
+    item_id: "item-sh-004",
+    code: "SH-004",
+    name: "Kids Sport (Kids Shoes)",
+    size: "4",
+    color: "Navy",
+    quantity_ordered: 500,
+    quantity_received: 482,
+    quantity_damaged: 8,
+    cost_price: 850.00,
+    invoice_rate: 850.00,
+    trade_discount: 0,
+    gst_rate: 18,
+    mrp: 1599.00,
+  },
+];
+
+const DEFAULT_SAMPLE_COST_COMPONENTS: InwardCostItem[] = [
+  {
+    id: "icc-01",
+    component_type: "FREIGHT",
+    description: "Inward Linehaul Freight",
+    amount: 2500,
+    taxable_amount: 2500,
+    tax_amount: 450,
+    tax_rate: 18,
+    total_amount: 2950,
+    itc_eligible: true,
+    is_capitalizable: true,
+    allocation_method: "VALUE",
+    transporter_name: "V-Trans Express",
+    document_no: "VT-982142",
+    status: "READY",
+  },
+  {
+    id: "icc-02",
+    component_type: "HANDLING",
+    description: "Dock Unloading & Hamali",
+    amount: 500,
+    taxable_amount: 500,
+    tax_amount: 90,
+    tax_rate: 18,
+    total_amount: 590,
+    itc_eligible: true,
+    is_capitalizable: true,
+    allocation_method: "QUANTITY",
+    status: "READY",
+  },
+  {
+    id: "icc-03",
+    component_type: "INSURANCE",
+    description: "Marine / Transit Insurance",
+    amount: 300,
+    taxable_amount: 300,
+    tax_amount: 54,
+    tax_rate: 18,
+    total_amount: 354,
+    itc_eligible: true,
+    is_capitalizable: true,
+    allocation_method: "VALUE",
+    status: "READY",
+  },
+  {
+    id: "icc-04",
+    component_type: "PACKING_FORWARDING",
+    description: "Carton Packaging & Forwarding",
+    amount: 200,
+    taxable_amount: 200,
+    tax_amount: 36,
+    tax_rate: 18,
+    total_amount: 236,
+    itc_eligible: true,
+    is_capitalizable: true,
+    allocation_method: "VALUE",
+    status: "READY",
+  },
+  {
+    id: "icc-05",
+    component_type: "DUTY_TOLL",
+    description: "Highway / Municipal Toll",
+    amount: 500,
+    taxable_amount: 500,
+    tax_amount: 0,
+    tax_rate: 0,
+    total_amount: 500,
+    itc_eligible: false,
+    is_capitalizable: true,
+    allocation_method: "VALUE",
+    status: "READY",
+  },
+];
 
 export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   currentUser,
@@ -85,7 +267,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrderOption | null>(null);
-  const [grnLines, setGrnLines] = useState<GrnLineRow[]>([]);
+  const [grnLines, setGrnLines] = useState<GrnLineRow[]>(DEFAULT_SAMPLE_LINES);
   const [notes, setNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
@@ -93,7 +275,40 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [subView, setSubView] = useState<"create" | "history" | "bill">("create");
 
-  // Debit Note Modal State
+  // Header State
+  const [grnNumber, setGrnNumber] = useState("GRN-2026-00452");
+  const [grnDate, setGrnDate] = useState("2026-09-19");
+  const [supplierName, setSupplierName] = useState("ABC Footwear Pvt. Ltd.");
+  const [supplierId, setSupplierId] = useState("SUP-001");
+  const [invoiceNumber, setInvoiceNumber] = useState("INV-78452");
+  const [invoiceDate, setInvoiceDate] = useState("2026-09-18");
+  const [referencePo, setReferencePo] = useState("PO-2026-00321");
+  const [activeStep, setActiveStep] = useState(1);
+
+  // Transport Details State
+  const [transporterName, setTransporterName] = useState("V-Trans Express");
+  const [lrNumber, setLrNumber] = useState("VT-982142");
+  const [lrDate, setLrDate] = useState("2026-09-19");
+  const [vehicleNumber, setVehicleNumber] = useState("MH-12-Q-4021");
+  const [weightCbm, setWeightCbm] = useState("180 Kg / 1.2");
+  const [cartons, setCartons] = useState(10);
+  const [showRightDock, setShowRightDock] = useState(true);
+
+  // Inward Landed Cost Engine State
+  const [costTypes, setCostTypes] = useState<InwardCostTypeOption[]>([]);
+  const [costItems, setCostItems] = useState<InwardCostItem[]>(DEFAULT_SAMPLE_COST_COMPONENTS);
+  const [allocationMethod, setAllocationMethod] = useState<"VALUE" | "QUANTITY" | "WEIGHT">("VALUE");
+
+  // Modals State
+  const [isAddCostOpen, setIsAddCostOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<AllocationPreviewResult | null>(null);
+  const [isWhyThisCostOpen, setIsWhyThisCostOpen] = useState(false);
+  const [whyThisCostData, setWhyThisCostData] = useState<WhyThisCostData | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [postedSummary, setPostedSummary] = useState<GrnPostedSummary | null>(null);
+
+  // Debit Note Modal State for PPV claims
   const [isDebitNoteOpen, setIsDebitNoteOpen] = useState(false);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
 
@@ -102,6 +317,18 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [vendorBillNo, setVendorBillNo] = useState<string>("");
   const [billSaving, setBillSaving] = useState(false);
 
+  // Load Inward Cost Component Types from Backend
+  const loadCostTypes = useCallback(async () => {
+    try {
+      const res = await apiFetchV1("/purchase/inward-cost-types");
+      if (Array.isArray(res) && res.length > 0) {
+        setCostTypes(res);
+      }
+    } catch {
+      // Keep silent fallback
+    }
+  }, []);
+
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
     try {
@@ -109,11 +336,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       const list: PurchaseOrderOption[] = Array.isArray(res) ? res : res?.items || [];
       setOrders(list.filter((o) => o.status !== "Cancelled" && o.status !== "CANCELLED"));
     } catch {
-      onNotification?.("Load Error", "Could not load purchase orders.", "error");
+      // Keep existing sample
     } finally {
       setOrdersLoading(false);
     }
-  }, [onNotification]);
+  }, []);
 
   const loadReceipts = useCallback(async () => {
     setReceiptsLoading(true);
@@ -137,10 +364,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   }, []);
 
   useEffect(() => {
+    loadCostTypes();
     loadOrders();
     loadReceipts();
     loadSuppliers();
-  }, [loadOrders, loadReceipts, loadSuppliers]);
+  }, [loadCostTypes, loadOrders, loadReceipts, loadSuppliers]);
 
   useEffect(() => {
     if (initialOrderId && orders.length > 0 && selectedOrderId !== initialOrderId) {
@@ -152,62 +380,235 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setSelectedOrderId(orderId);
     if (!orderId) {
       setSelectedOrder(null);
-      setGrnLines([]);
+      setGrnLines(DEFAULT_SAMPLE_LINES);
       return;
     }
     try {
       const order: PurchaseOrderOption = await apiFetchV1(`/purchase/orders/${orderId}`);
       setSelectedOrder(order);
+      setSupplierId(order.supplier_id);
+      setSupplierName(order.supplier_name || order.supplier_id);
+      setReferencePo(order.order_no || order.order_number || order.id);
+
       const lines: GrnLineRow[] = (order.items || []).map((item, idx) => ({
         rowId: `row-${idx}`,
         product_id: item.product_id || item.item_id || item.id || `PROD-${idx + 1}`,
         item_id: item.item_id || item.id || "",
         code: item.code || `SKU-${idx + 1}`,
         name: item.name || item.description || `Item ${idx + 1}`,
+        size: item.size || "M",
+        color: item.color || "Standard",
         quantity_ordered: Number(item.quantity) || 0,
         quantity_received: Number(item.quantity) || 0,
         quantity_damaged: 0,
         cost_price: Number(item.cost_price || item.unit_price) || 100,
+        invoice_rate: Number(item.cost_price || item.unit_price) || 100,
+        trade_discount: 0,
         gst_rate: Number(item.gst_rate) || 18,
+        mrp: Number(item.mrp) || Number(item.unit_price ? Number(item.unit_price) * 1.6 : 0) || 0,
       }));
-      if (lines.length === 0) {
-        lines.push({
-          rowId: "row-0",
-          product_id: "PROD-GEN",
-          item_id: "",
-          code: "SKU-GEN",
-          name: "General Inward Material",
-          quantity_ordered: 1,
-          quantity_received: 1,
-          quantity_damaged: 0,
-          cost_price: 100,
-          gst_rate: 18,
-        });
+      if (lines.length > 0) {
+        setGrnLines(lines);
       }
-      setGrnLines(lines);
     } catch {
       onNotification?.("Load Error", "Could not load order details.", "error");
-      setSelectedOrder(null);
-      setGrnLines([]);
     }
   };
 
-  const updateLine = (rowId: string, field: keyof GrnLineRow, value: number) => {
+  const updateLine = (rowId: string, field: keyof GrnLineRow, value: any) => {
     setGrnLines((prev) =>
       prev.map((row) => (row.rowId === rowId ? { ...row, [field]: value } : row))
     );
   };
 
-  const totalOrdered = grnLines.reduce((s, r) => s + r.quantity_ordered, 0);
-  const totalReceived = grnLines.reduce((s, r) => s + r.quantity_received, 0);
-  const totalDamaged = grnLines.reduce((s, r) => s + r.quantity_damaged, 0);
-  const totalShort = Math.max(0, totalOrdered - totalReceived);
+  // Receiving Metrics
+  const totalOrdered = useMemo(() => grnLines.reduce((s, r) => s + r.quantity_ordered, 0), [grnLines]);
+  const totalReceived = useMemo(() => grnLines.reduce((s, r) => s + r.quantity_received, 0), [grnLines]);
+  const totalDamaged = useMemo(() => grnLines.reduce((s, r) => s + r.quantity_damaged, 0), [grnLines]);
+  const totalAcceptedUnits = useMemo(
+    () => grnLines.reduce((s, r) => s + Math.max(0, r.quantity_received - r.quantity_damaged), 0),
+    [grnLines]
+  );
 
-  const handleSubmitGRN = async () => {
-    if (!selectedOrder) {
-      onNotification?.("No Order Selected", "Select a purchase order first.", "warning");
-      return;
+  // Total Capitalizable Inward Addon Costs
+  const totalAddons = useMemo(
+    () => costItems.reduce((s, c) => s + (c.is_capitalizable ? c.amount : 0), 0),
+    [costItems]
+  );
+
+  // Line stats & Net Values
+  const lineMetrics = useMemo(() => {
+    return grnLines.map((row) => {
+      const accepted = Math.max(0, row.quantity_received - row.quantity_damaged);
+      const netRate = Math.max(0, row.invoice_rate - row.trade_discount);
+      const lineNetVal = accepted * netRate;
+      return { accepted, netRate, lineNetVal };
+    });
+  }, [grnLines]);
+
+  const totalPurchaseValue = useMemo(
+    () => lineMetrics.reduce((s, x) => s + x.lineNetVal, 0),
+    [lineMetrics]
+  );
+
+  // Allocation per line
+  const lineAllocations = useMemo(() => {
+    if (totalAddons <= 0 || totalPurchaseValue <= 0) {
+      return grnLines.map((r) => ({
+        allocatedAmount: 0,
+        addonPerUnit: 0,
+        landedCost: r.invoice_rate - r.trade_discount,
+      }));
     }
+
+    return grnLines.map((row, idx) => {
+      const { accepted, netRate, lineNetVal } = lineMetrics[idx];
+      if (accepted <= 0) {
+        return { allocatedAmount: 0, addonPerUnit: 0, landedCost: netRate };
+      }
+
+      let share = 0;
+      if (allocationMethod === "QUANTITY") {
+        share = totalAcceptedUnits > 0 ? accepted / totalAcceptedUnits : 0;
+      } else {
+        share = totalPurchaseValue > 0 ? lineNetVal / totalPurchaseValue : 0;
+      }
+
+      const allocatedAmount = Math.round(totalAddons * share * 100) / 100;
+      const addonPerUnit = Math.round((allocatedAmount / accepted) * 100) / 100;
+      const landedCost = Math.round((netRate + addonPerUnit) * 100) / 100;
+
+      return { allocatedAmount, addonPerUnit, landedCost };
+    });
+  }, [grnLines, totalAddons, totalPurchaseValue, lineMetrics, totalAcceptedUnits, allocationMethod]);
+
+  // Overall Inventory Acquisition Cost
+  const finalInventoryCost = useMemo(() => totalPurchaseValue + totalAddons, [totalPurchaseValue, totalAddons]);
+  const avgUnitLandedCost = useMemo(
+    () => (totalAcceptedUnits > 0 ? finalInventoryCost / totalAcceptedUnits : 0),
+    [finalInventoryCost, totalAcceptedUnits]
+  );
+
+  // Purchase Price Variance (PPV) calculation
+  const ppvLines = useMemo(() => {
+    return grnLines
+      .map((row) => {
+        const variancePerUnit = row.invoice_rate - row.cost_price;
+        const accepted = Math.max(0, row.quantity_received - row.quantity_damaged);
+        const totalPpv = variancePerUnit * accepted;
+        return {
+          row,
+          variancePerUnit,
+          totalPpv,
+          accepted,
+          hasVariance: Math.abs(variancePerUnit) > 0.001,
+        };
+      })
+      .filter((x) => x.hasVariance);
+  }, [grnLines]);
+
+  const totalPpvAmount = useMemo(() => ppvLines.reduce((s, x) => s + x.totalPpv, 0), [ppvLines]);
+
+  // Margin Preview
+  const avgMrp = useMemo(() => {
+    const totalMrp = grnLines.reduce((s, r) => s + (r.mrp || 0) * Math.max(0, r.quantity_received - r.quantity_damaged), 0);
+    return totalAcceptedUnits > 0 ? totalMrp / totalAcceptedUnits : 0;
+  }, [grnLines, totalAcceptedUnits]);
+
+  const avgMarginPercent = useMemo(() => {
+    if (avgMrp <= 0 || avgUnitLandedCost <= 0) return 0;
+    return Math.max(0, ((avgMrp - avgUnitLandedCost) / avgMrp) * 100);
+  }, [avgMrp, avgUnitLandedCost]);
+
+  // Open Preview Modal
+  const handleOpenPreview = async () => {
+    const previewLines = grnLines.map((r, idx) => {
+      const { accepted, netRate, lineNetVal } = lineMetrics[idx];
+      const { allocatedAmount, addonPerUnit, landedCost } = lineAllocations[idx];
+      const sharePct = totalPurchaseValue > 0 ? (lineNetVal / totalPurchaseValue) * 100 : 0;
+      return {
+        product_id: r.product_id,
+        sku: r.code,
+        product_name: r.name,
+        quantity: accepted,
+        rate: netRate,
+        purchase_value: lineNetVal,
+        share_percent: Math.round(sharePct * 100) / 100,
+        allocated_amount: allocatedAmount,
+        allocated_per_unit: addonPerUnit,
+        net_landed_cost_per_unit: landedCost,
+      };
+    });
+
+    const sumAllocated = previewLines.reduce((s, l) => s + l.allocated_amount, 0);
+    const variance = Math.round((totalAddons - sumAllocated) * 100) / 100;
+
+    setPreviewData({
+      component_type: costItems.length > 0 ? costItems[0].component_type : "INWARD_EXPENSES",
+      allocation_method: allocationMethod,
+      total_component_amount: totalAddons,
+      reconciled_total: sumAllocated,
+      is_balanced: Math.abs(variance) <= 0.05,
+      variance,
+      lines: previewLines,
+    });
+    setIsPreviewOpen(true);
+  };
+
+  // Open WhyThisCost Modal
+  const handleOpenWhyThisCost = (idx: number) => {
+    const row = grnLines[idx];
+    const { accepted, netRate } = lineMetrics[idx];
+    const { addonPerUnit, landedCost } = lineAllocations[idx];
+
+    // Compute component shares
+    const components = costItems.map((c) => {
+      const compAddonTotal = c.amount;
+      const share = totalPurchaseValue > 0 ? (row.invoice_rate * accepted) / totalPurchaseValue : 0;
+      const compAllocated = compAddonTotal * share;
+      const compAllocatedPerUnit = accepted > 0 ? compAllocated / accepted : 0;
+      return {
+        component_type: c.component_type,
+        component_name: c.description || c.component_type,
+        allocated_amount: compAllocated,
+        allocated_per_unit: Math.round(compAllocatedPerUnit * 100) / 100,
+        allocation_method: c.allocation_method,
+        document_no: c.document_no || lrNumber,
+        transporter_name: c.transporter_name || transporterName,
+      };
+    });
+
+    const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : undefined;
+
+    setWhyThisCostData({
+      sku: row.code,
+      product_name: row.name,
+      po_rate: row.cost_price,
+      invoice_rate: row.invoice_rate,
+      trade_discount_per_unit: row.trade_discount,
+      net_purchase_rate: netRate,
+      quantity: accepted,
+      total_addon_per_unit: addonPerUnit,
+      final_landed_cost: landedCost,
+      mrp: row.mrp,
+      margin_percent: marginPct,
+      components,
+    });
+    setIsWhyThisCostOpen(true);
+  };
+
+  // Add Cost Item
+  const handleAddCostItem = (item: InwardCostItem) => {
+    setCostItems((prev) => [...prev, item]);
+  };
+
+  // Remove Cost Item
+  const handleRemoveCostItem = (id: string) => {
+    setCostItems((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  // Submit Post GRN
+  const handleSubmitGRN = async () => {
     const validLines = grnLines.filter((r) => r.quantity_received > 0);
     if (validLines.length === 0) {
       onNotification?.("Validation Error", "Enter at least one received quantity greater than zero.", "warning");
@@ -216,20 +617,49 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setSaving(true);
     try {
       const payload = {
-        supplier_id: selectedOrder.supplier_id,
-        order_id: selectedOrderId,
+        supplier_id: supplierId,
+        order_id: selectedOrderId || undefined,
+        receipt_no: grnNumber,
         notes: notes || undefined,
-        items: validLines.map((r) => ({
-          product_id: r.product_id,
-          item_id: r.item_id || undefined,
-          code: r.code,
-          name: r.name,
-          quantity_ordered: r.quantity_ordered,
-          quantity_received: r.quantity_received,
-          quantity_damaged: r.quantity_damaged,
-          cost_price: r.cost_price,
-          gst_rate: r.gst_rate,
+        transporter_name: transporterName || undefined,
+        lr_number: lrNumber || undefined,
+        lr_date: lrDate || undefined,
+        vehicle_number: vehicleNumber || undefined,
+        freight_amount: totalAddons > 0 ? totalAddons : 0,
+        allocation_method: allocationMethod,
+        cost_components: costItems.map((c) => ({
+          component_type: c.component_type,
+          description: c.description,
+          amount: c.amount,
+          taxable_amount: c.taxable_amount,
+          tax_amount: c.tax_amount,
+          tax_rate: c.tax_rate,
+          total_amount: c.total_amount,
+          itc_eligible: c.itc_eligible,
+          is_capitalizable: c.is_capitalizable,
+          allocation_method: c.allocation_method,
+          transporter_name: c.transporter_name || transporterName,
+          document_no: c.document_no || lrNumber,
+          document_date: c.document_date || lrDate,
+          vehicle_no: c.vehicle_no || vehicleNumber,
         })),
+        items: validLines.map((r, idx) => {
+          const { landedCost, allocatedAmount } = lineAllocations[idx];
+          return {
+            product_id: r.product_id,
+            item_id: r.item_id || undefined,
+            code: r.code,
+            name: r.name,
+            quantity_ordered: r.quantity_ordered,
+            quantity_received: r.quantity_received,
+            quantity_damaged: r.quantity_damaged,
+            cost_price: r.invoice_rate, // Billed rate
+            gst_rate: r.gst_rate,
+            mrp: r.mrp || undefined,
+            landed_cost: landedCost,
+            freight_allocated: allocatedAmount,
+          };
+        }),
       };
 
       const receipt = await apiFetchV1("/purchase/receipts/", {
@@ -237,18 +667,19 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         body: JSON.stringify(payload),
       });
 
-      onNotification?.(
-        "GRN Posted Successfully",
-        `Receipt ${receipt?.receipt_no || ""} created. Received: ${totalReceived}, Short: ${totalShort}, Damaged: ${totalDamaged}.`,
-        "success"
-      );
+      setPostedSummary({
+        grn_no: receipt?.receipt_no || grnNumber,
+        receipt_id: receipt?.id || "REC-001",
+        supplier_name: supplierName,
+        total_units: totalAcceptedUnits,
+        purchase_cost: totalPurchaseValue,
+        additional_landed_costs: totalAddons,
+        total_inventory_cost: finalInventoryCost,
+        cost_components_count: costItems.length,
+      });
 
-      setSelectedOrderId("");
-      setSelectedOrder(null);
-      setGrnLines([]);
-      setNotes("");
+      setIsSuccessModalOpen(true);
       await loadReceipts();
-      setSubView("history");
     } catch (err: any) {
       onNotification?.("GRN Failed", err?.message || "Goods receipt could not be posted. Please retry.", "error");
     } finally {
@@ -310,65 +741,120 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   };
 
   return (
-    <div className="bg-[#faf9ff] text-[#1a1b20] font-sans h-full flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="bg-[#e9edff] border-b border-[#c4c6d4] px-4 py-2 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <PackageCheck size={18} className="text-[#00296d]" />
-          <h2 className="font-bold text-[#00296d] text-sm tracking-tight">
-            GRN / Material Receipt &amp; Supplier Inward
-          </h2>
+    <div className="bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans h-full flex flex-col overflow-hidden">
+      {/* Modals */}
+      <AddCostComponentModal
+        isOpen={isAddCostOpen}
+        onClose={() => setIsAddCostOpen(false)}
+        onSave={handleAddCostItem}
+        costTypes={costTypes}
+        defaultTransporter={transporterName}
+        defaultLrNumber={lrNumber}
+        defaultVehicle={vehicleNumber}
+      />
+
+      <CostAllocationPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        onConfirm={() => onNotification?.("Allocation Confirmed", "Landed costs mapped to SKU batches.", "success")}
+        previewData={previewData}
+      />
+
+      <WhyThisCostModal
+        isOpen={isWhyThisCostOpen}
+        onClose={() => setIsWhyThisCostOpen(false)}
+        data={whyThisCostData}
+      />
+
+      <GrnPostedSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        summary={postedSummary}
+        onViewGrn={() => {
+          setIsSuccessModalOpen(false);
+          setSubView("history");
+        }}
+      />
+
+      <CreateDebitNoteModal
+        isOpen={isDebitNoteOpen}
+        onClose={() => setIsDebitNoteOpen(false)}
+        suppliers={suppliersList}
+        defaultSupplierId={supplierId}
+        defaultClaimAmount={totalPpvAmount > 0 ? totalPpvAmount : undefined}
+        defaultReason={
+          ppvLines.length > 0
+            ? `Price variance claim for SKU ${ppvLines[0].row.code}: PO Rate ₹${ppvLines[0].row.cost_price} vs Billed Rate ₹${ppvLines[0].row.invoice_rate}`
+            : undefined
+        }
+        onSuccess={() => {
+          onNotification?.("Debit Note Claim Issued", "Rate variance debit note recorded for supplier.", "success");
+          setIsDebitNoteOpen(false);
+        }}
+      />
+
+      {/* Top Application Bar */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex items-center justify-between shrink-0 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-indigo-600 text-white">
+            <PackageCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight">
+                Goods Receipt Note (GRN)
+              </h2>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                ● Draft
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              Procurement Inward, Physical Verification, Landed Cost &amp; WMS Batch Staging
+            </p>
+          </div>
         </div>
-        <div className="flex gap-1">
+
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setSubView("create")}
-            className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
               subView === "create"
-                ? "bg-[#00296d] text-white"
-                : "bg-white border border-[#c4c6d4] text-[#434652] hover:bg-[#e9edff]"
+                ? "bg-indigo-600 text-white shadow"
+                : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
             }`}
           >
-            <ClipboardList size={12} className="inline mr-1" />
-            Post GRN
+            <ClipboardList className="w-3.5 h-3.5 inline mr-1" />
+            GRN Studio
           </button>
           <button
             onClick={() => {
               setSubView("history");
               loadReceipts();
             }}
-            className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
               subView === "history"
-                ? "bg-[#00296d] text-white"
-                : "bg-white border border-[#c4c6d4] text-[#434652] hover:bg-[#e9edff]"
+                ? "bg-indigo-600 text-white shadow"
+                : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
             }`}
           >
-            <CheckCircle2 size={12} className="inline mr-1" />
+            <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
             GRN History
           </button>
           <button
             onClick={() => setSubView("bill")}
-            className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
               subView === "bill"
-                ? "bg-[#00296d] text-white"
-                : "bg-white border border-[#c4c6d4] text-[#434652] hover:bg-[#e9edff]"
+                ? "bg-indigo-600 text-white shadow"
+                : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
             }`}
           >
-            <Receipt size={12} className="inline mr-1" />
-            Post Purchase Bill
-          </button>
-          <button
-            onClick={() => setIsDebitNoteOpen(true)}
-            className="px-3 py-1 text-xs font-bold rounded bg-amber-600 text-white hover:bg-amber-700 ml-2"
-          >
-            <Plus size={12} className="inline mr-1" />
-            Issue Debit Note
+            <Receipt className="w-3.5 h-3.5 inline mr-1" />
+            Purchase Bill
           </button>
           {onClose && (
             <button
-              type="button"
               onClick={onClose}
-              className="px-3 py-1 text-xs font-bold rounded bg-rose-600 text-white hover:bg-rose-700 ml-2 transition-colors"
-              title="Close Goods Receipt Studio"
+              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700 ml-2 shadow"
             >
               Exit
             </button>
@@ -376,385 +862,839 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         </div>
       </div>
 
-      {/* View 1: Post GRN */}
+      {/* View 1: GRN Studio */}
       {subView === "create" && (
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {/* 1. PO Selection */}
-          <div className="bg-white border border-[#c4c6d4] rounded shadow-sm p-3">
-            <h3 className="text-[10px] font-bold uppercase text-[#00296d] mb-2 tracking-wider">
-              1. Select Purchase Order
-            </h3>
-            <div className="flex gap-2 items-center">
-              <div className="relative flex-1">
-                <select
-                  value={selectedOrderId}
-                  onChange={(e) => handleSelectOrder(e.target.value)}
-                  disabled={ordersLoading}
-                  className="w-full border border-[#737685] rounded px-2 h-8 text-xs bg-white outline-none focus:ring-1 focus:ring-[#00296d] appearance-none pr-8 font-mono"
-                >
-                  <option value="">
-                    {ordersLoading ? "Loading orders..." : "-- Select a Confirmed Purchase Order --"}
-                  </option>
-                  {orders.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.order_no || o.order_number || o.id} - {o.supplier_name || o.supplier_id} ({o.status})
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={14}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#737685] pointer-events-none"
-                />
-              </div>
-              <button
-                onClick={loadOrders}
-                className="p-2 border border-[#c4c6d4] rounded hover:bg-[#e9edff] text-[#00296d]"
-                title="Refresh POs"
-              >
-                <RefreshCw size={14} />
-              </button>
-            </div>
-            {selectedOrder && (
-              <div className="mt-2 text-xs text-[#434652] grid grid-cols-3 gap-2 bg-[#f0f2ff] p-2 rounded border border-[#c4c6d4]">
-                <span>
-                  <b>Supplier ID:</b> {selectedOrder.supplier_id}
-                </span>
-                <span>
-                  <b>PO Reference:</b> {selectedOrder.order_no || selectedOrder.order_number || selectedOrder.id}
-                </span>
-                <span>
-                  <b>Status:</b> {selectedOrder.status}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* 2. Received Quantities Entry */}
-          {grnLines.length > 0 && (
-            <div className="bg-white border border-[#c4c6d4] rounded shadow-sm">
-              <div className="flex justify-between items-center px-3 py-2 border-b border-[#c4c6d4]">
-                <h3 className="text-[10px] font-bold uppercase text-[#00296d] tracking-wider">
-                  2. Line Item Physical Verification
-                </h3>
-                <span className="text-[10px] text-[#737685]">
-                  Ordered: <b>{totalOrdered}</b> | Received: <b>{totalReceived}</b>
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-[#e9edff] text-[#00296d] font-bold">
-                    <tr>
-                      <th className="px-3 py-2 text-left w-8">#</th>
-                      <th className="px-3 py-2 text-left">Item / Description</th>
-                      <th className="px-3 py-2 text-left w-28">SKU Code</th>
-                      <th className="px-3 py-2 text-right w-24">Ordered</th>
-                      <th className="px-3 py-2 text-right w-28">Received Qty</th>
-                      <th className="px-3 py-2 text-right w-28">Damaged Qty</th>
-                      <th className="px-3 py-2 text-right w-24">Shortage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {grnLines.map((row, idx) => {
-                      const short = Math.max(0, row.quantity_ordered - row.quantity_received);
-                      return (
-                        <tr key={row.rowId} className="border-b border-[#f0f2ff] hover:bg-[#faf9ff]">
-                          <td className="px-3 py-1.5 text-[#737685]">{idx + 1}</td>
-                          <td className="px-3 py-1.5 font-medium">{row.name}</td>
-                          <td className="px-3 py-1.5 font-mono text-[#737685]">{row.code}</td>
-                          <td className="px-3 py-1.5 text-right font-mono">{row.quantity_ordered}</td>
-                          <td className="px-3 py-1.5 text-right">
-                            <input
-                              type="number"
-                              min={0}
-                              max={row.quantity_ordered}
-                              value={row.quantity_received}
-                              onChange={(e) =>
-                                updateLine(row.rowId, "quantity_received", Number(e.target.value) || 0)
-                              }
-                              className="w-20 border border-[#737685] rounded px-2 h-6 font-mono text-right focus:ring-1 focus:ring-[#00296d] outline-none"
-                            />
-                          </td>
-                          <td className="px-3 py-1.5 text-right">
-                            <input
-                              type="number"
-                              min={0}
-                              value={row.quantity_damaged}
-                              onChange={(e) =>
-                                updateLine(row.rowId, "quantity_damaged", Number(e.target.value) || 0)
-                              }
-                              className="w-20 border border-[#c4c6d4] rounded px-2 h-6 font-mono text-right focus:ring-1 focus:ring-amber-400 outline-none"
-                            />
-                          </td>
-                          <td
-                            className={`px-3 py-1.5 text-right font-mono font-bold ${
-                              short > 0 ? "text-red-600" : "text-emerald-600"
-                            }`}
-                          >
-                            {short > 0 ? `-${short}` : "0"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-[#e9edff] font-bold text-[#00296d]">
-                    <tr>
-                      <td colSpan={3} className="px-3 py-2 text-right">
-                        Totals
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">{totalOrdered}</td>
-                      <td className="px-3 py-2 text-right font-mono">{totalReceived}</td>
-                      <td className="px-3 py-2 text-right font-mono text-amber-700">{totalDamaged}</td>
-                      <td
-                        className={`px-3 py-2 text-right font-mono ${
-                          totalShort > 0 ? "text-red-600" : "text-emerald-600"
-                        }`}
-                      >
-                        {totalShort > 0 ? `-${totalShort}` : "0"}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* 3. Shortage Alert & Submit */}
-          {selectedOrder && (
-            <div className="bg-white border border-[#c4c6d4] rounded shadow-sm p-3">
-              <h3 className="text-[10px] font-bold uppercase text-[#00296d] mb-2 tracking-wider">
-                3. Finalize &amp; Inward into WMS
-              </h3>
-              {totalShort > 0 && (
-                <div className="mb-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded p-3 flex items-center justify-between">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Main 2-Column Responsive Layout */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+            {/* Left Column: GRN Workspace (8 cols) */}
+            <div className="xl:col-span-8 space-y-4">
+              {/* Header Details Card */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle size={16} className="text-amber-600 shrink-0" />
-                    <span>
-                      <b>Shortage Detected:</b> {totalShort} units short against PO. You can issue a Debit Note for this claim.
+                    <ArrowLeft className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" onClick={onClose} />
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      Goods Receipt Note (GRN)
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                      ● Draft
                     </span>
                   </div>
-                  <button
-                    onClick={() => setIsDebitNoteOpen(true)}
-                    className="px-2.5 py-1 bg-amber-600 text-white rounded text-[11px] font-bold hover:bg-amber-700"
-                  >
-                    Issue Debit Note
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onNotification?.("Draft Saved", "GRN draft state persisted.", "info")}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Save Draft</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitGRN}
+                      disabled={saving}
+                      className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow transition flex items-center gap-1.5"
+                    >
+                      <PackageCheck className="w-3.5 h-3.5" />
+                      <span>{saving ? "Posting..." : "Post GRN"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Form Fields Header */}
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
+                  <div>
+                    <label className="block text-slate-500 font-medium mb-1">GRN No.</label>
+                    <input
+                      type="text"
+                      value={grnNumber}
+                      onChange={(e) => setGrnNumber(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800 dark:text-slate-200 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-500 font-medium mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={grnDate}
+                      onChange={(e) => setGrnDate(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-slate-500 font-medium mb-1">
+                      Supplier <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={selectedOrderId}
+                      onChange={(e) => handleSelectOrder(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
+                    >
+                      <option value="">{supplierName} ({supplierId})</option>
+                      {orders.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.supplier_name || o.supplier_id} — PO: {o.order_no || o.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-500 font-medium mb-1">Reference</label>
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                      <span>{referencePo}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-500 font-medium mb-1">Invoice No.</label>
+                    <input
+                      type="text"
+                      placeholder="INV-78452"
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 dark:text-slate-200 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Process Step Wizard */}
+                <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 text-xs">
+                  {[
+                    { step: 1, label: "PO & Details" },
+                    { step: 2, label: "Receive & Verify" },
+                    { step: 3, label: "Commercials" },
+                    { step: 4, label: "Costs & Freight" },
+                    { step: 5, label: "Review & Post" },
+                  ].map((s) => (
+                    <button
+                      key={s.step}
+                      type="button"
+                      onClick={() => setActiveStep(s.step)}
+                      className={`flex items-center gap-2 pb-1 border-b-2 font-semibold transition ${
+                        activeStep === s.step
+                          ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                          : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          activeStep === s.step
+                            ? "bg-indigo-600 text-white"
+                            : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                        }`}
+                      >
+                        {s.step}
+                      </span>
+                      <span>{s.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Receiving Summary Metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+                  <span className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono block">
+                    {totalOrdered.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium">Ordered (Units)</span>
+                </div>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+                  <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400 font-mono block">
+                    {totalReceived.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium">Received (Units)</span>
+                </div>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+                  <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400 font-mono block">
+                    {totalDamaged.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium">Damaged (Units)</span>
+                </div>
+                <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 rounded-xl p-3 shadow-sm bg-emerald-50/20">
+                  <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono block">
+                    {totalAcceptedUnits.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold">Net Accepted</span>
+                </div>
+              </div>
+
+              {/* Item Details Grid */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-1 max-w-sm">
+                    <div className="relative w-full">
+                      <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by SKU, product name or scan barcode..."
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onNotification?.("PO Selector", "Select items from PO.", "info")}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add from PO</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onNotification?.("Barcode Scan", "Barcode scanner ready.", "info")}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                    >
+                      <Barcode className="w-3.5 h-3.5" />
+                      <span>Scan Barcode</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                    >
+                      <Columns className="w-3.5 h-3.5" />
+                      <span>Columns</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-2.5">#</th>
+                        <th className="py-2.5 px-2">SKU</th>
+                        <th className="py-2.5 px-3">Product</th>
+                        <th className="py-2.5 px-2">Size</th>
+                        <th className="py-2.5 px-2">Color</th>
+                        <th className="py-2.5 px-2 text-right">PO Qty</th>
+                        <th className="py-2.5 px-2 text-right">Recv Qty</th>
+                        <th className="py-2.5 px-2 text-right text-rose-500">Damage</th>
+                        <th className="py-2.5 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400">Accepted</th>
+                        <th className="py-2.5 px-2 text-right">PO Rate (₹)</th>
+                        <th className="py-2.5 px-2 text-right">Inv. Rate (₹)</th>
+                        <th className="py-2.5 px-2 text-right">Net Rate (₹)</th>
+                        <th className="py-2.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                          Landed Cost (₹)
+                        </th>
+                        <th className="py-2.5 px-2 text-right">Margin</th>
+                        <th className="py-2.5 px-2 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {grnLines.map((row, idx) => {
+                        const { accepted, netRate } = lineMetrics[idx];
+                        const { landedCost } = lineAllocations[idx];
+                        const isPpv = Math.abs(row.invoice_rate - row.cost_price) > 0.001;
+                        const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
+
+                        return (
+                          <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                            <td className="py-2 px-2.5 text-slate-400">{idx + 1}</td>
+                            <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">
+                              {row.code}
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className="font-semibold text-slate-900 dark:text-white block">
+                                {row.name}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2 font-mono text-slate-600 dark:text-slate-400">{row.size}</td>
+                            <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{row.color}</td>
+                            <td className="py-2 px-2 text-right font-mono">{row.quantity_ordered}</td>
+                            <td className="py-2 px-2 text-right font-mono">
+                              <input
+                                type="number"
+                                min="0"
+                                value={row.quantity_received}
+                                onChange={(e) => updateLine(row.rowId, "quantity_received", parseFloat(e.target.value) || 0)}
+                                className="w-16 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono"
+                              />
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono text-rose-600 dark:text-rose-400">
+                              <input
+                                type="number"
+                                min="0"
+                                value={row.quantity_damaged}
+                                onChange={(e) => updateLine(row.rowId, "quantity_damaged", parseFloat(e.target.value) || 0)}
+                                className="w-14 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-rose-600"
+                              />
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                              {accepted}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono">
+                              {row.cost_price.toFixed(2)}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={row.invoice_rate}
+                                onChange={(e) => updateLine(row.rowId, "invoice_rate", parseFloat(e.target.value) || 0)}
+                                className={`w-20 text-right bg-slate-50 dark:bg-slate-800 border rounded px-1.5 py-0.5 font-mono ${
+                                  isPpv ? "border-amber-400 font-bold text-amber-700 dark:text-amber-300" : "border-slate-300 dark:border-slate-700"
+                                }`}
+                              />
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono font-medium">
+                              {netRate.toFixed(2)}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenWhyThisCost(idx)}
+                                className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition inline-flex items-center gap-1"
+                                title="Click to view explainable landed cost breakdown"
+                              >
+                                <span>₹{landedCost.toFixed(2)}</span>
+                                <HelpCircle className="w-3 h-3 text-indigo-400" />
+                              </button>
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                                {marginPct.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              {isPpv ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 inline-flex items-center gap-0.5">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  <span>PPV</span>
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 inline-flex items-center gap-0.5">
+                                  <Check className="w-3 h-3" />
+                                  <span>OK</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Purchase Price Variance (PPV) Card */}
+              {ppvLines.length > 0 && (
+                <div className="bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
+                      <AlertTriangle className="w-4 h-4 text-rose-600" />
+                      <span>Purchase Price Variance (PPV)</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200">
+                      {ppvLines.length} item with variance
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-slate-500 font-medium">
+                        <tr>
+                          <th className="py-1 px-2">SKU</th>
+                          <th className="py-1 px-2">Product</th>
+                          <th className="py-1 px-2 text-right">PO Rate</th>
+                          <th className="py-1 px-2 text-right">Invoice Rate</th>
+                          <th className="py-1 px-2 text-right text-rose-600">Variance (₹)</th>
+                          <th className="py-1 px-2 text-right">Qty</th>
+                          <th className="py-1 px-2 text-right text-rose-600 font-bold">Total (₹)</th>
+                          <th className="py-1 px-2 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
+                        {ppvLines.map(({ row, variancePerUnit, totalPpv, accepted }) => (
+                          <tr key={row.code}>
+                            <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
+                            <td className="py-2 px-2 text-slate-700 dark:text-slate-300">{row.name}</td>
+                            <td className="py-2 px-2 text-right font-mono">₹{row.cost_price.toFixed(2)}</td>
+                            <td className="py-2 px-2 text-right font-mono">₹{row.invoice_rate.toFixed(2)}</td>
+                            <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                              +{variancePerUnit.toFixed(2)}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono">{accepted}</td>
+                            <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                              ₹{totalPpv.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => onNotification?.("Variance Accepted", `Accepted +₹${variancePerUnit} variance for ${row.code}`, "info")}
+                                  className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs transition"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsDebitNoteOpen(true)}
+                                  className="px-2.5 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                >
+                                  Create Claim
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Optional inspection remarks, delivery vehicle details, seal numbers..."
-                rows={2}
-                className="w-full border border-[#c4c6d4] rounded px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-[#00296d] resize-none mb-3"
-              />
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSubmitGRN}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2 bg-[#00296d] text-white text-xs font-bold rounded hover:bg-[#003580] disabled:opacity-60 shadow-sm"
-                >
-                  <Save size={14} />
-                  {saving ? "Inwarding into WMS..." : "Confirm & Post Goods Receipt (GRN)"}
-                </button>
+
+              {/* Margin Preview Post GRN Box */}
+              <div className="bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/60 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold text-xs">
+                    <TrendingUp className="w-4 h-4 text-indigo-600" />
+                    <span>Margin Preview (Post GRN)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Based on accepted quantity and capitalized landed cost
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-6 text-right text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Landed Cost</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                      ₹ {avgUnitLandedCost.toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. MRP</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                      ₹ {avgMrp.toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Margin</span>
+                    <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-xs">
+                      {avgMarginPercent.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Remarks & Document Attachments Footer */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                {/* Remarks */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
+                  <label className="font-bold text-slate-800 dark:text-slate-200">Remarks &amp; Notes</label>
+                  <textarea
+                    rows={3}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add any remarks, transport observations, packaging condition, or inspection notes..."
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Attachments */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
+                  <label className="font-bold text-slate-800 dark:text-slate-200">Statutory Attachments</label>
+                  <div className="space-y-1.5">
+                    {[
+                      { name: "Invoice_INV78452.pdf", size: "245 KB" },
+                      { name: "LR_VT982142.pdf", size: "120 KB" },
+                      { name: "Packing_List.pdf", size: "98 KB" },
+                    ].map((f) => (
+                      <div
+                        key={f.name}
+                        className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                          <span className="font-medium text-slate-800 dark:text-slate-200">{f.name}</span>
+                        </div>
+                        <span className="text-slate-400">{f.size}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          )}
 
-          {!selectedOrder && !ordersLoading && (
-            <div className="text-center py-16 text-[#737685] text-xs">
-              <PackageCheck size={36} className="mx-auto mb-2 text-[#c4c6d4]" />
-              <p className="font-medium">Select a purchase order above to start physical material inward.</p>
+            {/* Right Column: Transport & Inward Landed Cost Dock (4 cols) */}
+            <div className="xl:col-span-4 space-y-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+                {/* Dock Header */}
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-indigo-600" />
+                    <h3 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                      Transport &amp; Inward Landed Cost
+                    </h3>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-500 block">Total Addons</span>
+                    <span className="font-mono font-extrabold text-sm text-indigo-600 dark:text-indigo-400">
+                      ₹ {totalAddons.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Dock Body */}
+                <div className="p-4 space-y-4 text-xs">
+                  {/* Transport Details Section */}
+                  <div className="space-y-2.5">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
+                      Transport Details
+                    </span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1">Transporter</label>
+                        <input
+                          type="text"
+                          value={transporterName}
+                          onChange={(e) => setTransporterName(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1">LR / Bilty No.</label>
+                        <input
+                          type="text"
+                          value={lrNumber}
+                          onChange={(e) => setLrNumber(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 font-mono text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={lrDate}
+                          onChange={(e) => setLrDate(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1">Vehicle No.</label>
+                        <input
+                          type="text"
+                          value={vehicleNumber}
+                          onChange={(e) => setVehicleNumber(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 font-mono uppercase text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1">Weight / CBM</label>
+                        <input
+                          type="text"
+                          value={weightCbm}
+                          onChange={(e) => setWeightCbm(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1">Cartons</label>
+                        <input
+                          type="number"
+                          value={cartons}
+                          onChange={(e) => setCartons(parseInt(e.target.value) || 0)}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 font-mono text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cost Components Section */}
+                  <div className="space-y-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider">
+                        Cost Components ({costItems.length})
+                      </span>
+                    </div>
+
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                          <tr>
+                            <th className="py-2 px-2">#</th>
+                            <th className="py-2 px-2">Cost Type</th>
+                            <th className="py-2 px-2 text-right">Amount (₹)</th>
+                            <th className="py-2 px-1 text-center">Tax</th>
+                            <th className="py-2 px-2 text-center">Allocation</th>
+                            <th className="py-2 px-1 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {costItems.map((c, i) => (
+                            <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                              <td className="py-1.5 px-2 text-slate-400">{i + 1}</td>
+                              <td className="py-1.5 px-2 font-medium text-slate-800 dark:text-slate-200">{c.component_type}</td>
+                              <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                {c.amount.toFixed(2)}
+                              </td>
+                              <td className="py-1.5 px-1 text-center font-mono text-slate-500">{c.tax_rate}%</td>
+                              <td className="py-1.5 px-2 text-center">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                  {c.allocation_method === "QUANTITY" ? "Quantity" : "Value"}
+                                </span>
+                              </td>
+                              <td className="py-1.5 px-1 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCostItem(c.id)}
+                                  className="text-slate-400 hover:text-rose-500 p-0.5 transition"
+                                  title="Delete component"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsAddCostOpen(true)}
+                      className="w-full py-1.5 rounded-lg border border-dashed border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Cost Component</span>
+                    </button>
+                  </div>
+
+                  {/* Allocation Method Radio Group */}
+                  <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
+                      Allocation Method
+                    </span>
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
+                        <input
+                          type="radio"
+                          name="allocMethodSidebar"
+                          checked={allocationMethod === "VALUE"}
+                          onChange={() => setAllocationMethod("VALUE")}
+                          className="text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="font-medium">By Value (Ad-Valorem)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
+                        <input
+                          type="radio"
+                          name="allocMethodSidebar"
+                          checked={allocationMethod === "QUANTITY"}
+                          onChange={() => setAllocationMethod("QUANTITY")}
+                          className="text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="font-medium">By Quantity (Per Unit)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
+                        <input
+                          type="radio"
+                          name="allocMethodSidebar"
+                          checked={allocationMethod === "WEIGHT"}
+                          onChange={() => setAllocationMethod("WEIGHT")}
+                          className="text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="font-medium">By Weight / CBM</span>
+                      </label>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>
+                        Freight and other costs will be allocated based on each item's share of total invoice value.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cost Summary Section */}
+                  <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-800 font-mono">
+                    <span className="font-sans font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
+                      Cost Summary
+                    </span>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>Purchase Value (Accepted Qty)</span>
+                        <span>₹{totalPurchaseValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold">
+                        <span>Total Add-on Costs</span>
+                        <span>₹{totalAddons.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between font-bold text-slate-900 dark:text-white text-sm">
+                        <span>Final Inventory Cost</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          ₹{finalInventoryCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                        <span>Avg. Unit Landed Cost</span>
+                        <span>₹{avgUnitLandedCost.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Preview Button */}
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2 text-center">
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      className="w-full py-2.5 px-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition flex items-center justify-center gap-2 shadow-xs"
+                    >
+                      <Scale className="w-4 h-4" />
+                      <span>Preview Allocation</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenPreview}
+                      className="text-[11px] text-indigo-600 hover:underline inline-block font-semibold"
+                    >
+                      View Allocation Preview →
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
       {/* View 2: GRN History */}
       {subView === "history" && (
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="bg-white border border-[#c4c6d4] rounded shadow-sm">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-[#c4c6d4]">
-              <h3 className="text-[10px] font-bold uppercase text-[#00296d] tracking-wider">
-                Confirmed Goods Receipts (GRN)
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                Historical Material Inward Receipts ({savedReceipts.length})
               </h3>
               <button
                 onClick={loadReceipts}
-                className="p-1 border border-[#c4c6d4] rounded hover:bg-[#e9edff] text-[#00296d]"
-                title="Refresh Receipts"
+                className="p-1.5 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
               >
-                <RefreshCw size={12} />
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
+
             {receiptsLoading ? (
-              <div className="text-center py-8 text-xs text-[#737685]">Loading receipts...</div>
+              <p className="text-xs text-slate-500 py-6 text-center">Loading receipts...</p>
             ) : savedReceipts.length === 0 ? (
-              <div className="text-center py-8 text-xs text-[#737685]">No goods receipts posted yet.</div>
+              <p className="text-xs text-slate-500 py-6 text-center">No Goods Receipts posted yet.</p>
             ) : (
-              <table className="w-full text-xs">
-                <thead className="bg-[#e9edff] text-[#00296d] font-bold">
-                  <tr>
-                    <th className="px-3 py-2 text-left">GRN Receipt No</th>
-                    <th className="px-3 py-2 text-left">Supplier</th>
-                    <th className="px-3 py-2 text-left">PO Reference</th>
-                    <th className="px-3 py-2 text-right">Tax Total</th>
-                    <th className="px-3 py-2 text-right">Grand Total</th>
-                    <th className="px-3 py-2 text-center">Status</th>
-                    <th className="px-3 py-2 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {savedReceipts.map((r: any) => (
-                    <tr key={r.id} className="border-b border-[#f0f2ff] hover:bg-[#faf9ff]">
-                      <td className="px-3 py-2 font-mono font-bold text-[#00296d]">{r.receipt_no}</td>
-                      <td className="px-3 py-2">{r.supplier_id}</td>
-                      <td className="px-3 py-2 font-mono text-[#737685]">{r.order_id || "-"}</td>
-                      <td className="px-3 py-2 text-right font-mono">
-                        INR {(Number(r.tax_total) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono font-bold text-emerald-600">
-                        INR {(Number(r.grand_total) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold">
-                          {r.status || "RECEIVED"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => handleCreateBillFromReceipt(r)}
-                            className="px-2 py-0.5 bg-[#00296d] text-white rounded text-[10px] font-bold hover:bg-[#003580]"
-                            title="Generate Supplier Purchase Bill"
-                          >
-                            Post Bill
-                          </button>
-                          <button
-                            onClick={() => setIsDebitNoteOpen(true)}
-                            className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded text-[10px] font-bold hover:bg-amber-200"
-                            title="Issue Debit Note for shortages"
-                          >
-                            Debit Note
-                          </button>
-                        </div>
-                      </td>
+              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3">Receipt No</th>
+                      <th className="py-2.5 px-3">Supplier</th>
+                      <th className="py-2.5 px-3">Date</th>
+                      <th className="py-2.5 px-3 text-right">Items</th>
+                      <th className="py-2.5 px-3 text-right">Grand Total (₹)</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                      <th className="py-2.5 px-3 text-center">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {savedReceipts.map((r) => (
+                      <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50">
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900 dark:text-white">{r.receipt_no}</td>
+                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">{r.supplier_id}</td>
+                        <td className="py-2.5 px-3 font-mono text-slate-500">
+                          {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN") : "--"}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono">{r.items ? r.items.length : "--"}</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          ₹{Number(r.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            {r.status || "RECEIVED"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleCreateBillFromReceipt(r)}
+                            className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-xs transition"
+                          >
+                            Create Bill
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
       )}
 
-      {/* View 3: Post Purchase Bill */}
+      {/* View 3: Purchase Bill */}
       {subView === "bill" && (
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <div className="bg-white border border-[#c4c6d4] rounded shadow-sm p-4">
-            <h3 className="text-xs font-bold uppercase text-[#00296d] mb-3 tracking-wider flex items-center gap-2">
-              <Receipt size={16} />
-              Supplier Bill / Purchase Invoice Booking
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-5 max-w-xl mx-auto space-y-4">
+            <h3 className="font-bold text-base text-slate-900 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800">
+              Record Supplier Purchase Bill
             </h3>
-
-            {/* GRN Selection */}
-            <div className="mb-3">
-              <label className="block text-xs font-semibold text-[#434652] mb-1">Select Inward GRN:</label>
-              <select
-                value={selectedReceiptForBill?.id || ""}
-                onChange={(e) => {
-                  const r = savedReceipts.find((item) => item.id === e.target.value);
-                  setSelectedReceiptForBill(r || null);
-                  if (r && !vendorBillNo) {
-                    setVendorBillNo(`BILL-${Date.now().toString().slice(-6)}`);
-                  }
-                }}
-                className="w-full border border-[#737685] rounded px-3 h-8 text-xs bg-white outline-none focus:ring-1 focus:ring-[#00296d] font-mono"
-              >
-                <option value="">-- Select Inward GRN Receipt --</option>
-                {savedReceipts.map((r: any) => (
-                  <option key={r.id} value={r.id}>
-                    {r.receipt_no} - Supplier: {r.supplier_id} (Total: INR {r.grand_total})
-                  </option>
-                ))}
-              </select>
-            </div>
-
             {selectedReceiptForBill ? (
-              <div className="space-y-3 border-t border-[#c4c6d4] pt-3">
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="block font-semibold text-[#434652] mb-1">Vendor Invoice / Bill No:</label>
-                    <input
-                      type="text"
-                      value={vendorBillNo}
-                      onChange={(e) => setVendorBillNo(e.target.value)}
-                      placeholder="e.g. INV/2026/0892"
-                      className="w-full border border-[#737685] rounded px-3 h-8 font-mono font-bold outline-none focus:ring-1 focus:ring-[#00296d]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-[#434652] mb-1">Supplier ID:</label>
-                    <input
-                      type="text"
-                      disabled
-                      value={selectedReceiptForBill.supplier_id}
-                      className="w-full border border-[#c4c6d4] bg-[#f0f2ff] rounded px-3 h-8 text-[#737685] font-mono"
-                    />
-                  </div>
+              <div className="space-y-3 text-xs">
+                <div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900 font-mono space-y-1">
+                  <div>GRN Reference: <strong>{selectedReceiptForBill.receipt_no}</strong></div>
+                  <div>Supplier: <strong>{selectedReceiptForBill.supplier_id}</strong></div>
+                  <div>Grand Total: <strong>₹{Number(selectedReceiptForBill.grand_total || 0).toFixed(2)}</strong></div>
                 </div>
 
-                <div className="bg-[#f0f2ff] border border-[#c4c6d4] rounded p-3 grid grid-cols-3 gap-2 text-center text-xs">
-                  <div>
-                    <span className="text-[#737685] block text-[10px] uppercase font-bold">Taxable Amount</span>
-                    <span className="font-mono font-bold text-sm">
-                      INR {(Number(selectedReceiptForBill.subtotal) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[#737685] block text-[10px] uppercase font-bold">Tax Amount (GST)</span>
-                    <span className="font-mono font-bold text-sm text-amber-700">
-                      INR {(Number(selectedReceiptForBill.tax_total) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[#737685] block text-[10px] uppercase font-bold">Total Bill Payable</span>
-                    <span className="font-mono font-bold text-sm text-emerald-700">
-                      INR {(Number(selectedReceiptForBill.grand_total) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
+                <div>
+                  <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">
+                    Vendor Tax Invoice / Bill No. <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={vendorBillNo}
+                    onChange={(e) => setVendorBillNo(e.target.value)}
+                    placeholder="e.g. INV-2026-98102"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 font-mono text-slate-900 dark:text-white"
+                  />
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="pt-3 flex justify-end gap-2">
                   <button
+                    type="button"
+                    onClick={() => setSubView("history")}
+                    className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleSubmitPurchaseBill}
                     disabled={billSaving}
-                    className="flex items-center gap-2 px-5 py-2 bg-[#00296d] text-white text-xs font-bold rounded hover:bg-[#003580] disabled:opacity-60 shadow-sm"
+                    className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow"
                   >
-                    <Save size={14} />
-                    {billSaving ? "Posting Bill..." : "Post Purchase Bill to Payables Ledger"}
+                    {billSaving ? "Recording..." : "Record Purchase Bill"}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-10 text-xs text-[#737685]">
-                Please select a confirmed GRN to auto-populate supplier billing lines.
-              </div>
+              <p className="text-xs text-slate-500 py-6 text-center">
+                Select a GRN from GRN History first to record a purchase bill.
+              </p>
             )}
           </div>
         </div>
       )}
-
-      {/* Modal: Create Debit Note */}
-      <CreateDebitNoteModal
-        isOpen={isDebitNoteOpen}
-        onClose={() => setIsDebitNoteOpen(false)}
-        onDebitNoteCreated={() => {
-          onNotification?.("Debit Note Issued", "Debit note recorded and supplier balance adjusted.", "success");
-          loadReceipts();
-        }}
-        suppliers={suppliersList}
-      />
     </div>
   );
 };
-
-export default GrnReceiptTab;

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-2CBCFC",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "component",
+  "proposed_name": "AddCostComponentModal.tsx",
+  "target_file_path": "src/components/purchase/AddCostComponentModal.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/AddCostComponentModal.tsx",
+  "content_hash": "5b9e6ea8231804acfa8b42058fb00b28c655954bde8bc9d555135ddfa03741a9",
+  "git_commit": "529b6ce54bdd9d51b942fd1618c45ff53ff56890",
+  "issued_at": "2026-09-19T19:00:21.949052+00:00",
+  "expires_at": "2026-09-26T19:00:21.949052+00:00",
+  "status": "ISSUED"
+}

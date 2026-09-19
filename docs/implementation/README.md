@@ -185,6 +185,8 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 3B Pre-Flight: Finite Legacy Dependency & Deprecation Audit](./inventory/Inventory_Gate11E_Phase3B_Preflight_v1.0.0.md) | `/scripts/execute_gate11e_phase3b_preflight_audit.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3B_Preflight_v1.0.0.md) |
 | 2026-09-02 | v1.0.0 | [Gate 11E Phase 3B Execution: Final Schema Retirement & Gate 11E Closure](./inventory/Inventory_Gate11E_Phase3B_Execution_v1.0.0.md) | `/scripts/execute_gate11e_phase3b_execution.py` | Completed | [Walkthrough](../walkthrough/inventory/Inventory_Gate11E_Phase3B_Execution_v1.0.0.md) |
 | 2026-09-16 | v6.27.0 | [Stage 5: Transactional Postgres Outbox Engine & Worker Daemon](./foundation/Stage5_Transactional_Postgres_Outbox_Engine_v6.27.0.md) | `/backend/app/platform/events/postgres_outbox.py`, `/backend/app/platform/events/outbox_worker.py`, `/backend/tests/test_postgres_outbox_worker.py` | Completed | [Walkthrough](../walkthrough/architecture/Stage5_Transactional_Postgres_Outbox_Engine_And_Worker_Daemon_v6.27.0.md) |
+| 2026-09-20 | v3.33.0 | [Inward Landed Cost, Multi-Component Freight & Commercial Engine](./purchase/Inward_Landed_Cost_And_Freight_Engine_v3.33.0.md) | `/backend/app/services/landed_cost.py`, `/backend/app/models/inward_cost.py`, `/src/components/purchase/GrnReceiptTab.tsx`, `/src/components/purchase/InwardCostDock.tsx` | Completed | [Walkthrough](../walkthrough/procurement/Procurement_Inward_Landed_Cost_And_Freight_Engine_v3.33.0.md) |
+
 
 
 

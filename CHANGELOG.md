@@ -39,7 +39,20 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.43.0] - 2026-09-20
+
+#### Inward Landed Cost, Multi-Component Freight & Commercial Engine
+- **Multi-Component Expense Schema:** Provisioned 4 canonical database tables via Alembic migration `v1478` (`inward_cost_component_types`, `inward_cost_components`, `inward_cost_allocations`, `inward_cost_adjustments`), supporting 19 seeded cost types (Freight, Cartage, Loading/Hamali, Insurance, Packing & Forwarding, Customs Duty, Toll, Octroi, etc.).
+- **Hamilton-Hare Largest-Remainder Cent-Balancing:** Implemented mathematical allocation algorithm ensuring exactly 0.0000 allocation loss across hundreds of SKUs, allocating remainder pennies deterministically to highest fractional remainders.
+- **Ind-AS 2 / AS-2 Statutory Tax Treatment:** Automated filtering separating ITC-eligible GST (routed to GSTR-2B asset claim) from non-creditable duties/charges (100% capitalized into inventory acquisition value).
+- **Dual-Column Operator Workspace:** Upgraded `GrnReceiptTab.tsx` with 4 Receiving Summary cards, 3-tier commercial rate hierarchy (`PO Rate`, `Inv Rate`, `Net Rate`, `Landed Cost`), and collapsible Right Transport Dock (`InwardCostDock.tsx`).
+- **Purchase Price Variance (PPV) Workflow:** Interactive PPV discrepancy card offering instant dual pathways: `[Accept & Inward]` or `[Create Price Claim]` (pre-filled `CreateDebitNoteDlg`).
+- **Forensic Audit & Margin Preview:** Added real-time pre-inwarding allocation preview modal (`CostAllocationPreviewModal.tsx`), forensic drill-down dialog (`WhyThisCostModal.tsx`), and post-GRN celebration modal (`GrnPostedSuccessModal.tsx`) with instant gross profit margin % calculations.
+- **Optional by Design:** GRN operations remain zero-friction and strictly optional, falling back to standard purchase rate if transport expenses are omitted.
+- **Verification:** 6/6 automated verification tests green, TypeScript 0 errors, 11/11 architecture checks passed with 0 debt.
+
 ### [6.42.3] - 2026-09-19
+
 
 #### Procurement Goods Receipt Note (GRN) Studio Decoupling & Headless Verification Cycle
 - **GRN Studio Decoupling:** Decoupled Goods Receipt Note (GRN) / Material Inward workflow from `PoGenerateTab.tsx` into an autonomous, top-level studio workspace (`GrnStudioTab.tsx`) with lifecycle controls (`onClose`, `onNavigateTab`, `initialOrderId`).
