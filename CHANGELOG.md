@@ -39,6 +39,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.42.3] - 2026-09-19
+
+#### Procurement Goods Receipt Note (GRN) Studio Decoupling & Headless Verification Cycle
+- **GRN Studio Decoupling:** Decoupled Goods Receipt Note (GRN) / Material Inward workflow from `PoGenerateTab.tsx` into an autonomous, top-level studio workspace (`GrnStudioTab.tsx`) with lifecycle controls (`onClose`, `onNavigateTab`, `initialOrderId`).
+- **Navigation & Catalog Integration:** Registered `grn-studio` under `layout_store.tsx` (Inventory & Sourcing), `TabRenderer.tsx` (lazy import & aliases: `grn`, `grn-studio`, `goods-receipt`, `material-inward`), `launchpadCatalog.ts` ("Goods Receipt (GRN) Studio" tile under Retail Operations), and `BreadcrumbRegistry.ts`.
+- **Purchase Order Streamlining:** Removed nested GRN subtab from `PoGenerateTab.tsx` and introduced direct handoff action button `Goods Receipt Studio →` with post-save routing.
+- **Headless PO-to-GRN Verification Engine:** Built `scripts/execute_headless_po_to_grn_cycle.py` executing 100% headless Playwright verification from PO creation (`PO/2026-27/0999`, 118 PRS, ₹1,65,690.00) to GRN inwarding (`GRN/2026-27/0999`, 114 PRS received, 3 damaged, 4 shortage, ₹1,59,390.00 received value, ₹6,300.00 debit claim).
+- **Statutory A4 Document Pipeline:** Automated generation of statutory A4 reconciliation PDF (`PO_GRN_Complete_Cycle_0999.pdf`, 1.00 MB, 4 pages) with dual manager/vendor signature stamps, statutory GST summary, background watermark, UPI QR code, and itemized damage/shortage discrepancy ledger.
+- **Visual Telemetry:** Captured 4 verified high-resolution screenshots without opening interactive desktop browser windows (`01_purchase_order_approved.png`, `02_grn_inward_audit_matrix.png`, `03_exported_pdf_statutory_preview.png`, `04_complete_cycle_reconciliation_summary.png`).
+- **Verification:** TypeScript clean (`tsc --noEmit` 0 errors), Launchpad catalog validation 100% passed, Registry validation passed (69 components), Vitest suite 141/141 passed (958/958 tests green); commit `64a72d49`.
+
 ### [6.42.2] - 2026-09-19
 
 #### PO Vendor Product Control Phase 7B-R — Runtime Acceptance & Automated Headless Verification
