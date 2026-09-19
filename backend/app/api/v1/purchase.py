@@ -115,6 +115,24 @@ async def list_purchase_orders_contract(
     return await PurchaseService(db, tenant_ctx).list_purchase_orders()
 
 
+@router.get(
+    "/orders/next-number",
+    summary="Get Next Available Purchase Order Number",
+    response_model=dict,
+)
+async def get_next_order_number(
+    prefix: Optional[str] = Query(default=None, description="Order number prefix, e.g. PO13"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Return the next available sequential order number for the given prefix.
+    Response: {"prefix": "PO13", "next_number": 47, "next_order_no": "PO13-47"}
+    """
+    return await PurchaseService(db, tenant_ctx).get_next_order_number(prefix)
+
+
+
 @router.post("/orders", response_model=PurchaseOrderResponse, status_code=201,
              include_in_schema=False,
              dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
@@ -587,5 +605,292 @@ async def create_purchase_bill(
     service = PurchaseService(db, tenant)
     res = await service.create_purchase_bill(req)
     return PurchaseBillResponse.model_validate(res)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PO Vendor Product Control — v6.42.0 (Execution Command Rule 32 Phase 4–7)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from datetime import date as _date
+from ...schemas.vendor_product_assignment import (
+    VendorProductAssignmentCreate,
+    VendorProductAssignmentUpdate,
+    VendorProductAssignmentOut,
+    VendorProductAssignmentListOut,
+    POProductEvaluateRequest,
+    POProductBatchEvaluateRequest,
+    POProductDecision,
+    POProductBatchDecision,
+    POProductDiagnosticRequest,
+    POProductDiagnosticOut,
+    POPolicyConfigOut,
+    POPolicyTemplateOut,
+    POPolicyApplyRequest,
+)
+from ...services.vendor_product_assignment import VendorProductAssignmentService
+from ...services.po_product_policy_engine import POProductPolicyEngine
+from ...services.po_policy_config_service import POPolicyConfigService
+
+# ────────────────────────── Vendor Product Assignments ──────────────────────────
+
+@router.post(
+    "/vendor-product-assignments/",
+    response_model=VendorProductAssignmentOut,
+    status_code=201,
+    tags=["PO Vendor Control"],
+    summary="Create a vendor-product assignment",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def create_vpa(
+    req: VendorProductAssignmentCreate,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Assign a product (at any catalog level) to a vendor with priority and effective dates.
+    Requires MANAGER or SYSADMIN role.
+    """
+    svc = VendorProductAssignmentService(db, tenant)
+    return await svc.create_assignment(req)
+
+
+@router.get(
+    "/vendor-product-assignments/",
+    response_model=VendorProductAssignmentListOut,
+    tags=["PO Vendor Control"],
+    summary="List vendor-product assignments for a vendor",
+)
+async def list_vpa(
+    vendor_id: str = Query(..., description="Vendor party ID or legacy supplier ID."),
+    level: Optional[str] = Query(None, description="Filter by assignment level (BRAND/STYLE/ARTICLE/SKU/BARCODE etc.)"),
+    status: Optional[str] = Query(None, description="Filter by status (ACTIVE/INACTIVE/RESTRICTED)."),
+    limit: int = Query(100, le=500),
+    offset: int = Query(0),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """List all vendor-product assignments for a given vendor."""
+    svc = VendorProductAssignmentService(db, tenant)
+    items, total = await svc.list_assignments_for_vendor(
+        vendor_id=vendor_id, level=level, status_filter=status, limit=limit, offset=offset
+    )
+    return VendorProductAssignmentListOut(items=items, total=total)
+
+
+@router.get(
+    "/vendor-product-assignments/{assignment_id}",
+    response_model=VendorProductAssignmentOut,
+    tags=["PO Vendor Control"],
+)
+async def get_vpa(
+    assignment_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    svc = VendorProductAssignmentService(db, tenant)
+    return await svc.get_assignment(assignment_id)
+
+
+@router.put(
+    "/vendor-product-assignments/{assignment_id}",
+    response_model=VendorProductAssignmentOut,
+    tags=["PO Vendor Control"],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def update_vpa(
+    assignment_id: str,
+    req: VendorProductAssignmentUpdate,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    svc = VendorProductAssignmentService(db, tenant)
+    return await svc.update_assignment(assignment_id, req)
+
+
+@router.delete(
+    "/vendor-product-assignments/{assignment_id}",
+    tags=["PO Vendor Control"],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def delete_vpa(
+    assignment_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    svc = VendorProductAssignmentService(db, tenant)
+    return await svc.soft_delete_assignment(assignment_id)
+
+
+# ────────────────────────── PO Product Evaluation ──────────────────────────────
+
+@router.post(
+    "/evaluate-product",
+    response_model=POProductDecision,
+    tags=["PO Vendor Control"],
+    summary="Evaluate a single product for a vendor in a PO context",
+)
+async def evaluate_product(
+    req: POProductEvaluateRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Authoritative backend decision: can this vendor include this product in a PO?
+    Returns status (ASSIGNED/CROSS_VENDOR/UNASSIGNED/RESTRICTED) and
+    action (ALLOW/READ_ONLY/APPROVAL_REQUIRED/BLOCK) with full explanation.
+    The frontend must never independently calculate authorization.
+    """
+    vendor_party_id = await VendorProductAssignmentService(db, tenant).resolve_vendor_party_id(
+        req.vendor_id
+    )
+    engine = POProductPolicyEngine(db)
+    return await engine.evaluate_product_for_vendor(
+        company_id=tenant.company_id,
+        branch_id=getattr(tenant, "branch_id", None),
+        vendor_party_id=vendor_party_id,
+        product_ref=req.product_ref,
+        transaction_date=req.transaction_date or _date.today(),
+        user_id=getattr(tenant, "user_id", None),
+        purchase_order_id=req.purchase_order_id,
+    )
+
+
+@router.post(
+    "/evaluate-products",
+    response_model=POProductBatchDecision,
+    tags=["PO Vendor Control"],
+    summary="Batch-evaluate multiple products for the PO browse dialog",
+)
+async def evaluate_products_batch(
+    req: POProductBatchEvaluateRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Batch-evaluate up to 200 products in one request for the browse dialog
+    pre-evaluation. More efficient than calling evaluate-product in a loop.
+    """
+    from datetime import datetime, timezone
+    vendor_party_id = await VendorProductAssignmentService(db, tenant).resolve_vendor_party_id(
+        req.vendor_id
+    )
+    engine = POProductPolicyEngine(db)
+    tx_date = req.transaction_date or _date.today()
+    decisions = await engine.evaluate_batch(
+        company_id=tenant.company_id,
+        branch_id=getattr(tenant, "branch_id", None),
+        vendor_party_id=vendor_party_id,
+        product_refs=req.product_refs,
+        transaction_date=tx_date,
+        user_id=getattr(tenant, "user_id", None),
+        purchase_order_id=req.purchase_order_id,
+    )
+    return POProductBatchDecision(
+        vendor_id=req.vendor_id,
+        transaction_date=tx_date,
+        decisions=decisions,
+        evaluated_at=datetime.now(timezone.utc),
+    )
+
+
+@router.post(
+    "/product-diagnostic",
+    response_model=POProductDiagnosticOut,
+    tags=["PO Vendor Control"],
+    summary="Admin diagnostic: full resolution chain for vendor + product",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def product_diagnostic(
+    req: POProductDiagnosticRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Admin-only diagnostic. Returns the full assignment resolution chain,
+    winning assignment, active policy, and final decision for support and audit.
+    """
+    from datetime import datetime, timezone
+    vendor_party_id = await VendorProductAssignmentService(db, tenant).resolve_vendor_party_id(
+        req.vendor_id
+    )
+    engine = POProductPolicyEngine(db)
+    diag = await engine.build_diagnostic(
+        company_id=tenant.company_id,
+        branch_id=getattr(tenant, "branch_id", None),
+        vendor_party_id=vendor_party_id,
+        product_ref=req.product_ref,
+        transaction_date=req.transaction_date or _date.today(),
+    )
+    return diag
+
+
+# ────────────────────────── PO Policy Configuration ────────────────────────────
+
+@router.get(
+    "/purchasing-policy",
+    response_model=POPolicyConfigOut,
+    tags=["PO Vendor Control"],
+    summary="Get the current PO purchasing policy (business-language view)",
+)
+async def get_purchasing_policy(
+    advanced: bool = Query(False, description="If true, include canonical parameter keys (SYSADMIN only)."),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Returns the active PO purchasing policy in business language.
+    Technical canonical keys are only included when advanced=True (SYSADMIN only).
+    """
+    svc = POPolicyConfigService(db, tenant)
+    return await svc.get_policy(include_canonical=advanced)
+
+
+@router.get(
+    "/purchasing-policy/templates",
+    response_model=List[POPolicyTemplateOut],
+    tags=["PO Vendor Control"],
+    summary="List available business policy templates",
+)
+async def list_policy_templates(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    List all available business templates (e.g. GENERAL_RETAIL, FOOTWEAR, ENTERPRISE).
+    Used by the Guided and Custom configuration modes.
+    """
+    svc = POPolicyConfigService(db, tenant)
+    return await svc.list_templates()
+
+
+@router.post(
+    "/purchasing-policy/apply",
+    response_model=POPolicyConfigOut,
+    tags=["PO Vendor Control"],
+    summary="Apply a policy template or custom configuration",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def apply_purchasing_policy(
+    req: POPolicyApplyRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Apply a policy template or custom values.
+    Client MUST set confirmed=True after showing the diff to the user (Rule 18 — never silent overwrite).
+    """
+    if not req.confirmed:
+        from fastapi import HTTPException as _HTTPException
+        raise _HTTPException(
+            status_code=400,
+            detail=(
+                "Policy changes require user confirmation. "
+                "Please show the user the diff between current and proposed settings, "
+                "then re-submit with confirmed=True."
+            ),
+        )
+    svc = POPolicyConfigService(db, tenant)
+    return await svc.apply_policy(req)
+
 
 

@@ -45,11 +45,17 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [suppliersList, setSuppliersList] = useState<{ id: string; name: string; code?: string }[]>([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [suppliersError, setSuppliersError] = useState<string | null>(null);
+  const [supplierSearch, setSupplierSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"generation" | "size_pivot" | "other" | "grn">("generation");
   const [showF2Hint, setShowF2Hint] = useState(true);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState<number>(0);
   const [saving, setSaving] = useState(false);
+  // 409 duplicate-number recovery banner
+  const [duplicateOrderNo, setDuplicateOrderNo] = useState<string | null>(null);
+  const [suggestedOrderNo, setSuggestedOrderNo] = useState<string | null>(null);
+  // Post-save workflow prompt
+  const [savedOrderNo, setSavedOrderNo] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,16 +63,19 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [header, setHeader] = useState<PurchaseOrderHeader>({
     documentType: "Purchase Order",
     prefix: "PO13",
-    orderNumber: "46",
-    orderDate: new Date().toLocaleDateString("en-GB"),
+    orderNumber: "1",
+    orderDate: new Date().toISOString().split("T")[0],
     supplierId: "",
     supplierName: "",
-    billTo: "ACME TEXTILES",
-    deliveryDate: new Date(Date.now() + 10 * 86400000).toLocaleDateString("en-GB"),
+    billTo: "",
+    deliveryDate: new Date(Date.now() + 10 * 86400000).toISOString().split("T")[0],
     leadTimeDays: 10,
-    deliveryLocation: "ACME TEXTILES",
+    deliveryLocation: "",
     commonTaxPercent: 5,
-    pictureUrl: ""
+    pictureUrl: "",
+    paymentTerms: "30 Days Net",
+    freightCharges: "Paid by Supplier",
+    specialInstructions: ""
   });
 
   // Standard Line Items (20 initial rows)
@@ -95,25 +104,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     }));
   });
 
-  // Size Pivot Rows (10 initial rows)
-  const [sizePivotRows, setSizePivotRows] = useState<PurchaseOrderSizePivotRow[]>(() => {
-    const initialRow: PurchaseOrderSizePivotRow = {
-      id: "pivot-1",
-      sNo: 1,
-      articleNo: "ART-9021",
-      product: "Leather Formal",
-      brand: "Bata",
-      style: "Oxford",
-      color: "Black",
-      sizeQuantities: { "36": 0, "37": 0, "38": 2, "39": 4, "40": 4, "41": 2, "42": 0, "43": 0, "44": 0 },
-      rate: 1250,
-      totalQty: 12,
-      gstPercent: 5,
-      totalValue: 15000
-    };
-    const emptyRows: PurchaseOrderSizePivotRow[] = Array.from({ length: 19 }, (_, idx) => ({
-      id: `pivot-${idx + 2}`,
-      sNo: idx + 2,
+  // Size Pivot Rows (20 blank rows — no hardcoded fixture data)
+  const [sizePivotRows, setSizePivotRows] = useState<PurchaseOrderSizePivotRow[]>(() =>
+    Array.from({ length: 20 }, (_, idx) => ({
+      id: `pivot-${idx + 1}`,
+      sNo: idx + 1,
       articleNo: "",
       product: "",
       brand: "",
@@ -124,9 +119,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       totalQty: 0,
       gstPercent: 5,
       totalValue: 0
-    }));
-    return [initialRow, ...emptyRows];
-  });
+    }))
+  );
 
   // Fetch products and suppliers on mount
   useEffect(() => {
@@ -156,6 +150,23 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       } else {
         setSuppliersList([]);
       }
+
+      // Fetch the next available order number from the backend (no hardcoded seeds)
+      try {
+        setHeader(current => {
+          const prefix = current.prefix || "PO13";
+          apiFetchV1(`/purchase/orders/next-number?prefix=${encodeURIComponent(prefix)}`)
+            .then((res: any) => {
+              if (res && res.next_number) {
+                setHeader(h => ({ ...h, orderNumber: String(res.next_number) }));
+              }
+            })
+            .catch(() => { /* keep current value if sequence fetch fails */ });
+          return current;
+        });
+      } catch {
+        // no-op
+      }
     } catch (error) {
       setSuppliersList([]);
       setSuppliersError(error instanceof Error ? error.message : "Supplier service is unavailable.");
@@ -164,42 +175,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     }
   };
 
-  // Populate first line with sample data if line items are completely empty
-  useEffect(() => {
-    if (products.length > 0 && !lineItems[0].stockNo) {
-      const p1 = products[0];
-      setLineItems(prev => {
-        const next = [...prev];
-        const rate = p1.costPrice || p1.price * 0.7 || 850;
-        const qty = 10;
-        const val = rate * qty;
-        const taxAmt = (val * 5) / 100;
-        next[0] = {
-          ...next[0],
-          stockNo: p1.code || "000001",
-          product: p1.name,
-          brand: p1.brand || "SMRITI",
-          style: p1.styleCode || "REG",
-          shade: p1.color || "Blue",
-          size: p1.size || "32",
-          fibre: (p1.attributes as any)?.fabric_type || "Cotton",
-          colourBase: p1.color || "Blue",
-          styling: "Standard",
-          rate: rate,
-          orderQty: qty,
-          value: val,
-          stockOnHand: p1.stock ?? 12,
-          taxPercent: 5,
-          taxAmount: taxAmt,
-          addOnPercent: 0,
-          addOnAmount: 0,
-          totalValue: val + taxAmt,
-          originalProduct: p1
-        };
-        return next;
-      });
-    }
-  }, [products]);
+  // NOTE: Auto-populate of the first line item from the catalog has been removed.
+  // Users must explicitly browse (F2) or type a stock number. This prevents
+  // accidental saves of random catalog products.
 
   // Standard line items calculation
   const updateLineItem = (idx: number, updates: Partial<PurchaseOrderLineItem>) => {
@@ -308,7 +286,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     }
   }, [lineItems, sizePivotRows, activeTab]);
 
-  // Apply Common Tax to all rows
+  // Apply Common Tax to all rows (Standard grid + Size Pivot grid)
   const handleApplyCommonTax = (val: number) => {
     setHeader(h => ({ ...h, commonTaxPercent: val }));
     setLineItems(prev => prev.map(l => ({
@@ -316,6 +294,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       taxPercent: val,
       taxAmount: (l.value * val) / 100,
       totalValue: l.value + (l.value * val) / 100 + l.addOnAmount
+    })));
+    // Fix: also propagate to size pivot rows (previously only lineItems were updated)
+    setSizePivotRows(prev => prev.map(r => ({
+      ...r,
+      gstPercent: val
     })));
   };
 
@@ -371,22 +354,34 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     }
   });
 
-  // Keyboard Navigation (F4, F6) — F2 removed: now handled by F2DispatcherProvider
+  // Keyboard Navigation (F4, F6, F9, Ctrl+S) — F2 handled by F2DispatcherProvider
   useEffect(() => {
     const handleKeys = (e: KeyboardEvent) => {
-      // F2 is handled exclusively by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
-      // This screen registers via useF2Screen() above. No screen-level F2 handler.
+      // Ctrl+S → Save PO
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSavePO();
+        return;
+      }
+      // F9 → Print Preview
+      if (e.key === "F9") {
+        e.preventDefault();
+        window.print();
+        return;
+      }
+      // F4 → Clear current row
       if (e.key === "F4") {
         e.preventDefault();
-        // Delete current row
         if (activeTab === "generation") {
           updateLineItem(activeRowIndex, { stockNo: "", product: "", orderQty: 0, rate: 0, value: 0 });
         } else {
           updatePivotRow(activeRowIndex, { articleNo: "", product: "", rate: 0, sizeQuantities: DEFAULT_SIZES.reduce((a, s) => ({ ...a, [s]: 0 }), {}) });
         }
-      } else if (e.key === "F6") {
+        return;
+      }
+      // F6 → Copy previous row
+      if (e.key === "F6") {
         e.preventDefault();
-        // Copy previous row
         if (activeRowIndex > 0) {
           if (activeTab === "generation") {
             const prevRow = lineItems[activeRowIndex - 1];
@@ -400,16 +395,31 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     };
     window.addEventListener("keydown", handleKeys);
     return () => window.removeEventListener("keydown", handleKeys);
-  }, [activeRowIndex, activeTab, lineItems, sizePivotRows]);
+  }, [activeRowIndex, activeTab, lineItems, sizePivotRows, header, saving]);
 
   // Save / Commit PO to backend
   const handleSavePO = async () => {
+    setDuplicateOrderNo(null);
+    setSuggestedOrderNo(null);
+
     const activeLines = activeTab === "generation"
       ? lineItems.filter(l => l.stockNo && l.orderQty > 0)
       : sizePivotRows.filter(r => r.articleNo && r.totalQty > 0);
 
     if (!header.supplierId || suppliersLoading || suppliersError) {
       if (onNotification) onNotification("Supplier Required", "Load and select a supplier from the backend before saving the purchase order.", "error");
+      return;
+    }
+
+    // Order number format validation: prefix must be alphanumeric, number must be digits only
+    const prefixOk = /^[A-Z0-9]+$/i.test(header.prefix.trim());
+    const numberOk = /^\d+$/.test(header.orderNumber.trim());
+    if (!prefixOk || !numberOk) {
+      if (onNotification) onNotification(
+        "Invalid Order Number",
+        `The order number format is invalid. Prefix must contain only letters/digits (e.g. PO13) and the sequence must be a number (e.g. 47). Found: "${header.prefix}-${header.orderNumber}".`,
+        "error"
+      );
       return;
     }
 
@@ -420,16 +430,23 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
     setSaving(true);
     try {
-      const orderNumber = `${header.prefix}-${header.orderNumber}`;
+      const orderNo = `${header.prefix.trim()}-${header.orderNumber.trim()}`;
+      const notesArr: string[] = [];
+      if (header.billTo) notesArr.push(`Bill to: ${header.billTo}`);
+      if (header.paymentTerms) notesArr.push(`Payment: ${header.paymentTerms}`);
+      if (header.freightCharges) notesArr.push(`Freight: ${header.freightCharges}`);
+      if (header.specialInstructions) notesArr.push(`Instructions: ${header.specialInstructions}`);
+
       const payload = {
-        order_no: orderNumber,
-        order_number: orderNumber,
-        order_date: new Date().toISOString().split("T")[0],
+        order_no: orderNo,
+        order_date: header.orderDate || new Date().toISOString().split("T")[0],
         supplier_id: header.supplierId,
         supplier_name: header.supplierName,
-        delivery_date: new Date(Date.now() + header.leadTimeDays * 86400000).toISOString().split("T")[0],
+        delivery_date: header.deliveryDate || new Date(Date.now() + header.leadTimeDays * 86400000).toISOString().split("T")[0],
+        notes: notesArr.length > 0 ? notesArr.join(" | ") : undefined,
         total_amount: totals.totalValue,
         status: "Draft",
+        created_by: currentUser?.name || undefined,
         items: activeTab === "generation"
           ? lineItems.filter(l => l.stockNo && l.orderQty > 0).map(l => ({
               product_id: l.originalProduct?.id || l.stockNo,
@@ -446,22 +463,6 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               quantity: r.totalQty,
               cost_price: r.rate,
               gst_rate: r.gstPercent || 5.0
-            })),
-        lines: activeTab === "generation"
-          ? lineItems.filter(l => l.stockNo).map(l => ({
-              item_code: l.stockNo,
-              item_name: l.product,
-              quantity: l.orderQty,
-              rate: l.rate,
-              amount: l.totalValue
-            }))
-          : sizePivotRows.filter(r => r.articleNo).map(r => ({
-              item_code: r.articleNo,
-              item_name: r.product,
-              quantity: r.totalQty,
-              rate: r.rate,
-              amount: r.totalValue,
-              size_breakdown: r.sizeQuantities
             }))
       };
 
@@ -470,13 +471,32 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         body: JSON.stringify(payload)
       });
 
-      if (onNotification) onNotification("Success", `Purchase Order ${payload.order_number} saved successfully!`, "success");
-      // Advance order number
-      setHeader(h => ({ ...h, orderNumber: String(parseInt(h.orderNumber) + 1 || 47) }));
+      // Show post-save workflow modal
+      setSavedOrderNo(orderNo);
+
+      // Advance to next number — re-fetch from backend to stay in sync
+      const nextRes: any = await apiFetchV1(
+        `/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix.trim())}`
+      ).catch(() => null);
+      if (nextRes && nextRes.next_number) {
+        setHeader(h => ({ ...h, orderNumber: String(nextRes.next_number) }));
+      } else {
+        const cur = parseInt(header.orderNumber, 10);
+        if (!isNaN(cur)) setHeader(h => ({ ...h, orderNumber: String(cur + 1) }));
+      }
     } catch (err) {
-      // Show error notification
       const msg = err instanceof Error ? err.message : "Failed to commit Purchase Order to backend.";
-      if (onNotification) onNotification("PO Save Error", msg, "error");
+      // 409 duplicate: show inline recovery banner instead of generic toast
+      if (msg.includes("already exists") || (err as any)?.status === 409) {
+        const orderNo = `${header.prefix.trim()}-${header.orderNumber.trim()}`;
+        setDuplicateOrderNo(orderNo);
+        // Fetch next available number for the one-click fix
+        apiFetchV1(`/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix.trim())}`).
+          then((r: any) => { if (r?.next_order_no) setSuggestedOrderNo(r.next_order_no); }).
+          catch(() => {});
+      } else {
+        if (onNotification) onNotification("PO Save Error", msg, "error");
+      }
     } finally {
       setSaving(false);
     }
@@ -621,7 +641,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           <div className="grid grid-cols-3 gap-1.5 items-center">
             <label className="font-semibold text-[#434652]">Date</label>
             <input
-              type="text"
+              type="date"
               value={header.orderDate}
               onChange={(e) => setHeader({ ...header, orderDate: e.target.value })}
               className="col-span-2 border border-[#737685] rounded px-2 h-6 font-mono bg-white outline-none focus:ring-1 focus:ring-[#00296d]"
@@ -633,22 +653,39 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         <div className="lg:col-span-6 bg-white p-2.5 border border-[#c4c6d4] rounded shadow-2xs flex flex-col justify-between">
           <div className="grid grid-cols-12 gap-1.5 items-center mb-1">
             <label className="col-span-3 font-semibold text-[#434652]">Supplier</label>
-            <select
-              value={header.supplierId}
-              disabled={suppliersLoading || !!suppliersError || suppliersList.length === 0}
-              onChange={(e) => {
-                const s = suppliersList.find(x => x.id === e.target.value);
-                setHeader({ ...header, supplierId: e.target.value, supplierName: s ? s.name : header.supplierName });
-              }}
-              className="col-span-9 border border-[#737685] rounded px-2 h-6 bg-white outline-none focus:ring-1 focus:ring-[#00296d] font-medium"
-            >
-              {suppliersLoading && <option value="">Loading suppliers...</option>}
-              {!suppliersLoading && suppliersError && <option value="">Supplier service unavailable</option>}
-              {!suppliersLoading && !suppliersError && suppliersList.length === 0 && <option value="">No suppliers available</option>}
-              {suppliersList.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            <div className="col-span-9 flex flex-col gap-0.5">
+              {/* Supplier live search filter */}
+              <input
+                type="text"
+                placeholder="Search supplier…"
+                value={supplierSearch}
+                onChange={(e) => setSupplierSearch(e.target.value)}
+                disabled={suppliersLoading || !!suppliersError}
+                className="border border-[#c4c6d4] rounded px-2 h-6 text-xs bg-white outline-none focus:ring-1 focus:ring-[#00296d] w-full"
+              />
+              <select
+                value={header.supplierId}
+                size={Math.min(5, suppliersList.filter(s =>
+                  !supplierSearch || s.name.toLowerCase().includes(supplierSearch.toLowerCase()) || (s.code || "").toLowerCase().includes(supplierSearch.toLowerCase())
+                ).length + 1)}
+                disabled={suppliersLoading || !!suppliersError || suppliersList.length === 0}
+                onChange={(e) => {
+                  const s = suppliersList.find(x => x.id === e.target.value);
+                  setHeader({ ...header, supplierId: e.target.value, supplierName: s ? s.name : header.supplierName });
+                  setSupplierSearch("");
+                }}
+                className="border border-[#737685] rounded px-2 bg-white outline-none focus:ring-1 focus:ring-[#00296d] font-medium w-full text-xs"
+              >
+                {suppliersLoading && <option value="">Loading suppliers...</option>}
+                {!suppliersLoading && suppliersError && <option value="">Supplier service unavailable</option>}
+                {!suppliersLoading && !suppliersError && suppliersList.length === 0 && <option value="">No suppliers available</option>}
+                {suppliersList
+                  .filter(s => !supplierSearch || s.name.toLowerCase().includes(supplierSearch.toLowerCase()) || (s.code || "").toLowerCase().includes(supplierSearch.toLowerCase()))
+                  .map(s => (
+                    <option key={s.id} value={s.id}>{s.name}{s.code ? ` (${s.code})` : ""}</option>
+                  ))}
+              </select>
+            </div>
           </div>
           {suppliersError && (
             <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-red-700" role="alert">
@@ -678,7 +715,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           <div className="grid grid-cols-12 gap-1.5 items-center mb-1">
             <label className="col-span-3 font-semibold text-[#434652]">Delivery Date</label>
             <input
-              type="text"
+              type="date"
               value={header.deliveryDate}
               onChange={(e) => setHeader({ ...header, deliveryDate: e.target.value })}
               className="col-span-4 border border-[#737685] rounded px-2 h-6 font-mono bg-white outline-none focus:ring-1 focus:ring-[#00296d]"
@@ -816,6 +853,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             <tbody className="font-mono divide-y divide-[#c4c6d4]/40 font-medium">
               {lineItems.map((item, idx) => {
                 const isSelected = idx === activeRowIndex;
+                const isIncomplete = !!(item.stockNo && item.orderQty === 0);
                 return (
                   <tr
                     key={item.id}
@@ -824,7 +862,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                       setShowF2Hint(false);
                     }}
                     className={`hover:bg-[#f4f3f9] transition-colors ${
-                      isSelected ? "bg-[#cdddff]/40" : ""
+                      isSelected ? "bg-[#cdddff]/40" : isIncomplete ? "bg-[#fff9c4]/60" : ""
                     }`}
                   >
                     <td className="border-r border-[#c4c6d4] p-1 text-center text-[#737685] bg-[#f4f3f9]">
@@ -833,7 +871,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     <td className="border-r border-[#c4c6d4] p-0.5">
                       <input
                         type="text"
-                        id="pogen-gen-stockno"
+                        id={`pogen-gen-stockno-${idx + 1}`}
                         name="stockNo"
                         aria-label="Stock Number — F2 to browse variants"
                         data-f2-entity="variant"
@@ -1001,6 +1039,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             <tbody className="font-mono divide-y divide-[#c4c6d4]/40 font-medium">
               {sizePivotRows.map((row, idx) => {
                 const isSelected = idx === activeRowIndex;
+                const isPivotIncomplete = !!(row.articleNo && row.totalQty === 0);
                 return (
                   <tr
                     key={row.id}
@@ -1009,7 +1048,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                       setShowF2Hint(false);
                     }}
                     className={`hover:bg-[#f4f3f9] transition-colors ${
-                      isSelected ? "bg-[#cdddff]/40" : ""
+                      isSelected ? "bg-[#cdddff]/40" : isPivotIncomplete ? "bg-[#fff9c4]/60" : ""
                     }`}
                   >
                     <td className="border-r border-[#c4c6d4] p-1 text-center text-[#737685] bg-[#f4f3f9]">
@@ -1101,30 +1140,85 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           </table>
         )}
 
-        {/* Tab 3: Other Details */}
+        {/* Tab 3: Other Details — inputs wired to header state, included in save payload */}
         {activeTab === "other" && (
           <div className="p-6 max-w-2xl text-xs space-y-4">
             <div className="bg-[#eeedf3] p-4 rounded border border-[#c4c6d4]">
-              <h4 className="font-bold text-[#00296d] mb-2 uppercase text-[11px]">Payment & Commercial Terms</h4>
+              <h4 className="font-bold text-[#00296d] mb-2 uppercase text-[11px]">Payment &amp; Commercial Terms</h4>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-[#434652] mb-1">Payment Terms</label>
-                  <input type="text" defaultValue="30 Days Net" className="w-full border border-[#737685] rounded px-2 h-7 bg-white" />
+                  <input
+                    type="text"
+                    id="po-other-payment-terms"
+                    value={header.paymentTerms}
+                    onChange={(e) => setHeader({ ...header, paymentTerms: e.target.value })}
+                    className="w-full border border-[#737685] rounded px-2 h-7 bg-white outline-none focus:ring-1 focus:ring-[#00296d]"
+                  />
                 </div>
                 <div>
                   <label className="block font-semibold text-[#434652] mb-1">Freight Charges</label>
-                  <input type="text" defaultValue="Paid by Supplier" className="w-full border border-[#737685] rounded px-2 h-7 bg-white" />
+                  <input
+                    type="text"
+                    id="po-other-freight"
+                    value={header.freightCharges}
+                    onChange={(e) => setHeader({ ...header, freightCharges: e.target.value })}
+                    className="w-full border border-[#737685] rounded px-2 h-7 bg-white outline-none focus:ring-1 focus:ring-[#00296d]"
+                  />
                 </div>
               </div>
             </div>
 
             <div className="bg-[#eeedf3] p-4 rounded border border-[#c4c6d4]">
               <h4 className="font-bold text-[#00296d] mb-2 uppercase text-[11px]">Special Instructions</h4>
-              <textarea rows={3} defaultValue="Please ensure all garments carry SMRITI 9 Barcode tags and standard export polybag packaging." className="w-full border border-[#737685] rounded p-2 bg-white" />
+              <textarea
+                id="po-other-instructions"
+                rows={4}
+                value={header.specialInstructions}
+                onChange={(e) => setHeader({ ...header, specialInstructions: e.target.value })}
+                placeholder="e.g. Please ensure all garments carry SMRITI 9 Barcode tags."
+                className="w-full border border-[#737685] rounded p-2 bg-white outline-none focus:ring-1 focus:ring-[#00296d]"
+              />
             </div>
+
+            <p className="text-[10px] text-[#737685] font-mono">
+              ✓ Payment terms, freight charges and special instructions are saved with the Purchase Order.
+            </p>
           </div>
         )}
       </div>
+
+      {/* 409 Duplicate Order Number Recovery Banner */}
+      {duplicateOrderNo && (
+        <div className="bg-[#fff4e5] border-t border-[#f0b429] px-4 py-2 flex items-center gap-3 text-xs shrink-0" role="alert">
+          <span className="material-symbols-outlined text-[#b45309] text-[16px]">warning</span>
+          <span className="text-[#78350f] font-semibold">
+            Purchase Order <strong>{duplicateOrderNo}</strong> already exists for this company.
+          </span>
+          {suggestedOrderNo && (
+            <button
+              type="button"
+              onClick={() => {
+                const parts = suggestedOrderNo.split("-");
+                const num = parts.pop() || "";
+                const pfx = parts.join("-");
+                setHeader(h => ({ ...h, prefix: pfx || h.prefix, orderNumber: num }));
+                setDuplicateOrderNo(null);
+                setSuggestedOrderNo(null);
+              }}
+              className="ml-2 bg-[#00296d] text-white font-bold px-3 py-0.5 rounded text-xs hover:bg-[#0052cc] transition-colors"
+            >
+              Use {suggestedOrderNo} instead
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => { setDuplicateOrderNo(null); setSuggestedOrderNo(null); }}
+            className="ml-auto text-[#b45309] hover:text-[#78350f] font-bold text-lg leading-none"
+            aria-label="Dismiss"
+          >&times;</button>
+        </div>
+      )}
 
       {/* Summary Totals Bar */}
       <div className="bg-[#e9edff] px-4 py-2 border-t border-[#c4c6d4] flex items-center justify-between shrink-0 text-xs">
@@ -1166,8 +1260,10 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       <div className="bg-[#eeedf3] px-4 py-1.5 border-t border-[#c4c6d4] flex items-center justify-between shrink-0 text-xs">
         <div className="flex items-center gap-3 text-xs text-[#00296d] font-mono">
           <span><strong>F2</strong> - Browse</span>
-          <span><strong>F4</strong> - Delete Row</span>
-          <span><strong>F6</strong> - Copy Previous Row</span>
+          <span><strong>F4</strong> - Clear Row</span>
+          <span><strong>F6</strong> - Copy Previous</span>
+          <span><strong>F9</strong> - Print</span>
+          <span><strong>Ctrl+S</strong> - Save</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -1209,6 +1305,67 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         </>
       )}
 
+      {/* Post-Save Workflow Modal */}
+      {savedOrderNo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-label="Purchase Order Saved">
+          <div className="bg-white rounded-xl shadow-2xl border border-[#c4c6d4] w-[420px] max-w-full p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#00296d] text-[32px]">check_circle</span>
+              <div>
+                <h2 className="font-bold text-[#00296d] text-base">Purchase Order Saved</h2>
+                <p className="text-xs text-[#434652] font-mono mt-0.5">{savedOrderNo} committed successfully.</p>
+              </div>
+            </div>
+            <p className="text-xs text-[#434652]">What would you like to do next?</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                id="posave-create-another"
+                onClick={() => {
+                  setSavedOrderNo(null);
+                  handleClear();
+                }}
+                className="flex flex-col items-center justify-center gap-1 bg-[#e8f0fe] hover:bg-[#d2e3fc] border border-[#a8c7fa] rounded-lg py-3 px-2 font-bold text-xs text-[#00296d] transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                Create Another PO
+              </button>
+              <button
+                type="button"
+                id="posave-goto-grn"
+                onClick={() => {
+                  setSavedOrderNo(null);
+                  setActiveTab("grn");
+                }}
+                className="flex flex-col items-center justify-center gap-1 bg-[#e6f4ea] hover:bg-[#ceead6] border border-[#81c995] rounded-lg py-3 px-2 font-bold text-xs text-[#1e8e3e] transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">local_shipping</span>
+                Receive GRN
+              </button>
+              <button
+                type="button"
+                id="posave-print"
+                onClick={() => {
+                  setSavedOrderNo(null);
+                  window.print();
+                }}
+                className="flex flex-col items-center justify-center gap-1 bg-[#fef7e0] hover:bg-[#feefc3] border border-[#f9ab00] rounded-lg py-3 px-2 font-bold text-xs text-[#b45309] transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">print</span>
+                Print PO
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSavedOrderNo(null)}
+              className="text-[11px] text-[#737685] hover:text-[#1a1b20] underline self-center mt-1"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer Status Bar */}
       <footer className="bg-[#e2e2e8] text-[#434652] font-mono text-[11px] border-t border-[#c4c6d4] flex justify-between items-center px-4 py-1 w-full shrink-0">
         <span className="font-bold text-[#00296d]">SMRITI 9 Enterprise POS | Ver 4.2.0</span>
@@ -1220,12 +1377,14 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         </div>
       </footer>
 
-      {/* F2 Product Browse Modal */}
+      {/* F2 Product Browse Modal — v6.42.0: vendor-aware product status */}
       <PurchBrowseDlg
         products={products}
         isOpen={showBrowseModal}
         onClose={() => setShowBrowseModal(false)}
         onSelectProduct={handleSelectProduct}
+        vendorId={header.supplierId || undefined}
+        transactionDate={header.orderDate || undefined}
       />
     </div>
   );

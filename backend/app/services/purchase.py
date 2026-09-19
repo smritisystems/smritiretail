@@ -30,6 +30,7 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
@@ -70,13 +71,25 @@ class PurchaseService:
         self.db = db
         self.tenant = tenant
 
+    def _effective_branch_id(self) -> str:
+        if not self.tenant.branch_id or self.tenant.branch_id == "MAIN":
+            return "BR-MAIN-001"
+        return self.tenant.branch_id
+
+    def _branch_filter(self, col):
+        if not self.tenant.branch_id:
+            return True
+        if self.tenant.branch_id in ("BR-MAIN-001", "MAIN", "BR-001"):
+            return or_(col.in_(["BR-MAIN-001", "MAIN", "BR-001"]), col.is_(None))
+        return or_(col == self.tenant.branch_id, col.is_(None))
+
     # ──────────────────────────────────────────────────────────────
     # Supplier helpers
     # ──────────────────────────────────────────────────────────────
 
     async def _get_supplier(self, supplier_id: str) -> Supplier:
         stmt = select(Supplier).where(
-            Supplier.id == supplier_id,
+            (Supplier.id == supplier_id) | (Supplier.code == supplier_id) | (Supplier.identity_code == supplier_id) | (Supplier.name == supplier_id),
             Supplier.is_deleted == False,
         )
         if self.tenant.company_id:
@@ -145,13 +158,13 @@ class PurchaseService:
         return supplier
 
     async def list_suppliers(self) -> list[Supplier]:
-        res = await self.db.execute(
-            select(Supplier).where(
-                Supplier.company_id == self.tenant.company_id,
-                Supplier.branch_id  == self.tenant.branch_id,
-                Supplier.is_deleted == False,
-            )
+        stmt = select(Supplier).where(
+            Supplier.company_id == self.tenant.company_id,
+            Supplier.is_deleted == False,
         )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(Supplier.branch_id))
+        res = await self.db.execute(stmt)
         return res.scalars().all()
 
     async def get_supplier(self, supplier_id: str) -> Supplier:
@@ -163,7 +176,7 @@ class PurchaseService:
 
     async def create_purchase_order(self, req: PurchaseOrderCreate) -> PurchaseOrder:
         # Validate supplier belongs to tenant
-        await self._get_supplier(req.supplier_id)
+        supplier = await self._get_supplier(req.supplier_id)
 
         if not req.items:
             raise HTTPException(
@@ -171,12 +184,30 @@ class PurchaseService:
                 detail="A purchase order must contain at least one item.",
             )
 
+        # ── Prevent duplicate order_no for this company (HREP-compliant 409) ──
+        if req.order_no:
+            existing_stmt = select(PurchaseOrder).where(
+                PurchaseOrder.order_no == req.order_no.strip(),
+                PurchaseOrder.company_id == self.tenant.company_id,
+                PurchaseOrder.is_deleted == False,
+            )
+            existing_res = await self.db.execute(existing_stmt)
+            if existing_res.scalars().first():
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"A purchase order with number '{req.order_no.strip()}' already exists. "
+                        "Please use a different order number or retrieve the existing order."
+                    ),
+                )
+
+        eff_branch_id = self._effective_branch_id()
         tech_id, identity_code = await IdentityEngine.allocate_internal(
             session=self.db,
             entity_type="PURCHASE_ORDER",
             tenant_id=getattr(self.tenant, "tenant_id", None) or self.tenant.company_id,
             company_id=self.tenant.company_id,
-            branch_id=self.tenant.branch_id,
+            branch_id=eff_branch_id,
             purpose="ENTITY_CREATION",
         )
         po_id = tech_id
@@ -186,16 +217,56 @@ class PurchaseService:
         item_rows = []
 
         for item in req.items:
-            # Validate product is in this tenant
-            res = await self.db.execute(
-                select(Product).where(
-                    Product.id == item.product_id,
-                    Product.company_id == self.tenant.company_id,
-                    Product.branch_id  == self.tenant.branch_id,
-                    Product.is_deleted == False,
-                )
+            # Validate product is in this tenant (matching by id, code, or barcode)
+            stmt = select(Product).where(
+                (Product.id == item.product_id) | (Product.code == item.product_id) | (Product.code == item.code) | (Product.barcode == item.code),
+                Product.is_deleted == False,
             )
+            if self.tenant.company_id:
+                stmt = stmt.where(
+                    (Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None))
+                )
+            if self.tenant.branch_id:
+                stmt = stmt.where(self._branch_filter(Product.branch_id))
+            res = await self.db.execute(stmt)
             product = res.scalars().first()
+            if not product:
+                # Fallback: check by id or code in items table (Universal Item Master)
+                from ..models.item_master import Item
+                item_stmt = select(Item).where(
+                    (Item.id == item.product_id) | (Item.item_code == item.product_id) | (Item.item_code == item.code) | (Item.identity_code == item.code),
+                    Item.is_deleted == False,
+                )
+                if self.tenant.company_id:
+                    item_stmt = item_stmt.where(
+                        (Item.company_id == self.tenant.company_id) | (Item.company_id.is_(None))
+                    )
+                item_res = await self.db.execute(item_stmt)
+                db_item = item_res.scalars().first()
+                if db_item:
+                    res_p = await self.db.execute(
+                        select(Product).where(
+                            (Product.item_id == db_item.id) | (Product.code == db_item.item_code),
+                            Product.is_deleted == False,
+                        )
+                    )
+                    product = res_p.scalars().first()
+                    if not product:
+                        product = Product(
+                            id=f"prd_{db_item.id[:20]}",
+                            item_id=db_item.id,
+                            code=db_item.item_code,
+                            name=db_item.item_name,
+                            category=db_item.category or "GENERAL",
+                            barcode=db_item.item_code,
+                            company_id=self.tenant.company_id,
+                            branch_id=eff_branch_id,
+                            price=Decimal("0.00"),
+                            stock=0,
+                        )
+                        self.db.add(product)
+                        await self.db.flush()
+
             if not product:
                 raise HTTPException(
                     status_code=404,
@@ -212,71 +283,126 @@ class PurchaseService:
                 id=IdentityEngine.generate_technical_id(),
                 uuid=IdentityEngine.generate_technical_id(),
                 order_id=po_id,
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
+                product_id=product.id,
+                item_id=getattr(product, "item_id", None),
+                code=product.code or item.code,
+                name=product.name or item.name,
                 quantity=item.quantity,
                 cost_price=item.cost_price,
                 gst_rate=item.gst_rate,
                 tax_amount=tax_amt,
                 line_total=line_tot,
                 company_id=self.tenant.company_id,
-                branch_id=self.tenant.branch_id,
+                branch_id=eff_branch_id,
             ))
 
         order = PurchaseOrder(
             id=po_id,
             identity_code=identity_code,
             order_no=req.order_no,
-            supplier_id=req.supplier_id,
+            supplier_id=supplier.id,
             status="CONFIRMED",
             notes=req.notes,
             subtotal=subtotal.quantize(Decimal("0.01")),
             tax_total=tax_total.quantize(Decimal("0.01")),
             grand_total=(subtotal + tax_total).quantize(Decimal("0.01")),
             company_id=self.tenant.company_id,
-            branch_id=self.tenant.branch_id,
+            branch_id=eff_branch_id,
         )
         self.db.add(order)
         self.db.add_all(item_rows)
         try:
             await self.db.commit()
-        except IntegrityError:
+        except IntegrityError as e:
             await self.db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="A purchase order with this order number already exists.",
-            )
+            err_str = str(getattr(e, "orig", e)).lower()
+            # Human-readable constraint translation (SMRITI HREP policy)
+            if "uq_purchase_orders_order_no_company" in err_str or "purchase_orders_order_no_key" in err_str or ("order_no" in err_str and "unique" in err_str):
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"A purchase order with number '{req.order_no}' already exists. "
+                        "Please use a different order number or retrieve the existing order."
+                    ),
+                )
+            elif "uq_purchase_orders_identity_code" in err_str or ("identity_code" in err_str and "unique" in err_str):
+                raise HTTPException(
+                    status_code=409,
+                    detail="An internal identity code conflict occurred. Please try again.",
+                )
+            elif "foreign key" in err_str or "fk" in err_str:
+                raise HTTPException(
+                    status_code=400,
+                    detail="One or more referenced records (product, supplier, or branch) could not be found. Please verify your selections and try again.",
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="The purchase order could not be saved due to a data conflict. Please check your entries and try again.",
+                )
         await self.db.refresh(order)
         order.items = item_rows          # attach items for response serialisation
         return order
 
     async def list_purchase_orders(self) -> list[PurchaseOrder]:
-        res = await self.db.execute(
-            select(PurchaseOrder).where(
-                PurchaseOrder.company_id == self.tenant.company_id,
-                PurchaseOrder.branch_id  == self.tenant.branch_id,
-                PurchaseOrder.is_deleted == False,
-            )
+        stmt = select(PurchaseOrder).where(
+            PurchaseOrder.company_id == self.tenant.company_id,
+            PurchaseOrder.is_deleted == False,
         )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+        stmt = stmt.order_by(PurchaseOrder.created_at.desc())
+        res = await self.db.execute(stmt)
         return res.scalars().all()
 
-    async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:
-        res = await self.db.execute(
-            select(PurchaseOrder).where(
-                PurchaseOrder.id == order_id,
-                PurchaseOrder.company_id == self.tenant.company_id,
-                PurchaseOrder.branch_id  == self.tenant.branch_id,
-                PurchaseOrder.is_deleted == False,
-            )
+    async def get_next_order_number(self, prefix: Optional[str] = None) -> dict:
+        """
+        Return the next available sequential order number for the given prefix
+        and this company.  Scans existing non-deleted POs whose order_no matches
+        <prefix>-<digits> and returns max+1.  Falls back to 1 when no POs
+        exist so the frontend never needs a hardcoded seed value.
+        """
+        import re
+        stmt = select(PurchaseOrder.order_no).where(
+            PurchaseOrder.company_id == self.tenant.company_id,
+            PurchaseOrder.is_deleted == False,
         )
+        if prefix:
+            stmt = stmt.where(PurchaseOrder.order_no.like(f"{prefix}-%"))
+        res = await self.db.execute(stmt)
+        order_nos: list[str] = [row[0] for row in res.fetchall() if row[0]]
+
+        max_seq = 0
+        pattern = re.compile(r"(\d+)$")
+        for no in order_nos:
+            m = pattern.search(no)
+            if m:
+                val = int(m.group(1))
+                if val > max_seq:
+                    max_seq = val
+
+        return {
+            "prefix": prefix or "",
+            "next_number": max_seq + 1,
+            "next_order_no": f"{prefix}-{max_seq + 1}" if prefix else str(max_seq + 1),
+        }
+
+    async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:
+        stmt = select(PurchaseOrder).where(
+            (PurchaseOrder.id == order_id) | (PurchaseOrder.order_no == order_id) | (PurchaseOrder.identity_code == order_id),
+            PurchaseOrder.company_id == self.tenant.company_id,
+            PurchaseOrder.is_deleted == False,
+        )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+        res = await self.db.execute(stmt)
         order = res.scalars().first()
         if not order:
             raise HTTPException(status_code=404, detail="Purchase order not found.")
 
         items_res = await self.db.execute(
             select(PurchaseOrderItem).where(
-                PurchaseOrderItem.order_id == order_id,
+                PurchaseOrderItem.order_id == order.id,
                 PurchaseOrderItem.is_deleted == False,
             )
         )
@@ -290,14 +416,14 @@ class PurchaseService:
         await self._get_supplier(req.supplier_id)
 
         if req.order_id:
-            po_res = await self.db.execute(
-                select(PurchaseOrder).where(
-                    PurchaseOrder.id == req.order_id,
-                    PurchaseOrder.company_id == self.tenant.company_id,
-                    PurchaseOrder.branch_id  == self.tenant.branch_id,
-                    PurchaseOrder.is_deleted == False,
-                )
+            po_stmt = select(PurchaseOrder).where(
+                (PurchaseOrder.id == req.order_id) | (PurchaseOrder.order_no == req.order_id) | (PurchaseOrder.identity_code == req.order_id),
+                PurchaseOrder.company_id == self.tenant.company_id,
+                PurchaseOrder.is_deleted == False,
             )
+            if self.tenant.branch_id:
+                po_stmt = po_stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+            po_res = await self.db.execute(po_stmt)
             if not po_res.scalars().first():
                 raise HTTPException(
                     status_code=404,
