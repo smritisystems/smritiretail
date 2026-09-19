@@ -38,6 +38,7 @@ import { POVendorContext } from "./POVendorContext.tsx";
 import { POIssuesSummaryBar } from "./POIssuesSummaryBar.tsx";
 import { POProductStatusBadge } from "./POProductStatusBadge.tsx";
 import type { POProductDecision } from "./POProductStatusBadge.tsx";
+import { POPrintPreviewModal } from "./POPrintPreviewModal.tsx";
 
 interface PurchaseOrderGenerationTabProps {
   products?: Product[];
@@ -90,6 +91,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [explainProductName, setExplainProductName] = useState("");
   const [showPolicyConfig, setShowPolicyConfig] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -526,7 +528,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       // F9 → Print Preview
       if (e.key === "F9") {
         e.preventDefault();
-        window.print();
+        setShowPrintPreview(true);
         return;
       }
       // F4 → Clear current row
@@ -1675,9 +1677,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => window.print()}
-          className="flex-1 bg-white hover:bg-[#eeedf3] text-[#1a1b20] border border-[#c4c6d4] rounded py-1.5 font-bold uppercase tracking-wider transition-colors shadow-2xs"
+          id="po-print-preview-btn"
+          onClick={() => setShowPrintPreview(true)}
+          className="flex-1 bg-white hover:bg-[#eeedf3] text-[#1a1b20] border border-[#c4c6d4] rounded py-1.5 font-bold uppercase tracking-wider transition-colors shadow-2xs flex items-center justify-center gap-1.5"
         >
+          <span className="material-symbols-outlined text-[16px]">visibility</span>
           Print Preview (F9)
         </button>
         <button
@@ -1733,7 +1737,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 id="posave-print"
                 onClick={() => {
                   setSavedOrderNo(null);
-                  window.print();
+                  setShowPrintPreview(true);
                 }}
                 className="flex flex-col items-center justify-center gap-1 bg-[#fef7e0] hover:bg-[#feefc3] border border-[#f9ab00] rounded-lg py-3 px-2 font-bold text-xs text-[#b45309] transition-colors"
               >
@@ -1829,6 +1833,21 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         productName={explainProductName}
         vendorName={header.supplierName}
       />
+
+      {/* ── Purchase Order Print Preview Modal (F9 / Print Preview Button) ── */}
+      {showPrintPreview && (
+        <POPrintPreviewModal
+          isOpen={showPrintPreview}
+          onClose={() => setShowPrintPreview(false)}
+          header={header}
+          lineItems={lineItems}
+          sizePivotRows={sizePivotRows}
+          activeTab={activeTab}
+          vendor={suppliersList.find(
+            (s) => s.id === header.supplierId || s.code === header.supplierId || s.name === header.supplierName
+          )}
+        />
+      )}
     </div>
   );
 };
