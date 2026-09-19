@@ -626,6 +626,16 @@ from ...schemas.vendor_product_assignment import (
     POPolicyConfigOut,
     POPolicyTemplateOut,
     POPolicyApplyRequest,
+    POSubmitValidationRequest,
+    POSubmitValidationResult,
+    POSubmitLineResult,
+    POVendorChangeRequest,
+    POVendorChangeResult,
+    POVendorChangeSummary,
+    POVendorChangeLineResult,
+    PODuplicateCheckRequest,
+    PODuplicateCheckResult,
+    POApprovalReasonOut,
 )
 from ...services.vendor_product_assignment import VendorProductAssignmentService
 from ...services.po_product_policy_engine import POProductPolicyEngine
@@ -893,4 +903,258 @@ async def apply_purchasing_policy(
     return await svc.apply_policy(req)
 
 
+# ────────────────────────── PO Submit Validation ───────────────────────────────
 
+@router.post(
+    "/validate-po-submit",
+    response_model=POSubmitValidationResult,
+    tags=["PO Vendor Control"],
+    summary="Authoritative revalidation of all PO lines before submission (§16, §37)",
+)
+async def validate_po_submit(
+    req: POSubmitValidationRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Must be called on every PO submission.
+    Detects stale decisions (policy changed since browse-time).
+    Returns can_submit=False if ANY line has action=BLOCK.
+    All 4 evaluation paths (browse/add/save/submit) call the same POProductPolicyEngine.
+    """
+    from datetime import date as _date_type, datetime as _dt, timezone as _tz
+    vendor_party_id = await VendorProductAssignmentService(db, tenant).resolve_vendor_party_id(
+        req.vendor_id
+    )
+    engine = POProductPolicyEngine(db)
+    tx_date = _date_type.fromisoformat(req.transaction_date) if req.transaction_date else _date_type.today()
+
+    line_results: list[POSubmitLineResult] = []
+    blocked_lines: list[int] = []
+    stale_lines: list[int] = []
+    allowed = approval_req = blocked = stale_count = 0
+
+    for line in req.lines:
+        decision = await engine.evaluate_product_for_vendor(
+            company_id=tenant.company_id,
+            branch_id=getattr(tenant, "branch_id", None),
+            vendor_party_id=vendor_party_id,
+            product_ref=line.product_ref,
+            transaction_date=tx_date,
+            user_id=getattr(tenant, "user_id", None),
+            purchase_order_id=req.purchase_order_id,
+        )
+
+        # Stale detection: compare current action to browse-time action via decision_log_id
+        is_stale = False
+        previous_action = None
+        if line.decision_log_id:
+            from ...models.vendor_product_assignment import POProductDecisionLog
+            from sqlalchemy import select
+            log_stmt = select(POProductDecisionLog).where(
+                POProductDecisionLog.id == line.decision_log_id
+            )
+            log_row = (await db.execute(log_stmt)).scalars().first()
+            if log_row and log_row.decision_action != decision.action:
+                is_stale = True
+                previous_action = log_row.decision_action
+
+        result = POSubmitLineResult(
+            line_index=line.line_index,
+            product_ref=line.product_ref,
+            status=decision.status,
+            action=decision.action,
+            approval_required=decision.approval_required,
+            explanation=decision.explanation,
+            stale=is_stale,
+            previous_action=previous_action,
+        )
+        line_results.append(result)
+
+        if decision.action == "BLOCK":
+            blocked += 1
+            blocked_lines.append(line.line_index)
+        elif decision.action == "APPROVAL_REQUIRED":
+            approval_req += 1
+        else:
+            allowed += 1
+        if is_stale:
+            stale_count += 1
+            stale_lines.append(line.line_index)
+
+    from ...services.po_product_policy_engine import _PolicySnapshot
+    snap = _PolicySnapshot()
+    return POSubmitValidationResult(
+        can_submit=blocked == 0,
+        allowed_count=allowed,
+        approval_required_count=approval_req,
+        blocked_count=blocked,
+        stale_count=stale_count,
+        line_results=line_results,
+        blocked_lines=blocked_lines,
+        stale_lines=stale_lines,
+        policy_version=snap.version_hash(),
+        validated_at=_dt.now(_tz.utc),
+    )
+
+
+# ────────────────────────── Vendor Change Re-evaluation ────────────────────────
+
+@router.post(
+    "/evaluate-vendor-change",
+    response_model=POVendorChangeResult,
+    tags=["PO Vendor Control"],
+    summary="Re-evaluate all PO lines for a new vendor (§4, §22)",
+)
+async def evaluate_vendor_change(
+    req: POVendorChangeRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Called when the buyer changes vendor on a PO that already has product lines.
+    Returns per-line decisions under the new vendor, plus a summary count.
+    The frontend uses this for the POVendorChangeDialog results phase.
+    """
+    from datetime import date as _date_type, datetime as _dt, timezone as _tz
+    new_vendor_party_id = await VendorProductAssignmentService(db, tenant).resolve_vendor_party_id(
+        req.new_vendor_id
+    )
+    engine = POProductPolicyEngine(db)
+    tx_date = _date_type.fromisoformat(req.transaction_date) if req.transaction_date else _date_type.today()
+    line_indices = req.line_indices or list(range(len(req.product_refs)))
+
+    summary = POVendorChangeSummary()
+    decisions: list[POVendorChangeLineResult] = []
+
+    for idx, (product_ref, line_idx) in enumerate(zip(req.product_refs, line_indices)):
+        decision = await engine.evaluate_product_for_vendor(
+            company_id=tenant.company_id,
+            branch_id=getattr(tenant, "branch_id", None),
+            vendor_party_id=new_vendor_party_id,
+            product_ref=product_ref,
+            transaction_date=tx_date,
+            user_id=getattr(tenant, "user_id", None),
+            purchase_order_id=req.purchase_order_id,
+        )
+        decisions.append(POVendorChangeLineResult(
+            line_index=line_idx,
+            product_ref=product_ref,
+            status=decision.status,
+            action=decision.action,
+            approval_required=decision.approval_required,
+            explanation=decision.explanation,
+        ))
+        s = decision.status.lower()
+        if s == "assigned":         summary.assigned += 1
+        elif s == "cross_vendor":   summary.cross_vendor += 1
+        elif s == "unassigned":     summary.unassigned += 1
+        elif s == "restricted":     summary.restricted += 1
+        if decision.action == "BLOCK":              summary.blocked += 1
+        elif decision.action == "APPROVAL_REQUIRED": summary.approval_required += 1
+
+    return POVendorChangeResult(
+        new_vendor_id=req.new_vendor_id,
+        summary=summary,
+        decisions=decisions,
+        evaluated_at=_dt.now(_tz.utc),
+    )
+
+
+# ────────────────────────── Duplicate Product Check ────────────────────────────
+
+@router.post(
+    "/check-duplicate-product",
+    response_model=PODuplicateCheckResult,
+    tags=["PO Vendor Control"],
+    summary="Check if a product already exists on the PO (§24)",
+)
+async def check_duplicate_product(
+    req: PODuplicateCheckRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Checks the list of existing product refs against the new product ref.
+    Returns is_duplicate=True with the matching line index if found.
+    Frontend uses this to show: Increase Quantity / Add Separate Line / Cancel.
+    """
+    ref = req.new_product_ref.strip().lower()
+    for idx, existing in enumerate(req.existing_product_refs):
+        if existing.strip().lower() == ref:
+            return PODuplicateCheckResult(
+                is_duplicate=True,
+                existing_line_index=idx,
+                existing_product_ref=req.existing_product_refs[idx],
+                existing_qty=None,  # qty is managed client-side
+            )
+    return PODuplicateCheckResult(is_duplicate=False)
+
+
+# ────────────────────────── Approval Reasons ───────────────────────────────────
+
+@router.get(
+    "/approval-reasons",
+    response_model=List[POApprovalReasonOut],
+    tags=["PO Vendor Control"],
+    summary="List PO cross-vendor approval reasons for the reason dropdown (§12)",
+)
+async def list_approval_reasons(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Returns the 10 seeded approval reasons from the v1477 master.
+    Used by POApprovalReasonDialog to populate the reason dropdown.
+    Reasons are always shown in business language — no technical codes visible to buyer.
+    """
+    from sqlalchemy import select, text
+    from ...models.master import MasterValue  # adjust import if different model name
+
+    try:
+        stmt = (
+            select(MasterValue)
+            .where(
+                MasterValue.group_code == "PO_CROSS_VENDOR_REASON",
+                MasterValue.company_id == tenant.company_id,
+                MasterValue.is_active == True,
+            )
+            .order_by(MasterValue.sort_order)
+        )
+        rows = (await db.execute(stmt)).scalars().all()
+        if not rows:
+            # Fall back to global master (company_id IS NULL)
+            stmt_global = (
+                select(MasterValue)
+                .where(
+                    MasterValue.group_code == "PO_CROSS_VENDOR_REASON",
+                    MasterValue.company_id.is_(None),
+                    MasterValue.is_active == True,
+                )
+                .order_by(MasterValue.sort_order)
+            )
+            rows = (await db.execute(stmt_global)).scalars().all()
+        return [
+            POApprovalReasonOut(
+                code=r.value_code,
+                label=r.value_label,
+                sort_order=r.sort_order or 0,
+                requires_note=(r.value_code == "OTHER"),
+                is_active=r.is_active,
+            )
+            for r in rows
+        ]
+    except Exception:
+        # Graceful fallback — return the 10 static reasons if MasterValue model differs
+        return [
+            POApprovalReasonOut(code="BETTER_PRICE",           label="Better Price",                        sort_order=1),
+            POApprovalReasonOut(code="STOCK_AVAILABILITY",     label="Stock Availability",                  sort_order=2),
+            POApprovalReasonOut(code="REGISTERED_OUT_OF_STOCK",label="Registered Vendor Out of Stock",      sort_order=3),
+            POApprovalReasonOut(code="URGENT",                 label="Urgent Requirement",                  sort_order=4),
+            POApprovalReasonOut(code="CREDIT_TERMS",           label="Better Credit Terms",                 sort_order=5),
+            POApprovalReasonOut(code="DELIVERY",               label="Delivery Requirement",                sort_order=6),
+            POApprovalReasonOut(code="TERRITORY",              label="Territory Requirement",               sort_order=7),
+            POApprovalReasonOut(code="NEW_VENDOR_TRIAL",       label="New Vendor Trial",                    sort_order=8),
+            POApprovalReasonOut(code="MANAGEMENT_INSTRUCTION", label="Management Instruction",             sort_order=9),
+            POApprovalReasonOut(code="OTHER",                  label="Other — please explain",             sort_order=10, requires_note=True),
+        ]

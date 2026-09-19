@@ -36,6 +36,7 @@ export interface POProductDecision {
   policy_snapshot: Record<string, unknown>;
   policy_version: string;
   decision_log_id?: string;
+  evaluated_at?: string;  // ISO timestamp — set by backend; used for stale detection
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,7 +110,7 @@ const ACTION_CONFIG: Record<
 interface POProductStatusBadgeProps {
   decision: POProductDecision | null | undefined;
   loading?: boolean;
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent) => void;
   compact?: boolean; // If true, show emoji only (for narrow column)
 }
 
