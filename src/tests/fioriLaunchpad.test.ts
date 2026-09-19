@@ -29,6 +29,7 @@ const REGISTERED_APP_TABS = [
   "profiles",
   "sales-promotions",
   "purchase",
+  "grn-studio",
   "supplier-mgmt",
   "vendor-360",
   "business-ledger",

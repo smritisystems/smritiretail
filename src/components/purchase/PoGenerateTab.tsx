@@ -27,7 +27,6 @@ import {
   POVendorChangeResult,
 } from "./types.ts";
 import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
-import { GrnReceiptTab } from "./GrnReceiptTab.tsx";
 import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import { POProductExplainModal } from "./POProductExplainModal.tsx";
@@ -43,8 +42,9 @@ import { POPrintPreviewModal } from "./POPrintPreviewModal.tsx";
 interface PurchaseOrderGenerationTabProps {
   products?: Product[];
   currentUser?: { role: string; name: string } | null;
-  onNotification?: (title: string, message: string, type: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   onClose?: () => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 const DEFAULT_SIZES = ["36", "37", "38", "39", "40", "41", "42", "43", "44"];
@@ -53,14 +53,15 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   products: initialProducts = [],
   currentUser,
   onNotification,
-  onClose
+  onClose,
+  onNavigateTab,
 }) => {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [suppliersList, setSuppliersList] = useState<{ id: string; name: string; code?: string }[]>([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [suppliersError, setSuppliersError] = useState<string | null>(null);
   const [supplierSearch, setSupplierSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"generation" | "size_pivot" | "other" | "grn">("generation");
+  const [activeTab, setActiveTab] = useState<"generation" | "size_pivot" | "other">("generation");
   const [showF2Hint, setShowF2Hint] = useState(true);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState<number>(0);
@@ -864,26 +865,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           >
             Other Details
           </button>
+        </div>
+        {onNavigateTab && (
           <button
             type="button"
-            onClick={() => setActiveTab("grn")}
-            className={`px-4 py-1 text-xs font-mono font-bold rounded-t transition-colors ${
-              activeTab === "grn"
-                ? "bg-white text-[#00296d] border-t border-x border-[#c4c6d4]"
-                : "text-[#434652] hover:bg-[#e2e2e8]"
-            }`}
+            onClick={() => onNavigateTab("grn-studio")}
+            className="px-3 py-1 text-xs font-bold rounded bg-[#e6f4ea] hover:bg-[#ceead6] text-[#1e8e3e] border border-[#81c995] transition-colors flex items-center gap-1.5 shadow-2xs"
+            title="Open dedicated Goods Receipt (GRN) Studio"
           >
-            GRN &amp; Bills
+            <span className="material-symbols-outlined text-[15px]">local_shipping</span>
+            Goods Receipt Studio &rarr;
           </button>
-        </div>
+        )}
       </div>
 
-      {activeTab === "grn" ? (
-        <div className="flex-1 overflow-hidden">
-          <GrnReceiptTab currentUser={currentUser} onNotification={onNotification as any} />
-        </div>
-      ) : (
-        <>
       {/* Form Header Area (Split Pane) */}
       <div className="p-3 shrink-0 bg-[#faf9ff] border-b border-[#c4c6d4] grid grid-cols-1 lg:grid-cols-12 gap-3 text-xs">
         {/* Document Details */}
@@ -1692,8 +1687,6 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           Exit
         </button>
       </div>
-        </>
-      )}
 
       {/* Post-Save Workflow Modal */}
       {savedOrderNo && (
@@ -1724,8 +1717,13 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 type="button"
                 id="posave-goto-grn"
                 onClick={() => {
+                  const saved = savedOrderNo;
                   setSavedOrderNo(null);
-                  setActiveTab("grn");
+                  if (onNavigateTab) {
+                    onNavigateTab("grn-studio");
+                  } else {
+                    onNotification?.("GRN Notice", `Navigate to Goods Receipt Studio to inward order ${saved || ""}.`, "info");
+                  }
                 }}
                 className="flex flex-col items-center justify-center gap-1 bg-[#e6f4ea] hover:bg-[#ceead6] border border-[#81c995] rounded-lg py-3 px-2 font-bold text-xs text-[#1e8e3e] transition-colors"
               >

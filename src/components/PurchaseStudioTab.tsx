@@ -21,9 +21,10 @@ import { Product } from "../types.ts";
 interface PurchaseStudioTabProps {
   products?: Product[];
   onRefreshProducts?: () => void;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string } | null;
   onClose?: () => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
@@ -31,7 +32,8 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   onRefreshProducts,
   onNotification,
   currentUser,
-  onClose
+  onClose,
+  onNavigateTab,
 }) => {
   return (
     <PoGenerateTab
@@ -39,6 +41,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
       currentUser={currentUser}
       onNotification={onNotification}
       onClose={onClose}
+      onNavigateTab={onNavigateTab}
     />
   );
 };

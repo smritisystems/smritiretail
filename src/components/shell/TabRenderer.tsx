@@ -43,6 +43,7 @@ const SalesStudioTab = lazy(() => import("../SalesStudioTab.tsx").then(m => ({ d
 const EWayBillManagementTab = lazy(() => import("../compliance/EWayBillManagementTab.tsx").then(m => ({ default: m.EWayBillManagementTab })));
 const ReportDesignerTab = lazy(() => import("../ReportDesignerTab.tsx").then(m => ({ default: m.ReportDesignerTab })));
 const PurchaseStudioTab = lazy(() => import("../PurchaseStudioTab.tsx").then(m => ({ default: m.PurchaseStudioTab })));
+const GrnStudioTab = lazy(() => import("../GrnStudioTab.tsx").then(m => ({ default: m.GrnStudioTab })));
 const ItemMasterWs = lazy(() => import("../itemMaster/ItemMasterWs.tsx").then(m => ({ default: m.ItemMasterWs })));
 const BarcodeStudioTab = lazy(() => import("../BarcodeStudioTab.tsx").then(m => ({ default: m.BarcodeStudioTab })));
 const BarcodeManagementTab = lazy(() => import("../BarcodeManagementTab.tsx").then(m => ({ default: m.BarcodeManagementTab })));
@@ -99,7 +100,13 @@ export const mapModuleId = (id: string): string => {
     system: "masters",
     settings: "profiles",
     about: "about-smriti",
-    grn: "purchase",
+    grn: "grn-studio",
+    "grn-studio": "grn-studio",
+    grn_studio: "grn-studio",
+    "goods-receipt": "grn-studio",
+    goods_receipt: "grn-studio",
+    "material-inward": "grn-studio",
+    material_inward: "grn-studio",
     "menu-manager": "menu-manager",
     menu_manager: "menu-manager",
     menu_studio: "menu-manager",
@@ -306,6 +313,19 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           onRefreshProducts={fetchSystemState}
           onNotification={addNotification}
           currentUser={currentUser}
+          onNavigateTab={(tab) => setActiveTab(tab)}
+        />
+      );
+    case "grn-studio":
+    case "grn":
+    case "goods-receipt":
+    case "material-inward":
+      return (
+        <GrnStudioTab
+          currentUser={currentUser}
+          onNotification={addNotification}
+          onClose={() => setActiveTab("purchase")}
+          onNavigateTab={(tab) => setActiveTab(tab)}
         />
       );
     case "supplier-mgmt":

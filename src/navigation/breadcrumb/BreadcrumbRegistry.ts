@@ -34,6 +34,7 @@ const PARENT_OVERRIDES: Record<string, string> = {
   // Purchase sub-modules
   "purchase-studio": "purchase",
   "grn": "purchase",
+  "grn-studio": "purchase",
   "supplier-mgmt": "purchase",
   "approval-matrix": "purchase",
 
