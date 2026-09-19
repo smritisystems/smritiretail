@@ -62,11 +62,12 @@ export const PurchBrowseDlg: React.FC<PurchaseProductBrowseModalProps> = ({
   // ── Focus on open ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) {
+      console.log("[PurchBrowseDlg] isOpen, products count:", products.length, "sample:", products.slice(0, 5).map(p => p.code));
       setTimeout(() => searchInputRef.current?.focus(), 50);
       setSelectedIndex(0);
       setStatusFilter("ALL");
     }
-  }, [isOpen]);
+  }, [isOpen, products]);
 
   // ── Batch evaluation ───────────────────────────────────────────────────────
   const runBatchEvaluation = useCallback(async () => {

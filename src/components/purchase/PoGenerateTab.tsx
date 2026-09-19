@@ -167,10 +167,28 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     setSuppliersList([]);
     setHeader(current => ({ ...current, supplierId: "", supplierName: "" }));
     try {
-      if (products.length === 0) {
-        const prodRes = await apiFetchV1("/products");
+      try {
+        const prodRes = await apiFetchV1("/inventory/?page=1&page_size=200&sort=created_at&order=desc");
         const list = Array.isArray(prodRes) ? prodRes : prodRes?.items || [];
-        if (list.length > 0) setProducts(list);
+        if (list.length > 0) {
+          setProducts(list.map((p: any) => ({
+            id: p.id,
+            code: p.code,
+            name: p.name,
+            price: parseFloat(p.price || 0),
+            costPrice: p.cost_price ? parseFloat(p.cost_price) : 0,
+            mrp: p.mrp ? parseFloat(p.mrp) : undefined,
+            barcode: p.barcode,
+            brand: p.brand,
+            styleCode: p.style_code,
+            color: p.color,
+            size: p.size,
+            stock: Number(p.stock || 0),
+            category: p.category
+          })));
+        }
+      } catch (err) {
+        console.warn("[PoGenerateTab] Failed to load latest inventory:", err);
       }
       const supRes = await apiFetchV1("/purchase/suppliers/");
       const supList = Array.isArray(supRes) ? supRes : supRes?.items || [];
