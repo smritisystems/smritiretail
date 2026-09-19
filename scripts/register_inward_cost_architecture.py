@@ -267,6 +267,15 @@ def register_architecture():
             "decision": "CREATE_NEW",
             "canonical_owner": "scripts/verify_inward_landed_cost_database_parity.py",
         },
+        {
+            "entity": "purchase",
+            "capability": "purchase.landed_cost_engine",
+            "asset_type": "script",
+            "proposed_name": "execute_headless_grn_landed_cost_cycle.py",
+            "target_file_path": "scripts/execute_headless_grn_landed_cost_cycle.py",
+            "decision": "CREATE_NEW",
+            "canonical_owner": "scripts/execute_headless_grn_landed_cost_cycle.py",
+        },
     ]
 
     for asset in new_assets:

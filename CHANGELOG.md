@@ -48,8 +48,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Dual-Column Operator Workspace:** Upgraded `GrnReceiptTab.tsx` with 4 Receiving Summary cards, 3-tier commercial rate hierarchy (`PO Rate`, `Inv Rate`, `Net Rate`, `Landed Cost`), and collapsible Right Transport Dock (`InwardCostDock.tsx`).
 - **Purchase Price Variance (PPV) Workflow:** Interactive PPV discrepancy card offering instant dual pathways: `[Accept & Inward]` or `[Create Price Claim]` (pre-filled `CreateDebitNoteDlg`).
 - **Forensic Audit & Margin Preview:** Added real-time pre-inwarding allocation preview modal (`CostAllocationPreviewModal.tsx`), forensic drill-down dialog (`WhyThisCostModal.tsx`), and post-GRN celebration modal (`GrnPostedSuccessModal.tsx`) with instant gross profit margin % calculations.
-- **Optional by Design:** GRN operations remain zero-friction and strictly optional, falling back to standard purchase rate if transport expenses are omitted.
-- **Verification:** 6/6 automated verification tests green, TypeScript 0 errors, 11/11 architecture checks passed with 0 debt.
+- **Headless Playwright Visual Telemetry & Verification Cycle:** Created and executed `scripts/execute_headless_grn_landed_cost_cycle.py` in 100% headless mode, capturing 4 visual telemetry screenshots (`01_grn_studio_dual_column_workspace.png`, `02_cost_allocation_preview_modal.png`, `03_why_this_cost_forensic_drilldown.png`, `04_statutory_a4_inward_landed_cost_slip_preview.png`).
+- **Statutory A4 Inward Landed Cost Audit Slip:** Generated `GRN_Landed_Cost_Audit_Slip_0999.pdf` (1,005,739 bytes) featuring formal dual signature certification stamps, dynamic UPI validation QR, Ind-AS 2 statutory tax capitalizability ledger, and itemized cent-balanced landed cost breakdown across 1,220 units.
+- **Rule 12 Database Parity & AST Governance:** Enforced strict column, datatype, nullability, default value, primary key, unique, and foreign key verification across `smritisys`, `smriti001`, and `smriti002` via `scripts/verify_inward_landed_cost_database_parity.py` with 57/57 elements green and 0 drift.
+- **Verification:** 6/6 automated API tests green, TypeScript 0 errors, 11/11 architecture checks passed with 0 debt, 57/57 database parity checks green.
 
 ### [6.42.3] - 2026-09-19
 

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-1A7020",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "script",
+  "proposed_name": "execute_headless_grn_landed_cost_cycle.py",
+  "target_file_path": "scripts/execute_headless_grn_landed_cost_cycle.py",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "scripts/execute_headless_grn_landed_cost_cycle.py",
+  "content_hash": "344577249f3e950eddc8574987b6767f7883d58e44242a1da1dc56147e06f391",
+  "git_commit": "acba70c30d5776ce3e903d0ec4a0a2fe7da12cd6",
+  "issued_at": "2026-09-19T19:15:08.460790+00:00",
+  "expires_at": "2026-09-26T19:15:08.460790+00:00",
+  "status": "ISSUED"
+}
