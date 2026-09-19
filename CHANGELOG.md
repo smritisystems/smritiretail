@@ -39,6 +39,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.42.2] - 2026-09-19
+
+#### PO Vendor Product Control Phase 7B-R — Runtime Acceptance & Automated Headless Verification
+- **Automated Headless Telemetry:** Captured 10 verified visual screenshots of end-to-end browser workflows in headless mode (1440x900 viewport) without opening interactive desktop browser windows.
+- **F2 Catalog Browser Reactive Policy Badging:** Real-time visual evaluation of catalog items (`ALLOWED`, `CROSS-VENDOR`, `BLOCKED`) dynamically computed via `/purchase/evaluate-products`.
+- **Policy Enforcement on Line Addition:** Seamless addition of `ALLOW` products; automatic modal interception via `POApprovalReasonDialog` for `CROSS_VENDOR` products requiring 1 of 10 business justification reasons; strict line addition blocking via `POProductExplainModal` for `BLOCKED` products.
+- **Two-Phase Vendor Change Governance:** Interactive confirmation and dynamic line re-evaluation via `POVendorChangeDialog` and `/purchase/evaluate-vendor-change`.
+- **Submit Validation Gate:** Enforced pre-flight validation via `POValidationSummary` prior to transactional persistence.
+- **Inventory Hydration Alignment:** Updated `src/App.tsx` and `src/components/purchase/PoGenerateTab.tsx` to hydrate latest inventory records with DTO mapping.
+- **Verification:** 10/10 visual screenshots captured, 53/53 pytest green in 16.09s, `tsc --noEmit` 0 errors, Vite production build clean in 49.80s; commit `98849225`.
+
 ### [6.42.1] - 2026-09-19
 
 #### SMRITI Unified Identity Phase 1 — Service Wiring, Migration Hardening & Phase 1 Verification Suite
