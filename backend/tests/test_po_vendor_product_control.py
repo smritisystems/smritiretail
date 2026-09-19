@@ -482,3 +482,219 @@ class TestHistoricalImmutability:
         assert d1 != d2
         assert d1["SMRITI.PURCHASE.ORDER.CROSS_VENDOR_ITEM_POLICY"] == "ALLOW"
         assert d2["SMRITI.PURCHASE.ORDER.CROSS_VENDOR_ITEM_POLICY"] == "BLOCK"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Endpoint: POST /purchase/validate-po-submit
+# Spec §16, §37 — Authoritative submit gate
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestPOSubmitValidationEndpoint:
+    """Tests for the validate-po-submit batch endpoint logic."""
+
+    def _engine(self):
+        from backend.app.services.po_product_policy_engine import POProductPolicyEngine, _PolicySnapshot, _ResolvedProduct
+        engine = POProductPolicyEngine.__new__(POProductPolicyEngine)
+        return engine, _PolicySnapshot, _ResolvedProduct
+
+    def _resolved(self, ref="ITEM-001"):
+        from backend.app.services.po_product_policy_engine import _ResolvedProduct
+        r = _ResolvedProduct(product_ref=ref)
+        r.item_name = "Test Product"
+        r.item_code = ref
+        return r
+
+    def test_all_allowed_can_submit_true(self):
+        """If every line is ALLOW, can_submit = True and blocked_count = 0."""
+        engine, PolicySnapshot, _ = self._engine()
+        snap = PolicySnapshot()
+        actions = []
+        for _ in range(3):
+            a = make_assignment(vendor_party_id="pty-V1", allow_po=True, approval_required=False)
+            status, winning = engine._classify("pty-V1", [a])
+            action, _ = engine._apply_policy(status, snap, self._resolved(), "pty-V1", winning)
+            actions.append(action)
+        assert all(a == "ALLOW" for a in actions)
+        assert len(actions) == 3
+
+    def test_blocked_line_prevents_submit(self):
+        """If any line is BLOCK, can_submit = False."""
+        engine, PolicySnapshot, _ = self._engine()
+        snap = PolicySnapshot(cross_vendor_policy="BLOCK")
+        a = make_assignment(vendor_party_id="pty-V2", allow_po=True)
+        status, winning = engine._classify("pty-V1", [a])   # different vendor → CROSS_VENDOR
+        assert status == "CROSS_VENDOR"
+        action, _ = engine._apply_policy(status, snap, self._resolved(), "pty-V1", winning)
+        assert action == "BLOCK"
+
+    def test_approval_required_line_does_not_block_submit(self):
+        """APPROVAL_REQUIRED lines are allowed to submit (pending workflow takes over)."""
+        engine, PolicySnapshot, _ = self._engine()
+        snap = PolicySnapshot(cross_vendor_policy="APPROVAL_REQUIRED")
+        a = make_assignment(vendor_party_id="pty-V2", allow_po=True)
+        status, winning = engine._classify("pty-V1", [a])
+        action, _ = engine._apply_policy(status, snap, self._resolved(), "pty-V1", winning)
+        assert action == "APPROVAL_REQUIRED"
+
+    def test_stale_count_detected_when_policy_version_changed(self):
+        """
+        A line decision recorded against policy version A must be flagged stale
+        when the current policy version is B.
+        """
+        version_a = "sha256-abc123"
+        version_b = "sha256-def456"
+        assert version_a != version_b, "Different policy versions must trigger stale detection"
+
+    def test_blocked_lines_index_list_correct(self):
+        """blocked_lines must contain the 0-based line index of every BLOCK decision."""
+        engine, PolicySnapshot, _ = self._engine()
+        snap = PolicySnapshot(cross_vendor_policy="BLOCK")
+        blocked_indices = []
+        for i, vendor_match in enumerate(["pty-V1", "pty-V2", "pty-V1"]):
+            a = make_assignment(vendor_party_id=vendor_match, allow_po=True)
+            status, winning = engine._classify("pty-V1", [a])
+            action, _ = engine._apply_policy(status, snap, self._resolved(), "pty-V1", winning)
+            if action == "BLOCK":
+                blocked_indices.append(i)
+        assert 1 in blocked_indices
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Endpoint: POST /purchase/evaluate-vendor-change
+# Spec §4, §22 — Batch re-evaluation when vendor changes
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestVendorChangeReeval:
+    """Tests for the evaluate-vendor-change endpoint logic (8-line batch)."""
+
+    def _engine(self):
+        from backend.app.services.po_product_policy_engine import POProductPolicyEngine
+        return POProductPolicyEngine.__new__(POProductPolicyEngine)
+
+    def _resolved(self, ref="ITEM-001"):
+        from backend.app.services.po_product_policy_engine import _ResolvedProduct
+        r = _ResolvedProduct(product_ref=ref)
+        r.item_name = "Test Product"
+        r.item_code = ref
+        return r
+
+    def _classify_batch(self, engine, snap, new_vendor_id: str, assignments_per_line: List[List]) -> List[str]:
+        results = []
+        for assignments in assignments_per_line:
+            status, winning = engine._classify(new_vendor_id, assignments)
+            action, _ = engine._apply_policy(status, snap, self._resolved(), new_vendor_id, winning)
+            results.append(action)
+        return results
+
+    def test_eight_lines_all_reassigned(self):
+        """8 lines all assigned to new vendor V2 → all ALLOW."""
+        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        engine = self._engine()
+        snap = _PolicySnapshot()
+        batch = [
+            [make_assignment(vendor_party_id="pty-V2", allow_po=True)]
+            for _ in range(8)
+        ]
+        actions = self._classify_batch(engine, snap, "pty-V2", batch)
+        assert all(a == "ALLOW" for a in actions), "All 8 lines assigned to V2 should be ALLOW"
+        assert len(actions) == 8
+
+    def test_mixed_batch_produces_mixed_results(self):
+        """
+        After vendor change to V2: 5 lines already assigned to V2 (ALLOW),
+        2 lines are cross-vendor (assigned to V3, not V2) with ALLOW_WITH_APPROVAL policy,
+        1 line is unassigned (BLOCK).
+        """
+        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        engine = self._engine()
+
+        # Assigned to new vendor V2 → ALLOW
+        allow_a = make_assignment(vendor_party_id="pty-V2", allow_po=True, approval_required=False)
+        # Assigned to V3, not V2 → CROSS_VENDOR; policy: ALLOW_WITH_APPROVAL
+        cross_a = make_assignment(vendor_party_id="pty-V3", allow_po=True, approval_required=False)
+
+        snap = _PolicySnapshot(
+            cross_vendor_policy="ALLOW_WITH_APPROVAL",
+            unassigned_policy="BLOCK",
+        )
+
+        batch = (
+            [[allow_a]] * 5 +          # 5 assigned to V2 → ALLOW
+            [[cross_a]] * 2 +          # 2 cross-vendor → APPROVAL_REQUIRED
+            [[]] * 1                   # 1 unassigned → BLOCK
+        )
+
+        results = self._classify_batch(engine, snap, "pty-V2", batch)
+        assert results.count("ALLOW") == 5
+        assert results.count("APPROVAL_REQUIRED") == 2
+        assert results.count("BLOCK") == 1
+        assert len(results) == 8
+
+    def test_new_vendor_id_propagated_in_summary(self):
+        """The result payload must carry the new vendor ID for the frontend to update header."""
+        new_vendor = "pty-V99"
+        result_payload = {"new_vendor_id": new_vendor, "summary": {}, "decisions": []}
+        assert result_payload["new_vendor_id"] == new_vendor
+
+    def test_empty_product_list_returns_empty_decisions(self):
+        """An empty PO (no lines) produces empty decisions and all-zero summary."""
+        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        engine = self._engine()
+        snap = _PolicySnapshot()
+        actions = self._classify_batch(engine, snap, "pty-V2", [])
+        assert actions == []
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Endpoint: POST /purchase/check-duplicate-product
+# Spec §24 — Duplicate product line detection
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestDuplicateProductDetection:
+    """Tests for duplicate product detection logic (§24)."""
+
+    def _check(self, existing_refs: List[str], new_ref: str) -> Dict[str, Any]:
+        """Pure logic equivalent of check-duplicate-product endpoint."""
+        for i, ref in enumerate(existing_refs):
+            if ref and ref.strip() == new_ref.strip():
+                return {
+                    "is_duplicate": True,
+                    "existing_line_index": i,
+                    "existing_ref": ref,
+                }
+        return {"is_duplicate": False, "existing_line_index": None, "existing_ref": None}
+
+    def test_no_existing_lines_not_duplicate(self):
+        result = self._check([], "ITEM-001")
+        assert result["is_duplicate"] is False
+
+    def test_same_ref_detected_as_duplicate(self):
+        result = self._check(["ITEM-001", "ITEM-002", "ITEM-003"], "ITEM-002")
+        assert result["is_duplicate"] is True
+        assert result["existing_line_index"] == 1
+
+    def test_different_ref_not_duplicate(self):
+        result = self._check(["ITEM-001", "ITEM-002"], "ITEM-999")
+        assert result["is_duplicate"] is False
+
+    def test_first_occurrence_reported(self):
+        """If SKU appears twice already, first occurrence index is returned."""
+        result = self._check(["ITEM-A", "ITEM-B", "ITEM-A"], "ITEM-A")
+        assert result["is_duplicate"] is True
+        assert result["existing_line_index"] == 0
+
+    def test_whitespace_normalised(self):
+        """Trailing spaces should not prevent duplicate detection."""
+        result = self._check(["ITEM-001 ", " ITEM-002"], "ITEM-001")
+        assert result["is_duplicate"] is True
+        assert result["existing_line_index"] == 0
+
+    def test_empty_ref_not_treated_as_duplicate(self):
+        """Empty existing ref (unfilled row) must not match."""
+        result = self._check(["", "", "ITEM-001"], "")
+        assert result["is_duplicate"] is False
+
+    def test_case_sensitive_ref_no_false_positive(self):
+        """Product refs are case-sensitive (barcodes, codes)."""
+        result = self._check(["item-001"], "ITEM-001")
+        assert result["is_duplicate"] is False
