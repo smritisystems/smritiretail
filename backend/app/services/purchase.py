@@ -599,24 +599,31 @@ class PurchaseService:
                 branch_id=self.tenant.branch_id,
             ))
 
-            # Inward into WMS Batch Stock atomically
-            await wms_service.atomic_mutate_batch_stock(
-                product_id=product.id,
-                warehouse_id=warehouse_id,
-                batch_no=batch_no,
-                qty_delta=Decimal(str(item.quantity_received)),
-                movement_type="INWARD_GRN",
-                mfg_date=item.mfg_date,
-                expiry_date=item.expiry_date,
-                mrp=item.mrp,
-                purchase_rate=item.cost_price,
-                unit_cost=item.cost_price,
-                reference_doc_type="Purchase Receipt",
-                reference_doc_id=receipt_id,
-                remarks=f"Inward GRN receipt {receipt_no} from supplier {req.supplier_id}",
-            )
-
         grand_total = (subtotal + tax_total).quantize(Decimal("0.01"))
+
+        # Build logistics & landed cost notes if transport details provided
+        transport_parts = []
+        if req.transporter_name:
+            transport_parts.append(f"Transporter: {req.transporter_name}")
+        if req.lr_number:
+            transport_parts.append(f"LR: {req.lr_number}")
+        if req.lr_date:
+            transport_parts.append(f"Date: {req.lr_date}")
+        if req.vehicle_number:
+            transport_parts.append(f"Vehicle: {req.vehicle_number}")
+        if req.freight_amount and req.freight_amount > Decimal("0.00"):
+            transport_parts.append(f"Freight: Rs. {req.freight_amount}")
+        if req.handling_amount and req.handling_amount > Decimal("0.00"):
+            transport_parts.append(f"Handling: Rs. {req.handling_amount}")
+        if req.insurance_amount and req.insurance_amount > Decimal("0.00"):
+            transport_parts.append(f"Insurance: Rs. {req.insurance_amount}")
+        if req.pkg_forward_amount and req.pkg_forward_amount > Decimal("0.00"):
+            transport_parts.append(f"P&F: Rs. {req.pkg_forward_amount}")
+
+        combined_notes = req.notes or ""
+        if transport_parts:
+            transport_str = f"[LOGISTICS & LANDED COST: {', '.join(transport_parts)}]"
+            combined_notes = f"{combined_notes} | {transport_str}" if combined_notes else transport_str
 
         receipt = PurchaseReceipt(
             id=receipt_id,
@@ -627,7 +634,7 @@ class PurchaseService:
             warehouse_id=warehouse_id,
             order_id=req.order_id,
             status="RECEIVED",
-            notes=req.notes,
+            notes=combined_notes or None,
             subtotal=subtotal.quantize(Decimal("0.01")),
             tax_total=tax_total.quantize(Decimal("0.01")),
             grand_total=grand_total,
@@ -636,6 +643,116 @@ class PurchaseService:
         )
         self.db.add(receipt)
         self.db.add_all(item_rows)
+
+        # Inward Landed Cost & Multi-Component Allocation Engine
+        from .landed_cost import LandedCostAllocationEngine
+        from ..schemas.inward_cost import InwardCostComponentCreate
+
+        effective_components: list[InwardCostComponentCreate] = []
+        if req.cost_components:
+            effective_components = list(req.cost_components)
+        else:
+            if req.freight_amount and req.freight_amount > Decimal("0.00"):
+                effective_components.append(InwardCostComponentCreate(
+                    component_type="FREIGHT",
+                    amount=req.freight_amount,
+                    allocation_method=req.allocation_method or "VALUE",
+                    transporter_name=req.transporter_name,
+                    document_no=req.lr_number,
+                    document_date=req.lr_date,
+                    vehicle_no=req.vehicle_number,
+                    itc_eligible=True,
+                    is_capitalizable=True,
+                ))
+            if req.handling_amount and req.handling_amount > Decimal("0.00"):
+                effective_components.append(InwardCostComponentCreate(
+                    component_type="HANDLING",
+                    amount=req.handling_amount,
+                    allocation_method="QUANTITY",
+                    itc_eligible=True,
+                    is_capitalizable=True,
+                ))
+            if req.insurance_amount and req.insurance_amount > Decimal("0.00"):
+                effective_components.append(InwardCostComponentCreate(
+                    component_type="INSURANCE",
+                    amount=req.insurance_amount,
+                    allocation_method="VALUE",
+                    itc_eligible=True,
+                    is_capitalizable=True,
+                ))
+            if req.pkg_forward_amount and req.pkg_forward_amount > Decimal("0.00"):
+                effective_components.append(InwardCostComponentCreate(
+                    component_type="PACKING_FORWARDING",
+                    amount=req.pkg_forward_amount,
+                    allocation_method="VALUE",
+                    itc_eligible=True,
+                    is_capitalizable=True,
+                ))
+
+        if effective_components:
+            await LandedCostAllocationEngine.allocate_and_persist_components_async(
+                db=self.db,
+                receipt=receipt,
+                item_rows=item_rows,
+                components_in=effective_components,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                user_id=getattr(self.tenant, "user_id", None),
+            )
+
+        # Inward into WMS Batch Stock atomically with true calculated landed cost
+        from ..models.profitability import ProductCostValuation
+        for item_row in item_rows:
+            effective_unit_cost = (
+                Decimal(str(item_row.landed_cost))
+                if item_row.landed_cost is not None and Decimal(str(item_row.landed_cost)) > Decimal("0.00")
+                else item_row.cost_price
+            )
+
+            await wms_service.atomic_mutate_batch_stock(
+                product_id=item_row.product_id,
+                warehouse_id=warehouse_id,
+                batch_no=item_row.batch_no,
+                qty_delta=Decimal(str(item_row.quantity_received)),
+                movement_type="INWARD_GRN",
+                mfg_date=item_row.mfg_date,
+                expiry_date=item_row.expiry_date,
+                mrp=item_row.mrp,
+                purchase_rate=item_row.cost_price,
+                unit_cost=effective_unit_cost,
+                reference_doc_type="Purchase Receipt",
+                reference_doc_id=receipt_id,
+                remarks=f"Inward GRN receipt {receipt_no} from supplier {req.supplier_id}",
+            )
+
+            # Atomically update / upsert ProductCostValuation for retail multi-valuation COGS
+            val_res = await self.db.execute(
+                select(ProductCostValuation).where(ProductCostValuation.product_id == item_row.product_id)
+            )
+            valuation = val_res.scalars().first()
+            if valuation:
+                valuation.purchase_cost = item_row.cost_price
+                valuation.last_purchase_cost = item_row.cost_price
+                valuation.landed_cost = effective_unit_cost
+                if item_row.mrp and item_row.mrp > Decimal("0.00"):
+                    valuation.mrp = item_row.mrp
+                valuation.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            else:
+                val_tech_id = IdentityEngine.generate_technical_id()
+                new_val = ProductCostValuation(
+                    id=val_tech_id,
+                    uuid=val_tech_id,
+                    product_id=item_row.product_id,
+                    purchase_cost=item_row.cost_price,
+                    last_purchase_cost=item_row.cost_price,
+                    landed_cost=effective_unit_cost,
+                    mrp=item_row.mrp or Decimal("0.00"),
+                    company_id=self.tenant.company_id,
+                    branch_id=self.tenant.branch_id,
+                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                )
+                self.db.add(new_val)
+
 
         supplier = await self._get_supplier(req.supplier_id)
         supplier.outstanding = (supplier.outstanding + grand_total).quantize(Decimal("0.01"))

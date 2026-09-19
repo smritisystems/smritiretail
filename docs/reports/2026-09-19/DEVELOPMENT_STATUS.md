@@ -25,7 +25,7 @@ Security: ██████████ 100%
 | B2B Dispatch Studio | Sales & POS | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | 44% |
 | POS Terminals | Sales & POS | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 68% |
 | Purchase Studio | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 68% |
-| Goods Receipt (GRN) | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 92% |
+| Goods Receipt (GRN) | Inventory & Sourcing | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | 48% |
 | Vendor 360 Workspace | Inventory & Sourcing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 88% |
 | Business Ledger | Accounts Sync | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 76% |
 | Accounting Sync | Accounts Sync | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 72% |

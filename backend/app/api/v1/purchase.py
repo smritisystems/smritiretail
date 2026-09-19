@@ -24,12 +24,15 @@ Founders
 Classification: Internal
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, Response
+from decimal import Decimal
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, Query, Response, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from ...api.deps import get_company_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole
+from ...models.inward_cost import InwardCostComponentType, InwardCostComponent
 from ...schemas.purchase import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
     PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderItemResponse,
@@ -38,6 +41,13 @@ from ...schemas.purchase import (
     PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
     PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
     DebitNoteCreate, DebitNoteResponse, PurchaseBillCreate, PurchaseBillResponse,
+)
+from ...schemas.inward_cost import (
+    InwardCostComponentTypeResponse,
+    InwardCostComponentCreate,
+    InwardCostComponentResponse,
+    CostAllocationPreviewResponse,
+    WhyThisCostBreakdownResponse,
 )
 from ...services.purchase import PurchaseService
 
@@ -273,6 +283,16 @@ async def get_purchase_receipt(
     """Get a purchase receipt with its line items."""
     service = PurchaseService(db, tenant)
     receipt, items = await service.get_purchase_receipt(receipt_id)
+
+    # Fetch any attached inward cost components
+    stmt_comp = (
+        select(InwardCostComponent)
+        .where(InwardCostComponent.grn_id == receipt_id)
+        .order_by(InwardCostComponent.created_at.asc())
+    )
+    res_comp = await db.execute(stmt_comp)
+    cost_components = list(res_comp.scalars().all())
+
     return PurchaseReceiptResponse(
         id=receipt.id,
         receipt_no=receipt.receipt_no,
@@ -287,7 +307,114 @@ async def get_purchase_receipt(
         company_id=receipt.company_id,
         branch_id=receipt.branch_id,
         items=[PurchaseReceiptItemResponse.model_validate(i) for i in items],
+        cost_components=[InwardCostComponentResponse.model_validate(c) for c in cost_components],
     )
+
+
+# ─────────────────────────── Inward Landed Cost & Freight Engine ───────────────────────────
+
+@router.get(
+    "/inward-cost-types",
+    response_model=List[InwardCostComponentTypeResponse],
+)
+async def list_inward_cost_types(
+    db: AsyncSession = Depends(get_company_db),
+):
+    """List all supported inward landed cost types (e.g. Freight, Cartage, Loading, Insurance)."""
+    stmt = (
+        select(InwardCostComponentType)
+        .where(InwardCostComponentType.is_active == True)
+        .order_by(InwardCostComponentType.code)
+    )
+    res = await db.execute(stmt)
+    return list(res.scalars().all())
+
+
+@router.post(
+    "/landed-cost/preview",
+    response_model=CostAllocationPreviewResponse,
+)
+async def preview_landed_cost_allocation(
+    payload: Dict[str, Any],
+):
+    """
+    Preview how a landed cost amount distributes across items with exact 100% penny balancing.
+    Payload:
+      - component_type: str
+      - total_amount: Decimal/float
+      - allocation_method: str ('VALUE' | 'QUANTITY')
+      - items: list of item dicts
+    """
+    from ...services.landed_cost import LandedCostAllocationEngine
+    cost_comps = payload.get("cost_components", [])
+    component_type = payload.get("component_type", "FREIGHT")
+    if "total_amount" in payload:
+        total_amount = Decimal(str(payload.get("total_amount", 0)))
+    elif cost_comps:
+        total_amount = Decimal("0.00")
+        for c in cost_comps:
+            if c.get("is_capitalizable", True):
+                amt = Decimal(str(c.get("amount", 0)))
+                if not c.get("itc_eligible", True):
+                    amt += Decimal(str(c.get("tax_amount", 0)))
+                total_amount += amt
+        if len(cost_comps) == 1:
+            component_type = cost_comps[0].get("component_type", "FREIGHT")
+        else:
+            component_type = "MULTI_COMPONENT"
+    else:
+        total_amount = Decimal("0.00")
+
+    allocation_method = payload.get("allocation_method", "VALUE")
+    items = payload.get("items", [])
+    return LandedCostAllocationEngine.preview_allocation(
+        component_type=component_type,
+        total_amount=total_amount,
+        allocation_method=allocation_method,
+        items=items,
+    )
+
+
+@router.get(
+    "/receipts/{receipt_id}/cost-components",
+    response_model=List[InwardCostComponentResponse],
+)
+async def get_receipt_cost_components(
+    receipt_id: str,
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Get all inward cost components attached to a GRN."""
+    stmt = (
+        select(InwardCostComponent)
+        .where(InwardCostComponent.grn_id == receipt_id)
+        .order_by(InwardCostComponent.created_at.asc())
+    )
+    res = await db.execute(stmt)
+    return list(res.scalars().all())
+
+
+@router.get(
+    "/receipts/{receipt_id}/landed-cost/breakdown/{item_id}",
+    response_model=WhyThisCostBreakdownResponse,
+)
+async def get_receipt_item_cost_breakdown(
+    receipt_id: str,
+    item_id: str,
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Forensic explainability drill-down: 'Why is my landed cost ₹X?'
+    Returns base purchase rate, discounts, and itemized cost component additions.
+    """
+    from ...services.landed_cost import LandedCostAllocationEngine
+    breakdown = await LandedCostAllocationEngine.get_why_this_cost_breakdown_async(
+        db=db,
+        receipt_id=receipt_id,
+        grn_item_id=item_id,
+    )
+    if not breakdown:
+        raise HTTPException(status_code=404, detail="GRN item or cost breakdown not found.")
+    return breakdown
 
 
 

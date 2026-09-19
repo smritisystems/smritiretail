@@ -240,3 +240,12 @@ from .vendor_product_assignment import (
     VendorProductAssignment,
     POProductDecisionLog,
 )
+
+# Inward Landed Cost & Freight Engine (v3.33.0)
+from .inward_cost import (
+    InwardCostComponentType,
+    InwardCostComponent,
+    InwardCostAllocation,
+    InwardCostAdjustment,
+)
+
