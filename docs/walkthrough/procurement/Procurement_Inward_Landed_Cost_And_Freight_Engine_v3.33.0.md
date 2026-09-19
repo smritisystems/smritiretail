@@ -45,14 +45,21 @@ Deliver a canonical, production-ready **Inward Landed Cost, Multi-Component Frei
 4. `backend/app/services/landed_cost.py`: Core `LandedCostAllocationEngine` with Hamilton-Hare mathematical cent-balancer and forensic analysis.
 5. `scripts/register_inward_cost_architecture.py`: Database registration script for `architecture_entities`, `architecture_decisions` (`ADR-PURCH-02`), `architecture_capabilities` (`purchase.landed_cost_engine`), and SHA-256 preflight certificates (`PF-2026-0919-*`).
 6. `scripts/verify_inward_landed_cost_engine.py`: Comprehensive test suite verifying all 5 endpoints, token authentication, Hamilton-Hare zero-loss balancing, GRN transactional posting, and breakdown queries.
-7. `src/components/purchase/types/inwardCost.ts`: TypeScript contracts for inward cost components, allocation bases, and why-this-cost responses.
-8. `src/components/purchase/InwardCostDock.tsx`: Right-side collapsible transport & logistics cost dock with real-time net expense calculation.
-9. `src/components/purchase/AddCostComponentModal.tsx`: Modal for adding line-item transport/freight charges with GST/ITC toggles.
-10. `src/components/purchase/CostAllocationPreviewModal.tsx`: Real-time allocation table preview showing line-by-line addon costs and final landed costs before posting.
-11. `src/components/purchase/WhyThisCostModal.tsx`: Forensic audit dialog breaking down base invoice rate, tax, and itemized addon expenses.
-12. `src/components/purchase/GrnPostedSuccessModal.tsx`: Post-inwarding celebration dialog with Margin Preview, stock valuation summaries, and printing shortcuts.
-13. `docs/walkthrough/procurement/Procurement_Inward_Landed_Cost_And_Freight_Engine_v3.33.0.md`: This walkthrough.
-14. `docs/implementation/purchase/Inward_Landed_Cost_And_Freight_Engine_v3.33.0.md`: Formal 19-section implementation plan.
+7. `scripts/verify_inward_landed_cost_database_parity.py`: Rule 12 canonical database parity audit script checking 57/57 columns, PKs, UQs, and FKs across `smritisys`, `smriti001`, and `smriti002`.
+8. `scripts/execute_headless_grn_landed_cost_cycle.py`: Autonomous headless Playwright cycle execution engine rendering 4 visual artifacts and generating statutory A4 PDF.
+9. `scratch/grn_landed_cost_cycle/GRN_Landed_Cost_Audit_Slip_0999.pdf`: Rendered statutory A4 document with dual stamps, UPI QR badge, and landed cost matrix.
+10. `scratch/grn_landed_cost_cycle/01_grn_studio_dual_column_workspace.png`: GRN Studio dual-column layout screenshot.
+11. `scratch/grn_landed_cost_cycle/02_cost_allocation_preview_modal.png`: Cost Allocation Preview modal screenshot.
+12. `scratch/grn_landed_cost_cycle/03_why_this_cost_forensic_drilldown.png`: Forensic explainability drill-down screenshot.
+13. `scratch/grn_landed_cost_cycle/04_statutory_a4_inward_landed_cost_slip_preview.png`: Statutory A4 document preview screenshot.
+14. `src/components/purchase/types/inwardCost.ts`: TypeScript contracts for inward cost components, allocation bases, and why-this-cost responses.
+15. `src/components/purchase/InwardCostDock.tsx`: Right-side collapsible transport & logistics cost dock with real-time net expense calculation.
+16. `src/components/purchase/AddCostComponentModal.tsx`: Modal for adding line-item transport/freight charges with GST/ITC toggles.
+17. `src/components/purchase/CostAllocationPreviewModal.tsx`: Real-time allocation table preview showing line-by-line addon costs and final landed costs before posting.
+18. `src/components/purchase/WhyThisCostModal.tsx`: Forensic audit dialog breaking down base invoice rate, tax, and itemized addon expenses.
+19. `src/components/purchase/GrnPostedSuccessModal.tsx`: Post-inwarding celebration dialog with Margin Preview, stock valuation summaries, and printing shortcuts.
+20. `docs/walkthrough/procurement/Procurement_Inward_Landed_Cost_And_Freight_Engine_v3.33.0.md`: This walkthrough.
+21. `docs/implementation/purchase/Inward_Landed_Cost_And_Freight_Engine_v3.33.0.md`: Formal 19-section implementation plan.
 
 ## 4. Files Modified
 1. `backend/app/models/__init__.py`: Exported inward cost models into central registry.
@@ -98,16 +105,29 @@ Deliver a canonical, production-ready **Inward Landed Cost, Multi-Component Frei
    - `TEST 4: POST Create Purchase Receipt with Landed Cost` -> HTTP 201 (`GRN/2026-27/0999` created with 4 line items and 2 cost components).
    - `TEST 5: GET Persisted Cost Components` -> HTTP 200 (Components and allocations verified in PostgreSQL).
    - `TEST 6: GET Why-This-Cost Forensic Breakdown` -> HTTP 200 (Base invoice price + exact freight allocation breakdown returned).
-2. **TypeScript Compilation Check**:
+2. **Rule 12 Database Schema & AST Parity Audit (`scripts/verify_inward_landed_cost_database_parity.py`)**:
+   - Verified 57/57 columns, data types, nullability, default values, primary keys, unique constraints, and foreign key relationships across cluster databases (`smritisys`, `smriti001`, `smriti002`).
+   - Audit result: 100% parity, 0 drift detected across all 3 databases.
+3. **Headless Playwright Visual Telemetry & Statutory A4 Inward Slip Generator (`scripts/execute_headless_grn_landed_cost_cycle.py`)**:
+   - Executed 100% headless Playwright automation against PostgreSQL `smriti001`.
+   - Captured 4 high-resolution visual telemetry artifacts (1440x900):
+     * `01_grn_studio_dual_column_workspace.png` (81,076 bytes)
+     * `02_cost_allocation_preview_modal.png` (53,233 bytes)
+     * `03_why_this_cost_forensic_drilldown.png` (44,790 bytes)
+     * `04_statutory_a4_inward_landed_cost_slip_preview.png` (157,607 bytes)
+   - Generated statutory A4 PDF audit document:
+     * `GRN_Landed_Cost_Audit_Slip_0999.pdf` (1,005,739 bytes).
+     * Features dual signature certification stamps, dynamic UPI verification QR badge, Ind-AS 2 statutory tax capitalizability ledger, and itemized cent-balanced landed cost breakdown.
+4. **TypeScript Compilation Check**:
    - Command: `npm run lint` (`tsc --noEmit`)
    - Result: 0 errors.
-3. **Architecture Duplication & Governance Gate**:
+5. **Architecture Duplication & Governance Gate**:
    - Command: `npm run architecture:check` (`python scripts/architecture_duplication_gate.py`)
    - Result: 11/11 checks passed, 0 violations, 0 architectural debt.
-4. **Launchpad Catalog Validation**:
+6. **Launchpad Catalog Validation**:
    - Command: `npm run validate-launchpad`
    - Result: 44/44 unique tiles passed, 83 render cases passed.
-5. **Form & Screen Registry Check**:
+7. **Form & Screen Registry Check**:
    - Command: `npm run validate-registry`
    - Result: 73/73 form components passed with valid `data-field-key` annotations.
 
@@ -122,6 +142,8 @@ Deliver a canonical, production-ready **Inward Landed Cost, Multi-Component Frei
   - **Sum of Allocations**: Exactly ₹4,000.00 (Variance: 0.0000).
 - **Postgres Ledger Persistence**: 2 `inward_cost_components` and 4 `inward_cost_allocations` rows successfully committed.
 - **WMS Batch Valuation**: Batch stock `unit_cost` and `product_cost_valuations.last_landed_cost` updated atomically.
+- **Database Parity (Rule 12)**: 57/57 schema elements matched identically across `smritisys`, `smriti001`, `smriti002`.
+- **Headless Telemetry Artifacts**: 4 PNG screenshots and 1 A4 PDF generated and certified in artifact brain repository.
 
 ## 10. Known Limitations
 - Direct auto-posting of freight transport invoices to Accounts Payable (`vendor_bills`) is planned for Phase 2 accounting integration.
