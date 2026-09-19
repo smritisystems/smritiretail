@@ -314,3 +314,143 @@ class POPolicyApplyRequest(BaseModel):
     )
     applied_by: str
     remarks: Optional[str] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PO Submit Validation (Spec §16, §18, §37)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class POSubmitLine(BaseModel):
+    """One PO line sent for authoritative revalidation before submit."""
+    product_ref: str = Field(..., description="Barcode, SKU, item code, or product ID.")
+    quantity: float = Field(..., gt=0)
+    rate: float = Field(..., ge=0)
+    line_index: int = Field(..., description="0-based line index for mapping results back.")
+    decision_log_id: Optional[str] = Field(
+        None,
+        description="Log ID from the browse-time evaluation. Used for stale-detection diff."
+    )
+
+
+class POSubmitValidationRequest(BaseModel):
+    """Request body for POST /purchase/validate-po-submit."""
+    vendor_id: str
+    transaction_date: Optional[str] = Field(
+        None, description="ISO date string. Defaults to today."
+    )
+    purchase_order_id: Optional[str] = None
+    lines: List[POSubmitLine]
+
+
+class POSubmitLineResult(BaseModel):
+    """Decision result for a single PO line at submit time."""
+    line_index: int
+    product_ref: str
+    status: DecisionStatus
+    action: DecisionAction
+    approval_required: bool
+    explanation: str
+    stale: bool = Field(
+        False,
+        description="True if the backend decision differs from the browse-time snapshot."
+    )
+    previous_action: Optional[DecisionAction] = Field(
+        None, description="The browse-time action — only set when stale=True."
+    )
+
+
+class POSubmitValidationResult(BaseModel):
+    """Response from POST /purchase/validate-po-submit."""
+    can_submit: bool = Field(..., description="False if any line has action=BLOCK.")
+    allowed_count: int
+    approval_required_count: int
+    blocked_count: int
+    stale_count: int = Field(
+        0, description="Lines whose policy decision changed since browse-time."
+    )
+    line_results: List[POSubmitLineResult]
+    blocked_lines: List[int] = Field(default_factory=list, description="0-based line indices of BLOCK decisions.")
+    stale_lines: List[int] = Field(default_factory=list, description="0-based line indices of stale decisions.")
+    policy_version: str
+    validated_at: datetime
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vendor Change Re-evaluation (Spec §4, §22)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class POVendorChangeRequest(BaseModel):
+    """Request body for POST /purchase/evaluate-vendor-change."""
+    new_vendor_id: str
+    product_refs: List[str] = Field(
+        ..., description="Product references for every existing PO line."
+    )
+    line_indices: Optional[List[int]] = Field(
+        None, description="Parallel array of 0-based line indices. If omitted, indices = 0..N-1."
+    )
+    transaction_date: Optional[str] = None
+    purchase_order_id: Optional[str] = None
+
+
+class POVendorChangeSummary(BaseModel):
+    assigned: int = 0
+    cross_vendor: int = 0
+    unassigned: int = 0
+    restricted: int = 0
+    blocked: int = 0
+    approval_required: int = 0
+
+
+class POVendorChangeLineResult(BaseModel):
+    line_index: int
+    product_ref: str
+    status: DecisionStatus
+    action: DecisionAction
+    approval_required: bool
+    explanation: str
+
+
+class POVendorChangeResult(BaseModel):
+    """Response from POST /purchase/evaluate-vendor-change."""
+    new_vendor_id: str
+    summary: POVendorChangeSummary
+    decisions: List[POVendorChangeLineResult]
+    evaluated_at: datetime
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Duplicate Product Check (Spec §24)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PODuplicateCheckRequest(BaseModel):
+    """Request body for POST /purchase/check-duplicate-product."""
+    new_product_ref: str
+    existing_product_refs: List[str] = Field(
+        ..., description="Product refs already on the PO (same order as line indices)."
+    )
+
+
+class PODuplicateCheckResult(BaseModel):
+    """Response from POST /purchase/check-duplicate-product."""
+    is_duplicate: bool
+    existing_line_index: Optional[int] = Field(
+        None, description="0-based index of the matching existing line."
+    )
+    existing_product_ref: Optional[str] = None
+    existing_qty: Optional[float] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Approval Reasons (Spec §12, v1477 master)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class POApprovalReasonOut(BaseModel):
+    """One approval reason loaded from the v1477 master values."""
+    code: str
+    label: str
+    sort_order: int = 0
+    requires_note: bool = Field(
+        False, description="True for OTHER — free-text explanation mandatory."
+    )
+    is_active: bool = True
+

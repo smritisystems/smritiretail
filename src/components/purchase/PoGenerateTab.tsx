@@ -12,19 +12,32 @@
  * Classification: Internal
  */
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Product } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import {
   PurchaseOrderHeader,
   PurchaseOrderLineItem,
   PurchaseOrderSizePivotRow,
-  PurchaseOrderSummaryTotals
+  PurchaseOrderSummaryTotals,
+  POWorkflowState,
+  POLineDecisionState,
+  computePOIssues,
+  POSubmitValidationResult,
+  POVendorChangeResult,
 } from "./types.ts";
 import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
 import { GrnReceiptTab } from "./GrnReceiptTab.tsx";
 import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
+import { POProductExplainModal } from "./POProductExplainModal.tsx";
+import { POApprovalReasonDialog } from "./POApprovalReasonDialog.tsx";
+import { POVendorChangeDialog } from "./POVendorChangeDialog.tsx";
+import { POValidationSummary } from "./POValidationSummary.tsx";
+import { POVendorContext } from "./POVendorContext.tsx";
+import { POIssuesSummaryBar } from "./POIssuesSummaryBar.tsx";
+import { POProductStatusBadge } from "./POProductStatusBadge.tsx";
+import type { POProductDecision } from "./POProductStatusBadge.tsx";
 
 interface PurchaseOrderGenerationTabProps {
   products?: Product[];
@@ -56,6 +69,27 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [suggestedOrderNo, setSuggestedOrderNo] = useState<string | null>(null);
   // Post-save workflow prompt
   const [savedOrderNo, setSavedOrderNo] = useState<string | null>(null);
+
+  // ── Vendor Policy State (Phase 7B) ──────────────────────────────────────────
+  // lineDecisions is the single authoritative decision per line (review pt 3).
+  // Every entry path (F2/barcode/import/copy/edit) must update this map.
+  const [lineDecisions, setLineDecisions] = useState<Record<string, POLineDecisionState>>({});
+  const [poWorkflowState, setPOWorkflowState] = useState<POWorkflowState>("NO_VENDOR");
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
+  const [pendingRowIndex, setPendingRowIndex] = useState<number>(0);
+  const [pendingDecision, setPendingDecision] = useState<POProductDecision | null>(null);
+  // Dialogs
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [showVendorChangeDialog, setShowVendorChangeDialog] = useState(false);
+  const [pendingNewVendor, setPendingNewVendor] = useState<{ id: string; name: string } | null>(null);
+  const [showValidationSummary, setShowValidationSummary] = useState(false);
+  const [submitValidating, setSubmitValidating] = useState(false);
+  const [submitValidationResult, setSubmitValidationResult] = useState<POSubmitValidationResult | null>(null);
+  const [showExplainModal, setShowExplainModal] = useState(false);
+  const [explainDecision, setExplainDecision] = useState<POProductDecision | null>(null);
+  const [explainProductName, setExplainProductName] = useState("");
+  const [showPolicyConfig, setShowPolicyConfig] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -234,11 +268,86 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     });
   };
 
-  // Handle product selected from F2 browse
-  const handleSelectProduct = (product: Product) => {
+  // ─── Helper: evaluate one product for the current vendor ────────────────────
+  const evaluateProductForVendor = useCallback(async (
+    product: Product,
+    rowIndex: number,
+    entryPath: POLineDecisionState["entryPath"],
+  ): Promise<POProductDecision | null> => {
+    if (!header.supplierId) return null;
+    try {
+      setPOWorkflowState("PRODUCT_EVALUATING");
+      const res = await apiFetchV1("/purchase/evaluate-product", {
+        method: "POST",
+        body: JSON.stringify({
+          vendor_id: header.supplierId,
+          product_ref: product.barcode || product.code || product.id,
+          transaction_date: header.orderDate,
+        }),
+      }) as POProductDecision;
+
+      // Build the authoritative per-line decision (review pt 3)
+      const lineId = lineItems[rowIndex]?.id || `line-${rowIndex + 1}`;
+      const lineDec: POLineDecisionState = {
+        lineId,
+        productRef: product.barcode || product.code || product.id || "",
+        status: res.status,
+        action: res.action,
+        approvalRequired: res.approval_required,
+        explanation: res.explanation,
+        decisionLogId: res.decision_log_id,
+        decisionVersion: res.policy_version || "",
+        evaluatedAt: res.evaluated_at || new Date().toISOString(),
+        entryPath,
+        isStale: false,
+      };
+      setLineDecisions(prev => ({ ...prev, [lineId]: lineDec }));
+      setPOWorkflowState("PRODUCT_DECIDED");
+      return res;
+    } catch {
+      setPOWorkflowState("VENDOR_SELECTED");
+      return null;
+    }
+  }, [header.supplierId, header.orderDate, lineItems]);
+
+  // ─── Handle product selected from F2 browse ──────────────────────────────────
+  const handleSelectProduct = async (product: Product) => {
+    const decision = await evaluateProductForVendor(product, activeRowIndex, "BROWSE");
+
+    // Spec §11: action routing — backend is authoritative
+    if (decision?.action === "BLOCK") {
+      // Do not add — show explain
+      setExplainDecision(decision);
+      setExplainProductName(product.name);
+      setShowExplainModal(true);
+      setPOWorkflowState("VENDOR_SELECTED");
+      return;
+    }
+
+    if (decision?.action === "APPROVAL_REQUIRED") {
+      // Collect reason before adding
+      setPendingProduct(product);
+      setPendingRowIndex(activeRowIndex);
+      setPendingDecision(decision);
+      setShowApprovalDialog(true);
+      return; // will continue in handleApprovalConfirmed
+    }
+
+    // ALLOW or READ_ONLY — add immediately
+    const isRO = decision?.action === "READ_ONLY";
+    _addProductToLine(product, activeRowIndex, isRO);
+  };
+
+  const _addProductToLine = (
+    product: Product,
+    rowIndex: number,
+    isReadOnly = false,
+    approvalReasonCode?: string,
+    approvalReasonNote?: string,
+  ) => {
     if (activeTab === "generation") {
       const rate = product.costPrice || product.price * 0.7 || product.price || 0;
-      updateLineItem(activeRowIndex, {
+      updateLineItem(rowIndex, {
         stockNo: product.code || product.barcode,
         product: product.name,
         brand: product.brand || "SMRITI",
@@ -251,11 +360,14 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         rate: rate,
         orderQty: 1,
         stockOnHand: product.stock ?? 0,
-        originalProduct: product
+        originalProduct: product,
+        isReadOnly,
+        approvalReasonCode,
+        approvalReasonNote,
       });
     } else {
       const rate = product.costPrice || product.price * 0.7 || product.price || 0;
-      updatePivotRow(activeRowIndex, {
+      updatePivotRow(rowIndex, {
         articleNo: product.code || product.barcode,
         product: product.name,
         brand: product.brand || "SMRITI",
@@ -263,10 +375,27 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         color: product.color || "-",
         gstPercent: (product as any).taxPercent ?? 5,
         rate: rate,
-        originalProduct: product
+        originalProduct: product,
+        isReadOnly,
       });
     }
+    setPOWorkflowState("LINE_ADDED");
   };
+
+  const handleApprovalConfirmed = (reasonCode: string, _reasonLabel: string, note: string) => {
+    setShowApprovalDialog(false);
+    if (!pendingProduct) return;
+    // Update the line decision with reason
+    const lineId = lineItems[pendingRowIndex]?.id || `line-${pendingRowIndex + 1}`;
+    setLineDecisions(prev => ({
+      ...prev,
+      [lineId]: { ...prev[lineId], approvalReasonCode: reasonCode, approvalReasonNote: note },
+    }));
+    _addProductToLine(pendingProduct, pendingRowIndex, false, reasonCode, note);
+    setPendingProduct(null);
+    setPendingDecision(null);
+  };
+
 
   // Summary Totals Calculation
   const totals: PurchaseOrderSummaryTotals = useMemo(() => {
@@ -360,7 +489,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       // Ctrl+S → Save PO
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        handleSavePO();
+        handleSubmitGate();
         return;
       }
       // F9 → Print Preview
@@ -397,7 +526,110 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     return () => window.removeEventListener("keydown", handleKeys);
   }, [activeRowIndex, activeTab, lineItems, sizePivotRows, header, saving]);
 
-  // Save / Commit PO to backend
+  // ─── Submit gate: call validate-po-submit before committing ─────────────────
+  const handleSubmitGate = async () => {
+    setSubmitValidating(true);
+    setShowValidationSummary(true);
+    setSubmitValidationResult(null);
+
+    const activeLines = activeTab === "generation"
+      ? lineItems.filter(l => l.stockNo && l.orderQty > 0)
+      : [];
+
+    if (!header.supplierId || activeLines.length === 0) {
+      handleSavePO();
+      setShowValidationSummary(false);
+      setSubmitValidating(false);
+      return;
+    }
+
+    try {
+      const result = await apiFetchV1("/purchase/validate-po-submit", {
+        method: "POST",
+        body: JSON.stringify({
+          vendor_id: header.supplierId,
+          transaction_date: header.orderDate,
+          lines: activeLines.map((l, i) => ({
+            product_ref: l.stockNo,
+            quantity: l.orderQty,
+            rate: l.rate,
+            line_index: i,
+            decision_log_id: l.vendorDecision?.decision_log_id,
+          })),
+        }),
+      }) as POSubmitValidationResult;
+
+      setSubmitValidationResult(result);
+
+      // Mark stale lines
+      if (result.stale_lines?.length > 0) {
+        result.line_results.filter(r => r.stale).forEach(r => {
+          const line = activeLines[r.line_index];
+          if (!line) return;
+          const lineId = lineItems.find(l => l.stockNo === line.stockNo)?.id;
+          if (lineId) {
+            setLineDecisions(prev => ({
+              ...prev,
+              [lineId]: { ...prev[lineId], isStale: true },
+            }));
+          }
+        });
+      }
+    } catch {
+      setSubmitValidationResult(null);
+    } finally {
+      setSubmitValidating(false);
+    }
+  };
+
+  // ─── Vendor change guard (review pt 5 — transactional two-phase) ─────────────
+  const handleVendorChangeRequest = (newId: string, newName: string) => {
+    const hasLines = lineItems.some(l => l.stockNo?.trim());
+    if (!hasLines) {
+      // No products — change freely
+      setHeader(h => ({ ...h, supplierId: newId, supplierName: newName }));
+      setLineDecisions({});
+      setPOWorkflowState("VENDOR_SELECTED");
+      return;
+    }
+    // Has products — open two-phase dialog
+    setPendingNewVendor({ id: newId, name: newName });
+    setShowVendorChangeDialog(true);
+  };
+
+  const handleVendorChangeConfirmed = (result: POVendorChangeResult) => {
+    setShowVendorChangeDialog(false);
+    if (!pendingNewVendor) return;
+    setHeader(h => ({ ...h, supplierId: pendingNewVendor.id, supplierName: pendingNewVendor.name }));
+    // Apply new decisions to lines
+    const newDecisions: Record<string, POLineDecisionState> = {};
+    result.decisions.forEach(d => {
+      const line = lineItems[d.line_index];
+      if (!line) return;
+      newDecisions[line.id] = {
+        lineId: line.id,
+        productRef: d.product_ref,
+        status: d.status,
+        action: d.action,
+        approvalRequired: d.approval_required,
+        explanation: d.explanation,
+        decisionVersion: "",
+        evaluatedAt: result.evaluated_at as unknown as string,
+        entryPath: "EDIT",
+        isStale: false,
+      };
+      // Also update line READ_ONLY state
+      updateLineItem(d.line_index, { isReadOnly: d.action === "READ_ONLY" });
+    });
+    setLineDecisions(newDecisions);
+    setPendingNewVendor(null);
+    setPOWorkflowState("VENDOR_SELECTED");
+  };
+
+  // Continuously computed issues summary (review points 7, 8)
+  const issuesSummary = useMemo(() => computePOIssues(lineDecisions), [lineDecisions]);
+
+  // Save / Commit PO to backend (called by handleSubmitGate after validation passes)
   const handleSavePO = async () => {
     setDuplicateOrderNo(null);
     setSuggestedOrderNo(null);
@@ -671,7 +903,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 disabled={suppliersLoading || !!suppliersError || suppliersList.length === 0}
                 onChange={(e) => {
                   const s = suppliersList.find(x => x.id === e.target.value);
-                  setHeader({ ...header, supplierId: e.target.value, supplierName: s ? s.name : header.supplierName });
+                  handleVendorChangeRequest(e.target.value, s?.name ?? header.supplierName);
                   setSupplierSearch("");
                 }}
                 className="border border-[#737685] rounded px-2 bg-white outline-none focus:ring-1 focus:ring-[#00296d] font-medium w-full text-xs"
@@ -701,6 +933,26 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               <button type="button" onClick={loadData} className="font-semibold underline hover:text-[#00296d]">
                 Retry
               </button>
+            </div>
+          )}
+          {/* Vendor context: policy pill + vendor status + live issues bar (review pts 7, 8) */}
+          {header.supplierId && (
+            <div className="mt-2 flex flex-col gap-1 border-t border-[#eeedf3] pt-2">
+              <POVendorContext
+                vendorId={header.supplierId}
+                vendorName={header.supplierName}
+                onViewPolicy={() => setShowPolicyConfig(true)}
+              />
+              {issuesSummary.totalEvaluated > 0 && (
+                <POIssuesSummaryBar
+                  summary={issuesSummary}
+                  compact
+                  onReview={() => {
+                    setShowValidationSummary(true);
+                    if (!submitValidationResult) handleSubmitGate();
+                  }}
+                />
+              )}
             </div>
           )}
           <div className="grid grid-cols-12 gap-1.5 items-center mb-1">
@@ -790,6 +1042,18 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Save Draft (primary) */}
+          <button
+            type="button"
+            onClick={handleSavePO}
+            disabled={saving}
+            className="bg-white hover:bg-[#faf9ff] text-[#00296d] border border-[#00296d] font-bold rounded px-3 py-1 text-xs shadow-2xs flex items-center gap-1 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[14px]">save</span>
+            {saving ? "Saving…" : "Save Draft"}
+          </button>
+
+          {/* Browse Catalog (primary) */}
           <button
             type="button"
             onClick={() => setShowBrowseModal(true)}
@@ -798,6 +1062,50 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             <span className="material-symbols-outlined text-[14px]">search</span>
             Browse Catalog (F2)
           </button>
+
+          {/* Submit (primary) */}
+          <button
+            type="button"
+            onClick={handleSubmitGate}
+            disabled={saving || submitValidating}
+            className="bg-green-700 hover:bg-green-800 text-white px-3 py-1 rounded font-bold text-xs flex items-center gap-1 shadow-xs disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[14px]">check_circle</span>
+            Submit
+          </button>
+
+          {/* More ▼ (secondary actions collapsed per spec §2) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMoreMenu(m => !m)}
+              className="bg-white border border-[#c4c6d4] text-[#434652] hover:bg-[#eeedf3] px-2 py-1 rounded text-xs font-bold flex items-center gap-0.5"
+            >
+              More <span className="material-symbols-outlined text-[12px]">expand_more</span>
+            </button>
+            {showMoreMenu && (
+              <div
+                className="absolute right-0 top-full mt-1 w-40 bg-white border border-[#c4c6d4] rounded-lg shadow-xl z-50 overflow-hidden"
+                onMouseLeave={() => setShowMoreMenu(false)}
+              >
+                {[
+                  { label: "Duplicate",   icon: "content_copy",  action: () => {} },
+                  { label: "Import Items",icon: "upload_file",   action: () => {} },
+                  { label: "Scan Barcode",icon: "barcode_reader",action: () => {} },
+                  { label: "Print",       icon: "print",         action: () => window.print() },
+                  { label: "View Audit",  icon: "history",       action: () => {} },
+                  { label: "Cancel PO",   icon: "cancel",        action: () => onClose?.() },
+                ].map(item => (
+                  <button key={item.label} type="button"
+                    onClick={() => { setShowMoreMenu(false); item.action(); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#434652] hover:bg-[#f4f3f9] transition-colors">
+                    <span className="material-symbols-outlined text-[14px]">{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -827,6 +1135,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               <tr>
                 <th rowSpan={2} className="border-b border-r border-[#c4c6d4] p-1 w-8 text-center bg-[#e8e7ed]">#</th>
                 <th rowSpan={2} className="border-b border-r border-[#c4c6d4] p-1 px-2 min-w-[100px]">Stock Number</th>
+                {header.supplierId && (
+                  <th rowSpan={2} className="border-b border-r border-[#c4c6d4] p-1 px-2 w-24 text-center">Vendor Status</th>
+                )}
                 <th rowSpan={2} className="border-b border-r border-[#c4c6d4] p-1 px-2 min-w-[130px]">Product</th>
                 <th rowSpan={2} className="border-b border-r border-[#c4c6d4] p-1 px-2 min-w-[90px]">Brand</th>
                 <th rowSpan={2} className="border-b border-r border-[#c4c6d4] p-1 px-2 min-w-[80px]">Style</th>
@@ -881,6 +1192,33 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                         className="w-full bg-transparent border-none p-1 h-6 font-mono font-bold text-xs focus:ring-1 focus:ring-[#00296d]"
                       />
                     </td>
+                    {/* Vendor Status — driven by lineDecisions (review pt 3: one authoritative decision per line) */}
+                    {header.supplierId && (() => {
+                      const dec = lineDecisions[item.id];
+                      return (
+                        <td className="border-r border-[#c4c6d4] p-1 text-center align-middle">
+                          {dec && item.stockNo ? (
+                            <button
+                              type="button"
+                              title={dec.explanation}
+                              onClick={() => {
+                                setExplainDecision(dec as unknown as POProductDecision);
+                                setExplainProductName(item.product);
+                                setShowExplainModal(true);
+                              }}
+                              className="inline-flex"
+                            >
+                              <POProductStatusBadge
+                                decision={dec as unknown as POProductDecision}
+                                compact
+                              />
+                            </button>
+                          ) : item.stockNo ? (
+                            <span className="text-[10px] text-[#c4c6d4]">—</span>
+                          ) : null}
+                        </td>
+                      );
+                    })()}
                     <td className="border-r border-[#c4c6d4] p-0.5">
                       <input
                         type="text"
@@ -1385,6 +1723,63 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         onSelectProduct={handleSelectProduct}
         vendorId={header.supplierId || undefined}
         transactionDate={header.orderDate || undefined}
+      />
+
+      {/* ── Approval Reason Dialog (spec §11, §12) ───────────────────────── */}
+      <POApprovalReasonDialog
+        isOpen={showApprovalDialog}
+        onClose={() => {
+          setShowApprovalDialog(false);
+          setPendingProduct(null);
+          setPendingDecision(null);
+          setPOWorkflowState("VENDOR_SELECTED");
+        }}
+        onConfirm={handleApprovalConfirmed}
+        decision={pendingDecision}
+        productName={pendingProduct?.name ?? ""}
+        vendorName={header.supplierName}
+      />
+
+      {/* ── Vendor Change Dialog (spec §4, §22 — two-phase transactional) ── */}
+      {showVendorChangeDialog && pendingNewVendor && (
+        <POVendorChangeDialog
+          isOpen={showVendorChangeDialog}
+          onClose={() => {
+            setShowVendorChangeDialog(false);
+            setPendingNewVendor(null);
+          }}
+          onConfirm={handleVendorChangeConfirmed}
+          currentVendorId={header.supplierId}
+          currentVendorName={header.supplierName}
+          newVendorId={pendingNewVendor.id}
+          newVendorName={pendingNewVendor.name}
+          lines={lineItems.map(l => ({ stockNo: l.stockNo, product: l.product }))}
+          transactionDate={header.orderDate}
+        />
+      )}
+
+      {/* ── Submit Validation Summary (spec §16, §18, §37) ──────────────── */}
+      <POValidationSummary
+        isOpen={showValidationSummary}
+        onClose={() => setShowValidationSummary(false)}
+        onSubmit={() => {
+          setShowValidationSummary(false);
+          handleSavePO();
+        }}
+        result={submitValidationResult}
+        loading={submitValidating}
+      />
+
+      {/* ── Policy Explain Modal (spec §9) ───────────────────────────────── */}
+      <POProductExplainModal
+        isOpen={showExplainModal}
+        onClose={() => {
+          setShowExplainModal(false);
+          setExplainDecision(null);
+        }}
+        decision={explainDecision}
+        productName={explainProductName}
+        vendorName={header.supplierName}
       />
     </div>
   );
