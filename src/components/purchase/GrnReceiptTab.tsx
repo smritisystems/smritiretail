@@ -44,12 +44,18 @@ import {
   Eye,
   Check,
   Scale,
+  Printer,
+  Sparkles,
+  Building2,
+  FolderOpen,
 } from "lucide-react";
 import { CreateDebitNoteModal } from "../CreateDebitNoteDlg.tsx";
 import { AddCostComponentModal } from "./AddCostComponentModal.tsx";
 import { CostAllocationPreviewModal } from "./CostAllocationPreviewModal.tsx";
 import { WhyThisCostModal } from "./WhyThisCostModal.tsx";
 import { GrnPostedSuccessModal } from "./GrnPostedSuccessModal.tsx";
+import { GrnPrintModal, GrnPrintReceiptData } from "./GrnPrintModal.tsx";
+import { AddProductToGrnModal, SelectedGrnProduct } from "./AddProductToGrnModal.tsx";
 import {
   InwardCostItem,
   InwardCostTypeOption,
@@ -267,7 +273,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrderOption | null>(null);
-  const [grnLines, setGrnLines] = useState<GrnLineRow[]>(DEFAULT_SAMPLE_LINES);
+  const [grnLines, setGrnLines] = useState<GrnLineRow[]>([]);
   const [notes, setNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
@@ -276,27 +282,27 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [subView, setSubView] = useState<"create" | "history" | "bill">("create");
 
   // Header State
-  const [grnNumber, setGrnNumber] = useState("GRN-2026-00452");
-  const [grnDate, setGrnDate] = useState("2026-09-19");
-  const [supplierName, setSupplierName] = useState("ABC Footwear Pvt. Ltd.");
-  const [supplierId, setSupplierId] = useState("SUP-001");
-  const [invoiceNumber, setInvoiceNumber] = useState("INV-78452");
-  const [invoiceDate, setInvoiceDate] = useState("2026-09-18");
-  const [referencePo, setReferencePo] = useState("PO-2026-00321");
+  const [grnNumber, setGrnNumber] = useState("");
+  const [grnDate, setGrnDate] = useState(new Date().toISOString().split("T")[0]);
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
+  const [referencePo, setReferencePo] = useState("");
   const [activeStep, setActiveStep] = useState(1);
 
   // Transport Details State
-  const [transporterName, setTransporterName] = useState("V-Trans Express");
-  const [lrNumber, setLrNumber] = useState("VT-982142");
-  const [lrDate, setLrDate] = useState("2026-09-19");
-  const [vehicleNumber, setVehicleNumber] = useState("MH-12-Q-4021");
-  const [weightCbm, setWeightCbm] = useState("180 Kg / 1.2");
-  const [cartons, setCartons] = useState(10);
+  const [transporterName, setTransporterName] = useState("");
+  const [lrNumber, setLrNumber] = useState("");
+  const [lrDate, setLrDate] = useState(new Date().toISOString().split("T")[0]);
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [weightCbm, setWeightCbm] = useState("");
+  const [cartons, setCartons] = useState(0);
   const [showRightDock, setShowRightDock] = useState(true);
 
   // Inward Landed Cost Engine State
   const [costTypes, setCostTypes] = useState<InwardCostTypeOption[]>([]);
-  const [costItems, setCostItems] = useState<InwardCostItem[]>(DEFAULT_SAMPLE_COST_COMPONENTS);
+  const [costItems, setCostItems] = useState<InwardCostItem[]>([]);
   const [allocationMethod, setAllocationMethod] = useState<"VALUE" | "QUANTITY" | "WEIGHT">("VALUE");
 
   // Modals State
@@ -307,6 +313,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [whyThisCostData, setWhyThisCostData] = useState<WhyThisCostData | null>(null);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [postedSummary, setPostedSummary] = useState<GrnPostedSummary | null>(null);
+  const [latestPostedReceipt, setLatestPostedReceipt] = useState<GrnPrintReceiptData | null>(null);
+
+  // Print & Add Product Modals State
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printReceiptData, setPrintReceiptData] = useState<GrnPrintReceiptData | null>(null);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+
+  // History search and row expansion state
+  const [historySearch, setHistorySearch] = useState("");
+  const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null);
 
   // Debit Note Modal State for PPV claims
   const [isDebitNoteOpen, setIsDebitNoteOpen] = useState(false);
@@ -380,7 +396,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setSelectedOrderId(orderId);
     if (!orderId) {
       setSelectedOrder(null);
-      setGrnLines(DEFAULT_SAMPLE_LINES);
+      setGrnLines([]);
+      setReferencePo("");
       return;
     }
     try {
@@ -391,7 +408,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       setReferencePo(order.order_no || order.order_number || order.id);
 
       const lines: GrnLineRow[] = (order.items || []).map((item, idx) => ({
-        rowId: `row-${idx}`,
+        rowId: `row-${idx}-${Date.now()}`,
         product_id: item.product_id || item.item_id || item.id || `PROD-${idx + 1}`,
         item_id: item.item_id || item.id || "",
         code: item.code || `SKU-${idx + 1}`,
@@ -407,12 +424,120 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         gst_rate: Number(item.gst_rate) || 18,
         mrp: Number(item.mrp) || Number(item.unit_price ? Number(item.unit_price) * 1.6 : 0) || 0,
       }));
-      if (lines.length > 0) {
-        setGrnLines(lines);
-      }
+      setGrnLines(lines);
+      onNotification?.("Order Loaded", `Loaded ${lines.length} items from PO ${order.order_no || order.id}.`, "info");
     } catch {
       onNotification?.("Load Error", "Could not load order details.", "error");
     }
+  };
+
+  const handleLoadDemoSample = () => {
+    setGrnNumber("GRN-2026-00452");
+    setSupplierName("ABC Footwear Pvt. Ltd.");
+    setSupplierId("SUP-001");
+    setInvoiceNumber("INV-78452");
+    setInvoiceDate("2026-09-18");
+    setReferencePo("PO-2026-00321");
+    setTransporterName("V-Trans Express");
+    setLrNumber("VT-982142");
+    setVehicleNumber("MH-12-Q-4021");
+    setWeightCbm("180 Kg / 1.2");
+    setCartons(10);
+    setGrnLines(DEFAULT_SAMPLE_LINES);
+    setCostItems(DEFAULT_SAMPLE_COST_COMPONENTS);
+    onNotification?.("Demo Sample Loaded", "Loaded 4 footwear lines & 5 landed cost components.", "info");
+  };
+
+  const handleClearLines = () => {
+    setGrnLines([]);
+    setCostItems([]);
+    setSelectedOrderId("");
+    setSelectedOrder(null);
+    setSupplierId("");
+    setSupplierName("");
+    setReferencePo("");
+    setInvoiceNumber("");
+    setGrnNumber("");
+    setNotes("");
+    onNotification?.("Workspace Cleared", "GRN lines and cost components reset.", "info");
+  };
+
+  const handleAddProduct = (prod: SelectedGrnProduct) => {
+    const newLine: GrnLineRow = {
+      rowId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      product_id: prod.product_id,
+      item_id: prod.product_id,
+      code: prod.code,
+      name: prod.name,
+      size: prod.size,
+      color: prod.color,
+      quantity_ordered: 0,
+      quantity_received: 1,
+      quantity_damaged: 0,
+      cost_price: prod.cost_price,
+      invoice_rate: prod.invoice_rate,
+      trade_discount: 0,
+      gst_rate: prod.gst_rate,
+      mrp: prod.mrp,
+    };
+    setGrnLines((prev) => [...prev, newLine]);
+    onNotification?.("Product Added", `${prod.name} added to inward list.`, "success");
+  };
+
+  const handleRemoveLine = (rowId: string) => {
+    setGrnLines((prev) => prev.filter((r) => r.rowId !== rowId));
+  };
+
+  const handlePrintFromHistory = async (receipt: any) => {
+    let fullReceipt = receipt;
+    if (!receipt.items || receipt.items.length === 0) {
+      try {
+        fullReceipt = await apiFetchV1(`/purchase/receipts/${receipt.id}`);
+      } catch {
+        // use available fields
+      }
+    }
+
+    const printData: GrnPrintReceiptData = {
+      id: fullReceipt.id,
+      receipt_no: fullReceipt.receipt_no,
+      date: fullReceipt.created_at ? new Date(fullReceipt.created_at).toLocaleDateString("en-IN") : undefined,
+      created_at: fullReceipt.created_at,
+      supplier_id: fullReceipt.supplier_id,
+      supplier_name: fullReceipt.supplier_name || fullReceipt.supplier_id,
+      order_id: fullReceipt.order_id,
+      po_number: fullReceipt.order_id,
+      invoice_number: fullReceipt.invoice_number,
+      transporter_name: fullReceipt.transporter_name,
+      lr_number: fullReceipt.lr_number,
+      lr_date: fullReceipt.lr_date,
+      vehicle_number: fullReceipt.vehicle_number,
+      notes: fullReceipt.notes,
+      items: (fullReceipt.items || []).map((i: any) => ({
+        code: i.code || i.product_id,
+        name: i.name || "Item",
+        quantity_ordered: i.quantity_ordered,
+        quantity_received: i.quantity_received,
+        quantity_damaged: i.quantity_damaged,
+        cost_price: i.cost_price,
+        invoice_rate: i.cost_price,
+        landed_cost: i.landed_cost,
+        freight_allocated: i.freight_allocated,
+        mrp: i.mrp,
+        gst_rate: i.gst_rate,
+      })),
+      cost_components: (fullReceipt.cost_components || []).map((c: any) => ({
+        component_type: c.component_type,
+        description: c.description,
+        amount: Number(c.amount || 0),
+        allocation_method: c.allocation_method,
+        transporter_name: c.transporter_name,
+        document_no: c.document_no,
+      })),
+    };
+
+    setPrintReceiptData(printData);
+    setIsPrintModalOpen(true);
   };
 
   const updateLine = (rowId: string, field: keyof GrnLineRow, value: any) => {
@@ -614,12 +739,13 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       onNotification?.("Validation Error", "Enter at least one received quantity greater than zero.", "warning");
       return;
     }
+    const effSupplier = supplierId || supplierName || (suppliersList.length > 0 ? suppliersList[0].id : "SUP-DIRECT");
     setSaving(true);
     try {
       const payload = {
-        supplier_id: supplierId,
+        supplier_id: effSupplier,
         order_id: selectedOrderId || undefined,
-        receipt_no: grnNumber,
+        receipt_no: grnNumber.trim() ? grnNumber.trim() : undefined,
         notes: notes || undefined,
         transporter_name: transporterName || undefined,
         lr_number: lrNumber || undefined,
@@ -667,10 +793,60 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         body: JSON.stringify(payload),
       });
 
+      const finalReceiptNo = receipt?.receipt_no || grnNumber || "GRN-POSTED";
+      const printData: GrnPrintReceiptData = {
+        receipt_no: finalReceiptNo,
+        supplier_id: effSupplier,
+        supplier_name: supplierName || effSupplier,
+        order_id: selectedOrderId || undefined,
+        po_number: referencePo || undefined,
+        invoice_number: invoiceNumber || undefined,
+        invoice_date: invoiceDate,
+        transporter_name: transporterName,
+        lr_number: lrNumber,
+        lr_date: lrDate,
+        vehicle_number: vehicleNumber,
+        weight_cbm: weightCbm,
+        cartons: cartons,
+        notes: notes,
+        items: validLines.map((r, idx) => {
+          const { landedCost, allocatedAmount } = lineAllocations[idx];
+          return {
+            code: r.code,
+            name: r.name,
+            size: r.size,
+            color: r.color,
+            quantity_ordered: r.quantity_ordered,
+            quantity_received: r.quantity_received,
+            quantity_damaged: r.quantity_damaged,
+            cost_price: r.cost_price,
+            invoice_rate: r.invoice_rate,
+            landed_cost: landedCost,
+            freight_allocated: allocatedAmount,
+            mrp: r.mrp,
+            gst_rate: r.gst_rate,
+          };
+        }),
+        cost_components: costItems.map((c) => ({
+          component_type: c.component_type,
+          description: c.description,
+          amount: c.amount,
+          taxable_amount: c.taxable_amount,
+          tax_amount: c.tax_amount,
+          tax_rate: c.tax_rate,
+          total_amount: c.total_amount,
+          allocation_method: c.allocation_method,
+          transporter_name: c.transporter_name,
+          document_no: c.document_no,
+        })),
+      };
+
+      setLatestPostedReceipt(printData);
+
       setPostedSummary({
-        grn_no: receipt?.receipt_no || grnNumber,
+        grn_no: finalReceiptNo,
         receipt_id: receipt?.id || "REC-001",
-        supplier_name: supplierName,
+        supplier_name: supplierName || effSupplier,
         total_units: totalAcceptedUnits,
         purchase_cost: totalPurchaseValue,
         additional_landed_costs: totalAddons,
@@ -774,6 +950,25 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           setIsSuccessModalOpen(false);
           setSubView("history");
         }}
+        onPrintSlip={() => {
+          setIsSuccessModalOpen(false);
+          if (latestPostedReceipt) {
+            setPrintReceiptData(latestPostedReceipt);
+            setIsPrintModalOpen(true);
+          }
+        }}
+      />
+
+      <AddProductToGrnModal
+        isOpen={isAddProductOpen}
+        onClose={() => setIsAddProductOpen(false)}
+        onSelectProduct={handleAddProduct}
+      />
+
+      <GrnPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        receiptData={printReceiptData}
       />
 
       <CreateDebitNoteModal
@@ -796,16 +991,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       {/* Top Application Bar */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex items-center justify-between shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-indigo-600 text-white">
+          <div className="p-2 rounded-lg bg-indigo-600 text-white shadow-xs">
             <PackageCheck className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight">
-                Goods Receipt Note (GRN)
+                Goods Receipt Note (GRN) Studio
               </h2>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                ● Draft
+                ● Inward Engine
               </span>
             </div>
             <p className="text-xs text-slate-500">
@@ -817,28 +1012,36 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setSubView("create")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
               subView === "create"
                 ? "bg-indigo-600 text-white shadow"
                 : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
             }`}
           >
-            <ClipboardList className="w-3.5 h-3.5 inline mr-1" />
-            GRN Studio
+            <ClipboardList className="w-3.5 h-3.5" />
+            <span>Inward Studio</span>
+            {grnLines.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-200 text-indigo-900 font-mono">
+                {grnLines.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => {
               setSubView("history");
               loadReceipts();
             }}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
               subView === "history"
                 ? "bg-indigo-600 text-white shadow"
                 : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
             }`}
           >
-            <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
-            GRN History
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>GRN History</span>
+            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-mono">
+              {savedReceipts.length}
+            </span>
           </button>
           <button
             onClick={() => setSubView("bill")}
@@ -916,13 +1119,14 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                     <label className="block text-slate-500 font-medium mb-1">GRN No.</label>
                     <input
                       type="text"
+                      placeholder="Auto-Generated"
                       value={grnNumber}
                       onChange={(e) => setGrnNumber(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800 dark:text-slate-200 outline-none"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800 dark:text-slate-200 outline-none placeholder:text-slate-400 placeholder:font-normal"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-500 font-medium mb-1">Date</label>
+                    <label className="block text-slate-500 font-medium mb-1">Inward Date</label>
                     <input
                       type="date"
                       value={grnDate}
@@ -932,32 +1136,54 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-slate-500 font-medium mb-1">
-                      Supplier <span className="text-rose-500">*</span>
+                      Purchase Order Source
                     </label>
                     <select
                       value={selectedOrderId}
                       onChange={(e) => handleSelectOrder(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
                     >
-                      <option value="">{supplierName} ({supplierId})</option>
+                      <option value="">-- Direct Inward / Ad-Hoc (No PO) --</option>
                       {orders.map((o) => (
                         <option key={o.id} value={o.id}>
-                          {o.supplier_name || o.supplier_id} — PO: {o.order_no || o.id}
+                          {o.order_no || o.order_number || o.id} — {o.supplier_name || o.supplier_id} ({o.items?.length || 0} items)
                         </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-slate-500 font-medium mb-1">Reference</label>
-                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                      <span>{referencePo}</span>
-                    </div>
+                    <label className="block text-slate-500 font-medium mb-1">
+                      Supplier <span className="text-rose-500">*</span>
+                    </label>
+                    {selectedOrderId ? (
+                      <div className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-semibold text-xs truncate text-slate-800 dark:text-slate-200">
+                        {supplierName || supplierId || "PO Supplier"}
+                      </div>
+                    ) : (
+                      <select
+                        value={supplierId}
+                        onChange={(e) => {
+                          const sid = e.target.value;
+                          setSupplierId(sid);
+                          const s = suppliersList.find((x) => x.id === sid);
+                          if (s) setSupplierName(s.name || s.company_name || sid);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
+                      >
+                        <option value="">-- Direct Supplier --</option>
+                        {suppliersList.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name || s.company_name || s.id}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-slate-500 font-medium mb-1">Invoice No.</label>
+                    <label className="block text-slate-500 font-medium mb-1">Vendor Invoice No.</label>
                     <input
                       type="text"
-                      placeholder="INV-78452"
+                      placeholder="e.g. INV-2026-99"
                       value={invoiceNumber}
                       onChange={(e) => setInvoiceNumber(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 dark:text-slate-200 outline-none"
@@ -999,334 +1225,476 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                 </div>
               </div>
 
-              {/* Receiving Summary Metrics */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
-                  <span className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono block">
-                    {totalOrdered.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium">Ordered (Units)</span>
-                </div>
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
-                  <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400 font-mono block">
-                    {totalReceived.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium">Received (Units)</span>
-                </div>
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
-                  <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400 font-mono block">
-                    {totalDamaged.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium">Damaged (Units)</span>
-                </div>
-                <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 rounded-xl p-3 shadow-sm bg-emerald-50/20">
-                  <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono block">
-                    {totalAcceptedUnits.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold">Net Accepted</span>
-                </div>
-              </div>
+              {grnLines.length === 0 ? (
+                /* Inward Launchpad Hub */
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+                  {/* Launchpad Welcome */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800 shrink-0">
+                        <FolderOpen className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                          Goods Inward Receiving Hub
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Select an open Purchase Order to inward against contract specs, or start Direct Inward without a PO
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Item Details Grid */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-1 max-w-sm">
-                    <div className="relative w-full">
-                      <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search by SKU, product name or scan barcode..."
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 outline-none"
+                    <button
+                      type="button"
+                      onClick={handleLoadDemoSample}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shrink-0 shadow-xs"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Load Footwear Demo (4 SKUs)</span>
+                    </button>
+                  </div>
+
+                  {/* Section 1: Open Confirmed POs */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-indigo-600" />
+                        <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                          Open Purchase Orders Awaiting Inward ({orders.length})
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={loadOrders}
+                        className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-medium"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Refresh POs</span>
+                      </button>
+                    </div>
+
+                    {ordersLoading ? (
+                      <div className="py-8 text-center text-xs text-slate-500">
+                        Loading open purchase orders from database...
+                      </div>
+                    ) : orders.length === 0 ? (
+                      <div className="p-6 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500 space-y-1">
+                        <p className="font-semibold text-slate-700 dark:text-slate-300">No open purchase orders pending receipt.</p>
+                        <p>You can create a new PO in PO Studio or perform Direct Inward below.</p>
+                      </div>
+                    ) : (
+                      <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                            <tr>
+                              <th className="py-2.5 px-3">PO Number</th>
+                              <th className="py-2.5 px-3">Supplier</th>
+                              <th className="py-2.5 px-3 text-center">Items</th>
+                              <th className="py-2.5 px-3 text-right">Order Value (₹)</th>
+                              <th className="py-2.5 px-3 text-center">Status</th>
+                              <th className="py-2.5 px-3 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {orders.slice(0, 6).map((o) => (
+                              <tr key={o.id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-850/50 transition">
+                                <td className="py-2.5 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                                  {o.order_no || o.order_number || o.id}
+                                </td>
+                                <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">
+                                  {o.supplier_name || o.supplier_id}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-mono text-slate-600 dark:text-slate-400">
+                                  {o.items ? o.items.length : "--"}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                  ₹{Number(o.total_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                                    {o.status || "CONFIRMED"}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectOrder(o.id)}
+                                    className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition"
+                                  >
+                                    Inward PO →
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 2: Direct Inward / Ad-Hoc Material Receiving */}
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                        Direct Inward / Ad-Hoc Receiving (Without PO)
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Receive goods directly into stock from master inventory catalog.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddProductOpen(true)}
+                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 font-bold text-xs shadow-sm transition flex items-center gap-2 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Products from Master Catalog</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Full Receiving Workspace */
+                <>
+                  {/* Receiving Summary Metrics */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+                      <span className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono block">
+                        {totalOrdered.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium">Ordered (Units)</span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+                      <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400 font-mono block">
+                        {totalReceived.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium">Received (Units)</span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+                      <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400 font-mono block">
+                        {totalDamaged.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium">Damaged (Units)</span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 rounded-xl p-3 shadow-sm bg-emerald-50/20">
+                      <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono block">
+                        {totalAcceptedUnits.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold">Net Accepted</span>
+                    </div>
+                  </div>
+
+                  {/* Item Details Grid */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+                    <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                          Inward Items ({grnLines.length})
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddProductOpen(true)}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Product from Catalog</span>
+                        </button>
+                        {selectedOrderId && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectOrder(selectedOrderId)}
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                            title="Reset items from PO"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Reload PO</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleClearLines}
+                          className="px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Clear</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+                          <tr>
+                            <th className="py-2.5 px-2.5">#</th>
+                            <th className="py-2.5 px-2">SKU</th>
+                            <th className="py-2.5 px-3">Product</th>
+                            <th className="py-2.5 px-2">Size</th>
+                            <th className="py-2.5 px-2">Color</th>
+                            <th className="py-2.5 px-2 text-right">PO Qty</th>
+                            <th className="py-2.5 px-2 text-right">Recv Qty</th>
+                            <th className="py-2.5 px-2 text-right text-rose-500">Damage</th>
+                            <th className="py-2.5 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400">Accepted</th>
+                            <th className="py-2.5 px-2 text-right">PO Rate (₹)</th>
+                            <th className="py-2.5 px-2 text-right">Inv. Rate (₹)</th>
+                            <th className="py-2.5 px-2 text-right">Net Rate (₹)</th>
+                            <th className="py-2.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                              Landed Cost (₹)
+                            </th>
+                            <th className="py-2.5 px-2 text-right">Margin</th>
+                            <th className="py-2.5 px-2 text-center">Status</th>
+                            <th className="py-2.5 px-2 text-center">Del</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {grnLines.map((row, idx) => {
+                            const { accepted, netRate } = lineMetrics[idx];
+                            const { landedCost } = lineAllocations[idx];
+                            const isPpv = Math.abs(row.invoice_rate - row.cost_price) > 0.001;
+                            const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
+
+                            return (
+                              <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                                <td className="py-2 px-2.5 text-slate-400">{idx + 1}</td>
+                                <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">
+                                  {row.code}
+                                </td>
+                                <td className="py-2 px-3">
+                                  <span className="font-semibold text-slate-900 dark:text-white block">
+                                    {row.name}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-2 font-mono text-slate-600 dark:text-slate-400">{row.size}</td>
+                                <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{row.color}</td>
+                                <td className="py-2 px-2 text-right font-mono">{row.quantity_ordered}</td>
+                                <td className="py-2 px-2 text-right font-mono">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={row.quantity_received}
+                                    onChange={(e) => updateLine(row.rowId, "quantity_received", parseFloat(e.target.value) || 0)}
+                                    className="w-16 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono"
+                                  />
+                                </td>
+                                <td className="py-2 px-2 text-right font-mono text-rose-600 dark:text-rose-400">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={row.quantity_damaged}
+                                    onChange={(e) => updateLine(row.rowId, "quantity_damaged", parseFloat(e.target.value) || 0)}
+                                    className="w-14 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-rose-600"
+                                  />
+                                </td>
+                                <td className="py-2 px-2 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                  {accepted}
+                                </td>
+                                <td className="py-2 px-2 text-right font-mono">
+                                  {row.cost_price.toFixed(2)}
+                                </td>
+                                <td className="py-2 px-2 text-right font-mono">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={row.invoice_rate}
+                                    onChange={(e) => updateLine(row.rowId, "invoice_rate", parseFloat(e.target.value) || 0)}
+                                    className={`w-20 text-right bg-slate-50 dark:bg-slate-800 border rounded px-1.5 py-0.5 font-mono ${
+                                      isPpv ? "border-amber-400 font-bold text-amber-700 dark:text-amber-300" : "border-slate-300 dark:border-slate-700"
+                                    }`}
+                                  />
+                                </td>
+                                <td className="py-2 px-2 text-right font-mono font-medium">
+                                  {netRate.toFixed(2)}
+                                </td>
+                                <td className="py-2 px-3 text-right font-mono font-bold">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenWhyThisCost(idx)}
+                                    className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition inline-flex items-center gap-1"
+                                    title="Click to view explainable landed cost breakdown"
+                                  >
+                                    <span>₹{landedCost.toFixed(2)}</span>
+                                    <HelpCircle className="w-3 h-3 text-indigo-400" />
+                                  </button>
+                                </td>
+                                <td className="py-2 px-2 text-right font-mono">
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                                    {marginPct.toFixed(1)}%
+                                  </span>
+                                </td>
+                                <td className="py-2 px-2 text-center">
+                                  {isPpv ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 inline-flex items-center gap-0.5">
+                                      <AlertTriangle className="w-3 h-3" />
+                                      <span>PPV</span>
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 inline-flex items-center gap-0.5">
+                                      <Check className="w-3 h-3" />
+                                      <span>OK</span>
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveLine(row.rowId)}
+                                    className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition"
+                                    title="Delete line"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Purchase Price Variance (PPV) Card */}
+                  {ppvLines.length > 0 && (
+                    <div className="bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
+                          <AlertTriangle className="w-4 h-4 text-rose-600" />
+                          <span>Purchase Price Variance (PPV)</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200">
+                          {ppvLines.length} item with variance
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="text-slate-500 font-medium">
+                            <tr>
+                              <th className="py-1 px-2">SKU</th>
+                              <th className="py-1 px-2">Product</th>
+                              <th className="py-1 px-2 text-right">PO Rate</th>
+                              <th className="py-1 px-2 text-right">Invoice Rate</th>
+                              <th className="py-1 px-2 text-right text-rose-600">Variance (₹)</th>
+                              <th className="py-1 px-2 text-right">Qty</th>
+                              <th className="py-1 px-2 text-right text-rose-600 font-bold">Total (₹)</th>
+                              <th className="py-1 px-2 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
+                            {ppvLines.map(({ row, variancePerUnit, totalPpv, accepted }) => (
+                              <tr key={row.code}>
+                                <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
+                                <td className="py-2 px-2 text-slate-700 dark:text-slate-300">{row.name}</td>
+                                <td className="py-2 px-2 text-right font-mono">₹{row.cost_price.toFixed(2)}</td>
+                                <td className="py-2 px-2 text-right font-mono">₹{row.invoice_rate.toFixed(2)}</td>
+                                <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                                  +{variancePerUnit.toFixed(2)}
+                                </td>
+                                <td className="py-2 px-2 text-right font-mono">{accepted}</td>
+                                <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                                  ₹{totalPpv.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2 px-2 text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => onNotification?.("Variance Accepted", `Accepted +₹${variancePerUnit} variance for ${row.code}`, "info")}
+                                      className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs transition"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsDebitNoteOpen(true)}
+                                      className="px-2.5 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                    >
+                                      Create Claim
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Margin Preview Post GRN Box */}
+                  <div className="bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/60 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold text-xs">
+                        <TrendingUp className="w-4 h-4 text-indigo-600" />
+                        <span>Margin Preview (Post GRN)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Based on accepted quantity and capitalized landed cost
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-6 text-right text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Landed Cost</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">
+                          ₹ {avgUnitLandedCost.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. MRP</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">
+                          ₹ {avgMrp.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Margin</span>
+                        <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-xs">
+                          {avgMarginPercent.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Remarks & Document Attachments Footer */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    {/* Remarks */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
+                      <label className="font-bold text-slate-800 dark:text-slate-200">Remarks &amp; Notes</label>
+                      <textarea
+                        rows={3}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Add any remarks, transport observations, packaging condition, or inspection notes..."
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onNotification?.("PO Selector", "Select items from PO.", "info")}
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add from PO</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onNotification?.("Barcode Scan", "Barcode scanner ready.", "info")}
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
-                    >
-                      <Barcode className="w-3.5 h-3.5" />
-                      <span>Scan Barcode</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
-                    >
-                      <Columns className="w-3.5 h-3.5" />
-                      <span>Columns</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
-                      <tr>
-                        <th className="py-2.5 px-2.5">#</th>
-                        <th className="py-2.5 px-2">SKU</th>
-                        <th className="py-2.5 px-3">Product</th>
-                        <th className="py-2.5 px-2">Size</th>
-                        <th className="py-2.5 px-2">Color</th>
-                        <th className="py-2.5 px-2 text-right">PO Qty</th>
-                        <th className="py-2.5 px-2 text-right">Recv Qty</th>
-                        <th className="py-2.5 px-2 text-right text-rose-500">Damage</th>
-                        <th className="py-2.5 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400">Accepted</th>
-                        <th className="py-2.5 px-2 text-right">PO Rate (₹)</th>
-                        <th className="py-2.5 px-2 text-right">Inv. Rate (₹)</th>
-                        <th className="py-2.5 px-2 text-right">Net Rate (₹)</th>
-                        <th className="py-2.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
-                          Landed Cost (₹)
-                        </th>
-                        <th className="py-2.5 px-2 text-right">Margin</th>
-                        <th className="py-2.5 px-2 text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {grnLines.map((row, idx) => {
-                        const { accepted, netRate } = lineMetrics[idx];
-                        const { landedCost } = lineAllocations[idx];
-                        const isPpv = Math.abs(row.invoice_rate - row.cost_price) > 0.001;
-                        const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
-
-                        return (
-                          <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
-                            <td className="py-2 px-2.5 text-slate-400">{idx + 1}</td>
-                            <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">
-                              {row.code}
-                            </td>
-                            <td className="py-2 px-3">
-                              <span className="font-semibold text-slate-900 dark:text-white block">
-                                {row.name}
-                              </span>
-                            </td>
-                            <td className="py-2 px-2 font-mono text-slate-600 dark:text-slate-400">{row.size}</td>
-                            <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{row.color}</td>
-                            <td className="py-2 px-2 text-right font-mono">{row.quantity_ordered}</td>
-                            <td className="py-2 px-2 text-right font-mono">
-                              <input
-                                type="number"
-                                min="0"
-                                value={row.quantity_received}
-                                onChange={(e) => updateLine(row.rowId, "quantity_received", parseFloat(e.target.value) || 0)}
-                                className="w-16 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono"
-                              />
-                            </td>
-                            <td className="py-2 px-2 text-right font-mono text-rose-600 dark:text-rose-400">
-                              <input
-                                type="number"
-                                min="0"
-                                value={row.quantity_damaged}
-                                onChange={(e) => updateLine(row.rowId, "quantity_damaged", parseFloat(e.target.value) || 0)}
-                                className="w-14 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-rose-600"
-                              />
-                            </td>
-                            <td className="py-2 px-2 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                              {accepted}
-                            </td>
-                            <td className="py-2 px-2 text-right font-mono">
-                              {row.cost_price.toFixed(2)}
-                            </td>
-                            <td className="py-2 px-2 text-right font-mono">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={row.invoice_rate}
-                                onChange={(e) => updateLine(row.rowId, "invoice_rate", parseFloat(e.target.value) || 0)}
-                                className={`w-20 text-right bg-slate-50 dark:bg-slate-800 border rounded px-1.5 py-0.5 font-mono ${
-                                  isPpv ? "border-amber-400 font-bold text-amber-700 dark:text-amber-300" : "border-slate-300 dark:border-slate-700"
-                                }`}
-                              />
-                            </td>
-                            <td className="py-2 px-2 text-right font-mono font-medium">
-                              {netRate.toFixed(2)}
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono font-bold">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenWhyThisCost(idx)}
-                                className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition inline-flex items-center gap-1"
-                                title="Click to view explainable landed cost breakdown"
-                              >
-                                <span>₹{landedCost.toFixed(2)}</span>
-                                <HelpCircle className="w-3 h-3 text-indigo-400" />
-                              </button>
-                            </td>
-                            <td className="py-2 px-2 text-right font-mono">
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                                {marginPct.toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="py-2 px-2 text-center">
-                              {isPpv ? (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 inline-flex items-center gap-0.5">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  <span>PPV</span>
-                                </span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 inline-flex items-center gap-0.5">
-                                  <Check className="w-3 h-3" />
-                                  <span>OK</span>
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Purchase Price Variance (PPV) Card */}
-              {ppvLines.length > 0 && (
-                <div className="bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
-                      <AlertTriangle className="w-4 h-4 text-rose-600" />
-                      <span>Purchase Price Variance (PPV)</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200">
-                      {ppvLines.length} item with variance
-                    </span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="text-slate-500 font-medium">
-                        <tr>
-                          <th className="py-1 px-2">SKU</th>
-                          <th className="py-1 px-2">Product</th>
-                          <th className="py-1 px-2 text-right">PO Rate</th>
-                          <th className="py-1 px-2 text-right">Invoice Rate</th>
-                          <th className="py-1 px-2 text-right text-rose-600">Variance (₹)</th>
-                          <th className="py-1 px-2 text-right">Qty</th>
-                          <th className="py-1 px-2 text-right text-rose-600 font-bold">Total (₹)</th>
-                          <th className="py-1 px-2 text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
-                        {ppvLines.map(({ row, variancePerUnit, totalPpv, accepted }) => (
-                          <tr key={row.code}>
-                            <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
-                            <td className="py-2 px-2 text-slate-700 dark:text-slate-300">{row.name}</td>
-                            <td className="py-2 px-2 text-right font-mono">₹{row.cost_price.toFixed(2)}</td>
-                            <td className="py-2 px-2 text-right font-mono">₹{row.invoice_rate.toFixed(2)}</td>
-                            <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
-                              +{variancePerUnit.toFixed(2)}
-                            </td>
-                            <td className="py-2 px-2 text-right font-mono">{accepted}</td>
-                            <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
-                              ₹{totalPpv.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-2 px-2 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => onNotification?.("Variance Accepted", `Accepted +₹${variancePerUnit} variance for ${row.code}`, "info")}
-                                  className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs transition"
-                                >
-                                  Accept
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setIsDebitNoteOpen(true)}
-                                  className="px-2.5 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                                >
-                                  Create Claim
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                    {/* Attachments */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
+                      <label className="font-bold text-slate-800 dark:text-slate-200">Statutory Attachments</label>
+                      <div className="space-y-1.5">
+                        {[
+                          { name: "Vendor_Tax_Invoice.pdf", size: "245 KB" },
+                          { name: "Transporter_LR_Slip.pdf", size: "120 KB" },
+                          { name: "Physical_Packing_List.pdf", size: "98 KB" },
+                        ].map((f) => (
+                          <div
+                            key={f.name}
+                            className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                              <span className="font-medium text-slate-800 dark:text-slate-200">{f.name}</span>
+                            </div>
+                            <span className="text-slate-400">{f.size}</span>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Margin Preview Post GRN Box */}
-              <div className="bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/60 rounded-xl p-4 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold text-xs">
-                    <TrendingUp className="w-4 h-4 text-indigo-600" />
-                    <span>Margin Preview (Post GRN)</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Based on accepted quantity and capitalized landed cost
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-6 text-right text-xs">
-                  <div>
-                    <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Landed Cost</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">
-                      ₹ {avgUnitLandedCost.toFixed(2)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. MRP</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">
-                      ₹ {avgMrp.toFixed(2)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Margin</span>
-                    <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-xs">
-                      {avgMarginPercent.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Remarks & Document Attachments Footer */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                {/* Remarks */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
-                  <label className="font-bold text-slate-800 dark:text-slate-200">Remarks &amp; Notes</label>
-                  <textarea
-                    rows={3}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Add any remarks, transport observations, packaging condition, or inspection notes..."
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                {/* Attachments */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
-                  <label className="font-bold text-slate-800 dark:text-slate-200">Statutory Attachments</label>
-                  <div className="space-y-1.5">
-                    {[
-                      { name: "Invoice_INV78452.pdf", size: "245 KB" },
-                      { name: "LR_VT982142.pdf", size: "120 KB" },
-                      { name: "Packing_List.pdf", size: "98 KB" },
-                    ].map((f) => (
-                      <div
-                        key={f.name}
-                        className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]"
-                      >
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-indigo-500" />
-                          <span className="font-medium text-slate-800 dark:text-slate-200">{f.name}</span>
-                        </div>
-                        <span className="text-slate-400">{f.size}</span>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
 
             {/* Right Column: Transport & Inward Landed Cost Dock (4 cols) */}
@@ -1573,66 +1941,239 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
       {/* View 2: GRN History */}
       {subView === "history" && (
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                Historical Material Inward Receipts ({savedReceipts.length})
-              </h3>
-              <button
-                onClick={loadReceipts}
-                className="p-1.5 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  Material Inward Goods Receipts ({savedReceipts.length})
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Inspect verified receipts, view SKU landed cost allocations, and print statutory A4 audit slips
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by Receipt No or Supplier..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={loadReceipts}
+                  className="p-2 border border-slate-300 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition"
+                  title="Refresh receipts"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {receiptsLoading ? (
-              <p className="text-xs text-slate-500 py-6 text-center">Loading receipts...</p>
+              <div className="py-12 text-center text-xs text-slate-500">
+                Loading goods receipt notes...
+              </div>
             ) : savedReceipts.length === 0 ? (
-              <p className="text-xs text-slate-500 py-6 text-center">No Goods Receipts posted yet.</p>
+              <div className="py-12 text-center text-xs text-slate-500 space-y-2">
+                <p className="font-semibold text-slate-700 dark:text-slate-300">No Goods Receipt Notes posted yet.</p>
+                <p>Switch to GRN Studio to inward your first purchase order or direct consignment.</p>
+                <button
+                  type="button"
+                  onClick={() => setSubView("create")}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition inline-flex items-center gap-1.5 mt-2"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Start Inward Receipt</span>
+                </button>
+              </div>
             ) : (
-              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-2.5 px-3">Receipt No</th>
                       <th className="py-2.5 px-3">Supplier</th>
                       <th className="py-2.5 px-3">Date</th>
-                      <th className="py-2.5 px-3 text-right">Items</th>
+                      <th className="py-2.5 px-3 text-center">Items</th>
                       <th className="py-2.5 px-3 text-right">Grand Total (₹)</th>
                       <th className="py-2.5 px-3 text-center">Status</th>
-                      <th className="py-2.5 px-3 text-center">Action</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {savedReceipts.map((r) => (
-                      <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50">
-                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900 dark:text-white">{r.receipt_no}</td>
-                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">{r.supplier_id}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-500">
-                          {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN") : "--"}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono">{r.items ? r.items.length : "--"}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                          ₹{Number(r.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                            {r.status || "RECEIVED"}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleCreateBillFromReceipt(r)}
-                            className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-xs transition"
-                          >
-                            Create Bill
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {savedReceipts
+                      .filter((r) => {
+                        if (!historySearch.trim()) return true;
+                        const q = historySearch.toLowerCase().trim();
+                        return (
+                          (r.receipt_no && r.receipt_no.toLowerCase().includes(q)) ||
+                          (r.supplier_id && r.supplier_id.toLowerCase().includes(q)) ||
+                          (r.supplier_name && r.supplier_name.toLowerCase().includes(q)) ||
+                          (r.notes && r.notes.toLowerCase().includes(q))
+                        );
+                      })
+                      .map((r) => {
+                        const isExpanded = expandedReceiptId === r.id;
+                        return (
+                          <React.Fragment key={r.id}>
+                            <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-850/60 transition">
+                              <td className="py-3 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                                {r.receipt_no}
+                              </td>
+                              <td className="py-3 px-3 font-medium text-slate-800 dark:text-slate-200">
+                                {r.supplier_name || r.supplier_id}
+                              </td>
+                              <td className="py-3 px-3 font-mono text-slate-500">
+                                {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN") : "--"}
+                              </td>
+                              <td className="py-3 px-3 text-center font-mono text-slate-600 dark:text-slate-400">
+                                {r.items ? r.items.length : "--"}
+                              </td>
+                              <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                ₹{Number(r.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-3 px-3 text-center">
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                  {r.status || "RECEIVED"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePrintFromHistory(r)}
+                                    className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-semibold text-[11px] transition flex items-center gap-1 shadow-xs"
+                                    title="Print statutory A4 slip"
+                                  >
+                                    <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span>Print A4</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedReceiptId(isExpanded ? null : r.id)}
+                                    className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-semibold text-[11px] transition flex items-center gap-1"
+                                  >
+                                    <span>{isExpanded ? "Hide" : "Details"}</span>
+                                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCreateBillFromReceipt(r)}
+                                    className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-xs transition flex items-center gap-1"
+                                  >
+                                    <Receipt className="w-3.5 h-3.5" />
+                                    <span>Bill</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Expanded Detail Drawer */}
+                            {isExpanded && (
+                              <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                                <td colSpan={7} className="p-4 space-y-3">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                                      <span>Line Items Inwarded ({r.items?.length || 0})</span>
+                                      {r.transporter_name && (
+                                        <span className="font-normal text-slate-500 font-mono">
+                                          Carrier: {r.transporter_name} {r.lr_number ? `(LR: ${r.lr_number})` : ""}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {r.items && r.items.length > 0 ? (
+                                      <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-white dark:bg-slate-900">
+                                        <table className="w-full text-left text-[11px]">
+                                          <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
+                                            <tr>
+                                              <th className="py-2 px-2.5">#</th>
+                                              <th className="py-2 px-2.5">SKU / Item</th>
+                                              <th className="py-2 px-2.5 text-right">Ordered</th>
+                                              <th className="py-2 px-2.5 text-right">Received</th>
+                                              <th className="py-2 px-2.5 text-right text-rose-600">Damaged</th>
+                                              <th className="py-2 px-2.5 text-right font-bold text-emerald-600">Accepted</th>
+                                              <th className="py-2 px-2.5 text-right">Billed Rate (₹)</th>
+                                              <th className="py-2 px-2.5 text-right text-indigo-600">Allocated Freight (₹)</th>
+                                              <th className="py-2 px-2.5 text-right font-bold text-indigo-700">Landed Cost (₹)</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                                            {r.items.map((it: any, iIdx: number) => {
+                                              const accepted = Math.max(0, Number(it.quantity_received || 0) - Number(it.quantity_damaged || 0));
+                                              return (
+                                                <tr key={it.id || iIdx}>
+                                                  <td className="py-1.5 px-2.5 text-slate-400">{iIdx + 1}</td>
+                                                  <td className="py-1.5 px-2.5 font-sans font-medium text-slate-800 dark:text-slate-200">
+                                                    {it.code || it.product_id} — {it.name || "Product"}
+                                                  </td>
+                                                  <td className="py-1.5 px-2.5 text-right">{Number(it.quantity_ordered || 0)}</td>
+                                                  <td className="py-1.5 px-2.5 text-right text-slate-800 dark:text-slate-200">
+                                                    {Number(it.quantity_received || 0)}
+                                                  </td>
+                                                  <td className="py-1.5 px-2.5 text-right text-rose-600">
+                                                    {Number(it.quantity_damaged || 0)}
+                                                  </td>
+                                                  <td className="py-1.5 px-2.5 text-right font-bold text-emerald-600">
+                                                    {accepted}
+                                                  </td>
+                                                  <td className="py-1.5 px-2.5 text-right">
+                                                    ₹{Number(it.cost_price || 0).toFixed(2)}
+                                                  </td>
+                                                  <td className="py-1.5 px-2.5 text-right text-indigo-600">
+                                                    ₹{Number(it.freight_allocated || 0).toFixed(2)}
+                                                  </td>
+                                                  <td className="py-1.5 px-2.5 text-right font-bold text-indigo-700">
+                                                    ₹{Number(it.landed_cost || it.cost_price || 0).toFixed(2)}
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-slate-400">No item details stored.</p>
+                                    )}
+
+                                    {/* Attached Inward Cost Components */}
+                                    {r.cost_components && r.cost_components.length > 0 && (
+                                      <div className="pt-2 space-y-1.5">
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                          Landed Cost Components ({r.cost_components.length})
+                                        </span>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs font-mono">
+                                          {r.cost_components.map((comp: any, cIdx: number) => (
+                                            <div
+                                              key={cIdx}
+                                              className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900"
+                                            >
+                                              <div className="font-bold text-indigo-900 dark:text-indigo-200">
+                                                {comp.component_type}
+                                              </div>
+                                              <div className="text-slate-600 dark:text-slate-400">
+                                                ₹{Number(comp.amount || 0).toFixed(2)} • {comp.allocation_method || "VALUE"}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
