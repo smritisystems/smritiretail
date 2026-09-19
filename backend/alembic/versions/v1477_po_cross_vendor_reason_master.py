@@ -48,23 +48,59 @@ def upgrade() -> None:
 
     if not mt:
         mt_id = str(_uuid.uuid4())
-        conn.execute(
-            text(
-                "INSERT INTO master_types (id, code, label, field_schema, ui_schema, "
-                "version, evidence_level) "
-                "VALUES (:id, :code, :label, CAST(:fs AS jsonb), NULL, 1, 'A')"
-            ),
-            {
-                "id": mt_id,
-                "code": _TYPE_CODE,
-                "label": "PO Cross-Vendor Approval Reason",
-                "fs": '{"type": "object", "properties": {"code": {"type": "string"}, "name": {"type": "string"}}}',
-            },
-        )
+        # Introspect actual columns to handle schema differences between smritisys
+        # and tenant databases (smriti001, smriti002, etc.).
+        inspector_cols = {c["name"] for c in inspector.get_columns("master_types")}
+        has_created_at = "created_at" in inspector_cols
+        has_modified_at = "modified_at" in inspector_cols
+        if has_created_at and has_modified_at:
+            conn.execute(
+                text(
+                    "INSERT INTO master_types (id, code, label, field_schema, ui_schema, "
+                    "version, evidence_level, created_at, modified_at) "
+                    "VALUES (:id, :code, :label, CAST(:fs AS jsonb), NULL, 1, 'A', NOW(), NOW())"
+                ),
+                {
+                    "id": mt_id,
+                    "code": _TYPE_CODE,
+                    "label": "PO Cross-Vendor Approval Reason",
+                    "fs": '{"type": "object", "properties": {"code": {"type": "string"}, "name": {"type": "string"}}}',
+                },
+            )
+        elif has_created_at:
+            conn.execute(
+                text(
+                    "INSERT INTO master_types (id, code, label, field_schema, ui_schema, "
+                    "version, evidence_level, created_at) "
+                    "VALUES (:id, :code, :label, CAST(:fs AS jsonb), NULL, 1, 'A', NOW())"
+                ),
+                {
+                    "id": mt_id,
+                    "code": _TYPE_CODE,
+                    "label": "PO Cross-Vendor Approval Reason",
+                    "fs": '{"type": "object", "properties": {"code": {"type": "string"}, "name": {"type": "string"}}}',
+                },
+            )
+        else:
+            conn.execute(
+                text(
+                    "INSERT INTO master_types (id, code, label, field_schema, ui_schema, "
+                    "version, evidence_level) "
+                    "VALUES (:id, :code, :label, CAST(:fs AS jsonb), NULL, 1, 'A')"
+                ),
+                {
+                    "id": mt_id,
+                    "code": _TYPE_CODE,
+                    "label": "PO Cross-Vendor Approval Reason",
+                    "fs": '{"type": "object", "properties": {"code": {"type": "string"}, "name": {"type": "string"}}}',
+                },
+            )
     else:
         mt_id = str(mt[0])
 
     # Seed each reason value if not already present
+    mv_cols = {c["name"] for c in inspector.get_columns("master_values")}
+    mv_has_updated_at = "updated_at" in mv_cols
     for sort_order, (code, name) in enumerate(_REASONS):
         existing = conn.execute(
             text(
@@ -74,19 +110,34 @@ def upgrade() -> None:
         ).fetchone()
         if existing:
             continue
-        conn.execute(
-            text(
-                "INSERT INTO master_values (id, master_type_id, code, name, active, sort_order, data) "
-                "VALUES (:id, :mt, :code, :name, TRUE, :sort, '{}'::jsonb)"
-            ),
-            {
-                "id": str(_uuid.uuid4()),
-                "mt": mt_id,
-                "code": code,
-                "name": name,
-                "sort": sort_order,
-            },
-        )
+        if mv_has_updated_at:
+            conn.execute(
+                text(
+                    "INSERT INTO master_values (id, master_type_id, code, name, active, sort_order, data, updated_at) "
+                    "VALUES (:id, :mt, :code, :name, TRUE, :sort, '{}'::jsonb, NOW())"
+                ),
+                {
+                    "id": str(_uuid.uuid4()),
+                    "mt": mt_id,
+                    "code": code,
+                    "name": name,
+                    "sort": sort_order,
+                },
+            )
+        else:
+            conn.execute(
+                text(
+                    "INSERT INTO master_values (id, master_type_id, code, name, active, sort_order, data) "
+                    "VALUES (:id, :mt, :code, :name, TRUE, :sort, '{}'::jsonb)"
+                ),
+                {
+                    "id": str(_uuid.uuid4()),
+                    "mt": mt_id,
+                    "code": code,
+                    "name": name,
+                    "sort": sort_order,
+                },
+            )
 
 
 def downgrade() -> None:

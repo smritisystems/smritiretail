@@ -71,6 +71,10 @@ class SystemParameter(BaseEntity):
         else:
             return self.val_text or ""
 
+    def get_value(self) -> Any:
+        """Alias for effective_value — used by POProductPolicyEngine._load_policy_snapshot."""
+        return self.effective_value
+
     def set_value(self, val: Any) -> None:
         dt = (self.data_type or "").capitalize()
         if dt == "Boolean":

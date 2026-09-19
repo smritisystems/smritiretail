@@ -388,12 +388,11 @@ class POPolicyConfigService:
 
         if existing:
             if isinstance(value, bool):
-                existing.bool_value = value
+                existing.val_boolean = value
                 existing.data_type = "Boolean"
             else:
-                existing.text_value = str(value)
+                existing.val_text = str(value)
                 existing.data_type = "Text"
-            existing.modified_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
             existing.updated_by = applied_by
         else:
             # Find the GLOBAL record to copy metadata from
@@ -415,8 +414,8 @@ class POPolicyConfigService:
                 category="07. Purchase Order",
                 category_name="Purchase Order",
                 data_type="Boolean" if isinstance(value, bool) else "Text",
-                bool_value=value if isinstance(value, bool) else None,
-                text_value=str(value) if not isinstance(value, bool) else None,
+                val_boolean=value if isinstance(value, bool) else None,
+                val_text=str(value) if not isinstance(value, bool) else None,
                 mutability="Variable",
                 profile_type="COMMON",
                 scope_level="COMPANY",

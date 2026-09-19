@@ -754,7 +754,7 @@ async def evaluate_product(
         req.vendor_id
     )
     engine = POProductPolicyEngine(db)
-    return await engine.evaluate_product_for_vendor(
+    decision = await engine.evaluate_product_for_vendor(
         company_id=tenant.company_id,
         branch_id=getattr(tenant, "branch_id", None),
         vendor_party_id=vendor_party_id,
@@ -763,6 +763,13 @@ async def evaluate_product(
         user_id=getattr(tenant, "user_id", None),
         purchase_order_id=req.purchase_order_id,
     )
+    # Commit so the decision log written via flush() is persisted (SC10 audit trail)
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+    return decision
+
 
 
 @router.post(
@@ -1108,53 +1115,44 @@ async def list_approval_reasons(
     Used by POApprovalReasonDialog to populate the reason dropdown.
     Reasons are always shown in business language — no technical codes visible to buyer.
     """
-    from sqlalchemy import select, text
-    from ...models.master import MasterValue  # adjust import if different model name
+    from sqlalchemy import select
+    from ...models.master_lookup import MasterValue, MasterType
 
     try:
+        # Join master_values → master_types WHERE master_types.code = 'PO_CROSS_VENDOR_REASON'
         stmt = (
             select(MasterValue)
+            .join(MasterType, MasterValue.master_type_id == MasterType.id)
             .where(
-                MasterValue.group_code == "PO_CROSS_VENDOR_REASON",
-                MasterValue.company_id == tenant.company_id,
-                MasterValue.is_active == True,
+                MasterType.code == "PO_CROSS_VENDOR_REASON",
+                MasterValue.active == True,
+                MasterValue.is_deleted.is_(False) | MasterValue.is_deleted.is_(None),
             )
             .order_by(MasterValue.sort_order)
         )
         rows = (await db.execute(stmt)).scalars().all()
-        if not rows:
-            # Fall back to global master (company_id IS NULL)
-            stmt_global = (
-                select(MasterValue)
-                .where(
-                    MasterValue.group_code == "PO_CROSS_VENDOR_REASON",
-                    MasterValue.company_id.is_(None),
-                    MasterValue.is_active == True,
-                )
-                .order_by(MasterValue.sort_order)
-            )
-            rows = (await db.execute(stmt_global)).scalars().all()
         return [
             POApprovalReasonOut(
-                code=r.value_code,
-                label=r.value_label,
+                code=r.code,
+                label=r.name,
                 sort_order=r.sort_order or 0,
-                requires_note=(r.value_code == "OTHER"),
-                is_active=r.is_active,
+                requires_note=(r.code == "OTHER"),
+                is_active=r.active,
             )
             for r in rows
         ]
     except Exception:
-        # Graceful fallback — return the 10 static reasons if MasterValue model differs
+        # Graceful fallback — return the 10 static reasons if DB query fails
         return [
-            POApprovalReasonOut(code="BETTER_PRICE",           label="Better Price",                        sort_order=1),
-            POApprovalReasonOut(code="STOCK_AVAILABILITY",     label="Stock Availability",                  sort_order=2),
-            POApprovalReasonOut(code="REGISTERED_OUT_OF_STOCK",label="Registered Vendor Out of Stock",      sort_order=3),
-            POApprovalReasonOut(code="URGENT",                 label="Urgent Requirement",                  sort_order=4),
-            POApprovalReasonOut(code="CREDIT_TERMS",           label="Better Credit Terms",                 sort_order=5),
-            POApprovalReasonOut(code="DELIVERY",               label="Delivery Requirement",                sort_order=6),
-            POApprovalReasonOut(code="TERRITORY",              label="Territory Requirement",               sort_order=7),
-            POApprovalReasonOut(code="NEW_VENDOR_TRIAL",       label="New Vendor Trial",                    sort_order=8),
-            POApprovalReasonOut(code="MANAGEMENT_INSTRUCTION", label="Management Instruction",             sort_order=9),
-            POApprovalReasonOut(code="OTHER",                  label="Other — please explain",             sort_order=10, requires_note=True),
+            POApprovalReasonOut(code="BETTER_PRICE",            label="Better Price Available",                 sort_order=1),
+            POApprovalReasonOut(code="STOCK_AVAILABILITY",      label="Stock Not Available from Registered Vendor", sort_order=2),
+            POApprovalReasonOut(code="REGISTERED_VENDOR_OOS",   label="Registered Vendor is Out of Stock",      sort_order=3),
+            POApprovalReasonOut(code="URGENT_REQUIREMENT",      label="Urgent Requirement",                     sort_order=4),
+            POApprovalReasonOut(code="BETTER_CREDIT_TERMS",     label="Better Credit Terms Offered",            sort_order=5),
+            POApprovalReasonOut(code="DELIVERY_REQUIREMENT",    label="Delivery Timeline Requirement",          sort_order=6),
+            POApprovalReasonOut(code="TERRITORY_REQUIREMENT",   label="Territory or Location Requirement",      sort_order=7),
+            POApprovalReasonOut(code="NEW_VENDOR_TRIAL",        label="New Vendor Trial / Evaluation",          sort_order=8),
+            POApprovalReasonOut(code="MANAGEMENT_INSTRUCTION",  label="Management Instruction",                 sort_order=9),
+            POApprovalReasonOut(code="OTHER",                   label="Other (please specify)",                 sort_order=10, requires_note=True),
         ]
+
