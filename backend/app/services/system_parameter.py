@@ -4,14 +4,15 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.41.0
+Version      : 6.43.5
 Created      : 2026-09-14
-Modified     : 2026-09-18
+Modified     : 2026-09-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import os
 import json
 import re
 from pathlib import Path
@@ -45,15 +46,29 @@ class SystemParameterService:
 
     _canonical_map_cache: Optional[Dict[str, str]] = None  # param_code -> canonical_code
 
-    @staticmethod
-    def _get_blueprint_path() -> Path:
-        base_dir = Path(__file__).resolve().parents[3]
-        blueprint = base_dir / "docs" / "legacy_blueprints" / "shoper9" / "parameters.json"
-        if not blueprint.exists():
-            alt_path = Path("docs/legacy_blueprints/shoper9/parameters.json")
-            if alt_path.exists():
-                return alt_path
-        return blueprint
+    @classmethod
+    def _get_blueprint_dir(cls) -> Path:
+        """
+        Resolves the repository directory holding legacy blueprints across both
+        host development environments and containerized Docker environments (/workspace).
+        """
+        candidates = [
+            Path(os.environ["SDIC_REPOSITORY_ROOT"]) if os.environ.get("SDIC_REPOSITORY_ROOT") else None,
+            Path("/workspace"),
+            Path(__file__).resolve().parents[3],
+            Path(__file__).resolve().parents[2],
+            Path.cwd(),
+        ]
+        for candidate in candidates:
+            if candidate:
+                bp_dir = candidate / "docs" / "legacy_blueprints" / "shoper9"
+                if bp_dir.exists():
+                    return bp_dir
+        return Path("docs/legacy_blueprints/shoper9")
+
+    @classmethod
+    def _get_blueprint_path(cls) -> Path:
+        return cls._get_blueprint_dir() / "parameters.json"
 
     @classmethod
     def _get_canonical_map(cls) -> Dict[str, str]:
@@ -66,8 +81,7 @@ class SystemParameterService:
         if cls._canonical_map_cache is not None:
             return cls._canonical_map_cache
 
-        base_dir = Path(__file__).resolve().parents[3]
-        mapping_file = base_dir / "docs" / "legacy_blueprints" / "shoper9" / "canonical_mapping.json"
+        mapping_file = cls._get_blueprint_dir() / "canonical_mapping.json"
         if mapping_file.exists():
             with open(mapping_file, "r", encoding="utf-8") as f:
                 cls._canonical_map_cache = json.load(f)
@@ -144,9 +158,24 @@ class SystemParameterService:
         variances = {v["paramCode"]: v for v in data.get("profileVariances", [])}
         params_data = data.get("parameters", [])
 
+        # Validate target company existence if provided to prevent foreign key constraint violations
+        target_company_id = company_id
+        if target_company_id:
+            from ..models.tenant import Company
+            comp_exists = await db.scalar(
+                select(Company.id).where(Company.id == target_company_id)
+            )
+            if not comp_exists:
+                target_company_id = None
+
         # Fetch existing parameters for this company / scope
+        comp_filter = (
+            SystemParameter.company_id.is_(None)
+            if target_company_id is None
+            else (SystemParameter.company_id == target_company_id)
+        )
         query = select(SystemParameter).where(
-            SystemParameter.company_id == company_id,
+            comp_filter,
             SystemParameter.terminal_id == "COMMON",
         )
         res = await db.execute(query)
@@ -213,12 +242,12 @@ class SystemParameterService:
                         existing.canonical_code = cls._get_canonical_map().get(p_code)
                     count += 1
             else:
-                comp_tag = company_id or "GLOBAL"
+                comp_tag = target_company_id or "GLOBAL"
                 rec_id = f"SP-{comp_tag}-{p_code}"[:50]
                 canonical_code = cls._get_canonical_map().get(p_code)
                 new_param = SystemParameter(
                     id=rec_id,
-                    company_id=company_id,
+                    company_id=target_company_id,
                     branch_id=None,
                     param_code=p_code,
                     canonical_code=canonical_code,
@@ -228,7 +257,7 @@ class SystemParameterService:
                     data_type=data_type,
                     mutability=mutability,
                     profile_type=profile_type,
-                    scope_level="COMPANY" if company_id else "GLOBAL",
+                    scope_level="COMPANY" if target_company_id else "GLOBAL",
                     terminal_id="COMMON",
                     is_locked=False,
                 )

@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.32.0
+  * Version    : 6.43.5
   * Created    : 2026-07-11
-  * Modified   : 2026-09-18
+  * Modified   : 2026-09-20
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -38,6 +38,42 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Transactional Statutory Invoicing:** Concurrency-hardened sequence allocation (`TT2026-2027/{seq}` via `SELECT ... FOR UPDATE`), GST tax calculation (IGST vs CGST/SGST), and atomic ledger writes.
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
+
+### [6.43.5] - 2026-09-20
+
+#### System Parameters Studio UX Integration & Universal Navigation Wiring
+- **Fiori Launchpad Integration:** Registered `system-parameters` in `LAUNCHPAD_CATALOG` under `"System & Operations"` group for `SYSADMIN` and `MANAGER` roles with primary badge, `Alt+Y` shortcut hint, and `tune` icon.
+- **Navigation Rail Mapping:** Added `system-parameters` to the `system` context navigation items in `navigationResolver.ts`, allowing direct access from the System Governance navigation rail.
+- **Context Arbitration:** Updated `mapModuleToContext` in `AppShell.tsx` to automatically route `"system-parameters"`, `"parameters-studio"`, `"sys-params"`, and `"database-manager"` to the `system` BusinessContext.
+- **Global Header User Dropdown:** Added a direct entry button for "System Parameters Studio" in `GlobalHeader.tsx` User Menu.
+- **Breadcrumb Hierarchy:** Added `system-parameters`, `parameters-studio`, and `store-policies` under `system` in `DEFAULT_PARENT_MAP` within `BreadcrumbRegistry.ts`.
+- **Layout Engine Registry:** Added `system-parameters` and `database-manager` to initial `registeredWorkspaces` in `layout_store.tsx`.
+- **Keyboard Navigation & Modal Dismissal:** Bound `Alt+Y` shortcut in `ShortcutContext.tsx` and added `Escape` key event listener in `SmritiSystemParametersStudio.tsx`.
+- **Automated Validation:** Verified launchpad catalog registry via `validate-launchpad-registry.mjs` (45/45 unique tiles, 0 missing render cases), 11/11 Vitest tests green (`fioriLaunchpad.test.ts`), and TypeScript typecheck clean (0 errors).
+
+### [6.43.4] - 2026-09-20
+
+#### Procurement Goods Receipt Note (GRN) Live Database Wiring Audit & Mock Data Eradication
+- **Comprehensive Mockup & Placeholder Purge:** Eradicated legacy sample data constants (`DEFAULT_SAMPLE_LINES`, `DEFAULT_SAMPLE_COST_COMPONENTS`), dummy suppliers (`ABC Footwear`), hardcoded carrier details (`V-Trans`, `VT-982142`, `MH-12-Q-4021`, `180 Kg / 1.2`, `10` cartons), and fake PDF attachment names.
+- **Dynamic Document Sequence:** Implemented dynamic ISO date-stamped document sequence generator (`GRN-YYYYMMDD-XXXX`) replacing static sequence fallbacks.
+- **Stateful Live Multi-File Upload:** Replaced dummy static attachment strings with an interactive multi-file uploader supporting real file selection, drag-and-drop, individual file deletion, and size formatting.
+- **Real Database PO Inward Launchpad:** Replaced demo button with "Inward Latest Open PO", pulling confirmed purchase orders directly from `GET /api/v1/purchase/orders/` in the live PostgreSQL database.
+- **Strict Database Foreign Key & Master Validation:** Enhanced `handleSubmitGRN` in `GrnReceiptTab.tsx` to require a valid supplier from the database and active received lines, eliminating arbitrary dummy fallback strings.
+- **Multi-Identifier Master Product Lookup:** Enhanced `_get_product` in `backend/app/services/purchase.py` to seamlessly resolve product items by `Product.id`, `Product.code`, `Product.sku`, or `Product.barcode`, ensuring 100% reliable inwarding from barcode scanners, CSV files, and inventory master data.
+- **End-to-End Live PostgreSQL Audit:** Validated full transaction cycle with `scripts/verify_grn_real_database_wiring.py` against live PostgreSQL tenant database (`smriti001`), verifying atomic creation of rows across `purchase_receipts`, `purchase_receipt_items`, `inward_cost_components`, and `stock_movements` (with landed cost unit valuation) via FastAPI (`POST /api/v1/purchase/receipts/`).
+- **Verification & Governance:** Vitest unit tests passed (9/9), architecture duplication gate passed (11/11), Vite production build passed (`✓ built in 20.27s`).
+
+### [6.43.3] - 2026-09-20
+
+#### Procurement Goods Receipt Note (GRN) Barcode Scanner Suite & Multi-Format CSV Inward Import
+- **Handheld Rapid Barcode Scanner:** Added physical wedge scanner interface with live autofocus locking, continuous `+1 Mode` toggle, and instant incrementing of received quantities in `GrnReceiptTab.tsx`.
+- **Zero-Dependency Acoustic Feedback:** Integrated browser-native Web Audio API oscillator synthesis (`playScanTone`) providing distinct acoustic feedback (success ascending chime, ad-hoc warning tone, and error buzz) for heads-up dock receiving without external audio files.
+- **Master Catalog Live Reconciliation:** Unknown scanned barcodes automatically trigger asynchronous lookup to `/inventory/?q=...` via `apiFetchV1`, seamlessly adding master catalog items to inward receiving lines with correct cost price, MRP, and GST rates.
+- **Camera Barcode Scanner Viewfinder:** Built `GrnCameraScannerModal.tsx` utilizing HTML5 `BarcodeDetector` API with video viewfinder, animated laser scanline, camera flip, torch control, and recent scan audit list.
+- **Intelligent Multi-Format Inward CSV Engine:** Built `GrnCsvImportModal.tsx` supporting RFC 4180 CSV, tab-separated TSV, and Portable Data Terminal (PDT) tilde-delimited (`barcode~qty~rate`) files with auto-header alias detection, inline error validation, and template download (`grn_inward_template.csv`).
+- **Flexible Inward Reconciliation Policies:** Supported 3 import modes: `merge` (reconciling received quantities against open PO lines), `append` (adding new lines to current workspace), and `replace` (overwriting workspace with file contents).
+- **Visual Design Parity & Commercial Enhancements:** Refactored GRN Studio layout to match reference operator workstation: dedicated Barcode Scanner card, side-by-side Purchase Price Variance (PPV) dispute card and Gross Margin Preview card (`Avg Landed Cost`, `Avg MRP`, `Avg Margin %`), 5-step process wizard, 4 summary metric pills, 8-column Cost Components table with GST and ITC indicators, updated Cost Summary with `Total GST (ITC Eligible)`, and primary `Preview GRN & Labels` button.
+- **Architectural Certification & Quality Gate:** Issued Preflight Certificates `PF-2026-0920-187BF6` and `PF-2026-0920-823590`; passed 11/11 architecture gate checks; created automated test suites (`grnBarcodeScanner.test.ts`, `grnCsvImportEngine.test.ts`) with 9/9 tests green; verified production build and rebuilt `smriti-web` Docker container.
 
 ### [6.43.2] - 2026-09-20
 

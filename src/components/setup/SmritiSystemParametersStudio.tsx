@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.19.0
+ * Version      : 6.43.5
  * Created      : 2026-09-14
- * Modified     : 2026-09-14
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -74,6 +74,18 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
   useEffect(() => {
     fetchParameters();
   }, [fetchParameters]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && onClose) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Categories extraction
   const categories = useMemo(() => {
@@ -159,15 +171,18 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
     setSeeding(true);
     try {
       const res = await smritiSystemParameterService.seedProfile(profile, false);
+      const msg = res.seeded_count > 0
+        ? `Seeded ${res.seeded_count} ${res.profile} parameters.`
+        : `All 828 ${res.profile} parameters are already initialized.`;
       setToastMessage({
         type: "success",
-        text: `Seeded ${res.seeded_count} ${res.profile} parameters.`,
+        text: msg,
       });
       await fetchParameters();
     } catch (err: any) {
       setToastMessage({
         type: "error",
-        text: err?.message || "Failed to seed parameters.",
+        text: err?.message || err?.detail?.explanation || "Failed to seed parameters.",
       });
     } finally {
       setSeeding(false);

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.2.0
+ * Version      : 6.42.4
  * Created      : 2026-08-20
- * Modified     : 2026-08-24
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -429,6 +429,18 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "warning",
     group: "System & Operations",
     roles: ["MANAGER", "SYSADMIN", "AUDITOR"],
+  },
+  {
+    id: "system-parameters",
+    title: "System Parameters Studio",
+    subtitle: "828 governed architectural switches, Tally Shoper 9 parity & profile blueprint templates",
+    icon: "tune",
+    tag: "Parameters",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["SYSADMIN", "MANAGER"],
+    shortcut: "Alt+Y",
+    accentColor: "indigo",
   },
   {
     id: "database-manager",

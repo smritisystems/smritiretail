@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 6.42.4
  * Created      : 2026-07-10
- * Modified     : 2026-09-02
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -179,6 +179,17 @@ const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
     roles: ["Shop Owner", "Store Manager", "Admin"],
     actionType: "tab",
     actionValue: "profiles"
+  },
+  {
+    id: "system_parameters",
+    name: "System Parameters Studio",
+    description: "Configure 828 architectural system switches and blueprint profiles",
+    defaultKey: { key: "y", ctrl: false, alt: true, shift: false, meta: false }, // Alt + Y
+    currentKey: { key: "y", ctrl: false, alt: true, shift: false, meta: false },
+    category: "Navigation",
+    roles: ["Shop Owner", "Store Manager", "Admin"],
+    actionType: "tab",
+    actionValue: "system-parameters"
   },
   {
     id: "open_notifications",

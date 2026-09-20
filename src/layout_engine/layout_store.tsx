@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.1
+ * Version      : 6.42.4
  * Created      : 2026-07-10
- * Modified     : 2026-09-11
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -324,6 +324,18 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       id: "audit-logs",
       label: "Audit Logs",
       icon: "policy",
+      category: "System",
+    },
+    {
+      id: "system-parameters",
+      label: "System Parameters Studio",
+      icon: "tune",
+      category: "System",
+    },
+    {
+      id: "database-manager",
+      label: "Database Manager (DB Studio)",
+      icon: "storage",
       category: "System",
     },
   ]);

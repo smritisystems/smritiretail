@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 6.42.4
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -66,7 +66,8 @@ const REGISTERED_APP_TABS = [
   "physical-stock",
   "wiki",
   "training-academy",
-  "ewaybill-management"
+  "ewaybill-management",
+  "system-parameters"
 ];
 
 describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
@@ -161,5 +162,18 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     const qaIds = cashierQA.map((t) => t.id);
     expect(qaIds).not.toContain("pos");
     expect(qaIds).toContain("item-master");
+  });
+
+  it("should register system-parameters studio in catalog and resolve in system navigation context", async () => {
+    const paramTile = LAUNCHPAD_CATALOG.find((t) => t.id === "system-parameters");
+    expect(paramTile).toBeDefined();
+    expect(paramTile?.title).toBe("System Parameters Studio");
+    expect(paramTile?.group).toBe("System & Operations");
+    expect(paramTile?.roles).toContain("SYSADMIN");
+    expect(paramTile?.roles).toContain("MANAGER");
+
+    const { resolveNavigation } = await import("../components/shell/navigationResolver.ts");
+    const sysNav = resolveNavigation({ context: "system" });
+    expect(sysNav.items.some((item) => item.id === "system-parameters")).toBe(true);
   });
 });
