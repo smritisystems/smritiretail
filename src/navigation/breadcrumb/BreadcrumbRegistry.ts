@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 6.42.4
  * Created      : 2026-09-18
- * Modified     : 2026-09-18
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
@@ -64,6 +64,9 @@ const PARENT_OVERRIDES: Record<string, string> = {
   "dev-tracker": "system",
   "about-smriti": "system",
   "wiki": "system",
+  "system-parameters": "system",
+  "parameters-studio": "system",
+  "store-policies": "system",
 
   // Reports
   "report-designer": "reports",

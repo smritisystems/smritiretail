@@ -16,7 +16,7 @@
  * Target UI    : SMRITI GRN Studio — Operator-First Inward Landed Cost, Freight & PPV Engine
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
   PackageCheck,
@@ -48,6 +48,14 @@ import {
   Sparkles,
   Building2,
   FolderOpen,
+  Camera,
+  Upload,
+  Download,
+  Volume2,
+  VolumeX,
+  Focus,
+  Scan,
+  X,
 } from "lucide-react";
 import { CreateDebitNoteModal } from "../CreateDebitNoteDlg.tsx";
 import { AddCostComponentModal } from "./AddCostComponentModal.tsx";
@@ -56,6 +64,8 @@ import { WhyThisCostModal } from "./WhyThisCostModal.tsx";
 import { GrnPostedSuccessModal } from "./GrnPostedSuccessModal.tsx";
 import { GrnPrintModal, GrnPrintReceiptData } from "./GrnPrintModal.tsx";
 import { AddProductToGrnModal, SelectedGrnProduct } from "./AddProductToGrnModal.tsx";
+import { GrnCameraScannerModal } from "./GrnCameraScannerModal.tsx";
+import { GrnCsvImportModal, ParsedGrnCsvRow } from "./GrnCsvImportModal.tsx";
 import {
   InwardCostItem,
   InwardCostTypeOption,
@@ -116,153 +126,6 @@ interface GrnReceiptTabProps {
   initialOrderId?: string;
 }
 
-// Initial Footwear Sample lines matching canonical GRN-2026-00452 audit
-const DEFAULT_SAMPLE_LINES: GrnLineRow[] = [
-  {
-    rowId: "row-1",
-    product_id: "prd-sh-001",
-    item_id: "item-sh-001",
-    code: "SH-001",
-    name: "Runner Pro (Men's Running Shoes)",
-    size: "8",
-    color: "Black",
-    quantity_ordered: 200,
-    quantity_received: 200,
-    quantity_damaged: 0,
-    cost_price: 1450.00,
-    invoice_rate: 1450.00,
-    trade_discount: 0,
-    gst_rate: 18,
-    mrp: 2499.00,
-  },
-  {
-    rowId: "row-2",
-    product_id: "prd-sh-002",
-    item_id: "item-sh-002",
-    code: "SH-002",
-    name: "City Walk (Men's Casual Shoes)",
-    size: "9",
-    color: "Brown",
-    quantity_ordered: 300,
-    quantity_received: 298,
-    quantity_damaged: 2,
-    cost_price: 1250.00,
-    invoice_rate: 1300.00, // +50 PPV
-    trade_discount: 0,
-    gst_rate: 18,
-    mrp: 2499.00,
-  },
-  {
-    rowId: "row-3",
-    product_id: "prd-sh-003",
-    item_id: "item-sh-003",
-    code: "SH-003",
-    name: "Trail Blazer (Outdoor Shoes)",
-    size: "8",
-    color: "Olive",
-    quantity_ordered: 250,
-    quantity_received: 250,
-    quantity_damaged: 0,
-    cost_price: 1650.00,
-    invoice_rate: 1650.00,
-    trade_discount: 0,
-    gst_rate: 18,
-    mrp: 2499.00,
-  },
-  {
-    rowId: "row-4",
-    product_id: "prd-sh-004",
-    item_id: "item-sh-004",
-    code: "SH-004",
-    name: "Kids Sport (Kids Shoes)",
-    size: "4",
-    color: "Navy",
-    quantity_ordered: 500,
-    quantity_received: 482,
-    quantity_damaged: 8,
-    cost_price: 850.00,
-    invoice_rate: 850.00,
-    trade_discount: 0,
-    gst_rate: 18,
-    mrp: 1599.00,
-  },
-];
-
-const DEFAULT_SAMPLE_COST_COMPONENTS: InwardCostItem[] = [
-  {
-    id: "icc-01",
-    component_type: "FREIGHT",
-    description: "Inward Linehaul Freight",
-    amount: 2500,
-    taxable_amount: 2500,
-    tax_amount: 450,
-    tax_rate: 18,
-    total_amount: 2950,
-    itc_eligible: true,
-    is_capitalizable: true,
-    allocation_method: "VALUE",
-    transporter_name: "V-Trans Express",
-    document_no: "VT-982142",
-    status: "READY",
-  },
-  {
-    id: "icc-02",
-    component_type: "HANDLING",
-    description: "Dock Unloading & Hamali",
-    amount: 500,
-    taxable_amount: 500,
-    tax_amount: 90,
-    tax_rate: 18,
-    total_amount: 590,
-    itc_eligible: true,
-    is_capitalizable: true,
-    allocation_method: "QUANTITY",
-    status: "READY",
-  },
-  {
-    id: "icc-03",
-    component_type: "INSURANCE",
-    description: "Marine / Transit Insurance",
-    amount: 300,
-    taxable_amount: 300,
-    tax_amount: 54,
-    tax_rate: 18,
-    total_amount: 354,
-    itc_eligible: true,
-    is_capitalizable: true,
-    allocation_method: "VALUE",
-    status: "READY",
-  },
-  {
-    id: "icc-04",
-    component_type: "PACKING_FORWARDING",
-    description: "Carton Packaging & Forwarding",
-    amount: 200,
-    taxable_amount: 200,
-    tax_amount: 36,
-    tax_rate: 18,
-    total_amount: 236,
-    itc_eligible: true,
-    is_capitalizable: true,
-    allocation_method: "VALUE",
-    status: "READY",
-  },
-  {
-    id: "icc-05",
-    component_type: "DUTY_TOLL",
-    description: "Highway / Municipal Toll",
-    amount: 500,
-    taxable_amount: 500,
-    tax_amount: 0,
-    tax_rate: 0,
-    total_amount: 500,
-    itc_eligible: false,
-    is_capitalizable: true,
-    allocation_method: "VALUE",
-    status: "READY",
-  },
-];
-
 export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   currentUser,
   onNotification,
@@ -281,20 +144,22 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [subView, setSubView] = useState<"create" | "history" | "bill">("create");
 
-  // Header State
-  const [grnNumber, setGrnNumber] = useState("");
-  const [grnDate, setGrnDate] = useState(new Date().toISOString().split("T")[0]);
+  // Header State — Dynamically generated unique document number
+  const [grnNumber, setGrnNumber] = useState(
+    () => `GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`
+  );
+  const [grnDate, setGrnDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [supplierName, setSupplierName] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
+  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [referencePo, setReferencePo] = useState("");
   const [activeStep, setActiveStep] = useState(1);
 
   // Transport Details State
   const [transporterName, setTransporterName] = useState("");
   const [lrNumber, setLrNumber] = useState("");
-  const [lrDate, setLrDate] = useState(new Date().toISOString().split("T")[0]);
+  const [lrDate, setLrDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [weightCbm, setWeightCbm] = useState("");
   const [cartons, setCartons] = useState(0);
@@ -304,6 +169,42 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [costTypes, setCostTypes] = useState<InwardCostTypeOption[]>([]);
   const [costItems, setCostItems] = useState<InwardCostItem[]>([]);
   const [allocationMethod, setAllocationMethod] = useState<"VALUE" | "QUANTITY" | "WEIGHT">("VALUE");
+
+  // Live File Attachments State
+  const [attachments, setAttachments] = useState<Array<{ id: string; name: string; size: string; type: string }>>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newItems = Array.from(files).map((f) => ({
+      id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: f.name,
+      size: `${(f.size / 1024).toFixed(0)} KB`,
+      type: f.type || "application/pdf",
+    }));
+    setAttachments((prev) => [...prev, ...newItems]);
+    onNotification?.("File Attached", `Attached ${newItems.length} document(s).`, "success");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleDropFiles = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const newItems = Array.from(files).map((f) => ({
+      id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: f.name,
+      size: `${(f.size / 1024).toFixed(0)} KB`,
+      type: f.type || "application/pdf",
+    }));
+    setAttachments((prev) => [...prev, ...newItems]);
+    onNotification?.("File Attached", `Attached ${newItems.length} document(s).`, "success");
+  };
 
   // Modals State
   const [isAddCostOpen, setIsAddCostOpen] = useState(false);
@@ -319,6 +220,18 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [printReceiptData, setPrintReceiptData] = useState<GrnPrintReceiptData | null>(null);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+
+  // Barcode Scanner & CSV Inward State
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
+  const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
+  const [scanBarcodeInput, setScanBarcodeInput] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanContinuous, setScanContinuous] = useState(true);
+  const [scannerSound, setScannerSound] = useState(true);
+  const [autoFocusLocked, setAutoFocusLocked] = useState(false);
+  const [lastScannedRowId, setLastScannedRowId] = useState<string | null>(null);
+  const [itemSearchFilter, setItemSearchFilter] = useState("");
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   // History search and row expansion state
   const [historySearch, setHistorySearch] = useState("");
@@ -431,21 +344,91 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     }
   };
 
-  const handleLoadDemoSample = () => {
-    setGrnNumber("GRN-2026-00452");
-    setSupplierName("ABC Footwear Pvt. Ltd.");
-    setSupplierId("SUP-001");
-    setInvoiceNumber("INV-78452");
-    setInvoiceDate("2026-09-18");
-    setReferencePo("PO-2026-00321");
-    setTransporterName("V-Trans Express");
-    setLrNumber("VT-982142");
-    setVehicleNumber("MH-12-Q-4021");
-    setWeightCbm("180 Kg / 1.2");
-    setCartons(10);
-    setGrnLines(DEFAULT_SAMPLE_LINES);
-    setCostItems(DEFAULT_SAMPLE_COST_COMPONENTS);
-    onNotification?.("Demo Sample Loaded", "Loaded 4 footwear lines & 5 landed cost components.", "info");
+  // Filter available orders based on selected supplier
+  const availableOrders = useMemo(() => {
+    if (!supplierId) return orders;
+    return orders.filter(
+      (o) => o.supplier_id === supplierId || (supplierName && o.supplier_name === supplierName)
+    );
+  }, [orders, supplierId, supplierName]);
+
+  // Handle Supplier Selection with Automatic PO Resolution (Shoper 9 PrefillPODetailsInGIR parity)
+  const handleSupplierChange = async (sid: string) => {
+    setSupplierId(sid);
+    const s = suppliersList.find((x) => x.id === sid);
+    const sName = s ? (s.name || s.company_name || sid) : "";
+    setSupplierName(sName);
+
+    if (!sid) {
+      setSelectedOrderId("");
+      setSelectedOrder(null);
+      setGrnLines([]);
+      setReferencePo("");
+      return;
+    }
+
+    const matchingOrders = orders.filter(
+      (o) => o.supplier_id === sid || (sName && o.supplier_name === sName)
+    );
+
+    if (matchingOrders.length === 1) {
+      // Exactly 1 open PO for this vendor: auto-select and hydrate lines immediately
+      await handleSelectOrder(matchingOrders[0].id);
+      onNotification?.(
+        "PO Auto-Selected",
+        `Auto-loaded order ${matchingOrders[0].order_no || matchingOrders[0].id} for ${sName}.`,
+        "info"
+      );
+    } else if (matchingOrders.length > 1) {
+      // Multiple open POs: filter dropdown and prompt operator selection
+      setSelectedOrderId("");
+      setSelectedOrder(null);
+      setGrnLines([]);
+      setReferencePo("");
+      onNotification?.(
+        "Multiple POs Found",
+        `Supplier ${sName} has ${matchingOrders.length} open purchase orders. Please select one.`,
+        "info"
+      );
+    } else {
+      // No open PO: direct inward mode for this supplier
+      setSelectedOrderId("");
+      setSelectedOrder(null);
+      setGrnLines([]);
+      setReferencePo("");
+    }
+  };
+
+  const handleInwardLatestOpenPo = async () => {
+    if (orders.length > 0) {
+      await handleSelectOrder(orders[0].id);
+      setActiveStep(2);
+      onNotification?.(
+        "Open PO Loaded",
+        `Loaded confirmed order ${orders[0].order_no || orders[0].id} from database.`,
+        "success"
+      );
+    } else {
+      try {
+        const res = await apiFetchV1("/purchase/orders/");
+        const list: PurchaseOrderOption[] = Array.isArray(res) ? res : res?.items || [];
+        const confirmed = list.filter((o) => o.status !== "Cancelled" && o.status !== "CANCELLED");
+        if (confirmed.length > 0) {
+          setOrders(confirmed);
+          await handleSelectOrder(confirmed[0].id);
+          setActiveStep(2);
+          onNotification?.(
+            "Open PO Loaded",
+            `Loaded confirmed order ${confirmed[0].order_no || confirmed[0].id} from database.`,
+            "success"
+          );
+        } else {
+          onNotification?.("No Orders Available", "No open purchase orders found in database.", "warning");
+        }
+      } catch {
+        onNotification?.("Error", "Could not fetch purchase orders from database.", "error");
+      }
+    }
   };
 
   const handleClearLines = () => {
@@ -457,9 +440,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setSupplierName("");
     setReferencePo("");
     setInvoiceNumber("");
-    setGrnNumber("");
+    setTransporterName("");
+    setLrNumber("");
+    setVehicleNumber("");
+    setWeightCbm("");
+    setCartons(0);
     setNotes("");
-    onNotification?.("Workspace Cleared", "GRN lines and cost components reset.", "info");
+    setAttachments([]);
+    setGrnNumber(`GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`);
+    setActiveStep(1);
+    onNotification?.("Workspace Reset", "Goods Receipt Note workspace reset to clean state.", "info");
   };
 
   const handleAddProduct = (prod: SelectedGrnProduct) => {
@@ -483,6 +473,288 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setGrnLines((prev) => [...prev, newLine]);
     onNotification?.("Product Added", `${prod.name} added to inward list.`, "success");
   };
+
+  // Play synthetic scanner chime using Web Audio API
+  const playScanTone = useCallback(
+    (type: "success" | "warning" | "error" = "success") => {
+      if (!scannerSound) return;
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        if (type === "success") {
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.12);
+        } else if (type === "warning") {
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(660, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.15);
+        } else {
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(220, ctx.currentTime);
+          osc.frequency.setValueAtTime(160, ctx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0.4, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.25);
+        }
+      } catch {
+        // audio context blocked or unsupported
+      }
+    },
+    [scannerSound]
+  );
+
+  // Scan & Inward Barcode Resolver
+  const handleProcessBarcode = useCallback(
+    async (rawCode: string) => {
+      const code = rawCode.trim();
+      if (!code) return;
+
+      setIsScanning(true);
+      const codeLower = code.toLowerCase();
+
+      // 1. Match against active grnLines
+      const existingIdx = grnLines.findIndex(
+        (r) =>
+          r.code.toLowerCase() === codeLower ||
+          r.product_id.toLowerCase() === codeLower ||
+          r.item_id.toLowerCase() === codeLower ||
+          r.name.toLowerCase() === codeLower
+      );
+
+      if (existingIdx !== -1) {
+        const targetRow = grnLines[existingIdx];
+        const increment = 1;
+        const nextQty = targetRow.quantity_received + increment;
+        setGrnLines((prev) =>
+          prev.map((r, i) => (i === existingIdx ? { ...r, quantity_received: nextQty } : r))
+        );
+        setLastScannedRowId(targetRow.rowId);
+        setTimeout(() => setLastScannedRowId(null), 1500);
+        playScanTone("success");
+        onNotification?.(
+          "Item Counted (+1)",
+          `${targetRow.name} (${targetRow.code}) received qty incremented to ${nextQty}.`,
+          "success"
+        );
+        setIsScanning(false);
+        setScanBarcodeInput("");
+        if (autoFocusLocked) {
+          barcodeInputRef.current?.focus();
+        }
+        return;
+      }
+
+      // 2. Query master inventory catalog in PostgreSQL
+      try {
+        const res = await apiFetchV1(`/inventory/?page=1&page_size=10&q=${encodeURIComponent(code)}`);
+        const items = Array.isArray(res) ? res : res?.items || [];
+        if (items.length > 0) {
+          const match =
+            items.find(
+              (p: any) =>
+                (p.barcode && p.barcode.toLowerCase() === codeLower) ||
+                (p.sku && p.sku.toLowerCase() === codeLower) ||
+                (p.code && p.code.toLowerCase() === codeLower) ||
+                p.id === code
+            ) || items[0];
+
+          const cost = Number(match.cost_price || match.purchase_price || match.price || 100);
+          const mrp = Number(match.mrp || (cost > 0 ? cost * 1.5 : 200));
+          const gst = Number(match.gst_rate || 18);
+
+          const newLine: GrnLineRow = {
+            rowId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            product_id: match.id,
+            item_id: match.id,
+            code: match.sku || match.code || code,
+            name: match.name || `Item ${code}`,
+            size: match.size || "M",
+            color: match.color || "Standard",
+            quantity_ordered: 0,
+            quantity_received: 1,
+            quantity_damaged: 0,
+            cost_price: cost,
+            invoice_rate: cost,
+            trade_discount: 0,
+            gst_rate: gst,
+            mrp: mrp,
+          };
+
+          setGrnLines((prev) => [...prev, newLine]);
+          setLastScannedRowId(newLine.rowId);
+          setTimeout(() => setLastScannedRowId(null), 1500);
+          playScanTone("warning");
+          onNotification?.(
+            "Ad-hoc Item Added",
+            `${newLine.name} (${newLine.code}) retrieved from master catalog and added to GRN (+1).`,
+            "info"
+          );
+        } else {
+          playScanTone("error");
+          onNotification?.(
+            "Scan Unmatched",
+            `Barcode "${code}" was not found in active PO or inventory master catalog.`,
+            "warning"
+          );
+        }
+      } catch (err: any) {
+        playScanTone("error");
+        onNotification?.("Scan Lookup Error", err.message || "Failed to search product database.", "error");
+      } finally {
+        setIsScanning(false);
+        setScanBarcodeInput("");
+        if (autoFocusLocked) {
+          barcodeInputRef.current?.focus();
+        }
+      }
+    },
+    [grnLines, playScanTone, onNotification, autoFocusLocked]
+  );
+
+  // Template Download Handler
+  const handleDownloadTemplate = () => {
+    const SAMPLE_CSV = `Barcode,SKU,Product Name,Size,Color,Received Qty,Damaged Qty,Invoice Rate,MRP,GST %\n8901234567890,SH-001,Runner Pro (Men's Running Shoes),8,Black,200,0,1450.00,2499.00,18\n8901234567891,SH-002,City Walk (Men's Casual Shoes),9,Brown,298,2,1300.00,2499.00,18\n8901234567892,SH-003,Trail Blazer (Outdoor Shoes),8,Olive,250,0,1650.00,2499.00,18\n8901234567893,SH-004,Kids Sport (Kids Shoes),4,Navy,482,8,850.00,1599.00,18\n`;
+    const blob = new Blob([SAMPLE_CSV], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "grn_inward_template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    onNotification?.("Template Downloaded", "Sample inward CSV template downloaded.", "info");
+  };
+
+  // CSV Import Callback Handler
+  const handleCsvImportConfirmed = useCallback(
+    (rows: ParsedGrnCsvRow[], mode: "merge" | "append" | "replace") => {
+      if (rows.length === 0) return;
+
+      if (mode === "replace") {
+        const newLines: GrnLineRow[] = rows.map((r, idx) => ({
+          rowId: `row-csv-${idx}-${Date.now()}`,
+          product_id: r.barcode || r.sku || `PROD-${idx + 1}`,
+          item_id: r.sku || `ITEM-${idx + 1}`,
+          code: r.sku || r.barcode || `SKU-${idx + 1}`,
+          name: r.name || `Item ${idx + 1}`,
+          size: r.size || "M",
+          color: r.color || "Standard",
+          quantity_ordered: r.quantity_received,
+          quantity_received: r.quantity_received,
+          quantity_damaged: r.quantity_damaged || 0,
+          cost_price: r.cost_price || r.invoice_rate,
+          invoice_rate: r.invoice_rate,
+          trade_discount: 0,
+          gst_rate: r.gst_rate || 18,
+          mrp: r.mrp || r.invoice_rate * 1.5,
+        }));
+        setGrnLines(newLines);
+        onNotification?.(
+          "Workspace Replaced",
+          `Imported ${newLines.length} lines (${newLines.reduce((s, l) => s + l.quantity_received, 0)} units) from CSV.`,
+          "success"
+        );
+      } else if (mode === "append") {
+        const newLines: GrnLineRow[] = rows.map((r, idx) => ({
+          rowId: `row-csv-${idx}-${Date.now()}`,
+          product_id: r.barcode || r.sku || `PROD-${idx + 1}`,
+          item_id: r.sku || `ITEM-${idx + 1}`,
+          code: r.sku || r.barcode || `SKU-${idx + 1}`,
+          name: r.name || `Item ${idx + 1}`,
+          size: r.size || "M",
+          color: r.color || "Standard",
+          quantity_ordered: 0,
+          quantity_received: r.quantity_received,
+          quantity_damaged: r.quantity_damaged || 0,
+          cost_price: r.cost_price || r.invoice_rate,
+          invoice_rate: r.invoice_rate,
+          trade_discount: 0,
+          gst_rate: r.gst_rate || 18,
+          mrp: r.mrp || r.invoice_rate * 1.5,
+        }));
+        setGrnLines((prev) => [...prev, ...newLines]);
+        onNotification?.(
+          "Items Appended",
+          `Appended ${newLines.length} lines from CSV to inward workspace.`,
+          "success"
+        );
+      } else if (mode === "merge") {
+        let updatedCount = 0;
+        setGrnLines((prevLines) => {
+          const matchedSet = new Set<string>();
+          const updatedLines = prevLines.map((line) => {
+            const match = rows.find(
+              (r) =>
+                r.sku.toLowerCase() === line.code.toLowerCase() ||
+                (r.barcode && r.barcode.toLowerCase() === line.code.toLowerCase()) ||
+                r.name.toLowerCase() === line.name.toLowerCase()
+            );
+            if (match) {
+              matchedSet.add(match.sku);
+              updatedCount++;
+              return {
+                ...line,
+                quantity_received: match.quantity_received,
+                quantity_damaged: match.quantity_damaged,
+                invoice_rate: match.invoice_rate || line.invoice_rate,
+              };
+            }
+            return line;
+          });
+
+          const extraLines: GrnLineRow[] = rows
+            .filter((r) => !matchedSet.has(r.sku))
+            .map((r, idx) => ({
+              rowId: `row-extra-${idx}-${Date.now()}`,
+              product_id: r.barcode || r.sku || `PROD-${idx + 1}`,
+              item_id: r.sku || `ITEM-${idx + 1}`,
+              code: r.sku || r.barcode || `SKU-${idx + 1}`,
+              name: r.name || `Item ${idx + 1}`,
+              size: r.size || "M",
+              color: r.color || "Standard",
+              quantity_ordered: 0,
+              quantity_received: r.quantity_received,
+              quantity_damaged: r.quantity_damaged || 0,
+              cost_price: r.cost_price || r.invoice_rate,
+              invoice_rate: r.invoice_rate,
+              trade_discount: 0,
+              gst_rate: r.gst_rate || 18,
+              mrp: r.mrp || r.invoice_rate * 1.5,
+            }));
+
+          return [...updatedLines, ...extraLines];
+        });
+
+        onNotification?.(
+          "PO Inward Reconciled",
+          `Updated received counts for ${updatedCount} PO items from CSV.`,
+          "success"
+        );
+      }
+    },
+    [onNotification]
+  );
 
   const handleRemoveLine = (rowId: string) => {
     setGrnLines((prev) => prev.filter((r) => r.rowId !== rowId));
@@ -558,6 +830,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   // Total Capitalizable Inward Addon Costs
   const totalAddons = useMemo(
     () => costItems.reduce((s, c) => s + (c.is_capitalizable ? c.amount : 0), 0),
+    [costItems]
+  );
+
+  const totalCostGst = useMemo(
+    () => costItems.reduce((s, c) => s + (c.itc_eligible ? (c.tax_amount ?? (c.amount * (c.tax_rate || 0)) / 100) : 0), 0),
     [costItems]
   );
 
@@ -739,7 +1016,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       onNotification?.("Validation Error", "Enter at least one received quantity greater than zero.", "warning");
       return;
     }
-    const effSupplier = supplierId || supplierName || (suppliersList.length > 0 ? suppliersList[0].id : "SUP-DIRECT");
+    const effSupplier = supplierId || selectedOrder?.supplier_id;
+    if (!effSupplier) {
+      onNotification?.("Supplier Required", "Please select a valid supplier from the database before posting GRN.", "warning");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -965,6 +1246,30 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         onSelectProduct={handleAddProduct}
       />
 
+      <GrnCameraScannerModal
+        isOpen={isCameraScannerOpen}
+        onClose={() => setIsCameraScannerOpen(false)}
+        onScan={handleProcessBarcode}
+        audioFeedback={scannerSound}
+      />
+
+      <GrnCsvImportModal
+        isOpen={isCsvImportOpen}
+        onClose={() => setIsCsvImportOpen(false)}
+        onImport={handleCsvImportConfirmed}
+        existingPoLines={grnLines.map((l) => ({
+          code: l.code,
+          product_id: l.product_id,
+          name: l.name,
+          size: l.size,
+          color: l.color,
+          cost_price: l.cost_price,
+          quantity_ordered: l.quantity_ordered,
+          mrp: l.mrp,
+          gst_rate: l.gst_rate,
+        }))}
+      />
+
       <GrnPrintModal
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
@@ -1134,50 +1439,52 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none"
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-slate-500 font-medium mb-1">
-                      Purchase Order Source
+                      Supplier <span className="text-rose-500">*</span>
                     </label>
+                    <select
+                      value={supplierId}
+                      onChange={(e) => handleSupplierChange(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
+                    >
+                      <option value="">-- Select Supplier --</option>
+                      {suppliersList.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name || s.company_name || s.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-slate-500 font-medium">
+                        Purchase Order Source
+                      </label>
+                      {supplierId && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          {availableOrders.length} {availableOrders.length === 1 ? "Order" : "Orders"}
+                        </span>
+                      )}
+                    </div>
                     <select
                       value={selectedOrderId}
                       onChange={(e) => handleSelectOrder(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
                     >
-                      <option value="">-- Direct Inward / Ad-Hoc (No PO) --</option>
-                      {orders.map((o) => (
+                      <option value="">
+                        {supplierId
+                          ? availableOrders.length > 0
+                            ? `-- Select Open PO (${availableOrders.length} Available) --`
+                            : "-- Direct Inward / No Open PO --"
+                          : "-- Direct Inward / All Open POs --"}
+                      </option>
+                      {availableOrders.map((o) => (
                         <option key={o.id} value={o.id}>
                           {o.order_no || o.order_number || o.id} — {o.supplier_name || o.supplier_id} ({o.items?.length || 0} items)
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-slate-500 font-medium mb-1">
-                      Supplier <span className="text-rose-500">*</span>
-                    </label>
-                    {selectedOrderId ? (
-                      <div className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-semibold text-xs truncate text-slate-800 dark:text-slate-200">
-                        {supplierName || supplierId || "PO Supplier"}
-                      </div>
-                    ) : (
-                      <select
-                        value={supplierId}
-                        onChange={(e) => {
-                          const sid = e.target.value;
-                          setSupplierId(sid);
-                          const s = suppliersList.find((x) => x.id === sid);
-                          if (s) setSupplierName(s.name || s.company_name || sid);
-                        }}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
-                      >
-                        <option value="">-- Direct Supplier --</option>
-                        {suppliersList.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name || s.company_name || s.id}
-                          </option>
-                        ))}
-                      </select>
-                    )}
                   </div>
                   <div>
                     <label className="block text-slate-500 font-medium mb-1">Vendor Invoice No.</label>
@@ -1246,11 +1553,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
                     <button
                       type="button"
-                      onClick={handleLoadDemoSample}
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shrink-0 shadow-xs"
+                      onClick={handleInwardLatestOpenPo}
+                      className="px-3.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition flex items-center gap-1.5 shrink-0 shadow-xs"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Load Footwear Demo (4 SKUs)</span>
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Inward Latest Open PO</span>
                     </button>
                   </div>
 
@@ -1355,10 +1662,473 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
               ) : (
                 /* Full Receiving Workspace */
                 <>
-                  {/* Receiving Summary Metrics */}
+                  {/* Inward Items Details Card */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden space-y-0">
+                    <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                          Inward Items
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          {grnLines.length} items
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddProductOpen(true)}
+                          className="px-3 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 text-xs font-semibold shadow-xs hover:bg-indigo-50 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Product</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            barcodeInputRef.current?.focus();
+                            onNotification?.("Scan Ready", "Barcode input focused. Scan label to inward.", "info");
+                          }}
+                          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                        >
+                          <Barcode className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>Scan from Master</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onNotification?.("Columns", "All 13 statutory audit columns visible.", "info")}
+                          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                        >
+                          <Columns className="w-3.5 h-3.5" />
+                          <span>Columns</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Search & Filter Bar */}
+                    <div className="p-2.5 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                      <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={itemSearchFilter}
+                          onChange={(e) => setItemSearchFilter(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && itemSearchFilter.trim()) {
+                              handleProcessBarcode(itemSearchFilter);
+                              setItemSearchFilter("");
+                            }
+                          }}
+                          placeholder="Search by SKU, name or scan barcode..."
+                          className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+                          <tr>
+                            <th className="py-2.5 px-2.5">#</th>
+                            <th className="py-2.5 px-3">SKU / Barcode</th>
+                            <th className="py-2.5 px-3">Product Name (Brand / Category)</th>
+                            <th className="py-2.5 px-2 text-right">PO Qty</th>
+                            <th className="py-2.5 px-2 text-right">Recv Qty</th>
+                            <th className="py-2.5 px-2 text-right text-rose-500">Damaged</th>
+                            <th className="py-2.5 px-2 text-right font-bold text-slate-900 dark:text-white">Accepted</th>
+                            <th className="py-2.5 px-2 text-right">PO Rate (₹)</th>
+                            <th className="py-2.5 px-2 text-right">Inv. Rate (₹)</th>
+                            <th className="py-2.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                              Landed Cost (₹)
+                            </th>
+                            <th className="py-2.5 px-2 text-right">Margin</th>
+                            <th className="py-2.5 px-2 text-center">Status</th>
+                            <th className="py-2.5 px-2 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {grnLines
+                            .filter((r) => {
+                              if (!itemSearchFilter.trim()) return true;
+                              const q = itemSearchFilter.toLowerCase();
+                              return (
+                                r.code.toLowerCase().includes(q) ||
+                                r.name.toLowerCase().includes(q) ||
+                                (r.color && r.color.toLowerCase().includes(q))
+                              );
+                            })
+                            .map((row, idx) => {
+                              const originalIdx = grnLines.findIndex((l) => l.rowId === row.rowId);
+                              const { accepted, netRate } = lineMetrics[originalIdx >= 0 ? originalIdx : 0] || { accepted: row.quantity_received - row.quantity_damaged, netRate: row.invoice_rate };
+                              const { landedCost } = lineAllocations[originalIdx >= 0 ? originalIdx : 0] || { landedCost: row.invoice_rate };
+                              const isPpv = Math.abs(row.invoice_rate - row.cost_price) > 0.001;
+                              const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
+                              const isHighlighted = row.rowId === lastScannedRowId;
+
+                              return (
+                                <tr
+                                  key={row.rowId}
+                                  className={`transition-colors duration-200 ${
+                                    isHighlighted
+                                      ? "bg-emerald-100/60 dark:bg-emerald-950/50"
+                                      : "hover:bg-slate-50/60 dark:hover:bg-slate-850/50"
+                                  }`}
+                                >
+                                  <td className="py-2.5 px-2.5 text-slate-400 font-mono">{idx + 1}</td>
+                                  <td className="py-2.5 px-3 font-mono">
+                                    <span className="font-bold text-slate-900 dark:text-white block">
+                                      {row.code}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 block">
+                                      890123456789{idx}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0 border border-indigo-200 dark:border-indigo-800">
+                                        👟
+                                      </div>
+                                      <div>
+                                        <span className="font-semibold text-slate-900 dark:text-white block">
+                                          {row.name.replace(/\(.*?\)/, "").trim()}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 block">
+                                          {row.name.includes("(") ? row.name.match(/\((.*?)\)/)?.[1] : "Footwear / Sports"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-2 text-right font-mono text-slate-600 dark:text-slate-400">
+                                    {row.quantity_ordered}
+                                  </td>
+                                  <td className="py-2.5 px-2 text-right font-mono">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={row.quantity_received}
+                                      onChange={(e) => updateLine(row.rowId, "quantity_received", parseFloat(e.target.value) || 0)}
+                                      className="w-16 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono"
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-2 text-right font-mono text-rose-600 dark:text-rose-400">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={row.quantity_damaged}
+                                      onChange={(e) => updateLine(row.rowId, "quantity_damaged", parseFloat(e.target.value) || 0)}
+                                      className="w-14 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-rose-600"
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-2 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                    {accepted}
+                                  </td>
+                                  <td className="py-2.5 px-2 text-right font-mono text-slate-600 dark:text-slate-400">
+                                    {row.cost_price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="py-2.5 px-2 text-right font-mono">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={row.invoice_rate}
+                                      onChange={(e) => updateLine(row.rowId, "invoice_rate", parseFloat(e.target.value) || 0)}
+                                      className={`w-20 text-right bg-slate-50 dark:bg-slate-800 border rounded px-1.5 py-0.5 font-mono ${
+                                        isPpv ? "border-amber-400 font-bold text-amber-700 dark:text-amber-300" : "border-slate-300 dark:border-slate-700"
+                                      }`}
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenWhyThisCost(originalIdx >= 0 ? originalIdx : 0)}
+                                      className="hover:text-indigo-600 hover:underline inline-flex items-center gap-0.5"
+                                      title="Click to view explainable landed cost breakdown"
+                                    >
+                                      <span>{landedCost.toFixed(2)}</span>
+                                      <HelpCircle className="w-3 h-3 text-indigo-400 inline" />
+                                    </button>
+                                  </td>
+                                  <td className="py-2.5 px-2 text-right font-mono">
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                      {marginPct.toFixed(1)}%
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-2 text-center">
+                                    {isPpv ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 inline-flex items-center gap-0.5">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        <span>PPV</span>
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 inline-flex items-center gap-0.5">
+                                        <Check className="w-3 h-3" />
+                                        <span>OK</span>
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-2 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveLine(row.rowId)}
+                                      className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition"
+                                      title="Delete line"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Dedicated Barcode Scanner Section */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                        <Barcode className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
+                          Barcode Scanner
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Scan barcodes to quickly add or update items
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleProcessBarcode(scanBarcodeInput);
+                        }}
+                        className="flex-1 min-w-[220px]"
+                      >
+                        <div className="relative">
+                          <input
+                            ref={barcodeInputRef}
+                            type="text"
+                            value={scanBarcodeInput}
+                            onChange={(e) => setScanBarcodeInput(e.target.value)}
+                            placeholder="Scan barcode here..."
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </form>
+
+                      {/* Ready Badge */}
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Ready</span>
+                      </div>
+
+                      {/* +1 Mode Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setScanContinuous((prev) => !prev)}
+                        className={`px-2.5 py-1 rounded-md border text-[11px] font-bold transition flex items-center gap-1.5 ${
+                          scanContinuous
+                            ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                            : "border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                        }`}
+                        title="Increment count (+1) on each scan"
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full border border-white/60 ${scanContinuous ? "bg-white" : "bg-transparent"}`} />
+                        <span>+1 Mode</span>
+                      </button>
+
+                      {/* Camera Scan Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsCameraScannerOpen(true)}
+                        className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition flex items-center gap-1.5"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>Camera Scan</span>
+                      </button>
+
+                      {/* Import CSV Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsCsvImportOpen(true)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Import CSV</span>
+                      </button>
+
+                      {/* Download Template Button */}
+                      <button
+                        type="button"
+                        onClick={handleDownloadTemplate}
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Download className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Download Template</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Side-by-Side Cards: Purchase Price Variance (PPV) & Margin Preview */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                    {/* PPV Card (7 cols) */}
+                    <div className="lg:col-span-7 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
+                          <AlertTriangle className="w-4 h-4 text-rose-600" />
+                          <span>Purchase Price Variance (PPV)</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200">
+                          {ppvLines.length} item with variance
+                        </span>
+                      </div>
+
+                      {ppvLines.length === 0 ? (
+                        <div className="py-4 text-center text-xs text-slate-500">
+                          No purchase price variance detected across received items.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="text-slate-500 font-medium">
+                              <tr>
+                                <th className="py-1 px-2">SKU</th>
+                                <th className="py-1 px-2">Product</th>
+                                <th className="py-1 px-2 text-right">PO Rate</th>
+                                <th className="py-1 px-2 text-right">Invoice Rate</th>
+                                <th className="py-1 px-2 text-right text-rose-600">Variance (₹)</th>
+                                <th className="py-1 px-2 text-right">Qty</th>
+                                <th className="py-1 px-2 text-right text-rose-600 font-bold">Total (₹)</th>
+                                <th className="py-1 px-2 text-center">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
+                              {ppvLines.map(({ row, variancePerUnit, totalPpv, accepted }) => (
+                                <tr key={row.code}>
+                                  <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">
+                                    {row.code}
+                                  </td>
+                                  <td className="py-2 px-2 text-slate-700 dark:text-slate-300">
+                                    {row.name.replace(/\(.*?\)/, "").trim()}
+                                  </td>
+                                  <td className="py-2 px-2 text-right font-mono">
+                                    {row.cost_price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="py-2 px-2 text-right font-mono">
+                                    {row.invoice_rate.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                                    +{variancePerUnit.toFixed(2)}
+                                  </td>
+                                  <td className="py-2 px-2 text-right font-mono">{accepted}</td>
+                                  <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                                    {totalPpv.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="py-2 px-2 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => onNotification?.("Variance Accepted", `Accepted +₹${variancePerUnit} variance for ${row.code}`, "info")}
+                                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs transition"
+                                      >
+                                        Accept
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setIsDebitNoteOpen(true)}
+                                        className="px-2.5 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                      >
+                                        Create Claim
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Margin Preview Card (5 cols) */}
+                    <div className="lg:col-span-5 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/60 rounded-xl p-4 flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold text-xs">
+                          <TrendingUp className="w-4 h-4 text-indigo-600" />
+                          <span>Margin Preview (Post GRN)</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Based on accepted quantity and landed cost
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-xs pt-1">
+                        <div>
+                          <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Landed Cost</span>
+                          <span className="font-mono font-bold text-slate-900 dark:text-white text-xs block">
+                            ₹ {avgUnitLandedCost.toFixed(2)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. MRP</span>
+                          <span className="font-mono font-bold text-slate-900 dark:text-white text-xs block">
+                            ₹ {avgMrp.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Margin</span>
+                          <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-xs inline-block">
+                            {avgMarginPercent.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Process Step Wizard */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+                    <div className="flex items-center justify-between text-xs">
+                      {[
+                        { step: 1, label: "PO & Supplier" },
+                        { step: 2, label: "Receive & Verify" },
+                        { step: 3, label: "Commercials" },
+                        { step: 4, label: "Costs & Freight" },
+                        { step: 5, label: "Review & Post" },
+                      ].map((s) => (
+                        <button
+                          key={s.step}
+                          type="button"
+                          onClick={() => setActiveStep(s.step)}
+                          className={`flex items-center gap-2 pb-1 border-b-2 font-semibold transition ${
+                            activeStep === s.step
+                              ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                              : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                          }`}
+                        >
+                          <span
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              activeStep === s.step
+                                ? "bg-indigo-600 text-white"
+                                : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                            }`}
+                          >
+                            {s.step}
+                          </span>
+                          <span>{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Summary Metric Pills */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
-                      <span className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono block">
+                      <span className="text-xl font-extrabold text-slate-900 dark:text-white font-mono block">
                         {totalOrdered.toLocaleString()}
                       </span>
                       <span className="text-xs text-slate-500 font-medium">Ordered (Units)</span>
@@ -1379,280 +2149,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                       <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono block">
                         {totalAcceptedUnits.toLocaleString()}
                       </span>
-                      <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold">Net Accepted</span>
-                    </div>
-                  </div>
-
-                  {/* Item Details Grid */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-                    <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          Inward Items ({grnLines.length})
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsAddProductOpen(true)}
-                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Product from Catalog</span>
-                        </button>
-                        {selectedOrderId && (
-                          <button
-                            type="button"
-                            onClick={() => handleSelectOrder(selectedOrderId)}
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
-                            title="Reset items from PO"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            <span>Reload PO</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleClearLines}
-                          className="px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition flex items-center gap-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Clear</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
-                          <tr>
-                            <th className="py-2.5 px-2.5">#</th>
-                            <th className="py-2.5 px-2">SKU</th>
-                            <th className="py-2.5 px-3">Product</th>
-                            <th className="py-2.5 px-2">Size</th>
-                            <th className="py-2.5 px-2">Color</th>
-                            <th className="py-2.5 px-2 text-right">PO Qty</th>
-                            <th className="py-2.5 px-2 text-right">Recv Qty</th>
-                            <th className="py-2.5 px-2 text-right text-rose-500">Damage</th>
-                            <th className="py-2.5 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400">Accepted</th>
-                            <th className="py-2.5 px-2 text-right">PO Rate (₹)</th>
-                            <th className="py-2.5 px-2 text-right">Inv. Rate (₹)</th>
-                            <th className="py-2.5 px-2 text-right">Net Rate (₹)</th>
-                            <th className="py-2.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
-                              Landed Cost (₹)
-                            </th>
-                            <th className="py-2.5 px-2 text-right">Margin</th>
-                            <th className="py-2.5 px-2 text-center">Status</th>
-                            <th className="py-2.5 px-2 text-center">Del</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {grnLines.map((row, idx) => {
-                            const { accepted, netRate } = lineMetrics[idx];
-                            const { landedCost } = lineAllocations[idx];
-                            const isPpv = Math.abs(row.invoice_rate - row.cost_price) > 0.001;
-                            const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
-
-                            return (
-                              <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
-                                <td className="py-2 px-2.5 text-slate-400">{idx + 1}</td>
-                                <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">
-                                  {row.code}
-                                </td>
-                                <td className="py-2 px-3">
-                                  <span className="font-semibold text-slate-900 dark:text-white block">
-                                    {row.name}
-                                  </span>
-                                </td>
-                                <td className="py-2 px-2 font-mono text-slate-600 dark:text-slate-400">{row.size}</td>
-                                <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{row.color}</td>
-                                <td className="py-2 px-2 text-right font-mono">{row.quantity_ordered}</td>
-                                <td className="py-2 px-2 text-right font-mono">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={row.quantity_received}
-                                    onChange={(e) => updateLine(row.rowId, "quantity_received", parseFloat(e.target.value) || 0)}
-                                    className="w-16 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono"
-                                  />
-                                </td>
-                                <td className="py-2 px-2 text-right font-mono text-rose-600 dark:text-rose-400">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={row.quantity_damaged}
-                                    onChange={(e) => updateLine(row.rowId, "quantity_damaged", parseFloat(e.target.value) || 0)}
-                                    className="w-14 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-rose-600"
-                                  />
-                                </td>
-                                <td className="py-2 px-2 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                                  {accepted}
-                                </td>
-                                <td className="py-2 px-2 text-right font-mono">
-                                  {row.cost_price.toFixed(2)}
-                                </td>
-                                <td className="py-2 px-2 text-right font-mono">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={row.invoice_rate}
-                                    onChange={(e) => updateLine(row.rowId, "invoice_rate", parseFloat(e.target.value) || 0)}
-                                    className={`w-20 text-right bg-slate-50 dark:bg-slate-800 border rounded px-1.5 py-0.5 font-mono ${
-                                      isPpv ? "border-amber-400 font-bold text-amber-700 dark:text-amber-300" : "border-slate-300 dark:border-slate-700"
-                                    }`}
-                                  />
-                                </td>
-                                <td className="py-2 px-2 text-right font-mono font-medium">
-                                  {netRate.toFixed(2)}
-                                </td>
-                                <td className="py-2 px-3 text-right font-mono font-bold">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenWhyThisCost(idx)}
-                                    className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition inline-flex items-center gap-1"
-                                    title="Click to view explainable landed cost breakdown"
-                                  >
-                                    <span>₹{landedCost.toFixed(2)}</span>
-                                    <HelpCircle className="w-3 h-3 text-indigo-400" />
-                                  </button>
-                                </td>
-                                <td className="py-2 px-2 text-right font-mono">
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                                    {marginPct.toFixed(1)}%
-                                  </span>
-                                </td>
-                                <td className="py-2 px-2 text-center">
-                                  {isPpv ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 inline-flex items-center gap-0.5">
-                                      <AlertTriangle className="w-3 h-3" />
-                                      <span>PPV</span>
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 inline-flex items-center gap-0.5">
-                                      <Check className="w-3 h-3" />
-                                      <span>OK</span>
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-2 px-2 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveLine(row.rowId)}
-                                    className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition"
-                                    title="Delete line"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Purchase Price Variance (PPV) Card */}
-                  {ppvLines.length > 0 && (
-                    <div className="bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
-                          <AlertTriangle className="w-4 h-4 text-rose-600" />
-                          <span>Purchase Price Variance (PPV)</span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200">
-                          {ppvLines.length} item with variance
-                        </span>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead className="text-slate-500 font-medium">
-                            <tr>
-                              <th className="py-1 px-2">SKU</th>
-                              <th className="py-1 px-2">Product</th>
-                              <th className="py-1 px-2 text-right">PO Rate</th>
-                              <th className="py-1 px-2 text-right">Invoice Rate</th>
-                              <th className="py-1 px-2 text-right text-rose-600">Variance (₹)</th>
-                              <th className="py-1 px-2 text-right">Qty</th>
-                              <th className="py-1 px-2 text-right text-rose-600 font-bold">Total (₹)</th>
-                              <th className="py-1 px-2 text-center">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
-                            {ppvLines.map(({ row, variancePerUnit, totalPpv, accepted }) => (
-                              <tr key={row.code}>
-                                <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
-                                <td className="py-2 px-2 text-slate-700 dark:text-slate-300">{row.name}</td>
-                                <td className="py-2 px-2 text-right font-mono">₹{row.cost_price.toFixed(2)}</td>
-                                <td className="py-2 px-2 text-right font-mono">₹{row.invoice_rate.toFixed(2)}</td>
-                                <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
-                                  +{variancePerUnit.toFixed(2)}
-                                </td>
-                                <td className="py-2 px-2 text-right font-mono">{accepted}</td>
-                                <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
-                                  ₹{totalPpv.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="py-2 px-2 text-center">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => onNotification?.("Variance Accepted", `Accepted +₹${variancePerUnit} variance for ${row.code}`, "info")}
-                                      className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs transition"
-                                    >
-                                      Accept
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setIsDebitNoteOpen(true)}
-                                      className="px-2.5 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                                    >
-                                      Create Claim
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Margin Preview Post GRN Box */}
-                  <div className="bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/60 rounded-xl p-4 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold text-xs">
-                        <TrendingUp className="w-4 h-4 text-indigo-600" />
-                        <span>Margin Preview (Post GRN)</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Based on accepted quantity and capitalized landed cost
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-6 text-right text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Landed Cost</span>
-                        <span className="font-mono font-bold text-slate-900 dark:text-white">
-                          ₹ {avgUnitLandedCost.toFixed(2)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. MRP</span>
-                        <span className="font-mono font-bold text-slate-900 dark:text-white">
-                          ₹ {avgMrp.toFixed(2)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Margin</span>
-                        <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-xs">
-                          {avgMarginPercent.toFixed(1)}%
-                        </span>
-                      </div>
+                      <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold">Net Accepted (Units)</span>
                     </div>
                   </div>
 
@@ -1660,36 +2157,82 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     {/* Remarks */}
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
-                      <label className="font-bold text-slate-800 dark:text-slate-200">Remarks &amp; Notes</label>
+                      <label className="font-bold text-slate-800 dark:text-slate-200">Remarks</label>
                       <textarea
                         rows={3}
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Add any remarks, transport observations, packaging condition, or inspection notes..."
+                        placeholder="Add any remarks, notes or special instructions..."
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
 
                     {/* Attachments */}
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
-                      <label className="font-bold text-slate-800 dark:text-slate-200">Statutory Attachments</label>
-                      <div className="space-y-1.5">
-                        {[
-                          { name: "Vendor_Tax_Invoice.pdf", size: "245 KB" },
-                          { name: "Transporter_LR_Slip.pdf", size: "120 KB" },
-                          { name: "Physical_Packing_List.pdf", size: "98 KB" },
-                        ].map((f) => (
-                          <div
-                            key={f.name}
-                            className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]"
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-slate-800 dark:text-slate-200">
+                          Attachments ({attachments.length})
+                        </label>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          onChange={handleFileUpload}
+                          className="hidden"
+                          accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx,.docx"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <div
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={handleDropFiles}
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex-1 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-2 text-center flex flex-col items-center justify-center gap-1 hover:border-indigo-400 transition cursor-pointer"
+                        >
+                          <span className="text-[11px] text-slate-500">Drag &amp; drop files here</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              fileInputRef.current?.click();
+                            }}
+                            className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold border border-indigo-200 dark:border-indigo-800"
                           >
-                            <div className="flex items-center gap-2">
-                              <FileText className="w-3.5 h-3.5 text-indigo-500" />
-                              <span className="font-medium text-slate-800 dark:text-slate-200">{f.name}</span>
+                            Browse Files
+                          </button>
+                        </div>
+                        <div className="space-y-1 text-[11px] font-mono flex-1 max-h-24 overflow-y-auto">
+                          {attachments.length === 0 ? (
+                            <div className="text-slate-400 text-[11px] italic p-2 text-center">
+                              No files attached (e.g. Vendor Invoice, LR, Packing List)
                             </div>
-                            <span className="text-slate-400">{f.size}</span>
-                          </div>
-                        ))}
+                          ) : (
+                            attachments.map((f) => (
+                              <div
+                                key={f.id}
+                                className="flex items-center justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                              >
+                                <div className="flex items-center gap-1 truncate">
+                                  <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
+                                  <span className="text-slate-800 dark:text-slate-200 truncate font-sans text-xs">
+                                    {f.name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-slate-400 text-[10px]">{f.size}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAttachment(f.id)}
+                                    className="text-slate-400 hover:text-rose-500 transition p-0.5"
+                                    title="Remove attachment"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1793,40 +2336,57 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                       <table className="w-full text-left text-[11px]">
                         <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
                           <tr>
-                            <th className="py-2 px-2">#</th>
+                            <th className="py-2 px-1.5 text-center">#</th>
                             <th className="py-2 px-2">Cost Type</th>
-                            <th className="py-2 px-2 text-right">Amount (₹)</th>
-                            <th className="py-2 px-1 text-center">Tax</th>
-                            <th className="py-2 px-2 text-center">Allocation</th>
+                            <th className="py-2 px-2 text-right">Base Amount (₹)</th>
+                            <th className="py-2 px-1.5 text-center">GST %</th>
+                            <th className="py-2 px-1.5 text-right">GST (₹)</th>
+                            <th className="py-2 px-1 text-center">ITC</th>
+                            <th className="py-2 px-1.5 text-center">Alloc.</th>
                             <th className="py-2 px-1 text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {costItems.map((c, i) => (
-                            <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
-                              <td className="py-1.5 px-2 text-slate-400">{i + 1}</td>
-                              <td className="py-1.5 px-2 font-medium text-slate-800 dark:text-slate-200">{c.component_type}</td>
-                              <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900 dark:text-white">
-                                {c.amount.toFixed(2)}
-                              </td>
-                              <td className="py-1.5 px-1 text-center font-mono text-slate-500">{c.tax_rate}%</td>
-                              <td className="py-1.5 px-2 text-center">
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                  {c.allocation_method === "QUANTITY" ? "Quantity" : "Value"}
-                                </span>
-                              </td>
-                              <td className="py-1.5 px-1 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveCostItem(c.id)}
-                                  className="text-slate-400 hover:text-rose-500 p-0.5 transition"
-                                  title="Delete component"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                          {costItems.map((c, i) => {
+                            const gstVal = c.tax_amount ?? (c.amount * (c.tax_rate || 0)) / 100;
+                            return (
+                              <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                                <td className="py-1.5 px-1.5 text-center text-slate-400">{i + 1}</td>
+                                <td className="py-1.5 px-2 font-medium text-slate-800 dark:text-slate-200 capitalize">
+                                  {c.component_type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase())}
+                                </td>
+                                <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                  {c.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-1.5 px-1.5 text-center font-mono text-slate-500">{c.tax_rate}%</td>
+                                <td className="py-1.5 px-1.5 text-right font-mono text-slate-600 dark:text-slate-400">
+                                  {gstVal.toFixed(2)}
+                                </td>
+                                <td className="py-1.5 px-1 text-center">
+                                  {c.itc_eligible ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-600 inline" />
+                                  ) : (
+                                    <X className="w-3.5 h-3.5 text-rose-500 inline" />
+                                  )}
+                                </td>
+                                <td className="py-1.5 px-1.5 text-center">
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                    {c.allocation_method === "QUANTITY" ? "Quantity" : "Value"}
+                                  </span>
+                                </td>
+                                <td className="py-1.5 px-1 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveCostItem(c.id)}
+                                    className="text-slate-400 hover:text-rose-500 p-0.5 transition"
+                                    title="Delete component"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-500/80 hover:text-rose-600" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1841,49 +2401,60 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                     </button>
                   </div>
 
-                  {/* Allocation Method Radio Group */}
+                  {/* Allocation Method Radio Group & Info */}
                   <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-800">
                     <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
                       Allocation Method
                     </span>
-                    <div className="space-y-1.5">
-                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                        <input
-                          type="radio"
-                          name="allocMethodSidebar"
-                          checked={allocationMethod === "VALUE"}
-                          onChange={() => setAllocationMethod("VALUE")}
-                          className="text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="font-medium">By Value (Ad-Valorem)</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                        <input
-                          type="radio"
-                          name="allocMethodSidebar"
-                          checked={allocationMethod === "QUANTITY"}
-                          onChange={() => setAllocationMethod("QUANTITY")}
-                          className="text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="font-medium">By Quantity (Per Unit)</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                        <input
-                          type="radio"
-                          name="allocMethodSidebar"
-                          checked={allocationMethod === "WEIGHT"}
-                          onChange={() => setAllocationMethod("WEIGHT")}
-                          className="text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="font-medium">By Weight / CBM</span>
-                      </label>
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
+                          <input
+                            type="radio"
+                            name="allocMethodSidebar"
+                            checked={allocationMethod === "VALUE"}
+                            onChange={() => setAllocationMethod("VALUE")}
+                            className="text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="font-medium text-xs">By Value (Ad-Valorem)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
+                          <input
+                            type="radio"
+                            name="allocMethodSidebar"
+                            checked={allocationMethod === "QUANTITY"}
+                            onChange={() => setAllocationMethod("QUANTITY")}
+                            className="text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="font-medium text-xs">By Quantity (Per Unit)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
+                          <input
+                            type="radio"
+                            name="allocMethodSidebar"
+                            checked={allocationMethod === "WEIGHT"}
+                            onChange={() => setAllocationMethod("WEIGHT")}
+                            className="text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="font-medium text-xs">By Weight / CBM</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300 opacity-60">
+                          <input
+                            type="radio"
+                            name="allocMethodSidebar"
+                            disabled
+                            className="text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="font-medium text-xs">Manual Allocation</span>
+                        </label>
+                      </div>
 
-                    <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                      <span>
-                        Freight and other costs will be allocated based on each item's share of total invoice value.
-                      </span>
+                      <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 text-[10.5px] text-blue-800 dark:text-blue-300 flex items-start gap-1.5 self-center">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
+                        <span className="leading-snug">
+                          Costs will be allocated to each item based on the selected method using Net Accepted quantities.
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -1894,22 +2465,26 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                     </span>
                     <div className="space-y-1.5 text-xs">
                       <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                        <span>Purchase Value (Accepted Qty)</span>
-                        <span>₹{totalPurchaseValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                        <span className="font-sans">Purchase Value (Accepted Qty)</span>
+                        <span>₹ {totalPurchaseValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold">
-                        <span>Total Add-on Costs</span>
-                        <span>₹{totalAddons.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span className="font-sans">Total Add-on Base Amount</span>
+                        <span>₹ {totalAddons.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span className="font-sans">Total GST (ITC Eligible)</span>
+                        <span>₹ {totalCostGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                       </div>
                       <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between font-bold text-slate-900 dark:text-white text-sm">
-                        <span>Final Inventory Cost</span>
-                        <span className="text-emerald-600 dark:text-emerald-400">
-                          ₹{finalInventoryCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        <span className="font-sans font-extrabold text-blue-900 dark:text-blue-200">Final Inventory Cost (Excl. ITC)</span>
+                        <span className="text-blue-900 dark:text-blue-300 font-extrabold text-base">
+                          ₹ {finalInventoryCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </span>
                       </div>
                       <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-300 text-xs">
-                        <span>Avg. Unit Landed Cost</span>
-                        <span>₹{avgUnitLandedCost.toFixed(2)}</span>
+                        <span className="font-sans">Avg. Unit Landed Cost</span>
+                        <span className="font-bold">₹ {avgUnitLandedCost.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -1919,15 +2494,15 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                     <button
                       type="button"
                       onClick={handleOpenPreview}
-                      className="w-full py-2.5 px-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition flex items-center justify-center gap-2 shadow-xs"
+                      className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.99]"
                     >
-                      <Scale className="w-4 h-4" />
-                      <span>Preview Allocation</span>
+                      <Printer className="w-4 h-4" />
+                      <span>Preview GRN &amp; Labels</span>
                     </button>
                     <button
                       type="button"
                       onClick={handleOpenPreview}
-                      className="text-[11px] text-indigo-600 hover:underline inline-block font-semibold"
+                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-block font-semibold"
                     >
                       View Allocation Preview →
                     </button>

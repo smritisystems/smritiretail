@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.18.0
+ * Version      : 6.42.4
  * Created      : 2026-08-16
- * Modified     : 2026-09-18
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -240,6 +240,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         contextIcon: 'admin_panel_settings',
         items: [
           LAUNCHPAD_ITEM,
+          { id: 'system-parameters', title: 'System Parameters Studio', icon: 'tune' },
           { id: 'database-manager', title: 'Database Manager (DB Studio)', icon: 'storage' },
           { id: 'masters', title: 'System Master Registry', icon: 'tune' },
           { id: 'staff-management', title: 'Staff & Role Governance', icon: 'group' },

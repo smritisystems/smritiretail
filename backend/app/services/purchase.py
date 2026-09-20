@@ -175,7 +175,10 @@ class PurchaseService:
 
     async def _get_product(self, product_id: str) -> Product:
         stmt = select(Product).where(
-            (Product.id == product_id) | (Product.code == product_id),
+            (Product.id == product_id)
+            | (Product.code == product_id)
+            | (Product.sku == product_id)
+            | (Product.barcode == product_id),
             Product.is_deleted == False,
         )
         if self.tenant.company_id:

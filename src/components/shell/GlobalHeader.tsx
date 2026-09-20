@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.18.0
+ * Version      : 6.42.4
  * Created      : 2026-08-16
- * Modified     : 2026-09-18
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -291,6 +291,16 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                   className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px] text-[#3d425f]">settings</span> System Settings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onSelectModule) onSelectModule('system-parameters');
+                    setIsUserMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#3f51b5]">tune</span> System Parameters Studio
                 </button>
                 <button
                   type="button"

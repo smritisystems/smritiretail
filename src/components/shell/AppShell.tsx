@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.18.0
+ * Version      : 6.42.4
  * Created      : 2026-08-16
- * Modified     : 2026-09-18
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -49,7 +49,7 @@ const mapModuleToContext = (moduleId: string): BusinessContext => {
   if (['report-designer', 'business-ledger', 'audit-logs', 'accounting-sync', 'data-exchange'].includes(moduleId)) {
     return 'reports';
   }
-  if (['staff-management', 'dev-tracker', 'wiki', 'about-smriti', 'legacy-migration'].includes(moduleId)) {
+  if (['staff-management', 'dev-tracker', 'wiki', 'about-smriti', 'legacy-migration', 'system-parameters', 'parameters-studio', 'sys-params', 'database-manager'].includes(moduleId)) {
     return 'system';
   }
 
