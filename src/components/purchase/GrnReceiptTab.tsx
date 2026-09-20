@@ -73,6 +73,12 @@ import {
   WhyThisCostData,
   GrnPostedSummary,
 } from "./types/inwardCost.ts";
+import {
+  buildManualAllocationMatrix,
+  calculateManualLineAllocations,
+  getManualAllocationVariance,
+  normalizeAllocationMethod,
+} from "./manualAllocation.ts";
 
 interface PurchaseOrderOption {
   id: string;
@@ -168,6 +174,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   // Inward Landed Cost Engine State
   const [costTypes, setCostTypes] = useState<InwardCostTypeOption[]>([]);
   const [costItems, setCostItems] = useState<InwardCostItem[]>([]);
+  const [manualAllocations, setManualAllocations] = useState<Record<string, Record<string, number>>>({});
   const [allocationMethod, setAllocationMethod] = useState<"value" | "quantity" | "weight" | "manual">("value");
 
   // Live File Attachments State
@@ -853,16 +860,71 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     [lineMetrics]
   );
 
+  const defaultBaseMethod: "VALUE" | "QUANTITY" = allocationMethod === "quantity" ? "QUANTITY" : "VALUE";
+
+  const manualAllocationMatrix = useMemo(
+    () =>
+      buildManualAllocationMatrix({
+        grnLines,
+        costItems,
+        manualAllocations,
+        defaultBaseMethod,
+      }),
+    [grnLines, costItems, manualAllocations, defaultBaseMethod]
+  );
+
+  const manualAllocationSummaries = useMemo(
+    () =>
+      costItems.map((costItem) => ({
+        ...costItem,
+        ...getManualAllocationVariance({
+          costItem,
+          grnLines,
+          manualAllocations,
+          defaultBaseMethod,
+        }),
+      })),
+    [costItems, grnLines, manualAllocations, defaultBaseMethod]
+  );
+
+  const manualAllocationTotals = useMemo(() => {
+    if (allocationMethod !== "manual") {
+      return null;
+    }
+    const totalCost = costItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const allocated = Object.values(manualAllocationMatrix).reduce((sum, perRowMap) => {
+      return sum + Object.values(perRowMap ?? {}).reduce((rowSum, value) => rowSum + (Number(value) || 0), 0);
+    }, 0);
+    const remaining = Math.round((totalCost - allocated) * 100) / 100;
+    return {
+      totalCost,
+      allocated,
+      remaining,
+      isBalanced: Math.abs(remaining) <= 0.05,
+    };
+  }, [allocationMethod, costItems, manualAllocationMatrix]);
+
+  const updateManualAllocation = useCallback((componentId: string, rowId: string, value: string) => {
+    const parsed = Number(value);
+    setManualAllocations((prev) => {
+      const nextComponent = { ...(prev[componentId] ?? {}) };
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        delete nextComponent[rowId];
+      } else {
+        nextComponent[rowId] = Math.round(parsed * 100) / 100;
+      }
+      return { ...prev, [componentId]: nextComponent };
+    });
+  }, []);
+
   // Allocation per line
   const lineAllocations = useMemo(() => {
     if (allocationMethod === "manual") {
-      return grnLines.map((row, idx) => {
-        const { accepted, netRate } = lineMetrics[idx];
-        return {
-          allocatedAmount: 0,
-          addonPerUnit: 0,
-          landedCost: netRate,
-        };
+      return calculateManualLineAllocations({
+        grnLines,
+        costItems,
+        manualAllocations,
+        defaultBaseMethod,
       });
     }
 
@@ -893,7 +955,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
       return { allocatedAmount, addonPerUnit, landedCost };
     });
-  }, [grnLines, totalAddons, totalPurchaseValue, lineMetrics, totalAcceptedUnits, allocationMethod]);
+  }, [grnLines, totalAddons, totalPurchaseValue, lineMetrics, totalAcceptedUnits, allocationMethod, costItems, manualAllocations]);
 
   // Overall Inventory Acquisition Cost
   const finalInventoryCost = useMemo(() => totalPurchaseValue + totalAddons, [totalPurchaseValue, totalAddons]);
@@ -1026,6 +1088,17 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     if (validLines.length === 0) {
       onNotification?.("Validation Error", "Enter at least one received quantity greater than zero.", "warning");
       return;
+    }
+    if (allocationMethod === "manual") {
+      const brokenComponent = manualAllocationSummaries.find((entry) => !entry.isBalanced);
+      if (brokenComponent) {
+        onNotification?.(
+          "Manual Allocation Reconciliation Failed",
+          `Cost component ${brokenComponent.description || brokenComponent.component_type} is out of balance by ₹${Math.abs(brokenComponent.variance).toFixed(2)}. Reconcile the allocation before posting GRN.`,
+          "warning"
+        );
+        return;
+      }
     }
     const effSupplier = supplierId || selectedOrder?.supplier_id;
     if (!effSupplier) {
@@ -1420,11 +1493,21 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                     <button
                       type="button"
                       onClick={handleSubmitGRN}
-                      disabled={saving}
-                      className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow transition flex items-center gap-1.5"
+                      disabled={saving || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold shadow transition flex items-center gap-1.5 ${
+                        saving || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)
+                          ? "bg-slate-300 text-slate-600 cursor-not-allowed"
+                          : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                      }`}
                     >
                       <PackageCheck className="w-3.5 h-3.5" />
-                      <span>{saving ? "Posting..." : "Post GRN"}</span>
+                      <span>
+                        {allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced
+                          ? "Fix Manual Allocation"
+                          : saving
+                            ? "Posting..."
+                            : "Post GRN"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -2360,6 +2443,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {costItems.map((c, i) => {
                             const gstVal = c.tax_amount ?? (c.amount * (c.tax_rate || 0)) / 100;
+                            const allocationLabel = normalizeAllocationMethod(c.allocation_method) === "MANUAL" ? "Manual" : normalizeAllocationMethod(c.allocation_method) === "QUANTITY" ? "Quantity" : normalizeAllocationMethod(c.allocation_method) === "WEIGHT" ? "Weight" : "Value";
                             return (
                               <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
                                 <td className="py-1.5 px-1.5 text-center text-slate-400">{i + 1}</td>
@@ -2382,7 +2466,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                                 </td>
                                 <td className="py-1.5 px-1.5 text-center">
                                   <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                    {c.allocation_method === "QUANTITY" ? "Quantity" : "Value"}
+                                    {allocationLabel}
                                   </span>
                                 </td>
                                 <td className="py-1.5 px-1 text-center">
@@ -2462,6 +2546,82 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                           <span title="Amounts will be allocated exactly as entered per cost component — no automatic distribution">ⓘ</span>
                         </label>
                       </div>
+
+                      {allocationMethod === "manual" && (
+                        <div className="mt-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 p-2.5 text-[10px] text-amber-900 dark:text-amber-200">
+                          <div className="flex items-center justify-between font-bold mb-2">
+                            <span>Manual allocation matrix</span>
+                            <span className="rounded-full bg-white/70 dark:bg-slate-900/60 px-1.5 py-0.5 border border-amber-300 dark:border-amber-800">
+                              {costItems.filter((c) => c.amount > 0).length} component(s)
+                            </span>
+                          </div>
+                          {manualAllocationTotals && (
+                            <div className="mb-2 grid grid-cols-3 gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-white/70 dark:bg-slate-900/40 p-2">
+                              <div>
+                                <div className="text-[9px] uppercase tracking-wide text-slate-500">Total Cost</div>
+                                <div className="font-bold text-slate-800 dark:text-slate-100">₹{manualAllocationTotals.totalCost.toFixed(2)}</div>
+                              </div>
+                              <div>
+                                <div className="text-[9px] uppercase tracking-wide text-slate-500">Allocated</div>
+                                <div className="font-bold text-slate-800 dark:text-slate-100">₹{manualAllocationTotals.allocated.toFixed(2)}</div>
+                              </div>
+                              <div>
+                                <div className="text-[9px] uppercase tracking-wide text-slate-500">Remaining</div>
+                                <div className={`font-bold ${manualAllocationTotals.isBalanced ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}`}>
+                                  ₹{manualAllocationTotals.remaining.toFixed(2)}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            {costItems.map((component) => {
+                              const componentSummary = manualAllocationSummaries.find((entry) => entry.id === component.id);
+                              const rowInputs = manualAllocationMatrix[component.id] ?? {};
+                              return (
+                                <div key={component.id} className="rounded-lg border border-amber-200 dark:border-amber-800 bg-white/70 dark:bg-slate-900/40 p-2">
+                                  <div className="flex items-center justify-between text-[10px] font-bold text-amber-900 dark:text-amber-200 mb-1.5">
+                                    <span>{component.description || component.component_type}</span>
+                                    <span className={`rounded px-1 py-0.5 ${componentSummary?.isBalanced ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"}`}>
+                                      {componentSummary?.isBalanced ? "Balanced" : `Variance ₹${Math.abs(componentSummary?.variance ?? 0).toFixed(2)}`}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-[1.2fr_1.1fr] gap-1 text-[9.5px] font-semibold text-slate-600 dark:text-slate-300 border-b border-amber-200 dark:border-amber-800 pb-1">
+                                    <span>SKU</span>
+                                    <span className="text-right">₹ Allocation</span>
+                                  </div>
+                                  {grnLines.filter((row) => Math.max(0, row.quantity_received - row.quantity_damaged) > 0).length === 0 ? (
+                                    <div className="text-[9.5px] text-slate-500 py-2 text-center">No accepted lines to allocate.</div>
+                                  ) : (
+                                    grnLines.map((row) => {
+                                      const accepted = Math.max(0, row.quantity_received - row.quantity_damaged);
+                                      if (accepted <= 0) return null;
+                                      const currentValue = rowInputs[row.rowId] ?? 0;
+                                      return (
+                                        <div key={`${component.id}-${row.rowId}`} className="grid grid-cols-[1.2fr_1.1fr] items-center gap-1 py-1">
+                                          <span className="font-medium truncate text-slate-700 dark:text-slate-200">{row.code}</span>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={currentValue || ""}
+                                            onChange={(e) => updateManualAllocation(component.id, row.rowId, e.target.value)}
+                                            className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 py-1 text-right font-mono text-[10px] text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500"
+                                            placeholder="0.00"
+                                          />
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                  <div className="mt-2 flex items-center justify-between text-[9.5px] font-semibold text-slate-700 dark:text-slate-300">
+                                    <span>Target</span>
+                                    <span>₹{Number(component.amount || 0).toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 text-[10.5px] text-blue-800 dark:text-blue-300 flex items-start gap-1.5 self-center">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />

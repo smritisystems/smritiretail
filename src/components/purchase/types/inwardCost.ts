@@ -15,13 +15,15 @@
  * Capability    : @SmritiCapability("PURCHASE", "INWARD_COST_TYPES")
  */
 
+export type AllocationMethodValue = "VALUE" | "QUANTITY" | "WEIGHT" | "MANUAL";
+
 export interface InwardCostTypeOption {
   id: string;
   code: string;
   name: string;
   category: string;
   is_capitalizable: boolean;
-  default_allocation_method: "VALUE" | "QUANTITY" | "WEIGHT";
+  default_allocation_method: AllocationMethodValue;
   requires_document: boolean;
   requires_transporter: boolean;
   is_active: boolean;
@@ -38,7 +40,7 @@ export interface InwardCostItem {
   total_amount: number;
   itc_eligible: boolean;
   is_capitalizable: boolean;
-  allocation_method: "VALUE" | "QUANTITY" | "WEIGHT";
+  allocation_method: AllocationMethodValue;
   transporter_name?: string;
   document_type?: string;
   document_no?: string;

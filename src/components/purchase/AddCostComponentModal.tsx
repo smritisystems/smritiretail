@@ -45,7 +45,7 @@ export const AddCostComponentModal: React.FC<AddCostComponentModalProps> = ({
   const [taxRate, setTaxRate] = useState<number>(18);
   const [itcEligible, setItcEligible] = useState<boolean>(true);
   const [isCapitalizable, setIsCapitalizable] = useState<boolean>(true);
-  const [allocationMethod, setAllocationMethod] = useState<"VALUE" | "QUANTITY" | "WEIGHT">("VALUE");
+  const [allocationMethod, setAllocationMethod] = useState<"VALUE" | "QUANTITY" | "WEIGHT" | "MANUAL">("VALUE");
   const [transporterName, setTransporterName] = useState(defaultTransporter);
   const [documentType, setDocumentType] = useState("LR");
   const [documentNo, setDocumentNo] = useState(defaultLrNumber);
@@ -286,8 +286,8 @@ export const AddCostComponentModal: React.FC<AddCostComponentModalProps> = ({
             <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Allocation Method
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(["VALUE", "QUANTITY", "WEIGHT"] as const).map((m) => (
+            <div className="grid grid-cols-2 gap-2">
+              {(["VALUE", "QUANTITY", "WEIGHT", "MANUAL"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -298,7 +298,7 @@ export const AddCostComponentModal: React.FC<AddCostComponentModalProps> = ({
                       : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
                   }`}
                 >
-                  {m === "VALUE" ? "By Value" : m === "QUANTITY" ? "By Qty" : "By Weight"}
+                  {m === "VALUE" ? "By Value" : m === "QUANTITY" ? "By Qty" : m === "WEIGHT" ? "By Weight" : "Manual"}
                 </button>
               ))}
             </div>
