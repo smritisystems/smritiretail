@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { calculateManualLineAllocations, normalizeAllocationMethod } from "../components/purchase/manualAllocation";
+import {
+  calculateManualLineAllocations,
+  getManualAllocationVariance,
+  normalizeAllocationMethod,
+} from "../components/purchase/manualAllocation";
 
 describe("GRN manual landed cost allocation engine", () => {
   it("normalizes allocation method strings consistently", () => {
@@ -106,5 +110,55 @@ describe("GRN manual landed cost allocation engine", () => {
     expect(allocations[1].allocatedAmount).toBe(600);
     expect(allocations[0].landedCost).toBe(170);
     expect(allocations[1].landedCost).toBe(113.33);
+  });
+
+  it("matches the requested business cases A-D and blocks under-allocation", () => {
+    const grnLines = [
+      { rowId: "A", quantity_received: 10, quantity_damaged: 0, invoice_rate: 500, trade_discount: 0 },
+      { rowId: "B", quantity_received: 10, quantity_damaged: 0, invoice_rate: 300, trade_discount: 0 },
+      { rowId: "C", quantity_received: 10, quantity_damaged: 0, invoice_rate: 200, trade_discount: 0 },
+    ];
+
+    const caseA = getManualAllocationVariance({
+      costItem: { id: "freight", amount: 1000 },
+      grnLines,
+      manualAllocations: { freight: { A: 600, B: 250, C: 150 } },
+    });
+    expect(caseA.allocatedTotal).toBe(1000);
+    expect(caseA.variance).toBe(0);
+    expect(caseA.isBalanced).toBe(true);
+
+    const caseB = getManualAllocationVariance({
+      costItem: { id: "freight", amount: 1000 },
+      grnLines,
+      manualAllocations: { freight: { A: 600, B: 250, C: 50 } },
+    });
+    expect(caseB.allocatedTotal).toBe(900);
+    expect(caseB.variance).toBe(100);
+    expect(caseB.isBalanced).toBe(false);
+
+    const caseC = getManualAllocationVariance({
+      costItem: { id: "freight", amount: 1000 },
+      grnLines,
+      manualAllocations: { freight: { A: 600, B: 250, C: 150 } },
+    });
+    const loading = getManualAllocationVariance({
+      costItem: { id: "loading", amount: 500 },
+      grnLines,
+      manualAllocations: { loading: { A: 100, B: 200, C: 200 } },
+    });
+    expect(caseC.isBalanced).toBe(true);
+    expect(loading.isBalanced).toBe(true);
+
+    const rounding = calculateManualLineAllocations({
+      grnLines: [
+        { rowId: "R1", quantity_received: 3, quantity_damaged: 0, invoice_rate: 1, trade_discount: 0 },
+        { rowId: "R2", quantity_received: 3, quantity_damaged: 0, invoice_rate: 1, trade_discount: 0 },
+        { rowId: "R3", quantity_received: 3, quantity_damaged: 0, invoice_rate: 1, trade_discount: 0 },
+      ],
+      manualAllocations: { freight: { R1: 333.33, R2: 333.33, R3: 333.34 } },
+      costItems: [{ id: "freight", amount: 1000 } as any],
+    });
+    expect(rounding.reduce((sum, row) => sum + row.allocatedAmount, 0)).toBe(1000);
   });
 });
