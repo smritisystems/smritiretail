@@ -39,6 +39,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.43.6] - 2026-09-20
+
+#### GRN Inward Cost Panel UX Corrections
+- **fix(grn):** add Manual Allocation as 4th cost allocation method in GRN Inward Cost panel
+- **fix(grn):** display Avg Unit Landed Cost in Cost Summary right panel
+
 ### [6.43.5] - 2026-09-20
 
 #### System Parameters Studio UX Integration & Universal Navigation Wiring

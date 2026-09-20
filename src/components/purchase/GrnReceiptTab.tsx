@@ -168,7 +168,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   // Inward Landed Cost Engine State
   const [costTypes, setCostTypes] = useState<InwardCostTypeOption[]>([]);
   const [costItems, setCostItems] = useState<InwardCostItem[]>([]);
-  const [allocationMethod, setAllocationMethod] = useState<"VALUE" | "QUANTITY" | "WEIGHT">("VALUE");
+  const [allocationMethod, setAllocationMethod] = useState<"value" | "quantity" | "weight" | "manual">("value");
 
   // Live File Attachments State
   const [attachments, setAttachments] = useState<Array<{ id: string; name: string; size: string; type: string }>>([]);
@@ -855,6 +855,17 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
   // Allocation per line
   const lineAllocations = useMemo(() => {
+    if (allocationMethod === "manual") {
+      return grnLines.map((row, idx) => {
+        const { accepted, netRate } = lineMetrics[idx];
+        return {
+          allocatedAmount: 0,
+          addonPerUnit: 0,
+          landedCost: netRate,
+        };
+      });
+    }
+
     if (totalAddons <= 0 || totalPurchaseValue <= 0) {
       return grnLines.map((r) => ({
         allocatedAmount: 0,
@@ -870,7 +881,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       }
 
       let share = 0;
-      if (allocationMethod === "QUANTITY") {
+      if (allocationMethod === "quantity") {
         share = totalAcceptedUnits > 0 ? accepted / totalAcceptedUnits : 0;
       } else {
         share = totalPurchaseValue > 0 ? lineNetVal / totalPurchaseValue : 0;
@@ -2412,8 +2423,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                           <input
                             type="radio"
                             name="allocMethodSidebar"
-                            checked={allocationMethod === "VALUE"}
-                            onChange={() => setAllocationMethod("VALUE")}
+                            checked={allocationMethod === "value"}
+                            onChange={() => setAllocationMethod("value")}
                             className="text-indigo-600 focus:ring-indigo-500"
                           />
                           <span className="font-medium text-xs">By Value (Ad-Valorem)</span>
@@ -2422,8 +2433,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                           <input
                             type="radio"
                             name="allocMethodSidebar"
-                            checked={allocationMethod === "QUANTITY"}
-                            onChange={() => setAllocationMethod("QUANTITY")}
+                            checked={allocationMethod === "quantity"}
+                            onChange={() => setAllocationMethod("quantity")}
                             className="text-indigo-600 focus:ring-indigo-500"
                           />
                           <span className="font-medium text-xs">By Quantity (Per Unit)</span>
@@ -2432,20 +2443,23 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                           <input
                             type="radio"
                             name="allocMethodSidebar"
-                            checked={allocationMethod === "WEIGHT"}
-                            onChange={() => setAllocationMethod("WEIGHT")}
+                            checked={allocationMethod === "weight"}
+                            onChange={() => setAllocationMethod("weight")}
                             className="text-indigo-600 focus:ring-indigo-500"
                           />
                           <span className="font-medium text-xs">By Weight / CBM</span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300 opacity-60">
+                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                           <input
                             type="radio"
                             name="allocMethodSidebar"
-                            disabled
+                            value="manual"
+                            checked={allocationMethod === "manual"}
+                            onChange={() => setAllocationMethod("manual")}
                             className="text-indigo-600 focus:ring-indigo-500"
                           />
                           <span className="font-medium text-xs">Manual Allocation</span>
+                          <span title="Amounts will be allocated exactly as entered per cost component — no automatic distribution">ⓘ</span>
                         </label>
                       </div>
 
