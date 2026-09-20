@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.25.0
+* Version    : 3.33.6
 * Created    : 2026-07-11
-* Modified   : 2026-08-20
+* Modified   : 2026-09-20
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -118,11 +118,12 @@ async def get_supplier(
 @router.get("/orders", response_model=List[PurchaseOrderResponse], include_in_schema=False)
 @router.get("/orders/", response_model=List[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
 async def list_purchase_orders_contract(
+    pending_only: bool = Query(default=False, description="Filter only pending/open POs (exclude RECEIVED and CANCELLED)"),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List purchase orders — canonical contract URL."""
-    return await PurchaseService(db, tenant_ctx).list_purchase_orders()
+    return await PurchaseService(db, tenant_ctx).list_purchase_orders(pending_only=pending_only)
 
 
 @router.get(

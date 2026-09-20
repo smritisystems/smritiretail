@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.18.0
+* Version    : 3.33.6
 * Created    : 2026-07-11
-* Modified   : 2026-07-14
+* Modified   : 2026-09-20
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -439,11 +439,15 @@ class PurchaseService:
         order.items = item_rows          # attach items for response serialisation
         return order
 
-    async def list_purchase_orders(self) -> list[PurchaseOrder]:
+    async def list_purchase_orders(self, pending_only: bool = False) -> list[PurchaseOrder]:
         stmt = select(PurchaseOrder).where(
             PurchaseOrder.company_id == self.tenant.company_id,
             PurchaseOrder.is_deleted == False,
         )
+        if pending_only:
+            stmt = stmt.where(
+                ~PurchaseOrder.status.in_(["RECEIVED", "COMPLETED", "CANCELLED", "Received", "Completed", "Cancelled"])
+            )
         if self.tenant.branch_id:
             stmt = stmt.where(self._branch_filter(PurchaseOrder.branch_id))
         stmt = stmt.order_by(PurchaseOrder.created_at.desc())
@@ -510,6 +514,21 @@ class PurchaseService:
     async def create_purchase_receipt(self, req: PurchaseReceiptCreate) -> PurchaseReceipt:
         await self._get_supplier(req.supplier_id)
 
+        # Pre-flight check: duplicate GRN receipt_no immutability
+        if req.receipt_no and req.receipt_no.strip():
+            existing_receipt_stmt = select(PurchaseReceipt).where(
+                PurchaseReceipt.receipt_no == req.receipt_no.strip(),
+                PurchaseReceipt.company_id == self.tenant.company_id,
+                PurchaseReceipt.is_deleted == False,
+            )
+            existing_receipt_res = await self.db.execute(existing_receipt_stmt)
+            if existing_receipt_res.scalars().first():
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Purchase Receipt / GRN '{req.receipt_no.strip()}' has already been posted and committed. Duplicate GRN submission is prohibited.",
+                )
+
+        linked_po: Optional[PurchaseOrder] = None
         if req.order_id:
             po_stmt = select(PurchaseOrder).where(
                 (PurchaseOrder.id == req.order_id) | (PurchaseOrder.order_no == req.order_id) | (PurchaseOrder.identity_code == req.order_id),
@@ -519,11 +538,22 @@ class PurchaseService:
             if self.tenant.branch_id:
                 po_stmt = po_stmt.where(self._branch_filter(PurchaseOrder.branch_id))
             po_res = await self.db.execute(po_stmt)
-            if not po_res.scalars().first():
+            linked_po = po_res.scalars().first()
+            if not linked_po:
                 raise HTTPException(
                     status_code=404,
                     detail="The linked purchase order was not found. "
                            "Please verify the order ID.",
+                )
+            if (linked_po.status or "").upper() in ("RECEIVED", "COMPLETED"):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Purchase Order '{linked_po.order_no or req.order_id}' has already been fully received and closed. Duplicate receipt against a fulfilled PO is prohibited.",
+                )
+            if (linked_po.status or "").upper() == "CANCELLED":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Purchase Order '{linked_po.order_no or req.order_id}' is cancelled and cannot be received.",
                 )
 
         if not req.items:
@@ -646,7 +676,7 @@ class PurchaseService:
             identity_code=identity_code,
             supplier_id=req.supplier_id,
             warehouse_id=warehouse_id,
-            order_id=req.order_id,
+            order_id=linked_po.id if linked_po else req.order_id,
             status="RECEIVED",
             notes=combined_notes or None,
             subtotal=subtotal.quantize(Decimal("0.01")),
@@ -657,6 +687,10 @@ class PurchaseService:
         )
         self.db.add(receipt)
         self.db.add_all(item_rows)
+
+        if linked_po:
+            linked_po.status = "RECEIVED"
+            linked_po.modified_at = datetime.now(timezone.utc)
 
         # Inward Landed Cost & Multi-Component Allocation Engine
         from .landed_cost import LandedCostAllocationEngine
