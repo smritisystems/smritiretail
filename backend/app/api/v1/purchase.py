@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.33.6
+* Version    : 3.34.0
 * Created    : 2026-07-11
-* Modified   : 2026-09-20
+* Modified   : 2026-09-21
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -27,11 +27,13 @@ Classification: Internal
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, Response, HTTPException
+from collections import defaultdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ...api.deps import get_company_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole
+from ...models.purchase import PurchaseOrderItem
 from ...models.inward_cost import InwardCostComponentType, InwardCostComponent
 from ...schemas.purchase import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
@@ -119,11 +121,35 @@ async def get_supplier(
 @router.get("/orders/", response_model=List[PurchaseOrderResponse], summary="List Purchase Orders (Contract URL)")
 async def list_purchase_orders_contract(
     pending_only: bool = Query(default=False, description="Filter only pending/open POs (exclude RECEIVED and CANCELLED)"),
+    supplier_id: Optional[str] = Query(default=None, description="Filter by supplier ID"),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List purchase orders — canonical contract URL."""
-    return await PurchaseService(db, tenant_ctx).list_purchase_orders(pending_only=pending_only)
+    """List purchase orders with line items — canonical contract URL."""
+    orders = await PurchaseService(db, tenant_ctx).list_purchase_orders(
+        pending_only=pending_only,
+        supplier_id=supplier_id,
+    )
+    if not orders:
+        return []
+
+    order_ids = [o.id for o in orders]
+    items_stmt = select(PurchaseOrderItem).where(
+        PurchaseOrderItem.order_id.in_(order_ids),
+        PurchaseOrderItem.is_deleted == False,
+    )
+    items_res = await db.execute(items_stmt)
+    all_items = items_res.scalars().all()
+    items_by_order: Dict[str, List[PurchaseOrderItemResponse]] = defaultdict(list)
+    for it in all_items:
+        items_by_order[it.order_id].append(PurchaseOrderItemResponse.model_validate(it))
+
+    result = []
+    for o in orders:
+        resp = PurchaseOrderResponse.model_validate(o)
+        resp.items = items_by_order.get(o.id, [])
+        result.append(resp)
+    return result
 
 
 @router.get(

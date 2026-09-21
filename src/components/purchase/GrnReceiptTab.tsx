@@ -76,6 +76,15 @@ import {
   getNextWorkflowStep,
   getPreviousWorkflowStep,
 } from "./grnWorkflow.ts";
+import {
+  ConfirmGrnPostModal,
+  type GrnPostConfirmationDetails,
+} from "./ConfirmGrnPostModal.tsx";
+import {
+  filterEligibleOrders,
+  calculatePoPendingInward,
+  type PoPendingInwardMetrics,
+} from "./grnPoEligibility.ts";
 
 interface PurchaseOrderOption {
   id: string;
@@ -84,6 +93,8 @@ interface PurchaseOrderOption {
   supplier_id: string;
   supplier_name?: string;
   status: string;
+  subtotal?: number;
+  grand_total?: number;
   total_amount?: number;
   items?: PurchaseOrderItemOption[];
 }
@@ -263,12 +274,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     }
   }, []);
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (supplier?: string) => {
     setOrdersLoading(true);
     try {
-      const res = await apiFetchV1("/purchase/orders/");
+      const query = supplier ? `?pending_only=true&supplier_id=${encodeURIComponent(supplier)}` : `?pending_only=true`;
+      const res = await apiFetchV1(`/purchase/orders/${query}`);
       const list: PurchaseOrderOption[] = Array.isArray(res) ? res : res?.items || [];
-      setOrders(list.filter((o) => o.status !== "Cancelled" && o.status !== "CANCELLED"));
+      setOrders(list.filter((o) => {
+        const st = (o.status || "").toUpperCase();
+        return st !== "CANCELLED" && st !== "RECEIVED" && st !== "COMPLETED" && st !== "DRAFT";
+      }));
     } catch {
       // Keep existing sample
     } finally {
@@ -325,23 +340,44 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       setSupplierName(order.supplier_name || order.supplier_id);
       setReferencePo(order.order_no || order.order_number || order.id);
 
-      const lines: GrnLineRow[] = (order.items || []).map((item, idx) => ({
-        rowId: `row-${idx}-${Date.now()}`,
-        product_id: item.product_id || item.item_id || item.id || `PROD-${idx + 1}`,
-        item_id: item.item_id || item.id || "",
-        code: item.code || `SKU-${idx + 1}`,
-        name: item.name || item.description || `Item ${idx + 1}`,
-        size: item.size || "M",
-        color: item.color || "Standard",
-        quantity_ordered: Number(item.quantity) || 0,
-        quantity_received: Number(item.quantity) || 0,
-        quantity_damaged: 0,
-        cost_price: Number(item.cost_price || item.unit_price) || 100,
-        invoice_rate: Number(item.cost_price || item.unit_price) || 100,
-        trade_discount: 0,
-        gst_rate: Number(item.gst_rate) || 18,
-        mrp: Number(item.mrp) || Number(item.unit_price ? Number(item.unit_price) * 1.6 : 0) || 0,
-      }));
+      // Aggregate previously received quantities from savedReceipts for this order
+      const priorInwardMap = new Map<string, number>();
+      savedReceipts
+        .filter((r) => r.order_id === order.id || r.order_id === (order.order_no || order.id))
+        .forEach((r) => {
+          (r.items || []).forEach((it: any) => {
+            const key = (it.code || it.product_id || it.item_id || "").trim().toLowerCase();
+            if (key) {
+              const prev = priorInwardMap.get(key) || 0;
+              priorInwardMap.set(key, prev + Math.max(0, Number(it.quantity_received || 0)));
+            }
+          });
+        });
+
+      const lines: GrnLineRow[] = (order.items || []).map((item, idx) => {
+        const qtyOrdered = Number(item.quantity) || 0;
+        const key = (item.code || item.product_id || item.item_id || "").trim().toLowerCase();
+        const previouslyReceived = key ? priorInwardMap.get(key) || 0 : 0;
+        const pendingQty = Math.max(0, qtyOrdered - previouslyReceived);
+
+        return {
+          rowId: `row-${idx}-${Date.now()}`,
+          product_id: item.product_id || item.item_id || item.id || `PROD-${idx + 1}`,
+          item_id: item.item_id || item.id || "",
+          code: item.code || `SKU-${idx + 1}`,
+          name: item.name || item.description || `Item ${idx + 1}`,
+          size: item.size || "M",
+          color: item.color || "Standard",
+          quantity_ordered: qtyOrdered,
+          quantity_received: pendingQty,
+          quantity_damaged: 0,
+          cost_price: Number(item.cost_price || item.unit_price) || 100,
+          invoice_rate: Number(item.cost_price || item.unit_price) || 100,
+          trade_discount: 0,
+          gst_rate: Number(item.gst_rate) || 18,
+          mrp: Number(item.mrp) || Number(item.unit_price ? Number(item.unit_price) * 1.6 : 0) || 0,
+        };
+      });
       setGrnLines(lines);
       onNotification?.("Order Loaded", `Loaded ${lines.length} items from PO ${order.order_no || order.id}.`, "info");
     } catch {
@@ -349,13 +385,13 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     }
   };
 
-  // Filter available orders based on selected supplier
-  const availableOrders = useMemo(() => {
-    if (!supplierId) return orders;
-    return orders.filter(
-      (o) => o.supplier_id === supplierId || (supplierName && o.supplier_name === supplierName)
-    );
-  }, [orders, supplierId, supplierName]);
+  // Filter eligible orders based on selected supplier and inward eligibility
+  const eligibleOrders: PoPendingInwardMetrics[] = useMemo(() => {
+    return filterEligibleOrders(orders, supplierId, savedReceipts);
+  }, [orders, supplierId, savedReceipts]);
+
+  // Backward compatible alias
+  const availableOrders = eligibleOrders;
 
   // Handle Supplier Selection with Automatic PO Resolution
   const handleSupplierChange = async (sid: string) => {
@@ -363,6 +399,9 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     const s = suppliersList.find((x) => x.id === sid);
     const sName = s ? (s.name || s.company_name || sid) : "";
     setSupplierName(sName);
+
+    // Refresh orders for selected supplier (or all if none)
+    loadOrders(sid || undefined);
 
     if (!sid) {
       setSelectedOrderId("");
@@ -372,25 +411,23 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       return;
     }
 
-    const matchingOrders = orders.filter(
-      (o) => o.supplier_id === sid || (sName && o.supplier_name === sName)
-    );
+    const matching = filterEligibleOrders(orders, sid, savedReceipts);
 
-    if (matchingOrders.length === 1) {
-      await handleSelectOrder(matchingOrders[0].id);
+    if (matching.length === 1) {
+      await handleSelectOrder(matching[0].order_id);
       onNotification?.(
         "PO Auto-Selected",
-        `Auto-loaded order ${matchingOrders[0].order_no || matchingOrders[0].id} for ${sName}.`,
+        `Auto-loaded order ${matching[0].order_no} for ${sName}.`,
         "info"
       );
-    } else if (matchingOrders.length > 1) {
+    } else if (matching.length > 1) {
       setSelectedOrderId("");
       setSelectedOrder(null);
       setGrnLines([]);
       setReferencePo("");
       onNotification?.(
         "Multiple POs Found",
-        `Supplier ${sName} has ${matchingOrders.length} open purchase orders. Please select one.`,
+        `Supplier ${sName} has ${matching.length} open purchase orders awaiting inward. Please select one.`,
         "info"
       );
     } else {
@@ -402,26 +439,26 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   };
 
   const handleInwardLatestOpenPo = async () => {
-    if (orders.length > 0) {
-      await handleSelectOrder(orders[0].id);
+    if (eligibleOrders.length > 0) {
+      await handleSelectOrder(eligibleOrders[0].order_id);
       setActiveStep("RECEIVE_VERIFY");
       onNotification?.(
         "Open PO Loaded",
-        `Loaded confirmed order ${orders[0].order_no || orders[0].id} from database.`,
+        `Loaded confirmed order ${eligibleOrders[0].order_no} from database.`,
         "success"
       );
     } else {
       try {
-        const res = await apiFetchV1("/purchase/orders/");
+        const res = await apiFetchV1("/purchase/orders/?pending_only=true");
         const list: PurchaseOrderOption[] = Array.isArray(res) ? res : res?.items || [];
-        const confirmed = list.filter((o) => o.status !== "Cancelled" && o.status !== "CANCELLED");
-        if (confirmed.length > 0) {
-          setOrders(confirmed);
-          await handleSelectOrder(confirmed[0].id);
+        const eligible = filterEligibleOrders(list, supplierId, savedReceipts);
+        if (eligible.length > 0) {
+          setOrders(list);
+          await handleSelectOrder(eligible[0].order_id);
           setActiveStep("RECEIVE_VERIFY");
           onNotification?.(
             "Open PO Loaded",
-            `Loaded confirmed order ${confirmed[0].order_no || confirmed[0].id} from database.`,
+            `Loaded confirmed order ${eligible[0].order_no} from database.`,
             "success"
           );
         } else {
@@ -1090,6 +1127,105 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setCostItems((prev) => prev.filter((c) => c.id !== id));
   };
 
+  // Final Post Confirmation Modal State
+  const [isConfirmPostOpen, setIsConfirmPostOpen] = useState(false);
+  const [isPostingGrn, setIsPostingGrn] = useState(false);
+
+  const getValidationErrorsList = useCallback((): string[] => {
+    const errs: string[] = [];
+    const validLines = grnLines.filter((r) => r.quantity_received > 0);
+    if (validLines.length === 0) {
+      errs.push("At least one inward line with received quantity > 0 is required.");
+    }
+    const effSupplier = supplierId || selectedOrder?.supplier_id;
+    if (!effSupplier) {
+      errs.push("A valid supplier must be selected before posting.");
+    }
+    grnLines.forEach((r, idx) => {
+      if (r.quantity_received < 0) {
+        errs.push(`Line ${idx + 1} (${r.code}): Received quantity cannot be negative.`);
+      }
+      if (r.quantity_damaged < 0) {
+        errs.push(`Line ${idx + 1} (${r.code}): Damaged quantity cannot be negative.`);
+      }
+      if (r.quantity_received - r.quantity_damaged < 0) {
+        errs.push(`Line ${idx + 1} (${r.code}): Damaged quantity exceeds received quantity.`);
+      }
+    });
+    if (allocationMethod === "manual" && manualAllocationTotals && !manualAllocationTotals.isBalanced) {
+      errs.push(`Manual landed-cost allocation has an unresolved variance of ₹${manualAllocationTotals.remaining.toFixed(2)}.`);
+    }
+    return errs;
+  }, [grnLines, supplierId, selectedOrder, allocationMethod, manualAllocationTotals]);
+
+  const confirmationDetails: GrnPostConfirmationDetails | null = useMemo(() => {
+    const validLines = grnLines.filter((r) => r.quantity_received > 0);
+    const effSupplier = supplierId || selectedOrder?.supplier_id || "";
+    const effSupplierName = supplierName || effSupplier;
+    const errs = getValidationErrorsList();
+
+    return {
+      grnNumber: grnNumber.trim() || "Auto-Generated",
+      inwardDate: grnDate,
+      supplierId: effSupplier || "Not Selected",
+      supplierName: effSupplierName || "Not Selected",
+      referencePo: referencePo || (selectedOrder ? (selectedOrder.order_no || selectedOrder.id) : "Direct Inward (No PO)"),
+      itemsCount: validLines.length,
+      totalAcceptedQty: totalAcceptedUnits,
+      totalDamagedQty: grnLines.reduce((acc, r) => acc + Number(r.quantity_damaged || 0), 0),
+      purchaseValue: totalPurchaseValue,
+      totalAddonCost: totalAddons,
+      totalGst: totalCostGst,
+      finalInventoryCost: finalInventoryCost,
+      allocationMethod: allocationMethod,
+      isManualAllocation: allocationMethod === "manual",
+      manualAllocationBalanced: allocationMethod === "manual" ? (manualAllocationTotals?.isBalanced ?? true) : true,
+      manualAllocationVariance: allocationMethod === "manual" ? (manualAllocationTotals?.remaining ?? 0) : 0,
+      validationErrors: errs,
+    };
+  }, [
+    grnLines,
+    supplierId,
+    selectedOrder,
+    supplierName,
+    grnNumber,
+    grnDate,
+    referencePo,
+    totalAcceptedUnits,
+    totalPurchaseValue,
+    totalAddons,
+    totalCostGst,
+    finalInventoryCost,
+    allocationMethod,
+    manualAllocationTotals,
+    getValidationErrorsList,
+  ]);
+
+  const handleOpenConfirmPost = () => {
+    const errors = getValidationErrorsList();
+    if (errors.length > 0) {
+      onNotification?.("Validation Blocked", errors[0], "warning");
+      return;
+    }
+    setIsConfirmPostOpen(true);
+  };
+
+  const handleExecuteConfirmPost = async () => {
+    if (isPostingGrn || saving) return;
+    const errors = getValidationErrorsList();
+    if (errors.length > 0) {
+      onNotification?.("Validation Blocked", errors[0], "warning");
+      return;
+    }
+    setIsPostingGrn(true);
+    try {
+      await handleSubmitGRN();
+      setIsConfirmPostOpen(false);
+    } finally {
+      setIsPostingGrn(false);
+    }
+  };
+
   // Submit Post GRN
   const handleSubmitGRN = async () => {
     const validLines = grnLines.filter((r) => r.quantity_received > 0);
@@ -1393,10 +1529,10 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-indigo-600" />
               <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                Open Purchase Orders Awaiting Inward ({orders.length})
+                Open Purchase Orders Awaiting Inward ({eligibleOrders.length})
               </h4>
             </div>
-            <button type="button" onClick={loadOrders} className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-medium">
+            <button type="button" onClick={() => loadOrders(supplierId || undefined)} className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-medium">
               <RefreshCw className="w-3 h-3" />
               <span>Refresh POs</span>
             </button>
@@ -1404,9 +1540,13 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
           {ordersLoading ? (
             <div className="py-8 text-center text-xs text-slate-500">Loading open purchase orders from database...</div>
-          ) : orders.length === 0 ? (
+          ) : eligibleOrders.length === 0 ? (
             <div className="p-6 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500 space-y-1">
-              <p className="font-semibold text-slate-700 dark:text-slate-300">No open purchase orders pending receipt.</p>
+              <p className="font-semibold text-slate-700 dark:text-slate-300">
+                {supplierId
+                  ? "No open purchase orders are currently awaiting inward for this supplier."
+                  : "No open purchase orders are currently awaiting inward."}
+              </p>
               <p>You can create a new PO in PO Studio or perform Direct Inward below.</p>
             </div>
           ) : (
@@ -1416,25 +1556,31 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   <tr>
                     <th className="py-2.5 px-3">PO Number</th>
                     <th className="py-2.5 px-3">Supplier</th>
-                    <th className="py-2.5 px-3 text-center">Items</th>
-                    <th className="py-2.5 px-3 text-right">Order Value (₹)</th>
+                    <th className="py-2.5 px-3 text-center">Pending Items</th>
+                    <th className="py-2.5 px-3 text-right">Pending Qty</th>
+                    <th className="py-2.5 px-3 text-right">Pending Value (₹)</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
                     <th className="py-2.5 px-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {orders.slice(0, 8).map((o) => (
-                    <tr key={o.id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-850/50 transition">
-                      <td className="py-2.5 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">{o.order_no || o.order_number || o.id}</td>
-                      <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">{o.supplier_name || o.supplier_id}</td>
-                      <td className="py-2.5 px-3 text-center font-mono text-slate-600 dark:text-slate-400">{o.items ? o.items.length : "--"}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">₹{Number(o.total_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                      <td className="py-2.5 px-3 text-center"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">{o.status || "CONFIRMED"}</span></td>
+                  {eligibleOrders.map((o) => (
+                    <tr key={o.order_id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-850/50 transition">
+                      <td className="py-2.5 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">{o.order_no}</td>
+                      <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">{o.supplier_name}</td>
+                      <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-700 dark:text-slate-300">{o.pending_items_count}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">{o.pending_quantity}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-700 dark:text-indigo-300">₹{o.pending_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          {o.status}
+                        </span>
+                      </td>
                       <td className="py-2.5 px-3 text-right">
                         <button
                           type="button"
                           onClick={async () => {
-                            await handleSelectOrder(o.id);
+                            await handleSelectOrder(o.order_id);
                             setActiveStep("RECEIVE_VERIFY");
                           }}
                           className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition"
@@ -2583,6 +2729,36 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Step 5 Pre-Flight Action Card */}
+      <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h4 className="font-bold text-xs text-slate-900 dark:text-white">Ready to Finalize Goods Receipt Note</h4>
+          <p className="text-xs text-slate-500">
+            Review the quantities and landed valuation above. Clicking Post GRN opens the final confirmation gate before ledger commitment.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleOpenConfirmPost}
+          disabled={saving || isPostingGrn || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)}
+          data-testid="step5-post-grn-btn"
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition flex items-center gap-2 ${
+            saving || isPostingGrn || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)
+              ? "bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600"
+              : "bg-indigo-600 hover:bg-indigo-700 text-white"
+          }`}
+        >
+          <PackageCheck className="w-4 h-4" />
+          <span>
+            {allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced
+              ? "Reconcile Manual Allocation"
+              : isPostingGrn || saving
+              ? "Posting GRN..."
+              : "Post GRN to Ledger"}
+          </span>
+        </button>
+      </div>
     </div>
   );
 
@@ -2645,6 +2821,14 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             setIsPrintModalOpen(true);
           }
         }}
+      />
+
+      <ConfirmGrnPostModal
+        isOpen={isConfirmPostOpen}
+        onClose={() => setIsConfirmPostOpen(false)}
+        onConfirm={handleExecuteConfirmPost}
+        details={confirmationDetails}
+        isPosting={isPostingGrn || saving}
       />
 
       <AddProductToGrnModal
@@ -2817,6 +3001,27 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                 >
                   Reset
                 </button>
+                {activeStep === "REVIEW_POST" ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenConfirmPost}
+                    disabled={saving || isPostingGrn || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)}
+                    data-testid="header-post-grn"
+                    className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5"
+                  >
+                    <PackageCheck className="w-3.5 h-3.5" />
+                    <span>Post GRN</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveStep("REVIEW_POST")}
+                    className="px-3.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 font-bold text-xs transition flex items-center gap-1.5 shadow-xs"
+                    title="Jump to Step 5 (Review & Post)"
+                  >
+                    <span>Review &amp; Post →</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2866,7 +3071,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   <label className="block text-slate-500 font-medium">Purchase Order Source</label>
                   {supplierId && (
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                      {availableOrders.length} {availableOrders.length === 1 ? "Order" : "Orders"}
+                      {eligibleOrders.length} {eligibleOrders.length === 1 ? "Order" : "Orders"}
                     </span>
                   )}
                 </div>
@@ -2878,14 +3083,14 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                 >
                   <option value="">
                     {supplierId
-                      ? availableOrders.length > 0
-                        ? `-- Select Open PO (${availableOrders.length} Available) --`
+                      ? eligibleOrders.length > 0
+                        ? `-- Select Open PO (${eligibleOrders.length} Available) --`
                         : "-- Direct Inward / No Open PO --"
                       : "-- Direct Inward / All Open POs --"}
                   </option>
-                  {availableOrders.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.order_no || o.order_number || o.id} — {o.supplier_name || o.supplier_id} ({o.items?.length || 0} items)
+                  {eligibleOrders.map((o) => (
+                    <option key={o.order_id} value={o.order_id}>
+                      {o.order_no} — {o.supplier_name} ({o.pending_items_count} items, {o.pending_quantity} units pending)
                     </option>
                   ))}
                 </select>
@@ -3054,11 +3259,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={handleSubmitGRN}
-                        disabled={saving || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)}
+                        onClick={handleOpenConfirmPost}
+                        disabled={saving || isPostingGrn || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)}
                         data-testid="nav-post-grn"
                         className={`px-5 py-2 rounded-lg text-xs font-bold shadow transition flex items-center gap-1.5 ${
-                          saving || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)
+                          saving || isPostingGrn || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)
                             ? "bg-slate-300 text-slate-600 cursor-not-allowed"
                             : "bg-indigo-600 hover:bg-indigo-700 text-white"
                         }`}
@@ -3067,7 +3272,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         <span>
                           {allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced
                             ? "Reconcile Manual Allocation"
-                            : saving
+                            : saving || isPostingGrn
                               ? "Posting..."
                               : "Post GRN"}
                         </span>
