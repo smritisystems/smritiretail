@@ -39,6 +39,10 @@ import { POProductStatusBadge } from "./POProductStatusBadge.tsx";
 import type { POProductDecision } from "./POProductStatusBadge.tsx";
 import { POPrintPreviewModal } from "./POPrintPreviewModal.tsx";
 import { SupplierScorecardModal } from "./SupplierScorecardModal.tsx";
+import {
+  normalizePurchaseStatus,
+  buildPurchaseOrderDetailUrl,
+} from "./poLifecycle.ts";
 
 interface PurchaseOrderGenerationTabProps {
   products?: Product[];
@@ -85,6 +89,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [suggestedOrderNo, setSuggestedOrderNo] = useState<string | null>(null);
   // Post-save workflow prompt
   const [savedOrderNo, setSavedOrderNo] = useState<string | null>(null);
+  const [openedOrder, setOpenedOrder] = useState<any | null>(null);
+  const [historyOrders, setHistoryOrders] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // ── Vendor Policy State ───────────────────────────────────────────────────
   const [lineDecisions, setLineDecisions] = useState<Record<string, POLineDecisionState>>({});
@@ -193,6 +200,39 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "history") {
+      loadPurchaseHistory();
+    }
+  }, [activeTab, loadPurchaseHistory]);
+
+  const loadPurchaseHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await apiFetchV1("/purchase/orders/");
+      const list = Array.isArray(res) ? res : [];
+      setHistoryOrders(list);
+    } catch {
+      setHistoryOrders([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const openPersistedPurchaseOrder = useCallback(async (orderRef: string) => {
+    const cleaned = String(orderRef || "").trim();
+    if (!cleaned) return;
+    try {
+      const order = await apiFetchV1(buildPurchaseOrderDetailUrl(cleaned));
+      setOpenedOrder(order);
+      setActiveTab("history");
+      if (onNotification) onNotification("PO Opened", `Loaded ${order.order_no || cleaned}.`, "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unable to load purchase order.";
+      if (onNotification) onNotification("Open PO Failed", msg, "error");
+    }
+  }, [onNotification]);
 
   const loadData = async () => {
     setSuppliersLoading(true);
@@ -1569,16 +1609,127 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
       {/* History Tab Content */}
       {activeTab === "history" && (
-        <section className="px-6 py-4 max-w-2xl text-xs">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2">Order Audit Trail</h3>
-            <div className="flex items-start gap-3 text-xs">
-              <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-              <div>
-                <span className="font-bold text-slate-800">Order Initiated as Draft</span>
-                <p className="text-slate-500 text-[11px] font-mono mt-0.5">{header.orderDate} by {currentUser?.name || "manager"}</p>
-              </div>
-            </div>
+        <section className="px-6 py-4 text-xs">
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+            {openedOrder ? (
+              <>
+                <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500">Purchase Order Detail</div>
+                    <h3 className="font-bold text-slate-800 text-sm mt-1">{openedOrder.order_no || "PO"}</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-1">{normalizePurchaseStatus(openedOrder.status)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setOpenedOrder(null)}
+                      className="rounded border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      Back to history
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-[11px]">
+                  <div className="space-y-2">
+                    <div><span className="text-slate-500">PO number:</span> <span className="font-mono font-bold text-slate-800">{openedOrder.order_no}</span></div>
+                    <div><span className="text-slate-500">PO date:</span> <span className="font-mono text-slate-700">{openedOrder.order_date || openedOrder.created_at || header.orderDate}</span></div>
+                    <div><span className="text-slate-500">Supplier:</span> <span className="font-bold text-slate-800">{openedOrder.supplier_name || openedOrder.supplier_id}</span></div>
+                    <div><span className="text-slate-500">Supplier code:</span> <span className="font-mono text-slate-700">{openedOrder.supplier_id}</span></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div><span className="text-slate-500">Status:</span> <span className="font-bold text-slate-800">{normalizePurchaseStatus(openedOrder.status)}</span></div>
+                    <div><span className="text-slate-500">Items:</span> <span className="font-bold text-slate-800">{openedOrder.items?.length || 0}</span></div>
+                    <div><span className="text-slate-500">Subtotal:</span> <span className="font-mono text-slate-700">₹{Number(openedOrder.subtotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+                    <div><span className="text-slate-500">Grand total:</span> <span className="font-mono font-bold text-emerald-700">₹{Number(openedOrder.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+                  </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 px-3 py-2 font-bold text-slate-700 border-b border-slate-200">Line Items</div>
+                  <div className="divide-y divide-slate-200">
+                    {(openedOrder.items || []).length === 0 ? (
+                      <div className="px-3 py-4 text-slate-500">No item lines returned for this purchase order.</div>
+                    ) : (
+                      (openedOrder.items || []).map((item: any, idx: number) => (
+                        <div key={item.id || `${openedOrder.order_no}-${idx}`} className="px-3 py-2 grid grid-cols-6 gap-2 text-[11px]">
+                          <span className="font-mono text-slate-500">{idx + 1}</span>
+                          <span className="font-bold text-slate-800">{item.name || item.code || "Item"}</span>
+                          <span className="font-mono text-slate-700">{item.code || item.product_id || "-"}</span>
+                          <span className="font-mono text-right text-slate-700">Qty {Number(item.quantity || 0)}</span>
+                          <span className="font-mono text-right text-slate-700">Rate ₹{Number(item.cost_price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                          <span className="font-mono text-right font-bold text-emerald-700">₹{Number(item.line_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onNavigateTab) {
+                        onNavigateTab("supplier-mgmt");
+                      } else {
+                        onNotification?.("Vendor 360", `Open canonical vendor view for ${openedOrder.supplier_id || openedOrder.supplier_name || "supplier"}.`, "info");
+                      }
+                    }}
+                    className="rounded-lg bg-slate-900 text-white px-3 py-2 text-[10px] font-bold hover:bg-slate-700"
+                  >
+                    View Vendor 360 ↗
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPrintPreview(true)}
+                    className="rounded-lg border border-amber-200 bg-amber-50 text-amber-700 px-3 py-2 text-[10px] font-bold hover:bg-amber-100"
+                  >
+                    Print PO
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="font-bold text-slate-800 text-sm">Purchase Order History</h3>
+                  <button
+                    type="button"
+                    onClick={() => loadPurchaseHistory()}
+                    className="rounded border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                {historyLoading ? (
+                  <div className="text-slate-500 py-8 text-center">Loading purchase orders...</div>
+                ) : historyOrders.length === 0 ? (
+                  <div className="text-slate-500 py-8 text-center">No purchase orders found in the persisted backend list.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {historyOrders.map((po: any) => (
+                      <button
+                        key={po.id}
+                        type="button"
+                        onClick={() => openPersistedPurchaseOrder(po.order_no || po.id)}
+                        className="w-full text-left rounded-xl border border-slate-200 bg-slate-50/60 p-3 hover:bg-slate-100 transition"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-bold text-slate-800 font-mono">{po.order_no || po.id}</div>
+                            <div className="text-[10px] text-slate-500">{po.supplier_name || po.supplier_id || "Supplier"}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold">{normalizePurchaseStatus(po.status)}</div>
+                            <div className="mt-1 font-mono text-[10px] text-slate-600">₹{Number(po.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
       )}
@@ -2285,7 +2436,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       {/* Post-Save Workflow Modal */}
       {savedOrderNo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-[440px] max-w-full p-6 flex flex-col gap-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-[500px] max-w-full p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
                 <span className="material-symbols-outlined text-[28px]">check_circle</span>
@@ -2296,7 +2447,19 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               </div>
             </div>
             <p className="text-xs text-slate-600">What would you like to do next?</p>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-4 gap-2.5">
+              <button
+                type="button"
+                onClick={async () => {
+                  const saved = savedOrderNo;
+                  setSavedOrderNo(null);
+                  await openPersistedPurchaseOrder(saved);
+                }}
+                className="flex flex-col items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl py-3 px-2 font-bold text-xs text-indigo-700 transition"
+              >
+                <span className="material-symbols-outlined text-[22px]">open_in_new</span>
+                <span>Open PO</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {

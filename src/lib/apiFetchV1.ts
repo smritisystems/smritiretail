@@ -328,17 +328,6 @@ export function isLocalMockToken(): boolean {
 }
 
 export function getAuthenticatedDocumentUrl(endpoint: string): string {
-  const token = typeof window !== "undefined"
-    ? (
-        localStorage.getItem("smriti_jwt_token")
-        || localStorage.getItem("smriti_session_token")
-        || sessionStorage.getItem("smriti_jwt_token")
-        || sessionStorage.getItem("smriti_session_token")
-      )
-    : null;
-  const companyCode = typeof window !== "undefined" ? localStorage.getItem("smriti_company_code") || "001" : "001";
-  const branchId = typeof window !== "undefined" ? localStorage.getItem("smriti_branch_id") || "MAIN" : "MAIN";
-
   let cleanEndpoint = endpoint
     .replace(/https?:\/\/python-core(:[0-9]+)?/gi, "")
     .replace(/https?:\/\/smriti-api(:[0-9]+)?/gi, "")
@@ -354,34 +343,12 @@ export function getAuthenticatedDocumentUrl(endpoint: string): string {
   const origin = typeof window !== "undefined" && window.location?.origin
     ? window.location.origin
     : "http://localhost:3000";
-  const urlObj = new URL(cleanEndpoint, origin);
 
-  if (token) {
-    urlObj.searchParams.set("token", token);
-  }
-  if (companyCode) {
-    urlObj.searchParams.set("company_code", companyCode);
-  }
-  if (branchId) {
-    urlObj.searchParams.set("branch_id", branchId);
-  }
-
-  // Also sync cookie for the browser session
-  if (token) {
-    syncAuthCookies(token);
-  }
-
-  return urlObj.toString();
+  return new URL(cleanEndpoint, origin).toString();
 }
 
 export function openAuthenticatedDocument(endpoint: string, target = "_blank", features?: string): Window | null {
   if (typeof window === "undefined") return null;
-  const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
-  if (!token) {
-    console.warn("[openAuthenticatedDocument] No active JWT token found in storage. Redirecting to login.");
-    window.location.href = "/";
-    return null;
-  }
   const authUrl = getAuthenticatedDocumentUrl(endpoint);
   return window.open(authUrl, target, features);
 }
