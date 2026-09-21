@@ -188,21 +188,25 @@ from datetime import datetime, date
 # ─────────────────────────── Purchase Receipt (GRN) ───────────────────────────
 
 class PurchaseReceiptItemCreate(BaseModel):
-    product_id:        Optional[str] = None
-    item_id:           Optional[str] = None
-    code:              Optional[str] = None
-    name:              Optional[str] = None
-    batch_no:          Optional[str] = None
-    mfg_date:          Optional[date] = None
-    expiry_date:       Optional[date] = None
-    mrp:               Optional[Decimal] = None
-    quantity_ordered:  Optional[Decimal] = None
-    quantity_received: Optional[Decimal] = None
-    quantity_damaged:  Optional[Decimal] = Decimal("0.00")
-    cost_price:        Optional[Decimal] = None
-    gst_rate:          Decimal = Decimal("18.00")
-    landed_cost:       Optional[Decimal] = None
-    freight_allocated: Optional[Decimal] = Decimal("0.00")
+    product_id:            Optional[str] = None
+    item_id:               Optional[str] = None
+    code:                  Optional[str] = None
+    name:                  Optional[str] = None
+    batch_no:              Optional[str] = None
+    mfg_date:              Optional[date] = None
+    expiry_date:           Optional[date] = None
+    mrp:                   Optional[Decimal] = None
+    quantity_ordered:      Optional[Decimal] = None
+    quantity_received:     Optional[Decimal] = None
+    quantity_damaged:      Optional[Decimal] = Decimal("0.00")
+    cost_price:            Optional[Decimal] = None
+    gst_rate:              Decimal = Decimal("18.00")
+    landed_cost:           Optional[Decimal] = None
+    freight_allocated:     Optional[Decimal] = Decimal("0.00")
+    purchase_order_id:     Optional[str] = None
+    purchase_order_no:     Optional[str] = None
+    purchase_order_line_id: Optional[str] = None
+    order_id:              Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -222,28 +226,37 @@ class PurchaseReceiptItemCreate(BaseModel):
                 data["cost_price"] = data.get("unit_price") or data.get("purchase_rate") or data.get("rate") or Decimal("0.00")
             if data.get("gst_rate") is None and data.get("tax_rate") is not None:
                 data["gst_rate"] = data.get("tax_rate")
+            if not data.get("purchase_order_id"):
+                data["purchase_order_id"] = data.get("po_id") or data.get("purchase_order") or data.get("order_id")
+            if not data.get("purchase_order_no"):
+                data["purchase_order_no"] = data.get("po_no") or data.get("purchase_order_no") or data.get("order_no")
+            if not data.get("purchase_order_line_id"):
+                data["purchase_order_line_id"] = data.get("po_line_id") or data.get("purchase_order_item_id") or data.get("order_line_id")
         return data
 
 
 class PurchaseReceiptItemResponse(BaseModel):
-    id:                str
-    product_id:        str
-    item_id:           Optional[str] = None
-    code:              str
-    name:              str
-    batch_no:          Optional[str] = None
-    mfg_date:          Optional[date] = None
-    expiry_date:       Optional[date] = None
-    mrp:               Optional[Decimal] = None
-    quantity_ordered:  Optional[Decimal] = None
-    quantity_received: Decimal
-    quantity_damaged:  Decimal = Decimal("0.00")
-    cost_price:        Decimal
-    gst_rate:          Decimal
-    tax_amount:        Decimal
-    line_total:        Decimal
-    landed_cost:       Optional[Decimal] = None
-    freight_allocated: Optional[Decimal] = None
+    id:                    str
+    product_id:            str
+    item_id:               Optional[str] = None
+    purchase_order_id:     Optional[str] = None
+    purchase_order_no:     Optional[str] = None
+    purchase_order_line_id: Optional[str] = None
+    code:                  str
+    name:                  str
+    batch_no:              Optional[str] = None
+    mfg_date:              Optional[date] = None
+    expiry_date:           Optional[date] = None
+    mrp:                   Optional[Decimal] = None
+    quantity_ordered:      Optional[Decimal] = None
+    quantity_received:     Decimal
+    quantity_damaged:      Decimal = Decimal("0.00")
+    cost_price:            Decimal
+    gst_rate:              Decimal
+    tax_amount:            Decimal
+    line_total:            Decimal
+    landed_cost:           Optional[Decimal] = None
+    freight_allocated:     Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
 

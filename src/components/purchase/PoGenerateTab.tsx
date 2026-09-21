@@ -197,16 +197,6 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   );
 
   // Fetch products and suppliers on mount
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === "history") {
-      loadPurchaseHistory();
-    }
-  }, [activeTab, loadPurchaseHistory]);
-
   const loadPurchaseHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
@@ -219,6 +209,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       setHistoryLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "history") {
+      loadPurchaseHistory();
+    }
+  }, [activeTab, loadPurchaseHistory]);
 
   const openPersistedPurchaseOrder = useCallback(async (orderRef: string) => {
     const cleaned = String(orderRef || "").trim();
