@@ -127,26 +127,30 @@ class PurchaseReceiptItem(BaseEntity):
     """
     A line item within a purchase receipt (GRN).
     Captures batch, manufacturing date, expiry date, MRP, and damaged quantities.
+    Multi-PO receipt support is preserved by retaining the source PO reference per line.
     """
     __tablename__ = "purchase_receipt_items"
 
-    receipt_id         = Column(String(50),   ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
-    product_id         = Column(String(50),   ForeignKey("products.id",          ondelete="RESTRICT"), nullable=False)
-    item_id            = Column(String(50),   ForeignKey("items.id",              ondelete="SET NULL"), nullable=True, index=True)
-    variant_id         = Column(String(50),   nullable=True, index=True)
-    code               = Column(String(50),   nullable=False)
-    name               = Column(String(255),  nullable=False)
-    batch_no           = Column(String(100),  nullable=True)
-    mfg_date           = Column(Date,         nullable=True)
-    expiry_date        = Column(Date,         nullable=True)
-    mrp                = Column(Numeric(15, 2), nullable=True)
-    quantity_ordered   = Column(Numeric(10, 2), nullable=True)   # from PO (informational)
-    quantity_received  = Column(Numeric(10, 2), nullable=False)  # actual received — drives stock
-    quantity_damaged   = Column(Numeric(10, 2), nullable=False, default=0.00)
-    cost_price         = Column(Numeric(15, 2), nullable=False)
-    gst_rate           = Column(Numeric(5, 2),  nullable=False, default=18.00)
-    tax_amount         = Column(Numeric(15, 2), nullable=False, default=0.00)
-    line_total         = Column(Numeric(15, 2), nullable=False)
+    receipt_id            = Column(String(50),   ForeignKey("purchase_receipts.id", ondelete="CASCADE"), nullable=False)
+    product_id            = Column(String(50),   ForeignKey("products.id",          ondelete="RESTRICT"), nullable=False)
+    item_id               = Column(String(50),   ForeignKey("items.id",              ondelete="SET NULL"), nullable=True, index=True)
+    variant_id            = Column(String(50),   nullable=True, index=True)
+    purchase_order_id     = Column(String(50),   ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True)
+    purchase_order_no     = Column(String(100),  nullable=True, index=True)
+    purchase_order_line_id = Column(String(50), ForeignKey("purchase_order_items.id", ondelete="SET NULL"), nullable=True, index=True)
+    code                  = Column(String(50),   nullable=False)
+    name                  = Column(String(255),  nullable=False)
+    batch_no              = Column(String(100),  nullable=True)
+    mfg_date              = Column(Date,         nullable=True)
+    expiry_date           = Column(Date,         nullable=True)
+    mrp                   = Column(Numeric(15, 2), nullable=True)
+    quantity_ordered      = Column(Numeric(10, 2), nullable=True)   # from PO (informational)
+    quantity_received     = Column(Numeric(10, 2), nullable=False)  # actual received — drives stock
+    quantity_damaged      = Column(Numeric(10, 2), nullable=False, default=0.00)
+    cost_price            = Column(Numeric(15, 2), nullable=False)
+    gst_rate              = Column(Numeric(5, 2),  nullable=False, default=18.00)
+    tax_amount            = Column(Numeric(15, 2), nullable=False, default=0.00)
+    line_total            = Column(Numeric(15, 2), nullable=False)
 
 
 class PurchaseReorderConfig(BaseEntity):

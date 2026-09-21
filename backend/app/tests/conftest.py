@@ -113,13 +113,6 @@ def disposable_company_database():
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create a session-scoped event loop to prevent event loop mismatch errors."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
 @pytest.fixture(scope="session", autouse=True)
 def restore_baseline_after_tests():
     """Restores development baseline users and companies after pytest completes."""

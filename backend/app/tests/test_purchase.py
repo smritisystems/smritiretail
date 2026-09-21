@@ -485,6 +485,91 @@ async def test_grn_links_to_po(db_session):
     assert product.stock == 5
 
 
+async def test_grn_tracks_multiple_po_allocations_by_line(db_session):
+    """One GRN can allocate each line to a different PO while still enforcing supplier scope and pending qty."""
+    suffix = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, suffix)
+    mgr = await _make_manager(db_session, suffix, comp.id, br.id)
+    product = await _make_product(db_session, suffix, comp.id, br.id, stock=0)
+    supplier = Supplier(
+        id=f"sup-{suffix}", name="S", code=f"SC{suffix}",
+        outstanding=Decimal("0"), company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(supplier)
+    await db_session.commit()
+    _set_tenant(db_session, comp.id, br.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        po1 = await client.post(
+            "/api/v1/purchase/orders/",
+            json={
+                "order_no": f"PO-{suffix}-A",
+                "supplier_id": supplier.id,
+                "items": [{"product_id": product.id, "code": product.code, "name": product.name, "quantity": "10", "cost_price": "100.00"}],
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+        po2 = await client.post(
+            "/api/v1/purchase/orders/",
+            json={
+                "order_no": f"PO-{suffix}-B",
+                "supplier_id": supplier.id,
+                "items": [{"product_id": product.id, "code": product.code, "name": product.name, "quantity": "6", "cost_price": "110.00"}],
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+        assert po1.status_code == 201
+        assert po2.status_code == 201
+
+        po1_id = po1.json()["id"]
+        po2_id = po2.json()["id"]
+        po1_no = po1.json()["order_no"]
+        po2_no = po2.json()["order_no"]
+
+        grn_res = await client.post(
+            "/api/v1/purchase-receipts/",
+            json={
+                "receipt_no": f"GRN-{suffix}-MULTI",
+                "supplier_id": supplier.id,
+                "items": [
+                    {
+                        "product_id": product.id,
+                        "code": product.code,
+                        "name": product.name,
+                        "quantity_received": "7",
+                        "cost_price": "100.00",
+                        "purchase_order_id": po1_id,
+                        "purchase_order_no": po1_no,
+                    },
+                    {
+                        "product_id": product.id,
+                        "code": product.code,
+                        "name": product.name,
+                        "quantity_received": "3",
+                        "cost_price": "110.00",
+                        "purchase_order_id": po2_id,
+                        "purchase_order_no": po2_no,
+                    },
+                ],
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+
+    assert grn_res.status_code == 201, grn_res.text
+    data = grn_res.json()
+    assert len(data["items"]) == 2
+    assert {item["purchase_order_id"] for item in data["items"]} == {po1_id, po2_id}
+    assert {item["purchase_order_no"] for item in data["items"]} == {po1_no, po2_no}
+
+    receipt_items = await db_session.execute(
+        select(PurchaseReceiptItem).where(PurchaseReceiptItem.receipt_id == data["id"])
+    )
+    saved_lines = receipt_items.scalars().all()
+    assert len(saved_lines) == 2
+    assert {line.purchase_order_id for line in saved_lines} == {po1_id, po2_id}
+    assert sum(float(line.quantity_received) for line in saved_lines) == 10
+
+
 # ---------------------------------------------------------------------------
 # Phase 3 - CANCEL / AMEND / Supplier UPDATE / DELETE
 # ---------------------------------------------------------------------------

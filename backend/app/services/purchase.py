@@ -30,7 +30,7 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
@@ -615,6 +615,59 @@ class PurchaseService:
                     detail="Quantity received must be greater than zero.",
                 )
             product = await self._get_product(item.product_id)
+
+            target_po_id = (item.purchase_order_id or item.order_id or req.order_id or "").strip()
+            target_po: Optional[PurchaseOrder] = None
+            target_po_line: Optional[PurchaseOrderItem] = None
+            if target_po_id:
+                po_stmt = select(PurchaseOrder).where(
+                    (PurchaseOrder.id == target_po_id) | (PurchaseOrder.order_no == target_po_id) | (PurchaseOrder.identity_code == target_po_id),
+                    PurchaseOrder.company_id == self.tenant.company_id,
+                    PurchaseOrder.is_deleted == False,
+                )
+                if self.tenant.branch_id:
+                    po_stmt = po_stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+                po_res = await self.db.execute(po_stmt)
+                target_po = po_res.scalars().first()
+                if not target_po:
+                    raise HTTPException(status_code=404, detail="The linked purchase order was not found.")
+                if target_po.supplier_id != req.supplier_id:
+                    raise HTTPException(status_code=400, detail=f"Receipt supplier '{req.supplier_id}' does not match purchase order '{target_po.order_no}'.")
+                if (target_po.status or "").upper() in ("RECEIVED", "COMPLETED"):
+                    raise HTTPException(status_code=409, detail=f"Purchase Order '{target_po.order_no}' has already been fully received and closed.")
+                if (target_po.status or "").upper() == "CANCELLED":
+                    raise HTTPException(status_code=400, detail=f"Purchase Order '{target_po.order_no}' is cancelled and cannot be received.")
+
+                po_line_stmt = select(PurchaseOrderItem).where(
+                    PurchaseOrderItem.order_id == target_po.id,
+                    PurchaseOrderItem.product_id == product.id,
+                    PurchaseOrderItem.is_deleted == False,
+                )
+                po_line_res = await self.db.execute(po_line_stmt)
+                target_po_line = po_line_res.scalars().first()
+                if not target_po_line:
+                    raise HTTPException(status_code=400, detail=f"Product '{product.code}' is not present on purchase order '{target_po.order_no}'.")
+
+                received_stmt = select(func.coalesce(func.sum(PurchaseReceiptItem.quantity_received), Decimal("0.00"))).select_from(PurchaseReceiptItem).join(
+                    PurchaseReceipt, PurchaseReceipt.id == PurchaseReceiptItem.receipt_id
+                ).where(
+                    PurchaseReceiptItem.purchase_order_id == target_po.id,
+                    PurchaseReceiptItem.product_id == product.id,
+                    PurchaseReceiptItem.is_deleted == False,
+                    PurchaseReceipt.is_deleted == False,
+                )
+                received_res = await self.db.execute(received_stmt)
+                already_received = Decimal(str(received_res.scalar() or Decimal("0.00")))
+                remaining_allowed = target_po_line.quantity - already_received
+                if item.quantity_received > remaining_allowed:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Receipt quantity {item.quantity_received} exceeds remaining pending quantity "
+                            f"{remaining_allowed} for product '{product.code}' on purchase order '{target_po.order_no}'."
+                        ),
+                    )
+
             tax_amt = (
                 item.cost_price * item.quantity_received * (item.gst_rate / Decimal("100"))
             ).quantize(Decimal("0.01"))
@@ -632,6 +685,9 @@ class PurchaseService:
                 uuid=item_tech_id,
                 receipt_id=receipt_id,
                 product_id=item.product_id,
+                purchase_order_id=target_po.id if target_po else None,
+                purchase_order_no=target_po.order_no if target_po else None,
+                purchase_order_line_id=target_po_line.id if target_po_line else None,
                 code=item.code,
                 name=item.name,
                 batch_no=batch_no,
