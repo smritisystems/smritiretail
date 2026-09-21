@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.33.0
+ * Version      : 3.34.0
  * Created      : 2026-09-18
- * Modified     : 2026-09-19
+ * Modified     : 2026-09-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -30,20 +30,15 @@ import {
   Receipt,
   Plus,
   Truck,
-  Calculator,
-  Percent,
   ArrowLeft,
   Search,
   Barcode,
-  Columns,
   Trash2,
   HelpCircle,
-  TrendingUp,
   FileText,
   AlertCircle,
   Eye,
   Check,
-  Scale,
   Printer,
   Sparkles,
   Building2,
@@ -51,10 +46,6 @@ import {
   Camera,
   Upload,
   Download,
-  Volume2,
-  VolumeX,
-  Focus,
-  Scan,
   X,
 } from "lucide-react";
 import { CreateDebitNoteModal } from "../CreateDebitNoteDlg.tsx";
@@ -79,6 +70,12 @@ import {
   getManualAllocationVariance,
   normalizeAllocationMethod,
 } from "./manualAllocation.ts";
+import {
+  GRN_WORKFLOW_STEPS,
+  type GrnWorkflowStepId,
+  getNextWorkflowStep,
+  getPreviousWorkflowStep,
+} from "./grnWorkflow.ts";
 
 interface PurchaseOrderOption {
   id: string;
@@ -150,7 +147,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [subView, setSubView] = useState<"create" | "history" | "bill">("create");
 
-  // Header State — Dynamically generated unique document number
+  // Persistent GRN Header State
   const [grnNumber, setGrnNumber] = useState(
     () => `GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`
   );
@@ -160,7 +157,9 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [referencePo, setReferencePo] = useState("");
-  const [activeStep, setActiveStep] = useState(1);
+
+  // Authoritative Single Workflow State Machine
+  const [activeStep, setActiveStep] = useState<GrnWorkflowStepId>("PO_DETAILS");
 
   // Transport Details State
   const [transporterName, setTransporterName] = useState("");
@@ -169,7 +168,6 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [weightCbm, setWeightCbm] = useState("");
   const [cartons, setCartons] = useState(0);
-  const [showRightDock, setShowRightDock] = useState(true);
 
   // Inward Landed Cost Engine State
   const [costTypes, setCostTypes] = useState<InwardCostTypeOption[]>([]);
@@ -359,7 +357,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     );
   }, [orders, supplierId, supplierName]);
 
-  // Handle Supplier Selection with Automatic PO Resolution (Shoper 9 PrefillPODetailsInGIR parity)
+  // Handle Supplier Selection with Automatic PO Resolution
   const handleSupplierChange = async (sid: string) => {
     setSupplierId(sid);
     const s = suppliersList.find((x) => x.id === sid);
@@ -379,7 +377,6 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     );
 
     if (matchingOrders.length === 1) {
-      // Exactly 1 open PO for this vendor: auto-select and hydrate lines immediately
       await handleSelectOrder(matchingOrders[0].id);
       onNotification?.(
         "PO Auto-Selected",
@@ -387,7 +384,6 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         "info"
       );
     } else if (matchingOrders.length > 1) {
-      // Multiple open POs: filter dropdown and prompt operator selection
       setSelectedOrderId("");
       setSelectedOrder(null);
       setGrnLines([]);
@@ -398,7 +394,6 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         "info"
       );
     } else {
-      // No open PO: direct inward mode for this supplier
       setSelectedOrderId("");
       setSelectedOrder(null);
       setGrnLines([]);
@@ -409,7 +404,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const handleInwardLatestOpenPo = async () => {
     if (orders.length > 0) {
       await handleSelectOrder(orders[0].id);
-      setActiveStep(2);
+      setActiveStep("RECEIVE_VERIFY");
       onNotification?.(
         "Open PO Loaded",
         `Loaded confirmed order ${orders[0].order_no || orders[0].id} from database.`,
@@ -423,7 +418,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         if (confirmed.length > 0) {
           setOrders(confirmed);
           await handleSelectOrder(confirmed[0].id);
-          setActiveStep(2);
+          setActiveStep("RECEIVE_VERIFY");
           onNotification?.(
             "Open PO Loaded",
             `Loaded confirmed order ${confirmed[0].order_no || confirmed[0].id} from database.`,
@@ -455,8 +450,22 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setNotes("");
     setAttachments([]);
     setGrnNumber(`GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`);
-    setActiveStep(1);
+    setActiveStep("PO_DETAILS");
     onNotification?.("Workspace Reset", "Goods Receipt Note workspace reset to clean state.", "info");
+  };
+
+  const advanceWorkflow = () => {
+    const nextStep = getNextWorkflowStep(activeStep);
+    if (nextStep !== activeStep) {
+      setActiveStep(nextStep);
+    }
+  };
+
+  const retreatWorkflow = () => {
+    const previousStep = getPreviousWorkflowStep(activeStep);
+    if (previousStep !== activeStep) {
+      setActiveStep(previousStep);
+    }
   };
 
   const handleAddProduct = (prod: SelectedGrnProduct) => {
@@ -481,7 +490,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     onNotification?.("Product Added", `${prod.name} added to inward list.`, "success");
   };
 
-  // Play synthetic scanner chime using Web Audio API
+  // Synthetic scanner chime
   const playScanTone = useCallback(
     (type: "success" | "warning" | "error" = "success") => {
       if (!scannerSound) return;
@@ -1036,7 +1045,6 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     const { accepted, netRate } = lineMetrics[idx];
     const { addonPerUnit, landedCost } = lineAllocations[idx];
 
-    // Compute component shares
     const components = costItems.map((c) => {
       const compAddonTotal = c.amount;
       const share = totalPurchaseValue > 0 ? (row.invoice_rate * accepted) / totalPurchaseValue : 0;
@@ -1144,7 +1152,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             quantity_ordered: r.quantity_ordered,
             quantity_received: r.quantity_received,
             quantity_damaged: r.quantity_damaged,
-            cost_price: r.invoice_rate, // Billed rate
+            cost_price: r.invoice_rate,
             gst_rate: r.gst_rate,
             mrp: r.mrp || undefined,
             landed_cost: landedCost,
@@ -1234,6 +1242,37 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setSubView("bill");
   };
 
+  const validationMessages = useMemo<string[]>(() => {
+    const messages: string[] = [];
+
+    if (grnLines.length === 0) {
+      messages.push("Add at least one received line before posting the GRN.");
+    }
+
+    const invalidQuantities = grnLines.filter(
+      (row) => row.quantity_received < 0 || row.quantity_damaged < 0 || row.quantity_received < row.quantity_damaged
+    );
+    if (invalidQuantities.length > 0) {
+      messages.push("Damaged quantity cannot exceed received quantity on any GRN line.");
+    }
+
+    if (totalAcceptedUnits <= 0) {
+      messages.push("Accepted quantity must be greater than zero before posting.");
+    }
+
+    if (!supplierId && !selectedOrder?.supplier_id) {
+      messages.push("Select a valid supplier before posting the GRN.");
+    }
+
+    if (allocationMethod === "manual" && manualAllocationTotals && !manualAllocationTotals.isBalanced) {
+      messages.push(
+        `Manual allocation is out of balance by ₹${Math.abs(manualAllocationTotals.remaining).toFixed(2)}. Reconcile it before posting.`
+      );
+    }
+
+    return messages;
+  }, [allocationMethod, grnLines, manualAllocationTotals, selectedOrder?.supplier_id, supplierId, totalAcceptedUnits]);
+
   const handleSubmitPurchaseBill = async () => {
     if (!selectedReceiptForBill) {
       onNotification?.("No GRN Selected", "Select a goods receipt note first.", "warning");
@@ -1278,6 +1317,1290 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       onNotification?.("Bill Posting Failed", err?.message || "Unable to post purchase bill.", "error");
     } finally {
       setBillSaving(false);
+    }
+  };
+
+  // ==========================================
+  // WORKSPACE RENDERERS (ONE FOR EACH STEP)
+  // ==========================================
+
+  // STEP 1 — PO & DETAILS
+  const renderPoDetailsStep = () => (
+    <div className="space-y-4" data-testid="workspace-po-details">
+      {/* Selected Order Summary Card (if PO chosen) */}
+      {selectedOrder && (
+        <div className="bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase font-bold text-indigo-700 dark:text-indigo-300">Contract Selected</span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-200 text-indigo-900 dark:bg-indigo-900 dark:text-indigo-200">
+                {selectedOrder.order_no || selectedOrder.order_number || selectedOrder.id}
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+              Supplier: <strong>{selectedOrder.supplier_name || selectedOrder.supplier_id}</strong> • Items: {selectedOrder.items?.length || grnLines.length} • Value: ₹{Number(selectedOrder.total_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedOrderId("");
+                setSelectedOrder(null);
+                setGrnLines([]);
+                setReferencePo("");
+              }}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Clear / Change PO
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveStep("RECEIVE_VERIFY")}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition"
+            >
+              Proceed to Verification →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Receiving Hub Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800 shrink-0">
+              <FolderOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Goods Inward Receiving Hub</h3>
+              <p className="text-xs text-slate-500">Select an open Purchase Order to inward against contract specs, or start Direct Inward without a PO.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleInwardLatestOpenPo}
+            className="px-3.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition flex items-center gap-1.5 shrink-0 shadow-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Inward Latest Open PO</span>
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-indigo-600" />
+              <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                Open Purchase Orders Awaiting Inward ({orders.length})
+              </h4>
+            </div>
+            <button type="button" onClick={loadOrders} className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-medium">
+              <RefreshCw className="w-3 h-3" />
+              <span>Refresh POs</span>
+            </button>
+          </div>
+
+          {ordersLoading ? (
+            <div className="py-8 text-center text-xs text-slate-500">Loading open purchase orders from database...</div>
+          ) : orders.length === 0 ? (
+            <div className="p-6 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500 space-y-1">
+              <p className="font-semibold text-slate-700 dark:text-slate-300">No open purchase orders pending receipt.</p>
+              <p>You can create a new PO in PO Studio or perform Direct Inward below.</p>
+            </div>
+          ) : (
+            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-3">PO Number</th>
+                    <th className="py-2.5 px-3">Supplier</th>
+                    <th className="py-2.5 px-3 text-center">Items</th>
+                    <th className="py-2.5 px-3 text-right">Order Value (₹)</th>
+                    <th className="py-2.5 px-3 text-center">Status</th>
+                    <th className="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {orders.slice(0, 8).map((o) => (
+                    <tr key={o.id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-850/50 transition">
+                      <td className="py-2.5 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">{o.order_no || o.order_number || o.id}</td>
+                      <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">{o.supplier_name || o.supplier_id}</td>
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-600 dark:text-slate-400">{o.items ? o.items.length : "--"}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">₹{Number(o.total_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2.5 px-3 text-center"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">{o.status || "CONFIRMED"}</span></td>
+                      <td className="py-2.5 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleSelectOrder(o.id);
+                            setActiveStep("RECEIVE_VERIFY");
+                          }}
+                          className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition"
+                        >
+                          Inward PO →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Direct Inward / Ad-Hoc Option */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h4 className="font-bold text-xs text-slate-900 dark:text-white">Direct Inward / Ad-Hoc Receiving (Without PO)</h4>
+            <p className="text-xs text-slate-500">Receive goods directly into stock from master inventory catalog without a pre-existing PO.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsAddProductOpen(true)}
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 font-bold text-xs shadow-sm transition flex items-center gap-2 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Products from Master Catalog</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // STEP 2 — RECEIVE & VERIFY
+  const renderReceiveVerifyStep = () => (
+    <div className="space-y-4" data-testid="workspace-receive-verify">
+      {/* Inward Items Table Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden space-y-0">
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-sm text-slate-800 dark:text-slate-200">Inward Items</span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              {grnLines.length} {grnLines.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsAddProductOpen(true)}
+              className="px-3 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 text-xs font-semibold shadow-xs hover:bg-indigo-50 dark:hover:bg-slate-800 transition flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Product</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                barcodeInputRef.current?.focus();
+                onNotification?.("Scan Ready", "Barcode input focused. Scan label to inward.", "info");
+              }}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+            >
+              <Barcode className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Focus Scanner</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-2.5 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={itemSearchFilter}
+              onChange={(e) => setItemSearchFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && itemSearchFilter.trim()) {
+                  handleProcessBarcode(itemSearchFilter);
+                  setItemSearchFilter("");
+                }
+              }}
+              placeholder="Search by SKU, name or scan barcode..."
+              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="py-2.5 px-2.5">#</th>
+                <th className="py-2.5 px-3">SKU / Barcode</th>
+                <th className="py-2.5 px-3">Product Name</th>
+                <th className="py-2.5 px-2 text-right">PO Qty</th>
+                <th className="py-2.5 px-2 text-right">Recv Qty</th>
+                <th className="py-2.5 px-2 text-right text-rose-500">Damaged</th>
+                <th className="py-2.5 px-2 text-right font-bold text-slate-900 dark:text-white">Accepted</th>
+                <th className="py-2.5 px-2 text-right">PO Rate (₹)</th>
+                <th className="py-2.5 px-2 text-right">Inv. Rate (₹)</th>
+                <th className="py-2.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">Landed Cost (₹)</th>
+                <th className="py-2.5 px-2 text-right">Margin</th>
+                <th className="py-2.5 px-2 text-center">Status</th>
+                <th className="py-2.5 px-2 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {grnLines.length === 0 ? (
+                <tr>
+                  <td colSpan={13} className="py-8 text-center text-xs text-slate-500 space-y-2">
+                    <p className="font-semibold text-slate-700 dark:text-slate-300">No inward items added yet.</p>
+                    <p>Search by SKU, scan barcode below, import CSV, or select an open PO in Step 1.</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddProductOpen(true)}
+                      className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition inline-flex items-center gap-1 mt-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Product from Catalog</span>
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                grnLines
+                  .filter((r) => {
+                    if (!itemSearchFilter.trim()) return true;
+                    const q = itemSearchFilter.toLowerCase();
+                    return r.code.toLowerCase().includes(q) || r.name.toLowerCase().includes(q) || (r.color && r.color.toLowerCase().includes(q));
+                  })
+                  .map((row, idx) => {
+                    const originalIdx = grnLines.findIndex((l) => l.rowId === row.rowId);
+                    const { accepted } = lineMetrics[originalIdx >= 0 ? originalIdx : 0] || { accepted: row.quantity_received - row.quantity_damaged };
+                    const { landedCost } = lineAllocations[originalIdx >= 0 ? originalIdx : 0] || { landedCost: row.invoice_rate };
+                    const isPpv = Math.abs(row.invoice_rate - row.cost_price) > 0.001;
+                    const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
+                    const isHighlighted = row.rowId === lastScannedRowId;
+
+                    return (
+                      <tr
+                        key={row.rowId}
+                        className={`transition-colors duration-200 ${
+                          isHighlighted ? "bg-emerald-100/60 dark:bg-emerald-950/50" : "hover:bg-slate-50/60 dark:hover:bg-slate-850/50"
+                        }`}
+                      >
+                        <td className="py-2.5 px-2.5 text-slate-400 font-mono">{idx + 1}</td>
+                        <td className="py-2.5 px-3 font-mono">
+                          <span className="font-bold text-slate-900 dark:text-white block">{row.code}</span>
+                          <span className="text-[10px] text-slate-400 block">{row.product_id}</span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="font-semibold text-slate-900 dark:text-white block">{row.name}</span>
+                          <span className="text-[10px] text-slate-400 block">Size: {row.size} • Color: {row.color}</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-slate-600 dark:text-slate-400">{row.quantity_ordered}</td>
+                        <td className="py-2.5 px-2 text-right font-mono">
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.quantity_received}
+                            onChange={(e) => updateLine(row.rowId, "quantity_received", parseFloat(e.target.value) || 0)}
+                            className="w-16 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono"
+                          />
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-rose-600 dark:text-rose-400">
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.quantity_damaged}
+                            onChange={(e) => updateLine(row.rowId, "quantity_damaged", parseFloat(e.target.value) || 0)}
+                            className="w-14 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-rose-600"
+                          />
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono font-bold text-slate-900 dark:text-white">{accepted}</td>
+                        <td className="py-2.5 px-2 text-right font-mono text-slate-600 dark:text-slate-400">₹{row.cost_price.toFixed(2)}</td>
+                        <td className="py-2.5 px-2 text-right font-mono">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={row.invoice_rate}
+                            onChange={(e) => updateLine(row.rowId, "invoice_rate", parseFloat(e.target.value) || 0)}
+                            className={`w-20 text-right bg-slate-50 dark:bg-slate-800 border rounded px-1.5 py-0.5 font-mono ${
+                              isPpv ? "border-amber-400 font-bold text-amber-700 dark:text-amber-300" : "border-slate-300 dark:border-slate-700"
+                            }`}
+                          />
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenWhyThisCost(originalIdx >= 0 ? originalIdx : 0)}
+                            className="hover:text-indigo-600 hover:underline inline-flex items-center gap-0.5"
+                            title="Click to view explainable landed cost breakdown"
+                          >
+                            <span>{landedCost.toFixed(2)}</span>
+                            <HelpCircle className="w-3 h-3 text-indigo-400 inline" />
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">{marginPct.toFixed(1)}%</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-center">
+                          {isPpv ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 inline-flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>PPV</span>
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 inline-flex items-center gap-0.5">
+                              <Check className="w-3 h-3" />
+                              <span>OK</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLine(row.rowId)}
+                            className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition"
+                            title="Delete line"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Barcode Scanner & Inward Tools Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+            <Barcode className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">Barcode Scanner &amp; Inward Tools</h4>
+            <p className="text-[11px] text-slate-500">Scan barcodes to quickly increment received count (+1) or import manifest CSV</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleProcessBarcode(scanBarcodeInput);
+            }}
+            className="flex-1 min-w-[220px]"
+          >
+            <div className="relative">
+              <input
+                ref={barcodeInputRef}
+                type="text"
+                value={scanBarcodeInput}
+                onChange={(e) => setScanBarcodeInput(e.target.value)}
+                placeholder="Scan barcode or type SKU..."
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </form>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Ready</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setScanContinuous((prev) => !prev)}
+            className={`px-2.5 py-1 rounded-md border text-[11px] font-bold transition flex items-center gap-1.5 ${
+              scanContinuous
+                ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                : "border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+            }`}
+            title="Increment count (+1) on each scan"
+          >
+            <span className={`w-2.5 h-2.5 rounded-full border border-white/60 ${scanContinuous ? "bg-white" : "bg-transparent"}`} />
+            <span>+1 Mode</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsCameraScannerOpen(true)}
+            className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition flex items-center gap-1.5"
+          >
+            <Camera className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Camera Scan</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsCsvImportOpen(true)}
+            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs"
+          >
+            <Upload className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Import CSV</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Download Template</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Metric Pills */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+          <span className="text-xl font-extrabold text-slate-900 dark:text-white font-mono block">
+            {totalOrdered.toLocaleString()}
+          </span>
+          <span className="text-xs text-slate-500 font-medium">Ordered (Units)</span>
+        </div>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+          <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400 font-mono block">
+            {totalReceived.toLocaleString()}
+          </span>
+          <span className="text-xs text-slate-500 font-medium">Received (Units)</span>
+        </div>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+          <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400 font-mono block">
+            {totalDamaged.toLocaleString()}
+          </span>
+          <span className="text-xs text-slate-500 font-medium">Damaged (Units)</span>
+        </div>
+        <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 rounded-xl p-3 shadow-sm bg-emerald-50/20">
+          <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono block">
+            {totalAcceptedUnits.toLocaleString()}
+          </span>
+          <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold">Net Accepted (Units)</span>
+        </div>
+      </div>
+
+      {/* Remarks & Document Attachments Footer */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
+          <label className="font-bold text-slate-800 dark:text-slate-200">Remarks &amp; Receiving Notes</label>
+          <textarea
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add any remarks, verification notes or special instructions..."
+            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="font-bold text-slate-800 dark:text-slate-200">
+              Attachments ({attachments.length})
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileUpload}
+              className="hidden"
+              accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx,.docx"
+            />
+          </div>
+          <div className="flex gap-2">
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDropFiles}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-2 text-center flex flex-col items-center justify-center gap-1 hover:border-indigo-400 transition cursor-pointer"
+            >
+              <span className="text-[11px] text-slate-500">Drag &amp; drop files here</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold border border-indigo-200 dark:border-indigo-800"
+              >
+                Browse Files
+              </button>
+            </div>
+            <div className="space-y-1 text-[11px] font-mono flex-1 max-h-24 overflow-y-auto">
+              {attachments.length === 0 ? (
+                <div className="text-slate-400 text-[11px] italic p-2 text-center">
+                  No files attached (e.g. Vendor Invoice, LR, Packing List)
+                </div>
+              ) : (
+                attachments.map((f) => (
+                  <div
+                    key={f.id}
+                    className="flex items-center justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  >
+                    <div className="flex items-center gap-1 truncate">
+                      <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
+                      <span className="text-slate-800 dark:text-slate-200 truncate font-sans text-xs">
+                        {f.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-slate-400 text-[10px]">{f.size}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttachment(f.id)}
+                        className="text-slate-400 hover:text-rose-500 transition p-0.5"
+                        title="Remove attachment"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // STEP 3 — COMMERCIALS
+  const renderCommercialsStep = () => (
+    <div className="space-y-4" data-testid="workspace-commercials">
+      {/* Commercial Overview Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Commercials &amp; Price Variance</h3>
+            <p className="text-xs text-slate-500">Contract PO rates vs supplier billed invoice rates, purchase price variance (PPV) and trade discounts</p>
+          </div>
+          <div className="px-2.5 py-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 text-[10px] font-bold">
+            ● Commercial Engine
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">Supplier</div>
+            <div className="mt-1 font-bold text-slate-900 dark:text-white text-sm">{supplierName || "-- Select Supplier in Header --"}</div>
+            <div className="mt-0.5 text-[11px] text-slate-500 font-mono">{supplierId || "No supplier ID selected"}</div>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">PO Source</div>
+            <div className="mt-1 font-bold text-slate-900 dark:text-white text-sm">
+              {selectedOrder ? (selectedOrder.order_no || selectedOrder.order_number || selectedOrder.id) : referencePo || "Direct Inward (Ad-hoc)"}
+            </div>
+            <div className="mt-0.5 text-[11px] text-slate-500">{selectedOrder ? "Open PO Contract Linked" : "Ad-hoc Receipt Mode"}</div>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">Vendor Invoice</div>
+            <div className="mt-1 font-bold text-slate-900 dark:text-white text-sm font-mono">{invoiceNumber || "-- Not Specified --"}</div>
+            <div className="mt-0.5 text-[11px] text-slate-500">Date: {invoiceDate || grnDate}</div>
+          </div>
+        </div>
+
+        {/* Commercial KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+          <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 p-3">
+            <span className="text-xl font-extrabold text-rose-700 dark:text-rose-300 font-mono block">
+              {ppvLines.length}
+            </span>
+            <span className="text-[11px] text-rose-700 dark:text-rose-300 font-bold">PPV Items</span>
+          </div>
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3">
+            <span className="text-xl font-extrabold text-slate-900 dark:text-white font-mono block">
+              ₹ {totalPurchaseValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </span>
+            <span className="text-[11px] text-slate-500 font-medium">Purchase Value</span>
+          </div>
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-3">
+            <span className="text-xl font-extrabold text-amber-700 dark:text-amber-300 font-mono block">
+              ₹ {avgUnitLandedCost.toFixed(2)}
+            </span>
+            <span className="text-[11px] text-amber-700 dark:text-amber-300 font-bold">Avg. Landed Cost</span>
+          </div>
+          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 p-3">
+            <span className="text-xl font-extrabold text-emerald-700 dark:text-emerald-300 font-mono block">
+              {avgMarginPercent.toFixed(1)}%
+            </span>
+            <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold">Avg. Margin</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Purchase Price Variance (PPV) Card */}
+      <div className="bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4 space-y-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
+            <span>Purchase Price Variance (PPV)</span>
+          </div>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200">
+            {ppvLines.length} {ppvLines.length === 1 ? "item" : "items"} with variance • Total ₹{totalPpvAmount.toFixed(2)}
+          </span>
+        </div>
+
+        {ppvLines.length === 0 ? (
+          <div className="py-4 text-center text-xs text-slate-500">
+            No purchase price variance detected across received items. Billed invoice rates match contract PO rates.
+          </div>
+        ) : (
+          <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-lg border border-rose-200 dark:border-rose-900/60">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-rose-50/80 dark:bg-rose-950/60 text-slate-600 dark:text-slate-400 font-semibold border-b border-rose-200 dark:border-rose-900">
+                <tr>
+                  <th className="py-2 px-2.5">SKU</th>
+                  <th className="py-2 px-2.5">Product</th>
+                  <th className="py-2 px-2.5 text-right">PO Rate</th>
+                  <th className="py-2 px-2.5 text-right">Invoice Rate</th>
+                  <th className="py-2 px-2.5 text-right text-rose-600 font-bold">Variance (₹)</th>
+                  <th className="py-2 px-2.5 text-right">Accepted</th>
+                  <th className="py-2 px-2.5 text-right text-rose-600 font-bold">Total PPV (₹)</th>
+                  <th className="py-2 px-2.5 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                {ppvLines.map(({ row, variancePerUnit, totalPpv, accepted }) => (
+                  <tr key={row.rowId || row.code} className="hover:bg-rose-50/30 dark:hover:bg-rose-950/20">
+                    <td className="py-2 px-2.5 font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
+                    <td className="py-2 px-2.5 font-sans text-slate-700 dark:text-slate-300">{row.name}</td>
+                    <td className="py-2 px-2.5 text-right">₹{row.cost_price.toFixed(2)}</td>
+                    <td className="py-2 px-2.5 text-right">₹{row.invoice_rate.toFixed(2)}</td>
+                    <td className="py-2 px-2.5 text-right font-bold text-rose-600 dark:text-rose-400">
+                      {variancePerUnit > 0 ? `+₹${variancePerUnit.toFixed(2)}` : `-₹${Math.abs(variancePerUnit).toFixed(2)}`}
+                    </td>
+                    <td className="py-2 px-2.5 text-right">{accepted}</td>
+                    <td className="py-2 px-2.5 text-right font-bold text-rose-600 dark:text-rose-400">
+                      ₹{totalPpv.toFixed(2)}
+                    </td>
+                    <td className="py-2 px-2.5 text-center">
+                      <div className="flex items-center justify-center gap-1.5 font-sans">
+                        <button
+                          type="button"
+                          onClick={() => onNotification?.("Variance Accepted", `Accepted ${variancePerUnit > 0 ? "+" : ""}₹${variancePerUnit.toFixed(2)} variance for ${row.code}`, "info")}
+                          className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs transition"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsDebitNoteOpen(true)}
+                          className="px-2.5 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                        >
+                          Create Claim
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Commercial Rates & Margin Breakdown Table */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+        <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+          Commercial Rates &amp; Margin Breakdown ({grnLines.length} items)
+        </h4>
+
+        {grnLines.length === 0 ? (
+          <div className="py-6 text-center text-xs text-slate-500">
+            No inward lines present. Items added in Step 2 will appear here for commercial reconciliation.
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="py-2 px-2.5">SKU</th>
+                  <th className="py-2 px-2.5">Product Name</th>
+                  <th className="py-2 px-2 text-right">PO Rate (₹)</th>
+                  <th className="py-2 px-2 text-right">Billed Rate (₹)</th>
+                  <th className="py-2 px-2 text-right">Trade Disc.</th>
+                  <th className="py-2 px-2 text-center">GST %</th>
+                  <th className="py-2 px-2 text-right">Net Landed (₹)</th>
+                  <th className="py-2 px-2 text-right">MRP (₹)</th>
+                  <th className="py-2 px-2 text-right">Margin</th>
+                  <th className="py-2 px-2 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                {grnLines.map((row, idx) => {
+                  const { landedCost } = lineAllocations[idx] || { landedCost: row.invoice_rate };
+                  const isPpv = Math.abs(row.invoice_rate - row.cost_price) > 0.001;
+                  const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
+
+                  return (
+                    <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                      <td className="py-2 px-2.5 font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
+                      <td className="py-2 px-2.5 font-sans text-slate-700 dark:text-slate-300">{row.name}</td>
+                      <td className="py-2 px-2 text-right">₹{row.cost_price.toFixed(2)}</td>
+                      <td className="py-2 px-2 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={row.invoice_rate}
+                          onChange={(e) => updateLine(row.rowId, "invoice_rate", parseFloat(e.target.value) || 0)}
+                          className={`w-20 text-right bg-slate-50 dark:bg-slate-800 border rounded px-1.5 py-0.5 font-mono ${
+                            isPpv ? "border-amber-400 font-bold text-amber-700 dark:text-amber-300" : "border-slate-300 dark:border-slate-700"
+                          }`}
+                        />
+                      </td>
+                      <td className="py-2 px-2 text-right">₹{row.trade_discount.toFixed(2)}</td>
+                      <td className="py-2 px-2 text-center font-sans">{row.gst_rate}%</td>
+                      <td className="py-2 px-2 text-right font-bold text-indigo-600 dark:text-indigo-400">₹{landedCost.toFixed(2)}</td>
+                      <td className="py-2 px-2 text-right">₹{Number(row.mrp || 0).toFixed(2)}</td>
+                      <td className="py-2 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400">{marginPct.toFixed(1)}%</td>
+                      <td className="py-2 px-2 text-center font-sans">
+                        {isPpv ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                            PPV
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            OK
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // STEP 4 — COSTS & FREIGHT
+  const renderCostsFreightStep = () => (
+    <div className="space-y-4" data-testid="workspace-costs-freight">
+      {/* Transport & Logistics Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Truck className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Transport &amp; Freight Logistics</h3>
+              <p className="text-xs text-slate-500">Carrier documentation, bilty numbers, consignment weights and container details</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Transporter Name</label>
+            <input
+              type="text"
+              value={transporterName}
+              onChange={(e) => setTransporterName(e.target.value)}
+              placeholder="e.g. V-Trans / TCI Freight"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">LR / Bilty No.</label>
+            <input
+              type="text"
+              value={lrNumber}
+              onChange={(e) => setLrNumber(e.target.value)}
+              placeholder="e.g. LR-908123"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 dark:text-slate-200"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">LR Date</label>
+            <input
+              type="date"
+              value={lrDate}
+              onChange={(e) => setLrDate(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Vehicle No.</label>
+            <input
+              type="text"
+              value={vehicleNumber}
+              onChange={(e) => setVehicleNumber(e.target.value)}
+              placeholder="e.g. MH-04-AB-1234"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono uppercase text-slate-800 dark:text-slate-200"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Weight / CBM</label>
+            <input
+              type="text"
+              value={weightCbm}
+              onChange={(e) => setWeightCbm(e.target.value)}
+              placeholder="e.g. 450 Kg / 3.2 CBM"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Cartons / Boxes</label>
+            <input
+              type="number"
+              min="0"
+              value={cartons}
+              onChange={(e) => setCartons(parseInt(e.target.value) || 0)}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 dark:text-slate-200"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Cost Components Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+              Inward Cost Components ({costItems.length})
+            </h3>
+            <p className="text-xs text-slate-500">Freight, octroi, customs duty, transit insurance, and handling add-ons</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 mr-2">
+              Total Add-ons: ₹{totalAddons.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsAddCostOpen(true)}
+              className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 transition flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Cost Component</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="py-2.5 px-3">#</th>
+                <th className="py-2.5 px-3">Cost Type</th>
+                <th className="py-2.5 px-3 text-right">Base Amount (₹)</th>
+                <th className="py-2.5 px-2 text-center">GST %</th>
+                <th className="py-2.5 px-3 text-right">GST Amount (₹)</th>
+                <th className="py-2.5 px-2 text-center">ITC</th>
+                <th className="py-2.5 px-3 text-center">Allocation</th>
+                <th className="py-2.5 px-2 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+              {costItems.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-6 text-center text-xs text-slate-500 font-sans">
+                    No cost components added yet. Click "+ Add Cost Component" to record freight or other add-ons.
+                  </td>
+                </tr>
+              ) : (
+                costItems.map((c, i) => {
+                  const gstVal = c.tax_amount ?? (c.amount * (c.tax_rate || 0)) / 100;
+                  const allocationLabel = normalizeAllocationMethod(c.allocation_method) === "MANUAL" ? "Manual" : normalizeAllocationMethod(c.allocation_method) === "QUANTITY" ? "Quantity" : normalizeAllocationMethod(c.allocation_method) === "WEIGHT" ? "Weight" : "Value";
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                      <td className="py-2.5 px-3 text-slate-400">{i + 1}</td>
+                      <td className="py-2.5 px-3 font-sans font-medium capitalize text-slate-800 dark:text-slate-200">
+                        {c.component_type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white">₹{c.amount.toFixed(2)}</td>
+                      <td className="py-2.5 px-2 text-center text-slate-500">{c.tax_rate}%</td>
+                      <td className="py-2.5 px-3 text-right text-slate-600 dark:text-slate-400">₹{gstVal.toFixed(2)}</td>
+                      <td className="py-2.5 px-2 text-center font-sans">
+                        {c.itc_eligible ? (
+                          <span className="text-emerald-600 font-bold">Yes</span>
+                        ) : (
+                          <span className="text-rose-500 font-bold">No</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {allocationLabel}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCostItem(c.id)}
+                          className="p-1 rounded text-slate-400 hover:text-rose-600 transition"
+                          title="Delete component"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Allocation Method Selector Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+        <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+          Landed Cost Allocation Method
+        </h3>
+        <p className="text-xs text-slate-500">Determine how freight and inward charges are distributed into product inventory landed costs</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2">
+          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "value" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"}`}>
+            <div className="flex items-center gap-2">
+              <input type="radio" name="allocMethodMain" checked={allocationMethod === "value"} onChange={() => setAllocationMethod("value")} className="text-indigo-600" />
+              <span className="font-bold text-xs text-slate-900 dark:text-white">By Value (Ad-Valorem)</span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">Pro-rata based on net line purchase amount.</p>
+          </label>
+
+          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "quantity" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"}`}>
+            <div className="flex items-center gap-2">
+              <input type="radio" name="allocMethodMain" checked={allocationMethod === "quantity"} onChange={() => setAllocationMethod("quantity")} className="text-indigo-600" />
+              <span className="font-bold text-xs text-slate-900 dark:text-white">By Quantity (Per Unit)</span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">Evenly split across all accepted units.</p>
+          </label>
+
+          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "weight" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"}`}>
+            <div className="flex items-center gap-2">
+              <input type="radio" name="allocMethodMain" checked={allocationMethod === "weight"} onChange={() => setAllocationMethod("weight")} className="text-indigo-600" />
+              <span className="font-bold text-xs text-slate-900 dark:text-white">By Weight / CBM</span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">Allocated proportional to consignment bulk.</p>
+          </label>
+
+          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "manual" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"}`}>
+            <div className="flex items-center gap-2">
+              <input type="radio" name="allocMethodMain" checked={allocationMethod === "manual"} onChange={() => setAllocationMethod("manual")} className="text-indigo-600" />
+              <span className="font-bold text-xs text-slate-900 dark:text-white">Manual Allocation</span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">Direct component-to-line manual entries.</p>
+          </label>
+        </div>
+      </div>
+
+      {/* Manual Allocation Grid (Active when manual allocation is chosen) */}
+      {allocationMethod === "manual" && (
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-bold text-xs text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+                Manual Cost Allocation Reconciliation
+              </h4>
+              <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                Allocate each cost component across accepted GRN lines. All components must be balanced before posting.
+              </p>
+            </div>
+            {manualAllocationTotals && (
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                manualAllocationTotals.isBalanced
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+              }`}>
+                {manualAllocationTotals.isBalanced ? "✓ All Balanced" : `Variance ₹${Math.abs(manualAllocationTotals.remaining).toFixed(2)}`}
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {costItems.map((component) => {
+              const summary = manualAllocationSummaries.find((s) => s.id === component.id);
+              const rowInputs = manualAllocationMatrix[component.id] ?? {};
+
+              return (
+                <div key={component.id} className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <span className="font-bold text-xs text-slate-900 dark:text-white capitalize">
+                      {component.description || component.component_type} (Target: ₹{Number(component.amount || 0).toFixed(2)})
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      summary?.isBalanced ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
+                    }`}>
+                      {summary?.isBalanced ? "Balanced" : `Variance ₹${Math.abs(summary?.variance ?? 0).toFixed(2)}`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {grnLines
+                      .filter((row) => Math.max(0, row.quantity_received - row.quantity_damaged) > 0)
+                      .map((row) => {
+                        const accepted = Math.max(0, row.quantity_received - row.quantity_damaged);
+                        const val = rowInputs[row.rowId] ?? 0;
+
+                        return (
+                          <div key={`${component.id}-${row.rowId}`} className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                            <div className="truncate">
+                              <span className="font-bold text-xs block text-slate-900 dark:text-white truncate">{row.code}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">{accepted} accepted</span>
+                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={val || ""}
+                              onChange={(e) => updateManualAllocation(component.id, row.rowId, e.target.value)}
+                              className="w-24 text-right bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 text-xs font-mono"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Landed Cost Allocation Preview Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+              Landed Cost Allocation Preview
+            </h3>
+            <p className="text-xs text-slate-500">Preview calculated unit landed costs prior to posting</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenPreview}
+            className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition"
+          >
+            Open Full Allocation Preview
+          </button>
+        </div>
+
+        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="py-2 px-3">SKU</th>
+                <th className="py-2 px-3">Product Name</th>
+                <th className="py-2 px-2 text-right">Accepted Qty</th>
+                <th className="py-2 px-2 text-right">Net Billed Rate (₹)</th>
+                <th className="py-2 px-2 text-right text-indigo-600">Add-on / Unit (₹)</th>
+                <th className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">Landed Cost (₹)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+              {grnLines.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-xs text-slate-500 font-sans">
+                    No items inwarded yet.
+                  </td>
+                </tr>
+              ) : (
+                grnLines.map((row, idx) => {
+                  const { accepted, netRate } = lineMetrics[idx];
+                  const { addonPerUnit, landedCost } = lineAllocations[idx];
+
+                  return (
+                    <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                      <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
+                      <td className="py-2 px-3 font-sans text-slate-700 dark:text-slate-300">{row.name}</td>
+                      <td className="py-2 px-2 text-right">{accepted}</td>
+                      <td className="py-2 px-2 text-right">₹{netRate.toFixed(2)}</td>
+                      <td className="py-2 px-2 text-right text-indigo-600">+₹{addonPerUnit.toFixed(2)}</td>
+                      <td className="py-2 px-3 text-right font-bold text-indigo-700 dark:text-indigo-400">₹{landedCost.toFixed(2)}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  // STEP 5 — REVIEW & POST
+  const renderReviewPostStep = () => (
+    <div className="space-y-4" data-testid="workspace-review-post">
+      {/* Review Header Banner */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Review &amp; Post Goods Receipt Note</h3>
+            <p className="text-xs text-slate-500">Read-only final verification across quantities, commercials, landed costs and statutory compliance</p>
+          </div>
+          <div className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[10px] font-bold">
+            ● Read-only Final Review
+          </div>
+        </div>
+
+        {/* Quantities 4-Pill Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+            <span className="text-lg font-extrabold font-mono text-slate-900 dark:text-white block">{totalOrdered.toLocaleString()}</span>
+            <span className="text-[11px] text-slate-500">Ordered (Units)</span>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+            <span className="text-lg font-extrabold font-mono text-blue-600 dark:text-blue-400 block">{totalReceived.toLocaleString()}</span>
+            <span className="text-[11px] text-slate-500">Received (Units)</span>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+            <span className="text-lg font-extrabold font-mono text-rose-600 dark:text-rose-400 block">{totalDamaged.toLocaleString()}</span>
+            <span className="text-[11px] text-slate-500">Damaged (Units)</span>
+          </div>
+          <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 p-3">
+            <span className="text-lg font-extrabold font-mono text-emerald-600 dark:text-emerald-400 block">{totalAcceptedUnits.toLocaleString()}</span>
+            <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">Net Accepted (Units)</span>
+          </div>
+        </div>
+
+        {/* Document Header Metadata */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <span className="text-slate-400 text-[10px] block uppercase">GRN No.</span>
+            <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{grnNumber}</span>
+          </div>
+          <div className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <span className="text-slate-400 text-[10px] block uppercase">Supplier</span>
+            <span className="font-bold text-slate-800 dark:text-slate-200 truncate block">{supplierName || supplierId || "--"}</span>
+          </div>
+          <div className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <span className="text-slate-400 text-[10px] block uppercase">PO Contract</span>
+            <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{selectedOrderId || referencePo || "Direct Inward"}</span>
+          </div>
+          <div className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <span className="text-slate-400 text-[10px] block uppercase">Vendor Invoice</span>
+            <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{invoiceNumber || "--"}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Financial & Landed Cost Breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+          <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+            Valuation &amp; Landed Cost Summary
+          </h4>
+          <div className="space-y-2 text-xs font-mono">
+            <div className="flex justify-between text-slate-600 dark:text-slate-400">
+              <span className="font-sans">Purchase Value (Accepted Qty)</span>
+              <span>₹ {totalPurchaseValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-slate-600 dark:text-slate-400">
+              <span className="font-sans">Total Add-on Base (Freight &amp; Handling)</span>
+              <span>₹ {totalAddons.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-slate-600 dark:text-slate-400">
+              <span className="font-sans">Total GST on Add-ons (ITC Eligible)</span>
+              <span>₹ {totalCostGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between font-bold text-sm text-slate-900 dark:text-white">
+              <span className="font-sans font-extrabold text-indigo-900 dark:text-indigo-200">Final Inventory Acquisition Cost</span>
+              <span className="text-indigo-600 dark:text-indigo-400 font-extrabold text-base">
+                ₹ {finalInventoryCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex justify-between font-semibold text-xs text-slate-700 dark:text-slate-300">
+              <span className="font-sans">Avg. Unit Landed Cost</span>
+              <span className="font-bold">₹ {avgUnitLandedCost.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Validation & Guardrails Checklist */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+          <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+            Pre-flight Validation Guardrails
+          </h4>
+
+          {validationMessages.length === 0 ? (
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block">All Pre-flight Validation Checks Passed</span>
+                <span className="text-[11px]">Quantities, supplier verification, and cost allocations are completely reconciled and ready for inventory posting.</span>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-300 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                <span>Posting Blocked ({validationMessages.length} issue(s))</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] pl-1">
+                {validationMessages.map((msg, idx) => (
+                  <li key={idx}>{msg}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Allocation reconciliation status */}
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Allocation Method:</span>
+              <span className="font-bold capitalize">{allocationMethod}</span>
+            </div>
+            {manualAllocationTotals && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Manual Allocation Variance:</span>
+                <span className={`font-mono font-bold ${manualAllocationTotals.isBalanced ? "text-emerald-600" : "text-rose-600"}`}>
+                  ₹{manualAllocationTotals.remaining.toFixed(2)} ({manualAllocationTotals.isBalanced ? "Balanced" : "Unbalanced"})
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Read-Only Line Item Landed Cost Table */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-800 dark:text-slate-200">
+          Inward Line Items &amp; Final Unit Landed Valuation ({grnLines.length} lines)
+        </div>
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
+            <tr>
+              <th className="py-2 px-3">#</th>
+              <th className="py-2 px-3">SKU</th>
+              <th className="py-2 px-3">Product Name</th>
+              <th className="py-2 px-2 text-right">Accepted Qty</th>
+              <th className="py-2 px-2 text-right">PO Rate</th>
+              <th className="py-2 px-2 text-right">Billed Rate</th>
+              <th className="py-2 px-2 text-right text-indigo-600">Add-on / Unit</th>
+              <th className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">Unit Landed Cost (₹)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+            {grnLines.map((row, idx) => {
+              const { accepted } = lineMetrics[idx];
+              const { addonPerUnit, landedCost } = lineAllocations[idx];
+
+              return (
+                <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                  <td className="py-2 px-3 text-slate-400">{idx + 1}</td>
+                  <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
+                  <td className="py-2 px-3 font-sans text-slate-700 dark:text-slate-300">{row.name}</td>
+                  <td className="py-2 px-2 text-right">{accepted}</td>
+                  <td className="py-2 px-2 text-right">₹{row.cost_price.toFixed(2)}</td>
+                  <td className="py-2 px-2 text-right">₹{row.invoice_rate.toFixed(2)}</td>
+                  <td className="py-2 px-2 text-right text-indigo-600">+₹{addonPerUnit.toFixed(2)}</td>
+                  <td className="py-2 px-3 text-right font-bold text-indigo-700 dark:text-indigo-400">₹{landedCost.toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  // Authoritative Active Workspace Switcher
+  const renderWorkflowWorkspace = () => {
+    switch (activeStep) {
+      case "PO_DETAILS":
+        return renderPoDetailsStep();
+      case "RECEIVE_VERIFY":
+        return renderReceiveVerifyStep();
+      case "COMMERCIALS":
+        return renderCommercialsStep();
+      case "COSTS_FREIGHT":
+        return renderCostsFreightStep();
+      case "REVIEW_POST":
+        return renderReviewPostStep();
+      default:
+        return null;
     }
   };
 
@@ -1454,899 +2777,320 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         </div>
       </div>
 
-      {/* View 1: GRN Studio */}
+      {/* View 1: GRN Studio (Authoritative 5-Step Workflow) */}
       {subView === "create" && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Main 2-Column Responsive Layout */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-            {/* Left Column: GRN Workspace (8 cols) */}
-            <div className="xl:col-span-8 space-y-4">
-              {/* Header Details Card */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <ArrowLeft className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" onClick={onClose} />
-                    <span className="font-bold text-sm text-slate-900 dark:text-white">
-                      Goods Receipt Note (GRN)
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                      ● Draft
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onNotification?.("Draft Saved", "GRN draft state persisted.", "info")}
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      <span>Save Draft</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleOpenPreview}
-                      className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Preview</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSubmitGRN}
-                      disabled={saving || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold shadow transition flex items-center gap-1.5 ${
-                        saving || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)
-                          ? "bg-slate-300 text-slate-600 cursor-not-allowed"
-                          : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                      }`}
-                    >
-                      <PackageCheck className="w-3.5 h-3.5" />
-                      <span>
-                        {allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced
-                          ? "Fix Manual Allocation"
-                          : saving
-                            ? "Posting..."
-                            : "Post GRN"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Form Fields Header */}
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
-                  <div>
-                    <label className="block text-slate-500 font-medium mb-1">GRN No.</label>
-                    <input
-                      type="text"
-                      placeholder="Auto-Generated"
-                      value={grnNumber}
-                      onChange={(e) => setGrnNumber(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800 dark:text-slate-200 outline-none placeholder:text-slate-400 placeholder:font-normal"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-500 font-medium mb-1">Inward Date</label>
-                    <input
-                      type="date"
-                      value={grnDate}
-                      onChange={(e) => setGrnDate(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-500 font-medium mb-1">
-                      Supplier <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      value={supplierId}
-                      onChange={(e) => handleSupplierChange(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
-                    >
-                      <option value="">-- Select Supplier --</option>
-                      {suppliersList.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name || s.company_name || s.id}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-slate-500 font-medium">
-                        Purchase Order Source
-                      </label>
-                      {supplierId && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                          {availableOrders.length} {availableOrders.length === 1 ? "Order" : "Orders"}
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      value={selectedOrderId}
-                      onChange={(e) => handleSelectOrder(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
-                    >
-                      <option value="">
-                        {supplierId
-                          ? availableOrders.length > 0
-                            ? `-- Select Open PO (${availableOrders.length} Available) --`
-                            : "-- Direct Inward / No Open PO --"
-                          : "-- Direct Inward / All Open POs --"}
-                      </option>
-                      {availableOrders.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.order_no || o.order_number || o.id} — {o.supplier_name || o.supplier_id} ({o.items?.length || 0} items)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-slate-500 font-medium mb-1">Vendor Invoice No.</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. INV-2026-99"
-                      value={invoiceNumber}
-                      onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 dark:text-slate-200 outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Process Step Wizard */}
-                <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 text-xs">
-                  {[
-                    { step: 1, label: "PO & Details" },
-                    { step: 2, label: "Receive & Verify" },
-                    { step: 3, label: "Commercials" },
-                    { step: 4, label: "Costs & Freight" },
-                    { step: 5, label: "Review & Post" },
-                  ].map((s) => (
-                    <button
-                      key={s.step}
-                      type="button"
-                      onClick={() => setActiveStep(s.step)}
-                      className={`flex items-center gap-2 pb-1 border-b-2 font-semibold transition ${
-                        activeStep === s.step
-                          ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
-                          : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                      }`}
-                    >
-                      <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                          activeStep === s.step
-                            ? "bg-indigo-600 text-white"
-                            : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        {s.step}
-                      </span>
-                      <span>{s.label}</span>
-                    </button>
-                  ))}
-                </div>
+          {/* 1. PERSISTENT GRN HEADER */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3" data-testid="persistent-grn-header">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" onClick={onClose} />
+                <span className="font-bold text-sm text-slate-900 dark:text-white">
+                  Goods Receipt Note (GRN)
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  ● Draft
+                </span>
               </div>
-
-              {grnLines.length === 0 ? (
-                /* Inward Launchpad Hub */
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
-                  {/* Launchpad Welcome */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800 shrink-0">
-                        <FolderOpen className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                          Goods Inward Receiving Hub
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Select an open Purchase Order to inward against contract specs, or start Direct Inward without a PO
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleInwardLatestOpenPo}
-                      className="px-3.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition flex items-center gap-1.5 shrink-0 shadow-xs"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                      <span>Inward Latest Open PO</span>
-                    </button>
-                  </div>
-
-                  {/* Section 1: Open Confirmed POs */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-indigo-600" />
-                        <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                          Open Purchase Orders Awaiting Inward ({orders.length})
-                        </h4>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={loadOrders}
-                        className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-medium"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        <span>Refresh POs</span>
-                      </button>
-                    </div>
-
-                    {ordersLoading ? (
-                      <div className="py-8 text-center text-xs text-slate-500">
-                        Loading open purchase orders from database...
-                      </div>
-                    ) : orders.length === 0 ? (
-                      <div className="p-6 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500 space-y-1">
-                        <p className="font-semibold text-slate-700 dark:text-slate-300">No open purchase orders pending receipt.</p>
-                        <p>You can create a new PO in PO Studio or perform Direct Inward below.</p>
-                      </div>
-                    ) : (
-                      <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
-                            <tr>
-                              <th className="py-2.5 px-3">PO Number</th>
-                              <th className="py-2.5 px-3">Supplier</th>
-                              <th className="py-2.5 px-3 text-center">Items</th>
-                              <th className="py-2.5 px-3 text-right">Order Value (₹)</th>
-                              <th className="py-2.5 px-3 text-center">Status</th>
-                              <th className="py-2.5 px-3 text-right">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {orders.slice(0, 6).map((o) => (
-                              <tr key={o.id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-850/50 transition">
-                                <td className="py-2.5 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                                  {o.order_no || o.order_number || o.id}
-                                </td>
-                                <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">
-                                  {o.supplier_name || o.supplier_id}
-                                </td>
-                                <td className="py-2.5 px-3 text-center font-mono text-slate-600 dark:text-slate-400">
-                                  {o.items ? o.items.length : "--"}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                                  ₹{Number(o.total_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                                    {o.status || "CONFIRMED"}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-3 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectOrder(o.id)}
-                                    className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition"
-                                  >
-                                    Inward PO →
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Section 2: Direct Inward / Ad-Hoc Material Receiving */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900 dark:text-white">
-                        Direct Inward / Ad-Hoc Receiving (Without PO)
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Receive goods directly into stock from master inventory catalog.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddProductOpen(true)}
-                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 font-bold text-xs shadow-sm transition flex items-center gap-2 shrink-0"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Products from Master Catalog</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Full Receiving Workspace */
-                <>
-                  {/* Inward Items Details Card */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden space-y-0">
-                    <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-800 dark:text-slate-200">
-                          Inward Items
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                          {grnLines.length} items
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsAddProductOpen(true)}
-                          className="px-3 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 text-xs font-semibold shadow-xs hover:bg-indigo-50 dark:hover:bg-slate-800 transition flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Product</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            barcodeInputRef.current?.focus();
-                            onNotification?.("Scan Ready", "Barcode input focused. Scan label to inward.", "info");
-                          }}
-                          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
-                        >
-                          <Barcode className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>Scan from Master</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onNotification?.("Columns", "All 13 statutory audit columns visible.", "info")}
-                          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
-                        >
-                          <Columns className="w-3.5 h-3.5" />
-                          <span>Columns</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Search & Filter Bar */}
-                    <div className="p-2.5 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                      <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          value={itemSearchFilter}
-                          onChange={(e) => setItemSearchFilter(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && itemSearchFilter.trim()) {
-                              handleProcessBarcode(itemSearchFilter);
-                              setItemSearchFilter("");
-                            }
-                          }}
-                          placeholder="Search by SKU, name or scan barcode..."
-                          className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
-                          <tr>
-                            <th className="py-2.5 px-2.5">#</th>
-                            <th className="py-2.5 px-3">SKU / Barcode</th>
-                            <th className="py-2.5 px-3">Product Name (Brand / Category)</th>
-                            <th className="py-2.5 px-2 text-right">PO Qty</th>
-                            <th className="py-2.5 px-2 text-right">Recv Qty</th>
-                            <th className="py-2.5 px-2 text-right text-rose-500">Damaged</th>
-                            <th className="py-2.5 px-2 text-right font-bold text-slate-900 dark:text-white">Accepted</th>
-                            <th className="py-2.5 px-2 text-right">PO Rate (₹)</th>
-                            <th className="py-2.5 px-2 text-right">Inv. Rate (₹)</th>
-                            <th className="py-2.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
-                              Landed Cost (₹)
-                            </th>
-                            <th className="py-2.5 px-2 text-right">Margin</th>
-                            <th className="py-2.5 px-2 text-center">Status</th>
-                            <th className="py-2.5 px-2 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {grnLines
-                            .filter((r) => {
-                              if (!itemSearchFilter.trim()) return true;
-                              const q = itemSearchFilter.toLowerCase();
-                              return (
-                                r.code.toLowerCase().includes(q) ||
-                                r.name.toLowerCase().includes(q) ||
-                                (r.color && r.color.toLowerCase().includes(q))
-                              );
-                            })
-                            .map((row, idx) => {
-                              const originalIdx = grnLines.findIndex((l) => l.rowId === row.rowId);
-                              const { accepted, netRate } = lineMetrics[originalIdx >= 0 ? originalIdx : 0] || { accepted: row.quantity_received - row.quantity_damaged, netRate: row.invoice_rate };
-                              const { landedCost } = lineAllocations[originalIdx >= 0 ? originalIdx : 0] || { landedCost: row.invoice_rate };
-                              const isPpv = Math.abs(row.invoice_rate - row.cost_price) > 0.001;
-                              const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
-                              const isHighlighted = row.rowId === lastScannedRowId;
-
-                              return (
-                                <tr
-                                  key={row.rowId}
-                                  className={`transition-colors duration-200 ${
-                                    isHighlighted
-                                      ? "bg-emerald-100/60 dark:bg-emerald-950/50"
-                                      : "hover:bg-slate-50/60 dark:hover:bg-slate-850/50"
-                                  }`}
-                                >
-                                  <td className="py-2.5 px-2.5 text-slate-400 font-mono">{idx + 1}</td>
-                                  <td className="py-2.5 px-3 font-mono">
-                                    <span className="font-bold text-slate-900 dark:text-white block">
-                                      {row.code}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 block">
-                                      890123456789{idx}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0 border border-indigo-200 dark:border-indigo-800">
-                                        👟
-                                      </div>
-                                      <div>
-                                        <span className="font-semibold text-slate-900 dark:text-white block">
-                                          {row.name.replace(/\(.*?\)/, "").trim()}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400 block">
-                                          {row.name.includes("(") ? row.name.match(/\((.*?)\)/)?.[1] : "Footwear / Sports"}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="py-2.5 px-2 text-right font-mono text-slate-600 dark:text-slate-400">
-                                    {row.quantity_ordered}
-                                  </td>
-                                  <td className="py-2.5 px-2 text-right font-mono">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={row.quantity_received}
-                                      onChange={(e) => updateLine(row.rowId, "quantity_received", parseFloat(e.target.value) || 0)}
-                                      className="w-16 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono"
-                                    />
-                                  </td>
-                                  <td className="py-2.5 px-2 text-right font-mono text-rose-600 dark:text-rose-400">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={row.quantity_damaged}
-                                      onChange={(e) => updateLine(row.rowId, "quantity_damaged", parseFloat(e.target.value) || 0)}
-                                      className="w-14 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono text-rose-600"
-                                    />
-                                  </td>
-                                  <td className="py-2.5 px-2 text-right font-mono font-bold text-slate-900 dark:text-white">
-                                    {accepted}
-                                  </td>
-                                  <td className="py-2.5 px-2 text-right font-mono text-slate-600 dark:text-slate-400">
-                                    {row.cost_price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="py-2.5 px-2 text-right font-mono">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      value={row.invoice_rate}
-                                      onChange={(e) => updateLine(row.rowId, "invoice_rate", parseFloat(e.target.value) || 0)}
-                                      className={`w-20 text-right bg-slate-50 dark:bg-slate-800 border rounded px-1.5 py-0.5 font-mono ${
-                                        isPpv ? "border-amber-400 font-bold text-amber-700 dark:text-amber-300" : "border-slate-300 dark:border-slate-700"
-                                      }`}
-                                    />
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenWhyThisCost(originalIdx >= 0 ? originalIdx : 0)}
-                                      className="hover:text-indigo-600 hover:underline inline-flex items-center gap-0.5"
-                                      title="Click to view explainable landed cost breakdown"
-                                    >
-                                      <span>{landedCost.toFixed(2)}</span>
-                                      <HelpCircle className="w-3 h-3 text-indigo-400 inline" />
-                                    </button>
-                                  </td>
-                                  <td className="py-2.5 px-2 text-right font-mono">
-                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                                      {marginPct.toFixed(1)}%
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-2 text-center">
-                                    {isPpv ? (
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 inline-flex items-center gap-0.5">
-                                        <AlertTriangle className="w-3 h-3" />
-                                        <span>PPV</span>
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 inline-flex items-center gap-0.5">
-                                        <Check className="w-3 h-3" />
-                                        <span>OK</span>
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-2.5 px-2 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveLine(row.rowId)}
-                                      className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition"
-                                      title="Delete line"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Dedicated Barcode Scanner Section */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                        <Barcode className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
-                          Barcode Scanner
-                        </h4>
-                        <p className="text-[11px] text-slate-500">
-                          Scan barcodes to quickly add or update items
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleProcessBarcode(scanBarcodeInput);
-                        }}
-                        className="flex-1 min-w-[220px]"
-                      >
-                        <div className="relative">
-                          <input
-                            ref={barcodeInputRef}
-                            type="text"
-                            value={scanBarcodeInput}
-                            onChange={(e) => setScanBarcodeInput(e.target.value)}
-                            placeholder="Scan barcode here..."
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white font-mono outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                      </form>
-
-                      {/* Ready Badge */}
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>Ready</span>
-                      </div>
-
-                      {/* +1 Mode Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => setScanContinuous((prev) => !prev)}
-                        className={`px-2.5 py-1 rounded-md border text-[11px] font-bold transition flex items-center gap-1.5 ${
-                          scanContinuous
-                            ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
-                            : "border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                        }`}
-                        title="Increment count (+1) on each scan"
-                      >
-                        <span className={`w-2.5 h-2.5 rounded-full border border-white/60 ${scanContinuous ? "bg-white" : "bg-transparent"}`} />
-                        <span>+1 Mode</span>
-                      </button>
-
-                      {/* Camera Scan Button */}
-                      <button
-                        type="button"
-                        onClick={() => setIsCameraScannerOpen(true)}
-                        className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition flex items-center gap-1.5"
-                      >
-                        <Camera className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                        <span>Camera Scan</span>
-                      </button>
-
-                      {/* Import CSV Button */}
-                      <button
-                        type="button"
-                        onClick={() => setIsCsvImportOpen(true)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs"
-                      >
-                        <Upload className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>Import CSV</span>
-                      </button>
-
-                      {/* Download Template Button */}
-                      <button
-                        type="button"
-                        onClick={handleDownloadTemplate}
-                        className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs"
-                      >
-                        <Download className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Download Template</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Side-by-Side Cards: Purchase Price Variance (PPV) & Margin Preview */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-                    {/* PPV Card (7 cols) */}
-                    <div className="lg:col-span-7 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
-                          <AlertTriangle className="w-4 h-4 text-rose-600" />
-                          <span>Purchase Price Variance (PPV)</span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200">
-                          {ppvLines.length} item with variance
-                        </span>
-                      </div>
-
-                      {ppvLines.length === 0 ? (
-                        <div className="py-4 text-center text-xs text-slate-500">
-                          No purchase price variance detected across received items.
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs">
-                            <thead className="text-slate-500 font-medium">
-                              <tr>
-                                <th className="py-1 px-2">SKU</th>
-                                <th className="py-1 px-2">Product</th>
-                                <th className="py-1 px-2 text-right">PO Rate</th>
-                                <th className="py-1 px-2 text-right">Invoice Rate</th>
-                                <th className="py-1 px-2 text-right text-rose-600">Variance (₹)</th>
-                                <th className="py-1 px-2 text-right">Qty</th>
-                                <th className="py-1 px-2 text-right text-rose-600 font-bold">Total (₹)</th>
-                                <th className="py-1 px-2 text-center">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
-                              {ppvLines.map(({ row, variancePerUnit, totalPpv, accepted }) => (
-                                <tr key={row.code}>
-                                  <td className="py-2 px-2 font-mono font-bold text-slate-800 dark:text-slate-200">
-                                    {row.code}
-                                  </td>
-                                  <td className="py-2 px-2 text-slate-700 dark:text-slate-300">
-                                    {row.name.replace(/\(.*?\)/, "").trim()}
-                                  </td>
-                                  <td className="py-2 px-2 text-right font-mono">
-                                    {row.cost_price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="py-2 px-2 text-right font-mono">
-                                    {row.invoice_rate.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
-                                    +{variancePerUnit.toFixed(2)}
-                                  </td>
-                                  <td className="py-2 px-2 text-right font-mono">{accepted}</td>
-                                  <td className="py-2 px-2 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
-                                    {totalPpv.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="py-2 px-2 text-center">
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => onNotification?.("Variance Accepted", `Accepted +₹${variancePerUnit} variance for ${row.code}`, "info")}
-                                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-xs transition"
-                                      >
-                                        Accept
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setIsDebitNoteOpen(true)}
-                                        className="px-2.5 py-1 rounded border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                                      >
-                                        Create Claim
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Margin Preview Card (5 cols) */}
-                    <div className="lg:col-span-5 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/60 rounded-xl p-4 flex flex-col justify-between space-y-3">
-                      <div>
-                        <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold text-xs">
-                          <TrendingUp className="w-4 h-4 text-indigo-600" />
-                          <span>Margin Preview (Post GRN)</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Based on accepted quantity and landed cost
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 text-xs pt-1">
-                        <div>
-                          <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Landed Cost</span>
-                          <span className="font-mono font-bold text-slate-900 dark:text-white text-xs block">
-                            ₹ {avgUnitLandedCost.toFixed(2)}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. MRP</span>
-                          <span className="font-mono font-bold text-slate-900 dark:text-white text-xs block">
-                            ₹ {avgMrp.toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[10px] text-slate-500 uppercase block font-medium">Avg. Margin</span>
-                          <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono text-xs inline-block">
-                            {avgMarginPercent.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Process Step Wizard */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
-                    <div className="flex items-center justify-between text-xs">
-                      {[
-                        { step: 1, label: "PO & Supplier" },
-                        { step: 2, label: "Receive & Verify" },
-                        { step: 3, label: "Commercials" },
-                        { step: 4, label: "Costs & Freight" },
-                        { step: 5, label: "Review & Post" },
-                      ].map((s) => (
-                        <button
-                          key={s.step}
-                          type="button"
-                          onClick={() => setActiveStep(s.step)}
-                          className={`flex items-center gap-2 pb-1 border-b-2 font-semibold transition ${
-                            activeStep === s.step
-                              ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
-                              : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                          }`}
-                        >
-                          <span
-                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              activeStep === s.step
-                                ? "bg-indigo-600 text-white"
-                                : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                            }`}
-                          >
-                            {s.step}
-                          </span>
-                          <span>{s.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Summary Metric Pills */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
-                      <span className="text-xl font-extrabold text-slate-900 dark:text-white font-mono block">
-                        {totalOrdered.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-slate-500 font-medium">Ordered (Units)</span>
-                    </div>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
-                      <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400 font-mono block">
-                        {totalReceived.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-slate-500 font-medium">Received (Units)</span>
-                    </div>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
-                      <span className="text-xl font-extrabold text-rose-600 dark:text-rose-400 font-mono block">
-                        {totalDamaged.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-slate-500 font-medium">Damaged (Units)</span>
-                    </div>
-                    <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 rounded-xl p-3 shadow-sm bg-emerald-50/20">
-                      <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono block">
-                        {totalAcceptedUnits.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold">Net Accepted (Units)</span>
-                    </div>
-                  </div>
-
-                  {/* Remarks & Document Attachments Footer */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    {/* Remarks */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
-                      <label className="font-bold text-slate-800 dark:text-slate-200">Remarks</label>
-                      <textarea
-                        rows={3}
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Add any remarks, notes or special instructions..."
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    {/* Attachments */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-slate-800 dark:text-slate-200">
-                          Attachments ({attachments.length})
-                        </label>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          multiple
-                          onChange={handleFileUpload}
-                          className="hidden"
-                          accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx,.docx"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <div
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={handleDropFiles}
-                          onClick={() => fileInputRef.current?.click()}
-                          className="flex-1 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-2 text-center flex flex-col items-center justify-center gap-1 hover:border-indigo-400 transition cursor-pointer"
-                        >
-                          <span className="text-[11px] text-slate-500">Drag &amp; drop files here</span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              fileInputRef.current?.click();
-                            }}
-                            className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold border border-indigo-200 dark:border-indigo-800"
-                          >
-                            Browse Files
-                          </button>
-                        </div>
-                        <div className="space-y-1 text-[11px] font-mono flex-1 max-h-24 overflow-y-auto">
-                          {attachments.length === 0 ? (
-                            <div className="text-slate-400 text-[11px] italic p-2 text-center">
-                              No files attached (e.g. Vendor Invoice, LR, Packing List)
-                            </div>
-                          ) : (
-                            attachments.map((f) => (
-                              <div
-                                key={f.id}
-                                className="flex items-center justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                              >
-                                <div className="flex items-center gap-1 truncate">
-                                  <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
-                                  <span className="text-slate-800 dark:text-slate-200 truncate font-sans text-xs">
-                                    {f.name}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="text-slate-400 text-[10px]">{f.size}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveAttachment(f.id)}
-                                    className="text-slate-400 hover:text-rose-500 transition p-0.5"
-                                    title="Remove attachment"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onNotification?.("Draft Saved", "GRN draft state persisted.", "info")}
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 shadow-xs"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Draft</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenPreview}
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 shadow-xs"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Preview</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearLines}
+                  className="px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                  title="Reset workspace to blank state"
+                >
+                  Reset
+                </button>
+              </div>
             </div>
 
-            {/* Right Column: Transport & Inward Landed Cost Dock (4 cols) */}
+            {/* Form Fields: GRN No, Inward Date, Supplier, PO Source, Vendor Invoice */}
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
+              <div>
+                <label className="block text-slate-500 font-medium mb-1">GRN No.</label>
+                <input
+                  type="text"
+                  placeholder="Auto-Generated"
+                  value={grnNumber}
+                  onChange={(e) => setGrnNumber(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-800 dark:text-slate-200 outline-none"
+                  data-testid="header-grn-no"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-500 font-medium mb-1">Inward Date</label>
+                <input
+                  type="date"
+                  value={grnDate}
+                  onChange={(e) => setGrnDate(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none"
+                  data-testid="header-inward-date"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-500 font-medium mb-1">
+                  Supplier <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={supplierId}
+                  onChange={(e) => handleSupplierChange(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
+                  data-testid="header-supplier-select"
+                >
+                  <option value="">-- Select Supplier --</option>
+                  {suppliersList.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || s.company_name || s.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-slate-500 font-medium">Purchase Order Source</label>
+                  {supplierId && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      {availableOrders.length} {availableOrders.length === 1 ? "Order" : "Orders"}
+                    </span>
+                  )}
+                </div>
+                <select
+                  value={selectedOrderId}
+                  onChange={(e) => handleSelectOrder(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
+                  data-testid="header-po-select"
+                >
+                  <option value="">
+                    {supplierId
+                      ? availableOrders.length > 0
+                        ? `-- Select Open PO (${availableOrders.length} Available) --`
+                        : "-- Direct Inward / No Open PO --"
+                      : "-- Direct Inward / All Open POs --"}
+                  </option>
+                  {availableOrders.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.order_no || o.order_number || o.id} — {o.supplier_name || o.supplier_id} ({o.items?.length || 0} items)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-500 font-medium mb-1">Vendor Invoice No.</label>
+                <input
+                  type="text"
+                  placeholder="e.g. INV-2026-99"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 dark:text-slate-200 outline-none"
+                  data-testid="header-vendor-invoice"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 2. ONE AUTHORITATIVE WORKFLOW STEPPER */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 shadow-sm" data-testid="workflow-stepper">
+            <div className="flex items-center justify-between text-xs overflow-x-auto gap-2">
+              {GRN_WORKFLOW_STEPS.map((step, index) => {
+                const activeIndex = GRN_WORKFLOW_STEPS.findIndex((s) => s.id === activeStep);
+                const isCurrent = activeStep === step.id;
+                const isCompleted = activeIndex > index;
+
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setActiveStep(step.id)}
+                    data-testid={`step-button-${step.id}`}
+                    className={`flex items-center gap-2 py-1.5 px-3 rounded-lg border font-semibold transition shrink-0 ${
+                      isCurrent
+                        ? "border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 shadow-xs"
+                        : isCompleted
+                          ? "border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/40 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                          : "border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                        isCurrent
+                          ? "bg-indigo-600 text-white"
+                          : isCompleted
+                            ? "bg-emerald-500 text-white"
+                            : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      {isCompleted ? "✓" : index + 1}
+                    </span>
+                    <span className="whitespace-nowrap">{step.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3. MAIN WORKSPACE + SUMMARY DOCK */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+            {/* Left Column: ONLY Active Workflow Workspace (8 cols) */}
+            <div className="xl:col-span-8 space-y-4 flex flex-col">
+              <div className="w-full">
+                {renderWorkflowWorkspace()}
+              </div>
+
+              {/* Sticky Workflow Navigation Controls (Never requires scrolling to page bottom) */}
+              <div
+                className="sticky bottom-0 z-20 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 shadow-md backdrop-blur-sm flex items-center justify-between text-xs"
+                data-testid="sticky-workflow-nav"
+              >
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
+                  <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold font-mono">
+                    Step {GRN_WORKFLOW_STEPS.findIndex((s) => s.id === activeStep) + 1} of 5
+                  </span>
+                  <span>•</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {GRN_WORKFLOW_STEPS.find((s) => s.id === activeStep)?.label}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {activeStep === "PO_DETAILS" && (
+                    <button
+                      type="button"
+                      onClick={advanceWorkflow}
+                      data-testid="nav-next"
+                      className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>Next: Receive &amp; Verify →</span>
+                    </button>
+                  )}
+
+                  {activeStep === "RECEIVE_VERIFY" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={retreatWorkflow}
+                        data-testid="nav-back"
+                        className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 font-semibold"
+                      >
+                        <span>← Back: PO &amp; Details</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={advanceWorkflow}
+                        data-testid="nav-next"
+                        className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm"
+                      >
+                        <span>Next: Commercials →</span>
+                      </button>
+                    </>
+                  )}
+
+                  {activeStep === "COMMERCIALS" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={retreatWorkflow}
+                        data-testid="nav-back"
+                        className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 font-semibold"
+                      >
+                        <span>← Back: Receive &amp; Verify</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={advanceWorkflow}
+                        data-testid="nav-next"
+                        className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm"
+                      >
+                        <span>Next: Costs &amp; Freight →</span>
+                      </button>
+                    </>
+                  )}
+
+                  {activeStep === "COSTS_FREIGHT" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={retreatWorkflow}
+                        data-testid="nav-back"
+                        className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 font-semibold"
+                      >
+                        <span>← Back: Commercials</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={advanceWorkflow}
+                        data-testid="nav-next"
+                        className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm"
+                      >
+                        <span>Next: Review &amp; Post →</span>
+                      </button>
+                    </>
+                  )}
+
+                  {activeStep === "REVIEW_POST" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={retreatWorkflow}
+                        data-testid="nav-back"
+                        className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 font-semibold"
+                      >
+                        <span>← Back: Costs &amp; Freight</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSubmitGRN}
+                        disabled={saving || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)}
+                        data-testid="nav-post-grn"
+                        className={`px-5 py-2 rounded-lg text-xs font-bold shadow transition flex items-center gap-1.5 ${
+                          saving || (allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced)
+                            ? "bg-slate-300 text-slate-600 cursor-not-allowed"
+                            : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                        }`}
+                      >
+                        <PackageCheck className="w-4 h-4" />
+                        <span>
+                          {allocationMethod === "manual" && !!manualAllocationTotals && !manualAllocationTotals.isBalanced
+                            ? "Reconcile Manual Allocation"
+                            : saving
+                              ? "Posting..."
+                              : "Post GRN"}
+                        </span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Persistent Live Valuation Context Dock (4 cols) */}
             <div className="xl:col-span-4 space-y-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden" data-testid="right-summary-dock">
                 {/* Dock Header */}
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Truck className="w-4 h-4 text-indigo-600" />
                     <h3 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                      Transport &amp; Inward Landed Cost
+                      Live Inward Valuation Dock
                     </h3>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-500 block">Total Addons</span>
+                    <span className="text-[10px] text-slate-500 block">Total Add-ons</span>
                     <span className="font-mono font-extrabold text-sm text-indigo-600 dark:text-indigo-400">
                       ₹ {totalAddons.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </span>
@@ -2355,304 +3099,84 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
                 {/* Dock Body */}
                 <div className="p-4 space-y-4 text-xs">
-                  {/* Transport Details Section */}
-                  <div className="space-y-2.5">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
-                      Transport Details
-                    </span>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">Transporter</label>
-                        <input
-                          type="text"
-                          value={transporterName}
-                          onChange={(e) => setTransporterName(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200"
-                        />
+                  {/* Transport Summary */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider">
+                        Logistics Carrier
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {cartons > 0 ? `${cartons} Cartons` : "No cartons"}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Transporter:</span>
+                        <span className="font-semibold">{transporterName || "--"}</span>
                       </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">LR / Bilty No.</label>
-                        <input
-                          type="text"
-                          value={lrNumber}
-                          onChange={(e) => setLrNumber(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 font-mono text-slate-800 dark:text-slate-200"
-                        />
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">LR / Bilty No:</span>
+                        <span className="font-mono">{lrNumber || "--"}</span>
                       </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">Date</label>
-                        <input
-                          type="date"
-                          value={lrDate}
-                          onChange={(e) => setLrDate(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">Vehicle No.</label>
-                        <input
-                          type="text"
-                          value={vehicleNumber}
-                          onChange={(e) => setVehicleNumber(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 font-mono uppercase text-slate-800 dark:text-slate-200"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">Weight / CBM</label>
-                        <input
-                          type="text"
-                          value={weightCbm}
-                          onChange={(e) => setWeightCbm(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">Cartons</label>
-                        <input
-                          type="number"
-                          value={cartons}
-                          onChange={(e) => setCartons(parseInt(e.target.value) || 0)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 font-mono text-slate-800 dark:text-slate-200"
-                        />
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Vehicle No:</span>
+                        <span className="font-mono uppercase">{vehicleNumber || "--"}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Cost Components Section */}
-                  <div className="space-y-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+                  {/* Landed Cost Components Summary */}
+                  <div className="space-y-1.5 pt-3 border-t border-slate-200 dark:border-slate-800">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider">
                         Cost Components ({costItems.length})
                       </span>
+                      <span className="text-[10px] text-indigo-600 font-medium capitalize">
+                        Method: {allocationMethod}
+                      </span>
                     </div>
 
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-                      <table className="w-full text-left text-[11px]">
-                        <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
-                          <tr>
-                            <th className="py-2 px-1.5 text-center">#</th>
-                            <th className="py-2 px-2">Cost Type</th>
-                            <th className="py-2 px-2 text-right">Base Amount (₹)</th>
-                            <th className="py-2 px-1.5 text-center">GST %</th>
-                            <th className="py-2 px-1.5 text-right">GST (₹)</th>
-                            <th className="py-2 px-1 text-center">ITC</th>
-                            <th className="py-2 px-1.5 text-center">Alloc.</th>
-                            <th className="py-2 px-1 text-center">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {costItems.map((c, i) => {
-                            const gstVal = c.tax_amount ?? (c.amount * (c.tax_rate || 0)) / 100;
-                            const allocationLabel = normalizeAllocationMethod(c.allocation_method) === "MANUAL" ? "Manual" : normalizeAllocationMethod(c.allocation_method) === "QUANTITY" ? "Quantity" : normalizeAllocationMethod(c.allocation_method) === "WEIGHT" ? "Weight" : "Value";
-                            return (
-                              <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
-                                <td className="py-1.5 px-1.5 text-center text-slate-400">{i + 1}</td>
-                                <td className="py-1.5 px-2 font-medium text-slate-800 dark:text-slate-200 capitalize">
-                                  {c.component_type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase())}
-                                </td>
-                                <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900 dark:text-white">
-                                  {c.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="py-1.5 px-1.5 text-center font-mono text-slate-500">{c.tax_rate}%</td>
-                                <td className="py-1.5 px-1.5 text-right font-mono text-slate-600 dark:text-slate-400">
-                                  {gstVal.toFixed(2)}
-                                </td>
-                                <td className="py-1.5 px-1 text-center">
-                                  {c.itc_eligible ? (
-                                    <Check className="w-3.5 h-3.5 text-emerald-600 inline" />
-                                  ) : (
-                                    <X className="w-3.5 h-3.5 text-rose-500 inline" />
-                                  )}
-                                </td>
-                                <td className="py-1.5 px-1.5 text-center">
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                    {allocationLabel}
-                                  </span>
-                                </td>
-                                <td className="py-1.5 px-1 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveCostItem(c.id)}
-                                    className="text-slate-400 hover:text-rose-500 p-0.5 transition"
-                                    title="Delete component"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 text-rose-500/80 hover:text-rose-600" />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsAddCostOpen(true)}
-                      className="w-full py-1.5 rounded-lg border border-dashed border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition flex items-center justify-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Add Cost Component</span>
-                    </button>
-                  </div>
-
-                  {/* Allocation Method Radio Group & Info */}
-                  <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
-                      Allocation Method
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <div className="space-y-1.5">
-                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                          <input
-                            type="radio"
-                            name="allocMethodSidebar"
-                            checked={allocationMethod === "value"}
-                            onChange={() => setAllocationMethod("value")}
-                            className="text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="font-medium text-xs">By Value (Ad-Valorem)</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                          <input
-                            type="radio"
-                            name="allocMethodSidebar"
-                            checked={allocationMethod === "quantity"}
-                            onChange={() => setAllocationMethod("quantity")}
-                            className="text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="font-medium text-xs">By Quantity (Per Unit)</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                          <input
-                            type="radio"
-                            name="allocMethodSidebar"
-                            checked={allocationMethod === "weight"}
-                            onChange={() => setAllocationMethod("weight")}
-                            className="text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="font-medium text-xs">By Weight / CBM</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                          <input
-                            type="radio"
-                            name="allocMethodSidebar"
-                            value="manual"
-                            checked={allocationMethod === "manual"}
-                            onChange={() => setAllocationMethod("manual")}
-                            className="text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="font-medium text-xs">Manual Allocation</span>
-                          <span title="Amounts will be allocated exactly as entered per cost component — no automatic distribution">ⓘ</span>
-                        </label>
+                    {costItems.length === 0 ? (
+                      <div className="text-[11px] text-slate-400 italic p-2 text-center bg-slate-50 dark:bg-slate-800/40 rounded-lg">
+                        No add-on costs registered.
                       </div>
-
-                      {allocationMethod === "manual" && (
-                        <div className="mt-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 p-2.5 text-[10px] text-amber-900 dark:text-amber-200">
-                          <div className="flex items-center justify-between font-bold mb-2">
-                            <span>Manual allocation matrix</span>
-                            <span className="rounded-full bg-white/70 dark:bg-slate-900/60 px-1.5 py-0.5 border border-amber-300 dark:border-amber-800">
-                              {costItems.filter((c) => c.amount > 0).length} component(s)
+                    ) : (
+                      <div className="space-y-1 max-h-40 overflow-y-auto font-mono">
+                        {costItems.map((c) => (
+                          <div key={c.id} className="p-2 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                            <span className="font-sans capitalize text-slate-800 dark:text-slate-200 truncate">
+                              {c.component_type.replace(/_/g, " ").toLowerCase()}
+                            </span>
+                            <span className="font-bold text-slate-900 dark:text-white shrink-0">
+                              ₹{c.amount.toFixed(2)}
                             </span>
                           </div>
-                          {manualAllocationTotals && (
-                            <div className="mb-2 grid grid-cols-3 gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-white/70 dark:bg-slate-900/40 p-2">
-                              <div>
-                                <div className="text-[9px] uppercase tracking-wide text-slate-500">Total Cost</div>
-                                <div className="font-bold text-slate-800 dark:text-slate-100">₹{manualAllocationTotals.totalCost.toFixed(2)}</div>
-                              </div>
-                              <div>
-                                <div className="text-[9px] uppercase tracking-wide text-slate-500">Allocated</div>
-                                <div className="font-bold text-slate-800 dark:text-slate-100">₹{manualAllocationTotals.allocated.toFixed(2)}</div>
-                              </div>
-                              <div>
-                                <div className="text-[9px] uppercase tracking-wide text-slate-500">Remaining</div>
-                                <div className={`font-bold ${manualAllocationTotals.isBalanced ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}`}>
-                                  ₹{manualAllocationTotals.remaining.toFixed(2)}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                            {costItems.map((component) => {
-                              const componentSummary = manualAllocationSummaries.find((entry) => entry.id === component.id);
-                              const rowInputs = manualAllocationMatrix[component.id] ?? {};
-                              return (
-                                <div key={component.id} className="rounded-lg border border-amber-200 dark:border-amber-800 bg-white/70 dark:bg-slate-900/40 p-2">
-                                  <div className="flex items-center justify-between text-[10px] font-bold text-amber-900 dark:text-amber-200 mb-1.5">
-                                    <span>{component.description || component.component_type}</span>
-                                    <span className={`rounded px-1 py-0.5 ${componentSummary?.isBalanced ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"}`}>
-                                      {componentSummary?.isBalanced ? "Balanced" : `Variance ₹${Math.abs(componentSummary?.variance ?? 0).toFixed(2)}`}
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-[1.2fr_1.1fr] gap-1 text-[9.5px] font-semibold text-slate-600 dark:text-slate-300 border-b border-amber-200 dark:border-amber-800 pb-1">
-                                    <span>SKU</span>
-                                    <span className="text-right">₹ Allocation</span>
-                                  </div>
-                                  {grnLines.filter((row) => Math.max(0, row.quantity_received - row.quantity_damaged) > 0).length === 0 ? (
-                                    <div className="text-[9.5px] text-slate-500 py-2 text-center">No accepted lines to allocate.</div>
-                                  ) : (
-                                    grnLines.map((row) => {
-                                      const accepted = Math.max(0, row.quantity_received - row.quantity_damaged);
-                                      if (accepted <= 0) return null;
-                                      const currentValue = rowInputs[row.rowId] ?? 0;
-                                      return (
-                                        <div key={`${component.id}-${row.rowId}`} className="grid grid-cols-[1.2fr_1.1fr] items-center gap-1 py-1">
-                                          <span className="font-medium truncate text-slate-700 dark:text-slate-200">{row.code}</span>
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={currentValue || ""}
-                                            onChange={(e) => updateManualAllocation(component.id, row.rowId, e.target.value)}
-                                            className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 py-1 text-right font-mono text-[10px] text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500"
-                                            placeholder="0.00"
-                                          />
-                                        </div>
-                                      );
-                                    })
-                                  )}
-                                  <div className="mt-2 flex items-center justify-between text-[9.5px] font-semibold text-slate-700 dark:text-slate-300">
-                                    <span>Target</span>
-                                    <span>₹{Number(component.amount || 0).toFixed(2)}</span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 text-[10.5px] text-blue-800 dark:text-blue-300 flex items-start gap-1.5 self-center">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
-                        <span className="leading-snug">
-                          Costs will be allocated to each item based on the selected method using Net Accepted quantities.
-                        </span>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Cost Summary Section */}
+                  {/* Valuation Summary */}
                   <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-800 font-mono">
                     <span className="font-sans font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider block">
-                      Cost Summary
+                      Valuation Metrics
                     </span>
                     <div className="space-y-1.5 text-xs">
                       <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                        <span className="font-sans">Purchase Value (Accepted Qty)</span>
+                        <span className="font-sans">Purchase Value</span>
                         <span>₹ {totalPurchaseValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                        <span className="font-sans">Total Add-on Base Amount</span>
+                        <span className="font-sans">Add-on Charges</span>
                         <span>₹ {totalAddons.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                        <span className="font-sans">Total GST (ITC Eligible)</span>
+                        <span className="font-sans">Tax (ITC Eligible)</span>
                         <span>₹ {totalCostGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                       </div>
                       <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between font-bold text-slate-900 dark:text-white text-sm">
-                        <span className="font-sans font-extrabold text-blue-900 dark:text-blue-200">Final Inventory Cost (Excl. ITC)</span>
-                        <span className="text-blue-900 dark:text-blue-300 font-extrabold text-base">
+                        <span className="font-sans font-extrabold text-indigo-900 dark:text-indigo-200">Total Inward Value</span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-extrabold text-base">
                           ₹ {finalInventoryCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </span>
                       </div>
@@ -2663,22 +3187,15 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Bottom Preview Button */}
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2 text-center">
+                  {/* Quick Action Preview */}
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-center">
                     <button
                       type="button"
                       onClick={handleOpenPreview}
-                      className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.99]"
+                      className="w-full py-2.5 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-100 transition flex items-center justify-center gap-1.5 shadow-xs"
                     >
-                      <Printer className="w-4 h-4" />
-                      <span>Preview GRN &amp; Labels</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleOpenPreview}
-                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-block font-semibold"
-                    >
-                      View Allocation Preview →
+                      <Eye className="w-4 h-4" />
+                      <span>View Live Allocation Preview</span>
                     </button>
                   </div>
                 </div>
@@ -2988,3 +3505,5 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     </div>
   );
 };
+
+export default GrnReceiptTab;
