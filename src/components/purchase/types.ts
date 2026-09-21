@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.42.0
+ * Version      : 6.43.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-19
+ * Modified     : 2026-09-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -79,6 +79,14 @@ export interface PurchaseOrderHeader {
   paymentTerms: string;
   freightCharges: string;
   specialInstructions: string;
+  // Extended commercial & reference attributes
+  supplierReference?: string;
+  currency?: string;
+  buyer?: string;
+  department?: string;
+  priceIncludesTax?: boolean;
+  freightAmount?: number;
+  otherCharges?: number;
   // Vendor policy context (loaded after vendor select — display-only)
   policyName?: string;
   vendorStatus?: string;
@@ -91,6 +99,7 @@ export interface PurchaseOrderLineItem {
   id: string;
   sNo: number;
   stockNo: string;
+  barcode?: string;
   product: string;
   brand: string;
   style: string;
@@ -99,9 +108,14 @@ export interface PurchaseOrderLineItem {
   fibre: string;
   colourBase: string;
   styling: string;
+  mrp?: number;
   rate: number;
   orderQty: number;
-  value: number; // rate * orderQty
+  freeQty?: number;
+  unit?: string;
+  discountPercent?: number;
+  discountAmount?: number;
+  value: number; // rate * orderQty (or after discount if applied)
   stockOnHand: number;
   taxPercent: number;
   taxAmount: number; // value * (taxPercent / 100)
@@ -148,6 +162,18 @@ export interface PurchaseOrderSummaryTotals {
   totalTax: number;
   totalAddOn: number;
   totalValue: number;
+  // Extended retail breakdown
+  totalItems?: number;
+  freeQty?: number;
+  itemDiscount?: number;
+  freightCharges?: number;
+  otherCharges?: number;
+  taxableAmount?: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+  roundOff?: number;
+  netOrderValue?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

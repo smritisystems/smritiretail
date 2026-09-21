@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.33.6
+* Version    : 3.34.0
 * Created    : 2026-07-11
-* Modified   : 2026-09-20
+* Modified   : 2026-09-21
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -439,14 +439,20 @@ class PurchaseService:
         order.items = item_rows          # attach items for response serialisation
         return order
 
-    async def list_purchase_orders(self, pending_only: bool = False) -> list[PurchaseOrder]:
+    async def list_purchase_orders(
+        self,
+        pending_only: bool = False,
+        supplier_id: Optional[str] = None,
+    ) -> list[PurchaseOrder]:
         stmt = select(PurchaseOrder).where(
             PurchaseOrder.company_id == self.tenant.company_id,
             PurchaseOrder.is_deleted == False,
         )
+        if supplier_id:
+            stmt = stmt.where(PurchaseOrder.supplier_id == supplier_id)
         if pending_only:
             stmt = stmt.where(
-                ~PurchaseOrder.status.in_(["RECEIVED", "COMPLETED", "CANCELLED", "Received", "Completed", "Cancelled"])
+                ~PurchaseOrder.status.in_(["RECEIVED", "COMPLETED", "CANCELLED", "Received", "Completed", "Cancelled", "DRAFT", "Draft"])
             )
         if self.tenant.branch_id:
             stmt = stmt.where(self._branch_filter(PurchaseOrder.branch_id))
