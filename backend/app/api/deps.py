@@ -69,7 +69,7 @@ async def get_current_user(
 ) -> User:
     """
     Decode the Bearer JWT and return the authenticated User object.
-    Supports Authorization header, query parameter (?token=...), or cookies.
+    Supports Authorization header and validated secure session cookies.
 
     Raises 401 if:
     - Token is missing, expired, or tampered.
@@ -88,9 +88,6 @@ async def get_current_user(
         token = (
             request.headers.get("x-auth-token")
             or request.headers.get("x-access-token")
-            or request.query_params.get("token")
-            or request.query_params.get("auth_token")
-            or request.query_params.get("access_token")
             or request.cookies.get("access_token")
             or request.cookies.get("smriti_jwt_token")
             or request.cookies.get("token")

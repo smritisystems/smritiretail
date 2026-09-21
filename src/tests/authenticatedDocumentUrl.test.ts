@@ -67,7 +67,7 @@ describe("Authenticated Document URL & Cookie Protection Suite (SMRITI-AUTH-001 
     };
   });
 
-  it("appends token, company_code, and branch_id to document endpoints", () => {
+  it("keeps document endpoints free from embedded token and tenant query params", () => {
     mockStorage["smriti_jwt_token"] = "test-jwt-token-xyz";
     mockStorage["smriti_company_code"] = "COMP-001";
     mockStorage["smriti_branch_id"] = "BR-MAIN-001";
@@ -75,20 +75,20 @@ describe("Authenticated Document URL & Cookie Protection Suite (SMRITI-AUTH-001 
     const urlStr = getAuthenticatedDocumentUrl("/api/v1/sales/invoices/inv-001/print");
     const parsed = new URL(urlStr);
 
-    expect(parsed.searchParams.get("token")).toBe("test-jwt-token-xyz");
-    expect(parsed.searchParams.get("company_code")).toBe("COMP-001");
-    expect(parsed.searchParams.get("branch_id")).toBe("BR-MAIN-001");
+    expect(parsed.searchParams.get("token")).toBeNull();
+    expect(parsed.searchParams.get("company_code")).toBeNull();
+    expect(parsed.searchParams.get("branch_id")).toBeNull();
     expect(parsed.pathname).toBe("/api/v1/sales/invoices/inv-001/print");
   });
 
-  it("handles paths without /api/v1 prefix gracefully", () => {
+  it("handles paths without /api/v1 prefix gracefully without URL token leakage", () => {
     mockStorage["smriti_jwt_token"] = "test-token-456";
 
     const urlStr = getAuthenticatedDocumentUrl("/sales/invoices/inv-002/preview");
     const parsed = new URL(urlStr);
 
     expect(parsed.pathname).toBe("/api/v1/sales/invoices/inv-002/preview");
-    expect(parsed.searchParams.get("token")).toBe("test-token-456");
+    expect(parsed.searchParams.get("token")).toBeNull();
   });
 
   it("syncs access_token and smriti_jwt_token into document.cookie", () => {

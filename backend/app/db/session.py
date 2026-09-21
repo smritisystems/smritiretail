@@ -112,10 +112,16 @@ def _verify_database_is_registered(db_clean: str) -> bool:
         return True
 
     parsed_url = urlparse(settings.DATABASE_URL)
-    user = os.getenv("POSTGRES_USER") or parsed_url.username or "postgres"
-    password = os.getenv("POSTGRES_PASSWORD") or parsed_url.password or "postgres"
+    user = os.getenv("POSTGRES_USER") or parsed_url.username
+    password = os.getenv("POSTGRES_PASSWORD") or parsed_url.password
     db_host = os.getenv("POSTGRES_HOST") or parsed_url.hostname or "localhost"
     db_port = int(os.getenv("POSTGRES_PORT") or parsed_url.port or 5432)
+
+    if not user or not password:
+        raise ValueError(
+            "POSTGRES_USER and POSTGRES_PASSWORD must be configured explicitly for the current environment."
+        )
+
     ctrl_url = f"postgresql://{user}:{password}@{db_host}:{db_port}/smritisys"
 
     import concurrent.futures
@@ -165,10 +171,15 @@ def get_company_async_engine(database_name: str, host: str = "localhost", port: 
             raise ValueError(f"Database '{database_name}' is not registered or not in READY status in Control Plane.")
 
     parsed_url = urlparse(settings.DATABASE_URL)
-    user = parsed_url.username or "postgres"
-    password = parsed_url.password or "postgres"
+    user = parsed_url.username
+    password = parsed_url.password
     db_host = parsed_url.hostname or host or "localhost"
     db_port = parsed_url.port or port or 5432
+
+    if not user or not password:
+        raise ValueError(
+            "DATABASE_URL must include explicit database credentials for company routing in this environment."
+        )
 
     # Authoritative postgresql+asyncpg driver string
     company_db_url = f"postgresql+asyncpg://{user}:{password}@{db_host}:{db_port}/{db_clean}"
