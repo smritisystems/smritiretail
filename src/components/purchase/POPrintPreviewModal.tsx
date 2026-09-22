@@ -26,6 +26,7 @@
 import React, { useState, useEffect } from "react";
 import { FootwearPurchaseOrderA4, FootwearPurchaseOrderData, FootwearPurchaseOrderItem } from "../../print_engine/templates/FootwearPurchaseOrderA4";
 import { StandardInvoiceA4 } from "../../print_engine/templates/StandardInvoiceA4";
+import { SizePivotMatrixA4 } from "../../print_engine/templates/SizePivotMatrixA4";
 import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivotRow } from "./types.ts";
 
 export interface POPrintPreviewModalProps {
@@ -48,9 +49,16 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   vendor,
 }) => {
   // Modal Customizer Controls State (Euro & Footwear Defaults)
-  const [template, setTemplate] = useState<"footwear" | "standard">("footwear");
+  const [template, setTemplate] = useState<"footwear" | "standard" | "jobwork" | "pivot">(
+    activeTab === "pivot" ? "pivot" : "footwear"
+  );
   const [sizingScale, setSizingScale] = useState<"EURO" | "UK" | "US">("EURO");
-  const [currency, setCurrency] = useState<"EUR" | "INR" | "USD">("EUR");
+  const [currency, setCurrency] = useState<"EUR" | "INR" | "USD">(() => {
+    const headerCurrency = (header.currency || "").toUpperCase();
+    if (headerCurrency.includes("EUR")) return "EUR";
+    if (headerCurrency.includes("USD")) return "USD";
+    return "INR";
+  });
   const [showPhotos, setShowPhotos] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
@@ -107,6 +115,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
           taricCode: "64035910",
           hsnCode: "6403",
           color: r.color || "Standard Noir / Tan",
+          size: "EU 40-45",
           colorHex: "#334155",
           finish: "Polished Finish",
           upperMaterial: "Genuine Calf Leather / Microfiber",
@@ -123,7 +132,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
           cartons: cartons,
           pairs: totalPairs,
           ratePerPair: +rate.toFixed(2),
-          taxRatePercent: 0.0,
+          taxRatePercent: Number(r.gstPercent ?? header.commonTaxPercent ?? 5),
           lineTotal: lineTotal,
         };
       });
@@ -131,7 +140,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   } else {
     // Generation tab - Standard rows
     const validLines = lineItems.filter(
-      (l) => (l.stockNo && l.stockNo.trim().length > 0) || (l.product && l.product.trim().length > 0)
+      (l) => (l.stockNo && l.stockNo.trim().length > 0) || (l.barcode && l.barcode.trim().length > 0) || (l.product && l.product.trim().length > 0)
     );
 
     if (validLines.length > 0) {
@@ -142,12 +151,13 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
         const lineTotal = +(rate * totalPairs).toFixed(2);
 
         return {
-          articleCode: l.stockNo || `FW-ART-${200 + idx}`,
-          modelName: l.product || "Commercial Shoe Line",
+          articleCode: l.stockNo || l.barcode || `FW-ART-${200 + idx}`,
+          modelName: l.product || l.barcode || "Commercial Shoe Line",
           category: l.brand || "Footwear Division",
           taricCode: "64035910",
           hsnCode: "6403",
           color: l.shade || "Classic Nero",
+          size: l.size || "EU 40-45",
           colorHex: "#1e293b",
           finish: "Standard Matt Finish",
           upperMaterial: "Full Grain Leather / Mesh",
@@ -164,12 +174,16 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
           cartons: cartons,
           pairs: totalPairs,
           ratePerPair: +rate.toFixed(2),
-          taxRatePercent: 0.0,
+          taxRatePercent: Number(l.taxPercent ?? header.commonTaxPercent ?? 5),
           lineTotal: lineTotal,
         };
       });
     }
   }
+
+  const mappedNetTotal = mappedFootwearItems.reduce((sum, item) => sum + item.lineTotal, 0);
+  const mappedTotalPairs = mappedFootwearItems.reduce((sum, item) => sum + item.pairs, 0);
+  const mappedTotalCartons = mappedFootwearItems.reduce((sum, item) => sum + item.cartons, 0);
 
   // Construct Footwear PO Data payload
   const footwearData: FootwearPurchaseOrderData = {
@@ -196,12 +210,30 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     sizingScale: sizingScale,
     showPhotos: showPhotos,
     items: mappedFootwearItems,
+    totalCartons: mappedTotalCartons,
+    totalPairs: mappedTotalPairs,
+    netOrderValue: mappedNetTotal,
+    netOrderValueInWords: `${currencySymbol} ${mappedNetTotal.toFixed(2)} (calculated from live PO lines)`,
     secondaryCurrencyTotal:
       currency === "EUR" ? "Domestic Valuation (@ ₹ 88.20 / EUR)" : undefined,
   };
 
   // Standard PO Data fallback for StandardInvoiceA4 component
   const standardInvoiceData = {
+    documentType: template === "jobwork" ? "job-work-order" as const : "purchase-order" as const,
+    supplierName: header.supplierName || vendor?.name || "Selected Supplier",
+    supplierAddress: vendor?.address || "Registered Supplier Premises",
+    supplierGst: vendor?.gstin || vendor?.gst_number || "—",
+    supplierPhone: vendor?.mobile || vendor?.phone || "",
+    deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
+    deliveryDate: header.deliveryDate || "",
+    paymentTerms: header.paymentTerms || "30 Days",
+    supplierReference: header.supplierReference || "",
+    purchaser: header.buyer || "",
+    department: header.department || "General Purchase",
+    specialInstructions: header.specialInstructions || "",
+    isInterstate: Boolean(vendor?.state && vendor.state.trim().toLowerCase() !== "maharashtra"),
+    currencySymbol,
     invoiceNo: `${header.prefix || "PO"}-${header.orderNumber || "1"}`,
     date: header.orderDate || new Date().toISOString().split("T")[0],
     dueDate: header.deliveryDate || "",
@@ -223,8 +255,10 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     },
     items: mappedFootwearItems.map((it, idx) => ({
       sNo: idx + 1,
+      code: it.articleCode,
+      name: `${it.articleCode} - ${it.modelName} | Color: ${it.color} | Size: ${it.size || "EU 40-45"}`,
       barcode: it.articleCode,
-      description: `${it.modelName} (EU 40-45 Euro Scale)`,
+      description: `${it.articleCode} - ${it.modelName} | Color: ${it.color} | Size: ${it.size || "EU 40-45"}`,
       hsnCode: it.hsnCode || "6403",
       qty: it.pairs,
       uom: "PRS",
@@ -232,17 +266,17 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
       unitPrice: it.ratePerPair,
       discount: 0,
       taxableAmount: it.lineTotal,
-      gstPercent: it.taxRatePercent || 5,
-      cgstPercent: (it.taxRatePercent || 5) / 2,
-      cgstAmount: (it.lineTotal * ((it.taxRatePercent || 5) / 200)),
-      sgstPercent: (it.taxRatePercent || 5) / 2,
-      sgstAmount: (it.lineTotal * ((it.taxRatePercent || 5) / 200)),
-      total: it.lineTotal * (1 + (it.taxRatePercent || 5) / 100),
+      gstRate: it.taxRatePercent,
+      cgstPercent: it.taxRatePercent / 2,
+      cgstAmount: (it.lineTotal * (it.taxRatePercent / 200)),
+      sgstPercent: it.taxRatePercent / 2,
+      sgstAmount: (it.lineTotal * (it.taxRatePercent / 200)),
+      total: it.lineTotal * (1 + it.taxRatePercent / 100),
     })),
-    subtotal: 7260,
-    taxTotal: 363,
-    total: 7623,
-    amountInWords: "Seven Thousand Six Hundred Twenty Three Only",
+    subtotal: mappedFootwearItems.reduce((sum, item) => sum + item.lineTotal, 0),
+    taxTotal: mappedFootwearItems.reduce((sum, item) => sum + item.lineTotal * (item.taxRatePercent / 100), 0),
+    total: mappedFootwearItems.reduce((sum, item) => sum + item.lineTotal * (1 + item.taxRatePercent / 100), 0),
+    amountInWords: "",
     terms: "1. Goods delivered per SATRA norms.\n2. Payment terms 30 days net from GRN date.",
   };
 
@@ -261,7 +295,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
             <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-100 flex items-center gap-2">
               <span>Purchase Order Print Preview</span>
               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] px-2 py-0.5 rounded font-mono font-bold">
-                EURO SCALE (EU 40-45) [DEFAULT]
+                {currency === "INR" ? "INDIAN RUPEE (₹)" : currency === "USD" ? "US DOLLAR ($)" : "EURO (€)"}
               </span>
             </h2>
             <p className="text-[10px] text-indigo-300 font-mono">
@@ -283,6 +317,8 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
             >
               <option value="footwear" className="bg-slate-900 text-white">Footwear PO (Euro Scale & Matrix)</option>
               <option value="standard" className="bg-slate-900 text-white">Standard Enterprise PO (A4)</option>
+              <option value="jobwork" className="bg-slate-900 text-white">Job Work Order (A4)</option>
+              <option value="pivot" className="bg-slate-900 text-white">Size Pivot Matrix (A4)</option>
             </select>
           </div>
 
@@ -312,8 +348,8 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
                   onChange={(e) => setCurrency(e.target.value as any)}
                   className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer"
                 >
-                  <option value="EUR" className="bg-slate-900 text-white">Euro (€ - EUR) [Default]</option>
-                  <option value="INR" className="bg-slate-900 text-white">Indian Rupee (₹ - INR)</option>
+                  <option value="EUR" className="bg-slate-900 text-white">Euro (€ - EUR)</option>
+                  <option value="INR" className="bg-slate-900 text-white">Indian Rupee (₹ - INR) [Default]</option>
                   <option value="USD" className="bg-slate-900 text-white">US Dollar ($ - USD)</option>
                 </select>
               </div>
@@ -387,6 +423,13 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
         >
           {template === "footwear" ? (
             <FootwearPurchaseOrderA4 data={footwearData} />
+          ) : template === "pivot" ? (
+            <SizePivotMatrixA4
+              header={header}
+              rows={sizePivotRows}
+              currencySymbol={currencySymbol}
+              vendorName={vendor?.name}
+            />
           ) : (
             <div className="bg-white p-8 rounded-lg shadow-xl w-[210mm] min-h-[297mm]">
               <StandardInvoiceA4 data={standardInvoiceData as any} />

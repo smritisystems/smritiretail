@@ -32,6 +32,7 @@ export interface FootwearPurchaseOrderItem {
   taricCode?: string;
   hsnCode?: string;
   color: string;
+  size?: string;
   colorHex?: string;
   finish?: string;
   upperMaterial: string;
