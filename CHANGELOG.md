@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.43.5
+  * Version    : 6.44.0
   * Created    : 2026-07-11
   * Modified   : 2026-09-20
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -38,6 +38,14 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Transactional Statutory Invoicing:** Concurrency-hardened sequence allocation (`TT2026-2027/{seq}` via `SELECT ... FOR UPDATE`), GST tax calculation (IGST vs CGST/SGST), and atomic ledger writes.
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
+
+### [6.44.0] - 2026-09-22
+
+#### Procurement GRN Compliance & Vendor360 Intelligence
+- **feat(grn):** wire `ThreeWayMatchingModal` into GRN Step 3 Commercials.
+- **feat(grn):** link `RMAManagementModal` from the Damaged column for CGST Rule 37A compliance.
+- **feat(vendor360):** add Radar Chart and Price Trend tabs to Supplier Scorecard.
+- **feat(grn):** add a 5% default over-receiving tolerance policy with a non-blocking GRN warning.
 
 ### [6.43.6] - 2026-09-20
 
