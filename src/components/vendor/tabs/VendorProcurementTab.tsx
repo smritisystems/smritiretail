@@ -13,10 +13,12 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { FileText, Package, ArrowUpRight, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileText, Package, Printer } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 import { withCapability } from "../../../types/architecture";
+import { POPrintPreviewModal } from "../../purchase/POPrintPreviewModal";
+import type { PurchaseOrderHeader, PurchaseOrderLineItem } from "../../purchase/types";
 
 interface VendorProcurementTabProps {
   vendor: VendorDetail;
@@ -25,6 +27,76 @@ interface VendorProcurementTabProps {
 const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [reprintOrder, setReprintOrder] = useState<any | null>(null);
+  const [reprintLoadingId, setReprintLoadingId] = useState<string | null>(null);
+
+  const openReprint = async (order: any) => {
+    setReprintLoadingId(order.id);
+    try {
+      const fullOrder = await apiFetchV1(`/purchase/orders/${encodeURIComponent(order.id)}`);
+      setReprintOrder({ ...order, ...fullOrder });
+    } catch {
+      setReprintOrder(order);
+    } finally {
+      setReprintLoadingId(null);
+    }
+  };
+
+  const buildHeader = (order: any): PurchaseOrderHeader => {
+    const orderNo = String(order.order_no || order.id || "PO");
+    const separator = orderNo.lastIndexOf("-");
+    return {
+      documentType: "Purchase Order",
+      prefix: separator > 0 ? orderNo.slice(0, separator) : "PO",
+      orderNumber: separator > 0 ? orderNo.slice(separator + 1) : orderNo,
+      orderDate: order.created_at ? new Date(order.created_at).toISOString().slice(0, 10) : "",
+      supplierId: vendor.id,
+      supplierName: vendor.legalName,
+      billTo: "",
+      deliveryDate: order.delivery_date || "",
+      leadTimeDays: 0,
+      deliveryLocation: order.delivery_location || "Main Store (MAIN)",
+      commonTaxPercent: Number(order.items?.[0]?.gst_rate || 0),
+      paymentTerms: order.payment_terms || "30 Days",
+      freightCharges: order.freight_charges || "",
+      specialInstructions: order.notes || "",
+      supplierReference: order.supplier_reference || "",
+      buyer: order.created_by || "",
+      department: "General Purchase",
+    };
+  };
+
+  const buildLines = (order: any): PurchaseOrderLineItem[] =>
+    (order.items || []).map((item: any, index: number) => {
+      const quantity = Number(item.quantity || 0);
+      const rate = Number(item.cost_price || 0);
+      const taxPercent = Number(item.gst_rate || 0);
+      const value = Number(item.line_total || quantity * rate);
+      return {
+        id: String(item.id || `${order.id}-line-${index}`),
+        sNo: index + 1,
+        stockNo: item.code || item.product_id || "",
+        barcode: item.code || "",
+        product: item.name || item.code || "Item",
+        brand: "",
+        style: "",
+        shade: "",
+        size: "",
+        fibre: "",
+        colourBase: "",
+        styling: "",
+        rate,
+        orderQty: quantity,
+        unit: "EA",
+        value,
+        stockOnHand: 0,
+        taxPercent,
+        taxAmount: Number(item.tax_amount || value * taxPercent / 100),
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: value + Number(item.tax_amount || value * taxPercent / 100),
+      };
+    });
 
   useEffect(() => {
     // Attempt fetch of POs filtered by supplier ID
@@ -78,6 +150,7 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
                 <th className="p-3">Status</th>
                 <th className="p-3 text-right">Items</th>
                 <th className="p-3 text-right">Grand Total</th>
+                <th className="p-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
@@ -97,11 +170,44 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
                   <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
                     ₹{Number(po.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
+                  <td className="p-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => openReprint(po)}
+                      disabled={reprintLoadingId === po.id}
+                      title="Reprint purchase order"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-[11px] font-bold disabled:opacity-50"
+                    >
+                      <Printer size={13} />
+                      <span>{reprintLoadingId === po.id ? "Loading..." : "Reprint PO"}</span>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {reprintOrder && (
+        <POPrintPreviewModal
+          isOpen={true}
+          onClose={() => setReprintOrder(null)}
+          header={buildHeader(reprintOrder)}
+          lineItems={buildLines(reprintOrder)}
+          sizePivotRows={[]}
+          activeTab="generation"
+          vendor={{
+            id: vendor.id,
+            name: vendor.legalName,
+            code: vendor.code,
+            address: vendor.addresses?.[0]?.addressLine1,
+            gstin: vendor.gstin,
+            phone: vendor.contacts?.[0]?.phone,
+            state: vendor.state,
+          }}
+          reprintMode
+        />
       )}
     </div>
   );
