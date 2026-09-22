@@ -73,6 +73,9 @@ export interface PoPendingInwardMetrics {
   pending_quantity: number;
   pending_value: number;
   original_value: number;
+  over_receiving_allowed_qty: number;
+  is_over_receiving: boolean;
+  over_receiving_warning?: string;
   is_eligible: boolean;
   ineligibility_reason?: string;
   raw_order: PurchaseOrderLike;
@@ -113,7 +116,8 @@ const INWARD_BLOCKED_STATUSES = new Set([
  */
 export function calculatePoPendingInward(
   order: PurchaseOrderLike,
-  receipts: ReceiptLike[] = []
+  receipts: ReceiptLike[] = [],
+  overReceivingTolerancePct: number = 5
 ): PoPendingInwardMetrics {
   const orderId = order.id;
   const orderNo = order.order_no || order.order_number || order.id;
@@ -155,14 +159,26 @@ export function calculatePoPendingInward(
   let pendingQtyTotal = 0;
   let pendingValueTotal = 0;
   let pendingItemsCount = 0;
+  let overReceivingDetected = false;
+  let overReceivingWarning: string | undefined;
+  let overReceivingAllowedQty = 0;
 
   items.forEach((item) => {
     const qtyOrdered = Math.max(0, Number(item.quantity || 0));
+    const toleranceQty = Math.floor(qtyOrdered * (overReceivingTolerancePct / 100));
+    const maxAllowedQty = qtyOrdered + toleranceQty;
     const rate = Math.max(0, Number(item.cost_price ?? item.unit_price ?? 0));
     orderedQtyTotal += qtyOrdered;
+    overReceivingAllowedQty += toleranceQty;
 
     const key = (item.code || item.product_id || item.item_id || "").trim().toLowerCase();
     const previouslyReceived = key ? priorInwardMap.get(key) || 0 : 0;
+
+    if (previouslyReceived > maxAllowedQty && !overReceivingDetected) {
+      const excessQty = previouslyReceived - maxAllowedQty;
+      overReceivingDetected = true;
+      overReceivingWarning = `Over-receiving detected: ${excessQty} units exceed PO qty + ${overReceivingTolerancePct}% tolerance on ${item.code || item.product_id || item.item_id || "line"}`;
+    }
 
     const linePendingQty = Math.max(0, qtyOrdered - previouslyReceived);
     if (linePendingQty > 0) {
@@ -186,6 +202,9 @@ export function calculatePoPendingInward(
       pending_quantity: 0,
       pending_value: 0,
       original_value: originalValue,
+      over_receiving_allowed_qty: 0,
+      is_over_receiving: false,
+      over_receiving_warning: undefined,
       is_eligible: false,
       ineligibility_reason: "PO has zero line items in database.",
       raw_order: order,
@@ -213,10 +232,23 @@ export function calculatePoPendingInward(
     pending_quantity: pendingQtyTotal,
     pending_value: Math.round(pendingValueTotal * 100) / 100,
     original_value: originalValue,
+    over_receiving_allowed_qty: overReceivingAllowedQty,
+    is_over_receiving: overReceivingDetected,
+    over_receiving_warning: overReceivingWarning,
     is_eligible: isEligible,
     ineligibility_reason: ineligibilityReason,
     raw_order: order,
   };
+}
+
+export function getOverReceivingWarning(
+  receivedQty: number,
+  poQty: number,
+  tolerancePct: number = 5
+): string | null {
+  const max = poQty + Math.floor(poQty * (tolerancePct / 100));
+  if (receivedQty <= max) return null;
+  return `Received ${receivedQty} exceeds PO qty ${poQty} + ${tolerancePct}% tolerance (max ${max}). Supervisor authorization required.`;
 }
 
 /**
