@@ -57,6 +57,7 @@ import { GrnPrintModal, GrnPrintReceiptData } from "./GrnPrintModal.tsx";
 import { AddProductToGrnModal, SelectedGrnProduct } from "./AddProductToGrnModal.tsx";
 import { GrnCameraScannerModal } from "./GrnCameraScannerModal.tsx";
 import { GrnCsvImportModal, ParsedGrnCsvRow } from "./GrnCsvImportModal.tsx";
+import { ThreeWayMatchingModal } from "./ThreeWayMatchingModal.tsx";
 import {
   InwardCostItem,
   InwardCostTypeOption,
@@ -255,6 +256,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
   // Debit Note Modal State for PPV claims
   const [isDebitNoteOpen, setIsDebitNoteOpen] = useState(false);
+  const [showThreeWayMatch, setShowThreeWayMatch] = useState(false);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
 
   // Purchase Bill State
@@ -2035,6 +2037,18 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           </div>
         </div>
 
+        {/* ThreeWayMatchingModal trigger */}
+        {activeStep === "COMMERCIALS" && grnLines.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowThreeWayMatch(true)}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+          >
+            <span>⚖</span>
+            <span>3-Way Match Verification</span>
+          </button>
+        )}
+
         {/* Commercial KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
           <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 p-3">
@@ -2882,6 +2896,34 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           onNotification?.("Debit Note Claim Issued", "Rate variance debit note recorded for supplier.", "success");
           setIsDebitNoteOpen(false);
         }}
+      />
+
+      <ThreeWayMatchingModal
+        isOpen={showThreeWayMatch}
+        onClose={() => setShowThreeWayMatch(false)}
+        context={{
+          po_no: selectedOrder?.order_no || selectedOrder?.order_number || referencePo || selectedOrderId || "DIRECT",
+          po_date: (selectedOrder as PurchaseOrderOption & { created_at?: string })?.created_at || grnDate,
+          grn_no: grnNumber,
+          grn_date: grnDate,
+          vendor_invoice_no: invoiceNumber,
+          vendor_invoice_date: invoiceDate,
+          vendor_name: supplierName,
+          vendor_gstin: "",
+          items: grnLines.map((line) => ({
+            id: line.rowId,
+            item_code: line.code,
+            item_name: line.name,
+            po_qty: line.quantity_ordered,
+            po_rate: line.cost_price,
+            grn_accepted_qty: Math.max(0, line.quantity_received - line.quantity_damaged),
+            grn_damaged_qty: line.quantity_damaged,
+            invoice_qty: line.quantity_received,
+            invoice_rate: line.invoice_rate,
+            gst_rate: line.gst_rate,
+          })),
+        }}
+        onNotification={onNotification}
       />
 
       {/* Top Application Bar */}
