@@ -789,7 +789,7 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                     <p className="m-0">This is a computer-generated {isPurchaseOrder ? "purchase order" : "tax invoice"} and does not require a physical signature.</p>
                     <p className="m-0 font-bold text-slate-700 tracking-wider">SUBJECT TO NAGPUR JURISDICTION.</p>
                     <p className="m-0 text-[8.5px] text-slate-500 font-mono tracking-tight mt-0.5">
-                      <strong className="text-slate-800">Powered by SMRITI Retail OS</strong> • Enterprise Commerce Suite • smritibooks.com
+                      <strong className="text-slate-800">SMRITISYS</strong> • SMRITI Retail OS • Enterprise Commerce Suite • smritibooks.com
                     </p>
                   </div>
 

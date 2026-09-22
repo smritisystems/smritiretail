@@ -98,7 +98,10 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = ({ header, ro
         </div>
         <div className="flex justify-between gap-4 text-slate-500">
           <span>This purchase order is not a tax invoice. Goods are subject to inspection and acceptance.</span>
-          <span className="font-semibold text-indigo-900">Subject to Nagpur Jurisdiction | smritibooks.com</span>
+        </div>
+        <div className="text-center border-t border-slate-200 pt-1.5 mt-1 font-mono">
+          <div className="font-bold text-indigo-900">SUBJECT TO NAGPUR JURISDICTION</div>
+          <div className="text-slate-600 mt-0.5">SMRITISYS | SMRITI Retail OS | Enterprise Commerce Suite | smritibooks.com</div>
         </div>
       </footer>
     </div>
