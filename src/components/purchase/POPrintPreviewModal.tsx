@@ -37,6 +37,7 @@ export interface POPrintPreviewModalProps {
   sizePivotRows: PurchaseOrderSizePivotRow[];
   activeTab: string;
   vendor?: { id: string; name: string; code?: string; address?: string; gstin?: string; gst_number?: string; mobile?: string; phone?: string; state?: string } | null;
+  reprintMode?: boolean;
 }
 
 export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
@@ -47,6 +48,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   sizePivotRows,
   activeTab,
   vendor,
+  reprintMode = false,
 }) => {
   // Modal Customizer Controls State (Euro & Footwear Defaults)
   const [template, setTemplate] = useState<"footwear" | "standard" | "jobwork" | "pivot">(
@@ -298,6 +300,11 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-100 flex items-center gap-2">
               <span>Purchase Order Print Preview</span>
+              {reprintMode && (
+                <span className="bg-amber-400/20 text-amber-200 border border-amber-300/40 text-[9px] px-2 py-0.5 rounded font-mono font-bold">
+                  REPRINT • ORIGINAL UNCHANGED
+                </span>
+              )}
               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] px-2 py-0.5 rounded font-mono font-bold">
                 {currency === "INR" ? "INDIAN RUPEE (₹)" : currency === "USD" ? "US DOLLAR ($)" : "EURO (€)"}
               </span>
