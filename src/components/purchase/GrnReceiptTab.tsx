@@ -85,6 +85,7 @@ import {
 import {
   filterEligibleOrders,
   calculatePoPendingInward,
+  getOverReceivingWarning,
   type PoPendingInwardMetrics,
 } from "./grnPoEligibility.ts";
 
@@ -170,6 +171,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [referencePo, setReferencePo] = useState("");
+  const [overReceivingWarning, setOverReceivingWarning] = useState<string | null>(null);
 
   // Authoritative Single Workflow State Machine
   const [activeStep, setActiveStep] = useState<GrnWorkflowStepId>("PO_DETAILS");
@@ -1629,6 +1631,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   // STEP 2 — RECEIVE & VERIFY
   const renderReceiveVerifyStep = () => (
     <div className="space-y-4" data-testid="workspace-receive-verify">
+      {overReceivingWarning && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          ⚠ {overReceivingWarning}
+        </div>
+      )}
       {/* Inward Items Table Card */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden space-y-0">
         <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
@@ -1752,7 +1759,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                             type="number"
                             min="0"
                             value={row.quantity_received}
-                            onChange={(e) => updateLine(row.rowId, "quantity_received", parseFloat(e.target.value) || 0)}
+                            onChange={(e) => {
+                              const newQty = parseFloat(e.target.value) || 0;
+                              setOverReceivingWarning(getOverReceivingWarning(newQty, row.quantity_ordered));
+                              updateLine(row.rowId, "quantity_received", newQty);
+                            }}
                             className="w-16 text-right bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 font-mono"
                           />
                         </td>
