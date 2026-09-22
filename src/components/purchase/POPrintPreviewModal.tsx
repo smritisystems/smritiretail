@@ -214,6 +214,10 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     totalPairs: mappedTotalPairs,
     netOrderValue: mappedNetTotal,
     netOrderValueInWords: `${currencySymbol} ${mappedNetTotal.toFixed(2)} (calculated from live PO lines)`,
+    paymentTerms: header.paymentTerms || "30 Days",
+    purchaser: header.buyer || "—",
+    supplierReference: header.supplierReference || "—",
+    documentStatus: "DRAFT",
     secondaryCurrencyTotal:
       currency === "EUR" ? "Domestic Valuation (@ ₹ 88.20 / EUR)" : undefined,
   };
