@@ -58,6 +58,7 @@ import { AddProductToGrnModal, SelectedGrnProduct } from "./AddProductToGrnModal
 import { GrnCameraScannerModal } from "./GrnCameraScannerModal.tsx";
 import { GrnCsvImportModal, ParsedGrnCsvRow } from "./GrnCsvImportModal.tsx";
 import { ThreeWayMatchingModal } from "./ThreeWayMatchingModal.tsx";
+import { RMAManagementModal } from "./RMAManagementModal.tsx";
 import {
   InwardCostItem,
   InwardCostTypeOption,
@@ -257,6 +258,14 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   // Debit Note Modal State for PPV claims
   const [isDebitNoteOpen, setIsDebitNoteOpen] = useState(false);
   const [showThreeWayMatch, setShowThreeWayMatch] = useState(false);
+  const [rmaTargetLine, setRmaTargetLine] = useState<{
+    rowId: string;
+    sku: string;
+    productName: string;
+    damagedQty: number;
+    supplierId: string;
+    poRef: string;
+  } | null>(null);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
 
   // Purchase Bill State
@@ -1798,14 +1807,34 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveLine(row.rowId)}
-                            className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition"
-                            title="Delete line"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            {/* RMAManagementModal trigger */}
+                            {row.quantity_damaged > 0 && (
+                              <button
+                                type="button"
+                                title="Damaged goods — create supplier RMA"
+                                onClick={() => setRmaTargetLine({
+                                  rowId: row.rowId,
+                                  sku: row.code,
+                                  productName: row.name,
+                                  damagedQty: Number(row.quantity_damaged),
+                                  supplierId,
+                                  poRef: selectedOrderId || referencePo || grnNumber,
+                                })}
+                                className="p-1.5 rounded text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
+                              >
+                                <span className="text-[11px] font-bold">RMA</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveLine(row.rowId)}
+                              className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition"
+                              title="Delete line"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2923,6 +2952,12 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             gst_rate: line.gst_rate,
           })),
         }}
+        onNotification={onNotification}
+      />
+
+      <RMAManagementModal
+        isOpen={rmaTargetLine !== null}
+        onClose={() => setRmaTargetLine(null)}
         onNotification={onNotification}
       />
 
