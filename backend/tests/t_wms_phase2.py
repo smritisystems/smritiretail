@@ -134,7 +134,6 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
     unique_suffix = uuid.uuid4().hex[:8]
     prod_id = f"prod-test-{unique_suffix}"
     prod_code = f"TEST-PROD-{unique_suffix.upper()}"
-    inv_id = f"inv-test-{unique_suffix}"
     inv_no = f"INV-TEST-{unique_suffix.upper()}"
 
     batch_early = f"BATCH-EARLY-{unique_suffix[:4].upper()}"
@@ -144,6 +143,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         sales_service = SalesService(session, tenant)
         wms_service = InventoryWmsService(session, tenant)
+        created_invoice_id = None
 
         try:
             # 1. Create a dedicated isolated test product
@@ -188,12 +188,12 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
 
             # 3. Create Sales Invoice for 25 units (FEFO should take all 20 from batch_early + 5 from batch_late)
             inv_in = SalesInvoiceCreate(
-                id=inv_id,
                 invoice_no=inv_no,
                 date=date.today(),
                 customer_id="CUST-WALKIN",
                 warehouse_id="wh-central-001",
                 payment_mode="CASH",
+                status="Created",
                 items=[
                     SalesInvoiceItemCreate(
                         product_id=prod.id,
@@ -207,7 +207,8 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
             )
 
             invoice = await sales_service.create_sales_invoice(inv_in)
-            assert invoice.status == "Draft" or invoice.status == "Created" or invoice.id == inv_id
+            created_invoice_id = invoice.id
+            assert invoice.status == "Draft" or invoice.status == "Created"
 
             # 4. Verify batch stock deduction
             res_early = await session.execute(
@@ -237,8 +238,8 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
             assert cancelled.status == "Cancelled"
 
         finally:
-            await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": inv_id})
-            await session.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": inv_id})
+            await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": created_invoice_id})
+            await session.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": created_invoice_id})
             await session.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
@@ -327,13 +328,13 @@ async def test_retailer_credit_limit_enforcement():
             await session.commit()
 
             # 4. Attempt to create an invoice of ₹5,000 (8000 + 5000 = 13000 > 10000 limit) -> Should raise HTTPException
-            inv_id = f"inv-blocked-{unique_suffix}"
             inv_in = SalesInvoiceCreate(
-                id=inv_id,
                 invoice_no=f"INV-BLK-{unique_suffix.upper()}",
                 date=date.today(),
                 customer_id=cust_id,
                 warehouse_id="wh-central-001",
+                payment_mode="CREDIT",
+                status="Created",
                 items=[
                     SalesInvoiceItemCreate(
                         product_id=prod.id,
@@ -352,6 +353,8 @@ async def test_retailer_credit_limit_enforcement():
             assert "SMRITI-CREDIT-001" in exc_info.value.detail
 
         finally:
+            await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = :cid)"), {"cid": cust_id})
+            await session.execute(text("DELETE FROM sales_invoices WHERE customer_id = :cid"), {"cid": cust_id})
             await session.execute(text("DELETE FROM customers WHERE id = :cid"), {"cid": cust_id})
             await session.execute(text("DELETE FROM customer_groups WHERE id = :gid"), {"gid": group_id})
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
