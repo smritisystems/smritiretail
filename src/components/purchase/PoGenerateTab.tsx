@@ -54,10 +54,24 @@ interface PurchaseOrderGenerationTabProps {
 
 const DEFAULT_SIZES = ["36", "37", "38", "39", "40", "41", "42", "43", "44"];
 const UNITS_LIST = ["Pair", "Pcs", "Box", "Set", "Mtr", "Kg", "Dzn"];
+const LEAD_TIME_OPTIONS = [3, 7, 10, 15, 30];
 
 export const PURCHASER_FIELD_LABEL = "Purchaser";
 export const PO_PRIMARY_SUBMIT_LABEL = "Submit PO";
 export const formatLeadTimeLabel = (days: number) => `${days} ${days === 1 ? "day" : "days"}`;
+
+const addDaysToDate = (dateValue: string, days: number) => {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split("T")[0];
+};
+
+const calculateExactLeadTime = (orderDate: string, deliveryDate: string) => {
+  const order = new Date(`${orderDate}T00:00:00`).getTime();
+  const delivery = new Date(`${deliveryDate}T00:00:00`).getTime();
+  if (!Number.isFinite(order) || !Number.isFinite(delivery)) return 7;
+  return Math.max(0, Math.round((delivery - order) / 86400000));
+};
 
 export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   products: initialProducts = [],
@@ -1294,7 +1308,14 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   <input
                     type="date"
                     value={header.orderDate}
-                    onChange={(e) => setHeader({ ...header, orderDate: e.target.value })}
+                    onChange={(e) => {
+                      const orderDate = e.target.value;
+                      setHeader((current) => ({
+                        ...current,
+                        orderDate,
+                        deliveryDate: addDaysToDate(orderDate, current.leadTimeDays || 7),
+                      }));
+                    }}
                     className="w-full border border-slate-300 rounded-lg px-2.5 h-7 bg-white font-mono outline-none focus:border-blue-600"
                   />
                 </div>
@@ -1368,23 +1389,38 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     <input
                       type="date"
                       value={header.deliveryDate}
-                      onChange={(e) => setHeader({ ...header, deliveryDate: e.target.value })}
+                      onChange={(e) => {
+                        const deliveryDate = e.target.value;
+                        setHeader((current) => ({
+                          ...current,
+                          deliveryDate,
+                          leadTimeDays: calculateExactLeadTime(current.orderDate, deliveryDate),
+                        }));
+                      }}
                       className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-mono outline-none focus:border-blue-600 text-xs"
                     />
                   </div>
                   <div className="col-span-5">
                     <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Lead Time</label>
-                    <select
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      list="po-lead-time-options"
                       value={header.leadTimeDays}
-                      onChange={(e) => setHeader({ ...header, leadTimeDays: parseInt(e.target.value, 10) || 7 })}
+                      onChange={(e) => {
+                        const leadTimeDays = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        setHeader((current) => ({
+                          ...current,
+                          leadTimeDays,
+                          deliveryDate: addDaysToDate(current.orderDate, leadTimeDays),
+                        }));
+                      }}
                       className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-semibold outline-none focus:border-blue-600 text-xs"
-                    >
-                      <option value={3}>{formatLeadTimeLabel(3)}</option>
-                      <option value={7}>{formatLeadTimeLabel(7)}</option>
-                      <option value={10}>{formatLeadTimeLabel(10)}</option>
-                      <option value={15}>{formatLeadTimeLabel(15)}</option>
-                      <option value={30}>{formatLeadTimeLabel(30)}</option>
-                    </select>
+                    />
+                    <datalist id="po-lead-time-options">
+                      {LEAD_TIME_OPTIONS.map((days) => <option key={days} value={days}>{formatLeadTimeLabel(days)}</option>)}
+                    </datalist>
                   </div>
                 </div>
 
