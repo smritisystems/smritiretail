@@ -404,20 +404,19 @@ export const FootwearPurchaseOrderA4: React.FC<{ data: FootwearPurchaseOrderData
         </div>
       </div>
 
-      {/* 5. DUAL SIGNATURES */}
-      <div className="grid grid-cols-2 gap-8 pt-3 border-t border-slate-300 text-[9.5px]">
-        <div>
-          <div className="text-slate-500 mb-6">Vendor Acceptance & Dispatch Confirmation:</div>
-          <div className="border-t border-dashed border-slate-400 pt-1 font-bold text-slate-800">
-            Factory Production Head / Authorized Seal
+      {/* 5. PO AUTHORIZATION & SUPPLIER ACKNOWLEDGEMENT */}
+      <div className="grid grid-cols-4 gap-2 pt-3 border-t border-slate-300 text-[8.5px]">
+        {[
+          ["Prepared By", data.purchaser || "Procurement User"],
+          ["Verified By", "Name / Signature"],
+          ["Approved By", "Name / Signature"],
+          ["Supplier Acknowledgement", "Name / Signature / Stamp"],
+        ].map(([label, value]) => (
+          <div key={label} className="border border-slate-300 rounded p-2 min-h-[42px] flex flex-col justify-between">
+            <span className="font-bold uppercase text-slate-700">{label}</span>
+            <span className="border-t border-dashed border-slate-400 pt-1 text-slate-500">{value}</span>
           </div>
-        </div>
-        <div className="text-right">
-          <div className="text-slate-500 mb-6">For <strong>TATTLY FOOTWEAR & LEATHER APPAREL PVT LTD</strong>:</div>
-          <div className="border-t border-dashed border-slate-400 pt-1 font-bold text-indigo-950">
-            Category Sourcing Head — Footwear Division
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* 6. MANDATORY SMRITI RETAIL OS BRANDING FOOTER */}
