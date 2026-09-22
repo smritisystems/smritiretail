@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import and_, cast, Integer, func
 from sqlalchemy.orm import selectinload
+from ..models.crm import CustomerRelationship
 from ..models.crm import Customer, CustomerGroup
 from .base import BaseRepository
 from ..api.deps import TenantContext
@@ -33,6 +34,9 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.delivery_locations),
                 selectinload(Customer.billing_locations),
                 selectinload(Customer.external_identities),
+                selectinload(Customer.policy),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
+                selectinload(Customer.loyalty_members),
             )
             .filter(Customer.id == id, Customer.is_deleted == False)
         )
@@ -68,6 +72,9 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.delivery_locations),
                 selectinload(Customer.billing_locations),
                 selectinload(Customer.external_identities),
+                selectinload(Customer.policy),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
+                selectinload(Customer.loyalty_members),
             )
             .filter(Customer.is_deleted == False)
         )
@@ -94,6 +101,9 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.delivery_locations),
                 selectinload(Customer.billing_locations),
                 selectinload(Customer.external_identities),
+                selectinload(Customer.policy),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
+                selectinload(Customer.loyalty_members),
             )
             .filter(Customer.is_deleted == False)
         )

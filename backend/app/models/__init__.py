@@ -12,7 +12,10 @@ License      : Proprietary Commercial Software
 """
 
 # SMRITI database models init
-from .crm import CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerCreditLedgerEntry
+from .crm import (
+    CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation,
+    CustomerCreditLedgerEntry, CustomerPolicy, CustomerRelationship,
+)
 from .inventory import Product, StockMovement, WarehouseLocation
 from .sales import SalesInvoice, SalesInvoiceItem, SalesOrderReservation
 from .customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation

@@ -83,7 +83,7 @@ async def provision_postgresql_database(
 
                 def run_alembic(target_revision: str) -> None:
                     completed = subprocess.run(
-                        [sys.executable, "-m", "alembic", "-x", f"db={db_name}", "upgrade", target_revision],
+                        [sys.executable, "-m", "alembic", "-x", "target=tenant", "-x", f"db={db_name}", "upgrade", target_revision],
                         cwd=backend_dir,
                         env=env,
                         capture_output=True,

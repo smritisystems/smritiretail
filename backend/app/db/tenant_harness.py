@@ -160,7 +160,7 @@ class EphemeralTenantHarness:
                 ).scalar()
 
         def run_upgrade(target_revision: str) -> None:
-            cmd = [sys.executable, "-m", "alembic", "-x", f"db={db_name}", "upgrade", target_revision]
+            cmd = [sys.executable, "-m", "alembic", "-x", "target=tenant", "-x", f"db={db_name}", "upgrade", target_revision]
             result = subprocess.run(cmd, cwd=backend_dir, capture_output=True, text=True)
             if result.returncode != 0:
                 raise RuntimeError(
@@ -184,7 +184,7 @@ class EphemeralTenantHarness:
         import sys
         import subprocess
         backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        cmd = [sys.executable, "-m", "alembic", "-x", f"db={db_name}", "downgrade", revision]
+        cmd = [sys.executable, "-m", "alembic", "-x", "target=tenant", "-x", f"db={db_name}", "downgrade", revision]
         res = subprocess.run(cmd, cwd=backend_dir, capture_output=True, text=True)
         if res.returncode != 0:
             raise RuntimeError(f"Alembic downgrade failed on {db_name}:\nSTDOUT: {res.stdout}\nSTDERR: {res.stderr}")

@@ -11,6 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -19,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
 from ...models.auth import UserRole
-from ...models.crm import Customer
+from ...models.crm import Customer, CustomerRelationship
 from ...models.customer_po import CustomerPurchaseOrder
 from ...models.sales import SalesInvoice, SalesOrder, SalesReturn
 from ...schemas.crm import (
@@ -30,6 +31,7 @@ from ...schemas.crm import (
     CustomerBillingLocationCreate, CustomerBillingLocationUpdate, CustomerBillingLocationResponse,
     CustomerExternalIdentityCreate, CustomerExternalIdentityResponse,
     CustomerDuplicateCheckRequest, CustomerDuplicateCheckResponse,
+    CustomerRelationshipCreate, CustomerRelationshipResponse,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
 from ...services.crm import CrmService
@@ -306,6 +308,69 @@ async def delete_customer(
     service = CrmService(db, tenant_ctx)
     await service.delete_customer(customer_id)
     return {"status": "success", "message": f"Customer '{customer_id}' deleted."}
+
+
+@router.get("/customers/{customer_id}/dependants", response_model=List[CustomerRelationshipResponse])
+async def list_customer_dependants(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    stmt = select(CustomerRelationship).where(
+        CustomerRelationship.parent_customer_id == customer_id,
+        CustomerRelationship.company_id == tenant_ctx.company_id,
+        CustomerRelationship.branch_id == tenant_ctx.branch_id,
+        CustomerRelationship.is_deleted == False,
+    )
+    from sqlalchemy.orm import selectinload
+    stmt = stmt.options(selectinload(CustomerRelationship.dependant_customer))
+    rows = (await db.execute(stmt)).scalars().all()
+    return [CustomerRelationshipResponse(
+        id=row.id,
+        parent_customer_id=row.parent_customer_id,
+        dependant_customer_id=row.dependant_customer_id,
+        dependant_customer_name=row.dependant_customer.name if row.dependant_customer else None,
+        relation=row.relation,
+        apply_same_mailing=row.apply_same_mailing,
+        notes=row.notes,
+    ) for row in rows]
+
+
+@router.post("/customers/{customer_id}/dependants", response_model=CustomerRelationshipResponse, status_code=201)
+async def create_customer_dependant(
+    customer_id: str,
+    relationship_in: CustomerRelationshipCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    customer_stmt = select(Customer).where(
+        Customer.id.in_([customer_id, relationship_in.dependant_customer_id]),
+        Customer.company_id == tenant_ctx.company_id,
+        Customer.branch_id == tenant_ctx.branch_id,
+        Customer.is_deleted == False,
+    )
+    customers = (await db.execute(customer_stmt)).scalars().all()
+    if len(customers) != 2 or customer_id == relationship_in.dependant_customer_id:
+        raise HTTPException(status_code=400, detail="Both customers must exist in the same tenant and be distinct")
+    row = CustomerRelationship(
+        id=f"cr-{uuid.uuid4().hex[:12]}",
+        parent_customer_id=customer_id,
+        **relationship_in.model_dump(),
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row, attribute_names=["dependant_customer"])
+    return CustomerRelationshipResponse(
+        id=row.id,
+        parent_customer_id=row.parent_customer_id,
+        dependant_customer_id=row.dependant_customer_id,
+        dependant_customer_name=row.dependant_customer.name if row.dependant_customer else None,
+        relation=row.relation,
+        apply_same_mailing=row.apply_same_mailing,
+        notes=row.notes,
+    )
 
 
 @router.post(
