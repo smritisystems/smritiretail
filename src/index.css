@@ -378,6 +378,9 @@
   .print-only-container {
     display: none !important;
   }
+	.print-preview-visible .print-only-container {
+		display: block !important;
+	}
 }
 
 /* SMRITI Industrial Logic Design System Tokens — Theme-Aware */

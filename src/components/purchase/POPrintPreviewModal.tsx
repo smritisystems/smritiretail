@@ -282,7 +282,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex flex-col items-center overflow-y-auto print:p-0 print:m-0 print:bg-white print:overflow-visible"
+      className="print-preview-visible fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex flex-col items-center overflow-y-auto print:p-0 print:m-0 print:bg-white print:overflow-visible"
       role="dialog"
       aria-modal="true"
       aria-label="Purchase Order Print Preview"
