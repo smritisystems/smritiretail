@@ -448,8 +448,11 @@ export const FootwearPurchaseOrderA4: React.FC<{ data: FootwearPurchaseOrderData
             <span className="mx-2">•</span>
             <span>Due: {data.deliveryDate || "—"}</span>
           </div>
-          <div className="text-indigo-900 font-bold">Subject to Nagpur Jurisdiction • smritibooks.com</div>
         </div>
+      </div>
+      <div className="text-center border-t border-slate-200 pt-1.5 mt-1 text-[8px] font-mono">
+        <div className="font-bold text-indigo-900">SUBJECT TO NAGPUR JURISDICTION</div>
+        <div className="text-slate-600 mt-0.5">SMRITISYS | SMRITI Retail OS | Enterprise Commerce Suite | smritibooks.com</div>
       </div>
     </div>
   );
