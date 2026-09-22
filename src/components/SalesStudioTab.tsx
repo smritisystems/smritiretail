@@ -3137,21 +3137,30 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                       <thead>
                         <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                          <th className={`px-5 ${densityPadding}`}>Identity Info</th>
-                          <th className={`px-5 ${densityPadding}`}>Mobile No</th>
-                          <th className={`px-5 ${densityPadding}`}>Region / Group</th>
-                          <th className={`px-5 ${densityPadding}`}>Tags</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Tier Limit</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Outstanding Balance</th>
+                          <th className={`px-5 ${densityPadding}`}>Customer Code</th>
+                          <th className={`px-5 ${densityPadding}`}>Customer Name</th>
+                          <th className={`px-5 ${densityPadding}`}>Price Group</th>
+                          <th className={`px-5 ${densityPadding}`}>Phone</th>
+                          <th className={`px-5 ${densityPadding}`}>City</th>
+                          <th className={`px-5 ${densityPadding}`}>Classification</th>
+                          <th className={`px-5 ${densityPadding}`}>Loyalty Tier</th>
+                          <th className={`px-5 ${densityPadding} text-right`}>Credit Limit</th>
                           <th className={`px-5 ${densityPadding} text-center`}>Status</th>
+                          <th className={`px-5 ${densityPadding} text-right`}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredCustomers.map(c => {
                           const group = customerGroups.find(g => g.id === c.customerGroupId);
+                          const city = c.city || c.billingCity || c.shippingCity || c.mailingAddresses?.[0]?.city || "Bangalore";
+                          const customerCode = c.code || c.id?.slice(-6).toUpperCase() || "CUST";
+                          const priceGroup = c.priceGroup || c.priceGroupCode || group?.name || "Standard Retail";
+                          const classification = c.religion || c.customerType || c.ageGroup || "Retail";
+                          const loyaltyTier = c.loyaltyTier || "Standard";
+                          const loyaltyPoints = c.loyaltyPointsBalance ?? 0;
                           return (
                             <tr
                               key={c.id}
@@ -3170,6 +3179,9 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 selectedCustomer?.id === c.id ? "bg-theme-surface-3" : ""
                               }`}
                             >
+                              <td className={`px-5 ${densityPadding} font-mono font-bold text-theme-body`}>
+                                {customerCode}
+                              </td>
                               <td className={`px-5 ${densityPadding} font-display font-semibold text-theme-body`}>
                                 <div className="flex items-center space-x-2">
                                   <div className="w-6 h-6 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-900 flex items-center justify-center text-[10px] font-bold">
@@ -3177,46 +3189,47 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   </div>
                                   <div>
                                     <div className="font-bold">{c.name}</div>
-                                    <div className="text-[10px] text-theme-muted font-mono">{c.gstNumber || "No GSTIN"}</div>
+                                    <div className="text-[10px] text-theme-muted font-mono">{c.gstNumber || c.gstin || "No GSTIN"}</div>
                                   </div>
                                 </div>
                               </td>
+                              <td className={`px-5 ${densityPadding} text-[11px] text-theme-muted`}>
+                                {priceGroup}
+                              </td>
                               <td className={`px-5 ${densityPadding} font-mono text-theme-muted`}>
-                                {c.mobile}
+                                {c.mobile || c.phone || "—"}
                               </td>
-                              <td className={`px-5 ${densityPadding}`}>
-                                <span className="bg-theme-surface-3 px-2 py-0.5 rounded text-[10px] text-theme-muted border border-theme-divider">
-                                  {group?.name || "Standard Retail Group"}
-                                </span>
+                              <td className={`px-5 ${densityPadding} text-theme-body`}>
+                                {city}
                               </td>
-                              <td className={`px-5 ${densityPadding}`}>
-                                <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                  {(c.tags || []).length === 0 ? (
-                                    <span className="text-[10px] text-theme-muted italic font-mono">-</span>
-                                  ) : (
-                                    (c.tags || []).map(t => (
-                                      <span
-                                        key={t}
-                                        className="inline-block px-1.5 py-0.5 rounded bg-indigo-950/60 text-indigo-400 border border-indigo-900/40 text-[9px] font-bold font-mono whitespace-nowrap"
-                                      >
-                                        {t}
-                                      </span>
-                                    ))
-                                  )}
-                                </div>
+                              <td className={`px-5 ${densityPadding} text-theme-muted`}>
+                                {classification}
                               </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
-                                ₹{(c.creditLimit || 50000).toLocaleString("en-IN")}
+                              <td className={`px-5 ${densityPadding} font-semibold text-theme-body`}>
+                                {loyaltyTier} ({loyaltyPoints} pts)
                               </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono font-semibold ${c.outstanding > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                                ₹{c.outstanding.toLocaleString("en-IN")}
+                              <td className={`px-5 ${densityPadding} text-right font-mono font-bold text-theme-body`}>
+                                ₹{(c.creditLimit ?? 0).toLocaleString("en-IN")}
                               </td>
                               <td className={`px-5 ${densityPadding} text-center`}>
-                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                                  c.status === "Active" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" : "bg-theme-surface-3 text-theme-muted border border-theme-divider"
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                  c.status === "Active" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" : c.status === "Inactive" ? "bg-amber-950/80 text-amber-400 border border-amber-800" : "bg-rose-950/80 text-rose-400 border border-rose-800"
                                 }`}>
-                                  {c.status}
+                                  {c.status || "Active"}
                                 </span>
+                              </td>
+                              <td className={`px-5 ${densityPadding} text-right`} onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCustomer(c);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#00355f] text-white hover:bg-[#0f4c81] rounded-lg font-bold text-[11px] transition"
+                                  title={`Edit Customer ${customerCode}`}
+                                >
+                                  <Edit3 size={12} />
+                                  <span>Edit</span>
+                                </button>
                               </td>
                             </tr>
                           );

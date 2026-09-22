@@ -66,7 +66,7 @@ def validate_company_database_name(database_name: str) -> bool:
     if not database_name:
         return False
     if database_name == "smritisys":
-        return True  # Control Plane DB
+        return False  # Control Plane DB is never a company target
     if not database_name.startswith("smriti"):
         return False
     code = database_name[6:]
@@ -199,10 +199,10 @@ class CompanyDatabaseResolver:
             target_db, db_status, host, port, version = registry_row
 
             # 5. Validate Database Naming Standard & READY Status
-            if not validate_company_database_name(target_db):
+            if target_db == "smritisys" or not validate_company_database_name(target_db):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid database name '{target_db}' resolved. Violates official smriti<3-character-alphanumeric> standard."
+                    detail=f"Invalid company database name '{target_db}' resolved. The SMRITI control-plane database cannot be a company target."
                 )
 
             if db_status != "READY":

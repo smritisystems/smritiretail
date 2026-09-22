@@ -45,6 +45,8 @@ class LoyaltyMember(BaseEntity):
     __tablename__ = "loyalty_members"
 
     customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    loyalty_program_id = Column(String(50), nullable=True, index=True)
+    loyalty_program_code = Column(String(50), nullable=True, index=True)
     loyalty_tier_id = Column(String(50), ForeignKey("loyalty_tiers.id", ondelete="SET NULL"), nullable=True)
     card_number = Column(String(50), unique=True, index=True)
     total_points_earned = Column(Numeric(15, 2), default=0.00)
@@ -52,6 +54,7 @@ class LoyaltyMember(BaseEntity):
     current_points_balance = Column(Numeric(15, 2), default=0.00)
     total_lifetime_spend = Column(Numeric(15, 2), default=0.00)
     joined_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    customer = relationship("Customer", primaryjoin="Customer.id == foreign(LoyaltyMember.customer_id)", viewonly=True)
 
 class LoyaltyPointsLedger(BaseEntity):
     """Authoritative Transactional Ledger for Loyalty Points (Earn, Redeem, Reversal, Expiry)."""

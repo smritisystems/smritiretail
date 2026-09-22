@@ -70,6 +70,32 @@ class Customer(BaseEntity):
     name = Column(String(255), nullable=False)
     mobile = Column(String(20), index=True)
     email = Column(String(255))
+    religion = Column(String(50), nullable=True)
+    ethnicity = Column(String(50), nullable=True)
+    age_group = Column(String(30), nullable=True)
+    profession = Column(String(100), nullable=True)
+    customer_type = Column(String(30), nullable=True)
+    profile_notes = Column(Text, nullable=True)
+    company_code = Column(String(50), nullable=True)
+    environment = Column(String(30), nullable=True)
+    flat_file_format = Column(String(50), nullable=True)
+    delimiter = Column(String(10), nullable=True)
+    buying_factor = Column(Numeric(10, 4), nullable=True)
+    selling_factor = Column(Numeric(10, 4), nullable=True)
+    is_dependant = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    gender = Column(String(20), nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    is_married = Column(Boolean, nullable=True)
+    wedding_anniversary = Column(Date, nullable=True)
+    lst_number = Column(String(50), nullable=True)
+    lst_date = Column(Date, nullable=True)
+    cst_number = Column(String(50), nullable=True)
+    cst_date = Column(Date, nullable=True)
+    pan_number = Column(String(10), nullable=True)
+    is_pre_sale_form_applicable = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    pre_sale_form_name = Column(String(100), nullable=True)
+    is_post_sale_form_applicable = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    post_sale_form_name = Column(String(100), nullable=True)
     # Legacy primary GSTIN (backward-compat). Authoritative multi-state GSTINs
     # are in CustomerGSTRegistration. Kept in sync with the primary registration
     # row by the service layer.
@@ -107,6 +133,31 @@ class Customer(BaseEntity):
         "CustomerExternalIdentity",
         back_populates="customer",
         cascade="all, delete-orphan",
+    )
+    policy = relationship(
+        "CustomerPolicy",
+        back_populates="customer",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    parent_relationships = relationship(
+        "CustomerRelationship",
+        foreign_keys="CustomerRelationship.dependant_customer_id",
+        back_populates="dependant_customer",
+        cascade="all, delete-orphan",
+    )
+    dependant_relationships = relationship(
+        "CustomerRelationship",
+        foreign_keys="CustomerRelationship.parent_customer_id",
+        back_populates="parent_customer",
+        cascade="all, delete-orphan",
+    )
+    loyalty_members = relationship(
+        "LoyaltyMember",
+        primaryjoin="Customer.id == foreign(LoyaltyMember.customer_id)",
+        viewonly=True,
+        lazy="selectin",
     )
 
     @property
@@ -376,6 +427,49 @@ class CustomerExternalIdentity(BaseEntity):
 
     # Relationships
     customer = relationship("Customer", back_populates="external_identities")
+
+
+class CustomerPolicy(BaseEntity):
+    """Customer-specific overrides for commercial and logistics policy."""
+    __tablename__ = "customer_policies"
+
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    payment_category = Column(String(30), nullable=True)
+    payment_term = Column(String(100), nullable=True)
+    transport_mode = Column(String(30), nullable=True)
+    transport_code = Column(String(50), nullable=True)
+    transit_days = Column(Integer, nullable=True)
+    bank_code = Column(String(50), nullable=True)
+    bank_location = Column(String(150), nullable=True)
+    retail_factor = Column(Numeric(10, 4), nullable=True)
+    dealer_factor = Column(Numeric(10, 4), nullable=True)
+    destination_tax_type = Column(String(50), nullable=True)
+    allow_cash_bill = Column(Boolean, nullable=True)
+    allow_dc_gen = Column(Boolean, nullable=True)
+    allow_credit_invoice = Column(Boolean, nullable=True)
+    allow_misc_issue = Column(Boolean, nullable=True)
+    allow_misc_receipts = Column(Boolean, nullable=True)
+
+    customer = relationship("Customer", back_populates="policy")
+
+
+class CustomerRelationship(BaseEntity):
+    """Tenant-scoped parent/dependant relationship between customers."""
+    __tablename__ = "customer_relationships"
+    __table_args__ = (
+        UniqueConstraint("parent_customer_id", "dependant_customer_id", name="uq_customer_relationship_pair"),
+        Index("ix_customer_relationship_parent", "parent_customer_id"),
+        Index("ix_customer_relationship_dependant", "dependant_customer_id"),
+    )
+
+    parent_customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False)
+    dependant_customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False)
+    relation = Column(String(50), nullable=False)
+    apply_same_mailing = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    notes = Column(Text, nullable=True)
+
+    parent_customer = relationship("Customer", foreign_keys=[parent_customer_id], back_populates="dependant_relationships")
+    dependant_customer = relationship("Customer", foreign_keys=[dependant_customer_id], back_populates="parent_relationships")
 
 
 class CrmLead(BaseEntity):

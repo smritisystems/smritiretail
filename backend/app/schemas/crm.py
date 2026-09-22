@@ -682,6 +682,47 @@ class CustomerBase(BaseModel):
     is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
     pricing_basis: Optional[str] = Field("MRP", alias="pricingBasis")
     allow_promotions_on_rate: Optional[bool] = Field(False, alias="allowPromotionsOnRate")
+    religion: Optional[str] = None
+    ethnicity: Optional[str] = None
+    age_group: Optional[str] = Field(None, alias="ageGroup")
+    profession: Optional[str] = None
+    customer_type: Optional[str] = Field(None, alias="customerType")
+    profile_notes: Optional[str] = Field(None, alias="profileNotes")
+    company_code: Optional[str] = Field(None, alias="companyCode")
+    environment: Optional[str] = None
+    flat_file_format: Optional[str] = Field(None, alias="flatFileFormat")
+    delimiter: Optional[str] = None
+    buying_factor: Optional[Decimal] = Field(None, alias="buyingFactor")
+    selling_factor: Optional[Decimal] = Field(None, alias="sellingFactor")
+    is_dependant: Optional[bool] = Field(False, alias="isDependant")
+    gender: Optional[str] = None
+    date_of_birth: Optional[date] = Field(None, alias="dateOfBirth")
+    is_married: Optional[bool] = Field(None, alias="isMarried")
+    wedding_anniversary: Optional[date] = Field(None, alias="weddingAnniversary")
+    lst_number: Optional[str] = Field(None, alias="lstNumber")
+    lst_date: Optional[date] = Field(None, alias="lstDate")
+    cst_number: Optional[str] = Field(None, alias="cstNumber")
+    cst_date: Optional[date] = Field(None, alias="cstDate")
+    pan_number: Optional[str] = Field(None, alias="panNumber")
+    is_pre_sale_form_applicable: Optional[bool] = Field(False, alias="isPreSaleFormApplicable")
+    pre_sale_form_name: Optional[str] = Field(None, alias="preSaleFormName")
+    is_post_sale_form_applicable: Optional[bool] = Field(False, alias="isPostSaleFormApplicable")
+    post_sale_form_name: Optional[str] = Field(None, alias="postSaleFormName")
+    payment_category: Optional[str] = Field(None, alias="paymentCategory")
+    payment_term: Optional[str] = Field(None, alias="paymentTerm")
+    transport_mode: Optional[str] = Field(None, alias="transportMode")
+    transport_code: Optional[str] = Field(None, alias="transportCode")
+    transit_days: Optional[int] = Field(None, alias="transitDays")
+    bank_code: Optional[str] = Field(None, alias="bankCode")
+    bank_location: Optional[str] = Field(None, alias="bankLocation")
+    retail_factor: Optional[Decimal] = Field(None, alias="retailFactor")
+    dealer_factor: Optional[Decimal] = Field(None, alias="dealerFactor")
+    destination_tax_type: Optional[str] = Field(None, alias="destinationTaxType")
+    allow_cash_bill: Optional[bool] = Field(None, alias="allowCashBill")
+    allow_dc_gen: Optional[bool] = Field(None, alias="allowDcGen")
+    allow_credit_invoice: Optional[bool] = Field(None, alias="allowCreditInvoice")
+    allow_misc_issue: Optional[bool] = Field(None, alias="allowMiscIssue")
+    allow_misc_receipts: Optional[bool] = Field(None, alias="allowMiscReceipts")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -724,6 +765,47 @@ class CustomerUpdate(BaseModel):
     is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
     pricing_basis: Optional[str] = Field(None, alias="pricingBasis")
     allow_promotions_on_rate: Optional[bool] = Field(None, alias="allowPromotionsOnRate")
+    religion: Optional[str] = None
+    ethnicity: Optional[str] = None
+    age_group: Optional[str] = Field(None, alias="ageGroup")
+    profession: Optional[str] = None
+    customer_type: Optional[str] = Field(None, alias="customerType")
+    profile_notes: Optional[str] = Field(None, alias="profileNotes")
+    company_code: Optional[str] = Field(None, alias="companyCode")
+    environment: Optional[str] = None
+    flat_file_format: Optional[str] = Field(None, alias="flatFileFormat")
+    delimiter: Optional[str] = None
+    buying_factor: Optional[Decimal] = Field(None, alias="buyingFactor")
+    selling_factor: Optional[Decimal] = Field(None, alias="sellingFactor")
+    is_dependant: Optional[bool] = Field(None, alias="isDependant")
+    gender: Optional[str] = None
+    date_of_birth: Optional[date] = Field(None, alias="dateOfBirth")
+    is_married: Optional[bool] = Field(None, alias="isMarried")
+    wedding_anniversary: Optional[date] = Field(None, alias="weddingAnniversary")
+    lst_number: Optional[str] = Field(None, alias="lstNumber")
+    lst_date: Optional[date] = Field(None, alias="lstDate")
+    cst_number: Optional[str] = Field(None, alias="cstNumber")
+    cst_date: Optional[date] = Field(None, alias="cstDate")
+    pan_number: Optional[str] = Field(None, alias="panNumber")
+    is_pre_sale_form_applicable: Optional[bool] = Field(None, alias="isPreSaleFormApplicable")
+    pre_sale_form_name: Optional[str] = Field(None, alias="preSaleFormName")
+    is_post_sale_form_applicable: Optional[bool] = Field(None, alias="isPostSaleFormApplicable")
+    post_sale_form_name: Optional[str] = Field(None, alias="postSaleFormName")
+    payment_category: Optional[str] = Field(None, alias="paymentCategory")
+    payment_term: Optional[str] = Field(None, alias="paymentTerm")
+    transport_mode: Optional[str] = Field(None, alias="transportMode")
+    transport_code: Optional[str] = Field(None, alias="transportCode")
+    transit_days: Optional[int] = Field(None, alias="transitDays")
+    bank_code: Optional[str] = Field(None, alias="bankCode")
+    bank_location: Optional[str] = Field(None, alias="bankLocation")
+    retail_factor: Optional[Decimal] = Field(None, alias="retailFactor")
+    dealer_factor: Optional[Decimal] = Field(None, alias="dealerFactor")
+    destination_tax_type: Optional[str] = Field(None, alias="destinationTaxType")
+    allow_cash_bill: Optional[bool] = Field(None, alias="allowCashBill")
+    allow_dc_gen: Optional[bool] = Field(None, alias="allowDcGen")
+    allow_credit_invoice: Optional[bool] = Field(None, alias="allowCreditInvoice")
+    allow_misc_issue: Optional[bool] = Field(None, alias="allowMiscIssue")
+    allow_misc_receipts: Optional[bool] = Field(None, alias="allowMiscReceipts")
     outstanding: Optional[Decimal] = None
     status: Optional[str] = None
     tags: Optional[List[str]] = None
@@ -740,6 +822,23 @@ class CustomerUpdate(BaseModel):
         if not GSTIN_REGEX.match(value):
             raise ValueError(f"Invalid GSTIN format '{value}'")
         return value
+
+
+class CustomerRelationshipCreate(BaseModel):
+    dependant_customer_id: str = Field(..., alias="dependantCustomerId")
+    relation: str
+    apply_same_mailing: bool = Field(False, alias="applySameMailing")
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CustomerRelationshipResponse(CustomerRelationshipCreate):
+    id: str
+    parent_customer_id: str = Field(..., alias="parentCustomerId")
+    dependant_customer_name: Optional[str] = Field(None, alias="dependantCustomerName")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 def get_loaded_customer_group(customer: Any) -> Optional[Any]:
     """
@@ -800,6 +899,21 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         return customer
 
     grp = get_loaded_customer_group(customer)
+    policy = customer.__dict__.get("policy") if hasattr(customer, "__dict__") else None
+    loyalty_members = get_loaded_relationship(customer, "loyalty_members")
+    loyalty_member = loyalty_members[0] if loyalty_members else None
+    dependant_rows = []
+    for relationship in get_loaded_relationship(customer, "dependant_relationships"):
+        dependant = getattr(relationship, "dependant_customer", None)
+        dependant_rows.append({
+            "id": relationship.id,
+            "parent_customer_id": relationship.parent_customer_id,
+            "dependant_customer_id": relationship.dependant_customer_id,
+            "dependant_customer_name": getattr(dependant, "name", None),
+            "relation": relationship.relation,
+            "apply_same_mailing": relationship.apply_same_mailing,
+            "notes": relationship.notes,
+        })
 
     return {
         "id": customer.id,
@@ -817,6 +931,53 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "is_tax_inclusive": getattr(customer, "is_tax_inclusive", None),
         "pricing_basis": getattr(customer, "pricing_basis", "MRP") or "MRP",
         "allow_promotions_on_rate": bool(getattr(customer, "allow_promotions_on_rate", False)),
+        "religion": getattr(customer, "religion", None),
+        "ethnicity": getattr(customer, "ethnicity", None),
+        "age_group": getattr(customer, "age_group", None),
+        "profession": getattr(customer, "profession", None),
+        "customer_type": getattr(customer, "customer_type", None),
+        "profile_notes": getattr(customer, "profile_notes", None),
+        "company_code": getattr(customer, "company_code", None),
+        "environment": getattr(customer, "environment", None),
+        "flat_file_format": getattr(customer, "flat_file_format", None),
+        "delimiter": getattr(customer, "delimiter", None),
+        "buying_factor": getattr(customer, "buying_factor", None),
+        "selling_factor": getattr(customer, "selling_factor", None),
+        "is_dependant": bool(getattr(customer, "is_dependant", False)),
+        "gender": getattr(customer, "gender", None),
+        "date_of_birth": getattr(customer, "date_of_birth", None),
+        "is_married": getattr(customer, "is_married", None),
+        "wedding_anniversary": getattr(customer, "wedding_anniversary", None),
+        "lst_number": getattr(customer, "lst_number", None),
+        "lst_date": getattr(customer, "lst_date", None),
+        "cst_number": getattr(customer, "cst_number", None),
+        "cst_date": getattr(customer, "cst_date", None),
+        "pan_number": getattr(customer, "pan_number", None),
+        "is_pre_sale_form_applicable": bool(getattr(customer, "is_pre_sale_form_applicable", False)),
+        "pre_sale_form_name": getattr(customer, "pre_sale_form_name", None),
+        "is_post_sale_form_applicable": bool(getattr(customer, "is_post_sale_form_applicable", False)),
+        "post_sale_form_name": getattr(customer, "post_sale_form_name", None),
+        "payment_category": getattr(policy, "payment_category", None) if policy else None,
+        "payment_term": getattr(policy, "payment_term", None) if policy else None,
+        "transport_mode": getattr(policy, "transport_mode", None) if policy else None,
+        "transport_code": getattr(policy, "transport_code", None) if policy else None,
+        "transit_days": getattr(policy, "transit_days", None) if policy else None,
+        "bank_code": getattr(policy, "bank_code", None) if policy else None,
+        "bank_location": getattr(policy, "bank_location", None) if policy else None,
+        "retail_factor": getattr(policy, "retail_factor", None) if policy else None,
+        "dealer_factor": getattr(policy, "dealer_factor", None) if policy else None,
+        "destination_tax_type": getattr(policy, "destination_tax_type", None) if policy else None,
+        "allow_cash_bill": getattr(policy, "allow_cash_bill", None) if policy else None,
+        "allow_dc_gen": getattr(policy, "allow_dc_gen", None) if policy else None,
+        "allow_credit_invoice": getattr(policy, "allow_credit_invoice", None) if policy else None,
+        "allow_misc_issue": getattr(policy, "allow_misc_issue", None) if policy else None,
+        "allow_misc_receipts": getattr(policy, "allow_misc_receipts", None) if policy else None,
+        "dependants": dependant_rows,
+        "loyalty_pgm_id": getattr(loyalty_member, "loyalty_program_id", None) if loyalty_member else None,
+        "loyalty_pgm_code": getattr(loyalty_member, "loyalty_program_code", None) if loyalty_member else None,
+        "loyalty_tier": getattr(loyalty_member, "loyalty_tier_id", None) if loyalty_member else None,
+        "loyalty_points_balance": getattr(loyalty_member, "current_points_balance", None) if loyalty_member else None,
+        "credit_used": customer.outstanding if customer.outstanding is not None else Decimal("0.00"),
         "company_id": customer.company_id,
         "branch_id": customer.branch_id,
         "identity_code": getattr(customer, "identity_code", None),
@@ -865,6 +1026,12 @@ class CustomerResponse(CustomerBase):
     delivery_locations: List[CustomerDeliveryLocationResponse] = []
     billing_locations: List[CustomerBillingLocationResponse] = []
     external_identities: List[CustomerExternalIdentityResponse] = []
+    dependants: List[CustomerRelationshipResponse] = []
+    loyalty_pgm_id: Optional[str] = Field(None, alias="loyaltyPgmId")
+    loyalty_pgm_code: Optional[str] = Field(None, alias="loyaltyPgmCode")
+    loyalty_tier: Optional[str] = Field(None, alias="loyaltyTier")
+    loyalty_points_balance: Optional[Decimal] = Field(None, alias="loyaltyPointsBalance")
+    credit_used: Optional[Decimal] = Field(None, alias="creditUsed")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 

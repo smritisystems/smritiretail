@@ -13,6 +13,7 @@ License      : Proprietary Commercial Software
 
 import asyncio
 import os
+import re
 import sys
 from logging.config import fileConfig
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -41,8 +42,10 @@ from app.db.base import Base
 # Import all models to ensure they are registered on Base.metadata
 from app.models.crm import (
     CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation,
-    CustomerBillingLocation, CustomerExternalIdentity,
+    CustomerBillingLocation, CustomerExternalIdentity, CustomerPolicy,
+    CustomerRelationship,
 )
+from app.models.loyalty import LoyaltyMember
 from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.sales import (
     SalesInvoice, SalesInvoiceItem,
@@ -102,12 +105,31 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+
+def validate_company_database_name(database_name: str) -> bool:
+    """Allow only registered-company database naming shapes for tenant runs."""
+    if not database_name:
+        return False
+    clean_name = str(database_name).strip().lower()
+    return bool(re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name))
+
+
+TENANT_ONLY_TABLES = {
+    "customer_groups", "customers", "customer_gst_registrations", "customer_delivery_locations",
+    "customer_billing_locations", "customer_external_identities", "customer_policies",
+    "customer_relationships", "loyalty_tiers", "loyalty_rules", "loyalty_members",
+    "loyalty_points_ledgers", "customer_credit_ledger_entries",
+}
+
 def include_object(object, name, type_, reflected, compare_to):
     """
     Filter objects so that Alembic only manages the SMRITI tables,
     preventing drops on other tables.
     """
     if type_ == "table":
+        target = (context.get_x_argument(as_dictionary=True).get("target") or os.getenv("ALEMBIC_TARGET") or "").lower()
+        if target == "control" and name in TENANT_ONLY_TABLES:
+            return False
         return name in [
             "customer_groups",
             "customers",
@@ -115,6 +137,8 @@ def include_object(object, name, type_, reflected, compare_to):
             "customer_delivery_locations",
             "customer_billing_locations",
             "customer_external_identities",
+            "customer_policies",
+            "customer_relationships",
             "products",
             "stock_movements",
             "sales_invoices",
@@ -230,12 +254,12 @@ def include_object(object, name, type_, reflected, compare_to):
 
 def get_target_db_url() -> str:
     x_args = context.get_x_argument(as_dictionary=True)
+    target = (x_args.get("target") or os.getenv("ALEMBIC_TARGET") or "").strip().lower()
     if "db_url" in x_args:
-        return x_args["db_url"]
-    if "db" in x_args:
+        target_url = x_args["db_url"]
+    elif "db" in x_args:
         db_name = x_args["db"]
         from urllib.parse import urlparse
-        import os
         parsed = urlparse(settings.DATABASE_URL)
         scheme = parsed.scheme or "postgresql+asyncpg"
         user = os.getenv("POSTGRES_USER") or parsed.username
@@ -243,8 +267,24 @@ def get_target_db_url() -> str:
         host = os.getenv("POSTGRES_HOST") or parsed.hostname or "localhost"
         port = int(os.getenv("POSTGRES_PORT") or parsed.port or 5432)
         auth = f"{user}:{password}@" if (user and password) else (f"{user}@" if user else "")
-        return f"{scheme}://{auth}{host}:{port}/{db_name}"
-    return config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+        target_url = f"{scheme}://{auth}{host}:{port}/{db_name}"
+    else:
+        target_url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+
+    from urllib.parse import urlparse
+    target_database = (urlparse(target_url).path or "").lstrip("/").split("?", 1)[0].lower()
+    if target not in {"control", "tenant"}:
+        raise RuntimeError(
+            "Alembic target is required: use -x target=control -x db=smritisys "
+            "or -x target=tenant -x db=<company database>."
+        )
+    if target == "control" and target_database != "smritisys":
+        raise RuntimeError("Control-plane migrations must target database smritisys.")
+    if target == "tenant" and target_database == "smritisys":
+        raise RuntimeError("Tenant migrations must not target database smritisys.")
+    if target == "tenant" and not validate_company_database_name(target_database):
+        raise RuntimeError(f"Invalid tenant migration database: {target_database}")
+    return target_url
 
 
 

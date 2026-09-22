@@ -13,11 +13,12 @@ Classification: Internal
 """
 
 import asyncio
+import os
 from datetime import date
 from decimal import Decimal
 from sqlalchemy import select
 try:
-    from app.db.session import async_session
+    from app.db.session import get_company_sessionmaker, validate_company_database_name
     from app.models.crm import Customer, CustomerGroup
     from app.models.tenant import Company, Branch
 except ImportError:
@@ -238,7 +239,10 @@ CANONICAL_CUSTOMERS = [
 
 
 async def seed_customers_and_groups():
-    async with async_session() as db:
+    database_name = os.getenv("CUSTOMER_SEED_DATABASE", "smriti001").strip().lower()
+    if database_name == "smritisys" or not validate_company_database_name(database_name):
+        raise RuntimeError("Customer seed data must target a registered company database, never smritisys.")
+    async with get_company_sessionmaker(database_name)() as db:
         # Check target company and branch
         comp_id = "COMP-001"
         branch_id = "BR-MAIN-001"

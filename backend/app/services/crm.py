@@ -24,7 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from ..models.crm import (
     Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation,
-    CustomerBillingLocation, CustomerExternalIdentity,
+    CustomerBillingLocation, CustomerExternalIdentity, CustomerPolicy,
 )
 from .identity.engine import IdentityEngine
 from ..models.sales import SalesInvoice
@@ -244,6 +244,12 @@ class CrmService:
                 )
 
         cust_dict = customer_in.model_dump()
+        policy_fields = {
+            "payment_category", "payment_term", "transport_mode", "transport_code", "transit_days",
+            "bank_code", "bank_location", "retail_factor", "dealer_factor", "destination_tax_type",
+            "allow_cash_bill", "allow_dc_gen", "allow_credit_invoice", "allow_misc_issue", "allow_misc_receipts",
+        }
+        policy_dict = {key: cust_dict.pop(key) for key in policy_fields if key in cust_dict}
 
         # Validate customer group exists if specified
         if customer_in.customer_group_id:
@@ -294,6 +300,14 @@ class CrmService:
             branch_id=self.tenant_ctx.branch_id
         )
 
+        if any(value is not None for value in policy_dict.values()):
+            db_customer.policy = CustomerPolicy(
+                id=f"cp-{uuid.uuid4().hex[:12]}",
+                **policy_dict,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            )
+
         self.db.add(db_customer)
         try:
             await self.db.commit()
@@ -318,6 +332,12 @@ class CrmService:
         customer = res.scalars().first()
 
         data_dict = customer_in.model_dump(exclude_unset=True) if hasattr(customer_in, "model_dump") else dict(customer_in)
+        policy_fields = {
+            "payment_category", "payment_term", "transport_mode", "transport_code", "transit_days",
+            "bank_code", "bank_location", "retail_factor", "dealer_factor", "destination_tax_type",
+            "allow_cash_bill", "allow_dc_gen", "allow_credit_invoice", "allow_misc_issue", "allow_misc_receipts",
+        }
+        policy_dict = {key: data_dict.pop(key) for key in policy_fields if key in data_dict}
 
         if not customer:
             # Upsert create if not found
@@ -329,6 +349,16 @@ class CrmService:
         for k, v in data_dict.items():
             if v is not None and hasattr(customer, k):
                 setattr(customer, k, v)
+
+        if policy_dict:
+            if customer.policy is None:
+                customer.policy = CustomerPolicy(
+                    id=f"cp-{uuid.uuid4().hex[:12]}",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                )
+            for key, value in policy_dict.items():
+                setattr(customer.policy, key, value)
 
         customer.modified_at = datetime.now(timezone.utc)
         await self.db.commit()
