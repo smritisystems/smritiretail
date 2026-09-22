@@ -73,9 +73,19 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = ({ header, ro
         </tfoot>
       </table>
 
-      <footer className="mt-5 border-t border-slate-300 pt-2 text-[9px] text-slate-600 flex justify-between">
-        <span>Payment: {header.paymentTerms || "30 Days"} | Purchaser: {header.buyer || "-"}</span>
-        <span>SMRITI Retail OS | Size Pivot Matrix</span>
+      <footer className="mt-5 border-t border-slate-300 pt-2 text-[9px] text-slate-600 space-y-1">
+        <div className="flex justify-between gap-4">
+          <span className="font-semibold text-slate-800">SMRITI Retail OS | Size Pivot Matrix</span>
+          <span>PO: {header.prefix || "PO"}-{header.orderNumber || "1"} | Status: DRAFT</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span>Payment: {header.paymentTerms || "30 Days"} | Purchaser: {header.buyer || "-"}</span>
+          <span>Supplier Ref: {header.supplierReference || "-"} | Due: {header.deliveryDate || "-"}</span>
+        </div>
+        <div className="flex justify-between gap-4 text-slate-500">
+          <span>This purchase order is not a tax invoice. Goods are subject to inspection and acceptance.</span>
+          <span className="font-semibold text-indigo-900">Subject to Nagpur Jurisdiction | smritibooks.com</span>
+        </div>
       </footer>
     </div>
   );

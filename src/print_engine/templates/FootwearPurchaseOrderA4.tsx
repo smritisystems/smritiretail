@@ -85,6 +85,10 @@ export interface FootwearPurchaseOrderData {
   netOrderValue?: number;
   netOrderValueInWords?: string;
   secondaryCurrencyTotal?: string;
+  paymentTerms?: string;
+  purchaser?: string;
+  supplierReference?: string;
+  documentStatus?: string;
   qualityStandards?: string[];
   authorizedSignatoryBuyer?: string;
   authorizedSignatoryVendor?: string;
@@ -418,20 +422,34 @@ export const FootwearPurchaseOrderA4: React.FC<{ data: FootwearPurchaseOrderData
 
       {/* 6. MANDATORY SMRITI RETAIL OS BRANDING FOOTER */}
       <div className="flex justify-between items-center text-[8.5px] text-slate-500 border-t border-slate-300 pt-2 mt-4 font-mono">
-        <div className="flex items-center gap-2">
-          <span className="bg-indigo-950 text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wider">
-            SMRITI
-          </span>
-          <span className="font-extrabold text-slate-800">SMRITI Retail OS</span>
-          <span className="text-slate-400">|</span>
-          <span className="text-slate-500">Universal Enterprise Procurement Engine</span>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-950 text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wider">SMRITI</span>
+            <span className="font-extrabold text-slate-800">SMRITI Retail OS</span>
+            <span className="text-slate-400">|</span>
+            <span className="text-slate-500">Universal Enterprise Procurement Engine</span>
+          </div>
+          <div className="text-slate-500">
+            This purchase order is not a tax invoice. Goods are subject to inspection and acceptance against the PO terms.
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-slate-500">
-          <span>Audit Ref: <strong className="text-slate-700">SM-PO-EUR-2026</strong></span>
-          <span>•</span>
-          <span>smritibooks.com</span>
-          <span>•</span>
-          <span className="text-indigo-900 font-bold">Document Integrity Verified</span>
+        <div className="text-right space-y-1">
+          <div>
+            <span>PO: <strong className="text-slate-700">{data.poNumber || "—"}</strong></span>
+            <span className="mx-2">•</span>
+            <span>Status: <strong className="text-indigo-900">{data.documentStatus || "DRAFT"}</strong></span>
+          </div>
+          <div>
+            <span>Payment: {data.paymentTerms || "30 Days"}</span>
+            <span className="mx-2">•</span>
+            <span>Purchaser: {data.purchaser || "—"}</span>
+          </div>
+          <div>
+            <span>Supplier Ref: {data.supplierReference || "—"}</span>
+            <span className="mx-2">•</span>
+            <span>Due: {data.deliveryDate || "—"}</span>
+          </div>
+          <div className="text-indigo-900 font-bold">Subject to Nagpur Jurisdiction • smritibooks.com</div>
         </div>
       </div>
     </div>
