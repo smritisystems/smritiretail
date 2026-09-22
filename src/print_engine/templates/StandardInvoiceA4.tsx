@@ -768,6 +768,22 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                     </div>
                   </div>
 
+                  {isPurchaseOrder || isJobWorkOrder ? (
+                    <div className="grid grid-cols-4 gap-2 mb-2 text-[8.5px]">
+                      {[
+                        ["Prepared By", data.purchaser || "Procurement User"],
+                        ["Verified By", "Name / Signature"],
+                        ["Approved By", "Name / Signature"],
+                        ["Supplier Acknowledgement", "Name / Signature / Stamp"],
+                      ].map(([label, value]) => (
+                        <div key={label} className="border border-slate-300 rounded p-2 min-h-[42px] flex flex-col justify-between">
+                          <span className="font-bold uppercase text-slate-700">{label}</span>
+                          <span className="border-t border-dashed border-slate-400 pt-1 text-slate-500">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
                   {/* STATUTORY DECLARATION & WATERMARK */}
                   <div className="mt-2 border-t border-slate-200 pt-1.5 text-center text-[8.5px] text-slate-500 font-medium leading-tight">
                     <p className="m-0">This is a computer-generated {isPurchaseOrder ? "purchase order" : "tax invoice"} and does not require a physical signature.</p>

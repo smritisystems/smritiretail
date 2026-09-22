@@ -73,6 +73,20 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = ({ header, ro
         </tfoot>
       </table>
 
+      <div className="grid grid-cols-4 gap-2 mt-5 text-[8.5px]">
+        {[
+          ["Prepared By", header.buyer || "Procurement User"],
+          ["Verified By", "Name / Signature"],
+          ["Approved By", "Name / Signature"],
+          ["Supplier Acknowledgement", "Name / Signature / Stamp"],
+        ].map(([label, value]) => (
+          <div key={label} className="border border-slate-300 rounded p-2 min-h-[42px] flex flex-col justify-between">
+            <span className="font-bold uppercase text-slate-700">{label}</span>
+            <span className="border-t border-dashed border-slate-400 pt-1 text-slate-500">{value}</span>
+          </div>
+        ))}
+      </div>
+
       <footer className="mt-5 border-t border-slate-300 pt-2 text-[9px] text-slate-600 space-y-1">
         <div className="flex justify-between gap-4">
           <span className="font-semibold text-slate-800">SMRITI Retail OS | Size Pivot Matrix</span>
