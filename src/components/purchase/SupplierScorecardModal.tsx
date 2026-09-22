@@ -23,6 +23,21 @@ import SupplierScorecardEngine, {
   SupplierSLAStatus,
 } from "../../utils/supplierScorecardEngine.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import {
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  Tooltip,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 
 interface SupplierScorecardModalProps {
   isOpen: boolean;
@@ -87,6 +102,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
   const [dbSuppliers, setDbSuppliers] = useState<SupplierProfile[]>([]);
   const [dbOrders, setDbOrders] = useState<PurchaseOrderRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
+  const [scorecardTab, setScorecardTab] = useState<"overview" | "radar" | "price_trend">("overview");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -294,6 +310,21 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
 
             {/* Supplier Detail */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              <div className="flex gap-1 mb-4 border-b border-slate-700 pb-2">
+                {(["overview", "radar", "price_trend"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setScorecardTab(tab)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-t transition-colors ${
+                      scorecardTab === tab ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {tab === "overview" ? "Overview" : tab === "radar" ? "Radar" : "Price Trend"}
+                  </button>
+                ))}
+              </div>
+
               {/* Profile Header */}
               <div className={`rounded-2xl border p-5 ${st.bg} ${st.border}`}>
                 <div className="flex items-start justify-between flex-wrap gap-4">
@@ -386,6 +417,74 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
                   </div>
                 ))}
               </div>
+
+              {scorecardTab === "radar" && (() => {
+                const radarData = [
+                  { axis: "OTD", value: Math.min(100, selected.onTimeDeliveryPct ?? 0) },
+                  { axis: "Fill Rate", value: Math.min(100, selected.fillRatePct ?? 0) },
+                  { axis: "Quality", value: Math.max(0, 100 - (selected.qualityRejectionPct ?? 0) * 10) },
+                  {
+                    axis: "Lead Time",
+                    value: selected.avgLeadTimeDays <= (selected.contractedLeadTimeDays ?? 7)
+                      ? 100
+                      : Math.max(0, 100 - (selected.avgLeadTimeDays - (selected.contractedLeadTimeDays ?? 7)) * 10),
+                  },
+                  { axis: "Composite", value: selected.scorecard ?? 0 },
+                ];
+                return (
+                  <div className="h-64 bg-slate-950/30 rounded-xl border border-slate-800 p-3">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart data={radarData}>
+                        <PolarGrid stroke="#334155" />
+                        <PolarAngleAxis dataKey="axis" tick={{ fill: "#94a3b8", fontSize: 11 }} />
+                        <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#64748b", fontSize: 9 }} />
+                        <Radar name={selected.supplierName} dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.25} />
+                        <Tooltip
+                          contentStyle={{ background: "#1e293b", border: "none", borderRadius: 8, fontSize: 11 }}
+                          formatter={(value: number) => [value.toFixed(1), ""]}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
+
+              {scorecardTab === "price_trend" && (() => {
+                const byMonth: Record<string, { po: number[]; accepted: number[] }> = {};
+                selected.orders.forEach((order) => {
+                  const date = new Date(order.poDate || Date.now());
+                  const month = `${date.toLocaleString("default", { month: "short" })} ${date.getFullYear()}`;
+                  if (!byMonth[month]) byMonth[month] = { po: [], accepted: [] };
+                  byMonth[month].po.push(Number(order.orderedValue || 0));
+                  if (order.acceptedQty != null && order.orderedQty > 0) {
+                    byMonth[month].accepted.push(Number(order.orderedValue || 0) * Number(order.acceptedQty) / order.orderedQty);
+                  }
+                });
+                const trendData = Object.entries(byMonth).slice(-6).map(([month, values]) => ({
+                  month,
+                  "PO Value": values.po.length ? Math.round(values.po.reduce((a, b) => a + b, 0) / values.po.length) : 0,
+                  "Accepted Value": values.accepted.length ? Math.round(values.accepted.reduce((a, b) => a + b, 0) / values.accepted.length) : 0,
+                }));
+                return (
+                  <div className="h-64 bg-slate-950/30 rounded-xl border border-slate-800 p-3">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={trendData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 10 }} />
+                        <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}K`} />
+                        <Tooltip
+                          contentStyle={{ background: "#1e293b", border: "none", borderRadius: 8, fontSize: 11 }}
+                          formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, ""]}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
+                        <Line type="monotone" dataKey="PO Value" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="Accepted Value" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <p className="text-[10px] text-slate-500 mt-2 text-center">6-month PO commitment vs accepted value trend</p>
+                  </div>
+                );
+              })()}
 
               {/* PO Table */}
               <div>
