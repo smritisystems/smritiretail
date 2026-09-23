@@ -50,10 +50,6 @@ services:
       STORAGE_PROVIDER: "filesystem"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       PYTHON_CORE_HOST: "smriti-api:8000"
-    volumes:
-      - ./.git:/usr/src/app/.git
-      - ./dist:/usr/src/app/dist
-      - ./public:/usr/src/app/public
     depends_on:
       smriti-db:
         condition: service_healthy

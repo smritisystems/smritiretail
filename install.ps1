@@ -362,7 +362,7 @@ for ($i = 1; $i -le 20; $i++) {
 if ($webHealthy) {
     Write-Host "  [OK] Web frontend is live and responding (HTTP 200)." -ForegroundColor Green
 } else {
-    Write-Host "  [NOTICE] Web frontend is starting up." -ForegroundColor Gray
+    Write-Host "  [WARNING] Web frontend has not yet responded with HTTP 200. Container may still be initializing." -ForegroundColor Yellow
 }
 
 # Display Container Status Table
