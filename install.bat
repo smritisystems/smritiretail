@@ -36,8 +36,20 @@ if "%CHOICE%"=="2" (
 
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] Installation ended with error code %errorlevel%.
+    echo =====================================================================
+    echo  [ERROR] Installation failed with error code %errorlevel%.
+    echo  Please review and copy the error messages shown on screen above.
+    echo  Log file: install_error.log (if created)
+    echo =====================================================================
+    echo.
     pause
     exit /b %errorlevel%
 )
+
+echo.
+echo =====================================================================
+echo  Installation finished successfully.
+echo  Press any key to close this installer window.
+echo =====================================================================
+pause
 endlocal
