@@ -39,6 +39,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [6.44.1] - 2026-09-23
+
+#### Foundation: SMRITI Tenant Data Boundary Remediation (TDB-v2.0)
+- **Positive Ownership Model:** Introduced canonical `TABLE_OWNERSHIP` registry in `app.db.ownership` declaring all 280+ system tables as `CONTROL_PLANE`, `TENANT`, `SHARED_REFERENCE`, or `PLATFORM_TEMPLATE`. Replaced fragile negative forbidden-table lists.
+- **Fail-Closed Seed Contracts:** Added `@seed_contract(target="control"|"tenant"|"shared")` decorator in `app.db.seed_contract` to enforce database boundaries at call time. Hardened `seed_psv.py`, `seed_customers.py`, `seed_cap_master.py`, and `seed_architecture_governance.py`.
+- **Alembic Target Contract:** Implemented `@migration_target` in `backend/alembic/migration_contract.py` and dynamically derived `TENANT_ONLY_TABLES` in `alembic/env.py`.
+- **Tenant DB Context:** Introduced `TenantDBContext` type wrapper and `@require_tenant_context` decorator in `app.db.tenant_context` to guarantee tenant isolation at the type level.
+- **Control Plane Guard & Startup Hook:** Upgraded `cp_guard.py` to derive forbidden tables dynamically from `TABLE_OWNERSHIP`, verify `current_database() == 'smritisys'`, and integrated `run_startup_check()` into FastAPI `lifespan` startup in `main.py`.
+- **10-Check Static CI Guard:** Upgraded `scripts/ci_tenant_boundary_guard.py` to 10 automated static checks (10/10 PASS).
+- **Data Disposition & Remediation:** Implemented `scripts/tdb_v2_data_disposition.py` with 6-phase remediation. Successfully exported SHA-256 signed JSON backup archives (`backend/app/db/backups/tdb_v2_20260923_121922`), quarantined 720 Chart of Accounts rows, and truncated 47 ephemeral test tables (9,646 rows) in `smritisys`.
+- **Automated Verification:** 54/54 automated boundary enforcement tests passing in `backend/tests/test_tenant_data_boundary.py`.
+
 ### [6.44.0] - 2026-09-22
 
 #### Procurement GRN Compliance & Vendor360 Intelligence

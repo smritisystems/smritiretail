@@ -19,10 +19,12 @@ from decimal import Decimal
 from sqlalchemy import select
 try:
     from app.db.session import get_company_sessionmaker, validate_company_database_name
+    from app.db.seed_contract import seed_contract
     from app.models.crm import Customer, CustomerGroup
     from app.models.tenant import Company, Branch
 except ImportError:
     from backend.app.db.session import async_session
+    from backend.app.db.seed_contract import seed_contract
     from backend.app.models.crm import Customer, CustomerGroup
     from backend.app.models.tenant import Company, Branch
 
@@ -238,11 +240,12 @@ CANONICAL_CUSTOMERS = [
 ]
 
 
-async def seed_customers_and_groups():
-    database_name = os.getenv("CUSTOMER_SEED_DATABASE", "smriti001").strip().lower()
-    if database_name == "smritisys" or not validate_company_database_name(database_name):
+@seed_contract(target="tenant")
+async def seed_customers_and_groups(database_name: str = "smriti001"):
+    db_clean = database_name.strip().lower()
+    if not validate_company_database_name(db_clean):
         raise RuntimeError("Customer seed data must target a registered company database, never smritisys.")
-    async with get_company_sessionmaker(database_name)() as db:
+    async with get_company_sessionmaker(db_clean)() as db:
         # Check target company and branch
         comp_id = "COMP-001"
         branch_id = "BR-MAIN-001"
@@ -298,4 +301,5 @@ async def seed_customers_and_groups():
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_customers_and_groups())
+    target_db = os.getenv("CUSTOMER_SEED_DATABASE", "smriti001")
+    asyncio.run(seed_customers_and_groups(database_name=target_db))

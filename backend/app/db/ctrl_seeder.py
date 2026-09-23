@@ -18,6 +18,11 @@ from typing import Dict, Any, List
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+try:
+    from app.db.seed_contract import seed_contract
+except ImportError:
+    from backend.app.db.seed_contract import seed_contract
+
 from ..models.capability_template import PlatformCapability, WorkspaceTemplate, FeatureFlag
 from ..models.tenant import Company
 from ..models.governed_logic import (
@@ -1211,3 +1216,14 @@ class ControlPlaneSeeder:
             "screens_seeded": screen_count,
             "actions_seeded": action_count,
         }
+
+
+@seed_contract(target="control")
+async def seed_control_plane_database(database_name: str = "smritisys") -> Dict[str, Any]:
+    """
+    Top-level entry point to seed all Control Plane metadata into smritisys.
+    Enforces target='control' via @seed_contract.
+    """
+    from .session import async_session
+    async with async_session() as session:
+        return await ControlPlaneSeeder.seed_all(session)

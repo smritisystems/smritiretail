@@ -114,12 +114,16 @@ def validate_company_database_name(database_name: str) -> bool:
     return bool(re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name))
 
 
-TENANT_ONLY_TABLES = {
-    "customer_groups", "customers", "customer_gst_registrations", "customer_delivery_locations",
-    "customer_billing_locations", "customer_external_identities", "customer_policies",
-    "customer_relationships", "loyalty_tiers", "loyalty_rules", "loyalty_members",
-    "loyalty_points_ledgers", "customer_credit_ledger_entries",
-}
+try:
+    from app.db.ownership import TENANT_OWNED_TABLES
+    TENANT_ONLY_TABLES = TENANT_OWNED_TABLES
+except ImportError:
+    TENANT_ONLY_TABLES = {
+        "customer_groups", "customers", "customer_gst_registrations", "customer_delivery_locations",
+        "customer_billing_locations", "customer_external_identities", "customer_policies",
+        "customer_relationships", "loyalty_tiers", "loyalty_rules", "loyalty_members",
+        "loyalty_points_ledgers", "customer_credit_ledger_entries",
+    }
 
 def include_object(object, name, type_, reflected, compare_to):
     """
