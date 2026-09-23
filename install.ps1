@@ -325,6 +325,15 @@ try {
     Write-Host "  [NOTICE] Migration runner output: $_" -ForegroundColor Gray
 }
 
+# Seed baseline enterprise companies and users
+Write-Host "  Verifying and seeding baseline enterprise users..." -ForegroundColor Gray
+try {
+    $seedOutput = docker compose -f $composeFile exec -T $apiContainer python -m app.db.seed_baseline_users 2>&1
+    Write-Host "  [OK] Baseline users and enterprise companies seeded." -ForegroundColor Green
+} catch {
+    Write-Host "  [NOTICE] Baseline seeding notice: $_" -ForegroundColor Gray
+}
+
 # Probe API Health
 Write-Host "  Checking API health on http://localhost:$apiPort/health..." -ForegroundColor Gray
 $apiHealthy = $false

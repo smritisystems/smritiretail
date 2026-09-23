@@ -24,10 +24,13 @@ Founders
 """
 
 import uuid
+import logging
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
+
+logger = logging.getLogger(__name__)
 from fastapi import HTTPException
 from ..models.auth import User, RefreshTokenBlacklist, UserRole
 from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
@@ -149,34 +152,40 @@ class AuthService:
         resolved_branch_id = user.branch_id
 
         if not resolved_company_id:
-            from sqlalchemy import text as sa_text
-            raw_res = await self.db.execute(
-                sa_text(
-                    "SELECT company_id, branch_id FROM user_company_assignments "
-                    "WHERE user_id = :uid AND is_default = true "
-                    "AND is_deleted = false AND is_active = true LIMIT 1"
-                ),
-                {"uid": user.id},
-            )
-            row = raw_res.fetchone()
-            if row:
-                resolved_company_id = row[0]
-                if row[1]:
-                    resolved_branch_id = row[1]
+            try:
+                from sqlalchemy import text as sa_text
+                raw_res = await self.db.execute(
+                    sa_text(
+                        "SELECT company_id, branch_id FROM user_company_assignments "
+                        "WHERE user_id = :uid AND is_default = true "
+                        "AND is_deleted = false AND is_active = true LIMIT 1"
+                    ),
+                    {"uid": user.id},
+                )
+                row = raw_res.fetchone()
+                if row:
+                    resolved_company_id = row[0]
+                    if row[1]:
+                        resolved_branch_id = row[1]
+            except Exception as e:
+                logger.warning(f"Notice: unable to query user_company_assignments: {e}")
 
         if not resolved_branch_id and resolved_company_id:
-            default_br_res = await self.db.execute(
-                select(UserBranchAssignment).where(
-                    UserBranchAssignment.user_id == user.id,
-                    UserBranchAssignment.company_id == resolved_company_id,
-                    UserBranchAssignment.is_default == True,
-                    UserBranchAssignment.is_deleted == False,
-                    UserBranchAssignment.is_active == True,
+            try:
+                default_br_res = await self.db.execute(
+                    select(UserBranchAssignment).where(
+                        UserBranchAssignment.user_id == user.id,
+                        UserBranchAssignment.company_id == resolved_company_id,
+                        UserBranchAssignment.is_default == True,
+                        UserBranchAssignment.is_deleted == False,
+                        UserBranchAssignment.is_active == True,
+                    )
                 )
-            )
-            default_br = default_br_res.scalars().first()
-            if default_br:
-                resolved_branch_id = default_br.branch_id
+                default_br = default_br_res.scalars().first()
+                if default_br:
+                    resolved_branch_id = default_br.branch_id
+            except Exception as e:
+                logger.warning(f"Notice: unable to query user_branch_assignments: {e}")
 
         # For non-SYSADMIN users, company+branch must be resolved or login is rejected.
         # SYSADMIN users may operate without a company (global admin access).

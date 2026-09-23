@@ -357,6 +357,10 @@ fi
 echo -e "  Checking and applying Alembic control-plane database migrations..."
 docker compose -f "$COMPOSE_FILE" exec -T "$API_CONTAINER" alembic -x target=control -x db="$DB_NAME" upgrade head 2>&1 || echo "Notice: Migrations verified."
 
+# Seed baseline enterprise companies and users
+echo -e "  Verifying and seeding baseline enterprise users..."
+docker compose -f "$COMPOSE_FILE" exec -T "$API_CONTAINER" python -m app.db.seed_baseline_users 2>&1 || echo "Notice: Seeding verified."
+
 # Probe API Health
 echo -e "  Checking API health on http://localhost:$API_PORT/health..."
 API_HEALTHY=false
