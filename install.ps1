@@ -49,7 +49,7 @@ if (-not (Test-Path ".env")) {
         Write-Host "  [OK] Created .env file from .env.example template." -ForegroundColor Green
     } else {
         Write-Host "  [FAIL] .env.example template not found. Creating a default .env file..." -ForegroundColor Red
-        $envContent = "PORT=3000`r`nBACKEND_API_PORT=8000`r`nPOSTGRES_USER=postgres`r`nPOSTGRES_PASSWORD=postgres`r`nPOSTGRES_DB=smritisys`r`nDATABASE_PROVIDER=postgres"
+        $envContent = "PORT=8101`r`nBACKEND_API_PORT=1981`r`nPOSTGRES_PORT=2781`r`nPOSTGRES_USER=postgres`r`nPOSTGRES_PASSWORD=postgres`r`nPOSTGRES_DB=smritisys`r`nDATABASE_PROVIDER=postgres"
         Set-Content -Path ".env" -Value $envContent
         Write-Host "  [OK] Created default .env file." -ForegroundColor Green
     }
@@ -178,6 +178,7 @@ Write-Host " SMRITI Retail OS installation complete!" -ForegroundColor Green
 Write-Host "=====================================================================" -ForegroundColor Green
 Write-Host "To launch SMRITI Retail OS:" -ForegroundColor Yellow
 Write-Host "  Run: .\startup.bat (or docker compose up -d)" -ForegroundColor Gray
-Write-Host "  Access Frontend : http://localhost:3000" -ForegroundColor Gray
-Write-Host "  Access Backend  : http://localhost:8000" -ForegroundColor Gray
+Write-Host "  Access Frontend : http://localhost:8101" -ForegroundColor Gray
+Write-Host "  Access Backend  : http://localhost:1981" -ForegroundColor Gray
+Write-Host "  Access Database : localhost:2781" -ForegroundColor Gray
 Write-Host "=====================================================================" -ForegroundColor Green

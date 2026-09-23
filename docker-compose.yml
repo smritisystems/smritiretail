@@ -10,7 +10,7 @@
 # Classification: Internal
 
 services:
-  db:
+  smriti-db:
     image: postgres:15-alpine
     container_name: smriti-db
     restart: unless-stopped
@@ -19,7 +19,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-smritisys}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-2781}:5432"
+    networks:
+      default:
+        aliases:
+          - db
+          - smriti-db
     volumes:
       - smriti_db_volume:/var/lib/postgresql/data
     healthcheck:
@@ -36,9 +41,9 @@ services:
     container_name: smriti-web
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-8101}:3000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smritisys}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
       DATABASE_PROVIDER: "postgres"
       SYNC_PROVIDER: "postgres"
       CACHE_PROVIDER: "memory"
@@ -50,7 +55,7 @@ services:
       - ./dist:/usr/src/app/dist
       - ./public:/usr/src/app/public
     depends_on:
-      db:
+      smriti-db:
         condition: service_healthy
       smriti-api:
         condition: service_healthy
@@ -68,9 +73,9 @@ services:
     container_name: smriti-api
     restart: unless-stopped
     ports:
-      - "${BACKEND_API_PORT:-8000}:8000"
+      - "${BACKEND_API_PORT:-1981}:8000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smritisys}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env — see .env.example}"
       INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY in .env — see .env.example}"
@@ -84,7 +89,7 @@ services:
       - ./:/workspace
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:
-      db:
+      smriti-db:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]

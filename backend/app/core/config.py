@@ -126,7 +126,7 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
         except Exception:
             pass
 
-    for alt_port in (5432, 5434):
+    for alt_port in (5432, 2781, 5434):
         if alt_port == port:
             continue
         if _is_postgres_server(host, alt_port):
@@ -147,7 +147,7 @@ class Settings(BaseSettings):
     
     # Priority defaults
     PORT: int = 8000
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:2781/smritisys"
     JWT_SECRET_KEY: str  # Remove default — raise error if missing
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480      # 8 hours — covers a full retail shift without interruption
@@ -161,6 +161,8 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:8101",
+        "http://127.0.0.1:8101",
         "http://localhost:5000",
         "http://127.0.0.1:5000",
         "http://localhost:5173",

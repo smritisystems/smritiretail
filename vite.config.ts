@@ -31,7 +31,7 @@ const pythonCoreTarget = process.env.PYTHON_CORE_HOST
   ? (process.env.PYTHON_CORE_HOST.startsWith("http")
       ? process.env.PYTHON_CORE_HOST
       : `http://${process.env.PYTHON_CORE_HOST}`)
-  : (process.env.BACKEND_API_URL || "http://127.0.0.1:8000");
+  : (process.env.BACKEND_API_URL || "http://127.0.0.1:1981");
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

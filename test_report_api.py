@@ -1,9 +1,13 @@
 #!/usr/bin/env python
+import os
 import requests
 import json
 
+api_port = os.getenv("BACKEND_API_PORT", "1981")
+base_api = f"http://localhost:{api_port}"
+
 # First, login to get a token
-login_response = requests.post('http://localhost:8000/api/v1/auth/login', json={
+login_response = requests.post(f'{base_api}/api/v1/auth/login', json={
     'username': 'admin',
     'password': 'admin'
 })
@@ -30,7 +34,7 @@ else:
     }
     
     report_response = requests.get(
-        'http://localhost:8000/api/v1/reports/sales-orders/detailed?from_date=2026-04-01&to_date=2026-09-01',
+        f'{base_api}/api/v1/reports/sales-orders/detailed?from_date=2026-04-01&to_date=2026-09-01',
         headers=headers
     )
     
