@@ -354,34 +354,49 @@ else
     echo -e "  Please enter your business information."
     echo -e "  (Press ENTER to keep the default value shown in brackets)\n"
 
-    read -r -p "  Company / Business Name [My Retail Store]: " _cn
-    SMRITI_COMPANY_NAME="${_cn:-My Retail Store}"
+    _def_cn="${_existing_company:-My Retail Store}"
+    _def_cc="$(grep -E '^SMRITI_COMPANY_CODE=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_cc="${_def_cc:-MYSTORE}"
+    _def_gst="$(grep -E '^SMRITI_COMPANY_GST=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_bn="$(grep -E '^SMRITI_BRANCH_NAME=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_bn="${_def_bn:-Main Branch}"
+    _def_bc="$(grep -E '^SMRITI_BRANCH_CODE=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_bc="${_def_bc:-MAIN}"
+    _def_au="$(grep -E '^SMRITI_ADMIN_USERNAME=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_au="${_def_au:-admin}"
+    _def_ae="$(grep -E '^SMRITI_ADMIN_EMAIL=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_ae="${_def_ae:-admin@mystore.com}"
+    _def_ap="$(grep -E '^SMRITI_ADMIN_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_ap="${_def_ap:-Admin@123}"
 
-    read -r -p "  Company Short Code (no spaces) [MYSTORE]: " _cc
-    SMRITI_COMPANY_CODE="${_cc:-MYSTORE}"
+    read -r -p "  Company / Business Name [$_def_cn]: " _cn
+    SMRITI_COMPANY_NAME="${_cn:-$_def_cn}"
+
+    read -r -p "  Company Short Code (no spaces) [$_def_cc]: " _cc
+    SMRITI_COMPANY_CODE="${_cc:-$_def_cc}"
     SMRITI_COMPANY_CODE="${SMRITI_COMPANY_CODE// /}"
 
-    read -r -p "  GST Number (leave blank if not applicable) []: " _gst
-    SMRITI_COMPANY_GST="${_gst:-}"
+    read -r -p "  GST Number (leave blank if not applicable) [$_def_gst]: " _gst
+    SMRITI_COMPANY_GST="${_gst:-$_def_gst}"
 
-    read -r -p "  Main Branch Name [Main Branch]: " _bn
-    SMRITI_BRANCH_NAME="${_bn:-Main Branch}"
+    read -r -p "  Main Branch Name [$_def_bn]: " _bn
+    SMRITI_BRANCH_NAME="${_bn:-$_def_bn}"
 
-    read -r -p "  Main Branch Code (no spaces) [MAIN]: " _bc
-    SMRITI_BRANCH_CODE="${_bc:-MAIN}"
+    read -r -p "  Main Branch Code (no spaces) [$_def_bc]: " _bc
+    SMRITI_BRANCH_CODE="${_bc:-$_def_bc}"
     SMRITI_BRANCH_CODE="${SMRITI_BRANCH_CODE// /}"
 
     echo ""
     echo -e "  --- Admin Account ---"
 
-    read -r -p "  Admin Username [admin]: " _au
-    SMRITI_ADMIN_USERNAME="${_au:-admin}"
+    read -r -p "  Admin Username [$_def_au]: " _au
+    SMRITI_ADMIN_USERNAME="${_au:-$_def_au}"
 
-    read -r -p "  Admin Email [admin@mystore.com]: " _ae
-    SMRITI_ADMIN_EMAIL="${_ae:-admin@mystore.com}"
+    read -r -p "  Admin Email [$_def_ae]: " _ae
+    SMRITI_ADMIN_EMAIL="${_ae:-$_def_ae}"
 
-    read -r -p "  Admin Password [Admin@123]: " _ap
-    SMRITI_ADMIN_PASSWORD="${_ap:-Admin@123}"
+    read -r -p "  Admin Password [$_def_ap]: " _ap
+    SMRITI_ADMIN_PASSWORD="${_ap:-$_def_ap}"
 
     # Save to .env
     update_env_key ".env" "SMRITI_COMPANY_NAME"   "$SMRITI_COMPANY_NAME"

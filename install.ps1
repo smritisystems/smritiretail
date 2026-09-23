@@ -317,30 +317,46 @@ if ($existingCompanyName.Length -gt 0 -and -not $doFreshInstall) {
     Write-Host "  Please enter your business information." -ForegroundColor White
     Write-Host "  (Press ENTER to keep the default value shown in brackets)`n" -ForegroundColor Gray
 
-    $companyName = (Read-Host "  Company / Business Name [My Retail Store]").Trim()
-    if (-not $companyName) { $companyName = "My Retail Store" }
+    $defCompanyName = if ($existingCompanyName) { $existingCompanyName } else { "My Retail Store" }
+    $defCompanyCode = Get-EnvValue -FilePath ".env" -Key "SMRITI_COMPANY_CODE"
+    if (-not $defCompanyCode) { $defCompanyCode = "MYSTORE" }
+    $defCompanyGst  = Get-EnvValue -FilePath ".env" -Key "SMRITI_COMPANY_GST"
+    $defBranchName  = Get-EnvValue -FilePath ".env" -Key "SMRITI_BRANCH_NAME"
+    if (-not $defBranchName) { $defBranchName = "Main Branch" }
+    $defBranchCode  = Get-EnvValue -FilePath ".env" -Key "SMRITI_BRANCH_CODE"
+    if (-not $defBranchCode) { $defBranchCode = "MAIN" }
+    $defAdminUser   = Get-EnvValue -FilePath ".env" -Key "SMRITI_ADMIN_USERNAME"
+    if (-not $defAdminUser) { $defAdminUser = "admin" }
+    $defAdminEmail  = Get-EnvValue -FilePath ".env" -Key "SMRITI_ADMIN_EMAIL"
+    if (-not $defAdminEmail) { $defAdminEmail = "admin@mystore.com" }
+    $defAdminPwd    = Get-EnvValue -FilePath ".env" -Key "SMRITI_ADMIN_PASSWORD"
+    if (-not $defAdminPwd) { $defAdminPwd = "Admin@123" }
 
-    $companyCode = (Read-Host "  Company Short Code (letters/numbers only, no spaces) [MYSTORE]").Trim() -replace '\s+',''
-    if (-not $companyCode) { $companyCode = "MYSTORE" }
+    $companyName = (Read-Host "  Company / Business Name [$defCompanyName]").Trim()
+    if (-not $companyName) { $companyName = $defCompanyName }
 
-    $companyGst = (Read-Host "  GST Number (leave blank if not applicable) []").Trim()
+    $companyCode = (Read-Host "  Company Short Code (letters/numbers only, no spaces) [$defCompanyCode]").Trim() -replace '\s+',''
+    if (-not $companyCode) { $companyCode = $defCompanyCode }
 
-    $branchName = (Read-Host "  Main Branch Name [Main Branch]").Trim()
-    if (-not $branchName) { $branchName = "Main Branch" }
+    $companyGst = (Read-Host "  GST Number (leave blank if not applicable) [$defCompanyGst]").Trim()
+    if (-not $companyGst -and $defCompanyGst) { $companyGst = $defCompanyGst }
 
-    $branchCode = (Read-Host "  Main Branch Code (letters/numbers only) [MAIN]").Trim() -replace '\s+',''
-    if (-not $branchCode) { $branchCode = "MAIN" }
+    $branchName = (Read-Host "  Main Branch Name [$defBranchName]").Trim()
+    if (-not $branchName) { $branchName = $defBranchName }
+
+    $branchCode = (Read-Host "  Main Branch Code (letters/numbers only) [$defBranchCode]").Trim() -replace '\s+',''
+    if (-not $branchCode) { $branchCode = $defBranchCode }
 
     Write-Host ""
     Write-Host "  --- Admin Account ---" -ForegroundColor Cyan
-    $adminUsername = (Read-Host "  Admin Username [admin]").Trim()
-    if (-not $adminUsername) { $adminUsername = "admin" }
+    $adminUsername = (Read-Host "  Admin Username [$defAdminUser]").Trim()
+    if (-not $adminUsername) { $adminUsername = $defAdminUser }
 
-    $adminEmail = (Read-Host "  Admin Email [admin@mystore.com]").Trim()
-    if (-not $adminEmail) { $adminEmail = "admin@mystore.com" }
+    $adminEmail = (Read-Host "  Admin Email [$defAdminEmail]").Trim()
+    if (-not $adminEmail) { $adminEmail = $defAdminEmail }
 
-    $adminPwd = (Read-Host "  Admin Password [Admin@123]").Trim()
-    if (-not $adminPwd) { $adminPwd = "Admin@123" }
+    $adminPwd = (Read-Host "  Admin Password [$defAdminPwd]").Trim()
+    if (-not $adminPwd) { $adminPwd = $defAdminPwd }
 
     # Save to .env
     Update-EnvKey -FilePath ".env" -Key "SMRITI_COMPANY_NAME"  -Value $companyName
