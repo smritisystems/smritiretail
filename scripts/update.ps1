@@ -13,9 +13,18 @@ Write-Host "====================================================================
 Write-Host " SMRITI Retail OS - Non-Destructive System Update" -ForegroundColor Green
 Write-Host "=====================================================================" -ForegroundColor Cyan
 
+# Ensure execution from repository root
+$repoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $repoRoot
+Write-Host "  Working Directory: $repoRoot" -ForegroundColor Gray
+
 # 1. Pull Git Repository Updates
 Write-Host "`n[1/5] Pulling latest repository updates..." -ForegroundColor Yellow
-git pull
+git pull origin smritiNX
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  [WARNING] 'git pull origin smritiNX' returned status $LASTEXITCODE. Trying default 'git pull'..." -ForegroundColor Yellow
+    git pull
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  [WARNING] Git pull reported non-zero status. Proceeding with local code..." -ForegroundColor Yellow
 } else {

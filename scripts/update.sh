@@ -22,8 +22,13 @@ echo -e "${CYAN}================================================================
 echo -e "${GREEN} SMRITI Retail OS - Non-Destructive System Update${NC}"
 echo -e "${CYAN}=====================================================================${NC}"
 
+# Ensure execution from repository root
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+echo -e "  Working Directory: ${REPO_ROOT}"
+
 echo -e "\n${YELLOW}[1/5] Pulling latest repository updates...${NC}"
-git pull || echo -e "  ${YELLOW}[WARNING] Git pull reported non-zero status. Proceeding with local code...${NC}"
+git pull origin smritiNX || git pull || echo -e "  ${YELLOW}[WARNING] Git pull reported non-zero status. Proceeding with local code...${NC}"
 
 echo -e "\n${YELLOW}[2/5] Rebuilding container images...${NC}"
 docker compose build
