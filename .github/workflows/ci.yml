@@ -2,9 +2,9 @@
 # Author       : Jawahar Ramkripal Mallah
 # Email        : support@smritibooks.com
 # Websites     : smritibooks.com | erpnbook.com | aitdl.com
-# Version      : 2.0.0
+# Version      : 2.1.0
 # Created      : 2026-07-12
-# Modified     : 2026-09-16 (v2 — multi-job, Python 3.11, Node 20, security scan, Docker build)
+# Modified     : 2026-09-23 (v2.1 — CFOC v3.46.0 Pillar 4: API DTO Reconciliation Guard added)
 # Copyright    : © SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 
@@ -142,6 +142,11 @@ jobs:
         # Enforces Change-Time CFOC: Every column in Alembic migrations
         # must carry canonical field registration or declarative classification.
         run: python ../scripts/ci_migration_cfoc_guard.py
+
+      - name: CFOC API DTO Reconciliation Guard (CFOC-v3.46.0 Pillar 4)
+        # Verifies Pydantic request/response models have parity with the canonical
+        # field registry. Ungoverned business fields in DTOs fail the governance gate.
+        run: python ../scripts/ci_api_dto_reconciliation.py
 
       - name: CFOC UX Field Governance & Zero-Drift Guard (CFOC-v1.0)
         # Enforces the CANONICAL FIELD OWNERSHIP CONTRACT permanently:
