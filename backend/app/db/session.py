@@ -93,8 +93,8 @@ def _blocking_pg_registry_check(ctrl_url: str, db_clean: str) -> bool:
         if row:
             _verified_company_databases.add(db_clean)
             return True
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"[SDIC Registry] Notice: Registry verification check for '{db_clean}' via '{ctrl_url}': {exc}")
     return False
 
 
@@ -112,10 +112,10 @@ def _verify_database_is_registered(db_clean: str) -> bool:
         return True
 
     parsed_url = urlparse(settings.DATABASE_URL)
-    user = os.getenv("POSTGRES_USER") or parsed_url.username
-    password = os.getenv("POSTGRES_PASSWORD") or parsed_url.password
-    db_host = os.getenv("POSTGRES_HOST") or parsed_url.hostname or "localhost"
-    db_port = int(os.getenv("POSTGRES_PORT") or parsed_url.port or 5432)
+    user = parsed_url.username or os.getenv("POSTGRES_USER")
+    password = parsed_url.password or os.getenv("POSTGRES_PASSWORD")
+    db_host = parsed_url.hostname or os.getenv("POSTGRES_HOST") or "localhost"
+    db_port = parsed_url.port or 5432
 
     if not user or not password:
         raise ValueError(

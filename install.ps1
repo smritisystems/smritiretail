@@ -505,10 +505,30 @@ if (-not $dbReady) {
 Write-Host "  Checking and applying Alembic control-plane database migrations..." -ForegroundColor Gray
 $migOutput = docker compose -f $composeFile exec -T -e PYTHONPATH="" $apiContainer alembic -x target=control -x db=$dbName upgrade head 2>&1
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "  [OK] Database migrations completed." -ForegroundColor Green
+    Write-Host "  [OK] Control-plane database migrations completed." -ForegroundColor Green
 } else {
     Write-Host "  [ERROR] Database migrations failed with exit code $LASTEXITCODE." -ForegroundColor Red
     Show-ErrorDiagnostics -FailedStep "Alembic Database Migration" -Command "alembic -x target=control -x db=$dbName upgrade head" -ErrorDetails ($migOutput | Out-String)
+    exit 1
+}
+
+# Ensure primary company tenant database (smriti001) exists and is migrated
+$tenantDbName = "smriti001"
+Write-Host "  Checking and provisioning tenant database ($tenantDbName)..." -ForegroundColor Gray
+$checkDbCmd = "SELECT 1 FROM pg_database WHERE datname = '$tenantDbName';"
+$dbExists = docker compose -f $composeFile exec -T $dbContainer psql -U postgres -d postgres -t -c $checkDbCmd 2>&1
+if ($dbExists -notmatch "1") {
+    Write-Host "  Creating database $tenantDbName..." -ForegroundColor Gray
+    docker compose -f $composeFile exec -T $dbContainer psql -U postgres -d postgres -c "CREATE DATABASE $tenantDbName;" 2>&1 | Out-Null
+}
+
+Write-Host "  Checking and applying Alembic tenant database migrations ($tenantDbName)..." -ForegroundColor Gray
+$tenantMigOutput = docker compose -f $composeFile exec -T -e PYTHONPATH="" $apiContainer alembic -x target=tenant -x db=$tenantDbName upgrade head 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  [OK] Tenant database ($tenantDbName) migrations completed." -ForegroundColor Green
+} else {
+    Write-Host "  [ERROR] Tenant database migrations failed with exit code $LASTEXITCODE." -ForegroundColor Red
+    Show-ErrorDiagnostics -FailedStep "Tenant Database Migration" -Command "alembic -x target=tenant -x db=$tenantDbName upgrade head" -ErrorDetails ($tenantMigOutput | Out-String)
     exit 1
 }
 
