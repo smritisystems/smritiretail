@@ -239,7 +239,7 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
 
   const baseUrl = typeof window !== "undefined" && window.location?.origin
     ? ""
-    : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
+    : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:1981");
   const url = applyQueryParams(
     `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`,
     options.params
@@ -342,7 +342,7 @@ export function getAuthenticatedDocumentUrl(endpoint: string): string {
 
   const origin = typeof window !== "undefined" && window.location?.origin
     ? window.location.origin
-    : "http://localhost:3000";
+    : (process.env.WEB_BASE_URL || "http://localhost:8101");
 
   return new URL(cleanEndpoint, origin).toString();
 }

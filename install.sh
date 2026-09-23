@@ -49,8 +49,9 @@ if [ ! -f ".env" ]; then
     else
         echo -e "  ${RED}✗ .env.example template not found. Creating default .env...${NC}"
         cat <<EOT > .env
-PORT=3000
-BACKEND_API_PORT=8000
+PORT=8101
+BACKEND_API_PORT=1981
+POSTGRES_PORT=2781
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=smritisys
@@ -103,6 +104,7 @@ echo -e "${GREEN} SMRITI Retail OS installation complete!${NC}"
 echo -e "${GREEN}=====================================================================${NC}"
 echo -e "To launch SMRITI Retail OS:"
 echo -e "  Run: ./startup.sh (or docker compose up -d)"
-echo -e "  Access Frontend : http://localhost:3000"
-echo -e "  Access Backend  : http://localhost:8000"
+echo -e "  Access Frontend : http://localhost:8101"
+echo -e "  Access Backend  : http://localhost:1981"
+echo -e "  Access Database : localhost:2781"
 echo -e "${GREEN}=====================================================================${NC}"

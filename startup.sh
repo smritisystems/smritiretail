@@ -52,5 +52,7 @@ docker compose up -d
 
 echo "====================================================================="
 echo "SMRITI Retail OS running in the background."
-echo "API endpoint: http://localhost:3000"
+echo "Web UI endpoint: http://localhost:8101"
+echo "API endpoint   : http://localhost:1981"
+echo "Database port  : localhost:2781"
 echo "====================================================================="
