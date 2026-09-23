@@ -324,8 +324,14 @@ def do_run_migrations(connection) -> None:
                 if step.is_upgrade and "v1403_so_line_reconcile" in getattr(step, "to_revisions_no_deps", ()):
                     orig_step_fn = step.migration_fn
                     def wrapped_step_fn(**kw):
-                        from app.db.bootstrap import bootstrap_company_database_prerequisites
-                        bootstrap_company_database_prerequisites(connection)
+                        from app.db.bootstrap import (
+                            bootstrap_company_database_prerequisites,
+                            is_company_database_target,
+                        )
+                        import sqlalchemy as sa
+                        curr_db = connection.execute(sa.text("SELECT current_database();")).scalar()
+                        if is_company_database_target(curr_db):
+                            bootstrap_company_database_prerequisites(connection, db_name=curr_db)
                         return orig_step_fn(**kw)
                     step.migration_fn = wrapped_step_fn
                 yield step
