@@ -77,9 +77,8 @@ services:
       INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY in .env — see .env.example}"
       SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:?Set SGIP_VAULT_MASTER_KEY in .env — see .env.example}"
       SDIC_REPOSITORY_ROOT: "/workspace"
-      # When true, the container will skip running Alembic migrations on startup.
-      # Recommended long-term: run migrations as a one-off job from CI or an init container.
-      SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-true}"
+      # Run Alembic migrations on startup by default. Set SKIP_MIGRATIONS=true to disable.
+      SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic

@@ -232,6 +232,9 @@ async def seed():
                         )
                     )
 
+        # Commit baseline roles, enterprise companies, and users to control plane
+        await db.commit()
+
         # 3. Seed baseline customer groups and active customers for billing
         try:
             from app.models.crm import (
@@ -554,8 +557,11 @@ async def seed():
 
             await target_session.commit()
 
-        # Seed into control DB
-        await _seed_crm_data(db, "COMP-001")
+        # Seed CRM data into control DB if schema allows (fallback gracefully for tenant boundaries)
+        try:
+            await _seed_crm_data(db, "COMP-001")
+        except Exception as e:
+            print(f"Notice: skipping control plane CRM seed: {e}")
 
         # Seed into tenant company DBs
         for comp_db in ["smriti001", "smriti002", "smriti003"]:
