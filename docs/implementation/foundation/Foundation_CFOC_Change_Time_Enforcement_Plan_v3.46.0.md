@@ -88,7 +88,7 @@ Non-destructive code changes. Rollback via `git revert` of the v3.46.0 commit re
 ## 13. Verification Plan
 1. `python scripts/ci_migration_cfoc_guard.py` (Assert exit code 0).
 2. `npm run governance:fields` (Assert 11/11 checks pass).
-3. `pytest backend/tests/test_ux_field_governance.py -v` (Assert 35/35 pass).
+3. `pytest backend/tests/test_ux_field_governance.py -v` (Assert 37/37 pass).
 4. `npx vitest run src/tests/canonicalFieldRegistry.test.ts` (Assert 10/10 pass).
 5. `npx tsc --noEmit` (Assert 0 errors).
 

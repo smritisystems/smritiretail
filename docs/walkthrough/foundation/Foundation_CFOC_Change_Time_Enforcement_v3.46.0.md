@@ -4,9 +4,9 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.46.0-p4
+  Version      : 3.46.0-p5
   Created      : 2026-09-23
-  Modified     : 2026-09-23 (p4 — API DTO Reconciliation Guard added)
+  Modified     : 2026-09-23 (p5 — Fail-Closed Migration AST Parser & UTF-8/BOM Normalization)
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Architecture Governance Walkthrough
@@ -32,8 +32,10 @@ Core Architectural Premise:
 
 ## 2. Scope
 
-1. **Migration → CFOC Gate**:
+1. **Fail-Closed Migration AST Guard with UTF-8/BOM Normalization**:
    - Automated AST parsing of all 165 Alembic migrations (`backend/alembic/versions/*.py`).
+   - Normalizes UTF-8 with BOM (`encoding="utf-8-sig"`), eliminating `invalid non-printable character U+FEFF` warnings.
+   - Enforces a **fail-closed architecture**: Any migration file that fails AST parsing raises `MigrationParseError` and immediately halts CI with exit code 1.
    - Intercepts `op.add_column()` and `op.create_table()` calls on governed tables, guaranteeing every column is either canonically registered or formally classified before migration execution.
 2. **Declarative DB Column Classification Contract**:
    - Created `backend/app/governance/column_classification.py` implementing a closed 5-category contract (`CANONICAL_BUSINESS`, `AUDIT`, `TECHNICAL_FK`, `FRAMEWORK`, `MIGRATION`).
@@ -102,6 +104,10 @@ Core Architectural Premise:
 - **Rationale:** Avoids requiring database connectivity or app startup in CI. Any clean Python 3.11 environment can run the guard.
 - **Trade-off:** A `DTO_CANONICAL_ALIASES` map must be maintained as Pydantic schemas evolve (e.g., `gstin` → `gst_number`, `legal_name` → `customer_name`). This is a documented, explicit governance artifact — not a hidden coupling.
 
+### ADR-5: Fail-Closed Migration Parser with UTF-8/BOM Normalization
+- **Decision:** Normalize encoding with `encoding="utf-8-sig"` when reading Alembic migrations to strip potential byte-order marks (`\ufeff`), and raise `MigrationParseError` on any syntax or decoding failure, causing both `ci_migration_cfoc_guard.py` and Check 10 of `ci_ux_field_governance_guard.py` to immediately fail-closed with exit code 1.
+- **Rationale:** A migration script that cannot be parsed must never be bypassed with a warning; unparseable migrations could harbor unclassified columns or corrupt schema operations.
+
 ---
 
 ## 6. Design Rationale
@@ -110,28 +116,29 @@ By implementing change-time enforcement, the developer feedback loop is shifted 
 1. A developer writing an Alembic migration is warned immediately if a column is added without canonical registration.
 2. The `create_canonical_field.py` wizard simplifies compliance, generating copy-paste ready definitions.
 3. Runtime startup verifies database boundaries across both control plane and tenant environments.
+4. The migration parser normalizes UTF-8 BOM automatically and strictly fails closed on corrupt AST.
 
 ---
 
 ## 7. Implementation Summary
 
-- **Total Canonical Fields:** 132 fields maintained across 14 governed tables.
-- **Total Classified Columns:** 2,373 columns categorized.
-- **Migration Coverage:** 165 Alembic migration scripts inspected (0 unclassified).
+- **Total Canonical Fields:** 133 fields maintained across 15 governed tables.
+- **Total Classified Columns:** 3,047 columns categorized across closed 5-category contract.
+- **Migration Coverage:** 165 Alembic migration scripts inspected (0 unclassified, 0 parse errors, 100% fail-closed integrity).
 - **DTO Coverage:** 35 Pydantic classes reconciled across 14 governed entity schemas (0 violations).
-- **Checks in CI Guard:** Expanded from 9 to 11 automated checks.
+- **Checks in CI Guard:** 11 automated checks passing (Check 10 fail-closed verified).
 - **CI Jobs:** 5 governance gate steps in `backend-ci` (Naming, Boundary, Migration CFOC, DTO Reconciliation, UX Field Governance).
 
 ---
 
 ## 8. Tests Executed
 
-1. `python scripts/ci_migration_cfoc_guard.py` (Exit Code 0).
+1. `python scripts/ci_migration_cfoc_guard.py` (Exit Code 0 — 165 scripts, 0 parse errors, 0 warnings).
 2. `python scripts/ci_api_dto_reconciliation.py` (Exit Code 0 — 35 classes, 0 violations).
 3. `python scripts/verify_ts_registry_drift.py` (Exit Code 0).
 4. `npm run governance:fields` (11/11 Checks Passed, Exit Code 0).
-5. `pytest backend/tests/test_ux_field_governance.py -v` (35/35 Passed in 10.06s).
-6. `npx vitest run src/tests/canonicalFieldRegistry.test.ts` (10/10 Passed in 499ms).
+5. `pytest backend/tests/test_ux_field_governance.py -v` (37/37 Passed in 10.37s).
+6. `npx vitest run src/tests/canonicalFieldRegistry.test.ts` (10/10 Passed in 433ms).
 7. `npx tsc --noEmit` (Zero TypeScript errors).
 
 ---
@@ -140,14 +147,15 @@ By implementing change-time enforcement, the developer feedback loop is shifted 
 
 | Governance Domain | Target | Result | Evidence |
 |---|---|---|---|
-| Domain 10: Migration CFOC Parity | 0 unclassified | **0 unclassified** | 165 migration scripts scanned |
-| Domain 11: Column Classification | Closed 5-categories | **2,373 columns classified** | `CFOC_DB_COLUMN_CLASSIFICATION` |
+| Domain 10: Migration CFOC Parity | 0 unclassified | **0 unclassified** | 165 migration scripts scanned, 0 warnings |
+| Domain 11: Column Classification | Closed 5-categories | **3,047 columns classified** | `CFOC_DB_COLUMN_CLASSIFICATION` |
 | Domain 14: Classification Invariants | Valid categories | **PASSED** | 5 closed enum values verified |
-| Domain 15: Migration Guard | AST verified | **PASSED** | Exit code 0 |
+| Domain 15: Migration Guard | AST verified & fail-closed | **PASSED** | Exit code 0, BOM normalized, fail-closed tests |
 | Domain 16: Field Immutability | Rejection on rename | **PASSED** | `validate_field_immutability` tested |
 | Domain 17: Tenant DB Boundary | 0 missing tables | **PASSED** | `inspect_tenant_cfoc_boundary("smriti001")` clean |
 | **Pillar 4: API DTO Reconciliation** | **0 violations** | **PASSED** | 35 classes, 14 entities, exit 0, commit `58dd2cd9` |
-| Pytest Test Suite | 35 tests | **35/35 PASSED** | 17 domains green |
+| **Pillar 5: Fail-Closed Parser** | **100% fail-closed** | **PASSED** | `test_migration_parser_fail_closed` green |
+| Pytest Test Suite | 37 tests | **37/37 PASSED** | 17 domains green (10.37s) |
 | Vitest Test Suite | 10 tests | **10/10 PASSED** | Runtime immutability & version 3.46.0 |
 | TypeScript Compiler | 0 errors | **0 ERRORS** | `tsc --noEmit` |
 
@@ -155,18 +163,14 @@ By implementing change-time enforcement, the developer feedback loop is shifted 
 
 ## 10. Known Limitations
 
-- 21 legacy transactional modal inputs remain baselined under approved exceptions (`EXC-LEGACY-0001` through `EXC-LEGACY-0025`), expiring on 2026-12-31, scheduled for phased migration in v4.0.0.
+- `DTO_CANONICAL_ALIASES` must be kept updated when new DTO aliases are created.
 
 ---
 
 ## 11. Future Work
 
-- **SMRITI Retail OS v4.0.0 — Legacy UX Remediation:**
-  - Systematic retirement of the 21 legacy transactional modal inputs:
-    ```text
-    Target: 21 → 15 → 10 → 5 → 0
-    ```
-  - Migrate raw modal inputs to canonical `MasterFormDrawer` and `FieldRenderer` components.
+- Expand DTO AST parser to inspect nested schemas and request payloads for query parameter filters.
+- Integrate automated PR bot to comment on migration pull requests with auto-generated column classifications.
 
 ---
 
