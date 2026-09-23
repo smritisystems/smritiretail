@@ -80,7 +80,7 @@ Install and start the complete SMRITI Retail OS stack with a single command. The
 
 ### Windows 10 / 11
 ```powershell
-git clone https://github.com/smritiretail/smritiretail.git
+git clone -b smritiNX https://github.com/smritisystems/smritiretail.git
 cd smritiretail
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
@@ -88,7 +88,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ### Linux & macOS
 ```bash
-git clone https://github.com/smritiretail/smritiretail.git
+git clone -b smritiNX https://github.com/smritisystems/smritiretail.git
 cd smritiretail
 bash ./install.sh
 ```
