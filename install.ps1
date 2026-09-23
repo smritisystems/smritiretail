@@ -507,9 +507,9 @@ $migOutput = docker compose -f $composeFile exec -T -e PYTHONPATH="" $apiContain
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  [OK] Database migrations completed." -ForegroundColor Green
 } else {
-    Write-Host "  [WARNING] Database migrations failed with exit code $LASTEXITCODE." -ForegroundColor Red
-    Write-Host "`n--- Alembic Migration Output / Error ---" -ForegroundColor White
-    Write-Host ($migOutput | Out-String) -ForegroundColor Red
+    Write-Host "  [ERROR] Database migrations failed with exit code $LASTEXITCODE." -ForegroundColor Red
+    Show-ErrorDiagnostics -FailedStep "Alembic Database Migration" -Command "alembic -x target=control -x db=$dbName upgrade head" -ErrorDetails ($migOutput | Out-String)
+    exit 1
 }
 
 # Seed baseline enterprise companies and users
@@ -528,9 +528,9 @@ $seedOutput = docker compose -f $composeFile exec -T `
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  [OK] Baseline users and enterprise companies seeded." -ForegroundColor Green
 } else {
-    Write-Host "  [WARNING] Baseline seeding failed with exit code $LASTEXITCODE." -ForegroundColor Red
-    Write-Host "`n--- Baseline Seeding Output / Traceback ---" -ForegroundColor White
-    Write-Host ($seedOutput | Out-String) -ForegroundColor Red
+    Write-Host "  [ERROR] Baseline seeding failed with exit code $LASTEXITCODE." -ForegroundColor Red
+    Show-ErrorDiagnostics -FailedStep "Baseline Seeding" -Command "python -m app.db.seed_baseline_users" -ErrorDetails ($seedOutput | Out-String)
+    exit 1
 }
 
 # Probe API Health

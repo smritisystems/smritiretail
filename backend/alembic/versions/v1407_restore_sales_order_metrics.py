@@ -14,6 +14,14 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "sales_orders" not in inspector.get_table_names():
+        return
+    existing_columns = {c["name"] for c in inspector.get_columns("sales_orders")}
+    if "po_number" not in existing_columns:
+        return
+
     op.execute(sa.text("""
         UPDATE sales_orders ord
         SET billed_qty = COALESCE((SELECT SUM(line.quantity) FROM sales_invoices inv JOIN sales_invoice_items line ON line.invoice_id = inv.id WHERE inv.is_deleted = false AND inv.po_reference = ord.po_number), 0),

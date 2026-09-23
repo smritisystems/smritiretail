@@ -14,6 +14,14 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "sales_orders" not in inspector.get_table_names():
+        return
+    existing_columns = {c["name"] for c in inspector.get_columns("sales_orders")}
+    if "po_number" not in existing_columns:
+        return
+
     op.execute(sa.text("""
         UPDATE sales_order_items line
         SET billed_quantity = COALESCE((

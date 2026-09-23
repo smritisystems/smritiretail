@@ -22,6 +22,14 @@ def _normalized_variant(expression: str) -> str:
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "sales_orders" not in inspector.get_table_names():
+        return
+    existing_columns = {c["name"] for c in inspector.get_columns("sales_orders")}
+    if "po_number" not in existing_columns:
+        return
+
     invoice_variant = _normalized_variant("inv_line.name")
     order_variant = _normalized_variant("concat(line.vendor_style, line.color, line.size)")
     match = (

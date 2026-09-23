@@ -21,6 +21,14 @@ def upgrade() -> None:
     op.add_column("sales_order_items", sa.Column("closed_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("sales_order_items", sa.Column("closed_by", sa.String(100), nullable=True))
 
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "sales_orders" not in inspector.get_table_names():
+        return
+    existing_columns = {c["name"] for c in inspector.get_columns("sales_orders")}
+    if "po_number" not in existing_columns:
+        return
+
     # Preserve invoices; derive line billing strictly from existing invoice lines.
     op.execute(sa.text("""
         UPDATE sales_order_items line
