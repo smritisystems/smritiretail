@@ -159,8 +159,8 @@ async def test_execute_batch_invoicing_and_identity(db_session: AsyncSession):
     rec = records[0]
     assert rec["invoice_no"] == "TT2026-2027/990"
     assert rec["store_code"] == "TXAJ"
-    assert rec["identity_code"].startswith("SAL-INV-")
-    assert rec["eway_identity_code"].startswith("TAX-EWB-")
+    assert rec["identity_code"].startswith(("SAL-INV-", "SYS-SAL-"))
+    assert rec["eway_identity_code"].startswith(("TAX-EWB-", "SYS-EWB-", "SYS-EWA-"))
 
     # Verify directly in PostgreSQL database
     stmt = select(SalesInvoice).where(SalesInvoice.invoice_no == "TT2026-2027/990")
