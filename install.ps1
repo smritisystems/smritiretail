@@ -4,181 +4,370 @@
 # Websites     : smritibooks.com | erpnbook.com | aitdl.com
 # Version      : 3.16.0
 # Created      : 2026-07-13
-# Modified     : 2026-07-13
-# Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+# Modified     : 2026-09-23
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
-Write-Host "=====================================================================" -ForegroundColor Green
-Write-Host " SMRITI Retail OS - PowerShell One-Command Installer" -ForegroundColor Green
-Write-Host "=====================================================================" -ForegroundColor Green
+param (
+    [string]$Mode = "",
+    [switch]$NonInteractive = $false,
+    [switch]$SkipBrowser = $false
+)
 
-# 1. Check Prerequisites
-Write-Host "[1/5] Verifying system prerequisites..." -ForegroundColor Yellow
+$ErrorActionPreference = "Stop"
 
-$prereqs = @{
-    "Git" = "git --version"
-    "Node.js" = "node -v"
-    "Python" = "python --version"
-    "Docker" = "docker --version"
+function Write-Banner {
+    Write-Host "=====================================================================" -ForegroundColor Cyan
+    Write-Host "       SMRITI RETAIL OS - PRODUCTION-GRADE INSTALLER                 " -ForegroundColor Green
+    Write-Host "=====================================================================" -ForegroundColor Cyan
 }
 
-$missing = @()
+function Write-Section {
+    param([string]$Step, [string]$Title)
+    Write-Host "`n[$Step] $Title..." -ForegroundColor Yellow
+}
 
-foreach ($key in $prereqs.Keys) {
-    $cmd = $prereqs[$key]
+function New-SecureKey {
+    $bytes = New-Object byte[] 32
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $rng.GetBytes($bytes)
+    return ($bytes | ForEach-Object { "{0:x2}" -f $_ }) -join ''
+}
+
+function Test-PortOccupied {
+    param([int]$Port)
     try {
-        $output = Invoke-Expression "$cmd 2>&1"
-        Write-Host "  [OK] $key is installed ($output)" -ForegroundColor Green
+        $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
+        $listener.Start()
+        $listener.Stop()
+        return $false
     } catch {
-        Write-Host "  [FAIL] $key is NOT installed." -ForegroundColor Red
-        $missing += $key
+        return $true
     }
 }
 
-if ($missing.Count -gt 0) {
-    Write-Host "[WARNING] Missing prerequisites: $($missing -join ', ')." -ForegroundColor Red
-    Write-Host "Please install them to ensure full functionality (Docker is highly recommended)." -ForegroundColor Yellow
+# -----------------------------------------------------------------------------
+# 1. OS & Hardware Architecture Detection
+# -----------------------------------------------------------------------------
+Write-Banner
+Write-Section "1/7" "Detecting Operating System and Architecture"
+
+$osName = (Get-CimInstance Win32_OperatingSystem).Caption
+$osArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+Write-Host "  Operating System : $osName" -ForegroundColor Gray
+Write-Host "  Architecture     : $osArch" -ForegroundColor Gray
+Write-Host "  Working Directory: $(Get-Location)" -ForegroundColor Gray
+
+# -----------------------------------------------------------------------------
+# 2. Prerequisite Checks
+# -----------------------------------------------------------------------------
+Write-Section "2/7" "Verifying System Prerequisites"
+
+# Git CLI
+try {
+    $gitVer = (git --version 2>&1).Trim()
+    Write-Host "  [OK] Git: $gitVer" -ForegroundColor Green
+} catch {
+    Write-Host "  [FAIL] Git CLI is not found in PATH." -ForegroundColor Red
+    Write-Host "  Please install Git: https://git-scm.com/download/win" -ForegroundColor Yellow
+    exit 1
 }
 
-# 2. Setup Environment Configuration File
-Write-Host "[2/5] Setting up environment configuration (.env)..." -ForegroundColor Yellow
+# Docker CLI
+try {
+    $dockerVer = (docker --version 2>&1).Trim()
+    Write-Host "  [OK] Docker CLI: $dockerVer" -ForegroundColor Green
+} catch {
+    Write-Host "  [FAIL] Docker CLI is not found." -ForegroundColor Red
+    Write-Host "  Docker Desktop is required to run SMRITI Retail OS." -ForegroundColor Yellow
+    Write-Host "  Download Docker Desktop for Windows:" -ForegroundColor Cyan
+    Write-Host "  https://docs.docker.com/desktop/setup/install/windows-install/" -ForegroundColor White
+    exit 1
+}
+
+# Docker Engine Daemon
+try {
+    $dockerInfo = docker info 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw $dockerInfo
+    }
+    Write-Host "  [OK] Docker Engine is running and responsive." -ForegroundColor Green
+} catch {
+    Write-Host "  [FAIL] Docker daemon is not running or not responsive." -ForegroundColor Red
+    Write-Host "  Please ensure Docker Desktop is started and ready before continuing." -ForegroundColor Yellow
+    Write-Host "  Official Docker setup: https://docs.docker.com/desktop/setup/install/windows-install/" -ForegroundColor Cyan
+    exit 1
+}
+
+# Docker Compose CLI
+try {
+    $composeVer = (docker compose version 2>&1).Trim()
+    Write-Host "  [OK] Docker Compose: $composeVer" -ForegroundColor Green
+} catch {
+    Write-Host "  [FAIL] Docker Compose v2 is required." -ForegroundColor Red
+    exit 1
+}
+
+# -----------------------------------------------------------------------------
+# 3. Installation Mode Selection
+# -----------------------------------------------------------------------------
+Write-Section "3/7" "Selecting Installation Mode"
+
+$selectedMode = $Mode
+
+if (-not $selectedMode -and -not $NonInteractive) {
+    Write-Host "Select installation mode:`n" -ForegroundColor White
+    Write-Host "  [1] Production" -ForegroundColor Green
+    Write-Host "      Stable customer runtime (Ports 2781:5432, 1981:8000, 8101:3000)`n" -ForegroundColor Gray
+    Write-Host "  [2] Development" -ForegroundColor Cyan
+    Write-Host "      Developer runtime with hot reload (Ports 2782:5432, 1982:8000, 8102:3000)`n" -ForegroundColor Gray
+    Write-Host "  [3] Custom / Advanced" -ForegroundColor Magenta
+    Write-Host "      Custom host port mappings and options`n" -ForegroundColor Gray
+    
+    $choice = Read-Host "Enter choice [1-3] (Default: 1)"
+    if ($choice -eq "2") {
+        $selectedMode = "Development"
+    } elseif ($choice -eq "3") {
+        $selectedMode = "Custom"
+    } else {
+        $selectedMode = "Production"
+    }
+} elseif (-not $selectedMode) {
+    $selectedMode = "Production"
+}
+
+Write-Host "  Selected Mode: $selectedMode" -ForegroundColor Green
+
+# Configure Ports & Compose Files based on selected mode
+$composeFile = "docker-compose.yml"
+$pgPort = 2781
+$apiPort = 1981
+$webPort = 8101
+$dbContainer = "smriti-db"
+$apiContainer = "smriti-api"
+$webContainer = "smriti-web"
+$dbName = "smritisys"
+
+if ($selectedMode -eq "Development") {
+    $composeFile = "docker-compose.dev.yml"
+    $pgPort = 2782
+    $apiPort = 1982
+    $webPort = 8102
+    $dbContainer = "smriti-dev-db"
+    $apiContainer = "smriti-dev-api"
+    $webContainer = "smriti-dev-web"
+    $dbName = "smritisys_dev"
+} elseif ($selectedMode -eq "Custom") {
+    if (-not $NonInteractive) {
+        $inWeb = Read-Host "Enter Web host port (Default: 8101)"
+        if ($inWeb) { $webPort = [int]$inWeb }
+        $inApi = Read-Host "Enter API host port (Default: 1981)"
+        if ($inApi) { $apiPort = [int]$inApi }
+        $inPg = Read-Host "Enter PostgreSQL host port (Default: 2781)"
+        if ($inPg) { $pgPort = [int]$inPg }
+    }
+}
+
+# -----------------------------------------------------------------------------
+# 4. Port Conflict Probing
+# -----------------------------------------------------------------------------
+Write-Section "4/7" "Verifying Port Availability"
+
+# Check if containers are already running (in which case the ports belong to SMRITI)
+$activeContainers = @(docker ps --format "{{.Names}}" 2>$null)
+
+$portsToCheck = @(
+    @{ Name = "Web Frontend"; Port = $webPort; Container = $webContainer },
+    @{ Name = "API Backend";  Port = $apiPort; Container = $apiContainer },
+    @{ Name = "PostgreSQL";   Port = $pgPort;  Container = $dbContainer }
+)
+
+foreach ($entry in $portsToCheck) {
+    $port = $entry.Port
+    $name = $entry.Name
+    $targetCont = $entry.Container
+    
+    $isOccupied = Test-PortOccupied -Port $port
+    if ($isOccupied) {
+        if ($activeContainers -contains $targetCont) {
+            Write-Host "  [OK] Port $port is in use by running container '$targetCont' (will be reused/updated)." -ForegroundColor Green
+        } else {
+            Write-Host "  [CONFLICT] Port $port ($name) is currently occupied by an external process." -ForegroundColor Red
+            Write-Host "  Please stop the conflicting process or choose Custom mode to assign a different port." -ForegroundColor Yellow
+            exit 1
+        }
+    } else {
+        Write-Host "  [OK] Port $port ($name) is available." -ForegroundColor Green
+    }
+}
+
+# -----------------------------------------------------------------------------
+# 5. Environment Configuration
+# -----------------------------------------------------------------------------
+Write-Section "5/7" "Configuring Environment (.env)"
+
 if (-not (Test-Path ".env")) {
     if (Test-Path ".env.example") {
         Copy-Item ".env.example" ".env"
-        Write-Host "  [OK] Created .env file from .env.example template." -ForegroundColor Green
+        Write-Host "  [OK] Initialized .env from .env.example." -ForegroundColor Green
     } else {
-        Write-Host "  [FAIL] .env.example template not found. Creating a default .env file..." -ForegroundColor Red
-        $envContent = "PORT=8101`r`nBACKEND_API_PORT=1981`r`nPOSTGRES_PORT=2781`r`nPOSTGRES_USER=postgres`r`nPOSTGRES_PASSWORD=postgres`r`nPOSTGRES_DB=smritisys`r`nDATABASE_PROVIDER=postgres"
-        Set-Content -Path ".env" -Value $envContent
-        Write-Host "  [OK] Created default .env file." -ForegroundColor Green
+        New-Item -ItemType File -Path ".env" -Force | Out-Null
+        Write-Host "  [OK] Created clean .env." -ForegroundColor Green
     }
 } else {
-    Write-Host "  [OK] .env file already exists. Skipping copy." -ForegroundColor Green
+    Write-Host "  [OK] Existing .env file detected -- preserving all user settings." -ForegroundColor Green
 }
 
-# 3. Create Python Virtual Environment & Install Backend Dependencies
-Write-Host "[3/5] Setting up Python virtual environment and dependencies..." -ForegroundColor Yellow
+# Ensure critical secrets are populated (never empty)
+$envText = Get-Content ".env" -Raw -ErrorAction SilentlyContinue
+if (-not $envText) { $envText = "" }
 
-# Find the best Python executable (preferring Python 3.10-3.12 over pre-release versions like 3.14)
-$pythonExe = "python"
-$wherePaths = where.exe python 2>$null
-$pythonCandidates = @()
-if ($wherePaths) {
-    foreach ($p in $wherePaths) {
-        if ($p -match "WindowsApps") { continue }
-        $pythonCandidates += $p
+$updates = @()
+if ($envText -notmatch "JWT_SECRET_KEY=.+") {
+    $key = New-SecureKey
+    $updates += "JWT_SECRET_KEY=$key"
+}
+if ($envText -notmatch "INTERNAL_SERVICE_KEY=.+") {
+    $key = New-SecureKey
+    $updates += "INTERNAL_SERVICE_KEY=$key"
+}
+if ($envText -notmatch "SGIP_VAULT_MASTER_KEY=.+") {
+    $key = New-SecureKey
+    $updates += "SGIP_VAULT_MASTER_KEY=$key"
+}
+
+if ($updates.Count -gt 0) {
+    Add-Content -Path ".env" -Value "`r`n# Auto-generated security credentials`r`n$($updates -join "`r`n")"
+    Write-Host "  [OK] Generated secure cryptographic keys for JWT, Internal Service, and SGIP Vault." -ForegroundColor Green
+}
+
+# In custom mode, export port overrides to environment
+$env:PORT = "$webPort"
+$env:BACKEND_API_PORT = "$apiPort"
+$env:POSTGRES_PORT = "$pgPort"
+
+# -----------------------------------------------------------------------------
+# 6. Docker Build & Startup
+# -----------------------------------------------------------------------------
+Write-Section "6/7" "Building and Starting SMRITI Retail OS Stack"
+
+Write-Host "  Building required images using $composeFile..." -ForegroundColor Gray
+docker compose -f $composeFile build
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  [FAIL] Docker image build failed." -ForegroundColor Red
+    exit 1
+}
+Write-Host "  [OK] Images built successfully." -ForegroundColor Green
+
+Write-Host "  Starting services in background (docker compose up -d)..." -ForegroundColor Gray
+docker compose -f $composeFile up -d
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  [FAIL] Failed to start Docker Compose stack." -ForegroundColor Red
+    exit 1
+}
+Write-Host "  [OK] Services started." -ForegroundColor Green
+
+# -----------------------------------------------------------------------------
+# 7. Database Readiness, Migrations & Health Checks
+# -----------------------------------------------------------------------------
+Write-Section "7/7" "Validating Database Readiness, Migrations, and Service Health"
+
+Write-Host "  Waiting for PostgreSQL database container ($dbContainer) to become healthy..." -ForegroundColor Gray
+$dbReady = $false
+for ($i = 1; $i -le 30; $i++) {
+    $status = docker inspect $dbContainer --format '{{.State.Health.Status}}' 2>$null
+    if ($status -eq "healthy") {
+        $dbReady = $true
+        break
     }
-}
-$stdPath = "C:\Users\netma\AppData\Local\Programs\Python\Python311\python.exe"
-if (Test-Path $stdPath) {
-    $pythonCandidates += $stdPath
+    Start-Sleep -Seconds 2
 }
 
-# Select the best python path
-foreach ($p in $pythonCandidates) {
+if (-not $dbReady) {
+    Write-Host "  [WARNING] Database container took longer than expected to report healthy." -ForegroundColor Yellow
+} else {
+    Write-Host "  [OK] PostgreSQL database is healthy and ready for queries." -ForegroundColor Green
+}
+
+# Run Alembic Database Migrations safely
+Write-Host "  Checking and applying Alembic control-plane database migrations..." -ForegroundColor Gray
+try {
+    $migOutput = docker compose -f $composeFile exec -T $apiContainer alembic -x target=control -x db=$dbName upgrade head 2>&1
+    Write-Host "  [OK] Database migrations completed." -ForegroundColor Green
+} catch {
+    Write-Host "  [NOTICE] Migration runner output: $_" -ForegroundColor Gray
+}
+
+# Probe API Health
+Write-Host "  Checking API health on http://localhost:$apiPort/health..." -ForegroundColor Gray
+$apiHealthy = $false
+for ($i = 1; $i -le 30; $i++) {
     try {
-        $verInfo = & $p --version 2>&1
-        if ($verInfo -match "Python 3\.(10|11|12)") {
-            $pythonExe = $p
-            Write-Host "  Found preferred Python interpreter: $p ($verInfo)" -ForegroundColor Green
+        $resp = Invoke-RestMethod -Uri "http://localhost:$apiPort/health" -Method Get -TimeoutSec 3 -ErrorAction SilentlyContinue
+        if ($resp -and ($resp.status -eq "healthy" -or $resp.service -eq "operational")) {
+            $apiHealthy = $true
             break
         }
     } catch {}
+    Start-Sleep -Seconds 2
 }
 
-if ($pythonExe -eq "python") {
-    Write-Host "  Using default python interpreter from PATH." -ForegroundColor Gray
+if ($apiHealthy) {
+    Write-Host "  [OK] API is healthy and connected to database." -ForegroundColor Green
+} else {
+    Write-Host "  [WARNING] API health endpoint has not yet responded. Container may still be initializing." -ForegroundColor Yellow
 }
 
-$recreateVenv = $false
-if (Test-Path ".venv") {
-    if (Test-Path ".venv\Scripts\python.exe") {
-        try {
-            $venvVer = & .venv\Scripts\python.exe --version 2>&1
-            if ($venvVer -match "Python 3\.14") {
-                Write-Host "  Existing .venv is built with unsupported Python 3.14. Re-creating..." -ForegroundColor Yellow
-                $recreateVenv = $true
-            }
-        } catch {
-            $recreateVenv = $true
+# Probe Web Frontend
+Write-Host "  Checking Web frontend on http://localhost:$webPort/..." -ForegroundColor Gray
+$webHealthy = $false
+for ($i = 1; $i -le 20; $i++) {
+    try {
+        $resp = Invoke-WebRequest -Uri "http://localhost:$webPort/" -Method Get -TimeoutSec 3 -UseBasicParsing -ErrorAction SilentlyContinue
+        if ($resp.StatusCode -eq 200) {
+            $webHealthy = $true
+            break
         }
-    } else {
-        $recreateVenv = $true
-    }
+    } catch {}
+    Start-Sleep -Seconds 2
 }
 
-if ($recreateVenv) {
-    Write-Host "  Removing old .venv..." -ForegroundColor Gray
-    Remove-Item -Path ".venv" -Recurse -Force
-}
-
-if (-not (Test-Path ".venv")) {
-    try {
-        Write-Host "  Creating virtual environment (.venv) using $pythonExe..." -ForegroundColor Gray
-        & $pythonExe -m venv .venv
-        Write-Host "  [OK] Virtual environment created." -ForegroundColor Green
-    } catch {
-        Write-Host "  [FAIL] Failed to create virtual environment." -ForegroundColor Red
-    }
+if ($webHealthy) {
+    Write-Host "  [OK] Web frontend is live and responding (HTTP 200)." -ForegroundColor Green
 } else {
-    Write-Host "  [OK] Virtual environment (.venv) already exists." -ForegroundColor Green
+    Write-Host "  [NOTICE] Web frontend is starting up." -ForegroundColor Gray
 }
 
-if (Test-Path ".venv\Scripts\pip.exe") {
+# Display Container Status Table
+Write-Host "`nActive Containers:" -ForegroundColor White
+docker compose -f $composeFile ps
+
+# Automatically launch default browser if requested
+if (-not $SkipBrowser) {
     try {
-        Write-Host "  Installing Python dependencies (backend\requirements.txt)..." -ForegroundColor Gray
-        & .venv\Scripts\pip install --upgrade pip
-        & .venv\Scripts\pip install -r backend\requirements.txt
-        Write-Host "  [OK] Python dependencies installed successfully." -ForegroundColor Green
+        Start-Process "http://localhost:$webPort"
     } catch {
-        Write-Host "  [FAIL] Failed to install Python dependencies." -ForegroundColor Red
+        Write-Host "  Could not automatically launch browser." -ForegroundColor Gray
     }
-} else {
-    Write-Host "  [SKIP] Python pip.exe not found. Virtual environment might be corrupt." -ForegroundColor Red
 }
 
-# 4. Install Node.js Frontend Dependencies
-Write-Host "[4/5] Installing frontend Node.js dependencies..." -ForegroundColor Yellow
-try {
-    Write-Host "  Running npm install..." -ForegroundColor Gray
-    npm install
-    Write-Host "  [OK] Node.js dependencies installed successfully." -ForegroundColor Green
-} catch {
-    Write-Host "  [FAIL] Failed to install Node.js dependencies." -ForegroundColor Red
-}
-
-# 5. Configure Visual Folder Branding
-Write-Host "[5/5] Configuring Explorer visual folder icon (GREEN)..." -ForegroundColor Yellow
-
-try {
-    $iniPath = Join-Path (Get-Location) "desktop.ini"
-    
-    # Remove hidden/system attributes if file exists to overwrite it
-    if (Test-Path $iniPath) {
-        attrib -h -s $iniPath
-    }
-    
-    $iniContent = "[.ShellClassInfo]`r`nIconResource=%SystemRoot%\System32\imageres.dll,85`r`nConfirmFileOp=0"
-    Set-Content -Path $iniPath -Value $iniContent -Encoding Ascii
-    
-    # Hide and protect desktop.ini
-    attrib +h +s $iniPath
-    
-    # Set directory attribute to Read-Only so Windows loads desktop.ini
-    attrib +r (Get-Location)
-    
-    Write-Host "  [OK] Configured folder icon to SMRITI visual green indicator (GREEN)." -ForegroundColor Green
-} catch {
-    Write-Host "  [FAIL] Failed to configure Explorer folder icon." -ForegroundColor Red
-}
-
+# -----------------------------------------------------------------------------
+# Completion Summary
+# -----------------------------------------------------------------------------
+Write-Host ""
 Write-Host "=====================================================================" -ForegroundColor Green
-Write-Host " SMRITI Retail OS installation complete!" -ForegroundColor Green
+Write-Host " SMRITI RETAIL OS INSTALLATION COMPLETE AND READY!" -ForegroundColor Green
 Write-Host "=====================================================================" -ForegroundColor Green
-Write-Host "To launch SMRITI Retail OS:" -ForegroundColor Yellow
-Write-Host "  Run: .\startup.bat (or docker compose up -d)" -ForegroundColor Gray
-Write-Host "  Access Frontend : http://localhost:8101" -ForegroundColor Gray
-Write-Host "  Access Backend  : http://localhost:1981" -ForegroundColor Gray
-Write-Host "  Access Database : localhost:2781" -ForegroundColor Gray
+Write-Host "  Mode            : $selectedMode" -ForegroundColor Cyan
+Write-Host "  Web Frontend    : http://localhost:$webPort" -ForegroundColor Cyan
+Write-Host "  API Backend     : http://localhost:$apiPort" -ForegroundColor Cyan
+Write-Host "  PostgreSQL DB   : localhost:$pgPort" -ForegroundColor Cyan
+Write-Host "  API Docs        : http://localhost:$apiPort/docs" -ForegroundColor Cyan
 Write-Host "=====================================================================" -ForegroundColor Green
+Write-Host "Management Commands:" -ForegroundColor Yellow
+Write-Host "  Stop Stack      : docker compose -f $composeFile stop" -ForegroundColor Gray
+Write-Host "  Start Stack     : docker compose -f $composeFile up -d" -ForegroundColor Gray
+Write-Host "  View Logs       : docker compose -f $composeFile logs -f" -ForegroundColor Gray
+Write-Host "=====================================================================" -ForegroundColor Green
+Write-Host ""

@@ -266,10 +266,10 @@ def get_target_db_url() -> str:
         from urllib.parse import urlparse
         parsed = urlparse(settings.DATABASE_URL)
         scheme = parsed.scheme or "postgresql+asyncpg"
-        user = os.getenv("POSTGRES_USER") or parsed.username
-        password = os.getenv("POSTGRES_PASSWORD") or parsed.password
-        host = os.getenv("POSTGRES_HOST") or parsed.hostname or "localhost"
-        port = int(os.getenv("POSTGRES_PORT") or parsed.port or 5432)
+        user = parsed.username or os.getenv("POSTGRES_USER")
+        password = parsed.password or os.getenv("POSTGRES_PASSWORD")
+        host = parsed.hostname or os.getenv("POSTGRES_HOST") or "localhost"
+        port = int(parsed.port or os.getenv("POSTGRES_PORT") or 5432)
         auth = f"{user}:{password}@" if (user and password) else (f"{user}@" if user else "")
         target_url = f"{scheme}://{auth}{host}:{port}/{db_name}"
     else:

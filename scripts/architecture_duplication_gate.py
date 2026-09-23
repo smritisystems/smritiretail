@@ -24,7 +24,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_COMPONENTS = os.path.join(REPO_ROOT, "src", "components")
 BACKEND_API_V1 = os.path.join(REPO_ROOT, "backend", "app", "api", "v1")
 MAIN_PY = os.path.join(REPO_ROOT, "backend", "app", "main.py")
-DB_CONN = "postgresql://postgres:postgres@localhost:5432/smritisys"
+DB_PORT = os.getenv("POSTGRES_PORT", "2781")
+DB_CONN = os.getenv("DATABASE_URL") or f"postgresql://postgres:postgres@localhost:{DB_PORT}/smritisys"
 
 sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
 from lib.certificate_manager import PreflightCertificateManager
