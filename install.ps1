@@ -81,6 +81,65 @@ function Test-PortOccupied {
     }
 }
 
+function Show-ErrorDiagnostics {
+    param(
+        [string]$StepName,
+        [string]$ErrorMessage,
+        [string]$CommandOutput = ""
+    )
+    Write-Host ""
+    Write-Host "=====================================================================" -ForegroundColor Red
+    Write-Host " [ERROR OCCURRED DURING INSTALLATION] - DIAGNOSTIC LOG DUMP" -ForegroundColor Red
+    Write-Host "=====================================================================" -ForegroundColor Red
+    Write-Host " Failed Step : $StepName" -ForegroundColor Yellow
+    if ($ErrorMessage) {
+        Write-Host " Details     : $ErrorMessage" -ForegroundColor Yellow
+    }
+    Write-Host " Timestamp   : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
+    Write-Host "---------------------------------------------------------------------" -ForegroundColor Red
+
+    if ($CommandOutput) {
+        Write-Host "`n--- Command Output / Error Traceback ---" -ForegroundColor White
+        Write-Host $CommandOutput -ForegroundColor Red
+    }
+
+    Write-Host "`n--- Recent Container Logs (Last 60 lines) ---" -ForegroundColor White
+    try {
+        $recentLogs = docker compose -f $composeFile logs --tail=60 2>&1 | Out-String
+        Write-Host $recentLogs -ForegroundColor DarkYellow
+    } catch {
+        Write-Host "  Could not retrieve container logs: $_" -ForegroundColor DarkGray
+    }
+
+    Write-Host "`n--- Container Statuses ---" -ForegroundColor White
+    try {
+        docker compose -f $composeFile ps
+    } catch {}
+
+    try {
+        $logPath = "install_error.log"
+        $logContent = @"
+=====================================================================
+SMRITI INSTALLATION ERROR LOG - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+Failed Step : $StepName
+Details     : $ErrorMessage
+=====================================================================
+COMMAND OUTPUT:
+$CommandOutput
+
+DOCKER COMPOSE LOGS:
+$recentLogs
+=====================================================================
+"@
+        Set-Content -Path $logPath -Value $logContent -Force
+        Write-Host "`n Full diagnostic report saved to: $logPath" -ForegroundColor Cyan
+    } catch {}
+
+    Write-Host "=====================================================================" -ForegroundColor Red
+    Write-Host " Select and copy the red error text / logs above to resolve the issue." -ForegroundColor Yellow
+    Write-Host "=====================================================================`n" -ForegroundColor Red
+}
+
 # -----------------------------------------------------------------------------
 # 1. OS & Hardware Architecture Detection
 # -----------------------------------------------------------------------------
@@ -404,7 +463,7 @@ if ($doFreshInstall) {
 Write-Host "  Building required images using $composeFile..." -ForegroundColor Gray
 docker compose -f $composeFile build
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  [FAIL] Docker image build failed." -ForegroundColor Red
+    Show-ErrorDiagnostics -StepName "Docker Image Build" -ErrorMessage "docker compose build failed with exit code $LASTEXITCODE."
     exit 1
 }
 Write-Host "  [OK] Images built successfully." -ForegroundColor Green
@@ -412,7 +471,7 @@ Write-Host "  [OK] Images built successfully." -ForegroundColor Green
 Write-Host "  Starting services in background (docker compose up -d)..." -ForegroundColor Gray
 docker compose -f $composeFile up -d
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  [FAIL] Failed to start Docker Compose stack." -ForegroundColor Red
+    Show-ErrorDiagnostics -StepName "Docker Service Startup" -ErrorMessage "docker compose up -d failed with exit code $LASTEXITCODE."
     exit 1
 }
 Write-Host "  [OK] Services started." -ForegroundColor Green
@@ -435,35 +494,43 @@ for ($i = 1; $i -le 30; $i++) {
 
 if (-not $dbReady) {
     Write-Host "  [WARNING] Database container took longer than expected to report healthy." -ForegroundColor Yellow
+    Write-Host "`n--- PostgreSQL Container Logs (last 30 lines) ---" -ForegroundColor White
+    $dbLogs = docker logs $dbContainer --tail=30 2>&1 | Out-String
+    Write-Host $dbLogs -ForegroundColor Red
 } else {
     Write-Host "  [OK] PostgreSQL database is healthy and ready for queries." -ForegroundColor Green
 }
 
 # Run Alembic Database Migrations safely
 Write-Host "  Checking and applying Alembic control-plane database migrations..." -ForegroundColor Gray
-try {
-    $migOutput = docker compose -f $composeFile exec -T -e PYTHONPATH="" $apiContainer alembic -x target=control -x db=$dbName upgrade head 2>&1
+$migOutput = docker compose -f $composeFile exec -T -e PYTHONPATH="" $apiContainer alembic -x target=control -x db=$dbName upgrade head 2>&1
+if ($LASTEXITCODE -eq 0) {
     Write-Host "  [OK] Database migrations completed." -ForegroundColor Green
-} catch {
-    Write-Host "  [NOTICE] Migration runner output: $_" -ForegroundColor Gray
+} else {
+    Write-Host "  [WARNING] Database migrations failed with exit code $LASTEXITCODE." -ForegroundColor Red
+    Write-Host "`n--- Alembic Migration Output / Error ---" -ForegroundColor White
+    Write-Host ($migOutput | Out-String) -ForegroundColor Red
 }
 
 # Seed baseline enterprise companies and users
 Write-Host "  Verifying and seeding baseline enterprise users..." -ForegroundColor Gray
-try {
-    $seedOutput = docker compose -f $composeFile exec -T `
-        -e SMRITI_COMPANY_NAME="$env:SMRITI_COMPANY_NAME" `
-        -e SMRITI_COMPANY_CODE="$env:SMRITI_COMPANY_CODE" `
-        -e SMRITI_COMPANY_GST="$env:SMRITI_COMPANY_GST" `
-        -e SMRITI_BRANCH_NAME="$env:SMRITI_BRANCH_NAME" `
-        -e SMRITI_BRANCH_CODE="$env:SMRITI_BRANCH_CODE" `
-        -e SMRITI_ADMIN_USERNAME="$env:SMRITI_ADMIN_USERNAME" `
-        -e SMRITI_ADMIN_EMAIL="$env:SMRITI_ADMIN_EMAIL" `
-        -e SMRITI_ADMIN_PASSWORD="$env:SMRITI_ADMIN_PASSWORD" `
-        $apiContainer python -m app.db.seed_baseline_users 2>&1
+$seedOutput = docker compose -f $composeFile exec -T `
+    -e SMRITI_COMPANY_NAME="$env:SMRITI_COMPANY_NAME" `
+    -e SMRITI_COMPANY_CODE="$env:SMRITI_COMPANY_CODE" `
+    -e SMRITI_COMPANY_GST="$env:SMRITI_COMPANY_GST" `
+    -e SMRITI_BRANCH_NAME="$env:SMRITI_BRANCH_NAME" `
+    -e SMRITI_BRANCH_CODE="$env:SMRITI_BRANCH_CODE" `
+    -e SMRITI_ADMIN_USERNAME="$env:SMRITI_ADMIN_USERNAME" `
+    -e SMRITI_ADMIN_EMAIL="$env:SMRITI_ADMIN_EMAIL" `
+    -e SMRITI_ADMIN_PASSWORD="$env:SMRITI_ADMIN_PASSWORD" `
+    $apiContainer python -m app.db.seed_baseline_users 2>&1
+
+if ($LASTEXITCODE -eq 0) {
     Write-Host "  [OK] Baseline users and enterprise companies seeded." -ForegroundColor Green
-} catch {
-    Write-Host "  [NOTICE] Baseline seeding notice: $_" -ForegroundColor Gray
+} else {
+    Write-Host "  [WARNING] Baseline seeding failed with exit code $LASTEXITCODE." -ForegroundColor Red
+    Write-Host "`n--- Baseline Seeding Output / Traceback ---" -ForegroundColor White
+    Write-Host ($seedOutput | Out-String) -ForegroundColor Red
 }
 
 # Probe API Health
@@ -483,7 +550,10 @@ for ($i = 1; $i -le 30; $i++) {
 if ($apiHealthy) {
     Write-Host "  [OK] API is healthy and connected to database." -ForegroundColor Green
 } else {
-    Write-Host "  [WARNING] API health endpoint has not yet responded. Container may still be initializing." -ForegroundColor Yellow
+    Write-Host "  [WARNING] API health endpoint has not yet responded." -ForegroundColor Yellow
+    Write-Host "`n--- smriti-api Container Logs (last 40 lines) ---" -ForegroundColor White
+    $apiLogs = docker logs $apiContainer --tail=40 2>&1 | Out-String
+    Write-Host $apiLogs -ForegroundColor Red
 }
 
 # Probe Web Frontend
@@ -503,7 +573,10 @@ for ($i = 1; $i -le 20; $i++) {
 if ($webHealthy) {
     Write-Host "  [OK] Web frontend is live and responding (HTTP 200)." -ForegroundColor Green
 } else {
-    Write-Host "  [WARNING] Web frontend has not yet responded with HTTP 200. Container may still be initializing." -ForegroundColor Yellow
+    Write-Host "  [WARNING] Web frontend has not yet responded with HTTP 200." -ForegroundColor Yellow
+    Write-Host "`n--- smriti-web Container Logs (last 40 lines) ---" -ForegroundColor White
+    $webLogs = docker logs $webContainer --tail=40 2>&1 | Out-String
+    Write-Host $webLogs -ForegroundColor Red
 }
 
 # Display Container Status Table
