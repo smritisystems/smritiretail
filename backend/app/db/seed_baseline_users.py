@@ -14,6 +14,7 @@ Classification: Internal
 
 import asyncio
 import json
+import os
 from sqlalchemy import select
 try:
     from app.db.session import async_session
@@ -62,15 +63,22 @@ async def seed():
         await db.flush()
 
         # 1. Multiple Enterprise Companies with Branches & READY Registries
+        # Primary company is driven by environment variables set during installation.
+        # Falls back to demo defaults if not configured.
+        _primary_name   = os.environ.get("SMRITI_COMPANY_NAME",  "").strip() or "My Retail Store"
+        _primary_code   = os.environ.get("SMRITI_COMPANY_CODE",  "").strip() or "COMP-001"
+        _primary_gst    = os.environ.get("SMRITI_COMPANY_GST",   "").strip() or ""
+        _branch_name    = os.environ.get("SMRITI_BRANCH_NAME",   "").strip() or "Main Branch"
+        _branch_code    = os.environ.get("SMRITI_BRANCH_CODE",   "").strip() or "MAIN"
+
         enterprise_companies = [
             {
                 "id": "COMP-001",
-                "name": "Tattly Threads",
-                "gst_number": "27AAXFT2508H1ZR",
+                "name": _primary_name,
+                "gst_number": _primary_gst,
                 "db_name": "smriti001",
                 "branches": [
-                    {"id": "BR-MAIN-001", "name": "Main Corporate Branch", "code": "MAIN"},
-                    {"id": "BR-SOUTH-001", "name": "South Distribution Hub", "code": "SOUTH-01"},
+                    {"id": "BR-MAIN-001", "name": _branch_name, "code": _branch_code},
                 ]
             },
             {
@@ -151,8 +159,13 @@ async def seed():
         await db.flush()
 
         # 2. Users: admin, sysadmin, manager, cashier with standard hashes
+        # Admin credentials driven by installer env vars (fallback to defaults)
+        _admin_uname = os.environ.get("SMRITI_ADMIN_USERNAME", "").strip() or "admin"
+        _admin_email = os.environ.get("SMRITI_ADMIN_EMAIL",    "").strip() or "admin@smritibooks.com"
+        _admin_pwd   = os.environ.get("SMRITI_ADMIN_PASSWORD", "").strip() or "Admin@123"
+
         users_to_seed = [
-            ("admin", "usr-admin", "admin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
+            (_admin_uname, "usr-admin", _admin_email, _admin_pwd, UserRole.SYSADMIN, "role-sysadmin", None, None),
             ("sysadmin", "usr-sysadmin-direct", "sysadmin_direct@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
             ("usr_sysadmin", "usr-sysadmin", "sysadmin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
             ("usr_super", "usr-super", "super@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
