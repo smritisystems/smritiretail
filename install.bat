@@ -29,9 +29,9 @@ if "%CHOICE%"=="2" (
     echo.
     echo  [!] FRESH INSTALL selected - all database volumes will be wiped.
     echo.
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" -FreshInstall
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" -Mode "Production" -FreshInstall
 ) else (
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" -Mode "Production"
 )
 
 if %errorlevel% neq 0 (
