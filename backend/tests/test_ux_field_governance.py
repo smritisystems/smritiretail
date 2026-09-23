@@ -550,3 +550,113 @@ class TestReverseDatabaseColumnClassification:
             for col in mapped_for_table:
                 assert col in table_cols, f"Canonical column '{col}' missing from physical table '{table}'!"
 
+
+# ==============================================================================
+# Domain 14: Declarative DB Column Classification Contract
+# ==============================================================================
+
+class TestDeclarativeColumnClassificationContract:
+    """Verifies that all columns in governed tables adhere to the closed 5-category contract."""
+
+    def test_classification_invariants_pass(self):
+        from app.governance.column_classification import verify_column_classification_invariants, ColumnClassification
+        counts = verify_column_classification_invariants()
+        assert counts[ColumnClassification.CANONICAL_BUSINESS.value] == 132
+        assert counts[ColumnClassification.AUDIT.value] > 0
+        assert counts[ColumnClassification.TECHNICAL_FK.value] > 0
+        assert counts[ColumnClassification.FRAMEWORK.value] > 0
+        assert counts[ColumnClassification.MIGRATION.value] > 0
+
+    def test_invalid_classification_category_rejected(self):
+        from app.governance.column_classification import classify_column
+        with pytest.raises(ValueError):
+            # Attempt to use a prohibited sixth category
+            classify_column("customers", "test_col", "UNOFFICIAL_CATEGORY", "Test reason")  # type: ignore
+
+
+# ==============================================================================
+# Domain 15: Migration-Time CFOC Parity & Column Classification
+# ==============================================================================
+
+class TestMigrationCFOCParity:
+    """Verifies that Alembic migrations do not introduce unclassified database columns."""
+
+    def test_all_migration_columns_on_governed_tables_are_classified(self):
+        from ci_migration_cfoc_guard import run_migration_cfoc_guard
+        exit_code = run_migration_cfoc_guard()
+        assert exit_code == 0, "Alembic migrations contain unclassified columns on governed tables!"
+
+
+# ==============================================================================
+# Domain 16: Canonical Field Immutability and Semantic Version Policy
+# ==============================================================================
+
+class TestFieldImmutabilityAndVersioningPolicy:
+    """Verifies that canonical fields are immutable once ACTIVE, and require version increment on metadata changes."""
+
+    def test_field_id_renaming_prohibited(self):
+        from app.governance.field_registry import validate_field_immutability, FieldRegistryViolation
+        f1 = CANONICAL_FIELDS["customer.mobile"]
+        f2 = CanonicalFieldDef(
+            field_id="customer.renamed_mobile",  # Prohibited rename
+            entity_id=f1.entity_id,
+            db_table=f1.db_table,
+            db_column=f1.db_column,
+            data_type=f1.data_type,
+            field_type=f1.field_type,
+            label=f1.label,
+            required=f1.required,
+            editable=f1.editable,
+            searchable=f1.searchable,
+            filterable=f1.filterable,
+            sortable=f1.sortable,
+            readonly=f1.readonly,
+            lifecycle=f1.lifecycle,
+            ownership=f1.ownership,
+            version=f1.version,
+        )
+        with pytest.raises(FieldRegistryViolation, match="Field ID immutability violation"):
+            validate_field_immutability(f1, f2)
+
+    def test_metadata_change_requires_version_increment(self):
+        from app.governance.field_registry import validate_field_immutability, FieldRegistryViolation
+        f1 = CANONICAL_FIELDS["customer.mobile"]
+        # Mutate label without version increment
+        f2 = CanonicalFieldDef(
+            field_id=f1.field_id,
+            entity_id=f1.entity_id,
+            db_table=f1.db_table,
+            db_column=f1.db_column,
+            data_type=f1.data_type,
+            field_type=f1.field_type,
+            label="Mutated Label Without Version Bump",
+            required=f1.required,
+            editable=f1.editable,
+            searchable=f1.searchable,
+            filterable=f1.filterable,
+            sortable=f1.sortable,
+            readonly=f1.readonly,
+            lifecycle=f1.lifecycle,
+            ownership=f1.ownership,
+            version=f1.version,  # Same version!
+        )
+        with pytest.raises(FieldRegistryViolation, match="Semantic versioning violation"):
+            validate_field_immutability(f1, f2)
+
+
+# ==============================================================================
+# Domain 17: Runtime Tenant Database Boundary Inspection
+# ==============================================================================
+
+class TestRuntimeTenantDatabaseBoundaryInspection:
+    """Verifies that runtime tenant database inspection correctly validates tenant boundaries."""
+
+    def test_tenant_db_has_all_canonical_tables(self):
+        from app.db.cp_guard import inspect_tenant_cfoc_boundary
+        report = inspect_tenant_cfoc_boundary("smriti001")
+        if not report["connected"]:
+            pytest.skip("smriti001 not reachable")
+        assert report["clean"] is True
+        assert len(report["missing_canonical_tables"]) == 0
+
+

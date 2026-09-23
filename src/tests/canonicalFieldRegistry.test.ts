@@ -29,7 +29,7 @@ import {
 
 describe("SMRITI Canonical Field Registry Frontend SSOT", () => {
   it("should export authoritative CFOC constants and valid SHA-256 fingerprint", () => {
-    expect(CFOC_REGISTRY_VERSION).toBe("3.45.0");
+    expect(CFOC_REGISTRY_VERSION).toBe("3.46.0");
     expect(CFOC_REGISTRY_FIELDS).toBe(132);
     expect(CFOC_REGISTRY_FINGERPRINT).toMatch(/^[a-f0-9]{64}$/);
     expect(CFOC_REGISTRY_FINGERPRINT).toBe("8f9627da3035bf38e2545720a5a46a163c1d3938d122b48171045465faae7ca8");

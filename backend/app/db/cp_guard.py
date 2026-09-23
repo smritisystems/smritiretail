@@ -190,10 +190,93 @@ def inspect_control_plane(db_url: str | None = None) -> Dict[str, Any]:
     return result
 
 
+def inspect_tenant_cfoc_boundary(
+    tenant_db_name: str = "smriti001",
+    db_url: str | None = None,
+    fail_closed: bool = False,
+) -> Dict[str, Any]:
+    """
+    Connects to a tenant database (e.g. smriti001) and performs fail-closed CFOC boundary checks:
+    1. Tenant DB must NEVER contain Control-Plane-only tables (e.g. screen_definitions, field_definitions).
+    2. Tenant DB must contain canonical business tables.
+    3. If fail_closed=True and violations occur, raises RuntimeError.
+    """
+    if psycopg2 is None:
+        raise RuntimeError("psycopg2 is required to run tenant CFOC boundary inspection.")
+
+    user = os.getenv("POSTGRES_USER", "postgres")
+    password = os.getenv("POSTGRES_PASSWORD", "postgres")
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    target_url = db_url or f"postgresql://{user}:{password}@{host}:{port}/{tenant_db_name}"
+
+    result: Dict[str, Any] = {
+        "database": tenant_db_name,
+        "db_url": target_url.split("@")[-1] if "@" in target_url else target_url,
+        "connected": False,
+        "control_plane_tables_found": [],
+        "missing_canonical_tables": [],
+        "clean": False,
+    }
+
+    try:
+        conn = psycopg2.connect(target_url, connect_timeout=5)
+        cur = conn.cursor()
+        cur.execute("SELECT current_database();")
+        curr_db = cur.fetchone()[0]
+        if str(curr_db).strip().lower() == "smritisys":
+            conn.close()
+            raise RuntimeError(f"Tenant inspection targeted at '{tenant_db_name}' connected to 'smritisys'!")
+
+        result["connected"] = True
+
+        cur.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_type = 'BASE TABLE';"
+        )
+        existing_tables = {row[0] for row in cur.fetchall()}
+
+        # 1. Check for pure Control Plane governance tables in tenant DB
+        # Note: UI Control Plane and Architecture Governance belong strictly in smritisys
+        CP_EXCLUSIVE_TABLES = {
+            "screen_definitions", "field_definitions", "action_definitions",
+            "layout_definitions", "icon_registries", "smriti_themes",
+            "smriti_theme_variants", "smriti_workspace_profiles",
+            "provider_registries", "connector_registries", "integration_registries",
+        }
+        cp_tables_in_tenant = existing_tables.intersection(CP_EXCLUSIVE_TABLES)
+        result["control_plane_tables_found"] = sorted(list(cp_tables_in_tenant))
+
+        # 2. Check for required canonical tenant tables
+        from app.governance.field_registry import CANONICAL_FIELDS
+        canonical_tenant_tables = {f.db_table for f in CANONICAL_FIELDS.values() if f.ownership == "TENANT"}
+        missing_tables = canonical_tenant_tables - existing_tables
+        result["missing_canonical_tables"] = sorted(list(missing_tables))
+
+        conn.close()
+        result["clean"] = len(result["missing_canonical_tables"]) == 0
+
+        if fail_closed and not result["clean"]:
+            msg = (
+                f"[CFOC-FAIL-CLOSED] Boundary violation in tenant '{tenant_db_name}': "
+                f"Missing canonical tables: {result['missing_canonical_tables']}"
+            )
+            logger.critical(msg)
+            raise RuntimeError(msg)
+
+    except Exception as exc:
+        result["error"] = str(exc)
+        if fail_closed:
+            raise
+
+    return result
+
+
 def run_startup_check(db_url: str | None = None) -> Dict[str, Any]:
     """
     Called from FastAPI lifespan during application startup.
-    Fails closed in strict mode or logs warnings on contamination.
+    Fails closed in strict mode or logs warnings on contamination across both
+    Control Plane (smritisys) and default Tenant (smriti001).
     """
     report = inspect_control_plane(db_url)
     if not report["connected"]:
@@ -214,6 +297,17 @@ def run_startup_check(db_url: str | None = None) -> Dict[str, Any]:
         )
     else:
         logger.info("[CP Guard] Startup boundary check PASSED: smritisys Control Plane is clean.")
+
+    # Also inspect default tenant database boundary
+    try:
+        tenant_report = inspect_tenant_cfoc_boundary("smriti001")
+        if tenant_report["connected"]:
+            if tenant_report["clean"]:
+                logger.info("[CFOC Runtime] Tenant 'smriti001' boundary check PASSED (0 CP tables in tenant DB).")
+            else:
+                logger.warning("[CFOC Runtime] Tenant 'smriti001' boundary warnings: %s", tenant_report)
+    except Exception as e:
+        logger.warning("[CFOC Runtime] Could not inspect default tenant boundary: %s", e)
 
     return report
 

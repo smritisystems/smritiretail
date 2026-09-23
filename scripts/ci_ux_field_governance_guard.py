@@ -57,6 +57,12 @@ from app.db.ownership import (
     is_control_plane_table,
 )
 from verify_ts_registry_drift import verify_registry_drift, TARGET_TS_FILE
+from app.governance.column_classification import (
+    verify_column_classification_invariants,
+    CFOC_DB_COLUMN_CLASSIFICATION,
+    get_column_classification,
+)
+from ci_migration_cfoc_guard import extract_columns_from_migration
 
 
 class UXFieldGovernanceGuard:
@@ -509,13 +515,18 @@ class UXFieldGovernanceGuard:
                 continue
 
             expires_at = e.get("expires_at")
-            if expires_at and expires_at < today_str:
-                self.log_violation(
-                    "EXPIRED_EXCEPTION", "CRITICAL",
-                    f"Baseline exception '{e['exception_id']}' for field '{e['field_id']}' expired on {expires_at}.",
-                    {"exception_id": e["exception_id"], "field_id": e["field_id"], "expires_at": expires_at}
-                )
-                exception_violations += 1
+            if expires_at:
+                exp_date = datetime.datetime.strptime(expires_at, "%Y-%m-%d").date()
+                days_left = (exp_date - datetime.date.today()).days
+                if days_left < 0:
+                    self.log_violation(
+                        "EXPIRED_EXCEPTION", "CRITICAL",
+                        f"Baseline exception '{e['exception_id']}' for field '{e['field_id']}' expired on {expires_at}.",
+                        {"exception_id": e["exception_id"], "field_id": e["field_id"], "expires_at": expires_at}
+                    )
+                    exception_violations += 1
+                elif days_left <= 30:
+                    print(f"  [WARNING] Exception '{e['exception_id']}' ({e['field_id']}) expires in {days_left} days ({expires_at})! Owner: {e['owner']}, Target: {e['remediation_target']}")
 
         if exception_violations == 0:
             self.passed_checks.append(f"Exception Governance ({len(entries)} exceptions strictly audited with 0 schema or expiry defects)")
@@ -540,6 +551,51 @@ class UXFieldGovernanceGuard:
         else:
             self.passed_checks.append("Generated Registry Zero-Drift (100% deterministic parity between Python SSOT and TS artifact)")
             print("  [OK] Generated TypeScript registry has 0 drift against Python SSOT.")
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Check 10: Migration-Time CFOC Parity Verification
+    # ──────────────────────────────────────────────────────────────────────────
+    def check_migration_cfoc_parity(self):
+        print("Checking 10: Migration-Time CFOC Parity Verification...")
+        versions_dir = BACKEND_DIR / "alembic" / "versions"
+        if not versions_dir.exists():
+            print("  [OK] No alembic versions directory found.")
+            return
+
+        governed_tables = {f.db_table for f in CANONICAL_FIELDS.values()}
+        unclassified = []
+
+        for mfile in versions_dir.glob("*.py"):
+            for table, col, lineno in extract_columns_from_migration(mfile):
+                if table in governed_tables and not get_column_classification(table, col):
+                    unclassified.append((mfile.name, lineno, table, col))
+
+        if unclassified:
+            for mname, lno, tbl, col in unclassified[:10]:
+                self.log_violation(
+                    "MIGRATION_UNCLASSIFIED_COLUMN", "ERROR",
+                    f"Alembic migration '{mname}:{lno}' introduces unclassified column '{tbl}.{col}'.",
+                    {"file": mname, "line": lno, "table": tbl, "column": col}
+                )
+            print(f"  [FAIL] {len(unclassified)} unclassified columns found in Alembic migrations!")
+        else:
+            self.passed_checks.append("Migration-Time CFOC Parity (All migration columns on governed tables are classified)")
+            print("  [OK] Migration-time CFOC parity verified (0 unclassified migration columns).")
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Check 11: Declarative DB Column Classification Contract Verification
+    # ──────────────────────────────────────────────────────────────────────────
+    def check_declarative_column_classification(self):
+        print("Checking 11: Declarative DB Column Classification Contract...")
+        try:
+            counts = verify_column_classification_invariants()
+            self.passed_checks.append(
+                f"Declarative Column Classification ({len(CFOC_DB_COLUMN_CLASSIFICATION)} columns classified across closed 5-category contract)"
+            )
+            print(f"  [OK] Declarative column classification verified across {len(CFOC_DB_COLUMN_CLASSIFICATION)} columns.")
+        except Exception as e:
+            self.log_violation("COLUMN_CLASSIFICATION_INVARIANT_BROKEN", "CRITICAL", str(e))
+            print(f"  [FAIL] Column classification invariant broken: {e}")
 
     # ──────────────────────────────────────────────────────────────────────────
     # Generate Reports
@@ -677,6 +733,8 @@ Any legacy raw JSX input not yet refactored to `MasterFormDrawer` or `FieldRende
         self.check_field_lifecycle_integrity()
         self.check_exception_governance_and_expiry()
         self.check_generated_ts_registry_drift()
+        self.check_migration_cfoc_parity()
+        self.check_declarative_column_classification()
 
         status = self.generate_reports()
 

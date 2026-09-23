@@ -30,12 +30,43 @@ from dataclasses import dataclass, field, asdict
 # Ensure app.db.ownership is accessible
 from app.db.ownership import TABLE_OWNERSHIP, TableOwner, is_tenant_table, is_control_plane_table
 
-CFOC_REGISTRY_VERSION = "3.45.0"
+CFOC_REGISTRY_VERSION = "3.46.0"
 
 
 class FieldRegistryViolation(RuntimeError):
     """Raised when a field definition violates registry uniqueness or boundary invariants."""
     pass
+
+
+def validate_field_immutability(old_field: "CanonicalFieldDef", new_field: "CanonicalFieldDef") -> None:
+    """
+    Enforces the CFOC v3.46.0 Field Immutability & Semantic Versioning Policy:
+    1. Canonical field_id, db_table, and db_column are permanently immutable once ACTIVE.
+    2. Any metadata changes (label, required, types, validation) require a version increment.
+    3. Deletions are forbidden; fields must transition through lifecycle states.
+    """
+    if old_field.field_id != new_field.field_id:
+        raise FieldRegistryViolation(
+            f"Field ID immutability violation: '{old_field.field_id}' cannot be renamed to '{new_field.field_id}'"
+        )
+    if old_field.db_table != new_field.db_table or old_field.db_column != new_field.db_column:
+        raise FieldRegistryViolation(
+            f"Physical mapping immutability violation on '{old_field.field_id}': "
+            f"Cannot change ({old_field.db_table}.{old_field.db_column}) to ({new_field.db_table}.{new_field.db_column})"
+        )
+    # Check if metadata changed
+    if (
+        old_field.data_type != new_field.data_type
+        or old_field.field_type != new_field.field_type
+        or old_field.label != new_field.label
+        or old_field.required != new_field.required
+        or old_field.validation_rule != new_field.validation_rule
+    ):
+        if new_field.version <= old_field.version:
+            raise FieldRegistryViolation(
+                f"Semantic versioning violation on '{old_field.field_id}': Metadata modified but version "
+                f"({new_field.version}) was not bumped above previous version ({old_field.version})"
+            )
 
 
 class FieldLifecycle(str, Enum):
