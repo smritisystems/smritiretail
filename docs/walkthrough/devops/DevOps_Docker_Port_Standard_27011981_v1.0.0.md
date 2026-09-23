@@ -53,7 +53,7 @@ Ensure all internal container ports (`5432`, `8000`, `3000`) and container-to-co
 ---
 
 ## 4. Files Modified
-* `docker-compose.yml`: Renamed service `db` to `smriti-db` with network aliases `db` and `smriti-db`; updated published ports to `2781:5432`, `1981:8000`, `8101:3000`; preserved internal ports; updated `depends_on` and `DATABASE_URL` references to `@smriti-db:5432`.
+* `docker-compose.yml`: Renamed service `db` to `smriti-db` with network aliases `db` and `smriti-db`; updated published ports to `2781:5432`, `1981:8000`, `8101:3000`; preserved internal ports; updated `depends_on` and `DATABASE_URL` references to `@smriti-db:5432`; tuned healthcheck `start_period` (60s for api, 30s for web) to ensure zero cold-start failures.
 * `.env`: Updated `POSTGRES_PORT=2781`, `BACKEND_API_PORT=1981`, `PORT=8101`, `DATABASE_URL=postgresql://postgres:postgres@localhost:2781/smritisys`.
 * `.env.example`: Updated `POSTGRES_PORT=2781`, `BACKEND_API_PORT=1981`, `PORT=8101`, `DATABASE_URL` default.
 * `backend/.env`: Updated `POSTGRES_PORT=2781`, `BACKEND_API_PORT=1981`, `PORT=8101`, `DATABASE_URL=postgresql://postgres:postgres@localhost:2781/smritisys`.
