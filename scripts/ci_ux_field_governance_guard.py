@@ -143,9 +143,10 @@ class UXFieldGovernanceGuard:
         total_cols = 0
         total_tables = set()
 
+        db_port = os.getenv("POSTGRES_PORT", "2781")
         for db_name, db_type in db_configs:
             try:
-                conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+                conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{db_port}/{db_name}")
                 cur = conn.cursor()
                 cur.execute("""
                     SELECT table_name, column_name, data_type, is_nullable

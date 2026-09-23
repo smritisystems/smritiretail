@@ -17,7 +17,7 @@ export PYTHONPATH=/app
 # Optionally skip migrations (for controlled environments). Set SKIP_MIGRATIONS=true to disable.
 if [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
     echo "Running Alembic database migrations..."
-    alembic upgrade head
+    alembic -x target=control -x db=smritisys upgrade head
 else
     echo "SKIP_MIGRATIONS=true, skipping Alembic migrations."
 fi

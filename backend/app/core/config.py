@@ -126,7 +126,7 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
         except Exception:
             pass
 
-    for alt_port in (5432, 2781, 5434):
+    for alt_port in (5432, 2781, 2782, 5434):
         if alt_port == port:
             continue
         if _is_postgres_server(host, alt_port):
@@ -163,6 +163,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:8101",
         "http://127.0.0.1:8101",
+        "http://localhost:8102",
+        "http://127.0.0.1:8102",
         "http://localhost:5000",
         "http://127.0.0.1:5000",
         "http://localhost:5173",
