@@ -5,7 +5,7 @@
 # Version      : 3.16.0
 # Created      : 2026-07-13
 # Modified     : 2026-09-23
-# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
@@ -290,7 +290,7 @@ $existingCompanyName = (Get-Content ".env" -ErrorAction SilentlyContinue | Selec
 $existingAdminPwd    = (Get-Content ".env" -ErrorAction SilentlyContinue | Select-String "^SMRITI_ADMIN_PASSWORD=(.+)").Matches.Groups[1].Value.Trim().Trim('"').Trim("'")
 
 if ($existingCompanyName -and $existingCompanyName.Length -gt 0 -and -not $doFreshInstall) {
-    Write-Host "  [OK] Business profile already configured in .env — skipping." -ForegroundColor Green
+    Write-Host "  [OK] Business profile already configured in .env  -- skipping." -ForegroundColor Green
     Write-Host "       Company: $existingCompanyName" -ForegroundColor Gray
 } else {
     Write-Host ""

@@ -1,7 +1,7 @@
 # Project      : SMRITI Retail OS
 # Author       : Jawahar Ramkripal Mallah
 # Designation  : Chief Systems Architect & Creator
-# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 
 Write-Host "`n==================================================" -ForegroundColor Cyan
 Write-Host " 1. CHECKING NATIVE WINDOWS SQL SERVICES" -ForegroundColor Cyan
