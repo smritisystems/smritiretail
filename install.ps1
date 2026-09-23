@@ -16,7 +16,7 @@ param (
     [switch]$FreshInstall = $false
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 function Write-Banner {
     Write-Host "=====================================================================" -ForegroundColor Cyan
@@ -377,12 +377,11 @@ Write-Section "6/7" "Building and Starting SMRITI Retail OS Stack"
 # Fresh Install: wipe existing volumes for a completely clean database
 if ($doFreshInstall) {
     Write-Host "`n  [FRESH INSTALL] Stopping any running containers and removing volumes..." -ForegroundColor Red
-    docker compose -f $composeFile down -v 2>$null
-    docker volume rm smriti_db_volume smriti_mssql_volume 2>$null
-    Write-Host "  [OK] Old volumes removed. Starting with a clean slate." -ForegroundColor Green
+    docker compose -f $composeFile down -v --remove-orphans
+    Write-Host "  [OK] Old containers and volumes removed. Starting with a clean slate." -ForegroundColor Green
 } else {
     # Gracefully stop without removing volumes (preserves existing data)
-    docker compose -f $composeFile down 2>$null
+    docker compose -f $composeFile down --remove-orphans
     Write-Host "  [OK] Previous containers stopped (data volumes preserved)." -ForegroundColor Green
 }
 
