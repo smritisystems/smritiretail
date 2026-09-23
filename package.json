@@ -15,7 +15,9 @@
     "architecture:preflight": "python scripts/architecture_preflight.py",
     "architecture:check": "python scripts/architecture_duplication_gate.py",
     "governance:fields": "python scripts/ci_ux_field_governance_guard.py",
-    "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
+    "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload",
+    "governance:dto": "python scripts/ci_api_dto_reconciliation.py",
+    "governance:all": "python scripts/ci_ux_field_governance_guard.py && python scripts/ci_api_dto_reconciliation.py"
   },
   "dependencies": {
     "@google/genai": "2.10.0",
