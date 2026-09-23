@@ -1,18 +1,19 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.87.0
+ * Version      : 4.0.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-09-23 (v4.0.0 — EXC-0010 through EXC-0017 retired via CanonicalInlineInput)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useMemo } from "react";
+import { CanonicalInlineInput } from "../global/CanonicalInlineInput.tsx";
 import GiftCardEngine, { GiftCard, GiftCardRedemptionRequest } from "../../utils/giftCardEngine";
 
 interface GiftCardLifecycleModalProps {
@@ -142,13 +143,30 @@ export const GiftCardLifecycleModal: React.FC<GiftCardLifecycleModalProps> = ({ 
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Customer ID *</label>
-                  <input value={issueCustomer} data-field-key="customer_code" onChange={(e) => setIssueCustomer(e.target.value)} placeholder="CUST-0001"
-                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
+                  {/* EXC-0010 RETIRED: customer_code -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="customer.code"
+                    canonicalKey="code"
+                    fallbackLabel="Customer ID"
+                    value={issueCustomer}
+                    onChange={(e) => setIssueCustomer(e.target.value)}
+                    placeholder="CUST-0001"
+                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors"
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Amount (₹) *</label>
-                  <input type="number" value={issueAmount} data-field-key="selling_price" onChange={(e) => setIssueAmount(e.target.value)} min={100}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
+                  {/* EXC-0011 RETIRED: selling_price -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="item.selling_price"
+                    canonicalKey="selling_price"
+                    fallbackLabel="Gift Card Amount"
+                    type="number"
+                    value={issueAmount}
+                    onChange={(e) => setIssueAmount(e.target.value)}
+                    min={100}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors"
+                  />
                 </div>
                 <div className="flex gap-2">
                   {[500, 1000, 2000, 5000].map((p) => (
@@ -172,13 +190,30 @@ export const GiftCardLifecycleModal: React.FC<GiftCardLifecycleModalProps> = ({ 
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Last 4 digits of card *</label>
-                  <input value={topUpCardNum} data-field-key="reference_no" onChange={(e) => setTopUpCardNum(e.target.value)} placeholder="e.g. 4521"
-                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
+                  {/* EXC-0012 RETIRED: reference_no -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="sales_invoice.invoice_no"
+                    canonicalKey="invoice_no"
+                    fallbackLabel="Card Last 4 Digits"
+                    value={topUpCardNum}
+                    onChange={(e) => setTopUpCardNum(e.target.value)}
+                    placeholder="e.g. 4521"
+                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors"
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Top-Up Amount (₹) *</label>
-                  <input type="number" value={topUpAmount} data-field-key="selling_price" onChange={(e) => setTopUpAmount(e.target.value)} min={100}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
+                  {/* EXC-0013 RETIRED: selling_price -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="item.selling_price"
+                    canonicalKey="selling_price"
+                    fallbackLabel="Top-Up Amount"
+                    type="number"
+                    value={topUpAmount}
+                    onChange={(e) => setTopUpAmount(e.target.value)}
+                    min={100}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors"
+                  />
                 </div>
                 <button onClick={handleTopUp} className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20">
                   Add Balance
@@ -194,23 +229,56 @@ export const GiftCardLifecycleModal: React.FC<GiftCardLifecycleModalProps> = ({ 
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Last 4 digits of card *</label>
-                  <input value={redeemCardNum} data-field-key="reference_no" onChange={(e) => setRedeemCardNum(e.target.value)} placeholder="e.g. 4521"
-                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
+                  {/* EXC-0014 RETIRED: reference_no -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="sales_invoice.invoice_no"
+                    canonicalKey="invoice_no"
+                    fallbackLabel="Card Last 4 Digits"
+                    value={redeemCardNum}
+                    onChange={(e) => setRedeemCardNum(e.target.value)}
+                    placeholder="e.g. 4521"
+                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors"
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">OTP (sent to registered mobile) *</label>
-                  <input value={redeemOtp} data-field-key="reference_no" onChange={(e) => setRedeemOtp(e.target.value)} placeholder="6-digit OTP" maxLength={6}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 font-mono outline-none focus:border-amber-500 transition-colors" />
+                  {/* EXC-0015 RETIRED: reference_no -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="sales_invoice.invoice_no"
+                    canonicalKey="invoice_no"
+                    fallbackLabel="Redemption OTP"
+                    value={redeemOtp}
+                    onChange={(e) => setRedeemOtp(e.target.value)}
+                    placeholder="6-digit OTP"
+                    maxLength={6}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 font-mono outline-none focus:border-amber-500 transition-colors"
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Redemption Amount (₹) *</label>
-                  <input type="number" value={redeemAmount} data-field-key="selling_price" onChange={(e) => setRedeemAmount(e.target.value)} min={1}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
+                  {/* EXC-0016 RETIRED: selling_price -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="item.selling_price"
+                    canonicalKey="selling_price"
+                    fallbackLabel="Redemption Amount"
+                    type="number"
+                    value={redeemAmount}
+                    onChange={(e) => setRedeemAmount(e.target.value)}
+                    min={1}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors"
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Sales Voucher Ref</label>
-                  <input value={redeemVoucher} data-field-key="reference_no" onChange={(e) => setRedeemVoucher(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors" />
+                  {/* EXC-0017 RETIRED: reference_no -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="sales_invoice.invoice_no"
+                    canonicalKey="invoice_no"
+                    fallbackLabel="Sales Voucher Ref"
+                    value={redeemVoucher}
+                    onChange={(e) => setRedeemVoucher(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-slate-200 bg-slate-800 border border-slate-700 outline-none focus:border-emerald-500 transition-colors"
+                  />
                 </div>
                 <button onClick={handleRedeem} className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-500 transition-all shadow-lg shadow-amber-500/20">
                   Validate OTP & Redeem
