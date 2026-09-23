@@ -115,7 +115,7 @@ jobs:
           ruff check app/ --select=E,W,F --ignore=E501
 
       - name: Run Alembic Migrations (smritisys control plane)
-        run: alembic upgrade head
+        run: alembic -x target=control -x db=smritisys upgrade head
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smritisys"
 
@@ -123,13 +123,20 @@ jobs:
         run: PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE smriti001;" || true
 
       - name: Run Alembic Migrations (smriti001 company plane)
-        run: alembic upgrade head
+        run: alembic -x target=tenant -x db=smriti001 upgrade head
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti001"
 
       - name: Run Naming Guard (NGP-v1.0)
         run: python ../scripts/smriti_naming_guard.py --root ..
         continue-on-error: true
+
+      - name: Tenant Data Boundary CI Guard (TDB-v1.0)
+        # Enforces the TENANT DATA BOUNDARY permanently:
+        # smritisys = Control Plane ONLY. No tenant-operational data.
+        # Fails if seed scripts default to smritisys, tenant loops include smritisys,
+        # or CI alembic commands are missing -x target= flags.
+        run: python ../scripts/ci_tenant_boundary_guard.py --root ..
 
       - name: Run Backend Tests
         run: >

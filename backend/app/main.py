@@ -148,6 +148,20 @@ async def lifespan(_app: FastAPI):
         except Exception as e:
             logger.warning(f"[SMRITI Startup] Notice during baseline user auto-seeding: {e}")
 
+        # TDB-v2.0: Startup Control Plane Tenant Data Boundary Guard
+        try:
+            from .db.cp_guard import run_startup_check
+            guard_report = run_startup_check()
+            if guard_report.get("non_empty_violations"):
+                logger.warning(
+                    f"[TDB-v2.0] Control Plane contamination detected: "
+                    f"{len(guard_report['non_empty_violations'])} non-empty tenant tables found in smritisys."
+                )
+            else:
+                logger.info("[TDB-v2.0] Control Plane Boundary check: smritisys is clean.")
+        except Exception as guard_exc:
+            logger.warning(f"[TDB-v2.0] Notice during startup boundary check: {guard_exc}")
+
     yield
 
 # Initialize FastAPI instance

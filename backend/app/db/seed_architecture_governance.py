@@ -15,10 +15,17 @@ Classification: Architecture Governance Seeder
 import sys
 import json
 import psycopg2
+try:
+    from app.db.seed_contract import seed_contract
+except ImportError:
+    from backend.app.db.seed_contract import seed_contract
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-DATABASES = ["smritisys", "smriti001"]
+# TENANT DATA BOUNDARY: Architecture governance (domains, entities, capabilities, decisions)
+# is authoritative Control Plane metadata. It belongs ONLY in smritisys.
+# It must NOT be seeded into tenant company databases (smriti001, smriti002, etc.).
+DATABASES = ["smritisys"]
 
 DOMAINS = [
     ("crm", "Customer Relationship Management & Party Master", "Governs customer profiles, loyalty, B2B credit, and contact points.", "Core Architecture", "ACTIVE"),
@@ -244,6 +251,7 @@ DECISIONS = [
 ]
 
 
+@seed_contract(target="control")
 def seed_database(db_name: str):
     print(f"=== Seeding Architecture Governance in {db_name} ===")
     conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
