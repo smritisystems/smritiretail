@@ -263,3 +263,7 @@ from .dispatch_batch import (
     DispatchBatch,
     DispatchBatchInvoice,
 )
+
+# KPI Definition Registry — data-driven KPI configuration for Executive Hub dashboards (v1.0.0 — 2026-09-24)
+from .kpi_definition import KPIDefinition
+

@@ -194,6 +194,11 @@ class Settings(BaseSettings):
     EWAYBILL_PUBLIC_KEY: str | None = None
     EWAYBILL_TIMEOUT_SECONDS: float = 30.0
 
+    # Report Scheduler Daemon — asyncio background dispatch engine
+    # Set REPORT_SCHEDULER_ENABLED=true in .env or container env to activate.
+    REPORT_SCHEDULER_ENABLED: bool = False
+    REPORT_SCHEDULER_POLL_SECONDS: int = 60
+
     model_config = {
         "env_file": (str(_root_env_path), ".env"),
         "case_sensitive": True,

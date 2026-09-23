@@ -117,7 +117,9 @@ from .api.v1 import (
     workspace_ui,
     cge_unified,
     system_parameters,
+    kpi_registry,
 )
+
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
 from .core.error_handlers import register_error_handlers
@@ -163,7 +165,31 @@ async def lifespan(_app: FastAPI):
         except Exception as guard_exc:
             logger.warning(f"[TDB-v2.0] Notice during startup boundary check: {guard_exc}")
 
+        # Report Scheduler Daemon — start background asyncio dispatch loop
+        if settings.REPORT_SCHEDULER_ENABLED:
+            try:
+                from .core.scheduler import start_scheduler
+                start_scheduler(poll_interval_seconds=settings.REPORT_SCHEDULER_POLL_SECONDS)
+                logger.info(
+                    f"[SMRITI Startup] Report Scheduler Daemon started "
+                    f"(poll_interval={settings.REPORT_SCHEDULER_POLL_SECONDS}s)."
+                )
+            except Exception as sched_exc:
+                logger.warning(f"[SMRITI Startup] Report Scheduler Daemon failed to start: {sched_exc}")
+        else:
+            logger.info("[SMRITI Startup] Report Scheduler Daemon is DISABLED (REPORT_SCHEDULER_ENABLED=false).")
+
     yield
+
+    # Graceful shutdown: stop the report scheduler daemon if it was started
+    if settings.REPORT_SCHEDULER_ENABLED:
+        try:
+            from .core.scheduler import stop_scheduler
+            await stop_scheduler()
+            logger.info("[SMRITI Shutdown] Report Scheduler Daemon stopped.")
+        except Exception as stop_exc:
+            logger.warning(f"[SMRITI Shutdown] Error stopping Report Scheduler Daemon: {stop_exc}")
+
 
 # Initialize FastAPI instance
 app = FastAPI(
@@ -303,6 +329,7 @@ _ROUTER_REGISTRY = [
     (reports,               "",                      ["Reports"]),
     (reporting_governance,  "",                      ["Reporting Governance"]),
     (scheduled_reports,     "",                      ["Scheduled Reports"]),
+    (kpi_registry,          "",                      ["KPI Registry"]),
 
     # --- Integration & Data ---
     (exchange,              "/exchange",             ["Data Exchange Hub"]),
