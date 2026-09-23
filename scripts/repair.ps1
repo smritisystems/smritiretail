@@ -34,7 +34,7 @@ for ($i = 1; $i -le 20; $i++) {
 
 # 3. Synchronize Database Migrations
 Write-Host "`n[3/4] Re-verifying database migrations..." -ForegroundColor Yellow
-docker compose exec -T smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1
+docker compose exec -T -e PYTHONPATH="" smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1
 Write-Host "  [OK] Migrations verified." -ForegroundColor Green
 
 # 4. Run Health Audit

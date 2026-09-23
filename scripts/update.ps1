@@ -40,7 +40,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # 4. Apply Database Migrations
 Write-Host "`n[4/5] Applying Alembic database migrations..." -ForegroundColor Yellow
-docker compose exec -T smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1
+docker compose exec -T -e PYTHONPATH="" smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1
 Write-Host "  [OK] Migrations verified." -ForegroundColor Green
 
 # 5. Service Health Probe

@@ -34,7 +34,7 @@ for i in {1..20}; do
 done
 
 echo -e "\n${YELLOW}[3/4] Re-verifying database migrations...${NC}"
-docker compose exec -T smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1 || true
+docker compose exec -T -e PYTHONPATH="" smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1 || true
 
 echo -e "\n${YELLOW}[4/4] Auditing service health...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
