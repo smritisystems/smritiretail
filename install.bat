@@ -6,7 +6,7 @@ REM Websites     : smritibooks.com | erpnbook.com | aitdl.com
 REM Version      : 3.17.0
 REM Created      : 2026-09-23
 REM Modified     : 2026-09-23
-REM Copyright    : © SMRITIBooks.com. All Rights Reserved.
+REM Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 REM License      : Proprietary Commercial Software
 REM Classification: Internal
 

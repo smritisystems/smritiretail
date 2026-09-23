@@ -6,7 +6,7 @@
 # Version      : 3.16.0
 # Created      : 2026-07-13
 # Modified     : 2026-09-23
-# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
@@ -312,7 +312,7 @@ if [ ! -f ".env" ]; then
         echo -e "  ${GREEN}[OK] Created clean .env.${NC}"
     fi
 else
-    echo -e "  ${GREEN}[OK] Existing .env file detected — preserving all user settings.${NC}"
+    echo -e "  ${GREEN}[OK] Existing .env file detected  -- preserving all user settings.${NC}"
 fi
 
 # Ensure critical secrets are populated and valid (never empty, never quotes-only)
@@ -338,7 +338,7 @@ write_section "5.5/7" "Business Profile Setup"
 _existing_company=$(grep -E "^SMRITI_COMPANY_NAME=.+" .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")
 
 if [ -n "$_existing_company" ] && [ "$DO_FRESH_INSTALL" = false ]; then
-    echo -e "  ${GREEN}[OK] Business profile already configured in .env — skipping.${NC}"
+    echo -e "  ${GREEN}[OK] Business profile already configured in .env  -- skipping.${NC}"
     echo -e "       Company: $_existing_company"
     # Re-export for seed step
     export SMRITI_COMPANY_NAME="$(grep -E '^SMRITI_COMPANY_NAME=' .env | cut -d= -f2-)"
