@@ -118,6 +118,7 @@ from .api.v1 import (
     cge_unified,
     system_parameters,
     kpi_registry,
+    loyalty,
 )
 
 from .core.config import settings
@@ -279,11 +280,12 @@ _ROUTER_REGISTRY = [
     (vendor,                "",                      ["Vendors"]),
     (supplier_payment,      "",                      ["Supplier Payments"]),
 
-    # --- CRM ---
+    # --- CRM & Loyalty ---
     (crm,                   "",                      ["CRM"]),
     (crm,                   "/crm",                  ["CRM"]),                   # LEGACY alias — deprecate at v4.0
     (crm_reports,           "",                      ["CRM Reports"]),
     (crm_cge,               "/crm-growth",           ["CRM & Commercial Growth Engine"]),
+    (loyalty,               "",                      ["Loyalty Studio"]),
 
     # --- POS ---
     (pos,                   "",                      ["POS Shift"]),

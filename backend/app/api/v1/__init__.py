@@ -58,5 +58,6 @@ from . import (
     users,
     vendor,
     kpi_registry,
+    loyalty,
 )
 
