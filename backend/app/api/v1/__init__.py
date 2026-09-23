@@ -57,4 +57,6 @@ from . import (
     terms,
     users,
     vendor,
+    kpi_registry,
 )
+
