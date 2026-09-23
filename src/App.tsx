@@ -598,6 +598,7 @@ const AppContent: React.FC = () => {
                 transformOrigin: "top left",
                 width: `${100 / globalZoom}%`,
                 height: `${100 / globalZoom}%`,
+                transition: "transform 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out",
               }}
             >
               {renderTabSafe(activeTab)}
