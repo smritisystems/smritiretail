@@ -37,7 +37,16 @@ echo -e "\n${YELLOW}[3/5] Restarting services with preserved volumes...${NC}"
 docker compose up -d
 
 echo -e "\n${YELLOW}[4/5] Applying Alembic database migrations...${NC}"
+echo -e "  Control-plane (smritisys)..."
 docker compose exec -T -e PYTHONPATH="" smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1 || true
+
+echo -e "  Tenant database (smriti001)..."
+docker compose exec -T smriti-db psql -U postgres -d postgres -t -c "SELECT 1 FROM pg_database WHERE datname = 'smriti001';" | grep -q 1 || \
+    docker compose exec -T smriti-db psql -U postgres -d postgres -c "CREATE DATABASE smriti001;" 2>&1 || true
+docker compose exec -T -e PYTHONPATH="" smriti-api alembic -x target=tenant -x db=smriti001 upgrade head 2>&1 || true
+
+echo -e "  Syncing baseline users and customer registries..."
+docker compose exec -T smriti-api python -m app.db.seed_baseline_users 2>&1 || true
 
 echo -e "\n${YELLOW}[5/5] Running health verification...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

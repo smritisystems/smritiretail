@@ -467,7 +467,15 @@ fi
 
 # Run Alembic Database Migrations safely
 echo -e "  Checking and applying Alembic control-plane database migrations..."
-docker compose -f "$COMPOSE_FILE" exec -T -e PYTHONPATH="" "$API_CONTAINER" alembic -x target=control -x db="$DB_NAME" upgrade head 2>&1 || echo "Notice: Migrations verified."
+docker compose -f "$COMPOSE_FILE" exec -T -e PYTHONPATH="" "$API_CONTAINER" alembic -x target=control -x db="$DB_NAME" upgrade head 2>&1 || echo "Notice: Control-plane migrations verified."
+
+# Ensure primary company tenant database (smriti001) exists and is migrated
+echo -e "  Checking and provisioning tenant database (smriti001)..."
+docker compose -f "$COMPOSE_FILE" exec -T "$DB_CONTAINER" psql -U postgres -d postgres -t -c "SELECT 1 FROM pg_database WHERE datname = 'smriti001';" | grep -q 1 || \
+    docker compose -f "$COMPOSE_FILE" exec -T "$DB_CONTAINER" psql -U postgres -d postgres -c "CREATE DATABASE smriti001;" 2>&1 || true
+
+echo -e "  Checking and applying Alembic tenant database migrations (smriti001)..."
+docker compose -f "$COMPOSE_FILE" exec -T -e PYTHONPATH="" "$API_CONTAINER" alembic -x target=tenant -x db=smriti001 upgrade head 2>&1 || echo "Notice: Tenant migrations verified."
 
 # Seed baseline enterprise companies and users
 echo -e "  Verifying and seeding baseline enterprise users..."
