@@ -201,6 +201,7 @@ fi
 write_section "3/7" "Selecting Installation Mode"
 
 SELECTED_MODE="$MODE"
+DO_FRESH_INSTALL=false
 
 if [ -z "$SELECTED_MODE" ] && [ "$NON_INTERACTIVE" = false ]; then
     echo -e "Select installation mode:\n"
@@ -210,14 +211,20 @@ if [ -z "$SELECTED_MODE" ] && [ "$NON_INTERACTIVE" = false ]; then
     echo -e "      Developer runtime with hot reload (Ports 2782:5432, 1982:8000, 8102:3000)\n"
     echo -e "  ${YELLOW}[3] Custom / Advanced${NC}"
     echo -e "      Custom host port mappings and options\n"
-    
-    read -r -p "Enter choice [1-3] (Default: 1): " user_choice
+    echo -e "  ${RED}[4] Fresh Install (Clean Slate)${NC}"
+    echo -e "      Drops all volumes + rebuilds from scratch (use on new/broken machines)\n"
+
+    read -r -p "Enter choice [1-4] (Default: 1): " user_choice
     case "$user_choice" in
         2)
             SELECTED_MODE="Development"
             ;;
         3)
             SELECTED_MODE="Custom"
+            ;;
+        4)
+            SELECTED_MODE="Production"
+            DO_FRESH_INSTALL=true
             ;;
         *)
             SELECTED_MODE="Production"
@@ -227,7 +234,11 @@ elif [ -z "$SELECTED_MODE" ]; then
     SELECTED_MODE="Production"
 fi
 
-echo -e "  Selected Mode: ${GREEN}$SELECTED_MODE${NC}"
+if [ "$DO_FRESH_INSTALL" = true ]; then
+    echo -e "  Selected Mode: ${RED}$SELECTED_MODE [FRESH INSTALL - volumes will be wiped]${NC}"
+else
+    echo -e "  Selected Mode: ${GREEN}$SELECTED_MODE${NC}"
+fi
 
 COMPOSE_FILE="docker-compose.yml"
 PG_PORT=2781
@@ -323,6 +334,18 @@ export POSTGRES_PORT="$PG_PORT"
 # 6. Docker Build & Startup
 # -----------------------------------------------------------------------------
 write_section "6/7" "Building and Starting SMRITI Retail OS Stack"
+
+# Fresh Install: wipe existing volumes for a completely clean database
+if [ "$DO_FRESH_INSTALL" = true ]; then
+    echo -e "  ${RED}[FRESH INSTALL] Stopping any running containers and removing all volumes...${NC}"
+    docker compose -f "$COMPOSE_FILE" down -v 2>/dev/null || true
+    docker volume rm smriti_db_volume smriti_mssql_volume 2>/dev/null || true
+    echo -e "  ${GREEN}[OK] Old volumes removed. Starting with a clean slate.${NC}"
+else
+    # Gracefully stop without removing volumes (preserves existing data)
+    docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+    echo -e "  ${GREEN}[OK] Previous containers stopped (data volumes preserved).${NC}"
+fi
 
 echo -e "  Building required images using $COMPOSE_FILE..."
 docker compose -f "$COMPOSE_FILE" build

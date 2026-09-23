@@ -12,7 +12,8 @@
 param (
     [string]$Mode = "",
     [switch]$NonInteractive = $false,
-    [switch]$SkipBrowser = $false
+    [switch]$SkipBrowser = $false,
+    [switch]$FreshInstall = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -148,6 +149,7 @@ try {
 Write-Section "3/7" "Selecting Installation Mode"
 
 $selectedMode = $Mode
+$doFreshInstall = $FreshInstall
 
 if (-not $selectedMode -and -not $NonInteractive) {
     Write-Host "Select installation mode:`n" -ForegroundColor White
@@ -157,12 +159,17 @@ if (-not $selectedMode -and -not $NonInteractive) {
     Write-Host "      Developer runtime with hot reload (Ports 2782:5432, 1982:8000, 8102:3000)`n" -ForegroundColor Gray
     Write-Host "  [3] Custom / Advanced" -ForegroundColor Magenta
     Write-Host "      Custom host port mappings and options`n" -ForegroundColor Gray
-    
-    $choice = Read-Host "Enter choice [1-3] (Default: 1)"
+    Write-Host "  [4] Fresh Install (Clean Slate)" -ForegroundColor Red
+    Write-Host "      Drops all volumes + rebuilds from scratch (use on new/broken machines)`n" -ForegroundColor Gray
+
+    $choice = Read-Host "Enter choice [1-4] (Default: 1)"
     if ($choice -eq "2") {
         $selectedMode = "Development"
     } elseif ($choice -eq "3") {
         $selectedMode = "Custom"
+    } elseif ($choice -eq "4") {
+        $selectedMode = "Production"
+        $doFreshInstall = $true
     } else {
         $selectedMode = "Production"
     }
@@ -170,7 +177,7 @@ if (-not $selectedMode -and -not $NonInteractive) {
     $selectedMode = "Production"
 }
 
-Write-Host "  Selected Mode: $selectedMode" -ForegroundColor Green
+Write-Host "  Selected Mode: $selectedMode$(if ($doFreshInstall) { ' [FRESH INSTALL - volumes will be wiped]' })" -ForegroundColor Green
 
 # Configure Ports & Compose Files based on selected mode
 $composeFile = "docker-compose.yml"
@@ -277,6 +284,18 @@ $env:POSTGRES_PORT = "$pgPort"
 # 6. Docker Build & Startup
 # -----------------------------------------------------------------------------
 Write-Section "6/7" "Building and Starting SMRITI Retail OS Stack"
+
+# Fresh Install: wipe existing volumes for a completely clean database
+if ($doFreshInstall) {
+    Write-Host "`n  [FRESH INSTALL] Stopping any running containers and removing volumes..." -ForegroundColor Red
+    docker compose -f $composeFile down -v 2>$null
+    docker volume rm smriti_db_volume smriti_mssql_volume 2>$null
+    Write-Host "  [OK] Old volumes removed. Starting with a clean slate." -ForegroundColor Green
+} else {
+    # Gracefully stop without removing volumes (preserves existing data)
+    docker compose -f $composeFile down 2>$null
+    Write-Host "  [OK] Previous containers stopped (data volumes preserved)." -ForegroundColor Green
+}
 
 Write-Host "  Building required images using $composeFile..." -ForegroundColor Gray
 docker compose -f $composeFile build

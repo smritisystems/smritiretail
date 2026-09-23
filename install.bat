@@ -3,7 +3,7 @@ REM Project      : SMRITI Retail OS
 REM Author       : Jawahar Ramkripal Mallah
 REM Email        : support@smritibooks.com
 REM Websites     : smritibooks.com | erpnbook.com | aitdl.com
-REM Version      : 3.16.0
+REM Version      : 3.17.0
 REM Created      : 2026-09-23
 REM Modified     : 2026-09-23
 REM Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -12,7 +12,28 @@ REM Classification: Internal
 
 setlocal
 cd /d "%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" %*
+
+echo.
+echo =====================================================================
+echo        SMRITI RETAIL OS - ONE-CLICK INSTALLER
+echo =====================================================================
+echo.
+echo  Select installation type:
+echo.
+echo  [1] Normal Install / Update      (keeps existing data)
+echo  [2] Fresh Install  (Clean Slate) (wipes DB - use on NEW machine only)
+echo.
+set /p CHOICE="Enter choice [1 or 2] (Default: 1): "
+
+if "%CHOICE%"=="2" (
+    echo.
+    echo  [!] FRESH INSTALL selected - all database volumes will be wiped.
+    echo.
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" -FreshInstall
+) else (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
+)
+
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Installation ended with error code %errorlevel%.
