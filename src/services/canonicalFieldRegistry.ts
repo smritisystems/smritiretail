@@ -19,8 +19,8 @@
  */
 
 export const CFOC_REGISTRY_VERSION = "3.46.0";
-export const CFOC_REGISTRY_FIELDS = 132;
-export const CFOC_REGISTRY_FINGERPRINT = "8f9627da3035bf38e2545720a5a46a163c1d3938d122b48171045465faae7ca8";
+export const CFOC_REGISTRY_FIELDS = 133;
+export const CFOC_REGISTRY_FINGERPRINT = "4f7d88370a5d4be43c7a913cf3211364e34f873003484623f2cf4f4d982858cd";
 
 export type FieldLifecycle = "DRAFT" | "ACTIVE" | "DEPRECATED" | "RETIRED" | "LEGACY";
 
@@ -120,6 +120,7 @@ export type CanonicalFieldId =
   | "sales_invoice.status"
   | "sales_invoice.tax_total"
   | "sales_invoice.taxable_value"
+  | "sales_invoice_line.quantity"
   | "sales_order.basic_total"
   | "sales_order.customer_id"
   | "sales_order.grand_total"
@@ -2941,6 +2942,35 @@ export const CANONICAL_FIELDS: Readonly<Record<string, CanonicalFieldDef>> = Obj
     ownership: "TENANT",
     version: 1,
     aliases: ["subtotal", "subTotal", "taxableValue"],
+    apiKey: undefined,
+    apiEndpoint: undefined,
+  },
+  "sales_invoice_line.quantity": {
+    fieldId: "sales_invoice_line.quantity",
+    entityId: "sales_invoice_line",
+    dbTable: "sales_invoice_lines",
+    dbColumn: "quantity",
+    dataType: "DECIMAL",
+    fieldType: "NUMBER",
+    label: "Quantity",
+    helpText: undefined,
+    placeholder: "Enter quantity...",
+    required: true,
+    editable: true,
+    searchable: false,
+    filterable: true,
+    sortable: true,
+    readonly: false,
+    maxLength: undefined,
+    minValue: 0,
+    maxValue: 999999,
+    validationRule: undefined,
+    optionSource: undefined,
+    status: "ACTIVE",
+    lifecycle: "ACTIVE",
+    ownership: "TENANT",
+    version: 1,
+    aliases: ["qty", "redeem_qty"],
     apiKey: undefined,
     apiEndpoint: undefined,
   },

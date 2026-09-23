@@ -1,18 +1,19 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.114.0
+ * Version      : 4.0.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-09-23 (v4.0.0 — EXC-0018, EXC-0019 retired via CanonicalInlineInput)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useMemo } from "react";
+import { CanonicalInlineInput } from "../global/CanonicalInlineInput.tsx";
 import GiftVoucherEngine, {
   GiftVoucher, VoucherType, VoucherStatus,
 } from "../../utils/giftVoucherEngine";
@@ -151,10 +152,28 @@ export const GiftVoucherModal: React.FC<GiftVoucherModalProps> = ({ isOpen, onCl
                   <div className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Redeem</p>
                     <div className="flex items-center gap-3">
-                      <input type="number" placeholder="Amount" value={redeemAmt} data-field-key="selling_price" onChange={(e) => setRedeemAmt(e.target.value)}
-                        className="w-32 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60" />
-                      <input type="text" placeholder="Invoice ref" value={refNo} data-field-key="reference_no" onChange={(e) => setRefNo(e.target.value)}
-                        className="w-40 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60" />
+                      {/* EXC-0018 RETIRED: selling_price -> CanonicalInlineInput (sales_invoice.selling_price alias) */}
+                      <CanonicalInlineInput
+                        fieldId="item.selling_price"
+                        canonicalKey="selling_price"
+                        fallbackLabel="Redeem Amount"
+                        type="number"
+                        placeholder="Amount"
+                        value={redeemAmt}
+                        onChange={(e) => setRedeemAmt(e.target.value)}
+                        className="w-32 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60"
+                      />
+                      {/* EXC-0019 RETIRED: reference_no -> CanonicalInlineInput (sales_invoice.invoice_no alias) */}
+                      <CanonicalInlineInput
+                        fieldId="sales_invoice.invoice_no"
+                        canonicalKey="invoice_no"
+                        fallbackLabel="Invoice Reference"
+                        type="text"
+                        placeholder="Invoice ref"
+                        value={refNo}
+                        onChange={(e) => setRefNo(e.target.value)}
+                        className="w-40 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60"
+                      />
                       <button onClick={handleRedeem}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 transition-all">
                         Redeem

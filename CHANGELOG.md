@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.44.0
+  * Version    : 6.44.2
   * Created    : 2026-07-11
-  * Modified   : 2026-09-20
+  * Modified   : 2026-09-23
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -38,6 +38,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Transactional Statutory Invoicing:** Concurrency-hardened sequence allocation (`TT2026-2027/{seq}` via `SELECT ... FOR UPDATE`), GST tax calculation (IGST vs CGST/SGST), and atomic ledger writes.
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
+
+### [6.44.2] - 2026-09-23
+
+#### Foundation: Legacy UX Remediation & Baseline Zero (CFOC-v4.0.0)
+- **Zero Baseline Exception State:** Completely retired all 25 baselined legacy raw JSX `<input>` and `<textarea>` exceptions (`EXC-LEGACY-0001` through `EXC-LEGACY-0025`), reducing `scripts/ux_field_governance_baseline.json` to an empty array (`[]`).
+- **Two-Track UX Governance Architecture:** Established two-track pattern: Track A (`MasterFormDrawer` + `FieldRenderer` for CRUD forms) and Track B (`CanonicalInlineInput` for transactional modals and inline action controls).
+- **CanonicalInlineInput Transparent Wrapper:** Created `src/components/global/CanonicalInlineInput.tsx` using `React.forwardRef<HTMLInputElement, CanonicalInlineInputProps>`, providing transparent HTML prop passthrough, ref forwarding, dynamic `aria-label` resolution from SSOT, and injecting CFOC scanner attributes (`data-field-key`, `data-canonical-id`).
+- **Component Migrations:** Remediated 8 modal and tab components across 5 modules: `ComplaintCRMModal` (customer.notes), `LoyaltyLedgerModal` (invoice_no, selling_price, quantity), `GiftVoucherModal` (selling_price, invoice_no), `VendorReturnModal` (selling_price), `GiftCardLifecycleModal` (8 inputs: customer.code, selling_price, invoice_no), `PricingStudioModal` (coupon reference_no), `BarcodeManagementTab` (4 inputs: barcode, sku, item_code), and `GrnReceiptTab` (radio inputs verified and retired).
+- **Physical Schema Parity:** Added `sales_invoice_line.quantity` (`sales_invoice_lines.quantity`) to authoritative registry `backend/app/governance/field_registry.py` (133 fields); mapped all existing modal inputs strictly to verified physical database columns in PostgreSQL (`smriti001`).
+- **Zero-Drift Registry Synchronization:** Regenerated frontend SSOT `src/services/canonicalFieldRegistry.ts` (133 fields, deterministic SHA-256 fingerprint `4f7d88370a5d4be43c7a913cf3211364e34f873003484623f2cf4f4d982858cd`).
+- **Automated Verification:** 10/10 Vitest tests green (`src/tests/canonicalFieldRegistry.test.ts`), 0 TypeScript compiler errors (`npx tsc --noEmit`), and 11/11 CI governance guard checks passed with 0 critical violations (`python scripts/ci_ux_field_governance_guard.py`).
 
 ### [6.44.1] - 2026-09-23
 

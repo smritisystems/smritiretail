@@ -1,18 +1,19 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.96.0
+ * Version      : 4.0.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-09-23 (v4.0.0 — EXC-0007, EXC-0008, EXC-0009 retired via CanonicalInlineInput)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useMemo } from "react";
+import { CanonicalInlineInput } from "../global/CanonicalInlineInput.tsx";
 import LoyaltyLedgerEngine, {
   LoyaltyLedgerEntry,
   LoyaltyBalance,
@@ -189,18 +190,41 @@ export const LoyaltyLedgerModal: React.FC<LoyaltyLedgerModalProps> = ({ isOpen, 
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase tracking-wide">Invoice No</label>
-                  <input value={redeemInvoice} data-field-key="invoice_number" onChange={(e) => setRedeemInvoice(e.target.value)}
-                    className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60" />
+                  {/* EXC-0007 RETIRED: invoice_number -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="sales_invoice.invoice_no"
+                    canonicalKey="invoice_no"
+                    fallbackLabel="Invoice Number"
+                    value={redeemInvoice}
+                    onChange={(e) => setRedeemInvoice(e.target.value)}
+                    className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60"
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase tracking-wide">Invoice Value (₹)</label>
-                  <input value={redeemValue} data-field-key="selling_price" onChange={(e) => setRedeemValue(e.target.value)} type="number"
-                    className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60" />
+                  {/* EXC-0008 RETIRED: selling_price -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="item.selling_price"
+                    canonicalKey="selling_price"
+                    fallbackLabel="Invoice Value"
+                    value={redeemValue}
+                    onChange={(e) => setRedeemValue(e.target.value)}
+                    type="number"
+                    className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60"
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase tracking-wide">Points to Redeem</label>
-                  <input value={redeemPts} data-field-key="quantity" onChange={(e) => setRedeemPts(e.target.value)} type="number"
-                    className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60" />
+                  {/* EXC-0009 RETIRED: quantity -> CanonicalInlineInput */}
+                  <CanonicalInlineInput
+                    fieldId="sales_invoice_line.quantity"
+                    canonicalKey="quantity"
+                    fallbackLabel="Points to Redeem"
+                    value={redeemPts}
+                    onChange={(e) => setRedeemPts(e.target.value)}
+                    type="number"
+                    className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-yellow-500/60"
+                  />
                 </div>
               </div>
               {/* Preview */}

@@ -30,9 +30,9 @@ import {
 describe("SMRITI Canonical Field Registry Frontend SSOT", () => {
   it("should export authoritative CFOC constants and valid SHA-256 fingerprint", () => {
     expect(CFOC_REGISTRY_VERSION).toBe("3.46.0");
-    expect(CFOC_REGISTRY_FIELDS).toBe(132);
+    expect(CFOC_REGISTRY_FIELDS).toBe(133);
     expect(CFOC_REGISTRY_FINGERPRINT).toMatch(/^[a-f0-9]{64}$/);
-    expect(CFOC_REGISTRY_FINGERPRINT).toBe("8f9627da3035bf38e2545720a5a46a163c1d3938d122b48171045465faae7ca8");
+    expect(CFOC_REGISTRY_FINGERPRINT).toBe("4f7d88370a5d4be43c7a913cf3211364e34f873003484623f2cf4f4d982858cd");
   });
 
   it("should enforce runtime immutability on CANONICAL_FIELDS (frozen)", () => {
@@ -44,7 +44,7 @@ describe("SMRITI Canonical Field Registry Frontend SSOT", () => {
   });
 
   it("should contain all canonical fields registered", () => {
-    expect(Object.keys(CANONICAL_FIELDS).length).toBe(132);
+    expect(Object.keys(CANONICAL_FIELDS).length).toBe(133);
   });
 
   it("should resolve customer.mobile with authoritative metadata", () => {

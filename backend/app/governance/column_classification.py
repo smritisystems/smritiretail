@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.46.0
+Version      : 4.0.0
 Created      : 2026-09-23
-Modified     : 2026-09-23
+Modified     : 2026-09-23 (v4.0.0 — added item_barcodes, sales_invoice_lines, purchase_receipts column classifications)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Architecture Governance — Declarative Database Column Classification Contract
@@ -53,6 +53,8 @@ STANDARD_FRAMEWORK_COLUMNS: Set[str] = {
     "is_active", "is_deleted", "status", "version", "metadata", "is_system",
     "is_default", "flags", "state", "rule_snapshots", "priority", "required_role",
     "workflow_status", "mode", "tracking_type", "is_tax_inclusive",
+    # v4.0.0 additions: barcode and line-level framework flags
+    "is_primary", "barcode_type",
 }
 
 STANDARD_TECHNICAL_FK_COLUMNS: Set[str] = {
@@ -64,6 +66,8 @@ STANDARD_TECHNICAL_FK_COLUMNS: Set[str] = {
     "billed_party_gstin_id", "dispatch_from_location_id", "governance_snapshot_id",
     "parent_id", "template_id", "matrix_id", "series_id", "price_list_id",
     "item_variant_id", "size_scale_id", "parent_value_id",
+    # v4.0.0 additions: barcode & line-level relations
+    "variant_id", "stock_take_id", "member_id", "reference_id",
 }
 
 STANDARD_MIGRATION_COLUMNS: Set[str] = {
@@ -93,6 +97,15 @@ STANDARD_MIGRATION_COLUMNS: Set[str] = {
     "billing_store_code", "delivery_gstin", "delivery_store_code",
     "place_of_supply_code", "source_document_type", "customer_name", "date",
     "po_number", "approved_at", "approved_by",
+    # v4.0.0 additions: denormalised snapshot / derived columns on new governed tables
+    "line_no", "product_name", "sku", "barcode", "hsn_code", "size_label", "color",
+    "attribute_json", "unit_price", "mrp", "discount_pct", "discount_amount",
+    "taxable_value", "tax_rate", "tax_amount", "net_amount", "batch_no", "bin_location",
+    # purchase_receipts denormalised totals (computed, not canonical business fields)
+    "receipt_no", "subtotal", "tax_total", "grand_total",
+    # loyalty ledger snapshot fields
+    "transaction_type", "points", "balance_after", "reference_type", "invoice_amount",
+    "narration", "expiry_date",
 }
 
 

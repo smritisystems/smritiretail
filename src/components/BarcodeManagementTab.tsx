@@ -1,6 +1,21 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 4.0.0
+ * Created      : 2026-08-28
+ * Modified     : 2026-09-23 (v4.0.0 — EXC-0001 through EXC-0004 retired via CanonicalInlineInput)
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Classification: Internal
+ */
+
 import React, { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Barcode, CheckCircle2, Link2, Plus, RefreshCw, Search, ShieldCheck, XCircle } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { CanonicalInlineInput } from "./global/CanonicalInlineInput.tsx";
 
 type BarcodeRecord = {
   id: string;
@@ -280,7 +295,16 @@ export const BarcodeManagementTab: React.FC = () => {
           <div className="p-3 border-b border-theme-divider flex flex-wrap gap-2">
             <div className="relative flex-1 min-w-[220px]">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
-              <input data-field-key="barcode_registry_search" aria-label="Search barcode registry" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search GS1 barcode..." className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg pl-9 pr-3 py-2 text-sm" />
+              {/* EXC-0001 RETIRED: barcode_registry_search -> CanonicalInlineInput */}
+              <CanonicalInlineInput
+                fieldId="product.barcode"
+                canonicalKey="barcode"
+                fallbackLabel="Search barcode registry"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search GS1 barcode..."
+                className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg pl-9 pr-3 py-2 text-sm"
+              />
             </div>
             <select data-field-key="barcode_registry_status" aria-label="Barcode status" value={status} onChange={(event) => setStatus(event.target.value)} className="bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm">
               <option value="">All statuses</option>
@@ -337,7 +361,18 @@ export const BarcodeManagementTab: React.FC = () => {
             </select>
               </div>
             </details>
-            <input ref={barcodeInputRef} data-field-key="barcode_registry_value" data-f2-entity="item_barcode" aria-label="Barcode value" value={barcode} onChange={(event) => setBarcode(event.target.value)} onKeyDown={handleBarcodeKeyDown} placeholder="Scan or paste barcode value" className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm font-mono" />
+            {/* EXC-0002 RETIRED: barcode_registry_value -> CanonicalInlineInput */}
+            <CanonicalInlineInput
+              ref={barcodeInputRef}
+              fieldId="product.barcode"
+              canonicalKey="barcode"
+              fallbackLabel="Barcode value"
+              value={barcode}
+              onChange={(event) => setBarcode(event.target.value)}
+              onKeyDown={handleBarcodeKeyDown}
+              placeholder="Scan or paste barcode value"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm font-mono"
+            />
             <button type="button" disabled={busy || !barcode.trim()} onClick={() => void intake()} className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg py-2 text-sm font-semibold"><Plus size={15} /> Add to unassigned queue</button>
             <button type="button" onClick={scanNext} className="w-full border border-theme-divider hover:bg-theme-surface-2 rounded-lg py-2 text-sm">Scan next</button>
           </section>
@@ -353,9 +388,27 @@ export const BarcodeManagementTab: React.FC = () => {
           <section className="border border-theme-divider rounded-xl bg-theme-surface-1 p-4 space-y-3">
             <div className="flex items-center gap-2 font-semibold"><Link2 size={16} className="text-sky-400" /> Assign to stock identity</div>
             <div className="text-[11px] text-theme-muted">{selected ? `Selected barcode: ${selected.barcode}` : "Select an unassigned barcode"}</div>
-            <input data-field-key="barcode_registry_variant_sku" data-f2-entity="variant" aria-label="Variant SKU or stock number" value={variantSku} onChange={(event) => { setVariantSku(event.target.value); setItemCode(""); }} placeholder="Variant SKU / stock no" className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm font-mono" />
+            {/* EXC-0003 RETIRED: barcode_registry_variant_sku -> CanonicalInlineInput */}
+            <CanonicalInlineInput
+              fieldId="product.sku"
+              canonicalKey="sku"
+              fallbackLabel="Variant SKU or stock number"
+              value={variantSku}
+              onChange={(event) => { setVariantSku(event.target.value); setItemCode(""); }}
+              placeholder="Variant SKU / stock no"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm font-mono"
+            />
             <div className="text-center text-[10px] text-theme-muted">or</div>
-            <input data-field-key="barcode_registry_item_code" data-f2-entity="item" aria-label="Parent item code" value={itemCode} onChange={(event) => { setItemCode(event.target.value); setVariantSku(""); }} placeholder="Parent item code" className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm font-mono" />
+            {/* EXC-0004 RETIRED: barcode_registry_item_code -> CanonicalInlineInput */}
+            <CanonicalInlineInput
+              fieldId="item.item_code"
+              canonicalKey="item_code"
+              fallbackLabel="Parent item code"
+              value={itemCode}
+              onChange={(event) => { setItemCode(event.target.value); setVariantSku(""); }}
+              placeholder="Parent item code"
+              className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm font-mono"
+            />
             <button type="button" disabled={busy || !selectedId || (!variantSku.trim() && !itemCode.trim())} onClick={() => void assign()} className="w-full flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white rounded-lg py-2 text-sm font-semibold"><ShieldCheck size={15} /> Confirm permanent link</button>
           </section>
         </aside>

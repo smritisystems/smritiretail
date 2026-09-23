@@ -774,6 +774,22 @@ CANONICAL_FIELDS: Dict[str, CanonicalFieldDef] = {
         data_type="BOOLEAN", field_type="BOOLEAN", label="Active", aliases=("isActive", "active", "status"),
         ownership="CONTROL_PLANE"
     ),
+
+    # ─────────────────────────────────────────────────────────────────────
+    # v4.0.0 — Legacy UX Remediation Fields (CFOC v3.46.0 Pillar 4 follow-up)
+    # ─────────────────────────────────────────────────────────────────────
+
+    # Quantity — transactional quantity for redemption and return flows
+    "sales_invoice_line.quantity": CanonicalFieldDef(
+        field_id="sales_invoice_line.quantity", entity_id="sales_invoice_line",
+        db_table="sales_invoice_lines", db_column="quantity",
+        data_type="DECIMAL", field_type="NUMBER",
+        label="Quantity", placeholder="Enter quantity...",
+        required=True, editable=True, searchable=False,
+        min_value=0, max_value=999999,
+        aliases=("qty", "redeem_qty"),
+        ownership="TENANT"
+    ),
 }
 
 
