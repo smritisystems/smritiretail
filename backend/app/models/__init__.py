@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
+Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-09-04
+Modified     : 2026-09-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -252,3 +252,14 @@ from .inward_cost import (
     InwardCostAdjustment,
 )
 
+# Goods Receipt Note — canonical inward receiving record (v1.0.0 — 2026-09-23)
+from .goods_receipt import (
+    GoodsReceiptNote,
+    GoodsReceiptLine,
+)
+
+# B2B Dispatch Batch — persistent dispatch session replacing in-memory caches (v1.0.0 — 2026-09-23)
+from .dispatch_batch import (
+    DispatchBatch,
+    DispatchBatchInvoice,
+)

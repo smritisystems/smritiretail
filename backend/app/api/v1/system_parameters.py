@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.43.5
+Version      : 6.43.6
 Created      : 2026-09-14
-Modified     : 2026-09-20
+Modified     : 2026-09-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -16,7 +16,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db
+from ...api.deps import get_db, get_current_user
+from ...models.auth import User, UserRole
 from ...services.system_parameter import SystemParameterService
 from ...schemas.system_parameter import (
     SystemParameterResponse,
@@ -28,6 +29,40 @@ from ...schemas.system_parameter import (
 )
 
 router = APIRouter(prefix="/system-parameters", tags=["System Parameters"])
+
+# ---------------------------------------------------------------------------
+# RBAC helpers
+# ---------------------------------------------------------------------------
+_WRITE_ROLES = {UserRole.SYSADMIN, UserRole.MANAGER}
+_SEED_ROLES  = {UserRole.SYSADMIN}
+
+
+def _require_write_access(current_user: User) -> None:
+    """Raises 403 unless the caller is MANAGER or SYSADMIN."""
+    if not current_user or current_user.role not in _WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "SMRITI-PERM-003",
+                "title": "Access Denied",
+                "explanation": "Modifying system parameters requires Manager or System Administrator privileges.",
+                "suggested_action": "Contact your system administrator to update configuration.",
+            },
+        )
+
+
+def _require_seed_access(current_user: User) -> None:
+    """Raises 403 unless the caller is SYSADMIN. Seeding overwrites global defaults."""
+    if not current_user or current_user.role not in _SEED_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "SMRITI-PERM-004",
+                "title": "Access Denied",
+                "explanation": "Seeding system parameter profiles requires System Administrator privileges.",
+                "suggested_action": "Contact your SMRITI system administrator.",
+            },
+        )
 
 
 @router.get("", response_model=List[SystemParameterResponse])
@@ -138,10 +173,13 @@ async def update_single_parameter(
     company_id: Optional[str] = Header(None, alias="x-company-id"),
     user_id: Optional[str] = Header("system", alias="x-user-id"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Updates a single parameter with 5-tier mutability verification.
+    Requires MANAGER or SYSADMIN role.
     """
+    _require_write_access(current_user)
     param = await SystemParameterService.update_parameter(
         db=db,
         param_code=param_code,
@@ -184,10 +222,13 @@ async def save_batch_parameters(
     company_id: Optional[str] = Header(None, alias="x-company-id"),
     user_id: Optional[str] = Header("system", alias="x-user-id"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Saves multiple parameters in a single batch with full mutability validation.
+    Requires MANAGER or SYSADMIN role.
     """
+    _require_write_access(current_user)
     count = await SystemParameterService.save_batch(
         db=db,
         items=req.items,
@@ -202,10 +243,13 @@ async def seed_system_parameters(
     req: SystemParameterSeedRequest,
     company_id: Optional[str] = Header(None, alias="x-company-id"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Seeds standard Tally Shoper 9 POS/Distributor parameters into the database.
+    SYSADMIN-only: seeding overwrites company-wide parameter defaults.
     """
+    _require_seed_access(current_user)
     seeded = await SystemParameterService.seed_default_parameters(
         db=db,
         profile=req.profile,
