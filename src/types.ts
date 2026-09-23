@@ -706,8 +706,16 @@ export interface Customer {
   occupation?: string;
   preferredLanguage?: string;
   loyaltyMember?: boolean;
+  loyaltyTier?: string;
+  loyaltyPointsBalance?: number;
   leadSource?: string;
   notes?: string;
+  city?: string;
+  mailingAddresses?: any[];
+  priceGroup?: string;
+  religion?: string;
+  ageGroup?: string;
+  gstin?: string;
 
   // Communication overrides
   preferredLanguageEnum?: InvoiceLanguage;

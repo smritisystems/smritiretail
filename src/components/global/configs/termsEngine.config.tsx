@@ -42,6 +42,7 @@ export const termsEngineConfig: MasterConfig<Clause> = {
   columns: [
     {
       key: "title",
+      fieldId: "terms_clause.title",
       label: "Clause Title",
       width: "240px",
       sortable: true,
@@ -64,6 +65,7 @@ export const termsEngineConfig: MasterConfig<Clause> = {
     },
     {
       key: "content",
+      fieldId: "terms_clause.content",
       label: "Clause Preview",
       render: (val) => (
         <div className="text-xs text-theme-muted truncate max-w-md">
@@ -92,6 +94,7 @@ export const termsEngineConfig: MasterConfig<Clause> = {
   fields: [
     {
       name: "title",
+      fieldId: "terms_clause.title",
       label: "Clause Title",
       type: "text",
       required: true,
@@ -100,6 +103,7 @@ export const termsEngineConfig: MasterConfig<Clause> = {
     },
     {
       name: "code",
+      fieldId: "terms_clause.code",
       label: "Clause Reference Code",
       type: "text",
       placeholder: "e.g. CL-PAY-30D",
@@ -147,6 +151,7 @@ export const termsEngineConfig: MasterConfig<Clause> = {
     },
     {
       name: "content",
+      fieldId: "terms_clause.content",
       label: "Clause Full Legal Body",
       type: "textarea",
       required: true,

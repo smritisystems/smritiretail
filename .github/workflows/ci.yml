@@ -138,6 +138,12 @@ jobs:
         # or CI alembic commands are missing -x target= flags.
         run: python ../scripts/ci_tenant_boundary_guard.py --root ..
 
+      - name: CFOC UX Field Governance & Zero-Drift Guard (CFOC-v1.0)
+        # Enforces the CANONICAL FIELD OWNERSHIP CONTRACT permanently:
+        # Zero duplicate field IDs, zero broken DB mappings, zero generated TS drift,
+        # and zero unauthorized hardcoded business metadata.
+        run: python ../scripts/ci_ux_field_governance_guard.py
+
       - name: Run Backend Tests
         run: >
           pytest tests/ app/tests/ app/compliance/tests/

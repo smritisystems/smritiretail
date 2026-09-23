@@ -62,6 +62,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   columns: [
     {
       key: "name",
+      fieldId: "master_value.name",
       label: "Lookup Value / Title",
       width: "220px",
       sortable: true,
@@ -88,6 +89,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
     },
     {
       key: "is_active",
+      fieldId: "master_value.active",
       label: "Status",
       width: "100px",
       render: (val) => (
@@ -103,6 +105,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   fields: [
     {
       name: "name",
+      fieldId: "master_value.name",
       label: "Lookup Value Name",
       type: "text",
       required: true,
@@ -111,6 +114,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
     },
     {
       name: "code",
+      fieldId: "master_value.code",
       label: "Lookup Code",
       type: "text",
       required: true,
@@ -119,6 +123,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
     },
     {
       name: "type_code",
+      fieldId: "master_value.master_type_id",
       label: "Master Lookup Type",
       type: "select",
       options: [
@@ -134,6 +139,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
     },
     {
       name: "is_active",
+      fieldId: "master_value.active",
       label: "Active Status",
       type: "toggle",
       defaultValue: true,

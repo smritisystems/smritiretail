@@ -40,6 +40,7 @@ import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { recordAuditAction } from "../../../lib/apiFetch.ts";
 import { SmritiScrollArea } from "../../SmritiScrollArea.tsx";
 import { useWorkspace } from "../../../contexts/WorkspaceContext.tsx";
+import { getCanonicalField } from "../../../services/canonicalFieldRegistry.ts";
 
 export interface MasterListScreenProps<T = any> {
   config: MasterConfig<T>;
@@ -615,7 +616,7 @@ export function MasterListScreen<T extends Record<string, any>>({
                       <div className={`flex items-center space-x-1.5 ${
                         col.align === "right" ? "justify-end" : col.align === "center" ? "justify-center" : "justify-start"
                       }`}>
-                        <span>{col.label}</span>
+                        <span>{col.label || (col.fieldId ? getCanonicalField(col.fieldId)?.label : undefined) || col.key}</span>
                         {col.sortable && (
                           <span className="text-theme-muted">
                             {sortState.key === col.key ? (

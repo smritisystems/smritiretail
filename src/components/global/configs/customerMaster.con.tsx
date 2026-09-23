@@ -31,6 +31,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
   columns: [
     {
       key: "name",
+      fieldId: "customer.name",
       label: "Customer Name",
       width: "220px",
       sortable: true,
@@ -48,6 +49,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       key: "mobile",
+      fieldId: "customer.mobile",
       label: "Contact",
       width: "160px",
       render: (val, item) => (
@@ -69,6 +71,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       key: "gst_number",
+      fieldId: "customer.gst_number",
       label: "Tax / GSTIN",
       width: "150px",
       render: (val, item) => {
@@ -84,6 +87,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       key: "customer_group_id",
+      fieldId: "customer.customer_group_id",
       label: "Group",
       width: "130px",
       render: (val, item) => {
@@ -97,6 +101,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       key: "outstanding",
+      fieldId: "customer.outstanding",
       label: "Outstanding",
       width: "130px",
       align: "right",
@@ -112,6 +117,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       key: "status",
+      fieldId: "customer.status",
       label: "Status",
       width: "100px",
       renderStatus: true
@@ -121,6 +127,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
   fields: [
     {
       name: "name",
+      fieldId: "customer.name",
       label: "Customer Name",
       type: "text",
       required: true,
@@ -129,6 +136,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       name: "mobile",
+      fieldId: "customer.mobile",
       label: "Mobile Number",
       type: "text",
       required: true,
@@ -138,6 +146,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       name: "email",
+      fieldId: "customer.email",
       label: "Email Address",
       type: "email",
       placeholder: "customer@domain.com",
@@ -145,6 +154,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       name: "gst_number",
+      fieldId: "customer.gst_number",
       label: "GSTIN Number",
       type: "text",
       placeholder: "15-character GSTIN",
@@ -153,6 +163,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       name: "pan",
+      fieldId: "customer.pan_number",
       label: "PAN Number",
       type: "text",
       placeholder: "10-character PAN",
@@ -161,6 +172,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       name: "customer_group_id",
+      fieldId: "customer.customer_group_id",
       label: "Customer Group",
       type: "select",
       optionsEndpoint: "/api/v1/customer-groups",
@@ -176,6 +188,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       name: "status",
+      fieldId: "customer.status",
       label: "Account Status",
       type: "select",
       options: [
@@ -188,6 +201,7 @@ export const customerMasterConfig: MasterConfig<Customer> = {
     },
     {
       name: "notes",
+      fieldId: "customer.notes",
       label: "Internal Notes",
       type: "textarea",
       placeholder: "Special preferences, delivery instructions, or credit terms...",
