@@ -39,9 +39,11 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
-### [6.44.2] - 2026-09-23
+### [6.44.2] - 2026-09-23 — Product Milestone: Release v4.0.0
 
-#### Foundation: Legacy UX Remediation & Baseline Zero (CFOC-v4.0.0)
+> **Version Specification:** `6.44.2` represents the SMRITI platform monorepo semantic version tracking this change set. `v4.0.0` denotes the major product release milestone achieving zero baseline UX exceptions.
+
+#### Foundation: Legacy UX Remediation & Baseline Zero (v4.0.0)
 - **Zero Baseline Exception State:** Completely retired all 25 baselined legacy raw JSX `<input>` and `<textarea>` exceptions (`EXC-LEGACY-0001` through `EXC-LEGACY-0025`), reducing `scripts/ux_field_governance_baseline.json` to an empty array (`[]`).
 - **Two-Track UX Governance Architecture:** Established two-track pattern: Track A (`MasterFormDrawer` + `FieldRenderer` for CRUD forms) and Track B (`CanonicalInlineInput` for transactional modals and inline action controls).
 - **CanonicalInlineInput Transparent Wrapper:** Created `src/components/global/CanonicalInlineInput.tsx` using `React.forwardRef<HTMLInputElement, CanonicalInlineInputProps>`, providing transparent HTML prop passthrough, ref forwarding, dynamic `aria-label` resolution from SSOT, and injecting CFOC scanner attributes (`data-field-key`, `data-canonical-id`).
@@ -50,9 +52,11 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Zero-Drift Registry Synchronization:** Regenerated frontend SSOT `src/services/canonicalFieldRegistry.ts` (133 fields, deterministic SHA-256 fingerprint `4f7d88370a5d4be43c7a913cf3211364e34f873003484623f2cf4f4d982858cd`).
 - **Automated Verification:** 10/10 Vitest tests green (`src/tests/canonicalFieldRegistry.test.ts`), 0 TypeScript compiler errors (`npx tsc --noEmit`), and 11/11 CI governance guard checks passed with 0 critical violations (`python scripts/ci_ux_field_governance_guard.py`).
 
-### [6.44.1] - 2026-09-23
+### [6.44.1] - 2026-09-23 — Governance Milestone: CFOC v3.46.0
 
-#### Foundation: CFOC Change-Time Enforcement (CFOC-v3.46.0)
+> **Version Specification:** `6.44.1` represents the SMRITI platform monorepo semantic version tracking this change set. `CFOC v3.46.0` denotes the governance architecture milestone specification.
+
+#### Foundation: CFOC Change-Time Enforcement & Parser Hardening (CFOC-v3.46.0)
 - **Fail-Closed Migration AST Guard & UTF-8/BOM Normalization:** Added `scripts/ci_migration_cfoc_guard.py` to statically AST-parse all 165 Alembic migrations with `encoding="utf-8-sig"` (eliminating BOM `U+FEFF` warnings) and fail closed (`MigrationParseError`, Exit Code 1) on any parsing failure, intercepting unclassified columns on governed tables before database commit or CI merge.
 - **Declarative DB Column Classification Contract:** Created `backend/app/governance/column_classification.py` implementing a closed 5-category contract (`CANONICAL_BUSINESS`, `AUDIT`, `TECHNICAL_FK`, `FRAMEWORK`, `MIGRATION`), classifying 2,373 column instances. Zero unofficial sixth categories allowed.
 - **Fail-Closed Runtime Tenant DB Verification:** Enhanced `backend/app/db/cp_guard.py` with `inspect_tenant_cfoc_boundary()` to verify that tenant databases (`smriti001`+) never contain control-plane exclusive governance tables/fields, and wired tenant verification into FastAPI startup.
