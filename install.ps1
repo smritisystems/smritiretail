@@ -319,7 +319,7 @@ if (-not $dbReady) {
 # Run Alembic Database Migrations safely
 Write-Host "  Checking and applying Alembic control-plane database migrations..." -ForegroundColor Gray
 try {
-    $migOutput = docker compose -f $composeFile exec -T $apiContainer alembic -x target=control -x db=$dbName upgrade head 2>&1
+    $migOutput = docker compose -f $composeFile exec -T -e PYTHONPATH="" $apiContainer alembic -x target=control -x db=$dbName upgrade head 2>&1
     Write-Host "  [OK] Database migrations completed." -ForegroundColor Green
 } catch {
     Write-Host "  [NOTICE] Migration runner output: $_" -ForegroundColor Gray

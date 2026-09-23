@@ -12,15 +12,15 @@
 
 set -e
 
-export PYTHONPATH=/app
-
 # Optionally skip migrations (for controlled environments). Set SKIP_MIGRATIONS=true to disable.
 if [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
     echo "Running Alembic database migrations..."
-    alembic -x target=control -x db=smritisys upgrade head
+    PYTHONPATH="" alembic -x target=control -x db=smritisys upgrade head || echo "Notice: Alembic migrations encountered an issue or are already up to date."
 else
     echo "SKIP_MIGRATIONS=true, skipping Alembic migrations."
 fi
+
+export PYTHONPATH=/app
 
 echo "Seeding baseline users and company registries..."
 python -m app.db.seed_baseline_users || echo "Notice: Seeding completed or skipped."

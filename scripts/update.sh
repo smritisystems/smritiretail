@@ -32,7 +32,7 @@ echo -e "\n${YELLOW}[3/5] Restarting services with preserved volumes...${NC}"
 docker compose up -d
 
 echo -e "\n${YELLOW}[4/5] Applying Alembic database migrations...${NC}"
-docker compose exec -T smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1 || true
+docker compose exec -T -e PYTHONPATH="" smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1 || true
 
 echo -e "\n${YELLOW}[5/5] Running health verification...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
