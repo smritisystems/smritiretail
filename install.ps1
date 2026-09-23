@@ -285,13 +285,33 @@ $env:POSTGRES_PORT = "$pgPort"
 # -----------------------------------------------------------------------------
 Write-Section "5.5/7" "Business Profile Setup"
 
-# Read existing values from .env (don't overwrite if already set)
-$existingCompanyName = (Get-Content ".env" -ErrorAction SilentlyContinue | Select-String "^SMRITI_COMPANY_NAME=(.+)").Matches.Groups[1].Value.Trim().Trim('"').Trim("'")
-$existingAdminPwd    = (Get-Content ".env" -ErrorAction SilentlyContinue | Select-String "^SMRITI_ADMIN_PASSWORD=(.+)").Matches.Groups[1].Value.Trim().Trim('"').Trim("'")
+# Null-safe helper: read a key's value from .env, returns "" if missing or empty
+function Get-EnvValue {
+    param([string]$FilePath, [string]$Key)
+    if (-not (Test-Path $FilePath)) { return "" }
+    $line = Get-Content $FilePath -ErrorAction SilentlyContinue |
+            Where-Object { $_ -match "^\s*${Key}\s*=\s*(.+)" } |
+            Select-Object -First 1
+    if ($line -and $line -match "^\s*${Key}\s*=\s*(.+)") {
+        return $matches[1].Trim().Trim('"').Trim("'")
+    }
+    return ""
+}
 
-if ($existingCompanyName -and $existingCompanyName.Length -gt 0 -and -not $doFreshInstall) {
+$existingCompanyName = Get-EnvValue -FilePath ".env" -Key "SMRITI_COMPANY_NAME"
+
+if ($existingCompanyName.Length -gt 0 -and -not $doFreshInstall) {
     Write-Host "  [OK] Business profile already configured in .env  -- skipping." -ForegroundColor Green
     Write-Host "       Company: $existingCompanyName" -ForegroundColor Gray
+    # Re-export for seed step
+    $env:SMRITI_COMPANY_NAME   = $existingCompanyName
+    $env:SMRITI_COMPANY_CODE   = Get-EnvValue -FilePath ".env" -Key "SMRITI_COMPANY_CODE"
+    $env:SMRITI_COMPANY_GST    = Get-EnvValue -FilePath ".env" -Key "SMRITI_COMPANY_GST"
+    $env:SMRITI_BRANCH_NAME    = Get-EnvValue -FilePath ".env" -Key "SMRITI_BRANCH_NAME"
+    $env:SMRITI_BRANCH_CODE    = Get-EnvValue -FilePath ".env" -Key "SMRITI_BRANCH_CODE"
+    $env:SMRITI_ADMIN_USERNAME = Get-EnvValue -FilePath ".env" -Key "SMRITI_ADMIN_USERNAME"
+    $env:SMRITI_ADMIN_EMAIL    = Get-EnvValue -FilePath ".env" -Key "SMRITI_ADMIN_EMAIL"
+    $env:SMRITI_ADMIN_PASSWORD = Get-EnvValue -FilePath ".env" -Key "SMRITI_ADMIN_PASSWORD"
 } else {
     Write-Host ""
     Write-Host "  Please enter your business information." -ForegroundColor White
