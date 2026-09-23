@@ -331,6 +331,80 @@ export BACKEND_API_PORT="$API_PORT"
 export POSTGRES_PORT="$PG_PORT"
 
 # -----------------------------------------------------------------------------
+# 5.5  Company / Business Profile Setup
+# -----------------------------------------------------------------------------
+write_section "5.5/7" "Business Profile Setup"
+
+_existing_company=$(grep -E "^SMRITI_COMPANY_NAME=.+" .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")
+
+if [ -n "$_existing_company" ] && [ "$DO_FRESH_INSTALL" = false ]; then
+    echo -e "  ${GREEN}[OK] Business profile already configured in .env — skipping.${NC}"
+    echo -e "       Company: $_existing_company"
+    # Re-export for seed step
+    export SMRITI_COMPANY_NAME="$(grep -E '^SMRITI_COMPANY_NAME=' .env | cut -d= -f2-)"
+    export SMRITI_COMPANY_CODE="$(grep -E '^SMRITI_COMPANY_CODE=' .env | cut -d= -f2-)"
+    export SMRITI_COMPANY_GST="$(grep -E '^SMRITI_COMPANY_GST=' .env | cut -d= -f2-)"
+    export SMRITI_BRANCH_NAME="$(grep -E '^SMRITI_BRANCH_NAME=' .env | cut -d= -f2-)"
+    export SMRITI_BRANCH_CODE="$(grep -E '^SMRITI_BRANCH_CODE=' .env | cut -d= -f2-)"
+    export SMRITI_ADMIN_USERNAME="$(grep -E '^SMRITI_ADMIN_USERNAME=' .env | cut -d= -f2-)"
+    export SMRITI_ADMIN_EMAIL="$(grep -E '^SMRITI_ADMIN_EMAIL=' .env | cut -d= -f2-)"
+    export SMRITI_ADMIN_PASSWORD="$(grep -E '^SMRITI_ADMIN_PASSWORD=' .env | cut -d= -f2-)"
+else
+    echo ""
+    echo -e "  Please enter your business information."
+    echo -e "  (Press ENTER to keep the default value shown in brackets)\n"
+
+    read -r -p "  Company / Business Name [My Retail Store]: " _cn
+    SMRITI_COMPANY_NAME="${_cn:-My Retail Store}"
+
+    read -r -p "  Company Short Code (no spaces) [MYSTORE]: " _cc
+    SMRITI_COMPANY_CODE="${_cc:-MYSTORE}"
+    SMRITI_COMPANY_CODE="${SMRITI_COMPANY_CODE// /}"
+
+    read -r -p "  GST Number (leave blank if not applicable) []: " _gst
+    SMRITI_COMPANY_GST="${_gst:-}"
+
+    read -r -p "  Main Branch Name [Main Branch]: " _bn
+    SMRITI_BRANCH_NAME="${_bn:-Main Branch}"
+
+    read -r -p "  Main Branch Code (no spaces) [MAIN]: " _bc
+    SMRITI_BRANCH_CODE="${_bc:-MAIN}"
+    SMRITI_BRANCH_CODE="${SMRITI_BRANCH_CODE// /}"
+
+    echo ""
+    echo -e "  --- Admin Account ---"
+
+    read -r -p "  Admin Username [admin]: " _au
+    SMRITI_ADMIN_USERNAME="${_au:-admin}"
+
+    read -r -p "  Admin Email [admin@mystore.com]: " _ae
+    SMRITI_ADMIN_EMAIL="${_ae:-admin@mystore.com}"
+
+    read -r -p "  Admin Password [Admin@123]: " _ap
+    SMRITI_ADMIN_PASSWORD="${_ap:-Admin@123}"
+
+    # Save to .env
+    update_env_key ".env" "SMRITI_COMPANY_NAME"   "$SMRITI_COMPANY_NAME"
+    update_env_key ".env" "SMRITI_COMPANY_CODE"   "$SMRITI_COMPANY_CODE"
+    update_env_key ".env" "SMRITI_COMPANY_GST"    "$SMRITI_COMPANY_GST"
+    update_env_key ".env" "SMRITI_BRANCH_NAME"    "$SMRITI_BRANCH_NAME"
+    update_env_key ".env" "SMRITI_BRANCH_CODE"    "$SMRITI_BRANCH_CODE"
+    update_env_key ".env" "SMRITI_ADMIN_USERNAME" "$SMRITI_ADMIN_USERNAME"
+    update_env_key ".env" "SMRITI_ADMIN_EMAIL"    "$SMRITI_ADMIN_EMAIL"
+    update_env_key ".env" "SMRITI_ADMIN_PASSWORD" "$SMRITI_ADMIN_PASSWORD"
+
+    export SMRITI_COMPANY_NAME SMRITI_COMPANY_CODE SMRITI_COMPANY_GST
+    export SMRITI_BRANCH_NAME SMRITI_BRANCH_CODE
+    export SMRITI_ADMIN_USERNAME SMRITI_ADMIN_EMAIL SMRITI_ADMIN_PASSWORD
+
+    echo ""
+    echo -e "  ${GREEN}[OK] Business profile saved:${NC}"
+    echo -e "       Company : $SMRITI_COMPANY_NAME ($SMRITI_COMPANY_CODE)"
+    echo -e "       Branch  : $SMRITI_BRANCH_NAME ($SMRITI_BRANCH_CODE)"
+    echo -e "       Admin   : $SMRITI_ADMIN_USERNAME / $SMRITI_ADMIN_EMAIL"
+fi
+
+# -----------------------------------------------------------------------------
 # 6. Docker Build & Startup
 # -----------------------------------------------------------------------------
 write_section "6/7" "Building and Starting SMRITI Retail OS Stack"
@@ -382,7 +456,16 @@ docker compose -f "$COMPOSE_FILE" exec -T -e PYTHONPATH="" "$API_CONTAINER" alem
 
 # Seed baseline enterprise companies and users
 echo -e "  Verifying and seeding baseline enterprise users..."
-docker compose -f "$COMPOSE_FILE" exec -T "$API_CONTAINER" python -m app.db.seed_baseline_users 2>&1 || echo "Notice: Seeding verified."
+docker compose -f "$COMPOSE_FILE" exec -T \
+    -e SMRITI_COMPANY_NAME="$SMRITI_COMPANY_NAME" \
+    -e SMRITI_COMPANY_CODE="$SMRITI_COMPANY_CODE" \
+    -e SMRITI_COMPANY_GST="$SMRITI_COMPANY_GST" \
+    -e SMRITI_BRANCH_NAME="$SMRITI_BRANCH_NAME" \
+    -e SMRITI_BRANCH_CODE="$SMRITI_BRANCH_CODE" \
+    -e SMRITI_ADMIN_USERNAME="$SMRITI_ADMIN_USERNAME" \
+    -e SMRITI_ADMIN_EMAIL="$SMRITI_ADMIN_EMAIL" \
+    -e SMRITI_ADMIN_PASSWORD="$SMRITI_ADMIN_PASSWORD" \
+    "$API_CONTAINER" python -m app.db.seed_baseline_users 2>&1 || echo "Notice: Seeding verified."
 
 # Probe API Health
 echo -e "  Checking API health on http://localhost:$API_PORT/health..."

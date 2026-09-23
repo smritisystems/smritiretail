@@ -281,6 +281,75 @@ $env:BACKEND_API_PORT = "$apiPort"
 $env:POSTGRES_PORT = "$pgPort"
 
 # -----------------------------------------------------------------------------
+# 5.5  Company / Business Profile Setup
+# -----------------------------------------------------------------------------
+Write-Section "5.5/7" "Business Profile Setup"
+
+# Read existing values from .env (don't overwrite if already set)
+$existingCompanyName = (Get-Content ".env" -ErrorAction SilentlyContinue | Select-String "^SMRITI_COMPANY_NAME=(.+)").Matches.Groups[1].Value.Trim().Trim('"').Trim("'")
+$existingAdminPwd    = (Get-Content ".env" -ErrorAction SilentlyContinue | Select-String "^SMRITI_ADMIN_PASSWORD=(.+)").Matches.Groups[1].Value.Trim().Trim('"').Trim("'")
+
+if ($existingCompanyName -and $existingCompanyName.Length -gt 0 -and -not $doFreshInstall) {
+    Write-Host "  [OK] Business profile already configured in .env — skipping." -ForegroundColor Green
+    Write-Host "       Company: $existingCompanyName" -ForegroundColor Gray
+} else {
+    Write-Host ""
+    Write-Host "  Please enter your business information." -ForegroundColor White
+    Write-Host "  (Press ENTER to keep the default value shown in brackets)`n" -ForegroundColor Gray
+
+    $companyName = (Read-Host "  Company / Business Name [My Retail Store]").Trim()
+    if (-not $companyName) { $companyName = "My Retail Store" }
+
+    $companyCode = (Read-Host "  Company Short Code (letters/numbers only, no spaces) [MYSTORE]").Trim() -replace '\s+',''
+    if (-not $companyCode) { $companyCode = "MYSTORE" }
+
+    $companyGst = (Read-Host "  GST Number (leave blank if not applicable) []").Trim()
+
+    $branchName = (Read-Host "  Main Branch Name [Main Branch]").Trim()
+    if (-not $branchName) { $branchName = "Main Branch" }
+
+    $branchCode = (Read-Host "  Main Branch Code (letters/numbers only) [MAIN]").Trim() -replace '\s+',''
+    if (-not $branchCode) { $branchCode = "MAIN" }
+
+    Write-Host ""
+    Write-Host "  --- Admin Account ---" -ForegroundColor Cyan
+    $adminUsername = (Read-Host "  Admin Username [admin]").Trim()
+    if (-not $adminUsername) { $adminUsername = "admin" }
+
+    $adminEmail = (Read-Host "  Admin Email [admin@mystore.com]").Trim()
+    if (-not $adminEmail) { $adminEmail = "admin@mystore.com" }
+
+    $adminPwd = (Read-Host "  Admin Password [Admin@123]").Trim()
+    if (-not $adminPwd) { $adminPwd = "Admin@123" }
+
+    # Save to .env
+    Update-EnvKey -FilePath ".env" -Key "SMRITI_COMPANY_NAME"  -Value $companyName
+    Update-EnvKey -FilePath ".env" -Key "SMRITI_COMPANY_CODE"  -Value $companyCode
+    Update-EnvKey -FilePath ".env" -Key "SMRITI_COMPANY_GST"   -Value $companyGst
+    Update-EnvKey -FilePath ".env" -Key "SMRITI_BRANCH_NAME"   -Value $branchName
+    Update-EnvKey -FilePath ".env" -Key "SMRITI_BRANCH_CODE"   -Value $branchCode
+    Update-EnvKey -FilePath ".env" -Key "SMRITI_ADMIN_USERNAME" -Value $adminUsername
+    Update-EnvKey -FilePath ".env" -Key "SMRITI_ADMIN_EMAIL"    -Value $adminEmail
+    Update-EnvKey -FilePath ".env" -Key "SMRITI_ADMIN_PASSWORD" -Value $adminPwd
+
+    # Export to current process so seed picks them up via docker exec -e
+    $env:SMRITI_COMPANY_NAME   = $companyName
+    $env:SMRITI_COMPANY_CODE   = $companyCode
+    $env:SMRITI_COMPANY_GST    = $companyGst
+    $env:SMRITI_BRANCH_NAME    = $branchName
+    $env:SMRITI_BRANCH_CODE    = $branchCode
+    $env:SMRITI_ADMIN_USERNAME = $adminUsername
+    $env:SMRITI_ADMIN_EMAIL    = $adminEmail
+    $env:SMRITI_ADMIN_PASSWORD = $adminPwd
+
+    Write-Host ""
+    Write-Host "  [OK] Business profile saved:" -ForegroundColor Green
+    Write-Host "       Company : $companyName ($companyCode)" -ForegroundColor Cyan
+    Write-Host "       Branch  : $branchName ($branchCode)" -ForegroundColor Cyan
+    Write-Host "       Admin   : $adminUsername / $adminEmail" -ForegroundColor Cyan
+}
+
+# -----------------------------------------------------------------------------
 # 6. Docker Build & Startup
 # -----------------------------------------------------------------------------
 Write-Section "6/7" "Building and Starting SMRITI Retail OS Stack"
@@ -347,7 +416,16 @@ try {
 # Seed baseline enterprise companies and users
 Write-Host "  Verifying and seeding baseline enterprise users..." -ForegroundColor Gray
 try {
-    $seedOutput = docker compose -f $composeFile exec -T $apiContainer python -m app.db.seed_baseline_users 2>&1
+    $seedOutput = docker compose -f $composeFile exec -T `
+        -e SMRITI_COMPANY_NAME="$env:SMRITI_COMPANY_NAME" `
+        -e SMRITI_COMPANY_CODE="$env:SMRITI_COMPANY_CODE" `
+        -e SMRITI_COMPANY_GST="$env:SMRITI_COMPANY_GST" `
+        -e SMRITI_BRANCH_NAME="$env:SMRITI_BRANCH_NAME" `
+        -e SMRITI_BRANCH_CODE="$env:SMRITI_BRANCH_CODE" `
+        -e SMRITI_ADMIN_USERNAME="$env:SMRITI_ADMIN_USERNAME" `
+        -e SMRITI_ADMIN_EMAIL="$env:SMRITI_ADMIN_EMAIL" `
+        -e SMRITI_ADMIN_PASSWORD="$env:SMRITI_ADMIN_PASSWORD" `
+        $apiContainer python -m app.db.seed_baseline_users 2>&1
     Write-Host "  [OK] Baseline users and enterprise companies seeded." -ForegroundColor Green
 } catch {
     Write-Host "  [NOTICE] Baseline seeding notice: $_" -ForegroundColor Gray
