@@ -35,6 +35,39 @@ function New-SecureKey {
     return ($bytes | ForEach-Object { "{0:x2}" -f $_ }) -join ''
 }
 
+function Update-EnvKey {
+    param(
+        [string]$FilePath,
+        [string]$Key,
+        [string]$Value
+    )
+    if (-not (Test-Path $FilePath)) { return }
+    $lines = Get-Content $FilePath
+    $found = $false
+    $output = @()
+    foreach ($line in $lines) {
+        if ($line -match "^\s*#") {
+            $output += $line
+        } elseif ($line -match "^\s*$Key\s*=\s*(.*)") {
+            $found = $true
+            $val = $matches[1].Trim().Trim('"').Trim("'")
+            if ([string]::IsNullOrWhiteSpace($val)) {
+                $output += "$Key=$Value"
+                Write-Host "  [OK] Injected secure $Key into $FilePath." -ForegroundColor Green
+            } else {
+                $output += $line
+            }
+        } else {
+            $output += $line
+        }
+    }
+    if (-not $found) {
+        $output += "$Key=$Value"
+        Write-Host "  [OK] Added secure $Key to $FilePath." -ForegroundColor Green
+    }
+    Set-Content -Path $FilePath -Value $output
+}
+
 function Test-PortOccupied {
     param([int]$Port)
     try {
@@ -219,30 +252,23 @@ if (-not (Test-Path ".env")) {
     Write-Host "  [OK] Existing .env file detected -- preserving all user settings." -ForegroundColor Green
 }
 
-# Ensure critical secrets are populated (never empty)
-$envText = Get-Content ".env" -Raw -ErrorAction SilentlyContinue
-if (-not $envText) { $envText = "" }
+# Ensure critical secrets are populated and valid (never empty or quotes-only)
+Update-EnvKey -FilePath ".env" -Key "JWT_SECRET_KEY" -Value (New-SecureKey)
+Update-EnvKey -FilePath ".env" -Key "INTERNAL_SERVICE_KEY" -Value (New-SecureKey)
+Update-EnvKey -FilePath ".env" -Key "SGIP_VAULT_MASTER_KEY" -Value (New-SecureKey)
 
-$updates = @()
-if ($envText -notmatch "JWT_SECRET_KEY=.+") {
-    $key = New-SecureKey
-    $updates += "JWT_SECRET_KEY=$key"
-}
-if ($envText -notmatch "INTERNAL_SERVICE_KEY=.+") {
-    $key = New-SecureKey
-    $updates += "INTERNAL_SERVICE_KEY=$key"
-}
-if ($envText -notmatch "SGIP_VAULT_MASTER_KEY=.+") {
-    $key = New-SecureKey
-    $updates += "SGIP_VAULT_MASTER_KEY=$key"
+# Export all .env variables directly into process environment for Docker Compose
+Get-Content ".env" | ForEach-Object {
+    if ($_ -match "^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)") {
+        $k = $matches[1]
+        $v = $matches[2].Trim().Trim('"').Trim("'")
+        if (-not [string]::IsNullOrWhiteSpace($k)) {
+            [System.Environment]::SetEnvironmentVariable($k, $v, "Process")
+        }
+    }
 }
 
-if ($updates.Count -gt 0) {
-    Add-Content -Path ".env" -Value "`r`n# Auto-generated security credentials`r`n$($updates -join "`r`n")"
-    Write-Host "  [OK] Generated secure cryptographic keys for JWT, Internal Service, and SGIP Vault." -ForegroundColor Green
-}
-
-# In custom mode, export port overrides to environment
+# Export port overrides to environment
 $env:PORT = "$webPort"
 $env:BACKEND_API_PORT = "$apiPort"
 $env:POSTGRES_PORT = "$pgPort"

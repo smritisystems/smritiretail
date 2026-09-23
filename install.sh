@@ -42,6 +42,28 @@ generate_secret_key() {
     fi
 }
 
+update_env_key() {
+    local file="$1"
+    local key="$2"
+    local val="$3"
+    
+    if [ ! -f "$file" ]; then return; fi
+    
+    # Check if key exists and has non-empty value (excluding comments and quotes)
+    if grep -qE "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*[\"']?[a-zA-Z0-9_-]{8,}" "$file"; then
+        return 0
+    fi
+    
+    # If key exists with empty value, replace it in place
+    if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$file"; then
+        sed -i.bak -E "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${val}|" "$file" && rm -f "${file}.bak"
+        echo -e "  ${GREEN}[OK] Injected secure ${key} into ${file}.${NC}"
+    else
+        echo "${key}=${val}" >> "$file"
+        echo -e "  ${GREEN}[OK] Added secure ${key} to ${file}.${NC}"
+    fi
+}
+
 is_port_in_use() {
     local port="$1"
     if command -v python3 >/dev/null 2>&1; then
@@ -282,24 +304,16 @@ else
     echo -e "  ${GREEN}[OK] Existing .env file detected — preserving all user settings.${NC}"
 fi
 
-# Check and inject secure keys if missing or empty
-if ! grep -qE '^JWT_SECRET_KEY=.+' .env; then
-    KEY=$(generate_secret_key)
-    echo "JWT_SECRET_KEY=$KEY" >> .env
-    echo -e "  ${GREEN}[OK] Generated secure JWT_SECRET_KEY.${NC}"
-fi
+# Ensure critical secrets are populated and valid (never empty, never quotes-only)
+update_env_key ".env" "JWT_SECRET_KEY" "$(generate_secret_key)"
+update_env_key ".env" "INTERNAL_SERVICE_KEY" "$(generate_secret_key)"
+update_env_key ".env" "SGIP_VAULT_MASTER_KEY" "$(generate_secret_key)"
 
-if ! grep -qE '^INTERNAL_SERVICE_KEY=.+' .env; then
-    KEY=$(generate_secret_key)
-    echo "INTERNAL_SERVICE_KEY=$KEY" >> .env
-    echo -e "  ${GREEN}[OK] Generated secure INTERNAL_SERVICE_KEY.${NC}"
-fi
-
-if ! grep -qE '^SGIP_VAULT_MASTER_KEY=.+' .env; then
-    KEY=$(generate_secret_key)
-    echo "SGIP_VAULT_MASTER_KEY=$KEY" >> .env
-    echo -e "  ${GREEN}[OK] Generated secure SGIP_VAULT_MASTER_KEY.${NC}"
-fi
+# Export all .env variables directly into process environment
+set -a
+# shellcheck disable=SC1091
+source .env 2>/dev/null || true
+set +a
 
 export PORT="$WEB_PORT"
 export BACKEND_API_PORT="$API_PORT"
