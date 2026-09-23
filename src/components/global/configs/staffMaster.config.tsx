@@ -44,6 +44,7 @@ export const staffMasterConfig: MasterConfig<User> = {
   columns: [
     {
       key: "fullName",
+      fieldId: "user.full_name",
       label: "Staff Name",
       width: "220px",
       sortable: true,
@@ -61,6 +62,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       key: "role",
+      fieldId: "user.role",
       label: "System Role",
       width: "150px",
       sortable: true,
@@ -83,6 +85,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       key: "designation",
+      fieldId: "user.designation",
       label: "Designation / Dept",
       width: "180px",
       render: (val, item) => (
@@ -99,6 +102,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       key: "branch",
+      fieldId: "user.branch",
       label: "Assigned Branch",
       width: "180px",
       render: (val) => (
@@ -110,6 +114,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       key: "status",
+      fieldId: "user.is_active",
       label: "Account Status",
       width: "110px",
       renderStatus: true
@@ -119,6 +124,7 @@ export const staffMasterConfig: MasterConfig<User> = {
   fields: [
     {
       name: "fullName",
+      fieldId: "user.full_name",
       label: "Full Name",
       type: "text",
       required: true,
@@ -127,6 +133,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "username",
+      fieldId: "user.username",
       label: "Username",
       type: "text",
       required: true,
@@ -142,6 +149,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "role",
+      fieldId: "user.role",
       label: "Role",
       type: "select",
       required: true,
@@ -157,6 +165,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "designation",
+      fieldId: "user.designation",
       label: "Designation",
       type: "text",
       placeholder: "e.g. Senior Floor Manager",
@@ -164,6 +173,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "department",
+      fieldId: "user.department",
       label: "Department",
       type: "text",
       placeholder: "e.g. Retail Sales",
@@ -171,6 +181,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "status",
+      fieldId: "user.is_active",
       label: "Account Status",
       type: "select",
       options: [

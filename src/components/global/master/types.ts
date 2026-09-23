@@ -11,6 +11,7 @@
  */
 
 import React from "react";
+import type { CanonicalFieldId } from "../../../services/canonicalFieldRegistry.ts";
 
 export type FieldType = 
   | "text" 
@@ -32,6 +33,7 @@ export interface SelectOption {
 
 export interface MasterColumnDef<T = any> {
   key: string;
+  fieldId?: CanonicalFieldId | string;
   label: string;
   width?: string;
   minWidth?: string;
@@ -45,6 +47,7 @@ export interface MasterColumnDef<T = any> {
 
 export interface MasterFormFieldDef<T = any> {
   name: string;
+  fieldId?: CanonicalFieldId | string;
   label: string;
   type: FieldType;
   required?: boolean;

@@ -14,6 +14,7 @@
     "validate-launchpad": "node scripts/validate-launchpad-registry.mjs",
     "architecture:preflight": "python scripts/architecture_preflight.py",
     "architecture:check": "python scripts/architecture_duplication_gate.py",
+    "governance:fields": "python scripts/ci_ux_field_governance_guard.py",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload"
   },
   "dependencies": {

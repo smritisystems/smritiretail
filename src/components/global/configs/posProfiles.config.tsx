@@ -30,6 +30,7 @@ export const posProfilesConfig: MasterConfig<POSProfile> = {
   columns: [
     {
       key: "name",
+      fieldId: "pos_profile.name",
       label: "Terminal Profile",
       width: "220px",
       sortable: true,
@@ -57,6 +58,7 @@ export const posProfilesConfig: MasterConfig<POSProfile> = {
     },
     {
       key: "warehouse",
+      fieldId: "pos_profile.warehouse_id",
       label: "Default Warehouse / Store",
       width: "180px",
       render: (val) => (
@@ -83,6 +85,7 @@ export const posProfilesConfig: MasterConfig<POSProfile> = {
   fields: [
     {
       name: "name",
+      fieldId: "pos_profile.name",
       label: "Terminal / Counter Name",
       type: "text",
       required: true,
@@ -91,6 +94,7 @@ export const posProfilesConfig: MasterConfig<POSProfile> = {
     },
     {
       name: "code",
+      fieldId: "pos_profile.code",
       label: "Terminal / Register Code",
       type: "text",
       placeholder: "e.g. REG-01 (leave blank to auto-generate)",
@@ -106,6 +110,7 @@ export const posProfilesConfig: MasterConfig<POSProfile> = {
     },
     {
       name: "warehouse",
+      fieldId: "pos_profile.warehouse_id",
       label: "Stock Warehouse",
       type: "text",
       required: false,

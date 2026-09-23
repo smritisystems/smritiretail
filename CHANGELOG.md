@@ -41,6 +41,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [6.44.1] - 2026-09-23
 
+#### Foundation: CFOC Hardening & Zero-Manual-Registry Drift (CFOC-v3.45.0)
+- **Deterministic Registry Fingerprint:** Added SHA-256 fingerprint generation (`CFOC_REGISTRY_FINGERPRINT = "8f9627da3035bf38e2545720a5a46a163c1d3938d122b48171045465faae7ca8"`) computed over 132 alphabetically sorted canonical field definitions in `backend/app/governance/field_registry.py`.
+- **Zero Generated-File Drift Guard:** Created `scripts/verify_ts_registry_drift.py` to deterministically verify 100% byte-for-byte parity between the Python SSOT and `src/services/canonicalFieldRegistry.ts`, blocking unauthorized manual edits.
+- **Frontend Runtime Immutability:** Wrapped exported `CANONICAL_FIELDS` dictionary in `Object.freeze(...)` to prevent runtime client modifications.
+- **Bi-Directional Database Column Classification:** Upgraded Check 2 in `scripts/ci_ux_field_governance_guard.py` to classify all 383 columns across governed tables into `CANONICAL_BUSINESS` (132), `AUDIT` (104), `TECHNICAL_FK` (60), `FRAMEWORK` (40), and `MIGRATION` (47), enforcing 0 unmapped business fields.
+- **AST-Based / Structural UX Governance:** Refined Check 5 scanner to distinguish between canonical field references, ordinary presentation attributes (`className`, `placeholder`, button copy), and business metadata violations.
+- **Permanent CI Gate:** Added `CFOC UX Field Governance & Zero-Drift Guard (CFOC-v1.0)` step to `.github/workflows/ci.yml`.
+- **Automated Verification:** 29/29 Pytest tests passed (`backend/tests/test_ux_field_governance.py`), 10/10 Vitest tests passed (`src/tests/canonicalFieldRegistry.test.ts`), 0 TypeScript errors (`tsc --noEmit`), and 9/9 CI guard checks passed (`npm run governance:fields`).
+
 #### Foundation: SMRITI Tenant Data Boundary Remediation (TDB-v2.0)
 - **Positive Ownership Model:** Introduced canonical `TABLE_OWNERSHIP` registry in `app.db.ownership` declaring all 280+ system tables as `CONTROL_PLANE`, `TENANT`, `SHARED_REFERENCE`, or `PLATFORM_TEMPLATE`. Replaced fragile negative forbidden-table lists.
 - **Fail-Closed Seed Contracts:** Added `@seed_contract(target="control"|"tenant"|"shared")` decorator in `app.db.seed_contract` to enforce database boundaries at call time. Hardened `seed_psv.py`, `seed_customers.py`, `seed_cap_master.py`, and `seed_architecture_governance.py`.

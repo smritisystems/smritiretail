@@ -140,12 +140,13 @@ async def get_screen_definitions(
 @router.get("/fields", summary="Field Definitions")
 async def get_field_definitions(
     field_type: str = None,
+    entity_key: str = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Returns field metadata definitions from smritisys.field_definitions.
-    Optional filter: field_type.
+    Optional filters: field_type, entity_key.
     """
     stmt = select(FieldDefinition).where(
         FieldDefinition.is_active == True,
@@ -153,6 +154,8 @@ async def get_field_definitions(
     )
     if field_type:
         stmt = stmt.where(FieldDefinition.field_type == field_type.upper())
+    if entity_key:
+        stmt = stmt.where(FieldDefinition.entity_key == entity_key.lower())
     result = await db.execute(stmt)
     fields = result.scalars().all()
     return {
@@ -166,7 +169,12 @@ async def get_field_definitions(
                 "is_filterable": f.is_filterable, "is_exportable": f.is_exportable,
                 "is_hidden": f.is_hidden, "validation_rules": f.validation_rules,
                 "options_source": f.options_source, "options_static": f.options_static,
-                "max_length": f.max_length, "status": f.status,
+                "placeholder_key": f.placeholder_key, "help_text_key": f.help_text_key,
+                "max_length": f.max_length, "min_value": float(f.min_value) if f.min_value is not None else None,
+                "max_value": float(f.max_value) if f.max_value is not None else None,
+                "status": f.status, "entity_key": f.entity_key,
+                "canonical_table": f.canonical_table, "canonical_column": f.canonical_column,
+                "api_alias": f.api_alias, "ui_aliases": f.ui_aliases,
             }
             for f in fields
         ],
