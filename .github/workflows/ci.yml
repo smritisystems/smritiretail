@@ -138,6 +138,11 @@ jobs:
         # or CI alembic commands are missing -x target= flags.
         run: python ../scripts/ci_tenant_boundary_guard.py --root ..
 
+      - name: CFOC Migration-Time Column Guard (CFOC-v3.46.0)
+        # Enforces Change-Time CFOC: Every column in Alembic migrations
+        # must carry canonical field registration or declarative classification.
+        run: python ../scripts/ci_migration_cfoc_guard.py
+
       - name: CFOC UX Field Governance & Zero-Drift Guard (CFOC-v1.0)
         # Enforces the CANONICAL FIELD OWNERSHIP CONTRACT permanently:
         # Zero duplicate field IDs, zero broken DB mappings, zero generated TS drift,

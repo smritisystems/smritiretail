@@ -41,6 +41,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### [6.44.1] - 2026-09-23
 
+#### Foundation: CFOC Change-Time Enforcement (CFOC-v3.46.0)
+- **Migration → CFOC Gate:** Added `scripts/ci_migration_cfoc_guard.py` to statically AST-parse all 165 Alembic migrations, intercepting unclassified columns on governed tables before database commit or CI merge.
+- **Declarative DB Column Classification Contract:** Created `backend/app/governance/column_classification.py` implementing a closed 5-category contract (`CANONICAL_BUSINESS`, `AUDIT`, `TECHNICAL_FK`, `FRAMEWORK`, `MIGRATION`), classifying 2,373 column instances. Zero unofficial sixth categories allowed.
+- **Fail-Closed Runtime Tenant DB Verification:** Enhanced `backend/app/db/cp_guard.py` with `inspect_tenant_cfoc_boundary()` to verify that tenant databases (`smriti001`+) never contain control-plane exclusive governance tables/fields, and wired tenant verification into FastAPI startup.
+- **Immutable Field ID & Semantic Versioning Policy:** Implemented `validate_field_immutability()` in `backend/app/governance/field_registry.py` prohibiting field renames and requiring semantic version increments for metadata changes.
+- **Automatic Exception Expiry Countdown:** Added proactive 30-day alerts in Check 8 of `scripts/ci_ux_field_governance_guard.py` warning developers before baseline exceptions expire.
+- **New Field Creation Wizard:** Created `scripts/create_canonical_field.py` to guide developers through the 6-step canonical promotion order.
+- **Expanded Test Coverage:** 35/35 Pytest tests passed across 17 governance domains, 10/10 Vitest tests passed, 0 TypeScript errors (`tsc --noEmit`), and 11/11 CI guard checks passed (`npm run governance:fields`).
+
 #### Foundation: CFOC Hardening & Zero-Manual-Registry Drift (CFOC-v3.45.0)
 - **Deterministic Registry Fingerprint:** Added SHA-256 fingerprint generation (`CFOC_REGISTRY_FINGERPRINT = "8f9627da3035bf38e2545720a5a46a163c1d3938d122b48171045465faae7ca8"`) computed over 132 alphabetically sorted canonical field definitions in `backend/app/governance/field_registry.py`.
 - **Zero Generated-File Drift Guard:** Created `scripts/verify_ts_registry_drift.py` to deterministically verify 100% byte-for-byte parity between the Python SSOT and `src/services/canonicalFieldRegistry.ts`, blocking unauthorized manual edits.

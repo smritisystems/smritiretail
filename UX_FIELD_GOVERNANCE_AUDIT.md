@@ -2,7 +2,7 @@
 
 **Author:** Jawahar Ramkripal Mallah  
 **Designation:** Chief Systems Architect & Creator  
-**Version:** 3.45.0  
+**Version:** 3.46.0  
 **Registry Fingerprint:** `8f9627da3035bf38e2545720a5a46a163c1d3938d122b48171045465faae7ca8`  
 **Audit Date:** 2026-09-23  
 **Status:** **PASS WITH EXPLICIT EXCEPTIONS**  
@@ -23,7 +23,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 
 | Metric | Measured Value | Standard / Target | Status |
 | :--- | :--- | :--- | :--- |
-| **CFOC Registry Version** | 3.45.0 | v3.45.0 | PASS |
+| **CFOC Registry Version** | 3.46.0 | v3.45.0 | PASS |
 | **Deterministic Fingerprint** | `8f9627da3035bf38...` | SHA-256 stable across runs | PASS |
 | **Physical DB Tables** | 559 tables | 295 tables across `smriti001` & `smritisys` | PASS |
 | **Physical DB Columns** | 11493 columns | Live information_schema catalog | PASS |
@@ -64,6 +64,8 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 - [x] **Lifecycle Integrity (DRAFT/RETIRED exclusion and state machine validity across 132 fields)**
 - [x] **Exception Governance (25 exceptions strictly audited with 0 schema or expiry defects)**
 - [x] **Generated Registry Zero-Drift (100% deterministic parity between Python SSOT and TS artifact)**
+- [x] **Migration-Time CFOC Parity (All migration columns on governed tables are classified)**
+- [x] **Declarative Column Classification (2373 columns classified across closed 5-category contract)**
 
 ---
 

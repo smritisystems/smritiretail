@@ -10,7 +10,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.45.0
+ * Version      : 3.46.0
  * Created      : 2026-09-23
  * Modified     : 2026-09-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -18,7 +18,7 @@
  * Classification: Frontend SSOT — Canonical Field Registry
  */
 
-export const CFOC_REGISTRY_VERSION = "3.45.0";
+export const CFOC_REGISTRY_VERSION = "3.46.0";
 export const CFOC_REGISTRY_FIELDS = 132;
 export const CFOC_REGISTRY_FINGERPRINT = "8f9627da3035bf38e2545720a5a46a163c1d3938d122b48171045465faae7ca8";
 
