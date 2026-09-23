@@ -62,7 +62,7 @@ from app.governance.column_classification import (
     CFOC_DB_COLUMN_CLASSIFICATION,
     get_column_classification,
 )
-from ci_migration_cfoc_guard import extract_columns_from_migration
+from ci_migration_cfoc_guard import extract_columns_from_migration, MigrationParseError
 
 
 class UXFieldGovernanceGuard:
@@ -564,13 +564,27 @@ class UXFieldGovernanceGuard:
 
         governed_tables = {f.db_table for f in CANONICAL_FIELDS.values()}
         unclassified = []
+        parse_errors = []
 
         for mfile in versions_dir.glob("*.py"):
-            for table, col, lineno in extract_columns_from_migration(mfile):
+            try:
+                cols = extract_columns_from_migration(mfile)
+            except MigrationParseError as e:
+                parse_errors.append((mfile.name, str(e)))
+                self.log_violation(
+                    "MIGRATION_PARSE_FAILURE", "CRITICAL",
+                    f"Alembic migration '{mfile.name}' failed AST parsing (fail-closed): {e}",
+                    {"file": mfile.name, "error": str(e)}
+                )
+                continue
+
+            for table, col, lineno in cols:
                 if table in governed_tables and not get_column_classification(table, col):
                     unclassified.append((mfile.name, lineno, table, col))
 
-        if unclassified:
+        if parse_errors:
+            print(f"  [FAIL] {len(parse_errors)} Alembic migration scripts failed AST parsing (fail-closed)!")
+        elif unclassified:
             for mname, lno, tbl, col in unclassified[:10]:
                 self.log_violation(
                     "MIGRATION_UNCLASSIFIED_COLUMN", "ERROR",
@@ -579,8 +593,8 @@ class UXFieldGovernanceGuard:
                 )
             print(f"  [FAIL] {len(unclassified)} unclassified columns found in Alembic migrations!")
         else:
-            self.passed_checks.append("Migration-Time CFOC Parity (All migration columns on governed tables are classified)")
-            print("  [OK] Migration-time CFOC parity verified (0 unclassified migration columns).")
+            self.passed_checks.append("Migration-Time CFOC Parity (All migration columns on governed tables are classified; fail-closed parser verified)")
+            print("  [OK] Migration-time CFOC parity verified (0 unclassified migration columns, 0 parse errors).")
 
     # ──────────────────────────────────────────────────────────────────────────
     # Check 11: Declarative DB Column Classification Contract Verification

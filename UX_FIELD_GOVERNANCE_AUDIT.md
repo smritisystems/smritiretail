@@ -64,7 +64,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 - [x] **Lifecycle Integrity (DRAFT/RETIRED exclusion and state machine validity across 133 fields)**
 - [x] **Exception Governance (0 exceptions strictly audited with 0 schema or expiry defects)**
 - [x] **Generated Registry Zero-Drift (100% deterministic parity between Python SSOT and TS artifact)**
-- [x] **Migration-Time CFOC Parity (All migration columns on governed tables are classified)**
+- [x] **Migration-Time CFOC Parity (All migration columns on governed tables are classified; fail-closed parser verified)**
 - [x] **Declarative Column Classification (3047 columns classified across closed 5-category contract)**
 
 ---

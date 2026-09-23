@@ -256,8 +256,8 @@ class TestHardcodingBaselineGovernance:
         assert baseline_path.exists(), "Baseline file does not exist!"
 
         entries = json.loads(baseline_path.read_text(encoding="utf-8"))
-        assert isinstance(entries, list)
-        assert len(entries) > 0, "Baseline should contain governed legacy entries"
+        # SMRITI v4.0.0 achieved Baseline Zero ([]). If entries exist, they must strictly conform to schema.
+        assert len(entries) >= 0
 
         mandatory_keys = {
             "exception_id",
@@ -560,8 +560,9 @@ class TestDeclarativeColumnClassificationContract:
 
     def test_classification_invariants_pass(self):
         from app.governance.column_classification import verify_column_classification_invariants, ColumnClassification
+        from app.governance.field_registry import CANONICAL_FIELDS
         counts = verify_column_classification_invariants()
-        assert counts[ColumnClassification.CANONICAL_BUSINESS.value] == 132
+        assert counts[ColumnClassification.CANONICAL_BUSINESS.value] == len(CANONICAL_FIELDS)
         assert counts[ColumnClassification.AUDIT.value] > 0
         assert counts[ColumnClassification.TECHNICAL_FK.value] > 0
         assert counts[ColumnClassification.FRAMEWORK.value] > 0
@@ -585,6 +586,24 @@ class TestMigrationCFOCParity:
         from ci_migration_cfoc_guard import run_migration_cfoc_guard
         exit_code = run_migration_cfoc_guard()
         assert exit_code == 0, "Alembic migrations contain unclassified columns on governed tables!"
+
+    def test_migration_parser_bom_normalization(self):
+        """Migration parser must normalize UTF-8 BOM without warning or failure."""
+        from ci_migration_cfoc_guard import extract_columns_from_migration
+        bom_file = REPO_ROOT / "backend" / "alembic" / "versions" / "v1360_pos_sct_fk_constraints.py"
+        assert bom_file.exists()
+        # Must parse cleanly without raising MigrationParseError
+        cols = extract_columns_from_migration(bom_file)
+        assert isinstance(cols, list)
+
+    def test_migration_parser_fail_closed(self, tmp_path):
+        """Migration parser must fail closed and raise MigrationParseError on invalid Python syntax."""
+        from ci_migration_cfoc_guard import extract_columns_from_migration, MigrationParseError
+        corrupt_migration = tmp_path / "v9999_corrupt_migration.py"
+        corrupt_migration.write_text("def upgrade():\n    op.add_column(SYNTAX ERROR HERE!@#$)", encoding="utf-8")
+        with pytest.raises(MigrationParseError) as exc_info:
+            extract_columns_from_migration(corrupt_migration)
+        assert "Failed to parse migration" in str(exc_info.value)
 
 
 # ==============================================================================

@@ -32,18 +32,23 @@ from app.governance.field_registry import CANONICAL_FIELDS
 from app.governance.column_classification import CFOC_DB_COLUMN_CLASSIFICATION, get_column_classification
 
 
+class MigrationParseError(RuntimeError):
+    """Raised when an Alembic migration script fails AST parsing."""
+    pass
+
+
 def extract_columns_from_migration(filepath: Path) -> List[Tuple[str, str, int]]:
     """
     AST-parses an Alembic migration script and extracts (table_name, column_name, line_no)
     from op.add_column() and op.create_table() calls.
+    Normalizes UTF-8 with BOM (encoding='utf-8-sig') and fails closed on syntax/decode errors.
     """
     results: List[Tuple[str, str, int]] = []
     try:
-        content = filepath.read_text(encoding="utf-8")
+        content = filepath.read_text(encoding="utf-8-sig")
         tree = ast.parse(content, filename=str(filepath))
     except Exception as e:
-        print(f"Warning: Failed to parse migration {filepath.name}: {e}")
-        return results
+        raise MigrationParseError(f"Failed to parse migration {filepath.name}: {e}") from e
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -78,6 +83,7 @@ def run_migration_cfoc_guard() -> int:
     print("==============================================================")
     print("Policy: Every database column introduced via Alembic migrations")
     print("must carry canonical field registration or formal classification.")
+    print("Fail-Closed Policy: Any unparseable migration script triggers exit 1.")
     print("--------------------------------------------------------------")
 
     versions_dir = BACKEND_DIR / "alembic" / "versions"
@@ -90,10 +96,16 @@ def run_migration_cfoc_guard() -> int:
 
     governed_tables = {f.db_table for f in CANONICAL_FIELDS.values()}
     unclassified_violations: List[Dict[str, str]] = []
+    parse_errors: List[Tuple[str, str]] = []
     scanned_columns_count = 0
 
     for mfile in migration_files:
-        cols = extract_columns_from_migration(mfile)
+        try:
+            cols = extract_columns_from_migration(mfile)
+        except MigrationParseError as e:
+            parse_errors.append((mfile.name, str(e)))
+            continue
+
         for table, col, lineno in cols:
             scanned_columns_count += 1
             if table not in governed_tables:
@@ -108,6 +120,18 @@ def run_migration_cfoc_guard() -> int:
                     "table": table,
                     "column": col,
                 })
+
+    if parse_errors:
+        print("\n[FAIL-CLOSED] MIGRATION AST PARSING FAILURES DETECTED!")
+        print(f"Encountered {len(parse_errors)} unparseable Alembic migration scripts:")
+        for fname, err in parse_errors:
+            print(f"  - {fname}: {err}")
+        print("\n==============================================================")
+        print(" REMEDIATION REQUIRED:")
+        print(" 1. Fix Python syntax or encoding issues in the migration scripts.")
+        print(" 2. All migration files must be valid Python AST to pass CFOC gate.")
+        print("==============================================================")
+        return 1
 
     print(f"Total columns extracted across migrations: {scanned_columns_count}")
     print(f"Columns checked on governed tables: {scanned_columns_count - len(unclassified_violations)}")
@@ -127,6 +151,7 @@ def run_migration_cfoc_guard() -> int:
 
     print("\n [OK] Migration-Time CFOC Parity Verified: 0 Ungoverned Columns.")
     print(" All migration columns in governed tables are classified or registered.")
+    print(" Fail-Closed Integrity Verified: 100% of migration scripts parsed cleanly.")
     print("==============================================================\n")
     return 0
 
