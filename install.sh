@@ -388,7 +388,7 @@ done
 if [ "$WEB_HEALTHY" = true ]; then
     echo -e "  ${GREEN}[OK] Web frontend is live and responding (HTTP 200).${NC}"
 else
-    echo -e "  ${YELLOW}[NOTICE] Web frontend is initializing.${NC}"
+    echo -e "  ${YELLOW}[WARNING] Web frontend has not yet responded with HTTP 200. Container may still be initializing.${NC}"
 fi
 
 # Display Container Status Table
