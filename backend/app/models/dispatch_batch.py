@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -20,7 +20,7 @@ from decimal import Decimal
 from sqlalchemy import (
     Column, String, Integer, Numeric, Boolean, DateTime, Date, Text, JSON, Index,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, foreign
 
 from ..db.base import Base
 
@@ -73,8 +73,13 @@ class DispatchBatch(Base):
                               default=lambda: datetime.now(timezone.utc),
                               onupdate=lambda: datetime.now(timezone.utc))
 
-    invoices = relationship("DispatchBatchInvoice", back_populates="batch",
-                            cascade="all, delete-orphan", lazy="select")
+    invoices = relationship(
+        "DispatchBatchInvoice",
+        primaryjoin="DispatchBatch.id == foreign(DispatchBatchInvoice.batch_id)",
+        back_populates="batch",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
 
     __table_args__ = (
         Index("ix_dispatch_batch_company", "company_id", "preflight_status"),
@@ -147,7 +152,11 @@ class DispatchBatchInvoice(Base):
                           default=lambda: datetime.now(timezone.utc),
                           onupdate=lambda: datetime.now(timezone.utc))
 
-    batch = relationship("DispatchBatch", back_populates="invoices")
+    batch = relationship(
+        "DispatchBatch",
+        primaryjoin="DispatchBatch.id == foreign(DispatchBatchInvoice.batch_id)",
+        back_populates="invoices",
+    )
 
     __table_args__ = (
         Index("ix_dispatch_inv_batch_store", "batch_id", "store_code"),

@@ -4,8 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.40.1
+Version      : 6.40.2
 Created      : 2026-09-18
+Modified     : 2026-09-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: B2B Dispatch & Tax Invoicing Studio Router
@@ -13,17 +14,21 @@ Classification: B2B Dispatch & Tax Invoicing Studio Router
 
 import os
 import io
+import json
 import time
 import uuid
+import tempfile
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.responses import StreamingResponse, Response
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.api.deps import get_current_user
+from app.models.dispatch_batch import DispatchBatch, DispatchBatchInvoice
 from app.schemas.dispatch_invoicing import (
     DispatchPreflightAuditResponse,
     DispatchBatchGenerateRequest,
@@ -38,8 +43,12 @@ from app.services.dispatch_matrix_parser import DispatchMatrixParseError
 
 router = APIRouter(prefix="/dispatch-invoicing", tags=["dispatch-invoicing"])
 
-# In-memory batch store for generated packages
-_BATCH_CACHE: Dict[str, Dict[str, Any]] = {}
+# ---------------------------------------------------------------------------
+# Temporary storage for generated ZIP packages.
+# The DB record stores the path; the bytes survive the process lifetime on disk.
+# ---------------------------------------------------------------------------
+_DISPATCH_TEMP_DIR = os.path.join(tempfile.gettempdir(), "smriti_dispatch_zips")
+os.makedirs(_DISPATCH_TEMP_DIR, exist_ok=True)
 
 
 @router.post(
@@ -130,18 +139,15 @@ async def generate_batch(
             batch_id=batch_id
         )
 
-        # Cache ZIP archive
-        _BATCH_CACHE[batch_id] = {
-            "zip_bytes": zip_bytes,
-            "filename": f"Dispatch_Package_{batch_id}.zip",
-            "invoice_date": req.invoice_date,
-            "created_at": time.time(),
-            "total_invoices": len(records),
-            "records": records
-        }
+        # 3. Persist ZIP to disk and record in DB
+        zip_filename = f"Dispatch_Package_{batch_id}.zip"
+        zip_path = os.path.join(_DISPATCH_TEMP_DIR, zip_filename)
+        with open(zip_path, "wb") as f:
+            f.write(zip_bytes)
 
-        # Build response item list
+        # 4. Build per-invoice DB records and summary
         gen_invoices: List[DispatchGeneratedInvoice] = []
+        db_invoices: List[DispatchBatchInvoice] = []
         tot_val = Decimal("0.00")
         tot_pairs = 0
 
@@ -161,8 +167,42 @@ async def generate_batch(
                 eway_identity_code=r["eway_identity_code"],
                 pdf_filename=r["pdf_filename"]
             ))
+            db_invoices.append(DispatchBatchInvoice(
+                id=r["invoice_id"],
+                batch_id=batch_id,
+                store_code=r["store_code"],
+                store_name=r["original_site_name"],
+                invoice_number=r["invoice_no"],
+                invoice_date=req.invoice_date,
+                po_number=r["po_number"],
+                taxable_value=Decimal(str(r["taxable_value"])),
+                tax_amount=Decimal(str(r["tax_total"])),
+                grand_total=Decimal(str(r["grand_total"])),
+                pairs_count=r["pairs"],
+                status="GENERATED",
+            ))
             tot_val += Decimal(str(r["grand_total"]))
             tot_pairs += r["pairs"]
+
+        # 5. Persist DispatchBatch header and child invoice rows
+        db_batch = DispatchBatch(
+            id=batch_id,
+            batch_ref=batch_id,
+            company_id=company_id,
+            branch_id=branch_id,
+            source_filename=req.audit_token,
+            sheet_name=sheet_name,
+            preflight_status="AUDITED",
+            total_stores=len(records),
+            ready_stores=len(records),
+            batch_status="GENERATED",
+            package_path=zip_path,
+            created_by=username,
+        )
+        db.add(db_batch)
+        for dbi in db_invoices:
+            db.add(dbi)
+        await db.commit()
 
         elapsed = round(time.time() - start_time, 2)
 
@@ -197,18 +237,37 @@ async def generate_batch(
     "/batches/{batch_id}/download-zip",
     summary="Download complete ZIP delivery package for a batch"
 )
-async def download_batch_zip(batch_id: str):
-    """Streams the generated ZIP package containing PDFs, JSONs, and Excel workbooks."""
-    batch = _BATCH_CACHE.get(batch_id)
-    if not batch:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Batch package '{batch_id}' not found or expired."
-        )
+async def download_batch_zip(
+    batch_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Streams the generated ZIP package. Reads path from DB record, falls back to temp dir scan."""
+    # DB lookup
+    res = await db.execute(select(DispatchBatch).where(DispatchBatch.id == batch_id))
+    batch_row = res.scalar_one_or_none()
 
-    zip_bytes = batch["zip_bytes"]
-    filename = batch["filename"]
+    zip_path = batch_row.package_path if batch_row else None
+    if not zip_path or not os.path.exists(zip_path):
+        # Graceful fallback: scan temp dir for matching filename
+        candidate = os.path.join(_DISPATCH_TEMP_DIR, f"Dispatch_Package_{batch_id}.zip")
+        if os.path.exists(candidate):
+            zip_path = candidate
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "SMRITI-DATA-001",
+                    "title": "Dispatch Package Not Found",
+                    "explanation": f"Batch package '{batch_id}' is not available. It may have expired or was never generated.",
+                    "suggested_action": "Please re-run the dispatch batch generation.",
+                }
+            )
 
+    with open(zip_path, "rb") as f:
+        zip_bytes = f.read()
+
+    filename = f"Dispatch_Package_{batch_id}.zip"
     return Response(
         content=zip_bytes,
         media_type="application/zip",
@@ -220,16 +279,27 @@ async def download_batch_zip(batch_id: str):
     "/batches",
     summary="List recent dispatch batches"
 )
-async def list_recent_batches(current_user: Any = Depends(get_current_user)):
-    """Returns metadata for recent batches generated in memory."""
-    items = []
-    for bid, data in _BATCH_CACHE.items():
-        items.append({
-            "batch_id": bid,
-            "filename": data["filename"],
-            "invoice_date": data["invoice_date"],
-            "total_invoices": data["total_invoices"],
-            "created_at": data["created_at"],
-            "download_url": f"/api/v1/dispatch-invoicing/batches/{bid}/download-zip"
-        })
-    return items
+async def list_recent_batches(
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Returns metadata for recent batches from the database, ordered by creation time."""
+    res = await db.execute(
+        select(DispatchBatch)
+        .where(DispatchBatch.batch_status == "GENERATED")
+        .order_by(desc(DispatchBatch.created_at))
+        .limit(50)
+    )
+    batches = res.scalars().all()
+    return [
+        {
+            "batch_id": b.id,
+            "batch_ref": b.batch_ref,
+            "filename": f"Dispatch_Package_{b.id}.zip",
+            "invoice_date": str(b.source_filename),
+            "total_invoices": b.total_stores,
+            "created_at": b.created_at.isoformat() if b.created_at else None,
+            "download_url": f"/api/v1/dispatch-invoicing/batches/{b.id}/download-zip"
+        }
+        for b in batches
+    ]

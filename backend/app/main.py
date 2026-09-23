@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.22.0
+* Version    : 3.22.1
 Created      : 2026-07-11
-Modified     : 2026-08-23
+Modified     : 2026-09-23
 Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -70,6 +70,7 @@ from .api.v1 import (
     fulfillment,
     governance,
     governed_logic,
+    grn,
     health_flags,
     identity,
     integration,
@@ -247,6 +248,7 @@ _ROUTER_REGISTRY = [
     # --- Purchase & Vendors ---
     (purchase,              "",                      ["Purchase-Legacy"]),        # LEGACY alias — deprecate at v3.20
     (purchase,              "/purchase",             ["Purchase"]),
+    (grn,                   "",                      ["Goods Receipt Note"]),
     (vendor,                "/purchase",             ["Vendors"]),
     (vendor,                "",                      ["Vendors"]),
     (supplier_payment,      "",                      ["Supplier Payments"]),

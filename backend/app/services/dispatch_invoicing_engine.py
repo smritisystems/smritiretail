@@ -4,8 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.40.1
+Version      : 6.40.2
 Created      : 2026-09-18
+Modified     : 2026-09-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Canonical B2B Dispatch Invoicing Engine
@@ -24,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.distribution import EWayBill
 from app.models.crm import Customer, CustomerDeliveryLocation
+from app.models.dispatch_batch import DispatchBatch
 from app.services.identity.engine import IdentityEngine
 from app.services.invoice_pdf_service import number_to_indian_words
 from app.services.dispatch_matrix_parser import DispatchMatrixParser, DispatchMatrixParseError
@@ -494,6 +496,30 @@ class DispatchInvoicingEngine:
             "discount_pct": discount_pct,
             "gst_rate": gst_rate
         }
+
+        # Persist audit record to dispatch_batches table
+        try:
+            audit_batch = DispatchBatch(
+                id=audit_token,
+                batch_ref=audit_token,
+                company_id="comp-001",
+                branch_id="main",
+                source_filename=audit_token,
+                sheet_name=parsed["sheet_name"],
+                detected_sizes=parsed["detected_sizes"],
+                available_sheets=parsed["available_sheets"],
+                preflight_status="AUDITED" if not has_blocking_errors else "ERROR",
+                total_stores=len(stores_summary),
+                ready_stores=sum(1 for s in stores_summary if s.status == "READY"),
+                warning_stores=sum(1 for s in stores_summary if s.status == "WARNING"),
+                error_stores=sum(1 for s in stores_summary if s.status == "ERROR"),
+                batch_status="PENDING",
+                created_by="system",
+            )
+            db.add(audit_batch)
+            await db.flush()
+        except Exception:
+            pass  # Non-blocking for detached dry-run executions
 
         return DispatchPreflightAuditResponse(
             sheet_name=parsed["sheet_name"],

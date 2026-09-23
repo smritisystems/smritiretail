@@ -107,11 +107,14 @@ target_metadata = Base.metadata
 
 
 def validate_company_database_name(database_name: str) -> bool:
-    """Allow only registered-company database naming shapes for tenant runs."""
+    """Allow registered-company database naming shapes and ephemeral test databases for tenant runs."""
     if not database_name:
         return False
     clean_name = str(database_name).strip().lower()
-    return bool(re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name))
+    return bool(
+        re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name)
+        or re.fullmatch(r"smriti_test_[a-z0-9_]+", clean_name)
+    )
 
 
 try:
