@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.29.0
+Version      : 3.29.1
 Created      : 2026-08-20
-Modified     : 2026-08-20
+Modified     : 2026-09-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -487,6 +487,8 @@ async def execute_query(
     """
     Executes an administrative read-only SELECT query against the specified database.
     Destructive DDL/DML statements are strictly prohibited.
+    Results are hard-capped at 1,000 rows server-side to prevent data exfiltration.
+    Requires SYSADMIN role.
     """
     verify_sysadmin_role(current_user)
 
@@ -520,8 +522,10 @@ async def execute_query(
 
     try:
         async with engine.connect() as conn:
-            # Enforce max limit if no limit specified
-            max_r = req.max_rows or 50
+            # Enforce max limit — server-side hard cap at 1,000 rows to prevent data exfiltration.
+            # The client-requested max_rows is honoured only up to this ceiling.
+            _MAX_ROWS_HARD_CAP = 1_000
+            max_r = min(req.max_rows or 50, _MAX_ROWS_HARD_CAP)
             exec_q = f"{raw_query.rstrip(';')} LIMIT {max_r};"
 
             res = await conn.execute(text(exec_q))
