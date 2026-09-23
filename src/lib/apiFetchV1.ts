@@ -361,3 +361,23 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
     // ignore
   }
 }
+
+/**
+ * Record UI-driven audit actions (views, prints, exports) to system compliance logs via FastAPI
+ */
+export async function recordAuditAction(
+  actionType: string,
+  tableName: string,
+  recordId: string,
+  reason: string
+): Promise<void> {
+  try {
+    await apiFetchV1("/audit-logs", {
+      method: "POST",
+      body: JSON.stringify({ actionType, tableName, recordId, reason }),
+    });
+  } catch (err) {
+    console.error("[Audit Logger] Failed to record audit action:", err);
+  }
+}
+

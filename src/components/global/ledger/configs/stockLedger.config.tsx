@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -38,6 +38,11 @@ export const stockLedgerConfig: LedgerConfig<any> = {
     "movement_type",
     "warehouse",
     "remarks",
+    "narration",
+    "batch_no",
+    "lot_no",
+    "lot_number",
+    "hsn_code",
     "created_at",
     "date",
   ],
@@ -272,6 +277,62 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       ),
     },
     {
+      key: "batch_no",
+      label: "Batch / Lot #",
+      width: "115px",
+      render: (val, row) => {
+        const batch = val || row.lot_number || row.lot_no || "—";
+        return (
+          <span className="font-mono text-[11px] text-amber-300 font-medium">
+            {batch}
+          </span>
+        );
+      },
+    },
+    {
+      key: "expiry_date",
+      label: "Expiry Date",
+      width: "105px",
+      align: "center",
+      render: (val) => {
+        if (!val) return <span className="text-theme-muted text-[10px]">—</span>;
+        const isExpired = new Date(val).getTime() < Date.now();
+        return (
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${
+              isExpired
+                ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                : "text-theme-muted"
+            }`}
+          >
+            {new Date(val).toLocaleDateString()}
+          </span>
+        );
+      },
+    },
+    {
+      key: "hsn_code",
+      label: "HSN / SAC",
+      width: "95px",
+      align: "center",
+      render: (val) => (
+        <span className="font-mono text-[10px] text-theme-muted bg-theme-surface-2 px-1.5 py-0.5 rounded border border-theme-divider">
+          {val || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "gst_rate",
+      label: "GST %",
+      width: "75px",
+      align: "right",
+      render: (val) => (
+        <span className="font-mono text-[11px] text-theme-body font-semibold">
+          {val !== undefined && val !== null && val !== "" ? `${val}%` : "—"}
+        </span>
+      ),
+    },
+    {
       key: "movement_type",
       label: "Movement",
       width: "130px",
@@ -387,6 +448,20 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       ),
     },
     {
+      key: "landed_cost",
+      label: "Landed Cost",
+      width: "105px",
+      align: "right",
+      render: (val, row) => {
+        const lc = parseFloat(val || row.cost_price || row.unit_cost) || 0;
+        return (
+          <span className="font-mono text-amber-400 text-[11px] font-semibold">
+            {lc > 0 ? formatCurrency(lc) : "—"}
+          </span>
+        );
+      },
+    },
+    {
       key: "total_value",
       label: "Movement Value",
       width: "125px",
@@ -424,6 +499,19 @@ export const stockLedgerConfig: LedgerConfig<any> = {
       label: "Warehouse / Location",
       width: "150px",
       render: (val) => <span className="text-theme-muted text-[11px] font-mono">{val}</span>,
+    },
+    {
+      key: "remarks",
+      label: "Movement Narration",
+      width: "180px",
+      render: (val, row) => (
+        <span
+          className="text-theme-muted text-[11px] font-sans truncate block max-w-[180px]"
+          title={val || row.narration || ""}
+        >
+          {val || row.narration || "—"}
+        </span>
+      ),
     },
   ],
 };

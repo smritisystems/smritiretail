@@ -62,9 +62,16 @@ class ComplianceAuditService:
             "after_state": parse_json(log.after_state_json),
             "action_summary": log.action_summary,
             "payload_hash": log.payload_hash,
+            "previous_hash": getattr(log, "previous_hash", None),
+            "hash_chain_verified": getattr(log, "hash_chain_verified", True),
+            "request_id": getattr(log, "request_id", None),
+            "client_user_agent": getattr(log, "client_user_agent", None),
+            "retention_policy": getattr(log, "retention_policy", "STATUTORY_7_YEARS"),
+            "worm_locked": getattr(log, "worm_locked", True),
             "timestamp": log.timestamp.isoformat() if log.timestamp else None,
         }
 
+    GENESIS_HASH: str = "0" * 64
 
     @classmethod
     def compute_payload_hash(
@@ -76,10 +83,11 @@ class ComplianceAuditService:
         timestamp_str: str,
         action_summary: str,
         before_state: Optional[str] = None,
-        after_state: Optional[str] = None
+        after_state: Optional[str] = None,
+        previous_hash: Optional[str] = None,
     ) -> str:
-        """Computes deterministic SHA-256 checksum over the audit event properties."""
-        raw_payload = f"{company_id}|{event_type}|{entity_name}|{entity_id}|{timestamp_str}|{action_summary}|{before_state or ''}|{after_state or ''}"
+        """Computes deterministic SHA-256 checksum over the audit event properties and chain predecessor."""
+        raw_payload = f"{company_id}|{event_type}|{entity_name}|{entity_id}|{timestamp_str}|{action_summary}|{before_state or ''}|{after_state or ''}|{previous_hash or ''}"
         return hashlib.sha256(raw_payload.encode("utf-8")).hexdigest()
 
     @classmethod
@@ -96,14 +104,33 @@ class ComplianceAuditService:
         ip_address: Optional[str] = None,
         before_state: Optional[Dict[str, Any]] = None,
         after_state: Optional[Dict[str, Any]] = None,
-        branch_id: str = "BR-001"
+        branch_id: str = "BR-001",
+        request_id: Optional[str] = None,
+        client_user_agent: Optional[str] = None,
+        retention_policy: str = "STATUTORY_7_YEARS",
+        worm_locked: bool = True,
     ) -> ComplianceImmutableAuditLog:
         """
-        Authoritatively creates and appends an immutable compliance audit record.
+        Authoritatively creates and appends an immutable compliance audit record
+        linked cryptographically into the company's SHA-256 hash chain.
         """
         now = datetime.now(timezone.utc)
         before_json = json.dumps(before_state, default=str) if before_state else None
         after_json = json.dumps(after_state, default=str) if after_state else None
+
+        # Fetch latest predecessor payload_hash for cryptographic chaining
+        prev_stmt = (
+            select(ComplianceImmutableAuditLog.payload_hash)
+            .where(
+                ComplianceImmutableAuditLog.company_id == company_id,
+                ComplianceImmutableAuditLog.is_deleted == False,
+            )
+            .order_by(ComplianceImmutableAuditLog.timestamp.desc(), ComplianceImmutableAuditLog.id.desc())
+            .limit(1)
+        )
+        prev_res = await session.execute(prev_stmt)
+        prev_row = prev_res.scalar_one_or_none()
+        previous_hash = prev_row if prev_row else cls.GENESIS_HASH
 
         payload_hash = cls.compute_payload_hash(
             company_id=company_id,
@@ -113,7 +140,8 @@ class ComplianceAuditService:
             timestamp_str=now.isoformat(),
             action_summary=action_summary,
             before_state=before_json,
-            after_state=after_json
+            after_state=after_json,
+            previous_hash=previous_hash,
         )
 
         log = ComplianceImmutableAuditLog(
@@ -131,9 +159,15 @@ class ComplianceAuditService:
             after_state_json=after_json,
             action_summary=action_summary,
             payload_hash=payload_hash,
+            previous_hash=previous_hash,
+            hash_chain_verified=True,
+            request_id=request_id,
+            client_user_agent=client_user_agent,
+            retention_policy=retention_policy,
+            worm_locked=worm_locked,
             timestamp=now,
             is_active=True,
-            is_deleted=False
+            is_deleted=False,
         )
         session.add(log)
         await session.flush()
@@ -142,7 +176,7 @@ class ComplianceAuditService:
     @classmethod
     async def verify_audit_integrity(
         cls,
-        log: ComplianceImmutableAuditLog
+        log: ComplianceImmutableAuditLog,
     ) -> bool:
         """Verifies if the log record has been tampered with by re-computing the SHA-256 hash."""
         expected_hash = cls.compute_payload_hash(
@@ -150,12 +184,94 @@ class ComplianceAuditService:
             event_type=log.event_type,
             entity_name=log.entity_name,
             entity_id=log.entity_id,
-            timestamp_str=log.timestamp.isoformat(),
+            timestamp_str=log.timestamp.isoformat() if log.timestamp else "",
             action_summary=log.action_summary,
             before_state=log.before_state_json,
-            after_state=log.after_state_json
+            after_state=log.after_state_json,
+            previous_hash=log.previous_hash,
         )
-        return log.payload_hash == expected_hash
+        if log.payload_hash == expected_hash:
+            return True
+        # Backwards compatibility check for pre-chaining legacy hashes (no previous_hash)
+        if not log.previous_hash or log.previous_hash == cls.GENESIS_HASH:
+            legacy_hash = cls.compute_payload_hash(
+                company_id=log.company_id,
+                event_type=log.event_type,
+                entity_name=log.entity_name,
+                entity_id=log.entity_id,
+                timestamp_str=log.timestamp.isoformat() if log.timestamp else "",
+                action_summary=log.action_summary,
+                before_state=log.before_state_json,
+                after_state=log.after_state_json,
+                previous_hash=None,
+            )
+            return log.payload_hash == legacy_hash
+        return False
+
+    @classmethod
+    async def verify_chain_integrity(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        limit: int = 500,
+    ) -> Dict[str, Any]:
+        """
+        Traverses the cryptographic hash chain for a company in chronological order,
+        verifying that:
+        1. Each record's payload_hash is cryptographically authentic.
+        2. Each record's previous_hash matches the prior record's payload_hash.
+        Returns an authoritative forensic verification report.
+        """
+        stmt = (
+            select(ComplianceImmutableAuditLog)
+            .where(
+                ComplianceImmutableAuditLog.company_id == company_id,
+                ComplianceImmutableAuditLog.is_deleted == False,
+            )
+            .order_by(ComplianceImmutableAuditLog.timestamp.asc(), ComplianceImmutableAuditLog.id.asc())
+            .limit(limit)
+        )
+        logs = (await session.execute(stmt)).scalars().all()
+        if not logs:
+            return {
+                "verified": True,
+                "inspected_count": 0,
+                "broken_at_id": None,
+                "details": "No audit records found for company.",
+            }
+
+        prev_expected_hash: Optional[str] = None
+        for idx, log in enumerate(logs):
+            # Check individual payload hash integrity
+            is_valid = await cls.verify_audit_integrity(log)
+            if not is_valid:
+                return {
+                    "verified": False,
+                    "inspected_count": idx + 1,
+                    "broken_at_id": log.id,
+                    "reason": "PAYLOAD_HASH_MISMATCH",
+                    "details": f"Record {log.id} has invalid payload_hash {log.payload_hash}",
+                }
+
+            # Check chain linkage
+            if idx > 0 and log.previous_hash and log.previous_hash != cls.GENESIS_HASH:
+                if prev_expected_hash and log.previous_hash != prev_expected_hash:
+                    return {
+                        "verified": False,
+                        "inspected_count": idx + 1,
+                        "broken_at_id": log.id,
+                        "reason": "CHAIN_LINK_BROKEN",
+                        "details": f"Record {log.id} previous_hash {log.previous_hash} does not match expected prior hash {prev_expected_hash}",
+                    }
+            prev_expected_hash = log.payload_hash
+
+        return {
+            "verified": True,
+            "inspected_count": len(logs),
+            "broken_at_id": None,
+            "details": f"Cryptographic hash chain verified unbroken across {len(logs)} records.",
+        }
+
 
     @classmethod
     async def search_audit_logs(

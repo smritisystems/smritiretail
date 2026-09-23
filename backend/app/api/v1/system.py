@@ -393,7 +393,7 @@ class AuditLogCreate(BaseModel):
     "/audit-logs",
     status_code=200,
     summary="Record UI Audit Action",
-    description="Records a user-driven audit action (view, print, export) to system logs.",
+    description="Records a user-driven audit action (view, print, export) to immutable compliance audit logs.",
     dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER,
                                        UserRole.SYSADMIN, UserRole.REPORT_USER))],
 )
@@ -403,30 +403,87 @@ async def create_audit_log(
     user:    User         = Depends(get_current_user),
 ):
     """
-    Receives UI audit actions and persists them.
-    Used by apiFetchV1 recordAuditAction() calls.
+    Receives UI audit actions and authoritatively persists them to
+    ComplianceImmutableAuditLog with SHA-256 cryptographic chaining.
     """
+    from ...services.compliance_audit import ComplianceAuditService
+    company_id = getattr(user, "company_id", None) or "COMP-001"
+    role_str = getattr(user.role, "value", str(user.role)) if hasattr(user, "role") else "USER"
+    
+    log = await ComplianceAuditService.record_audit_event(
+        session=db,
+        company_id=company_id,
+        event_type=payload.actionType,
+        entity_name=payload.tableName,
+        entity_id=payload.recordId,
+        action_summary=payload.reason or f"{payload.actionType} on {payload.tableName}",
+        actor_user_id=user.id,
+        actor_role=role_str,
+    )
+    await db.commit()
+
     return {
-        "success":    True,
-        "action":     payload.actionType,
-        "table":      payload.tableName,
-        "record_id":  payload.recordId,
-        "reason":     payload.reason,
-        "user_id":    user.id,
-        "timestamp":  datetime.now(timezone.utc).isoformat(),
+        "success":       True,
+        "action":        payload.actionType,
+        "table":         payload.tableName,
+        "record_id":     payload.recordId,
+        "reason":        payload.reason,
+        "user_id":       user.id,
+        "payload_hash":  log.payload_hash,
+        "previous_hash": log.previous_hash,
+        "timestamp":     log.timestamp.isoformat() if log.timestamp else datetime.now(timezone.utc).isoformat(),
     }
 
 
 @router.get(
     "/audit-logs",
     summary="List Audit Logs",
-    description="Returns recent audit log entries (placeholder — Postgres logging TBD).",
+    description="Returns recent immutable compliance audit log entries with before/after state.",
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def list_audit_logs(
+    limit: int = 50,
+    entity_name: Optional[str] = None,
+    entity_id: Optional[str] = None,
+    event_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    return {"logs": [], "note": "Audit log persistence via Postgres planned in v3.21.0."}
+    from ...services.compliance_audit import ComplianceAuditService
+    company_id = getattr(user, "company_id", None) or "COMP-001"
+    logs = await ComplianceAuditService.search_audit_logs(
+        session=db,
+        company_id=company_id,
+        entity_name=entity_name,
+        entity_id=entity_id,
+        event_type=event_type,
+        limit=min(limit, 200),
+        include_all_companies=False,
+    )
+    return {"total": len(logs), "logs": logs}
+
+
+@router.post(
+    "/audit-logs/verify-chain",
+    summary="Verify Audit Hash Chain",
+    description="Traverses and cryptographically validates the SHA-256 hash chain for regulatory audit defense.",
+    dependencies=[Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER))],
+)
+async def verify_audit_hash_chain(
+    company_id: Optional[str] = None,
+    limit: int = 500,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from ...services.compliance_audit import ComplianceAuditService
+    target_company = company_id or getattr(user, "company_id", None) or "COMP-001"
+    report = await ComplianceAuditService.verify_chain_integrity(
+        session=db,
+        company_id=target_company,
+        limit=min(limit, 1000),
+    )
+    return report
+
 
 
 @router.get(

@@ -15,9 +15,8 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { apiFetchV1 } from "../lib/apiFetchV1";
+import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
-import { recordAuditAction } from "../lib/apiFetch";
 import { GlobalExportService } from "../services/globalExportService.ts";
 import { formatDate, formatCurrency, formatNumber } from "../utils/formatters";
 import { motion, AnimatePresence } from "motion/react";

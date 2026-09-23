@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
-import { apiFetchV1 } from "../lib/apiFetch.ts";
+import { apiFetchV1 } from "../lib/apiFetchV1";
 
 interface WikiDoc {
   path: string;

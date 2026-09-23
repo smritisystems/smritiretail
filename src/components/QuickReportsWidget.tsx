@@ -15,8 +15,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { apiFetchV1 } from "../lib/apiFetchV1";
-import { recordAuditAction } from "../lib/apiFetch";
+import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { APP_VERSION } from "../config/version.ts";
 import { 
   Printer, 
