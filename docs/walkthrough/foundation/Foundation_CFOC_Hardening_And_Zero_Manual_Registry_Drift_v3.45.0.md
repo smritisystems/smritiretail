@@ -16,7 +16,7 @@
 
 **Version:** 3.45.0  
 **Domain:** Foundation / Architecture Governance  
-**Status:** Completed  
+**Status:** FROZEN  
 **Author:** Jawahar Ramkripal Mallah, Chief Systems Architect & Creator  
 
 ---
@@ -26,7 +26,7 @@
 This document details the hardening of the **Canonical Field Ownership Contract (CFOC v3.45.0)** to permanently eradicate manual registry drift, generated-file drift, undocumented field creation, and one-way database schema divergence. Building upon the CFOC baseline established in v3.44.0, this hardening introduces:
 1. A deterministic SHA-256 registry fingerprint (`CFOC_REGISTRY_FINGERPRINT`).
 2. An automated zero-drift comparator (`scripts/verify_ts_registry_drift.py`) validating committed TypeScript against generated Python SSOT.
-3. Bi-directional database schema reconciliation classifying all physical PostgreSQL columns into 7 canonical and infrastructure categories.
+3. Bi-directional database schema reconciliation classifying all physical PostgreSQL columns into canonical business and infrastructure categories; governed database schema changes are detected by reverse column classification and fail the governance gate when an unclassified business column is introduced.
 4. AST-based / structural UX governance distinguishing canonical field references from ordinary presentation literals.
 5. Continuous integration gating across `.github/workflows/ci.yml`.
 
@@ -38,7 +38,7 @@ This document details the hardening of the **Canonical Field Ownership Contract 
    - Implemented `compute_registry_fingerprint()` in `backend/app/governance/field_registry.py` calculating SHA-256 over all 132 canonical fields sorted alphabetically.
    - Prepended immutability banner `AUTO-GENERATED — DO NOT HAND-EDIT` to `src/services/canonicalFieldRegistry.ts`.
    - Exported `CFOC_REGISTRY_VERSION = "3.45.0"`, `CFOC_REGISTRY_FIELDS = 132`, and `CFOC_REGISTRY_FINGERPRINT = "8f9627da3035bf38e2545720a5a46a163c1d3938d122b48171045465faae7ca8"`.
-   - Enforced runtime frontend immutability via `Object.freeze(CANONICAL_FIELDS)`.
+   - Enforced client-side runtime immutability via `Object.freeze(CANONICAL_FIELDS)` as a runtime safeguard (architectural protection is enforced via the Python SSOT → Generator → Deterministic Fingerprint → Drift Verifier → CI Gate pipeline).
 2. **Zero Generated-File Drift Verification**:
    - Created `scripts/verify_ts_registry_drift.py` generating in-memory TypeScript and performing line-by-line normalized diffing against committed code.
    - Embedded zero-drift verification as Check 9 in `scripts/ci_ux_field_governance_guard.py`.
@@ -170,8 +170,26 @@ Manual registry drift occurs when developers bypass the code generation flow and
 
 ## 11. Future Work
 
-- Wire a pre-commit Git hook running `python scripts/verify_ts_registry_drift.py` to prevent committing hand-edited TypeScript registry files locally before reaching CI.
-- Migrate remaining 25 legacy raw JSX inputs in non-master screens to `MasterFormDrawer` and `FieldRenderer`.
+### A. CFOC v3.46.0 — Change-Time Enforcement Roadmap
+1. **Migration → CFOC Gate:** Pre-migration / Alembic AST hook enforcing that any new business column introduced in an Alembic migration script must have a corresponding canonical field registered in `backend/app/governance/field_registry.py` prior to migration application ("prevent creation of ungoverned fields at change-time, rather than merely detecting them at CI time").
+2. **Formal Declarative DB Column Classification Contract:** Replace ad-hoc tuples with a formal `CFOC_DB_COLUMN_CLASSIFICATION` registry capturing `(table, column, classification, reason, owner, version)` strictly restricted to the 5 closed categories:
+   - `CANONICAL_BUSINESS`
+   - `AUDIT`
+   - `TECHNICAL_FK`
+   - `FRAMEWORK`
+   - `MIGRATION`
+   (Zero unofficial sixth categories permitted).
+3. **Fail-Closed Runtime Tenant DB Verification:** Extend runtime database startup checks to verify that `smritisys` strictly rejects tenant operational business fields, while tenant databases (`smriti001`, `smriti002`, etc.) reject control-plane-only fields at connection and query execution time.
+4. **Complete API DTO Reconciliation:** Automated bi-directional AST check between canonical field definitions and Pydantic/FastAPI request/response models, intercepting unmapped DTO attributes.
+5. **Immutable Field ID & Versioning Policy:** Enforce semantic version bumping and prohibit in-place breaking changes or ID renames for `ACTIVE` fields.
+6. **Automatic Exception Expiry Countdown:** CI notifications alerting teams 30 days prior to baseline exception expiration dates.
+
+### B. SMRITI Retail OS v4.0.0 — Legacy UX Remediation
+- Phased scheduled retirement of the 21 legacy transactional modal inputs:
+  ```text
+  v4.0.0 Target: 21 → 15 → 10 → 5 → 0
+  ```
+- Systematic refactoring from raw JSX inputs into canonical `MasterFormDrawer`, `MasterListScreen`, and `FieldRenderer` components.
 
 ---
 
