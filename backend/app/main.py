@@ -166,6 +166,55 @@ async def lifespan(_app: FastAPI):
         except Exception as guard_exc:
             logger.warning(f"[TDB-v2.0] Notice during startup boundary check: {guard_exc}")
 
+        # ── Startup Schema Guard ─────────────────────────────────────────────
+        # Validates that critical tenant tables exist in the control plane DB
+        # BEFORE the server starts accepting requests. Prevents silent 500 errors
+        # caused by missing Alembic migrations on fresh installations.
+        try:
+            from .db.session import async_session
+            from sqlalchemy import text as _sql_text
+
+            _CRITICAL_TABLES = [
+                # Loyalty Studio — created by v1486 (was missing before)
+                "loyalty_tiers", "loyalty_rules",
+                "loyalty_members", "loyalty_points_ledgers",
+                # Compliance — columns added by v1485
+                "compliance_immutable_audit_logs",
+                # Core transactional
+                "pos_profiles", "shifts", "customers",
+                "sales_invoices", "products",
+            ]
+
+            async def _check_schema() -> list:
+                missing = []
+                async with async_session() as _sess:
+                    for _tbl in _CRITICAL_TABLES:
+                        row = await _sess.execute(
+                            _sql_text(
+                                "SELECT 1 FROM information_schema.tables "
+                                "WHERE table_schema='public' AND table_name=:t LIMIT 1"
+                            ),
+                            {"t": _tbl},
+                        )
+                        if not row.scalar():
+                            missing.append(_tbl)
+                return missing
+
+            _missing_tables = await _check_schema()
+            if _missing_tables:
+                logger.critical(
+                    "[SMRITI Startup] SCHEMA GAP DETECTED — the following tables are missing "
+                    "from the database. All endpoints that touch these tables will return 500. "
+                    "Run 'alembic upgrade head' in the backend directory to fix this:\n"
+                    + "\n".join(f"  \u2717  {t}" for t in _missing_tables)
+                )
+            else:
+                logger.info(
+                    "[SMRITI Startup] Schema guard passed — all critical tables present."
+                )
+        except Exception as _sg_exc:
+            logger.warning(f"[SMRITI Startup] Schema guard could not run: {_sg_exc}")
+
         # Report Scheduler Daemon — start background asyncio dispatch loop
         if settings.REPORT_SCHEDULER_ENABLED:
             try:
