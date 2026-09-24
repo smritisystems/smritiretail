@@ -30,6 +30,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+### [1.0.0] - 2026-09-24 — Foundation & BI Milestone: Universal Reporting Engine (SURE) & Multi-Format Exporter Architecture
+
+> **Version Specification:** `1.0.0` denotes the major business intelligence milestone delivering schema-driven universal reporting with native multi-format exporters.
+
+#### Foundation & BI: SMRITI Universal Reporting Engine (SURE) & Multi-Format Exporter
+- **Self-Service Universal Report Viewer (`SmritiReportEngine.tsx`):** Standalone enterprise report viewer with 7 date presets (`Today`, `Yesterday`, `This Week`, `Month to Date`, `Quarter`, `FY 2026-27`, `Custom Range`), Store/Site code filter, status dropdown, universal text search, dynamic KPI summary metric cards, multi-level accordion grouping, in-table sorting, and column chooser.
+- **Dynamic Binary Multi-Format Exporter (`globalExportService.ts`):** 1-click downloads to native multi-sheet binary Excel (`.xlsx`), vector PDF, RFC 4180 CSV, and Google Sheets (`sheets.new`) with human-readable nested object and array flattening preventing JSON leakage.
+- **Multi-Tenant Document Numbering Reconciliation (`DocumentsEngine.allocate_next_number_in_transaction`):** Company-wide numbering series reconciliation ensuring statutory prefix compliance (`TT{FY}/{seq}`) and table-wide unique constraint safety.
+- **Statutory E-Invoice & E-Way Bill Gateway Certification (`test_sgip_einvoice_ewaybill.py`):** 9/9 statutory compliance tests green covering GSTN v1.03 payload schema validation, deterministic 64-character SHA-256 IRN hashing, and exponential backoff retry queues.
+- **Automated Verification:** 14/14 tests green across `test_sales_orders_full.py` and `test_sales_order_reports.py`, 9/9 SGIP statutory tests green in `test_sgip_einvoice_ewaybill.py`, and 0 TypeScript compiler errors.
+
 ### [1.0.0] - 2026-09-24 — Sales & Logistics Milestone: B2B Dispatch & Tax Invoicing Studio
 
 > **Version Specification:** `1.0.0` denotes the major sales dispatch milestone providing automated Excel-to-Invoice statutory pipelines.
