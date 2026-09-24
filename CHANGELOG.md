@@ -30,6 +30,23 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+### [1.0.0] - 2026-09-25 — Procurement Milestone: Purchase Order Sizewise Matrix UX (`PoSizewiseTab`) & Dual-Mode Studio Integration
+
+> **Version Specification:** `1.0.0` denotes the dedicated Sizewise Matrix Purchase Order entry UX replicating modern operator reference terminal ergonomics for multi-size apparel and retail procurement.
+
+#### Procurement: Purchase Order Sizewise Matrix UX (`PoSizewiseTab.tsx`)
+- **Dedicated Horizontal Size-Matrix Workspace (`PoSizewiseTab.tsx`):** Standalone purchase order generation component featuring customizable size columns (S, M, L, XL, XXL) with inline per-row quantity entry, row totals, rates, stock on hand, tax percentages, line net values, expected delivery dates, and view/delete actions.
+- **Top PO Header & Metadata:** Document Title ("Purchase Order"), Document Number sequence ("PO6 - 27/12/2017"), Status Badge (`Draft`), and Action Buttons (`+ New`, `Open`, `Save`, `Print`, `...`), with form inputs for Type, Prefix, Number, Date, Supplier selector with instant search modal (`PurchBrowseDlg`), Delivery Date, and Lead Time in days.
+- **Three-Subtab Content Architecture:** Clean separation into `1. Items` (active matrix workspace), `2. Delivery & Tax` (delivery warehouse, tax %, freight, and other charges), and `3. Other Details` (payment terms, currency, buyer, department, supplier reference, instructions).
+- **Matrix Toolbar:** Scan/F2 search with automatic product resolution, `+ Add Item`, CSV `Import from Excel`, `Copy Previous PO ∨` with historical duplication, `Delete Row`, `Price List` selector (Default Purchase Price, Last Purchase Price, Standard Cost, Weighted Average), and `Item Finder 🔍`.
+- **Tri-Panel Bottom Summary:**
+  1. *Size-wise Summary (All Items):* Per-size aggregated quantities and real-time percentage distribution table across the entire order with `Attach Documents (0)` trigger.
+  2. *Item Summary:* Total Items, Total Order Qty, Gross Value (₹), Total Tax (₹), and prominently highlighted Net PO Value (₹).
+  3. *Remarks & Internal Notes:* Supplier-facing Remarks textarea and internal confidential notes textarea.
+- **Dual-Mode Studio Integration (`PurchaseStudioTab.tsx`):** Added header pill mode switcher between `Sizewise Matrix UX` and `Standard Grid UX` with local storage preference persistence (`smriti_po_ux_mode`).
+- **Statutory Precision & Local Date Arithmetic:** Preserved exact float currency calculations without truncation, and eliminated timezone offsets in `addDaysToDate` by using local calendar components.
+- **Verification & Governance:** 13/13 Vitest unit tests passed (`src/tests/poSizewiseUX.test.ts` & `src/tests/poGenerateUX.test.ts`), 46/46 full purchase regression tests green, 0 TypeScript compiler errors (`tsc --noEmit`), 11/11 architecture gate checks passed with preflight certificate `PF-2026-0924-EE3EAF`, and 0 critical field governance violations.
+
 ### [1.0.0] - 2026-09-24 — Procurement Milestone: Goods Receipt Desktop Terminal (GRN Studio) 11 Inward Enhancements & Consignment Attachment Lifecycle
 
 > **Version Specification:** `1.0.0` denotes the major inward procurement terminal enhancement delivering sound-unit landed cost capitalization, debit note chargeback automation, and consignment document management.
