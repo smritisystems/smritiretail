@@ -30,14 +30,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
-### SMRITI B2B Dispatch & Tax Invoicing Studio (`B2BDispatchStudio`)
-- **Plan Specification:** `docs/implementation/sales/Sales_B2B_Dispatch_Invoicing_Studio_Plan_v1.0.0.md` (Approved)
+### [1.0.0] - 2026-09-24 — Sales & Logistics Milestone: B2B Dispatch & Tax Invoicing Studio
+
+> **Version Specification:** `1.0.0` denotes the major sales dispatch milestone providing automated Excel-to-Invoice statutory pipelines.
+
+#### Sales & Logistics: Automated B2B Dispatch & Tax Invoicing Studio
 - **Dynamic Excel Matrix Parsing:** Ingest client dispatch sheets (`STORE NAME`, `ARTICLE`, `COLOR`, `MRP`, size columns `36`..`42`, `TOTAL`) dynamically.
 - **Automated Store & PO Resolution:** Automatic lookup of shipping addresses, GSTINs, distance in km, and active PO numbers from PostgreSQL master tables (`customer_delivery_locations`, `sales_orders`).
 - **Interactive Pre-Flight Audit:** Real-time dry-run preview displaying total stores, billed pairs, taxable value, estimated GST, and unmapped store warnings before database commit.
 - **Transactional Statutory Invoicing:** Concurrency-hardened sequence allocation (`TT2026-2027/{seq}` via `SELECT ... FOR UPDATE`), GST tax calculation (IGST vs CGST/SGST), and atomic ledger writes.
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
+- **Automated Verification:** 6/6 pytest tests green in `backend/app/tests/test_dispatch_invoicing_engine.py` and 0 TypeScript compiler errors.
 
 ### [1.0.0] - 2026-09-24 — Procurement Milestone: Purchase Order Modern UX Refactor
 
