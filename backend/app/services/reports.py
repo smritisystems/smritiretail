@@ -1472,6 +1472,8 @@ class ReportsService:
             stmt = stmt.where(
                 (SalesOrder.branch_id == self.tenant.branch_id) | 
                 (SalesOrder.branch_id == "MAIN") | 
+                (SalesOrder.branch_id == "BR-001") | 
+                (SalesOrder.branch_id == "BR-MAIN-001") | 
                 (SalesOrder.branch_id.is_(None))
             )
         return stmt

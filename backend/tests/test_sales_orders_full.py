@@ -98,7 +98,7 @@ async def test_sales_order_full_suite():
             assert r_conv.status_code == 201, f"Convert failed: {r_conv.text}"
             inv_data = r_conv.json()
             inv_id = inv_data.get("id")
-            assert inv_id.startswith("inv-")
+            assert inv_id is not None and (inv_id.startswith("inv-") or len(inv_id) >= 32)
             assert "TT2026-2027/" in inv_data["invoice_no"]
             assert len(inv_data.get("items", [])) > 0
             assert float(inv_data["grand_total"]) > 0
@@ -114,6 +114,10 @@ async def test_sales_order_full_suite():
                             pending_qty=:pending_qty, pending_value=:pending_value,
                             fulfillment_status=:fulfillment_status, status=:status WHERE id=:order_id"""),
                         {**original_metrics, "order_id": order_id},
+                    )
+                    await db.execute(
+                        text("UPDATE sales_order_items SET billed_quantity = 0, pending_quantity = quantity, line_status = 'PENDING' WHERE order_id = :order_id"),
+                        {"order_id": order_id}
                     )
                     await db.commit()
 

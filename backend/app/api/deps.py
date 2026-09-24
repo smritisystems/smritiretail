@@ -189,7 +189,7 @@ def normalize_branch_value(branch: Optional[str]) -> Optional[str]:
     aliases = {
         "MAIN": "BR-MAIN-001",
         "BR-MAIN-001": "BR-MAIN-001",
-        "BR-001": "BR-001",
+        "BR-001": "BR-MAIN-001",
     }
     return aliases.get(normalized, raw)
 

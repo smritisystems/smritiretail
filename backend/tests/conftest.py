@@ -36,10 +36,11 @@ if sys.platform == "win32":
 # ============================================================
 # Architecture-Compliant Connection URLs
 # ============================================================
+_PG_PORT = os.getenv("POSTGRES_PORT", "5432")
 # Control Plane: governance metadata, users, companies, menus, audit log
-CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+CONTROL_PLANE_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 # Company 001 Operational DB: products, customers, suppliers, invoices, orders
-COMPANY_001_DB_URL = "postgresql://postgres:postgres@localhost:5432/smriti001"
+COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -131,11 +132,11 @@ def seed_control_plane_test_assignments():
                  port_reference, status, schema_version, provisioning_status, migration_status,
                  created_at, updated_at)
             VALUES
-                ('COMP-001', %s, 'smriti001', 'postgresql', 'localhost', 5432,
+                ('COMP-001', %s, 'smriti001', 'postgresql', 'localhost', %s,
                  'READY', '3.29.0', 'COMPLETED', 'UP_TO_DATE', NOW(), NOW())
             ON CONFLICT (company_id) DO UPDATE
                 SET database_name = 'smriti001', status = 'READY', updated_at = NOW();
-        """, (str(uuid.uuid4()),))
+        """, (str(uuid.uuid4()), int(_PG_PORT)))
 
         # 1. Clean and insert test users into smritisys.users (Control Plane auth table)
         users_data = [

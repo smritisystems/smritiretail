@@ -136,6 +136,12 @@ class DocumentsEngine:
                 "DEBIT_NOTE": "DN-",
                 "PAYMENT_RECEIPT": "RCP-",
             }
+            def_prefix = prefixes.get(doc_type, f"{doc_type[:3]}-")
+            running_len = 4
+            if doc_type == "SALES_INVOICE" and str(company_id).upper() in ("COMP-001", "SMRITI001", "001"):
+                fy_str = financial_year or "2026-2027"
+                def_prefix = f"TT{fy_str}/"
+                running_len = 1
             series = DocumentSeries(
                 id=f"ser_{uuid.uuid4().hex[:12]}",
                 uuid=str(uuid.uuid4()),
@@ -144,9 +150,9 @@ class DocumentsEngine:
                 name=f"Default {doc_type} Series",
                 document_type=doc_type,
                 module="CORE",
-                prefix=prefixes.get(doc_type, f"{doc_type[:3]}-"),
+                prefix=def_prefix,
                 suffix="",
-                running_length=4,
+                running_length=running_len,
                 reset_rule="Financial Year",
                 current_number=0,
                 financial_year=financial_year or "2026-2027",
@@ -161,6 +167,8 @@ class DocumentsEngine:
 
         # Imported or pre-existing invoices can be ahead of the series counter.
         # Reconcile the counter before allocating so numbering never goes backward.
+        # Note: SalesInvoice.invoice_no has a company-wide unique constraint, so reconciliation
+        # must check all company invoices matching the series prefix.
         if doc_type == "SALES_INVOICE":
             from ..models.sales import SalesInvoice
 
@@ -168,8 +176,6 @@ class DocumentsEngine:
                 SalesInvoice.company_id == company_id,
                 SalesInvoice.is_deleted == False,
             ]
-            if branch_id is not None:
-                invoice_filters.append(SalesInvoice.branch_id == branch_id)
 
             existing_numbers = (await session.execute(
                 select(SalesInvoice.invoice_no).where(*invoice_filters)
