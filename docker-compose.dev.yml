@@ -51,6 +51,7 @@ services:
       SKIP_MIGRATIONS: "true"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/tools:/app/tools
       - ./backend/alembic:/app/alembic
       - ./:/workspace
       - ./CHANGELOG.md:/app/CHANGELOG.md

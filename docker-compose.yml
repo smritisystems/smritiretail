@@ -81,7 +81,9 @@ services:
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/tools:/app/tools
       - ./backend/alembic:/app/alembic
+      - ./backend/entrypoint.sh:/app/entrypoint.sh
       - ./:/workspace
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:
@@ -115,7 +117,7 @@ services:
 
 volumes:
   smriti_db_volume:
-    name: smriti_db_volume
+    name: ${POSTGRES_VOLUME_NAME:-smriti_db_volume}
   smriti_mssql_volume:
-    name: smriti_mssql_volume
+    name: ${MSSQL_VOLUME_NAME:-smriti_mssql_volume}
 

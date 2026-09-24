@@ -125,7 +125,7 @@ from .core.config import settings
 from .core.constants import SMRITI_BANNER
 from .core.error_handlers import register_error_handlers
 from .core.logging import logger
-from .db.session import verify_db_connectivity
+from .db.session import verify_db_connectivity, verify_tenant_connectivity
 from .middleware.request_logger import RequestLoggerMiddleware
 from .middleware.rate_limiter import limiter, SLOWAPI_AVAILABLE
 if SLOWAPI_AVAILABLE:
@@ -421,20 +421,40 @@ app.include_router(compliance_router, prefix=settings.API_V1_STR)
 async def health_check():
     """
     Perform deep health audit asserting database and service connectivity pool status.
+    Asserts both control plane (smritisys) and tenant operational database (smriti001) connectivity.
     """
-    db_ok = await verify_db_connectivity()
-    return {
-        "status": "healthy" if db_ok else "degraded",
-        "database": "connected" if db_ok else "disconnected",
-        "service": "operational"
-    }
+    control_ok = await verify_db_connectivity()
+    tenant_ok = await verify_tenant_connectivity("smriti001")
+    is_healthy = control_ok and tenant_ok
+    status_code = 200 if is_healthy else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "healthy" if is_healthy else "degraded",
+            "control_plane": "connected" if control_ok else "disconnected",
+            "tenant_plane": "connected" if tenant_ok else "disconnected",
+            "service": "operational",
+        },
+    )
 
 @app.get("/ready", tags=["Health Diagnostics"])
 async def readiness_check():
     """
     Verify if the API framework service is ready to receive requests.
+    Requires both control-plane and default tenant database to be responsive.
     """
-    return {"status": "ready"}
+    control_ok = await verify_db_connectivity()
+    tenant_ok = await verify_tenant_connectivity("smriti001")
+    is_ready = control_ok and tenant_ok
+    status_code = 200 if is_ready else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if is_ready else "not_ready",
+            "control_plane": control_ok,
+            "tenant_plane": tenant_ok,
+        },
+    )
 
 @app.get("/live", tags=["Health Diagnostics"])
 async def liveness_check():

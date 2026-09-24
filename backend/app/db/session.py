@@ -338,3 +338,18 @@ async def verify_db_connectivity() -> bool:
     except Exception as e:
         print(f"[SDIC Database] Connectivity check failed: {e}")
         return False
+
+
+async def verify_tenant_connectivity(database_name: str = "smriti001") -> bool:
+    """
+    Verifies connectivity to a target tenant operational database (defaults to smriti001).
+    Distinguishes control plane health from operational tenant data readiness.
+    """
+    try:
+        session_factory = get_company_sessionmaker(database_name)
+        async with session_factory() as session:
+            res = await session.execute(text("SELECT 1"))
+            return res.scalar() == 1
+    except Exception as e:
+        print(f"[SDIC Tenant Database] Connectivity check failed for '{database_name}': {e}")
+        return False
