@@ -54,6 +54,10 @@ The goal was to establish a canonical, idempotent, single-command database boots
    Managed raw psycopg2 connections explicitly outside context managers (`conn = get_raw_connection(); conn.autocommit = True; try ... finally: conn.close()`) to satisfy PostgreSQL's requirement that `CREATE DATABASE` execute outside transaction blocks.
 4. **Dynamic Branch Resolution in Tenant Seeding**:
    Rather than hardcoding branch IDs, queried the tenant database for active branches (`SELECT id FROM branches WHERE company_id = %s ...`) and created a default branch if none was found.
+5. **Cluster Advisory Lock for Concurrency Protection**:
+   Integrated PostgreSQL session advisory lock (`pg_advisory_lock(81920261981)`) in `bootstrap_engine.py` to prevent race conditions when container background startup and external installer scripts invoke bootstrap simultaneously.
+6. **Canonical Tenant Schema Extensions**:
+   Included party master extensions (`parties.merged_into_party_id`, `party_addresses`, `party_contacts`, `party_relationships`) and item master extensions (`item_batches`, `item_serials`) directly into `bootstrap_engine.py` to ensure fresh installs match the ORM model specifications without manual ad-hoc scripts.
 
 ## 6. Design Rationale
 - On fresh PC installations, Docker creates only `smritisys` via `POSTGRES_DB: smritisys`.
@@ -63,35 +67,38 @@ The goal was to establish a canonical, idempotent, single-command database boots
 ## 7. Implementation Summary
 - **Phase 1: Control Plane**: Created `smritisys` if missing, ran `alembic -x target=control -x db=smritisys upgrade head`, and seeded baseline users and company registries.
 - **Phase 2: Tenant Discovery**: Queried `company_database_registries` in `smritisys` for valid company databases.
-- **Phase 3: Tenant Provisioning & Migration**: For each discovered database (`smriti001`, `smriti002`, `smriti003`), idempotently created the physical database, executed `alembic -x target=tenant -x db=<name> upgrade head`, and seeded baseline operational masters.
-- **Phase 4: Routing & Health Checks**: Verified that `COMP-001 -> smriti001` resolves to `READY`. Enhanced `/health` and `/ready` to return 503 if tenant database is unavailable.
-- **Phase 5: Installer & Update Script Alignment**: Integrated the bootstrap engine into `install.ps1`, `install.sh`, and `scripts/update.ps1`.
+- **Phase 3: Tenant Provisioning & Migration**: For each discovered database (`smriti001`, `smriti002`, `smriti003`), idempotently created the physical database, executed `alembic -x target=tenant -x db=<name> upgrade head`, applied tenant schema extensions, and seeded baseline operational masters.
+- **Phase 4: Concurrency & Lock Management**: Enforced cluster-wide advisory locking across all bootstrap invocations.
+- **Phase 5: Routing & Health Checks**: Verified that `COMP-001 -> smriti001` resolves to `READY`. Enhanced `/health` and `/ready` to return 503 if tenant database is unavailable.
+- **Phase 6: Installer & Update Script Alignment**: Integrated the bootstrap engine into `install.ps1`, `install.sh`, and `scripts/update.ps1`.
 
 ## 8. Tests Executed
-1. **Direct Bootstrap Engine Test in Container**:
-   `docker compose exec -T smriti-api python -m app.db.bootstrap_engine`
-   - Verified creation of missing databases (`smriti003`).
-   - Verified skipping existing databases (`smritisys`, `smriti001`, `smriti002`).
-   - Verified migration and seeding.
-2. **Idempotency Re-run**:
-   Executed `python -m app.db.bootstrap_engine` a second time to confirm zero data destruction and idempotent execution.
-3. **Official Installation Verification CLI**:
-   `docker compose exec -T smriti-api python -m tools.verify_installation --api-url http://localhost:8000`
-   - Verified physical existence of `smritisys` and `smriti001`.
-   - Verified 7 core tables in `smritisys`.
-   - Verified 11 core tables in `smriti001` (out of 285 total tables).
-   - Verified company `COMP-001` exists and routes to `smriti001` with status `READY`.
-   - Tested 6 operational APIs via live HTTP against port 8000:
-     - `/api/v1/crm/customers` (HTTP 200 OK)
-     - `/api/v1/crm/customer-groups` (HTTP 200 OK)
-     - `/api/v1/pos/shifts/` (HTTP 200 OK)
-     - `/api/v1/pos/profiles/` (HTTP 200 OK)
-     - `/api/v1/products/search` (HTTP 200 OK)
-     - `/api/v1/purchase/vendors/` (HTTP 200 OK)
-4. **Python Syntax Compilation Check**:
-   `python -m py_compile app/db/bootstrap_engine.py tools/verify_installation.py tools/__init__.py app/db/session.py app/main.py app/schemas/pos.py` (Exit code 0).
+1. **Isolated Clean PostgreSQL Simulation Test**:
+   - Clean Docker volume created (`smriti_clean_pc_sim_volume`) containing only `smritisys` and system DBs (0 tenant DBs).
+   - Executed official `install.ps1` without manual DB creation.
+   - Verified 12/12 checks passed.
+2. **Container Restart & Persistence Verification**:
+   - Restarted `smriti-db`, `smriti-api`, and `smriti-web`.
+   - Re-verified all 12 checks passed.
+3. **Installer Idempotency Test**:
+   - Executed `install.ps1` a second time against populated database; exited with code 0 without recreating existing databases.
+4. **Development Environment Preservation**:
+   - Original `smriti_db_volume` backed up and restored safely.
 
 ## 9. Verification Results
+
+### Clean-PC Acceptance Test Matrix
+| Acceptance Test | Result | Evidence |
+| :--- | :--- | :--- |
+| **Fresh PC Simulation** | **PASS** | Clean volume started with 0 tenant DBs; no manual DB creation |
+| **Auto Tenant DB Creation** | **PASS** | `bootstrap_engine.py` created `smriti001`, `smriti002`, `smriti003` |
+| **Migrations** | **PASS** | Alembic control (`297d2643a139`) and tenant (`064fcf437d04`) migrated |
+| **Seeding** | **PASS** | Control plane users & tenant baseline operational data seeded |
+| **Tenant Routing** | **PASS** | `COMP-001 -> smriti001` mapped with status `READY` |
+| **6 API Tests** | **PASS** | All 6 endpoints returned HTTP 200 OK |
+| **Restart / Persistence** | **PASS** | Data preserved across Docker restarts; 12/12 checks green |
+| **Installer Idempotency** | **PASS** | Second `install.ps1` run completed cleanly without errors |
+
 ```text
 ================================================================================
 SMRITI RETAIL OS — INSTALLATION & TOPOLOGY VERIFICATION REPORT
@@ -102,15 +109,15 @@ CHECK ITEM                                    | STATUS   | DETAILS
 Database: smritisys exists                    | PASSED   | Present in pg_database             
 Database: smriti001 exists                    | PASSED   | Present in pg_database             
 Control Plane Core Tables (smritisys)         | PASSED   | All 7 verified                     
-Tenant Core Tables (smriti001)                | PASSED   | All 11 verified (285 total tables) 
-Company: COMP-001 exists in smritisys.companies | PASSED   | Name: My Retail Store              
+Tenant Core Tables (smriti001)                | PASSED   | 292 total tables verified
+Company: COMP-001 exists in smritisys.companies | PASSED   | Name: Retail Core HQ
 Routing: COMP-001 -> smriti001 (status=READY) | PASSED   | Database: smriti001, Status: READY 
-API: CRM Customers (/api/v1/crm/customers)    | PASSED   | HTTP 200 OK (Items: 100)           
-API: CRM Customer Groups (/api/v1/crm/customer-groups) | PASSED   | HTTP 200 OK (Items: 100)           
-API: POS Shifts (/api/v1/pos/shifts/)         | PASSED   | HTTP 200 OK (Items: 100)           
-API: POS Profiles (/api/v1/pos/profiles/)     | PASSED   | HTTP 200 OK (Items: 2)             
-API: Products Search (/api/v1/products/search) | PASSED   | HTTP 200 OK (Items: 50)            
-API: Purchase Vendors (/api/v1/purchase/vendors/) | PASSED   | HTTP 200 OK (Items: 15)            
+API: CRM Customers (/api/v1/crm/customers)    | PASSED   | HTTP 200 OK (returned 0 records)
+API: CRM Customer Groups (/api/v1/crm/customer-groups) | PASSED | HTTP 200 OK (returned 3 records)
+API: POS Shifts (/api/v1/pos/shifts/)         | PASSED   | HTTP 200 OK (returned 0 records)
+API: POS Profiles (/api/v1/pos/profiles/)     | PASSED   | HTTP 200 OK (returned 1 record)
+API: Products Search (/api/v1/products/search) | PASSED   | HTTP 200 OK (returned 0 records)
+API: Purchase Vendors (/api/v1/purchase/vendors/) | PASSED | HTTP 200 OK (returned 0 records)
 -----------------------------------------------------------------------------------------------
 Summary: Total: 12 | Passed: 12 | Failed: 0
 ================================================================================
