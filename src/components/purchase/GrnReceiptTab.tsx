@@ -504,6 +504,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     setCartons(0);
     setNotes("");
     setAttachments([]);
+    setEwayBillNumber("");
+    setEwayBillDate("");
     setGrnNumber(`GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`);
     setActiveStep("PO_DETAILS");
     onNotification?.("Workspace Reset", "Goods Receipt Note workspace reset to clean state.", "info");
@@ -1383,6 +1385,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
       setIsSuccessModalOpen(true);
       await loadReceipts();
+      await loadOrders(effSupplier || undefined);
     } catch (err: any) {
       onNotification?.("GRN Failed", err?.message || "Goods receipt could not be posted. Please retry.", "error");
     } finally {
@@ -2891,14 +2894,21 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
       <GrnPostedSuccessModal
         isOpen={isSuccessModalOpen}
-        onClose={() => setIsSuccessModalOpen(false)}
+        onClose={() => {
+          setIsSuccessModalOpen(false);
+          handleClearLines();
+          setSubView("history");
+        }}
         summary={postedSummary}
         onViewGrn={() => {
           setIsSuccessModalOpen(false);
+          handleClearLines();
           setSubView("history");
         }}
         onPrintSlip={() => {
           setIsSuccessModalOpen(false);
+          handleClearLines();
+          setSubView("history");
           if (latestPostedReceipt) {
             setPrintReceiptData(latestPostedReceipt);
             setIsPrintModalOpen(true);
