@@ -39,7 +39,7 @@ from ...schemas.purchase import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
     PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderItemResponse,
     PurchaseOrderCancelRequest, PurchaseOrderAmendRequest,
-    PurchaseReceiptCreate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
+    PurchaseReceiptCreate, PurchaseReceiptUpdate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
     PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
     PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
     DebitNoteCreate, DebitNoteResponse, PurchaseBillCreate, PurchaseBillResponse,
@@ -226,6 +226,32 @@ async def amend_purchase_order_contract(
 
 # ─────────────────────────── Purchase Receipts (GRN) ───────────────────────────
 
+def _extract_attachments(notes: Optional[str]) -> Optional[List[Dict[str, Any]]]:
+    if not notes:
+        return None
+    import re
+    import json
+    import base64
+
+    # 1. Base64 encoding pattern
+    m_b64 = re.search(r'\[ATTACHMENTS_METADATA_B64:([A-Za-z0-9+/=]+)\]', notes)
+    if m_b64:
+        try:
+            decoded = base64.b64decode(m_b64.group(1)).decode("utf-8")
+            return json.loads(decoded)
+        except Exception:
+            pass
+
+    # 2. Raw JSON array pattern (fallback/legacy)
+    m_raw = re.search(r'\[ATTACHMENTS_METADATA:(\[.*?\])\]', notes)
+    if m_raw:
+        try:
+            return json.loads(m_raw.group(1))
+        except Exception:
+            pass
+
+    return None
+
 @router.post(
     "/receipts",
     response_model=PurchaseReceiptResponse,
@@ -256,6 +282,9 @@ async def create_purchase_receipt(
     service = PurchaseService(db, tenant)
     receipt = await service.create_purchase_receipt(req)
     receipt_loaded, items = await service.get_purchase_receipt(receipt.id)
+
+
+
     return PurchaseReceiptResponse(
         id=receipt_loaded.id,
         identity_code=receipt_loaded.identity_code,
@@ -272,6 +301,7 @@ async def create_purchase_receipt(
         branch_id=receipt_loaded.branch_id,
         items=[PurchaseReceiptItemResponse.model_validate(i) for i in items],
         cost_components=[InwardCostComponentResponse.model_validate(c) for c in (receipt_loaded.cost_components or [])],
+        attachments=_extract_attachments(receipt_loaded.notes),
     )
 
 
@@ -293,7 +323,33 @@ async def list_purchase_receipts(
 ):
     """List all purchase receipts (GRNs) for the current tenant."""
     service = PurchaseService(db, tenant)
-    return await service.list_purchase_receipts()
+    receipts = await service.list_purchase_receipts()
+
+
+
+    results = []
+    for r in receipts:
+        results.append(
+            PurchaseReceiptResponse(
+                id=r.id,
+                identity_code=r.identity_code,
+                receipt_no=r.receipt_no,
+                supplier_id=r.supplier_id,
+                warehouse_id=r.warehouse_id,
+                order_id=r.order_id,
+                status=r.status,
+                notes=r.notes,
+                subtotal=r.subtotal,
+                tax_total=r.tax_total,
+                grand_total=r.grand_total,
+                company_id=r.company_id,
+                branch_id=r.branch_id,
+                items=[PurchaseReceiptItemResponse.model_validate(i) for i in (r.items or [])],
+                cost_components=[InwardCostComponentResponse.model_validate(c) for c in (r.cost_components or [])],
+                attachments=_extract_attachments(r.notes),
+            )
+        )
+    return results
 
 
 @router.get(
@@ -322,8 +378,11 @@ async def get_purchase_receipt(
     res_comp = await db.execute(stmt_comp)
     cost_components = list(res_comp.scalars().all())
 
+
+
     return PurchaseReceiptResponse(
         id=receipt.id,
+        identity_code=receipt.identity_code,
         receipt_no=receipt.receipt_no,
         supplier_id=receipt.supplier_id,
         warehouse_id=receipt.warehouse_id,
@@ -337,6 +396,56 @@ async def get_purchase_receipt(
         branch_id=receipt.branch_id,
         items=[PurchaseReceiptItemResponse.model_validate(i) for i in items],
         cost_components=[InwardCostComponentResponse.model_validate(c) for c in cost_components],
+        attachments=_extract_attachments(receipt.notes),
+    )
+
+
+@router.put(
+    "/receipts/{receipt_id}",
+    response_model=PurchaseReceiptResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.patch(
+    "/receipts/{receipt_id}",
+    response_model=PurchaseReceiptResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def update_purchase_receipt(
+    receipt_id: str,
+    req: PurchaseReceiptUpdate,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Update notes and attachments on an existing purchase receipt."""
+    service = PurchaseService(db, tenant)
+    receipt, items = await service.update_purchase_receipt(receipt_id, req)
+    stmt_comp = (
+        select(InwardCostComponent)
+        .where(InwardCostComponent.grn_id == receipt_id)
+        .order_by(InwardCostComponent.created_at.asc())
+    )
+    res_comp = await db.execute(stmt_comp)
+    cost_components = list(res_comp.scalars().all())
+
+
+
+    return PurchaseReceiptResponse(
+        id=receipt.id,
+        identity_code=receipt.identity_code,
+        receipt_no=receipt.receipt_no,
+        supplier_id=receipt.supplier_id,
+        warehouse_id=receipt.warehouse_id,
+        order_id=receipt.order_id,
+        status=receipt.status,
+        notes=receipt.notes,
+        subtotal=receipt.subtotal,
+        tax_total=receipt.tax_total,
+        grand_total=receipt.grand_total,
+        company_id=receipt.company_id,
+        branch_id=receipt.branch_id,
+        items=[PurchaseReceiptItemResponse.model_validate(i) for i in items],
+        cost_components=[InwardCostComponentResponse.model_validate(c) for c in cost_components],
+        attachments=_extract_attachments(receipt.notes),
     )
 
 

@@ -25,7 +25,7 @@ Classification: Internal
 """
 
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from .inward_cost import InwardCostComponentCreate, InwardCostComponentResponse
@@ -278,7 +278,17 @@ class PurchaseReceiptCreate(BaseModel):
     pkg_forward_amount: Optional[Decimal] = Decimal("0.00")
     allocation_method:  Optional[str] = "VALUE"
     cost_components:    Optional[List[InwardCostComponentCreate]] = None
+    attachments:        Optional[List[Dict[str, Any]]] = None
     items:              List[PurchaseReceiptItemCreate]
+
+
+class PurchaseReceiptUpdate(BaseModel):
+    notes:              Optional[str] = None
+    transporter_name:   Optional[str] = None
+    lr_number:          Optional[str] = None
+    lr_date:            Optional[date] = None
+    vehicle_number:     Optional[str] = None
+    attachments:        Optional[List[Dict[str, Any]]] = None
 
 
 class DebitNoteCreate(BaseModel):
@@ -353,6 +363,7 @@ class PurchaseReceiptResponse(BaseModel):
     grand_total:  Decimal
     items:        List[PurchaseReceiptItemResponse] = []
     cost_components: Optional[List[InwardCostComponentResponse]] = []
+    attachments:  Optional[List[Dict[str, Any]]] = None
     company_id:   Optional[str] = None
     branch_id:    Optional[str] = None
 
