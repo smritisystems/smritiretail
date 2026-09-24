@@ -283,5 +283,57 @@ def load_settings() -> Settings:
 
     return base_settings
 
-settings = load_settings()
+import sys as _sys
+
+def _abort_with_config_error(message: str) -> None:
+    """
+    Print a clear, human-readable SMRITI startup configuration error and exit.
+    Never expose raw Pydantic / Python tracebacks to the operator.
+    """
+    border = "=" * 70
+    print("", flush=True)
+    print(border, flush=True)
+    print("  SMRITI STARTUP ERROR — Configuration Problem", flush=True)
+    print(border, flush=True)
+    print(flush=True)
+    for line in message.strip().splitlines():
+        print(f"  {line}", flush=True)
+    print(flush=True)
+    print("  Refer to the SMRITI Installation Guide or your .env file.", flush=True)
+    print("  Contact: support@smritibooks.com", flush=True)
+    print(border, flush=True)
+    print("", flush=True)
+    _sys.exit(1)
+
+
+try:
+    from pydantic import ValidationError as _PydanticValidationError
+    try:
+        settings = load_settings()
+    except _PydanticValidationError as _pve:
+        # Pydantic raises this when a required field (JWT_SECRET_KEY or
+        # INTERNAL_SERVICE_KEY) is completely absent from the environment.
+        missing = [e["loc"][0] for e in _pve.errors() if e.get("type") == "missing"]
+        if missing:
+            _abort_with_config_error(
+                "Required secret keys are not set in your .env file:\n"
+                + "\n".join(f"  - {f}" for f in missing)
+                + "\n\n"
+                "To generate secure values, run:\n"
+                "  python -c \"import secrets; print(secrets.token_hex(32))\""
+                "\n\n"
+                "Then set them in your .env file:\n"
+                "  JWT_SECRET_KEY=<generated-value>\n"
+                "  INTERNAL_SERVICE_KEY=<generated-value>"
+            )
+        else:
+            _abort_with_config_error(
+                "Configuration validation failed:\n" + str(_pve)
+            )
+    except ValueError as _ve:
+        _abort_with_config_error(str(_ve))
+except ImportError:
+    # pydantic not installed yet — let the import error propagate naturally
+    settings = load_settings()
+
 BaseDir = Path(__file__).resolve().parent.parent.parent.parent
