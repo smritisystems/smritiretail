@@ -57,6 +57,9 @@ export interface Product {
   costPrice?: number; // Added for variant cost price support
   sku?: string; // Added for variant SKU support
   hsnCode?: string; // Added for HSN Code support
+  unit?: string; // Primary unit of measure (e.g., Pair, Pcs, Box)
+  uom?: string; // Unit of measure alias
+  taxRate?: number; // Tax rate alias for gstPercentage
   // Extensible Attribute fields
   attributes?: Record<string, string>; // e.g. { "Sole Type": "Rubber", "Color": "Navy", "Size": "M" }
   pricingMode?: "Fixed" | "Weight-based" | "Negotiated" | "Service";

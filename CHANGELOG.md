@@ -96,6 +96,19 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 - **Automated Verification:** 6/6 pytest tests green in `backend/app/tests/test_dispatch_invoicing_engine.py` and 0 TypeScript compiler errors.
 
+### [1.1.0] - 2026-09-25 — Procurement Milestone: Purchase Order Sizewise Matrix UX & Footwear Validation
+
+> **Version Specification:** `1.1.0` delivers the high-density horizontal Sizewise Matrix Purchase Order entry interface (`PoSizewiseTab.tsx`) with Footwear domain validation, statutory GST tiering, and size scale presets.
+
+#### Procurement: Sizewise Matrix UX (`PoSizewiseTab.tsx`) & Footwear Domain Engine
+- **Horizontal Size Matrix Grid:** Integrated matrix grid with dynamic size columns supporting Apparel (`S`, `M`, `L`, `XL`, `XXL`), Footwear EU (`36` to `44`), and Footwear UK (`6` to `11`) with keyboard tab traversal and real-time row totals.
+- **Dynamic Size Scale Presets (`SIZE_SCALE_PRESETS`):** Added interactive toolbar dropdown enabling instant switching between `Apparel (S - XXL)`, `Footwear EU (36 - 44)`, and `Footwear UK (6 - 11)` scales.
+- **Automated Footwear Domain Detection:** Auto-detects footwear catalog items (`Campus Running Shoes`, `Sneakers Pro`, `Casual Slip-On`, `Leather Formal Shoes`), assigns standard `"Pair"` unit, switches scale to Footwear EU, and computes statutory GST rates.
+- **Statutory Indian GST Footwear Tiers (`getFootwearGstRate`):** Automatically enforces 5% GST for rates `<= ₹2,500` and 18% GST for rates `> ₹2,500` with mixed-tier PO aggregation parity.
+- **Tri-Section Analytic Summaries:** Size-wise breakdown with per-size total pairs and exact percentage share (`(qty / grandTotal) * 100`), Item Summary with gross value, total tax, and highlighted Net PO Value, and multi-tenant remarks/confidential internal notes.
+- **Studio Dual-Mode Toggle:** Header switcher pill in `PurchaseStudioTab.tsx` with `localStorage` persistence (`smriti_po_ux_mode`) for switching between Sizewise Matrix UX and Standard Grid UX.
+- **Automated Verification:** 13/13 unit tests passed in `src/tests/poSizewiseUX.test.ts`, 19/19 combined PO tests passed, 52/52 purchase regression tests passed, and 0 TypeScript compiler errors.
+
 ### [1.0.0] - 2026-09-24 — Procurement Milestone: Purchase Order Modern UX Refactor
 
 > **Version Specification:** `1.0.0` denotes the major procurement operator ergonomics milestone delivering high-throughput retail purchase indent workflows.
