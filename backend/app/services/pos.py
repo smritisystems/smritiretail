@@ -952,14 +952,19 @@ class POSService:
                 "coins": Decimal("1.00"),
             }
             for k, val in shift.denominations.items():
-                mult = denom_multiplier_map.get(k, Decimal("1.00"))
-                cnt = int(val or 0)
+                if k not in denom_multiplier_map:
+                    continue
+                mult = denom_multiplier_map[k]
+                try:
+                    cnt = int(Decimal(str(val or 0)))
+                except Exception:
+                    cnt = 0
                 if cnt > 0:
                     self.db.add(
                         POSShiftDenominationCount(
                             id=f"sdc-{uuid.uuid4().hex[:12]}",
-                            tenant_id=self.tenant.tenant_id,
-                            company_id=self.tenant.company_id,
+                            tenant_id=getattr(self.tenant, "tenant_id", None) or getattr(self.tenant, "company_id", "COMP-001"),
+                            company_id=getattr(self.tenant, "company_id", None) or getattr(self.tenant, "tenant_id", "COMP-001"),
                             shift_id=shift.id,
                             denomination_value=mult,
                             expected_count=0,

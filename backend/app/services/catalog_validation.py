@@ -199,8 +199,23 @@ class CatalogDimensionValidator:
                 # If control_db is bound to a tenant DB where master_types doesn't exist, safely fallback
                 pass
 
-        async with async_session() as fallback_session:
-            return await cls._validate_dimension_impl(fallback_session, dimension_field, value, strict)
+        try:
+            async with async_session() as fallback_session:
+                return await cls._validate_dimension_impl(fallback_session, dimension_field, value, strict=True)
+        except HTTPException:
+            # Fallback to primary tenant database (smriti001) where master lookup values are seeded
+            try:
+                from ..db.session import get_company_sessionmaker
+                sm = get_company_sessionmaker("smriti001")
+                async with sm() as tenant_session:
+                    return await cls._validate_dimension_impl(tenant_session, dimension_field, value, strict)
+            except HTTPException:
+                raise
+            except Exception:
+                pass
+            if strict:
+                raise
+            return value
 
     @classmethod
     async def validate_catalog_dimensions(

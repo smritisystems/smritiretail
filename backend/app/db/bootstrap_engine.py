@@ -253,6 +253,23 @@ def seed_tenant_baseline_data(database_name: str, company_id: str = "COMP-001") 
                     ON CONFLICT (id) DO NOTHING;
                 """, (resolved_branch_id, str(uuid_mod.uuid4()), company_id, f"Main Branch ({company_id})", f"MAIN-{company_id}"))
 
+            # 0b. Baseline Administrator User (required for Shifts, POS, and Audit Foreign Keys)
+            cur.execute("""
+                INSERT INTO users (
+                    id, uuid, username, email, hashed_password, role, is_active, is_deleted,
+                    company_id, branch_id, created_at, modified_at, status, country, employment_type
+                ) VALUES (
+                    'usr-admin', %s, 'admin', 'admin@smritibooks.com',
+                    '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQmG625CE5Zs8hhhqhV2.',
+                    'SYSADMIN', true, false, %s, %s, NOW(), NOW(), 'Active', 'India', 'Permanent'
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                    company_id = EXCLUDED.company_id,
+                    branch_id = EXCLUDED.branch_id,
+                    is_active = true,
+                    is_deleted = false;
+            """, (str(uuid_mod.uuid4()), company_id, resolved_branch_id))
+
             # 1. Baseline Customer Groups
             cur.execute("""
                 INSERT INTO customer_groups (id, uuid, name, credit_limit, credit_days, company_id, is_active, is_deleted)
@@ -287,6 +304,19 @@ def seed_tenant_baseline_data(database_name: str, company_id: str = "COMP-001") 
                 )
                 ON CONFLICT (id) DO NOTHING;
             """, (str(uuid_mod.uuid4()), company_id))
+
+            # 3b. Baseline Primary Store Warehouse (required for Stock Movement & POS Dispatch)
+            primary_wh_id = f"WH-{company_id}-MAIN"
+            cur.execute("""
+                INSERT INTO warehouses (
+                    id, uuid, code, name, is_transit, address, company_id, branch_id,
+                    is_active, is_deleted, is_central_godown, city, state, pincode, version
+                ) VALUES (
+                    %s, %s, %s, %s, false, 'Main Store Depot Ground Floor',
+                    %s, %s, true, false, true, 'Mumbai', 'Maharashtra', '400050', 1
+                )
+                ON CONFLICT (id) DO UPDATE SET pincode = '400050';
+            """, (primary_wh_id, str(uuid_mod.uuid4()), "Main Store", f"Main Store Depot ({company_id})", company_id, resolved_branch_id))
 
             # 4. Baseline POS Profiles / Cash Registers
             cur.execute("""

@@ -97,6 +97,24 @@ class IdentityCodeGenerator:
         num_res = await session.execute(num_stmt)
         numbering_record = num_res.scalars().first()
 
+        if not numbering_record and scoped_tenant:
+            # Fallback to pre-seeded unassigned counter (tenant_id is empty or null) to maintain sequence continuity
+            fallback_stmt = (
+                select(SmritiNumberingRegistry)
+                .where(
+                    SmritiNumberingRegistry.entity_type == entity_type_upper,
+                    SmritiNumberingRegistry.group_code == actual_group_code,
+                    SmritiNumberingRegistry.prefix == actual_prefix,
+                    SmritiNumberingRegistry.scope == scope_mode,
+                    (SmritiNumberingRegistry.tenant_id == "") | (SmritiNumberingRegistry.tenant_id.is_(None)),
+                )
+                .with_for_update()
+            )
+            fb_res = await session.execute(fallback_stmt)
+            numbering_record = fb_res.scalars().first()
+            if numbering_record:
+                numbering_record.tenant_id = scoped_tenant
+
         if not numbering_record:
             # Race-safe counter initialization: handle concurrent first allocations cleanly
             try:

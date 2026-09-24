@@ -58,6 +58,10 @@ class TenantContext:
     company_id: str
     branch_id: str
 
+    @property
+    def tenant_id(self) -> str:
+        return self.company_id
+
 
 # ---------------------------------------------------------------------------
 # get_current_user

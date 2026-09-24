@@ -12,10 +12,11 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+from datetime import datetime, timezone
 from sqlalchemy import Boolean, Column, String, Numeric, ForeignKey, Text, DateTime, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-from ..db.base import BaseEntity
+from ..db.base import BaseEntity, Base
 
 
 class CashRegister(BaseEntity):
@@ -135,12 +136,15 @@ class POSParkedCart(BaseEntity):
     recalled_by      = Column(String(50), nullable=True)
 
 
-class POSShiftDenominationCount(BaseEntity):
+class POSShiftDenominationCount(Base):
     """
     Shift-end denomination count breakdown for cashier handover and manager balance sheet.
     """
     __tablename__ = "pos_shift_denomination_counts"
 
+    id                 = Column(String(50), primary_key=True)
+    tenant_id          = Column(String(50), nullable=False)
+    company_id         = Column(String(50), nullable=False)
     shift_id           = Column(String(50), ForeignKey("shifts.id", ondelete="CASCADE"), nullable=False, index=True)
     denomination_value = Column(Numeric(10, 2), nullable=False)
     expected_count     = Column(Integer, nullable=False, default=0)
@@ -151,3 +155,7 @@ class POSShiftDenominationCount(BaseEntity):
     reconciled_by      = Column(String(50), nullable=False)
     reconciled_at      = Column(DateTime(timezone=True), nullable=False)
     notes              = Column(Text, nullable=True)
+    created_at         = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at         = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    is_active          = Column(Boolean, nullable=False, default=True)
+    is_deleted         = Column(Boolean, nullable=False, default=False)
