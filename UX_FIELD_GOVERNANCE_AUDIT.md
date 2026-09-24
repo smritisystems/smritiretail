@@ -25,8 +25,8 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 | :--- | :--- | :--- | :--- |
 | **CFOC Registry Version** | 3.46.0 | v3.45.0 | PASS |
 | **Deterministic Fingerprint** | `4f7d88370a5d4be4...` | SHA-256 stable across runs | PASS |
-| **Physical DB Tables** | 564 tables | 295 tables across `smriti001` & `smritisys` | PASS |
-| **Physical DB Columns** | 11649 columns | Live information_schema catalog | PASS |
+| **Physical DB Tables** | 569 tables | 295 tables across `smriti001` & `smritisys` | PASS |
+| **Physical DB Columns** | 11805 columns | Live information_schema catalog | PASS |
 | **Canonical Field Definitions** | 133 fields | Declared in `CANONICAL_FIELDS` SSOT | PASS |
 | **UX Field References (Configured)** | 89 references | Master Form Fields & Grid Columns | PASS |
 | **Master Screen Mappings** | 9 screens | Master Configs in `src/components/global/` | PASS |

@@ -25,7 +25,7 @@ Classification: Internal
 """
 
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -730,6 +730,13 @@ class PurchaseService:
         if transport_parts:
             transport_str = f"[LOGISTICS & LANDED COST: {', '.join(transport_parts)}]"
             combined_notes = f"{combined_notes} | {transport_str}" if combined_notes else transport_str
+        if getattr(req, "attachments", None):
+            import json
+            import base64
+            raw_json = json.dumps(req.attachments)
+            b64 = base64.b64encode(raw_json.encode("utf-8")).decode("ascii")
+            att_str = f"[ATTACHMENTS_METADATA_B64:{b64}]"
+            combined_notes = f"{combined_notes} | {att_str}" if combined_notes else att_str
 
         receipt = PurchaseReceipt(
             id=receipt_id,
@@ -866,7 +873,8 @@ class PurchaseService:
 
 
         supplier = await self._get_supplier(req.supplier_id)
-        supplier.outstanding = (supplier.outstanding + grand_total).quantize(Decimal("0.01"))
+        curr_outstanding = Decimal(str(supplier.outstanding)) if supplier.outstanding is not None else Decimal("0.00")
+        supplier.outstanding = (curr_outstanding + grand_total).quantize(Decimal("0.01"))
         supplier.modified_at = datetime.now(timezone.utc)
 
         # Record Transactional Outbox event atomically within same DB transaction
@@ -948,6 +956,36 @@ class PurchaseService:
             raise HTTPException(status_code=404, detail="Purchase receipt not found.")
 
         return receipt, list(receipt.items or [])
+
+    async def update_purchase_receipt(
+        self, receipt_id: str, req: Any
+    ) -> tuple[PurchaseReceipt, list[PurchaseReceiptItem]]:
+        """Update existing purchase receipt notes, transport or attachments."""
+        receipt, items = await self.get_purchase_receipt(receipt_id)
+        import json
+        import re
+
+        current_notes = receipt.notes or ""
+        if getattr(req, "notes", None) is not None:
+            current_notes = req.notes or ""
+
+        if getattr(req, "attachments", None) is not None:
+            import base64
+            cleaned = re.sub(r'\[ATTACHMENTS_METADATA_B64:[A-Za-z0-9+/=]+\]', '', current_notes)
+            cleaned = re.sub(r'\[ATTACHMENTS_METADATA:\[.*?\]\]', '', cleaned)
+            cleaned = cleaned.strip(' |').strip()
+            if req.attachments:
+                raw_json = json.dumps(req.attachments)
+                b64 = base64.b64encode(raw_json.encode("utf-8")).decode("ascii")
+                att_str = f"[ATTACHMENTS_METADATA_B64:{b64}]"
+                current_notes = f"{cleaned} | {att_str}" if cleaned else att_str
+            else:
+                current_notes = cleaned
+
+        receipt.notes = current_notes or None
+        await self.db.commit()
+        await self.db.refresh(receipt)
+        return receipt, items
 
     # ──────────────────────────────────────────────────────────────
     # Reorder Suggestion logic

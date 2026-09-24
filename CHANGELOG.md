@@ -30,6 +30,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+### [1.0.0] - 2026-09-24 — Procurement Milestone: Goods Receipt Desktop Terminal (GRN Studio) 11 Inward Enhancements & Consignment Attachment Lifecycle
+
+> **Version Specification:** `1.0.0` denotes the major inward procurement terminal enhancement delivering sound-unit landed cost capitalization, debit note chargeback automation, and consignment document management.
+
+#### Procurement: Goods Receipt Desktop Terminal (GRN Studio)
+- **Sound-Unit Landed Cost Capitalization Engine (Ind AS 2 & CGST Sec 17(5)(h)):** Inward landed costs apportioned strictly across accepted sound units (`quantity_received - quantity_damaged`) with zero-variance Hamilton-Hare exact remainder allocation to prevent financial discrepancies across line items.
+- **Statutory Parity & Anomaly Protection:** Replaced ambiguous discount rate with bounded percentage ($0 \le \% \le 100$) preventing line discounts from exceeding line gross values; explicit statutory `0% (Exempt)` tax display for agricultural/exempt goods; standardized terminology to `RECEIVED QTY`.
+- **Statutory Supplier Debit Note Auto-Derivation:** Automated pre-population of damaged units, damage value, blocked input tax credit (ITC per CGST Sec 17(5)(h)), and supplier chargeback in Tab 5 (`DEBIT_NOTE`).
+- **Consignment Document Attachments Lifecycle:** Multi-document manager in Tab 6 (`DOC_NOTES`) supporting PDF/image uploads, view/download, and delete lifecycle with Base64 JSON persistence in `backend/app/services/purchase.py` and `backend/app/api/v1/purchase.py`.
+- **Ergonomic Workspace Layout:** Added dynamic view mode toggle (`[SIMPLE]` 12 columns vs `[ADVANCED]` 20 columns), 6 numbered workflow tabs, 4-tier bottom financial summary (`Accepted Value`, `Damage Value`, `Allocated Landed Cost`, `Capitalized Inventory Value`), and master `GRN RECONCILIATION & CAPITALIZATION CONTROL` card.
+- **Verification & Governance:** 16/16 frontend unit tests green (`src/tests/grnDesktopTerminal.test.ts`), 66/66 full GRN vitest suite green, 6/6 backend attachment integration tests green (`backend/app/tests/test_grn_attachments_lifecycle.py`), 0 TypeScript errors (`tsc --noEmit`), and 0 critical field governance violations.
+
 ### [3.16.0] - 2026-09-24 — Foundation Milestone: Fresh PC Installation Database Bootstrap & Release-Hardening Roadmap Completion
 
 > **Version Specification:** `3.16.0` denotes the core database provisioning, multi-tenant lifecycle reliability, and release-hardening milestone.

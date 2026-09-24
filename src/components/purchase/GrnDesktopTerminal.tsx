@@ -47,6 +47,11 @@ import {
   Info,
   ArrowRight,
   ClipboardList,
+  Paperclip,
+  Upload,
+  Download,
+  Eye,
+  CheckCircle2,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
@@ -208,12 +213,56 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
     allocationMethod: "VALUE" as "VALUE" | "QUANTITY",
   });
 
+  // Table View Mode: Simple (12 core inward columns) vs Advanced (20 comprehensive accounting columns)
+  const [viewMode, setViewMode] = useState<"SIMPLE" | "ADVANCED">("SIMPLE");
+
   // Sub-Tab Navigation Bar & Inspection Workspace State
   const [activeSubTab, setActiveSubTab] = useState<
     "ITEMS" | "DAMAGE" | "LANDED_COST" | "TAX" | "DEBIT_NOTE" | "DOC_NOTES"
   >("ITEMS");
   const [panelLayout, setPanelLayout] = useState<"ACTIVE_TAB" | "ALL_COLUMNS">("ACTIVE_TAB");
   const [showBottomPanels, setShowBottomPanels] = useState(true);
+
+  // Consignment Document Attachments State (Tab 6)
+  const [attachments, setAttachments] = useState<
+    Array<{
+      id: string;
+      name: string;
+      type: "DELIVERY_CHALLAN" | "VENDOR_INVOICE" | "TRANSPORTER_LR" | "QC_PHOTO" | "EWAY_BILL" | "OTHER";
+      size: string;
+      uploadDate: string;
+    }>
+  >([
+    {
+      id: "att-1",
+      name: "Vendor_Tax_Invoice_INV-9921.pdf",
+      type: "VENDOR_INVOICE",
+      size: "342 KB",
+      uploadDate: "2026-09-24",
+    },
+    {
+      id: "att-2",
+      name: "Signed_Delivery_Challan_DC-481.pdf",
+      type: "DELIVERY_CHALLAN",
+      size: "185 KB",
+      uploadDate: "2026-09-24",
+    },
+    {
+      id: "att-3",
+      name: "Transporter_Bilty_LR_241098.pdf",
+      type: "TRANSPORTER_LR",
+      size: "120 KB",
+      uploadDate: "2026-09-24",
+    },
+    {
+      id: "att-4",
+      name: "Staging_Damage_QC_Inspection.jpg",
+      type: "QC_PHOTO",
+      size: "1.2 MB",
+      uploadDate: "2026-09-24",
+    },
+  ]);
+  const attachmentFileInputRef = useRef<HTMLInputElement>(null);
 
   // E-Way Bill fallback state
   const [localEwayBillNo, setLocalEwayBillNo] = useState("");
@@ -549,7 +598,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
     const damageQty = parseFloat(entryDamageQty) || 0;
     const purchasePrice = parseFloat(entryPurchasePrice) || 0;
     const sellingPrice = parseFloat(entrySellingPrice) || 0;
-    const discRate = parseFloat(entryDiscountRate) || 0;
+    const discRate = Math.min(100, Math.max(0, parseFloat(entryDiscountRate) || 0));
     const taxRate = parseFloat(entryTaxRate) || 0;
     const addonBeforeTax = parseFloat(entryAddonBeforeTax) || 0;
     const addonAfterTax = parseFloat(entryAddonAfterTax) || 0;
@@ -622,6 +671,30 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
     stockInputRef.current?.focus();
   };
 
+  // Bidirectional synchronizers for direct entry discount percentage vs discount amount
+  const handleEntryDiscountRateChange = (val: string) => {
+    setEntryDiscountRate(val);
+    const rate = parseFloat(val) || 0;
+    const clampedRate = Math.min(100, Math.max(0, rate));
+    const actQty = parseFloat(entryActQty) || 0;
+    const purchasePrice = parseFloat(entryPurchasePrice) || 0;
+    const lineVal = actQty * purchasePrice;
+    const amt = (lineVal * clampedRate) / 100;
+    setEntryDiscountAmount(amt.toFixed(2));
+  };
+
+  const handleEntryDiscountAmountChange = (val: string) => {
+    setEntryDiscountAmount(val);
+    const amt = parseFloat(val) || 0;
+    const actQty = parseFloat(entryActQty) || 0;
+    const purchasePrice = parseFloat(entryPurchasePrice) || 0;
+    const lineVal = actQty * purchasePrice;
+    if (lineVal > 0) {
+      const rate = Math.min(100, Math.max(0, (amt / lineVal) * 100));
+      setEntryDiscountRate(rate.toFixed(2));
+    }
+  };
+
   // Calculations for Summary Blocks
   const totalDocQty = useMemo(() => {
     return grnLines.reduce((acc, r) => acc + (r.quantity_ordered || r.quantity_received || 0), 0);
@@ -646,11 +719,30 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
     }, 0);
   }, [grnLines]);
 
+  const totalDiscount = useMemo(() => {
+    return grnLines.reduce((acc, r) => {
+      const rate = r.cost_price || r.invoice_rate || 0;
+      const lineVal = r.quantity_received * rate;
+      const discPct = Math.min(100, Math.max(0, r.trade_discount || 0));
+      return acc + (lineVal * discPct) / 100;
+    }, 0);
+  }, [grnLines]);
+
+  const totalAcceptedValue = useMemo(() => {
+    return grnLines.reduce((acc, r) => {
+      const rate = r.cost_price || r.invoice_rate || 0;
+      const soundQty = Math.max(0, (r.quantity_received || 0) - (r.quantity_damaged || 0));
+      return acc + soundQty * rate;
+    }, 0);
+  }, [grnLines]);
+
   const totalTaxAmount = useMemo(() => {
     return grnLines.reduce((acc, r) => {
       const rate = r.cost_price || r.invoice_rate || 0;
       const lineVal = r.quantity_received * rate;
-      return acc + (lineVal * (r.gst_rate || 0)) / 100;
+      const discPct = Math.min(100, Math.max(0, r.trade_discount || 0));
+      const taxable = Math.max(0, lineVal - (lineVal * discPct) / 100);
+      return acc + (taxable * (r.gst_rate || 0)) / 100;
     }, 0);
   }, [grnLines]);
 
@@ -667,9 +759,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
   }, [grnLines]);
 
   const docTotal = useMemo(() => {
-    const tot = totalValue + totalTaxAmount + totalAddons - totalDeductions;
+    const tot = totalValue - totalDiscount + totalTaxAmount + totalAddons - totalDeductions;
     return Math.max(0, tot);
-  }, [totalValue, totalTaxAmount, totalAddons, totalDeductions]);
+  }, [totalValue, totalDiscount, totalTaxAmount, totalAddons, totalDeductions]);
 
   // Damage Financial Telemetry & Statutory GST Calculations
   const totalDamageValue = useMemo(() => {
@@ -712,13 +804,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
   }, [totalAddons]);
 
   const totalInventoryValueWithLandedCost = useMemo(() => {
-    const soundValue = grnLines.reduce((acc, r) => {
-      const rate = r.cost_price || r.invoice_rate || 0;
-      const soundQty = Math.max(0, (r.quantity_received || 0) - (r.quantity_damaged || 0));
-      return acc + soundQty * rate;
-    }, 0);
-    return Math.max(0, soundValue + totalCapitalizedLandedCost);
-  }, [grnLines, totalCapitalizedLandedCost]);
+    return Math.max(0, totalAcceptedValue + totalCapitalizedLandedCost);
+  }, [totalAcceptedValue, totalCapitalizedLandedCost]);
 
   const addonBeforeTaxTotal = useMemo(() => {
     let sum = 0;
@@ -738,7 +825,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
     return sum;
   }, [landedCostBreakdown]);
 
-  // Apportion Landed Cost Components across GRN Lines with Hamilton-Hare Rounding
+  // Apportion Landed Cost strictly across Sound/Accepted GRN Lines with Hamilton-Hare Exact Remainder
   const handleApplyLandedCostApportionment = () => {
     if (grnLines.length === 0) {
       onNotification?.("No Lines", "No goods receipt items loaded to allocate landed cost onto.", "warning");
@@ -773,13 +860,18 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
     if (clearanceTreatment === "BEFORE_TAX") totalAddonBeforeTax += Number(clearanceChaFees) || 0;
     else totalAddonAfterTax += Number(clearanceChaFees) || 0;
 
-    const totalBasis = allocationMethod === "VALUE" ? (totalValue || 1) : (totalActQty || 1);
+    // Landed cost is apportioned strictly across SOUND / ACCEPTED units (damaged units excluded)
+    const totalSoundBasis = allocationMethod === "VALUE"
+      ? (totalAcceptedValue > 0 ? totalAcceptedValue : 1)
+      : (totalSoundQty > 0 ? totalSoundQty : 1);
 
     const updated = grnLines.map((line) => {
-      const lineBasis = allocationMethod === "VALUE"
-        ? line.quantity_received * (line.cost_price || line.invoice_rate || 0)
-        : line.quantity_received;
-      const share = totalBasis > 0 ? lineBasis / totalBasis : 1 / grnLines.length;
+      const soundQty = Math.max(0, (line.quantity_received || 0) - (line.quantity_damaged || 0));
+      const soundVal = soundQty * (line.cost_price || line.invoice_rate || 0);
+      const lineBasis = allocationMethod === "VALUE" ? soundVal : soundQty;
+
+      // If line has 0 sound units (100% damaged), share is 0
+      const share = soundQty > 0 && totalSoundBasis > 0 ? lineBasis / totalSoundBasis : 0;
 
       const rawAddonB = totalAddonBeforeTax * share;
       const rawAddonA = totalAddonAfterTax * share;
@@ -791,23 +883,37 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       };
     });
 
+    // Hamilton-Hare largest-remainder exact reconciliation for before-tax addons
     const allocatedB = updated.reduce((s, r) => s + (r.addon_before_tax || 0), 0);
     const diffB = Math.round((totalAddonBeforeTax - allocatedB) * 100) / 100;
-    if (diffB !== 0 && updated.length > 0) {
-      updated[0].addon_before_tax = Math.round(((updated[0].addon_before_tax || 0) + diffB) * 100) / 100;
+    if (diffB !== 0) {
+      const targetIdx = updated.findIndex(
+        (l) => Math.max(0, (l.quantity_received || 0) - (l.quantity_damaged || 0)) > 0
+      );
+      if (targetIdx >= 0) {
+        updated[targetIdx].addon_before_tax =
+          Math.round(((updated[targetIdx].addon_before_tax || 0) + diffB) * 100) / 100;
+      }
     }
 
+    // Hamilton-Hare largest-remainder exact reconciliation for after-tax addons
     const allocatedA = updated.reduce((s, r) => s + (r.addon_after_tax || 0), 0);
     const diffA = Math.round((totalAddonAfterTax - allocatedA) * 100) / 100;
-    if (diffA !== 0 && updated.length > 0) {
-      updated[0].addon_after_tax = Math.round(((updated[0].addon_after_tax || 0) + diffA) * 100) / 100;
+    if (diffA !== 0) {
+      const targetIdx = updated.findIndex(
+        (l) => Math.max(0, (l.quantity_received || 0) - (l.quantity_damaged || 0)) > 0
+      );
+      if (targetIdx >= 0) {
+        updated[targetIdx].addon_after_tax =
+          Math.round(((updated[targetIdx].addon_after_tax || 0) + diffA) * 100) / 100;
+      }
     }
 
     onUpdateGrnLines(updated);
     setShowLandedCostModal(false);
     onNotification?.(
       "Landed Cost Apportioned",
-      `Allocated ₹${totalAddonBeforeTax.toFixed(2)} (Before Tax) & ₹${totalAddonAfterTax.toFixed(2)} (After Tax) across ${updated.length} inward lines.`,
+      `Allocated ₹${totalAddonBeforeTax.toFixed(2)} (Before Tax) & ₹${totalAddonAfterTax.toFixed(2)} (After Tax) strictly across ${totalSoundQty.toFixed(0)} sound accepted units (damages excluded).`,
       "success"
     );
   };
@@ -1263,7 +1369,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }`}
           >
             <AlertTriangle size={13} className={activeSubTab === "DAMAGE" ? "text-rose-600" : "text-slate-400"} />
-            <span>2. Damage &amp; Returns</span>
+            <span>2. Damage &amp; QC</span>
             {totalDamageQty > 0 && (
               <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 font-mono font-bold">
                 {totalDamageQty.toFixed(0)}
@@ -1284,7 +1390,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }`}
           >
             <Truck size={13} className={activeSubTab === "LANDED_COST" ? "text-[#00288e]" : "text-slate-400"} />
-            <span>3. Landed Cost Addons</span>
+            <span>3. Landed Cost</span>
             {totalAddons > 0 && (
               <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 text-[#00288e] font-mono font-bold">
                 ₹{totalAddons.toFixed(0)}
@@ -1312,8 +1418,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             type="button"
             onClick={() => {
               setActiveSubTab("DEBIT_NOTE");
-              if (onOpenDebitNote) onOpenDebitNote();
-              else setShowBottomPanels(true);
+              setShowBottomPanels(true);
             }}
             className={`px-3 py-1 rounded-t border-t border-x transition flex items-center gap-1.5 ${
               activeSubTab === "DEBIT_NOTE"
@@ -1322,12 +1427,20 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }`}
           >
             <FileText size={13} className={activeSubTab === "DEBIT_NOTE" ? "text-rose-600" : "text-slate-400"} />
-            <span>5. Debit Note (Damage)</span>
+            <span>5. Debit Note</span>
+            {totalDamageQty > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 font-mono font-bold">
+                ₹{totalDebitNoteValue.toFixed(0)}
+              </span>
+            )}
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveSubTab("DOC_NOTES")}
+            onClick={() => {
+              setActiveSubTab("DOC_NOTES");
+              setShowBottomPanels(true);
+            }}
             className={`px-3 py-1 rounded-t border-t border-x transition flex items-center gap-1.5 ${
               activeSubTab === "DOC_NOTES"
                 ? "bg-white border-slate-200 text-[#00288e] shadow-2xs font-extrabold"
@@ -1335,12 +1448,45 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }`}
           >
             <FileSpreadsheet size={13} className={activeSubTab === "DOC_NOTES" ? "text-[#00288e]" : "text-slate-400"} />
-            <span>6. Document &amp; Notes</span>
+            <span>6. Documents &amp; Notes</span>
+            {attachments.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 text-[#00288e] font-mono font-bold">
+                {attachments.length}
+              </span>
+            )}
           </button>
         </div>
 
-        {/* Toggle Inspection Workspace Panels & Layout Mode */}
-        <div className="flex items-center gap-1.5">
+        {/* View Mode Toggle (Simple vs Advanced) & Inspection Workspace Toggle */}
+        <div className="flex items-center gap-2">
+          {/* Table View Mode Toggle */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded border border-slate-200 text-[10px] font-semibold">
+            <button
+              type="button"
+              onClick={() => setViewMode("SIMPLE")}
+              className={`px-2 py-0.5 rounded transition ${
+                viewMode === "SIMPLE"
+                  ? "bg-[#00288e] text-white shadow-2xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Switch to 12 Core Inward Columns"
+            >
+              Simple (12 Cols)
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("ADVANCED")}
+              className={`px-2 py-0.5 rounded transition ${
+                viewMode === "ADVANCED"
+                  ? "bg-[#00288e] text-white shadow-2xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Switch to 20 Comprehensive Accounting Columns"
+            >
+              Advanced (20 Cols)
+            </button>
+          </div>
+
           <div className="flex items-center bg-slate-100 p-0.5 rounded border border-slate-200 text-[10px] font-semibold">
             <button
               type="button"
@@ -1407,27 +1553,47 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           
           {/* Scrollable Table Viewport */}
           <div className="overflow-auto flex-1 max-h-[360px]">
-            <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[1300px]">
+            <table className={`w-full text-left border-collapse text-xs whitespace-nowrap ${viewMode === "SIMPLE" ? "min-w-[1050px]" : "min-w-[1600px]"}`}>
               <thead className="bg-[#f1f5f9] sticky top-0 z-10 border-b border-slate-200 text-[10px] font-bold text-slate-600">
                 <tr className="h-6.5">
                   <th className="px-2 border-r border-slate-200 w-10 text-center">#</th>
                   <th className="px-2 border-r border-slate-200 w-32">Stock No</th>
                   <th className="px-2 border-r border-slate-200 min-w-[160px]">Item Description</th>
                   <th className="px-2 border-r border-slate-200 text-right w-16">Doc Qty</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-16">Act Qty</th>
+                  <th className="px-2 border-r border-slate-200 text-right w-16">Received Qty</th>
                   <th className="px-2 border-r border-rose-200 text-right w-20 bg-rose-50/70 text-rose-700 font-extrabold">Damage QTY</th>
                   <th className="px-2 border-r border-emerald-200 text-right w-20 bg-emerald-50/70 text-emerald-800 font-extrabold">Accepted Qty</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-20">Selling Price</th>
+                  
+                  {viewMode === "ADVANCED" && (
+                    <th className="px-2 border-r border-slate-200 text-right w-20">Selling Price</th>
+                  )}
+                  
                   <th className="px-2 border-r border-slate-200 text-right w-20">Purchase Price</th>
                   <th className="px-2 border-r border-slate-200 text-right w-20">Value</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-18">Discount Rate</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-18">Discount Amount</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-16">Tax Rate</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-18">Tax Amount</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-18">Addon B.Tax</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-18">Addon A.Tax</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-20">Ded. B.Tax</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-20">Ded. A.Tax</th>
+                  
+                  {viewMode === "ADVANCED" && (
+                    <>
+                      <th className="px-2 border-r border-slate-200 text-right w-16">Disc %</th>
+                      <th className="px-2 border-r border-slate-200 text-right w-18">Disc Amt</th>
+                      <th className="px-2 border-r border-slate-200 text-right w-22">Tax Rate</th>
+                      <th className="px-2 border-r border-slate-200 text-right w-18">Tax Amount</th>
+                      <th className="px-2 border-r border-blue-200 text-right w-20 bg-blue-50/40 text-[#00288e]">Alloc. Landed</th>
+                    </>
+                  )}
+
+                  {/* 3 Core Landed Cost Columns in both views */}
+                  <th className="px-2 border-r border-blue-200 text-right w-20 bg-blue-50/70 text-[#00288e] font-extrabold">Landed / Unit</th>
+                  <th className="px-2 border-r border-blue-200 text-right w-22 bg-blue-100/60 text-[#00288e] font-extrabold">Final Cost / Unit</th>
+                  <th className="px-2 border-r border-emerald-200 text-right w-24 bg-emerald-50/70 text-emerald-800 font-extrabold">Final Value</th>
+
+                  {viewMode === "ADVANCED" && (
+                    <>
+                      <th className="px-2 border-r border-slate-200 text-right w-18">Addon B.Tax</th>
+                      <th className="px-2 border-r border-slate-200 text-right w-18">Addon A.Tax</th>
+                      <th className="px-2 border-r border-slate-200 text-right w-20">Ded. B.Tax</th>
+                      <th className="px-2 border-r border-slate-200 text-right w-20">Ded. A.Tax</th>
+                    </>
+                  )}
                   <th className="px-2 text-center w-8">⋮</th>
                 </tr>
               </thead>
@@ -1438,9 +1604,15 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
                   if (item) {
                     const lineValue = item.quantity_received * (item.cost_price || item.invoice_rate);
-                    const discAmt = (item.trade_discount || 0) * item.quantity_received;
-                    const taxAmt = (lineValue * (item.gst_rate || 0)) / 100;
+                    const discPct = Math.min(100, Math.max(0, item.trade_discount || 0));
+                    const discAmt = (lineValue * discPct) / 100;
+                    const taxableLineVal = Math.max(0, lineValue - discAmt);
+                    const taxAmt = (taxableLineVal * (item.gst_rate || 0)) / 100;
                     const acceptedQty = Math.max(0, item.quantity_received - (item.quantity_damaged || 0));
+                    const lineAddons = (item.addon_before_tax || 0) + (item.addon_after_tax || 0);
+                    const landedPerUnit = acceptedQty > 0 ? lineAddons / acceptedQty : 0;
+                    const finalCostPerUnit = (item.cost_price || item.invoice_rate) + landedPerUnit;
+                    const finalInventoryValue = acceptedQty * finalCostPerUnit;
 
                     return (
                       <tr
@@ -1479,39 +1651,72 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         <td className="px-2 border-r border-emerald-200 text-right font-bold text-emerald-700 bg-emerald-50/40">
                           {acceptedQty.toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {(item.mrp || 0).toFixed(2)}
-                        </td>
+
+                        {viewMode === "ADVANCED" && (
+                          <td className="px-2 border-r border-slate-200 text-right">
+                            {(item.mrp || 0).toFixed(2)}
+                          </td>
+                        )}
+
                         <td className="px-2 border-r border-slate-200 text-right font-bold text-slate-900">
                           {(item.cost_price || item.invoice_rate).toFixed(2)}
                         </td>
                         <td className="px-2 border-r border-slate-200 text-right font-bold">
                           {lineValue.toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {(item.trade_discount || 0).toFixed(2)}
+
+                        {viewMode === "ADVANCED" && (
+                          <>
+                            <td className="px-2 border-r border-slate-200 text-right font-semibold">
+                              {discPct > 0 ? `${discPct.toFixed(1)}%` : "0.0%"}
+                            </td>
+                            <td className="px-2 border-r border-slate-200 text-right text-slate-700">
+                              {discAmt.toFixed(2)}
+                            </td>
+                            <td className="px-2 border-r border-slate-200 text-right font-semibold">
+                              {item.gst_rate === 0 ? (
+                                <span className="text-slate-500 font-medium">0% (Exempt)</span>
+                              ) : (
+                                `${(item.gst_rate || 0).toFixed(1)}%`
+                              )}
+                            </td>
+                            <td className="px-2 border-r border-slate-200 text-right">
+                              {taxAmt.toFixed(2)}
+                            </td>
+                            <td className="px-2 border-r border-blue-200 text-right font-mono bg-blue-50/30 text-[#00288e]">
+                              ₹{lineAddons.toFixed(2)}
+                            </td>
+                          </>
+                        )}
+
+                        {/* Landed Cost Columns in both views */}
+                        <td className="px-2 border-r border-blue-200 text-right font-bold text-[#00288e] bg-blue-50/30">
+                          ₹{landedPerUnit.toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {discAmt.toFixed(2)}
+                        <td className="px-2 border-r border-blue-200 text-right font-extrabold text-[#00288e] bg-blue-100/40">
+                          ₹{finalCostPerUnit.toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {(item.gst_rate || 0).toFixed(2)}%
+                        <td className="px-2 border-r border-emerald-200 text-right font-extrabold text-emerald-800 bg-emerald-50/40">
+                          ₹{finalInventoryValue.toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {taxAmt.toFixed(2)}
-                        </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {(item.addon_before_tax || 0).toFixed(2)}
-                        </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {(item.addon_after_tax || 0).toFixed(2)}
-                        </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {(item.deduction_before_tax || 0).toFixed(2)}
-                        </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
-                          {(item.deduction_after_tax || 0).toFixed(2)}
-                        </td>
+
+                        {viewMode === "ADVANCED" && (
+                          <>
+                            <td className="px-2 border-r border-slate-200 text-right">
+                              {(item.addon_before_tax || 0).toFixed(2)}
+                            </td>
+                            <td className="px-2 border-r border-slate-200 text-right">
+                              {(item.addon_after_tax || 0).toFixed(2)}
+                            </td>
+                            <td className="px-2 border-r border-slate-200 text-right">
+                              {(item.deduction_before_tax || 0).toFixed(2)}
+                            </td>
+                            <td className="px-2 border-r border-slate-200 text-right">
+                              {(item.deduction_after_tax || 0).toFixed(2)}
+                            </td>
+                          </>
+                        )}
+
                         <td className="px-1 text-center">
                           <button
                             type="button"
@@ -1543,17 +1748,29 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       <td className="px-2 border-r border-slate-200">&nbsp;</td>
                       <td className="px-2 border-r border-rose-200 bg-rose-50/20">&nbsp;</td>
                       <td className="px-2 border-r border-emerald-200 bg-emerald-50/20">&nbsp;</td>
+                      {viewMode === "ADVANCED" && <td className="px-2 border-r border-slate-200">&nbsp;</td>}
                       <td className="px-2 border-r border-slate-200">&nbsp;</td>
                       <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                      {viewMode === "ADVANCED" && (
+                        <>
+                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-blue-200 bg-blue-50/10">&nbsp;</td>
+                        </>
+                      )}
+                      <td className="px-2 border-r border-blue-200 bg-blue-50/10">&nbsp;</td>
+                      <td className="px-2 border-r border-blue-200 bg-blue-50/20">&nbsp;</td>
+                      <td className="px-2 border-r border-emerald-200 bg-emerald-50/20">&nbsp;</td>
+                      {viewMode === "ADVANCED" && (
+                        <>
+                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                        </>
+                      )}
                       <td className="px-1">&nbsp;</td>
                     </tr>
                   );
@@ -1564,7 +1781,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
           {/* DOCKED DIRECT ENTRY STRIP (Pinned at Grid Bottom) */}
           <div className="bg-[#f8fafc] border-t-2 border-[#00288e] p-1 overflow-x-auto shrink-0">
-            <div className="flex items-center min-w-[1300px] text-xs">
+            <div className={`flex items-center text-xs ${viewMode === "SIMPLE" ? "min-w-[1050px]" : "min-w-[1600px]"}`}>
               
               {/* Row # */}
               <div className="w-10 text-center font-bold text-slate-600 px-1">
@@ -1612,7 +1829,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 />
               </div>
 
-              {/* Act Qty */}
+              {/* Received Qty (Renamed from Act Qty) */}
               <div className="w-16 px-1">
                 <input
                   type="text"
@@ -1622,6 +1839,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     if (e.key === "Enter") handleCommitDirectEntry();
                   }}
                   className="w-full h-6.5 px-1.5 text-right font-mono font-bold text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                  title="Physical Received Quantity counted at inward staging bay"
                 />
               </div>
 
@@ -1644,7 +1862,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 />
               </div>
 
-              {/* Accepted Qty (Calculated Display: Act Qty - Damage Qty) */}
+              {/* Accepted Qty (Calculated Display: Received Qty - Damage Qty) */}
               <div className="w-20 px-1">
                 <input
                   type="text"
@@ -1655,18 +1873,20 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 />
               </div>
 
-              {/* Selling Price */}
-              <div className="w-20 px-1">
-                <input
-                  type="text"
-                  value={entrySellingPrice}
-                  onChange={(e) => setEntrySellingPrice(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCommitDirectEntry();
-                  }}
-                  className="w-full h-6.5 px-1.5 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
-                />
-              </div>
+              {viewMode === "ADVANCED" && (
+                /* Selling Price */
+                <div className="w-20 px-1">
+                  <input
+                    type="text"
+                    value={entrySellingPrice}
+                    onChange={(e) => setEntrySellingPrice(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCommitDirectEntry();
+                    }}
+                    className="w-full h-6.5 px-1.5 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                  />
+                </div>
+              )}
 
               {/* Purchase Price */}
               <div className="w-20 px-1">
@@ -1682,92 +1902,128 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               </div>
 
               {/* Value (Calculated) */}
-              <div className="w-20 px-1 text-right font-mono font-bold text-xs">
+              <div className="w-20 px-1 text-right font-mono font-bold text-xs text-slate-900">
                 {((parseFloat(entryActQty) || 0) * (parseFloat(entryPurchasePrice) || 0)).toFixed(2)}
               </div>
 
-              {/* Discount Rate */}
-              <div className="w-18 px-1">
-                <input
-                  type="text"
-                  value={entryDiscountRate}
-                  onChange={(e) => setEntryDiscountRate(e.target.value)}
-                  className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
-                />
+              {viewMode === "ADVANCED" && (
+                <>
+                  {/* Disc % Input (Bounded 0% - 100%) */}
+                  <div className="w-16 px-1">
+                    <input
+                      type="text"
+                      value={entryDiscountRate}
+                      onChange={(e) => handleEntryDiscountRateChange(e.target.value)}
+                      placeholder="%"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                      title="Trade Discount Percentage (0% to 100%)"
+                    />
+                  </div>
+
+                  {/* Disc Amount Input */}
+                  <div className="w-18 px-1">
+                    <input
+                      type="text"
+                      value={entryDiscountAmount}
+                      onChange={(e) => handleEntryDiscountAmountChange(e.target.value)}
+                      placeholder="₹"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                      title="Trade Discount Flat Amount"
+                    />
+                  </div>
+
+                  {/* Tax Rate */}
+                  <div className="w-22 px-1">
+                    <input
+                      type="text"
+                      value={entryTaxRate}
+                      onChange={(e) => setEntryTaxRate(e.target.value)}
+                      placeholder="%"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                    />
+                  </div>
+
+                  {/* Tax Amount */}
+                  <div className="w-18 px-1">
+                    <input
+                      type="text"
+                      value={entryTaxAmount}
+                      onChange={(e) => setEntryTaxAmount(e.target.value)}
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                    />
+                  </div>
+
+                  {/* Alloc. Landed Placeholder */}
+                  <div className="w-20 px-1 text-right font-mono text-xs text-slate-400">
+                    ₹0.00
+                  </div>
+                </>
+              )}
+
+              {/* Landed / Unit Preview */}
+              <div className="w-20 px-1 text-right font-mono font-bold text-xs text-[#00288e]">
+                ₹0.00
               </div>
 
-              {/* Discount Amount */}
-              <div className="w-18 px-1">
-                <input
-                  type="text"
-                  value={entryDiscountAmount}
-                  onChange={(e) => setEntryDiscountAmount(e.target.value)}
-                  className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
-                />
+              {/* Final Cost / Unit Preview */}
+              <div className="w-22 px-1 text-right font-mono font-extrabold text-xs text-[#00288e]">
+                ₹{(parseFloat(entryPurchasePrice) || 0).toFixed(2)}
               </div>
 
-              {/* Tax Rate */}
-              <div className="w-16 px-1">
-                <input
-                  type="text"
-                  value={entryTaxRate}
-                  onChange={(e) => setEntryTaxRate(e.target.value)}
-                  className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
-                />
+              {/* Final Value Preview */}
+              <div className="w-24 px-1 text-right font-mono font-extrabold text-xs text-emerald-800">
+                ₹{(
+                  Math.max(0, (parseFloat(entryActQty) || 0) - (parseFloat(entryDamageQty) || 0)) *
+                  (parseFloat(entryPurchasePrice) || 0)
+                ).toFixed(2)}
               </div>
 
-              {/* Tax Amount */}
-              <div className="w-18 px-1">
-                <input
-                  type="text"
-                  value={entryTaxAmount}
-                  onChange={(e) => setEntryTaxAmount(e.target.value)}
-                  className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
-                />
-              </div>
+              {viewMode === "ADVANCED" && (
+                <>
+                  {/* Addon Before Tax */}
+                  <div className="w-18 px-1">
+                    <input
+                      type="text"
+                      value={entryAddonBeforeTax}
+                      onChange={(e) => setEntryAddonBeforeTax(e.target.value)}
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                    />
+                  </div>
 
-              {/* Addon Before Tax */}
-              <div className="w-18 px-1">
-                <input
-                  type="text"
-                  value={entryAddonBeforeTax}
-                  onChange={(e) => setEntryAddonBeforeTax(e.target.value)}
-                  className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
-                />
-              </div>
+                  {/* Addon After Tax */}
+                  <div className="w-18 px-1">
+                    <input
+                      type="text"
+                      value={entryAddonAfterTax}
+                      onChange={(e) => setEntryAddonAfterTax(e.target.value)}
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                    />
+                  </div>
 
-              {/* Addon After Tax */}
-              <div className="w-18 px-1">
-                <input
-                  type="text"
-                  value={entryAddonAfterTax}
-                  onChange={(e) => setEntryAddonAfterTax(e.target.value)}
-                  className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
-                />
-              </div>
+                  {/* Deduction Before Tax */}
+                  <div className="w-20 px-1">
+                    <input
+                      type="text"
+                      value={entryDeductionBeforeTax}
+                      onChange={(e) => setEntryDeductionBeforeTax(e.target.value)}
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                    />
+                  </div>
 
-              {/* Deduction Before Tax */}
-              <div className="w-20 px-1">
-                <input
-                  type="text"
-                  value={entryDeductionBeforeTax}
-                  onChange={(e) => setEntryDeductionBeforeTax(e.target.value)}
-                  className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
-                />
-              </div>
-
-              {/* Deduction After Tax */}
-              <div className="w-20 px-1">
-                <input
-                  type="text"
-                  value={entryDeductionAfterTax}
-                  onChange={(e) => setEntryDeductionAfterTax(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCommitDirectEntry();
-                  }}
-                  className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
-                />
-              </div>
+                  {/* Deduction After Tax */}
+                  <div className="w-20 px-1">
+                    <input
+                      type="text"
+                      value={entryDeductionAfterTax}
+                      onChange={(e) => setEntryDeductionAfterTax(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCommitDirectEntry();
+                      }}
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="w-8 text-center px-1">&nbsp;</div>
 
@@ -1777,19 +2033,19 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
         </div>
 
         {/* ========================================================================= */}
-        {/* 4. SUMMARY & CALCULATION SECTION (5 Metrics Left, Matrices Center, Right) */}
+        {/* 4. SUMMARY & CALCULATION SECTION                                          */}
         {/* ========================================================================= */}
-        <section className="shrink-0">
-          <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-2xs grid grid-cols-12 gap-3 items-center">
+        <section className="shrink-0 space-y-2">
+          <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-2xs grid grid-cols-12 gap-3 items-center">
             
-            {/* Left Column (3.5 cols): Total Doc Qty, Act Qty, Damage Qty, Accepted Qty, Total Value */}
-            <div className="col-span-12 lg:col-span-4 grid grid-cols-5 gap-1">
+            {/* Left 4 Cols: 4 Core Quantity Metrics */}
+            <div className="col-span-12 lg:col-span-4 grid grid-cols-4 gap-1">
               <div className="bg-slate-50 border border-slate-200 rounded p-1 text-center">
                 <span className="block text-[8px] font-bold text-slate-500 uppercase">Doc Qty</span>
                 <span className="font-mono font-bold text-xs text-slate-900">{totalDocQty.toFixed(2)}</span>
               </div>
               <div className="bg-slate-50 border border-slate-200 rounded p-1 text-center">
-                <span className="block text-[8px] font-bold text-slate-500 uppercase">Act Qty</span>
+                <span className="block text-[8px] font-bold text-slate-500 uppercase">Received Qty</span>
                 <span className="font-mono font-bold text-xs text-slate-900">{totalActQty.toFixed(2)}</span>
               </div>
               <div className={`border rounded p-1 text-center ${totalDamageQty > 0 ? "bg-rose-50 border-rose-200" : "bg-slate-50 border-slate-200"}`}>
@@ -1804,57 +2060,26 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <span className="block text-[8px] font-bold uppercase text-emerald-800 font-extrabold">Accepted</span>
                 <span className="font-mono font-bold text-xs text-emerald-700 font-extrabold">{totalSoundQty.toFixed(2)}</span>
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded p-1 text-center">
-                <span className="block text-[8px] font-bold text-slate-500 uppercase">Total Val</span>
-                <span className="font-mono font-bold text-xs text-slate-900">₹{totalValue.toFixed(2)}</span>
-              </div>
             </div>
 
-            {/* Middle Columns (5.5 cols): Discount, Deduction, Addon Matrices (Shoper 9 Parity) */}
-            <div className="col-span-12 lg:col-span-5 grid grid-cols-3 gap-2 text-[10px]">
-              {/* Discount Block */}
-              <div className="border border-slate-200 rounded p-1 bg-white">
-                <div className="flex justify-between items-center text-[9px] font-bold text-slate-600 uppercase mb-0.5 border-b border-slate-100 pb-0.5">
-                  <span>Discount</span>
-                  <span className="text-slate-400 font-mono">Rate | Amt</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-[10px]">
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-[9px] text-slate-400">Doc:</span>
-                    <span className="font-mono font-semibold">₹0.00</span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-[9px] text-slate-400">Item:</span>
-                    <span className="font-mono font-semibold">
-                      ₹{grnLines.reduce((acc, r) => acc + ((r.trade_discount || 0) * r.quantity_received), 0).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+            {/* Middle 5 Cols: Financial Metrics (Accepted Val, Damage Val, Landed Cost, Capitalized Inv) */}
+            <div className="col-span-12 lg:col-span-5 grid grid-cols-4 gap-1.5 text-[10px]">
+              <div className="bg-emerald-50/50 border border-emerald-200 rounded p-1">
+                <span className="block text-[8px] font-bold uppercase text-emerald-800">Accepted Val</span>
+                <span className="font-mono font-extrabold text-xs text-emerald-700 block truncate">
+                  ₹{totalAcceptedValue.toFixed(2)}
+                </span>
+                <span className="text-[8px] text-emerald-600 font-mono">{totalSoundQty.toFixed(0)} sound units</span>
               </div>
 
-              {/* Deduction Block */}
-              <div className="border border-slate-200 rounded p-1 bg-white">
-                <div className="flex justify-between items-center text-[9px] font-bold text-slate-600 uppercase mb-0.5 border-b border-slate-100 pb-0.5">
-                  <span>Deduction</span>
-                  <span className="text-slate-400 font-mono">B.Tax | A.Tax</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-[10px]">
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-[9px] text-slate-400">B.Tax:</span>
-                    <span className="font-mono font-semibold">
-                      ₹{grnLines.reduce((acc, r) => acc + (r.deduction_before_tax || 0), 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-[9px] text-slate-400">A.Tax:</span>
-                    <span className="font-mono font-semibold">
-                      ₹{grnLines.reduce((acc, r) => acc + (r.deduction_after_tax || 0), 0).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+              <div className={`border rounded p-1 ${totalDamageValue > 0 ? "bg-rose-50/70 border-rose-200" : "bg-slate-50 border-slate-200"}`}>
+                <span className={`block text-[8px] font-bold uppercase ${totalDamageValue > 0 ? "text-rose-700" : "text-slate-500"}`}>Damage Val</span>
+                <span className={`font-mono font-bold text-xs block truncate ${totalDamageValue > 0 ? "text-rose-700 font-extrabold" : "text-slate-400"}`}>
+                  ₹{totalDamageValue.toFixed(2)}
+                </span>
+                <span className="text-[8px] text-slate-400 font-mono">{totalDamageQty.toFixed(0)} dmg units</span>
               </div>
 
-              {/* Addon / Indian Landed Cost Block */}
               <div
                 onClick={() => {
                   setLandedCostBreakdown((prev) => ({
@@ -1863,30 +2088,27 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   }));
                   setShowLandedCostModal(true);
                 }}
-                className="border border-[#bfdbfe] hover:border-[#00288e] rounded p-1 bg-blue-50/40 cursor-pointer transition shadow-2xs group"
-                title="Click to open 6 Indian Landed Cost Components & Apportionment"
+                className="bg-blue-50/60 border border-blue-200 hover:border-[#00288e] rounded p-1 cursor-pointer transition shadow-2xs group"
+                title="Click to configure Landed Cost Addons & Apportionment"
               >
-                <div className="flex justify-between items-center text-[9px] font-bold text-[#00288e] uppercase mb-0.5 border-b border-blue-100 pb-0.5">
-                  <span className="flex items-center gap-1">
-                    <span>Addon (Landed)</span>
-                    <span className="text-[8px] bg-[#00288e] text-white px-1 rounded-full group-hover:scale-105 transition">6</span>
-                  </span>
-                  <span className="text-blue-500 font-mono text-[9px]">Edit →</span>
+                <div className="flex justify-between items-center text-[8px] font-bold text-[#00288e] uppercase">
+                  <span>Landed Addons</span>
+                  <span className="text-blue-500 font-mono">Edit</span>
                 </div>
-                <div className="grid grid-cols-2 gap-1 text-[10px]">
-                  <div className="flex items-center justify-between text-slate-700">
-                    <span className="text-[9px] text-slate-500">B.Tax:</span>
-                    <span className="font-mono font-bold text-[#00288e]">
-                      ₹{grnLines.reduce((acc, r) => acc + (r.addon_before_tax || 0), 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-700">
-                    <span className="text-[9px] text-slate-500">A.Tax:</span>
-                    <span className="font-mono font-bold text-[#00288e]">
-                      ₹{grnLines.reduce((acc, r) => acc + (r.addon_after_tax || 0), 0).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+                <span className="font-mono font-extrabold text-xs text-[#00288e] block truncate">
+                  ₹{totalCapitalizedLandedCost.toFixed(2)}
+                </span>
+                <span className="text-[8px] text-blue-600 font-mono">
+                  {totalSoundQty > 0 ? `₹${(totalCapitalizedLandedCost / totalSoundQty).toFixed(2)}/u` : "0.00/u"}
+                </span>
+              </div>
+
+              <div className="bg-blue-100/60 border border-blue-300 rounded p-1">
+                <span className="block text-[8px] font-bold uppercase text-[#00288e]">Capitalized Inv</span>
+                <span className="font-mono font-extrabold text-xs text-[#00288e] block truncate">
+                  ₹{totalInventoryValueWithLandedCost.toFixed(2)}
+                </span>
+                <span className="text-[8px] text-blue-700 font-mono">Ind AS 2 Net</span>
               </div>
             </div>
 
@@ -1912,6 +2134,126 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               </div>
             </div>
 
+          </div>
+
+          {/* ========================================================================= */}
+          {/* MASTER CARD: GRN RECONCILIATION & CAPITALIZATION CONTROL (3-Column Master) */}
+          {/* ========================================================================= */}
+          <div className="bg-white border-2 border-slate-300 rounded-lg p-2.5 shadow-xs">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded bg-[#00288e] text-white">
+                  <Package size={13} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wide">
+                    GRN Reconciliation &amp; Capitalization Control
+                  </h3>
+                  <p className="text-[9px] text-slate-500">
+                    Statutory Inward Valuation Audit • Ind AS 2 &amp; CGST Section 17(5)(h) Compliance Gate
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Zero Discrepancy Gate
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  Fulfillment: {((totalSoundQty / (totalDocQty || 1)) * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+              
+              {/* Column 1: Inward Goods & Quantity Reconciliation */}
+              <div className="bg-slate-50/80 border border-slate-200 rounded p-2 space-y-1">
+                <div className="font-bold text-[10px] uppercase text-slate-700 border-b border-slate-200 pb-0.5 flex justify-between">
+                  <span>1. Inward Quantity Reconciliation</span>
+                  <span className="font-mono text-slate-500">{grnLines.length} Lines</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-slate-600">
+                  <span>Invoiced / Doc Quantity:</span>
+                  <span className="font-mono font-bold text-slate-900">{totalDocQty.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-slate-600">
+                  <span>Physical Received Quantity:</span>
+                  <span className="font-mono font-bold text-slate-900">{totalActQty.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-rose-700">
+                  <span>Less Segregated Damages (QC):</span>
+                  <span className="font-mono font-bold">-{totalDamageQty.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-slate-200 font-bold text-emerald-800 bg-emerald-50/50 p-1 rounded">
+                  <span>Sound Accepted Stock:</span>
+                  <span className="font-mono font-extrabold text-xs">{totalSoundQty.toFixed(2)} units</span>
+                </div>
+              </div>
+
+              {/* Column 2: Vendor Invoice & GST ITC Audit */}
+              <div className="bg-slate-50/80 border border-slate-200 rounded p-2 space-y-1">
+                <div className="font-bold text-[10px] uppercase text-slate-700 border-b border-slate-200 pb-0.5 flex justify-between">
+                  <span>2. Vendor Invoice &amp; Tax Audit</span>
+                  <span className="font-mono text-slate-500">GSTR-2B Ready</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-slate-600">
+                  <span>Gross Invoiced Goods:</span>
+                  <span className="font-mono font-bold text-slate-900">₹{totalValue.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-slate-600">
+                  <span>Less Trade Discounts:</span>
+                  <span className="font-mono font-bold text-slate-700">-₹{totalDiscount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-slate-600">
+                  <span>GST Charged on Invoice:</span>
+                  <span className="font-mono font-bold text-slate-900">₹{totalTaxAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-rose-700">
+                  <span>Blocked ITC u/s 17(5)(h):</span>
+                  <span className="font-mono font-bold">-₹{totalDamageGst.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-slate-200 font-bold text-emerald-800 bg-emerald-50/50 p-1 rounded">
+                  <span>Net Eligible ITC (GSTR-2B):</span>
+                  <span className="font-mono font-extrabold text-xs">₹{eligibleTaxTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Column 3: Ind AS 2 Inventory Capitalization Control */}
+              <div className="bg-blue-50/50 border border-blue-200 rounded p-2 space-y-1">
+                <div className="font-bold text-[10px] uppercase text-[#00288e] border-b border-blue-200 pb-0.5 flex justify-between">
+                  <span>3. Ind AS 2 Capitalization Control</span>
+                  <span className="font-mono text-blue-600">Inventory Value</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-slate-600">
+                  <span>Accepted Goods Base Value:</span>
+                  <span className="font-mono font-bold text-slate-900">₹{totalAcceptedValue.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-[#00288e]">
+                  <span>+ Capitalized Freight &amp; Shipping:</span>
+                  <span className="font-mono font-semibold">+₹{(Number(landedCostBreakdown.freightCharges) || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-[#00288e]">
+                  <span>+ Labor, Hamali &amp; Handling:</span>
+                  <span className="font-mono font-semibold">+₹{(Number(landedCostBreakdown.laborHandlingCharges) || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-0.5 text-[#00288e]">
+                  <span>+ Insurance &amp; Non-Creditable Duty:</span>
+                  <span className="font-mono font-semibold">
+                    +₹{(
+                      (Number(landedCostBreakdown.insuranceCharges) || 0) +
+                      (Number(landedCostBreakdown.customsDutyBcd) || 0) +
+                      (Number(landedCostBreakdown.customsSws) || 0) +
+                      (Number(landedCostBreakdown.clearanceChaFees) || 0)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-blue-200 font-extrabold text-[#00288e] bg-blue-100/70 p-1 rounded">
+                  <span>Capitalized Warehouse Valuation:</span>
+                  <span className="font-mono text-xs">₹{totalInventoryValueWithLandedCost.toFixed(2)}</span>
+                </div>
+              </div>
+
+            </div>
           </div>
         </section>
 
@@ -2508,6 +2850,39 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       </div>
                     </div>
 
+                    {/* Allocation Basis Selector */}
+                    <div className="p-2 rounded-lg border border-blue-200 bg-blue-50/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-[#00288e]">Apportionment Basis:</span>
+                        <label className="flex items-center gap-1 text-[11px] font-semibold text-slate-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="tabAllocBasis"
+                            checked={landedCostBreakdown.allocationMethod === "VALUE"}
+                            onChange={() => setLandedCostBreakdown({ ...landedCostBreakdown, allocationMethod: "VALUE" })}
+                            className="text-[#00288e] focus:ring-0"
+                          />
+                          <span>Gross Value Weighted (Ind AS 2)</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[11px] font-semibold text-slate-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="tabAllocBasis"
+                            checked={landedCostBreakdown.allocationMethod === "QUANTITY"}
+                            onChange={() => setLandedCostBreakdown({ ...landedCostBreakdown, allocationMethod: "QUANTITY" })}
+                            className="text-[#00288e] focus:ring-0"
+                          />
+                          <span>Unit Quantity Weighted</span>
+                        </label>
+                      </div>
+                      <div className="text-[11px] text-slate-600 flex items-center gap-1">
+                        <Info size={12} className="text-blue-600 shrink-0" />
+                        <span>
+                          Apportioned strictly across <strong className="text-emerald-700">{totalSoundQty.toFixed(0)} sound accepted units</strong> ({totalDamageQty.toFixed(0)} damaged units excluded).
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100">
                       <div className="flex items-center gap-4 text-xs font-mono">
                         <div>
@@ -2624,44 +2999,104 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                           <FileText size={15} />
                         </div>
                         <div>
-                          <h4 className="font-bold text-xs text-rose-900 leading-tight">5. Supplier Debit Note (Rejection &amp; Rate Variance Claim)</h4>
-                          <p className="text-[10px] text-slate-500">Sec 17(5)(h) CGST Act — Blocked input tax credit and supplier chargeback</p>
+                          <h4 className="font-bold text-xs text-rose-900 leading-tight">
+                            5. Statutory Supplier Debit Note Preparation (CGST Sec 17(5)(h))
+                          </h4>
+                          <p className="text-[10px] text-slate-500">
+                            Automatic chargeback derivation from segregated damaged inward units &amp; mandatory ITC reversal
+                          </p>
                         </div>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                        Total Claim: ₹{totalDebitNoteValue.toFixed(2)}
+                        Total Chargeback Claim: ₹{totalDebitNoteValue.toFixed(2)}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
                       <div className="bg-rose-50/60 border border-rose-100 rounded-lg p-2.5">
-                        <span className="text-slate-500 text-[10px] block uppercase font-bold">Damaged Stock Value</span>
+                        <span className="text-slate-500 text-[10px] block uppercase font-bold">1. Damaged Stock Value</span>
                         <span className="text-base font-extrabold font-mono text-rose-700 block">₹{totalDamageValue.toFixed(2)}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">{totalDamageQty.toFixed(2)} damaged units</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{totalDamageQty.toFixed(2)} damaged units quarantined</span>
                       </div>
                       <div className="bg-rose-50/60 border border-rose-100 rounded-lg p-2.5">
-                        <span className="text-slate-500 text-[10px] block uppercase font-bold">Blocked GST u/s 17(5)(h)</span>
+                        <span className="text-slate-500 text-[10px] block uppercase font-bold">2. Blocked GST u/s 17(5)(h)</span>
                         <span className="text-base font-extrabold font-mono text-rose-700 block">₹{totalDamageGst.toFixed(2)}</span>
-                        <span className="text-[10px] text-slate-500">Non-claimable ITC reversed</span>
+                        <span className="text-[10px] text-slate-500">Non-claimable ITC reversed &amp; charged back</span>
                       </div>
                       <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-2.5">
-                        <span className="text-slate-500 text-[10px] block uppercase font-bold">Chargeback Supplier</span>
+                        <span className="text-slate-500 text-[10px] block uppercase font-bold">3. Chargeback Supplier</span>
                         <span className="text-xs font-bold text-slate-800 truncate block mt-0.5">{supplierName || supplierId || "Supplier Not Selected"}</span>
                         <span className="text-[10px] text-slate-500 font-mono">PO Ref: {selectedOrderId || "Direct Inward"}</span>
                       </div>
                       <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between">
-                        <span className="text-slate-500 text-[10px] uppercase font-bold">Issue Claim</span>
+                        <span className="text-slate-500 text-[10px] uppercase font-bold">Issue Claim Voucher</span>
                         <button
                           type="button"
                           onClick={() => {
                             if (onOpenDebitNote) onOpenDebitNote();
-                            else onNotification?.("Debit Note", `Debit Note generated for ₹${totalDebitNoteValue.toFixed(2)}.`, "success");
+                            else onNotification?.("Debit Note", `Debit Note voucher generated for ₹${totalDebitNoteValue.toFixed(2)}.`, "success");
                           }}
                           className="w-full py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-bold shadow-2xs flex items-center justify-center gap-1.5 transition"
                         >
                           <FileText size={12} />
                           <span>Generate Debit Note Slip</span>
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Damaged Line Items Breakdown Table */}
+                    <div className="border border-rose-200 rounded-lg overflow-hidden">
+                      <div className="bg-rose-50/80 px-2.5 py-1 border-b border-rose-200 flex items-center justify-between text-[11px] font-bold text-rose-900">
+                        <span>Damaged Inward SKU Chargeback Matrix</span>
+                        <span className="font-mono text-[10px]">{grnLines.filter((l) => (l.quantity_damaged || 0) > 0).length} Discrepant SKU(s)</span>
+                      </div>
+                      <div className="overflow-x-auto max-h-40">
+                        <table className="w-full text-left text-xs whitespace-nowrap">
+                          <thead className="bg-slate-50 text-[10px] font-bold text-slate-600 uppercase border-b border-slate-200">
+                            <tr>
+                              <th className="px-2 py-1">Stock No</th>
+                              <th className="px-2 py-1">Item Description</th>
+                              <th className="px-2 py-1 text-right">Received Qty</th>
+                              <th className="px-2 py-1 text-right text-rose-700 bg-rose-50/50">Damaged Qty</th>
+                              <th className="px-2 py-1 text-right">Unit Rate</th>
+                              <th className="px-2 py-1 text-right text-rose-700">Damage Value</th>
+                              <th className="px-2 py-1 text-right">GST Rate</th>
+                              <th className="px-2 py-1 text-right text-rose-700 font-bold">Blocked ITC</th>
+                              <th className="px-2 py-1 text-right text-rose-900 font-extrabold bg-rose-50/50">Total Debit Claim</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                            {grnLines.filter((l) => (l.quantity_damaged || 0) > 0).length === 0 ? (
+                              <tr>
+                                <td colSpan={9} className="px-3 py-4 text-center text-slate-400 font-sans text-xs">
+                                  No damaged goods reported for this GRN. All received units accepted.
+                                </td>
+                              </tr>
+                            ) : (
+                              grnLines
+                                .filter((l) => (l.quantity_damaged || 0) > 0)
+                                .map((line) => {
+                                  const rate = line.cost_price || line.invoice_rate || 0;
+                                  const dmgVal = (line.quantity_damaged || 0) * rate;
+                                  const blockedGst = (dmgVal * (line.gst_rate || 0)) / 100;
+                                  const claim = dmgVal + blockedGst;
+                                  return (
+                                    <tr key={line.rowId} className="hover:bg-rose-50/30">
+                                      <td className="px-2 py-1 font-bold text-slate-900">{line.code}</td>
+                                      <td className="px-2 py-1 font-sans text-slate-800">{line.name}</td>
+                                      <td className="px-2 py-1 text-right">{line.quantity_received.toFixed(2)}</td>
+                                      <td className="px-2 py-1 text-right font-bold text-rose-700 bg-rose-50/30">{line.quantity_damaged.toFixed(2)}</td>
+                                      <td className="px-2 py-1 text-right">₹{rate.toFixed(2)}</td>
+                                      <td className="px-2 py-1 text-right text-rose-700">₹{dmgVal.toFixed(2)}</td>
+                                      <td className="px-2 py-1 text-right">{line.gst_rate}%</td>
+                                      <td className="px-2 py-1 text-right font-bold text-rose-700">₹{blockedGst.toFixed(2)}</td>
+                                      <td className="px-2 py-1 text-right font-extrabold text-rose-900 bg-rose-50/30">₹{claim.toFixed(2)}</td>
+                                    </tr>
+                                  );
+                                })
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </div>
@@ -2675,8 +3110,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                           <FileSpreadsheet size={15} />
                         </div>
                         <div>
-                          <h4 className="font-bold text-xs text-slate-900 leading-tight">6. Document Notes, Delivery Instructions &amp; E-Way Bill Logistics</h4>
-                          <p className="text-[10px] text-slate-500">Consignment transport credentials, Rule 138 E-Way Bill validation and bay remarks</p>
+                          <h4 className="font-bold text-xs text-slate-900 leading-tight">6. Documents, Consignment Notes &amp; E-Way Bill Logistics</h4>
+                          <p className="text-[10px] text-slate-500">Consignment transport credentials, digital document repository and staging instructions</p>
                         </div>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-blue-50 text-[#00288e] border border-blue-200">
@@ -2769,6 +3204,91 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             />
                           </div>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Prominent Consignment Document Attachments Section */}
+                    <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60 space-y-2">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-800 text-[11px]">
+                          <Paperclip size={13} className="text-[#00288e]" />
+                          <span>Active Consignment Documents &amp; Scans ({attachments.length})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            ref={attachmentFileInputRef}
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const newAtt = {
+                                  id: `att-${Date.now()}`,
+                                  name: file.name,
+                                  type: (file.name.toLowerCase().includes("invoice") ? "VENDOR_INVOICE" : "OTHER") as any,
+                                  size: `${(file.size / 1024).toFixed(1)} KB`,
+                                  uploadDate: new Date().toISOString().split("T")[0],
+                                };
+                                setAttachments((prev) => [...prev, newAtt]);
+                                onNotification?.("Document Attached", `Attached ${file.name} to GRN.`, "success");
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => attachmentFileInputRef.current?.click()}
+                            className="px-2.5 h-6 bg-[#00288e] hover:bg-[#1e40af] text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition"
+                          >
+                            <Upload size={11} />
+                            <span>+ Attach Consignment Document</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                        {attachments.map((att) => (
+                          <div
+                            key={att.id}
+                            className="bg-white border border-slate-200 rounded-lg p-2 flex items-center justify-between shadow-2xs hover:border-[#00288e] transition"
+                          >
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <div className="p-1 rounded bg-blue-50 text-[#00288e] shrink-0">
+                                <FileText size={14} />
+                              </div>
+                              <div className="overflow-hidden">
+                                <span className="block font-semibold text-[11px] text-slate-900 truncate" title={att.name}>
+                                  {att.name}
+                                </span>
+                                <div className="flex items-center gap-1 text-[9px] text-slate-400">
+                                  <span>{att.size}</span>
+                                  <span>•</span>
+                                  <span>{att.uploadDate}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 ml-1">
+                              <button
+                                type="button"
+                                onClick={() => onNotification?.("Document Download", `Downloading ${att.name}...`, "info")}
+                                className="p-1 text-slate-400 hover:text-[#00288e] rounded transition"
+                                title="Download Document"
+                              >
+                                <Download size={11} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAttachments((prev) => prev.filter((a) => a.id !== att.id));
+                                  onNotification?.("Document Removed", `Removed ${att.name}.`, "info");
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                                title="Remove Document"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -3512,32 +4032,45 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               </div>
 
               {/* Allocation Basis Selector */}
-              <div className="p-2.5 rounded-lg border border-blue-200 bg-blue-50/50 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-[#00288e] text-xs">Apportionment Basis</span>
-                  <p className="text-[10px] text-slate-600">Select how addons are mathematically spread across inward items:</p>
+              <div className="p-2.5 rounded-lg border border-blue-200 bg-blue-50/50 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-[#00288e] text-xs">Apportionment Basis</span>
+                    <p className="text-[10px] text-slate-600">Select how addons are mathematically spread across inward items:</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1 text-[11px] font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="allocBasis"
+                        checked={landedCostBreakdown.allocationMethod === "VALUE"}
+                        onChange={() => setLandedCostBreakdown({ ...landedCostBreakdown, allocationMethod: "VALUE" })}
+                        className="text-[#00288e] focus:ring-0"
+                      />
+                      <span>Gross Value Weighted (Ind AS 2 Pro-Rata)</span>
+                    </label>
+                    <label className="flex items-center gap-1 text-[11px] font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="allocBasis"
+                        checked={landedCostBreakdown.allocationMethod === "QUANTITY"}
+                        onChange={() => setLandedCostBreakdown({ ...landedCostBreakdown, allocationMethod: "QUANTITY" })}
+                        className="text-[#00288e] focus:ring-0"
+                      />
+                      <span>Unit Quantity Weighted</span>
+                    </label>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1 text-[11px] font-semibold text-slate-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="allocBasis"
-                      checked={landedCostBreakdown.allocationMethod === "VALUE"}
-                      onChange={() => setLandedCostBreakdown({ ...landedCostBreakdown, allocationMethod: "VALUE" })}
-                      className="text-[#00288e] focus:ring-0"
-                    />
-                    <span>Gross Value Weighted (Ind AS 2 Pro-Rata)</span>
-                  </label>
-                  <label className="flex items-center gap-1 text-[11px] font-semibold text-slate-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="allocBasis"
-                      checked={landedCostBreakdown.allocationMethod === "QUANTITY"}
-                      onChange={() => setLandedCostBreakdown({ ...landedCostBreakdown, allocationMethod: "QUANTITY" })}
-                      className="text-[#00288e] focus:ring-0"
-                    />
-                    <span>Unit Quantity Weighted</span>
-                  </label>
+                <div className="pt-1.5 border-t border-blue-200/60 flex items-center justify-between text-[11px] text-slate-600">
+                  <span className="flex items-center gap-1">
+                    <Info size={13} className="text-blue-600 shrink-0" />
+                    <span>
+                      Apportioned strictly across <strong className="text-emerald-700">{totalSoundQty.toFixed(0)} sound accepted units</strong> ({totalDamageQty.toFixed(0)} damaged units excluded per Ind AS 2 &amp; CGST Sec 17(5)(h)).
+                    </span>
+                  </span>
+                  <span className="font-mono text-[10px] font-semibold text-[#00288e] bg-white px-2 py-0.5 rounded border border-blue-200">
+                    {landedCostBreakdown.allocationMethod === "VALUE" ? `Basis: ₹${totalAcceptedValue.toFixed(2)} Accepted Val` : `Basis: ${totalSoundQty.toFixed(0)} Sound Units`}
+                  </span>
                 </div>
               </div>
 
