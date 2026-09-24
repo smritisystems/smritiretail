@@ -2977,7 +2977,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
 
       {/* View 0: High-Speed Goods Receipt Desktop Terminal (Shoper 9 Parity) */}
       {subView === "create" && workspaceMode === "desktop" && (
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           <GrnDesktopTerminal
             orders={orders}
             selectedOrderId={selectedOrderId}

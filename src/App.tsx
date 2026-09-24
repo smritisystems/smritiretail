@@ -584,7 +584,11 @@ const AppContent: React.FC = () => {
       {/* Authoritative Single Application Workspace Canvas */}
       <div className="flex-1 flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden relative">
         <DrillDownBreadcrumbs />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 min-w-0 max-w-full relative">
+        <div className={`flex-1 min-w-0 max-w-full relative ${
+          activeTab === "grn-studio" || activeTab === "billing-workspace" || activeTab === "pos" || activeTab === "grn"
+            ? "p-0 overflow-hidden"
+            : "overflow-y-auto overflow-x-hidden p-3"
+        }`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
