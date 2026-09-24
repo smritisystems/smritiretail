@@ -23,7 +23,6 @@ from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Branch, Company
 from app.models.crm import Customer, CustomerDeliveryLocation
-from app.models.inventory import Store
 from app.models.staff_placement import StaffPlacementAssignment
 from app.tests.conftest import clear_db
 
@@ -439,23 +438,16 @@ async def test_partner_staff_placement_validates_store_code_and_approval(db_sess
 
 
 @pytest.mark.asyncio
-async def test_internal_staff_placement_uses_target_branch_and_store_scope(db_session):
+async def test_internal_staff_placement_uses_target_branch_scope(db_session):
     suffix = uuid.uuid4().hex[:6]
     company, home_branch = await _make_tenant(db_session, suffix)
     target_branch = Branch(
         id=f"br-target-{suffix}", company_id=company.id,
         name="Target Branch", code=f"BR-TARGET-{suffix}", is_active=True,
     )
-    store = Store(
-        id=f"store-target-{suffix}", company_id=company.id,
-        branch_id=target_branch.id, code=f"ST-{suffix}", name="Target Store",
-        is_active=True,
-    )
     manager = await _make_user(db_session, f"manager-{suffix}", company.id, home_branch.id, UserRole.MANAGER)
     staff = await _make_user(db_session, f"staff-{suffix}", company.id, home_branch.id, UserRole.CASHIER)
     db_session.add(target_branch)
-    await db_session.flush()
-    db_session.add(store)
     await db_session.commit()
     _set_tenant(db_session, company.id, home_branch.id)
     headers = _bearer(manager, company.id, home_branch.id)
@@ -467,7 +459,6 @@ async def test_internal_staff_placement_uses_target_branch_and_store_scope(db_se
             json={
                 "placement_type": "INTERNAL_BRANCH",
                 "internal_branch_id": target_branch.id,
-                "internal_store_id": store.id,
                 "role_at_location": "Sales Executive",
                 "effective_from": "2026-09-12",
             },
@@ -477,30 +468,24 @@ async def test_internal_staff_placement_uses_target_branch_and_store_scope(db_se
 
     assert options.status_code == 200
     assert any(item["code"] == target_branch.code for item in options.json()["branches"])
-    assert any(item["code"] == store.code and item["branch_id"] == target_branch.id for item in options.json()["stores"])
     assert created.status_code == 201
     assert created.json()["branch_id"] == target_branch.id
     assert listed.status_code == 200
-    assert listed.json()["placements"][0]["internal_store_code"] == store.code
-    assert listed.json()["placements"][0]["internal_store_name"] == store.name
+    assert listed.json()["placements"][0]["internal_branch_code"] == target_branch.code
 
 
 @pytest.mark.asyncio
-async def test_internal_staff_placement_rejects_store_under_wrong_branch(db_session):
+async def test_internal_staff_placement_rejects_missing_branch(db_session):
     suffix = uuid.uuid4().hex[:6]
     company, home_branch = await _make_tenant(db_session, suffix)
-    target_branch = Branch(id=f"br-target-{suffix}", company_id=company.id, name="Target", code=f"TARGET-{suffix}", is_active=True)
-    wrong_store = Store(id=f"store-wrong-{suffix}", company_id=company.id, branch_id=home_branch.id, code=f"WRONG-{suffix}", name="Wrong Branch Store", is_active=True)
     manager = await _make_user(db_session, f"manager-{suffix}", company.id, home_branch.id, UserRole.MANAGER)
     staff = await _make_user(db_session, f"staff-{suffix}", company.id, home_branch.id, UserRole.CASHIER)
-    db_session.add_all([target_branch, wrong_store])
-    await db_session.commit()
     _set_tenant(db_session, company.id, home_branch.id)
 
     async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
         response = await client.post(
             f"/api/v1/staff/users/{staff.id}/placements",
-            json={"placement_type": "INTERNAL_BRANCH", "internal_branch_id": target_branch.id, "internal_store_id": wrong_store.id, "effective_from": "2026-09-12"},
+            json={"placement_type": "INTERNAL_BRANCH", "internal_branch_id": f"nonexistent-{suffix}", "effective_from": "2026-09-12"},
             headers=_bearer(manager, company.id, home_branch.id),
         )
 

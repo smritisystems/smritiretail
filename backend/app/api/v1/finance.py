@@ -21,13 +21,13 @@ Shoper9 EXE refs: SR203100, SR210600, SR212700, SR212900, SR234400,
                   SR203300, SR203200, SR242900.
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, text
 
 from ...api.deps import get_company_db, get_tenant_context, get_current_user, TenantContext
 from ...models.sales import SalesInvoice
