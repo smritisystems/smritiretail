@@ -148,6 +148,8 @@ async def db_exception_handler(request: Request, exc: SQLAlchemyError):
 
 
 async def generic_exception_handler(request: Request, exc: Exception):
+    from app.core.logging import logger
+    logger.error("[SMRITI UNCAUGHT EXCEPTION] %s: %s", type(exc).__name__, repr(exc), exc_info=True)
     res = build_error_response(
         error_code="SMRITI-SYS-001",
         custom_explanation="An internal server error occurred while processing the request.",

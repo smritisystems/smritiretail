@@ -132,6 +132,7 @@ export const mapModuleId = (id: string): string => {
     pos: "billing-workspace",
     "menu-pos": "billing-workspace",
     "menu-billing": "billing-workspace",
+    "menu-desktop-billing": "billing-workspace",
     "create-tax-invoice": "billing-workspace",
     "dist-invoice": "billing-workspace",
     "tax-invoice": "billing-workspace",

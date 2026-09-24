@@ -201,6 +201,7 @@ def seed_control_plane_test_assignments():
             ("menu-about-smriti", "About SMRITI Retail OS", "/about-smriti", "System & Knowledge Base", None, 40, "ABOUT.ACCESS"),
             ("menu-dev-tracker", "Dev Intelligence Center", "/dev-tracker", "System & Knowledge Base", None, 50, "SYSTEM.DEV"),
             ("menu-pos", "Billing Desk (Universal POS)", "/pos", "Sales & POS", None, 60, "POS.WORKSPACE.ACCESS"),
+            ("menu-desktop-billing", "Desktop Billing Terminal", "/billing", "Sales & POS", "menu-pos", 65, "POS.WORKSPACE.ACCESS"),
             ("menu-sales", "Sales Studio & Ledger", "/sales", "Sales & POS", "menu-pos", 70, "SALES.WORKSPACE.ACCESS"),
             ("menu-customer-master", "Customer Master Directory", "/customer-master", "Sales & POS", "menu-pos", 80, "CUSTOMER.WORKSPACE.ACCESS"),
             ("menu-crm", "CRM & Engagement Studio", "/crm", "Sales & POS", "menu-pos", 90, "CRM.WORKSPACE.ACCESS"),
