@@ -81,12 +81,30 @@ Resolve frontend console errors and network failures occurring during operator s
    - `GET http://localhost:8101/api/v1/master/articles?q=chappal&page_size=5` -> HTTP 200 OK (Footwear articles matched).
    - `GET http://localhost:8101/api/v1/purchase/orders/` -> HTTP 200 OK (27 orders).
    - `GET http://localhost:8101/api/v1/purchase/orders/?page=1&page_size=2&sort=created_at&order=desc` -> HTTP 200 OK (2 orders).
-   - Master entity audit: `/api/v1/master/brands` (15 items), `/api/v1/master/colors` (24 items), `/api/v1/master/sizes` (8 items), `/api/v1/master/categories` (20 items), `/api/v1/master/departments` (5 items).
-2. **Vitest Test Suite:**
-   - 153/153 test files executed.
-   - 1057/1057 unit and integration tests passed.
-3. **TypeScript Compilation:**
-   - `npm run lint` / `tsc --noEmit` exited with status code 0.
+8. **Full 22/22 F2 Universal Lookup Spectrum Verification (Admin Session):**
+   - All 22 authoritative entities in `LOOKUP_REGISTRY` verified returning HTTP 200 OK:
+     - `variant`: `GET /api/v1/variants` -> HTTP 200 (1,426 rows)
+     - `customer`: `GET /api/v1/crm/customers` -> HTTP 200 (100 rows)
+     - `supplier`: `GET /api/v1/suppliers` -> HTTP 200 (41 rows)
+     - `item`: `GET /api/v1/items` -> HTTP 200 (200 rows)
+     - `item_barcode`: `GET /api/v1/item-barcodes` -> HTTP 200
+     - `article`: `GET /api/v1/master/articles` -> HTTP 200 (500 rows, footwear articles verified)
+     - `color`: `GET /api/v1/master/colors` -> HTTP 200 (24 rows)
+     - `size`: `GET /api/v1/master/sizes` -> HTTP 200 (8 rows)
+     - `brand`: `GET /api/v1/master/brands` -> HTTP 200 (15 rows)
+     - `department`: `GET /api/v1/master/departments` -> HTTP 200 (5 rows)
+     - `section`: `GET /api/v1/master/sections` -> HTTP 200
+     - `fabric`: `GET /api/v1/master/fabrics` -> HTTP 200
+     - `fit`: `GET /api/v1/master/fits` -> HTTP 200
+     - `season`: `GET /api/v1/master/seasons` -> HTTP 200
+     - `category`: `GET /api/v1/master/categories` -> HTTP 200 (20 rows)
+     - `uom`: `GET /api/v1/uom` -> HTTP 200 (PRS, PCS, BOX, SET, KGS, MTR, DOZ)
+     - `store`: `GET /api/v1/stores` -> HTTP 200
+     - `hsn`: `GET /api/v1/hsn-codes` -> HTTP 200 (64041990, 61091000, etc.)
+     - `staff`: `GET /api/v1/staff` -> HTTP 200 (9 staff members)
+     - `scheme`: `GET /api/v1/schemes` -> HTTP 200
+     - `terms`: `GET /api/v1/terms` -> HTTP 200 (NET30, NET15, COD, etc.)
+     - `classification`: `GET /api/v1/master/classifications` -> HTTP 200
 
 ## 9. Verification Results
 | Verification Item | Command / Check | Result | Status |
@@ -95,6 +113,8 @@ Resolve frontend console errors and network failures occurring during operator s
 | Master Articles Endpoint | `GET /api/v1/master/articles?page_size=200` | HTTP 200 OK (200 records returned, 500 total) | Done |
 | Footwear Search | `GET /api/v1/master/articles?q=chappal&page_size=5` | HTTP 200 OK (`CH-25-G`, `CH-07-B`, etc.) | Done |
 | Purchase Orders Listing | `GET /api/v1/purchase/orders/` | HTTP 200 OK (27 orders returned) | Done |
+| Sales Staff Endpoint | `GET /api/v1/staff` | HTTP 200 OK (9 staff users returned) | Done |
+| 22/22 F2 Lookup Coverage | Python REST automated verification | 22/22 entities passed (HTTP 200) | Done |
 | Unit Test Regression | `npm run test` (vitest run) | 153/153 files passed, 1057/1057 tests green | Done |
 | TypeScript Type Safety | `npm run lint` (`tsc --noEmit`) | 0 errors, exit 0 | Done |
 
