@@ -79,7 +79,9 @@ import {
   Vault,
   Lock,
   MoreVertical,
-  Eye
+  Eye,
+  Truck,
+  UserPlus
 } from "lucide-react";
 import type { CustomerBillingLocationDTO, CustomerDeliveryLocationDTO } from "../types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
@@ -602,6 +604,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [activeSearchField, setActiveSearchField] = useState<"stockNo" | "barcode">("stockNo");
   const [selectedProductMeta, setSelectedProductMeta] = useState<AutoPopulateProductResult | null>(null);
 
+  // Document Remarks & Delivery Instructions State (Desktop POS Parity)
+  const [documentRemarks, setDocumentRemarks] = useState<string>("");
+  const [deliveryInstructions, setDeliveryInstructions] = useState<string>("");
+  const [showItemTagsModal, setShowItemTagsModal] = useState<boolean>(false);
+  const [showDeliveryModal, setShowDeliveryModal] = useState<boolean>(false);
+
   const directStockNoRef = useRef<HTMLInputElement | null>(null);
   const directBarcodeRef = useRef<HTMLInputElement | null>(null);
   const directQtyRef = useRef<HTMLInputElement | null>(null);
@@ -1044,6 +1052,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     setCustomerDeliveryLocations([]);
     setSelectedBillingLocationId("");
     setSelectedDeliveryLocationId("");
+    setDocumentRemarks("");
+    setDeliveryInstructions("");
     setDirectStockNo("");
     setDirectDescription("");
     setDirectQty("1.00");
@@ -1660,6 +1670,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           grand_total: netPayableAmount,
           customer_id: (customer.id === "cust-01" || customer.code === "C01" || !customer.id) ? undefined : customer.id,
           customer_name: customer.name,
+          remarks: documentRemarks || undefined,
+          delivery_instructions: deliveryInstructions || undefined,
           billing_location_id: selectedBillingLocation?.id,
           billing_store_code: selectedBillingLocation?.billing_store_code,
           billing_address: selectedBillingLocation ? formatBillingAddress(selectedBillingLocation) : undefined,
@@ -1776,6 +1788,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         setShowCashMovementsModal(false);
         setShowShiftCloseModal(false);
         setShowOverflowMenu(false);
+        setShowDeliveryModal(false);
+        setShowItemTagsModal(false);
         return;
       }
 
@@ -1932,17 +1946,17 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       
       {/* ========================================================================= */}
       {/* 0. POS ACTIVITIES TOOLBAR RIBBON (Alt+1, Alt+2, Alt+3, Alt+5, Alt+6, etc.) */}
+      {/* ===========================================      {/* ========================================================================= */}
+      {/* 0. POS ACTIVITIES TOOLBAR & SUB-BAR (Alt+1..6, F9, F7, F10, Alt+H)        */}
       {/* ========================================================================= */}
-      <div className={`bg-[#edeae1] dark:bg-[#131b2e] px-4 py-1.5 border-b border-[#c4c5d5] dark:border-[#444653] flex flex-wrap items-center justify-between gap-2 shrink-0 ${showOverflowMenu ? "pb-32" : ""}`}>
+      <div className="bg-[#edeae1] dark:bg-[#131b2e] px-3 py-1.5 border-b border-[#c4c5d5] dark:border-[#444653] flex flex-wrap items-center justify-between gap-2 shrink-0">
         
-        {/* Left: Standard POS Activities Buttons */}
+        {/* Left: Standard Desktop POS Action Buttons */}
         <div className="flex items-center gap-1.5">
-          
-          {/* Alt+1: New Bill */}
           <button
             type="button"
             onClick={handleNewBill}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs border ${
+            className={`px-2.5 py-1 rounded text-xs font-bold transition flex items-center gap-1.5 shadow-2xs border ${
               activeActivity === "BILLING"
                 ? "bg-[#00288e] text-white border-[#00288e]"
                 : "bg-white dark:bg-[#2d3133] border-[#c4c5d5] text-[#191c1d] dark:text-white hover:bg-[#f3f4f5]"
@@ -1950,23 +1964,159 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             title="Create a new bill [Alt+1]"
           >
             <FilePlus size={13} />
-            <span>New Bill</span>
+            <span>New</span>
             <kbd className="text-[10px] opacity-80 font-mono">[Alt+1]</kbd>
           </button>
 
-          {/* Alt+2: Void / Cancel */}
           <button
             type="button"
             onClick={() => setShowCancelModal(true)}
-            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#ba1a1a]/40 text-[#ba1a1a] hover:bg-[#ffdad6]/50 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#ba1a1a]/40 text-[#ba1a1a] hover:bg-[#ffdad6]/50 rounded text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
             title="Void / cancel a bill [Alt+2]"
           >
             <ShieldAlert size={13} />
-            <span>Cancel Bill</span>
+            <span>Void</span>
             <kbd className="text-[10px] opacity-80 font-mono">[Alt+2]</kbd>
           </button>
 
-          {/* F12: Park & Recall with 4-Hour Auto-Expiration */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveActivity("RETURN");
+              setShowReturnModal(true);
+            }}
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Record sales return with reference [Alt+3]"
+          >
+            <RotateCcw size={13} />
+            <span>Return</span>
+            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+3]</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveActivity("RETURN_BLIND");
+              setShowReturnModal(true);
+            }}
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Record sales return without reference [Alt+5]"
+          >
+            <RotateCcw size={13} />
+            <span>Rtn.W/o ref.</span>
+            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+5]</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowReprintModal(true)}
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            title="Reprint a bill or sales return document [Alt+6]"
+          >
+            <Printer size={13} />
+            <span>Reprint</span>
+            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+6]</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowDefinePrefixModal(true)}
+            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded text-xs font-bold transition flex items-center gap-1 shadow-2xs text-[#444653] dark:text-[#bec6e0]"
+            title="Alter Bill Series Prefix (Setup > General > Bill Prefix)"
+          >
+            <span>Alter Prefix</span>
+          </button>
+        </div>
+
+        {/* Right: Date Time Stamp & Primary Settlement Actions */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono font-semibold text-[#565e74] dark:text-[#bec6e0] px-2 py-0.5 bg-white/70 dark:bg-[#191c1e] rounded border border-[#c4c5d5] dark:border-[#444653]">
+            {currentDateTime}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setShowTotalsPanel(prev => !prev)}
+            className={`px-2.5 py-1 rounded text-xs font-bold transition flex items-center gap-1 shadow-2xs border ${
+              showTotalsPanel
+                ? "bg-[#dde1ff] text-[#00288e] border-[#00288e]"
+                : "bg-white dark:bg-[#2d3133] border-[#c4c5d5] text-[#565e74]"
+            }`}
+            title="Toggle Bill Totals Summary [F9]"
+          >
+            <Calculator size={13} />
+            <span>Total</span>
+            <kbd className="text-[10px] font-mono">[F9]</kbd>
+          </button>
+
+          <button
+            type="button"
+            disabled={cartItems.length === 0}
+            onClick={() => {
+              handleSettlementSuccess({
+                cash: netPayableAmount,
+                card: 0,
+                upi: 0,
+                credit: 0,
+                giftVoucher: 0,
+                loyaltyPointsRedeemed: 0,
+                loyaltyAmount: 0,
+                creditNote: 0
+              }, 0);
+            }}
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-bold transition flex items-center gap-1 shadow-2xs disabled:opacity-40"
+            title="Instant Exact Cash Settlement [F7]"
+          >
+            <span>Exact Cash</span>
+            <kbd className="text-[10px] font-mono opacity-80">[F7]</kbd>
+          </button>
+
+          <button
+            type="button"
+            disabled={cartItems.length === 0}
+            onClick={() => setShowSettlementModal(true)}
+            className="px-3 py-1 bg-[#00288e] hover:bg-[#1e40af] text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-2xs disabled:opacity-40"
+            title="Open Settlement Tender Dialog [F10]"
+          >
+            <span>Settlement</span>
+            <kbd className="text-[10px] font-mono opacity-80">[F10]</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowHotkeysModal(true)}
+            className="px-2 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] text-[#565e74] dark:text-[#bec6e0] rounded text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+            title="List Hotkeys Reference [Alt+H]"
+          >
+            <HelpCircle size={13} />
+            <span>List Hotkeys</span>
+          </button>
+        </div>
+
+      </div>
+
+      {/* Sub-Header Ribbon: Mode Title & Quick Utilities */}
+      <div className="bg-[#465a7e] dark:bg-[#1a233b] text-white px-3 py-1 flex items-center justify-between text-xs font-bold shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="uppercase tracking-wider">Billing</span>
+          {activeActivity !== "BILLING" && (
+            <span className="bg-amber-400 text-black px-1.5 py-0.2 rounded text-[10px]">
+              MODE: {activeActivity}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCsvImportModal(true)}
+            className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-[11px] font-bold flex items-center gap-1 transition"
+            title="Import from Barcode Scanner or CSV [Alt+I]"
+          >
+            <FileSpreadsheet size={12} />
+            <span>Import</span>
+            <kbd className="text-[9px] font-mono opacity-70">[Alt+I]</kbd>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -1976,241 +2126,69 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 setShowRecallModal(true);
               }
             }}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs border ${
-              suspendedBills.length > 0
-                ? "bg-amber-100 dark:bg-amber-900/40 text-amber-950 dark:text-amber-200 border-amber-400"
-                : "bg-white dark:bg-[#2d3133] border-[#c4c5d5] text-[#191c1d] dark:text-white hover:bg-[#f3f4f5]"
+            className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition ${
+              suspendedBills.length > 0 ? "bg-amber-400 text-black" : "bg-white/10 hover:bg-white/20"
             }`}
-            title="Park Active Bill or Recall Suspended Bill with 4-Hour Expiration [F12]"
+            title="Park or Recall Suspended Bill [F12]"
           >
-            <History size={13} />
-            <span>Park / Recall</span>
-            {suspendedBills.length > 0 && (
-              <span className="px-1.5 py-0.2 bg-amber-600 text-white rounded-full text-[10px] font-mono font-bold">
-                {suspendedBills.length}
-              </span>
-            )}
-            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e] dark:text-amber-300">[F12]</kbd>
+            <History size={12} />
+            <span>Recall ({suspendedBills.length})</span>
+            <kbd className="text-[9px] font-mono opacity-70">[F12]</kbd>
           </button>
 
-          {/* Alt+3: Sales Return with Ref */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveActivity("RETURN");
-              setShowReturnModal(true);
-            }}
-            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-            title="Record sales return with reference [Alt+3]"
-          >
-            <RotateCcw size={13} />
-            <span>Return (Ref)</span>
-            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+3]</kbd>
-          </button>
-
-          {/* Alt+5: Return without Ref */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveActivity("RETURN_BLIND");
-              setShowReturnModal(true);
-            }}
-            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-            title="Record sales return without reference [Alt+5]"
-          >
-            <RotateCcw size={13} />
-            <span>Return w/o Ref</span>
-            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+5]</kbd>
-          </button>
-
-          {/* Alt+6: Reprint Document */}
-          <button
-            type="button"
-            onClick={() => setShowReprintModal(true)}
-            className="px-2.5 py-1 bg-white dark:bg-[#2d3133] border border-[#c4c5d5] hover:bg-[#f3f4f5] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-            title="Reprint a bill or sales return document [Alt+6]"
-          >
-            <Printer size={13} />
-            <span>Reprint</span>
-            <kbd className="text-[10px] opacity-80 font-mono text-[#00288e]">[Alt+6]</kbd>
-          </button>
-
-          {/* Alt+D: Cash Movements (Safe Drop & Till Expense) */}
           <button
             type="button"
             onClick={() => setShowCashMovementsModal(true)}
-            className="px-2.5 py-1 bg-[#f0fdf4] dark:bg-[#14532d]/40 border border-[#86efac] text-[#166534] dark:text-[#86efac] hover:bg-[#dcfce7] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-            title="Mid-shift Cash Drop to Safe or Petty Till Expense Disbursal [Alt+D]"
+            className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-[11px] font-bold flex items-center gap-1 transition"
+            title="Mid-shift Cash Movements [Alt+D]"
           >
-            <Vault size={13} />
-            <span>Cash Movements</span>
-            <kbd className="text-[10px] opacity-80 font-mono text-[#166534] dark:text-[#86efac]">[Alt+D]</kbd>
+            <Vault size={12} />
+            <span>Cash Move</span>
+            <kbd className="text-[9px] font-mono opacity-70">[Alt+D]</kbd>
           </button>
 
-          {/* Alt+Z: Shift Close & Z-Report Reconciliation */}
           <button
             type="button"
             onClick={() => setShowShiftCloseModal(true)}
-            className="px-2.5 py-1 bg-[#fef2f2] dark:bg-[#7f1d1d]/40 border border-[#fca5a5] text-[#991b1b] dark:text-[#fca5a5] hover:bg-[#fee2e2] rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-            title="Perform Physical Denomination Count & Finalize Shift Closeout [Alt+Z]"
+            className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-[11px] font-bold flex items-center gap-1 transition"
+            title="Perform Shift Close & Z-Report [Alt+Z]"
           >
-            <Lock size={13} />
+            <Lock size={12} />
             <span>Shift Close</span>
-            <kbd className="text-[10px] opacity-80 font-mono text-[#991b1b] dark:text-[#fca5a5]">[Alt+Z]</kbd>
+            <kbd className="text-[9px] font-mono opacity-70">[Alt+Z]</kbd>
           </button>
-
-          {/* Canonical Tax Mode Pill (Default Exclusive per TT2026-2027/138) */}
-          <button
-            type="button"
-            onClick={() => {
-              const nextMode = taxMode === "exclusive" ? "inclusive" : "exclusive";
-              setTaxMode(nextMode);
-              onNotification?.(
-                "Tax Mode Switched",
-                nextMode === "exclusive"
-                  ? "Tax Mode: Exclusive (Discounted MRP + GST on top) — Canonical TT2026-2027/138 standard."
-                  : "Tax Mode: Inclusive (MRP Gross).",
-                "info"
-              );
-            }}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs border cursor-pointer ${
-              taxMode === "exclusive"
-                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700"
-                : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700"
-            }`}
-            title="Toggle Tax Calculation Mode: Exclusive (MRP + GST) [Default per TT2026-2027/138] vs Inclusive (MRP Gross)"
-          >
-            <span className={`w-2 h-2 rounded-full ${taxMode === "exclusive" ? "bg-amber-500" : "bg-emerald-500"}`}></span>
-            <span>{taxMode === "exclusive" ? "Tax: Exclusive (Base+GST) [Default]" : "Tax: Inclusive (MRP Gross)"}</span>
-          </button>
-
-          <div ref={overflowMenuRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setShowOverflowMenu(prev => !prev)}
-              aria-label="More POS actions"
-              aria-haspopup="menu"
-              aria-expanded={showOverflowMenu}
-              className="h-8 w-8 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] transition flex items-center justify-center shadow-2xs"
-              title="More POS actions"
-            >
-              <MoreVertical size={15} />
-            </button>
-
-            {showOverflowMenu && (
-              <div
-                role="menu"
-                aria-label="More POS actions"
-                className="absolute top-full right-0 mt-1 z-40 w-44 rounded-lg border border-[#c4c5d5] dark:border-[#444653] bg-white dark:bg-[#191c1e] p-1 shadow-xl"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setShowCsvImportModal(true);
-                    setShowOverflowMenu(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3"
-                >
-                  <span className="flex items-center gap-2"><FileSpreadsheet size={13} />CSV Import</span>
-                  <kbd className="text-[10px] font-mono opacity-70">Alt+I</kbd>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setShowRecallModal(true);
-                    setShowOverflowMenu(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3"
-                >
-                  <span className="flex items-center gap-2"><History size={13} />Recall ({suspendedBills.length})</span>
-                  <kbd className="text-[10px] font-mono opacity-70">Alt+R</kbd>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={cartItems.length === 0}
-                  onClick={() => {
-                    handleHoldBill();
-                    setShowOverflowMenu(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-md text-left text-xs font-bold hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] flex items-center justify-between gap-3 disabled:opacity-40"
-                >
-                  <span className="flex items-center gap-2"><Pause size={13} />Hold</span>
-                  <kbd className="text-[10px] font-mono opacity-70">Alt+S</kbd>
-                </button>
-              </div>
-            )}
-          </div>
-
         </div>
-
-        {/* Right: Totals Toggle (F9) and Hotkeys Reference (Alt+H) */}
-        <div className="flex items-center gap-1.5">
-          
-          <button
-            type="button"
-            onClick={() => setShowTotalsPanel(!showTotalsPanel)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs border ${
-              showTotalsPanel
-                ? "bg-[#dde1ff] text-[#00288e] border-[#00288e]"
-                : "bg-white dark:bg-[#2d3133] border-[#c4c5d5] text-[#565e74]"
-            }`}
-            title="Display total values in bill [F9]"
-          >
-            <Calculator size={13} />
-            <span>Bill Totals</span>
-            <kbd className="text-[10px] font-mono">[F9]</kbd>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowHotkeysModal(true)}
-            className="px-2.5 py-1 bg-[#00288e] text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs hover:bg-[#1e40af]"
-            title="Display list of hot keys [Alt+H]"
-          >
-            <HelpCircle size={13} />
-            <span>Hot Keys</span>
-            <kbd className="text-[10px] font-mono opacity-80">[Alt+H]</kbd>
-          </button>
-
-        </div>
-
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. HEADER GROUP: Bill Type, Tx Type, Doc Prefix, Customer, Staff, CSV    */}
+      {/* 1. HEADER GROUP: Bill Type, Tx Type, Doc Prefix, Customer, Staff (Clean)  */}
       {/* ========================================================================= */}
-      <section className="bg-white dark:bg-[#131b2e] px-5 py-2.5 border-b border-[#c4c5d5] dark:border-[#444653] shrink-0 flex flex-wrap gap-3 items-end shadow-xs">
+      <section className="bg-white dark:bg-[#131b2e] px-4 py-2 border-b border-[#c4c5d5] dark:border-[#444653] shrink-0 flex flex-wrap gap-3 items-center shadow-2xs text-xs">
         
-        {/* Bill Type (Product / Service) */}
-        <div className="flex flex-col gap-1 w-28">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+        {/* Bill Type */}
+        <div className="flex items-center gap-1.5">
+          <label className="font-bold text-[#444653] dark:text-[#bec6e0] whitespace-nowrap">
             Bill Type
           </label>
           <select
             value={billType}
             onChange={e => setBillType(e.target.value as any)}
-            className="border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-white outline-none focus:border-[#00288e]"
+            className="border border-[#c4c5d5] dark:border-[#444653] rounded px-2 h-7 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
           >
             <option value="Product">Product</option>
             <option value="Service">Service</option>
           </select>
         </div>
 
-        {/* Transaction Type (Cash / Credit) */}
-        <div className="flex flex-col gap-1 w-24">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
-            Tx Type
-          </label>
+        {/* Transaction Type */}
+        <div className="flex items-center gap-1.5">
           <select
             value={transactionType}
             onChange={e => setTransactionType(e.target.value as any)}
-            className={`border rounded-lg px-2 h-8 text-xs font-bold outline-none ${
+            className={`border rounded px-2 h-7 text-xs font-bold outline-none ${
               transactionType === "Credit"
                 ? "bg-[#dde1ff] text-[#00288e] border-[#00288e]"
-                : "bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-white border-[#c4c5d5]"
+                : "bg-blue-600 text-white border-blue-700"
             }`}
           >
             <option value="Cash">Cash</option>
@@ -2218,98 +2196,31 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           </select>
         </div>
 
-        {/* Bill Doc Prefix & Number */}
-        <div className="flex flex-col gap-1 w-36">
-          <div className="flex items-center justify-between">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
-              Doc Prefix / No
-            </label>
-            <button
-              type="button"
-              onClick={() => setShowDefinePrefixModal(true)}
-              className="text-[10px] text-[#00288e] dark:text-[#a8b8ff] hover:underline font-bold"
-              title="Define Bill Prefix (Setup > General > Bill Prefix)"
-            >
-              ⚙️
-            </button>
-          </div>
-          <div className="flex gap-1 items-center">
-            <input
-              type="text"
-              readOnly
-              value={billDocPrefix}
-              className="w-14 border border-[#c4c5d5] dark:border-[#444653] rounded px-1 h-8 text-xs font-mono font-bold bg-[#f3f4f5] dark:bg-[#2d3133] text-center outline-none"
-            />
-            <input
-              type="text"
-              name="posDocNumber"
-              aria-label="Document Number"
-              value={billDocNumber}
-              onChange={e => setBillDocNumber(e.target.value)}
-              className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded px-1.5 h-8 text-xs font-mono font-bold bg-white dark:bg-[#191c1e] text-[#00288e] dark:text-[#a8b8ff] outline-none focus:border-[#00288e]"
-            />
-            {prefixResolveResult && (
-              <span
-                className={`text-[9px] font-bold px-1 py-1 rounded ${
-                  prefixResolveResult.gstRule46bValid
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                    : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-                }`}
-                title={prefixResolveResult.validationMessage || "GST Rule 46(b) compliant"}
-              >
-                {prefixResolveResult.gstRule46bLength}/16
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Current Date & Time (Readonly) */}
-        <div className="flex flex-col gap-1 w-36">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
-            Bill Date &amp; Time
-          </label>
+        {/* Bill Prefix & Doc Number */}
+        <div className="flex items-center gap-1">
           <input
             type="text"
             readOnly
-            value={currentDateTime}
-            className="border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-[11px] font-mono bg-[#f3f4f5] dark:bg-[#2d3133] text-[#565e74] dark:text-[#bec6e0] outline-none"
+            value={billDocPrefix}
+            title="Bill Document Prefix"
+            className="w-14 border border-[#c4c5d5] dark:border-[#444653] rounded px-1.5 h-7 text-xs font-mono font-bold bg-[#f3f4f5] dark:bg-[#2d3133] text-center outline-none"
+          />
+          <input
+            type="text"
+            name="posDocNumber"
+            aria-label="Document Number"
+            value={billDocNumber}
+            onChange={e => setBillDocNumber(e.target.value)}
+            className="w-20 border border-[#c4c5d5] dark:border-[#444653] rounded px-2 h-7 text-xs font-mono font-bold bg-white dark:bg-[#191c1e] text-[#00288e] dark:text-[#a8b8ff] text-right outline-none focus:border-[#00288e]"
           />
         </div>
 
-        {/* Customer Code & Name (with F2 Browse Window) */}
-        <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
-                Customer Code &amp; Name
-              </label>
-              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
-                customer.pricingBasis === "RATE"
-                  ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200"
-                  : "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200"
-              }`}>
-                {customer.pricingBasis === "RATE" ? "BILL ON: RATE (Wholesale)" : "BILL ON: MRP (Retail)"}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowCustomerBrowseModal(true)}
-              className="text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff] hover:underline flex items-center gap-0.5"
-            >
-              <span>[F2] Browse</span>
-            </button>
-          </div>
-          <div className="flex gap-1.5">
-            <input
-              type="text"
-              name="posCustomerCode"
-              aria-label="Customer Code"
-              data-f2-entity="customer"
-              value={customer.code}
-              onChange={e => setCustomer(prev => ({ ...prev, code: e.target.value }))}
-              placeholder="Code..."
-              className="w-20 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-mono font-bold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
-            />
+        {/* Customer Input & Add Button */}
+        <div className="flex items-center gap-1.5 flex-1 min-w-[280px]">
+          <label className="font-bold text-[#444653] dark:text-[#bec6e0] whitespace-nowrap">
+            Customer
+          </label>
+          <div className="flex-1 flex items-center gap-1">
             <input
               type="text"
               name="posCustomerName"
@@ -2317,15 +2228,24 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               data-f2-entity="customer"
               value={customer.name}
               onChange={e => setCustomer(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Customer Name..."
-              className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2.5 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
+              placeholder="Search or enter customer phone / name..."
+              className="flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded px-2.5 h-7 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
             />
+            <button
+              type="button"
+              onClick={() => setShowCustomerBrowseModal(true)}
+              className="px-2.5 h-7 bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] border border-[#c4c5d5] dark:border-[#444653] rounded text-xs font-bold transition flex items-center gap-1 shadow-2xs text-[#00288e] dark:text-[#a8b8ff]"
+              title="Add or Browse Customer [F2]"
+            >
+              <UserPlus size={12} />
+              <span>Add</span>
+            </button>
           </div>
         </div>
 
-        {/* Sales Staff ID */}
-        <div className="flex flex-col gap-1 w-28">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
+        {/* Sales Staff */}
+        <div className="flex items-center gap-1.5">
+          <label className="font-bold text-[#444653] dark:text-[#bec6e0] whitespace-nowrap">
             Sales Staff
           </label>
           <select
@@ -2334,7 +2254,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               setSalesStaff(e.target.value);
               setDirectStaff(e.target.value);
             }}
-            className="border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 h-8 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
+            className="border border-[#c4c5d5] dark:border-[#444653] rounded px-2 h-7 text-xs font-semibold bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e]"
           >
             <option value="SM1">SM1</option>
             <option value="SM2">SM2</option>
@@ -2342,203 +2262,41 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           </select>
         </div>
 
-        {(!isWalkInCustomer || isLoadingCustomerLocations) && (
-          <div className="basis-full grid grid-cols-1 md:grid-cols-2 gap-2 border-t border-[#c4c5d5] dark:border-[#444653] pt-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0] whitespace-nowrap">
-                Bill To
-              </label>
-              <div className="relative min-w-0 flex-1 flex items-center gap-1">
-                {!isLoadingCustomerLocations && customerBillingLocations.length > 0 ? (
-                  <>
-                    <textarea
-                      rows={showBillingAddressDetails ? 2 : 1}
-                      aria-label="Bill To address lookup"
-                      value={billingFieldValue}
-                      onChange={event => {
-                        const value = event.target.value;
-                        setBillingLocationFilter(value);
-                        const normalizedValue = value.trim().toLowerCase();
-                        const exactMatch = customerBillingLocations.find(location => [location.billing_store_code, location.name].some(candidate => String(candidate || "").trim().toLowerCase() === normalizedValue));
-                        if (exactMatch) {
-                          setSelectedBillingLocationId(exactMatch.id);
-                          setBillingLocationFilter("");
-                        }
-                      }}
-                      placeholder="Type store code or billing location..."
-                      onFocus={event => {
-                        setShowBillingAddressDetails(true);
-                        setShowBillingAddressSuggestions(true);
-                        if (!billingLocationFilter && selectedBillingLocation) event.currentTarget.select();
-                      }}
-                      onKeyDown={event => {
-                        if (event.key === "F2") {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setShowBillingAddressDetails(true);
-                          setShowBillingAddressSuggestions(true);
-                        }
-                      }}
-                      className="min-w-0 flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 py-1 min-h-8 h-auto text-[11px] leading-4 bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e] whitespace-normal break-words"
-                    />
-                    {showBillingAddressSuggestions && filteredBillingLocations.length > 0 && (
-                      <div className="absolute z-20 left-0 right-0 top-full mt-1 max-h-40 overflow-auto rounded-lg border border-[#c4c5d5] bg-white p-1 shadow-lg dark:border-[#444653] dark:bg-[#191c1e]">
-                        {filteredBillingLocations.map(location => (
-                          <button
-                            key={location.id}
-                            type="button"
-                            className="block w-full rounded px-2 py-1.5 text-left text-[10px] hover:bg-[#eef3ff] dark:hover:bg-[#252a3b]"
-                            onMouseDown={event => event.preventDefault()}
-                            onClick={() => {
-                              setSelectedBillingLocationId(location.id);
-                              setBillingLocationFilter("");
-                              setShowBillingAddressSuggestions(false);
-                            }}
-                          >
-                            <span className="font-bold">[{location.billing_store_code}]</span> {location.name || "Billing location"} - {formatLocationTail(location.city, location.state)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={showBillingAddressDetails ? "Hide Bill To address details" : "Show Bill To address details"}
-                      title={showBillingAddressDetails ? "Hide Bill To address details" : "Show Bill To address details"}
-                      onClick={() => setShowBillingAddressDetails(previous => !previous)}
-                      className="h-8 w-7 shrink-0 inline-flex items-center justify-center rounded-lg text-[#565e74] hover:text-[#00288e]"
-                    >
-                      {showBillingAddressDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </button>
-                  </>
-                ) : (
-                  <span title={customerLocationError || undefined} className="min-w-0 flex-1 truncate text-[11px] text-[#565e74] dark:text-[#bec6e0]">
-                    {isLoadingCustomerLocations ? "Loading billing addresses..." : customerLocationError ? "Address lookup unavailable" : "No billing address registered"}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 min-w-0">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0] whitespace-nowrap">
-                Ship To
-              </label>
-              <div className="relative min-w-0 flex-1 flex items-center gap-1">
-                {!isLoadingCustomerLocations && customerDeliveryLocations.length > 0 ? (
-                  <>
-                    <textarea
-                      rows={showShippingAddressDetails ? 2 : 1}
-                      aria-label="Ship To address lookup"
-                      value={shippingFieldValue}
-                      onChange={event => {
-                        const value = event.target.value;
-                        setShippingLocationFilter(value);
-                        const normalizedValue = value.trim().toLowerCase();
-                        const exactMatch = customerDeliveryLocations.find(location => [location.store_code, location.location_name].some(candidate => String(candidate || "").trim().toLowerCase() === normalizedValue));
-                        if (exactMatch) {
-                          setSelectedDeliveryLocationId(exactMatch.id);
-                          setShippingLocationFilter("");
-                        }
-                      }}
-                      placeholder="Type store code or shipping location..."
-                      onFocus={event => {
-                        setShowShippingAddressDetails(true);
-                        setShowShippingAddressSuggestions(true);
-                        if (!shippingLocationFilter && selectedDeliveryLocation) event.currentTarget.select();
-                      }}
-                      onKeyDown={event => {
-                        if (event.key === "F2") {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setShowShippingAddressDetails(true);
-                          setShowShippingAddressSuggestions(true);
-                        }
-                      }}
-                      className="min-w-0 flex-1 border border-[#c4c5d5] dark:border-[#444653] rounded-lg px-2 py-1 min-h-8 h-auto text-[11px] leading-4 bg-white dark:bg-[#191c1e] outline-none focus:border-[#00288e] whitespace-normal break-words"
-                    />
-                    {showShippingAddressSuggestions && filteredDeliveryLocations.length > 0 && (
-                      <div className="absolute z-20 left-0 right-0 top-full mt-1 max-h-40 overflow-auto rounded-lg border border-[#c4c5d5] bg-white p-1 shadow-lg dark:border-[#444653] dark:bg-[#191c1e]">
-                        {filteredDeliveryLocations.map(location => (
-                          <button
-                            key={location.id}
-                            type="button"
-                            className="block w-full rounded px-2 py-1.5 text-left text-[10px] hover:bg-[#eef3ff] dark:hover:bg-[#252a3b]"
-                            onMouseDown={event => event.preventDefault()}
-                            onClick={() => {
-                              setSelectedDeliveryLocationId(location.id);
-                              setShippingLocationFilter("");
-                              setShowShippingAddressSuggestions(false);
-                            }}
-                          >
-                            <span className="font-bold">[{location.store_code}]</span> {location.location_name || "Shipping location"} - {formatLocationTail(location.city, location.state_name)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={showShippingAddressDetails ? "Hide Ship To address details" : "Show Ship To address details"}
-                      title={showShippingAddressDetails ? "Hide Ship To address details" : "Show Ship To address details"}
-                      onClick={() => setShowShippingAddressDetails(previous => !previous)}
-                      className="h-8 w-7 shrink-0 inline-flex items-center justify-center rounded-lg text-[#565e74] hover:text-[#00288e]"
-                    >
-                      {showShippingAddressDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </button>
-                  </>
-                ) : (
-                  <span title={customerLocationError || undefined} className="min-w-0 flex-1 truncate text-[11px] text-[#565e74] dark:text-[#bec6e0]">
-                    {isLoadingCustomerLocations ? "Loading shipping addresses..." : customerLocationError ? "Address lookup unavailable" : "No shipping address registered"}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {!isLoadingCustomerLocations && (customerBillingLocations.length === 0 || customerDeliveryLocations.length === 0 || customerBillingLocations.length > 1 || customerDeliveryLocations.length > 1) && (
-              <div className="md:col-span-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={openCustomerMaster}
-                  className="text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff] hover:underline"
-                >
-                  Manage customer addresses
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
       </section>
 
       {/* ========================================================================= */}
       {/* 2. DETAIL GROUP: Item Details Grid (Top) + Direct Entry Grid (Bottom)     */}
       {/* ========================================================================= */}
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden p-3 gap-3">
+      <main className="flex-1 flex overflow-hidden p-2 gap-2">
         
-        {/* Left Side: Dual-Grid Workspace (Item Details + Direct Entry) */}
-        <div className="flex-1 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl overflow-hidden flex flex-col shadow-xs">
+        {/* Left Side: Dual-Grid Workspace (Top Grid + Bottom Docked Strip) */}
+        <div className="flex-1 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-lg overflow-hidden flex flex-col shadow-xs">
           
-          {/* Top: Item Details Grid (Accepted Items) */}
+          {/* Top: Item Details Grid (10 Rows) */}
           <div className="overflow-auto flex-1 bg-white dark:bg-[#131b2e]">
             <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[1020px]">
               <thead className="bg-[#edeae1] dark:bg-[#252836] sticky top-0 z-10 border-b border-[#c4c5d5] dark:border-[#444653] text-[11px] font-bold text-[#444653] dark:text-[#bec6e0]">
-                <tr className="h-8">
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] w-36">Stock No</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Rate / MRP</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-16">Qty</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Disc. %</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24">Taxable</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-16">Tax %</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Tax Amt</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24 font-bold text-[#191c1d] dark:text-white">Total</th>
-                  <th className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-20">Staff</th>
-                  <th className="px-2 text-center w-10">Del</th>
+                <tr className="h-7">
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] w-12 text-center">S No.</th>
+                  <th className="px-2.5 border-r border-[#c4c5d5] dark:border-[#444653] w-36">Stock No</th>
+                  <th className="px-2.5 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</th>
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Rate</th>
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-16">Qty</th>
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Value</th>
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-20">Disc Code</th>
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-16">Disc Qty</th>
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-16">Disc. %</th>
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-20">Disc.Amt</th>
+                  <th className="px-2.5 border-r border-[#c4c5d5] dark:border-[#444653] text-right w-24 font-bold text-[#191c1d] dark:text-white">Total</th>
+                  <th className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center w-20">SalesStaff</th>
+                  <th className="px-1.5 text-center w-8">Del</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133] font-mono text-[11px]">
                 {cartItems.map((item, idx) => {
                   const isSelected = selectedRowIndex === idx;
                   const isEditing = editingCartItemId === item.id;
-                  const itemTaxable = item.taxableValue ?? ((item.unitPrice * item.qty) - item.discountAmt);
+                  const lineValue = item.unitPrice * item.qty;
                   return (
                     <tr
                       key={item.id}
@@ -2546,54 +2304,50 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                       onDoubleClick={() => handleRowDoubleClick(item, idx)}
                       className={`h-7 cursor-pointer transition ${
                         isEditing
-                          ? "bg-blue-100 dark:bg-blue-950/80 font-bold ring-2 ring-blue-500"
+                          ? "bg-blue-100 dark:bg-blue-950 font-bold ring-2 ring-blue-500"
                           : isSelected
                           ? "bg-[#ffffcc] dark:bg-[#3a3a1a] text-black dark:text-yellow-200 font-semibold"
                           : "hover:bg-[#f8f9fa] dark:hover:bg-[#1d222e]"
                       }`}
                       title="Double-click to edit line in Direct Entry (Ctrl+D to delete)"
                     >
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] font-bold">
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center font-bold">
+                        {idx + 1}
+                      </td>
+                      <td className="px-2.5 border-r border-[#c4c5d5] dark:border-[#444653] font-bold">
                         {item.sku}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] font-sans font-medium truncate max-w-[280px]">
+                      <td className="px-2.5 border-r border-[#c4c5d5] dark:border-[#444653] font-sans font-medium truncate max-w-[280px]">
                         {item.name}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
                         {item.unitPrice.toFixed(2)}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
                         {item.qty.toFixed(2)}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {item.discCode && item.discCode !== "ILD" && item.discountPct > 0 && (
-                            <span
-                              className="text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 inline-flex items-center gap-0.5"
-                              title={item.promoDescription || `${item.discCode}: ${item.discountPct}% off`}
-                            >
-                              🏷️ {item.discCode}
-                            </span>
-                          )}
-                          <span>{item.discountPct.toFixed(2)}%</span>
-                        </div>
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                        {lineValue.toFixed(2)}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold text-[#00288e] dark:text-[#a8b8ff]">
-                        {itemTaxable.toFixed(2)}
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center font-sans">
+                        {item.discCode || "ILD"}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center">
-                        {item.taxPct.toFixed(0)}%
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                        {(item.discQty ?? item.qty).toFixed(2)}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
-                        {item.taxAmt.toFixed(2)}
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">
+                        {item.discountPct.toFixed(2)}%
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right text-red-600">
+                        {item.discountAmt.toFixed(2)}
+                      </td>
+                      <td className="px-2.5 border-r border-[#c4c5d5] dark:border-[#444653] text-right font-bold">
                         {item.lineTotal.toFixed(2)}
                       </td>
-                      <td className="px-3 border-r border-[#c4c5d5] dark:border-[#444653] text-center">
-                        {item.salesStaff}
+                      <td className="px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center font-sans">
+                        {item.salesStaff || salesStaff}
                       </td>
-                      <td className="px-2 text-center">
+                      <td className="px-1.5 text-center">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -2610,9 +2364,11 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                   );
                 })}
 
-                {/* Empty Filler Rows */}
+                {/* Empty Filler Rows to maintain 10-Row Grid Visual Stability */}
                 {Array.from({ length: emptyRowsCount }).map((_, i) => (
                   <tr key={`empty-${i}`} className="h-7 border-b border-[#eceef0] dark:border-[#2d3133]">
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653] text-center text-gray-400 text-[10px]">{cartItems.length + i + 1}</td>
+                    <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
                     <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
                     <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
                     <td className="border-r border-[#c4c5d5] dark:border-[#444653]"></td>
@@ -2630,157 +2386,30 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             </table>
           </div>
 
-          {/* Active Line Inspector Ribbon when row is selected */}
-          {selectedRowIndex >= 0 && selectedRowIndex < cartItems.length && (() => {
-            const sel = cartItems[selectedRowIndex];
-            const selTaxable = sel.taxableValue ?? ((sel.unitPrice * sel.qty) - sel.discountAmt);
-            return (
-              <div className="bg-[#edeae1] dark:bg-[#252836] border-t border-[#c4c5d5] dark:border-[#444653] px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
-                <div className="flex items-center gap-3 font-mono text-[11px] overflow-x-auto">
-                  <span className="font-bold text-[#00288e] dark:text-[#a8b8ff]">Line #{sel.itemNo}: {sel.sku}</span>
-                  <span className="font-sans font-medium text-[#191c1d] dark:text-white">{sel.name}</span>
-                  {sel.brand && <span className="bg-white dark:bg-[#131b2e] px-1.5 py-0.5 rounded text-[10px] border border-gray-300 dark:border-gray-700">Brand: {sel.brand}</span>}
-                  {sel.size && <span className="bg-white dark:bg-[#131b2e] px-1.5 py-0.5 rounded text-[10px] border border-gray-300 dark:border-gray-700">Size: {sel.size}</span>}
-                  <span className="bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded text-[10px] border border-indigo-200 dark:border-indigo-800 font-mono font-bold">
-                    Staff: {sel.salesStaff || salesStaff}
-                  </span>
-                  <span className="text-gray-600 dark:text-gray-300 text-[10px]">Taxable: ₹{selTaxable.toFixed(2)}</span>
-                  <span className="text-gray-600 dark:text-gray-300 text-[10px]">GST: {sel.taxPct}% (₹{sel.taxAmt.toFixed(2)})</span>
-                  {sel.discountAmt > 0 && <span className="text-red-600 font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{sel.discountAmt.toFixed(2)} ({sel.discountPct}%)</span>}
-                  <span className="font-bold text-[#191c1d] dark:text-white text-[10px]">Total: ₹{sel.lineTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-gray-500 text-[10px] hidden md:inline">Double-click to edit | Ctrl+D to delete</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRowDoubleClick(sel, selectedRowIndex)}
-                    className="px-2 py-0.5 bg-[#00288e] text-white rounded text-[10px] font-bold cursor-pointer"
-                  >
-                    Edit Line
-                  </button>
-                </div>
+          {/* Bottom Dock: Direct Entry Input Strip (Column Aligned) */}
+          <div className="border-t-2 border-[#a4a5b5] dark:border-[#5c5d6c] bg-[#edeae1] dark:bg-[#252836] shrink-0">
+            <div className="flex items-center text-xs p-1 gap-1 min-w-[1020px]">
+              {/* S No. */}
+              <div className="w-12 text-center font-bold text-xs font-mono text-[#00288e] dark:text-[#a8b8ff]">
+                {editingCartItemId ? `E#${cartItems.findIndex(i => i.id === editingCartItemId) + 1}` : cartItems.length + 1}
               </div>
-            );
-          })()}
 
-          {/* Active In-Place Editing Banner */}
-          {editingCartItemId && (
-            <div className="bg-blue-50 dark:bg-blue-950/50 border-t border-b border-blue-300 dark:border-blue-700 px-3 py-1.5 text-xs text-blue-800 dark:text-blue-200 flex items-center justify-between font-medium shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="font-bold">Editing Line #{cartItems.find(it => it.id === editingCartItemId)?.itemNo} ({cartItems.find(it => it.id === editingCartItemId)?.sku})</span>
-                <span className="text-gray-600 dark:text-gray-400 text-[11px]">— Modify Rate, Qty, or Discount in Direct Entry and press Enter to save.</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingCartItemId(null);
-                  setDirectStockNo("");
-                  setDirectBarcode("");
-                  setDirectDescription("");
-                  setDirectQty("1.00");
-                  setDirectDiscQty("1.00");
-                  setDirectDiscPct("0.00");
-                  setDirectDiscAmtInput("0.00");
-                }}
-                className="text-xs text-red-600 hover:underline font-bold cursor-pointer"
-              >
-                Cancel Edit (Esc)
-              </button>
-            </div>
-          )}
-
-          {/* Bottom: Direct Entry Grid Header & Input Strip */}
-          <div className="border-t-2 border-[#a4a5b5] dark:border-[#5c5d6c] bg-[#edeae1] dark:bg-[#252836] shrink-0 shadow-sm relative">
-            
-            {/* Live Selected Item Multi-Attribute Inspection Ribbon */}
-            {selectedProductMeta && (
-              <div className="bg-[#e8edff] dark:bg-[#1a233b] border-b border-[#c4c5d5] dark:border-[#3b4252] px-3 py-1 flex items-center justify-between text-[11px] font-sans">
-                <div className="flex items-center gap-3 overflow-x-auto text-[#00288e] dark:text-[#93c5fd]">
-                  <span className="font-bold flex items-center gap-1">
-                    <Barcode size={13} /> {selectedProductMeta.barcode}
-                  </span>
-                  <span>?</span>
-                  <span><strong>Stock/SKU:</strong> {selectedProductMeta.stockNo || selectedProductMeta.sku}</span>
-                  <span>?</span>
-                  <span><strong>Stock:</strong> <span className="font-bold font-mono">{selectedProductMeta.stockQty} {selectedProductMeta.uom}</span></span>
-                  <span>?</span>
-                  <span><strong>MRP:</strong> ₹{selectedProductMeta.mrp.toFixed(2)}</span>
-                  <span>?</span>
-                  <span><strong>Cost:</strong> ₹{selectedProductMeta.costPrice.toFixed(2)}</span>
-                  <span>?</span>
-                  <span><strong>Size/Color:</strong> {selectedProductMeta.size}/{selectedProductMeta.color}</span>
-                  <span>?</span>
-                  <span><strong>Brand:</strong> {selectedProductMeta.brand}</span>
-                  <span>?</span>
-                  <span><strong>HSN:</strong> {selectedProductMeta.hsnCode} ({selectedProductMeta.gstPercentage}%)</span>
-                  {directPromoResult?.promo && (
-                    <span className="bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1">
-                      🏷️ {directPromoResult.promoCode} ({directPromoResult.discountPct.toFixed(1)}% off)
-                    </span>
-                  )}
-                </div>
-                <button 
-                  type="button" 
-                  onClick={() => setSelectedProductMeta(null)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs px-1"
-                  title="Dismiss inspector"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            {/* Direct Entry Header Row (Exact Column Headers) */}
-            <div className="grid grid-cols-12 text-[11px] font-bold text-[#444653] dark:text-[#bec6e0] border-b border-[#c4c5d5] dark:border-[#444653] py-1 px-1 bg-[#e4e1d7] dark:bg-[#1d202d] min-w-[1020px]">
-              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653] flex items-center justify-between">
-                <span>Barcode / Scan [F2]</span>
-                <button
-                  type="button"
-                  onClick={() => setShowSmritiItemSearchModal(true)}
-                  className="p-0.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer inline-flex items-center"
-                  title="SMRITI F2 Advanced Item Search"
-                >
-                  <Search size={11} />
-                </button>
-              </div>
-              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653] flex items-center justify-between">
-                <span>Stock No / SKU [F2]</span>
-                <button
-                  type="button"
-                  onClick={() => setShowSmritiItemSearchModal(true)}
-                  className="p-0.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer inline-flex items-center"
-                  title="SMRITI F2 Advanced Item Search"
-                >
-                  <Search size={11} />
-                </button>
-              </div>
-              <div className="col-span-2 px-2 border-r border-[#c4c5d5] dark:border-[#444653]">Item Description</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Rate</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Qty</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Value</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-center">Disc Code</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right text-[#00288e] dark:text-[#a8b8ff]">Disc Qty</div>
-              <div className="col-span-1 px-2 border-r border-[#c4c5d5] dark:border-[#444653] text-right">Disc. %</div>
-            </div>
-
-            {/* Direct Entry Interactive Inputs */}
-            <div className="grid grid-cols-12 p-1.5 gap-1.5 items-center bg-[#edeae1] dark:bg-[#252836] min-w-[1020px]">
-              
-              {/* Barcode No Input with Live Typeahead */}
-              <div className="col-span-2 relative">
+              {/* Stock No / Barcode with Typeahead */}
+              <div className="w-36 relative">
                 <input
                   ref={directBarcodeRef}
                   id="directBarcode"
                   data-f2-entity="item_barcode"
                   type="text"
-                  value={directBarcode}
+                  value={directBarcode || directStockNo}
                   onChange={e => {
                     setDirectBarcode(e.target.value);
+                    setDirectStockNo(e.target.value);
                     handleItemLiveSearch(e.target.value, "barcode");
                   }}
                   onKeyDown={e => handleItemInputKeyDown(e, "barcode")}
-                  placeholder="Scan Barcode No..."
-                  className="w-full h-8 px-2 bg-white dark:bg-[#131b2e] border-2 border-blue-600/60 dark:border-blue-500/60 rounded text-xs font-mono font-bold outline-none focus:border-[#00288e] focus:ring-1 focus:ring-[#00288e]"
+                  placeholder="Stock No / Scan [F2]..."
+                  className="w-full h-7 px-2 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold outline-none focus:border-[#00288e] focus:ring-1 focus:ring-[#00288e]"
                 />
                 {activeSearchField === "barcode" && (
                   <SmritiItemTypeaheadDropdown
@@ -2796,50 +2425,20 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 )}
               </div>
 
-              {/* Stock No / SKU Input with Live Typeahead */}
-              <div className="col-span-2 relative">
-                <input
-                  ref={directStockNoRef}
-                  id="directStockNo"
-                  data-f2-entity="variant"
-                  type="text"
-                  value={directStockNo}
-                  onChange={e => {
-                    setDirectStockNo(e.target.value);
-                    handleItemLiveSearch(e.target.value, "stockNo");
-                  }}
-                  onKeyDown={e => handleItemInputKeyDown(e, "stockNo")}
-                  placeholder="Stock No / SKU..."
-                  className="w-full h-8 px-2 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold outline-none focus:border-[#00288e] focus:ring-1 focus:ring-[#00288e]"
-                />
-                {activeSearchField === "stockNo" && (
-                  <SmritiItemTypeaheadDropdown
-                    isOpen={isProductSearchOpen}
-                    items={productSuggestions}
-                    selectedIndex={selectedSuggestionIdx}
-                    onSelect={handleSelectProductSuggestion}
-                    onClose={() => setIsProductSearchOpen(false)}
-                    isLoading={isProductSearching}
-                    searchFieldType="stockNo"
-                    anchorRef={directStockNoRef}
-                  />
-                )}
-              </div>
-
-              {/* Item Description Input */}
-              <div className="col-span-2">
+              {/* Item Description */}
+              <div className="flex-1">
                 <input
                   type="text"
                   value={directDescription}
                   onChange={e => setDirectDescription(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
                   placeholder="Item Description..."
-                  className="w-full h-8 px-2 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-sans outline-none focus:border-[#00288e]"
+                  className="w-full h-7 px-2 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-sans outline-none focus:border-[#00288e]"
                 />
               </div>
 
-              {/* Rate Input */}
-              <div className="col-span-1">
+              {/* Rate */}
+              <div className="w-20">
                 <input
                   type="text"
                   value={directRate}
@@ -2855,12 +2454,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                     handleRateOrQtyChange(e.target.value, directQty);
                   }}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
-                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
+                  className="w-full h-7 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
                 />
               </div>
 
-              {/* Qty Input with Retail Barcode Scanner Guard */}
-              <div className="col-span-1">
+              {/* Qty */}
+              <div className="w-16">
                 <input
                   ref={directQtyRef}
                   type="text"
@@ -2877,29 +2476,29 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                     handleRateOrQtyChange(directRate, e.target.value);
                   }}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
-                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
+                  className="w-full h-7 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
                 />
               </div>
 
-              {/* Computed Value (Readonly) */}
-              <div className="col-span-1">
+              {/* Value */}
+              <div className="w-20">
                 <input
                   type="text"
                   readOnly
                   value={directValue.toFixed(2)}
-                  className="w-full h-8 px-1.5 bg-[#e4e1d7] dark:bg-[#1d202d] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono text-right text-gray-700 dark:text-gray-300 outline-none"
+                  className="w-full h-7 px-1.5 bg-[#e4e1d7] dark:bg-[#1d202d] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono text-right text-gray-700 dark:text-gray-300 outline-none"
                 />
               </div>
 
-              {/* Disc Code Select */}
-              <div className="col-span-1">
+              {/* Disc Code */}
+              <div className="w-20">
                 <select
                   value={directDiscCode}
                   onChange={e => {
                     setDirectDiscCode(e.target.value);
                     setIsManualDiscOverride(true);
                   }}
-                  className="w-full h-8 px-1 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-[11px] font-bold outline-none focus:border-[#00288e]"
+                  className="w-full h-7 px-1 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-[11px] font-bold outline-none focus:border-[#00288e]"
                 >
                   <option value="ILD">ILD</option>
                   <option value="B2G1">B2G1</option>
@@ -2911,76 +2510,136 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 </select>
               </div>
 
-              {/* Disc Qty Input (Drives Discount Eligible Units!) */}
-              <div className="col-span-1">
+              {/* Disc Qty */}
+              <div className="w-16">
                 <input
                   type="text"
                   value={directDiscQty}
                   onChange={e => handleDiscQtyChange(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
                   placeholder="Disc Qty"
-                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border-2 border-[#00288e] rounded text-xs font-mono font-bold text-right text-[#00288e] dark:text-[#a8b8ff] outline-none"
-                  title="Quantity eligible for discount"
+                  className="w-full h-7 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none"
                 />
               </div>
 
-              {/* Disc % Input (Updates Disc.Amt) */}
-              <div className="col-span-1">
+              {/* Disc % */}
+              <div className="w-16">
                 <input
                   type="text"
                   value={directDiscPct}
                   onChange={e => handleDiscPctChange(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
                   placeholder="%"
-                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
+                  className="w-full h-7 px-1 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right outline-none focus:border-[#00288e]"
                 />
               </div>
 
-              {/* Disc.Amt Input (Updates Disc. %) */}
-              <div className="col-span-1">
+              {/* Disc.Amt */}
+              <div className="w-20">
                 <input
                   type="text"
                   value={directDiscAmtInput}
                   onChange={e => handleDiscAmtChange(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAcceptDirectEntryItem()}
                   placeholder="₹ Amt"
-                  className="w-full h-8 px-1.5 bg-white dark:bg-[#131b2e] border border-[#00288e] rounded text-xs font-mono font-bold text-right text-[#ba1a1a] outline-none focus:ring-1 focus:ring-[#00288e]"
+                  className="w-full h-7 px-1 bg-white dark:bg-[#131b2e] border border-[#00288e] rounded text-xs font-mono font-bold text-right text-[#ba1a1a] outline-none"
                 />
               </div>
 
-              {/* Computed Net Total (Readonly) */}
-              <div className="col-span-1">
+              {/* Total */}
+              <div className="w-24">
                 <input
                   type="text"
                   readOnly
                   value={directTotal.toFixed(2)}
-                  className="w-full h-8 px-1.5 bg-[#e4e1d7] dark:bg-[#1d202d] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right text-[#191c1d] dark:text-white outline-none"
+                  className="w-full h-7 px-1.5 bg-[#e4e1d7] dark:bg-[#1d202d] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs font-mono font-bold text-right text-[#191c1d] dark:text-white outline-none"
                 />
               </div>
 
-              {/* Action: Accept Item */}
-              <div className="col-span-1 flex items-center gap-1">
+              {/* SalesStaff */}
+              <div className="w-20">
+                <select
+                  value={directStaff}
+                  onChange={e => setDirectStaff(e.target.value)}
+                  className="w-full h-7 px-1 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-[11px] font-bold outline-none"
+                >
+                  <option value="SM1">SM1</option>
+                  <option value="SM2">SM2</option>
+                  <option value="SM3">SM3</option>
+                </select>
+              </div>
+
+              {/* Accept Action */}
+              <div className="w-8 flex items-center justify-center">
                 <button
                   type="button"
                   onClick={handleAcceptDirectEntryItem}
-                  className="w-full h-8 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded flex items-center justify-center gap-1 shadow-xs transition active:scale-95"
-                  title="Accept into Item Details Grid [Enter]"
+                  className="h-7 w-7 bg-[#00288e] hover:bg-[#1e40af] text-white rounded flex items-center justify-center shadow-xs transition active:scale-95"
+                  title="Accept Item [Enter]"
                 >
                   <CornerDownLeft size={13} />
-                  <span>Accept</span>
                 </button>
               </div>
-
             </div>
+          </div>
 
+          {/* Document Remarks & Action Buttons (Desktop Parity) */}
+          <div className="bg-[#edeae1] dark:bg-[#191c1e] px-3 py-1.5 border-t border-[#c4c5d5] dark:border-[#444653] flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="flex-1 flex items-center gap-2 min-w-[280px]">
+              <label htmlFor="docRemarks" className="text-xs font-bold whitespace-nowrap text-[#444653] dark:text-[#bec6e0]">
+                Document Remarks
+              </label>
+              <input
+                id="docRemarks"
+                type="text"
+                value={documentRemarks}
+                onChange={e => setDocumentRemarks(e.target.value)}
+                placeholder="Remarks / notes for invoice..."
+                className="flex-1 h-7 px-2.5 bg-white dark:bg-[#131b2e] border border-[#a4a5b5] dark:border-[#5c5d6c] rounded text-xs outline-none focus:border-[#00288e]"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowItemTagsModal(true)}
+                className="px-3 py-1 bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] dark:hover:bg-[#383d42] border border-[#c4c5d5] dark:border-[#444653] rounded text-xs font-semibold text-[#191c1e] dark:text-white transition shadow-2xs"
+                title="View/Inspect Item Serial & Batch Tags"
+              >
+                Show Item Tags
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeliveryModal(true)}
+                className={`px-3 py-1 rounded text-xs font-semibold transition shadow-2xs border ${
+                  selectedDeliveryLocation || selectedBillingLocation
+                    ? "bg-[#dde1ff] text-[#00288e] border-[#00288e] font-bold"
+                    : "bg-white dark:bg-[#2d3133] hover:bg-[#f3f4f5] dark:hover:bg-[#383d42] border border-[#c4c5d5] dark:border-[#444653] text-[#191c1e] dark:text-white"
+                }`}
+                title="Configure B2B Delivery Instructions & Customer Locations"
+              >
+                Delivery Instructions
+                {(selectedDeliveryLocation || selectedBillingLocation) && " ✓"}
+              </button>
+            </div>
           </div>
 
         </div>
 
-        {/* Right Side: Exclusive Net Values Summary Panel (Shoper 9 Specification, Toggle with F9) */}
+        {/* Right Side: Exclusive Net Values Summary Panel (Shoper 9 Parity, Toggle with F9) */}
         {showTotalsPanel && (
-          <div className="w-full md:w-64 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl p-3 flex flex-col gap-2 shrink-0 shadow-xs">
-            <div className="flex justify-between items-center pb-2 border-b border-[#c4c5d5] dark:border-[#444653]">
+          <div className="w-60 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-lg p-2.5 flex flex-col gap-1.5 shrink-0 shadow-xs relative">
+            
+            {/* Collapse Arrow Tab */}
+            <button
+              type="button"
+              onClick={() => setShowTotalsPanel(false)}
+              className="absolute -left-3 top-2.5 bg-[#465a7e] text-white rounded-l p-0.5 shadow-md hover:bg-[#364867] transition"
+              title="Collapse Summary Panel [F9]"
+            >
+              <ChevronRight size={14} />
+            </button>
+
+            <div className="flex justify-between items-center pb-1.5 border-b border-[#c4c5d5] dark:border-[#444653]">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">
                 Description
               </span>
@@ -2989,10 +2648,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               </span>
             </div>
 
-            <div className="space-y-1.5 font-mono text-xs">
+            <div className="space-y-1 font-mono text-xs">
               <div className="flex justify-between items-center">
-                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
-                  Gross MRP Sales
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-1.5 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
+                  Sales
                 </span>
                 <span className="font-bold text-[#191c1d] dark:text-white">
                   ₹{grossSalesValue.toFixed(2)}
@@ -3000,8 +2659,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a]">
-                  Discounts
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-1.5 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a]">
+                  Item Lvl. Discount
                 </span>
                 <span className="font-bold text-[#ba1a1a]">
                   -₹{itemDiscountsTotal.toFixed(2)}
@@ -3013,13 +2672,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 onClick={() => setShowF6PromoModal(true)}
                 title="Click to view/override Promotional Discounts (F6)"
               >
-                <span className="bg-[#fef2f2] dark:bg-[#7f1d1d]/30 px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a] flex items-center gap-1">
-                  <span>Bill Promo</span>
-                  {billLevelPromo.discountAmt > 0 && (
-                    <span className="bg-red-500 text-white font-mono text-[8px] px-1 rounded font-extrabold">
-                      {billLevelPromo.code}
-                    </span>
-                  )}
+                <span className="bg-[#fef2f2] dark:bg-[#7f1d1d]/30 px-1.5 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a] flex items-center gap-1">
+                  <span>Bill Discount</span>
                   <span className="font-mono text-[8px] bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 px-1 rounded">F6</span>
                 </span>
                 <span className="font-bold text-[#ba1a1a]">
@@ -3028,26 +2682,17 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="bg-[#e8edff] dark:bg-[#1a233b] px-2 py-0.5 rounded text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff]">
-                  Taxable Value
+                <span className="bg-[#e8edff] dark:bg-[#1a233b] px-1.5 py-0.5 rounded text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff]">
+                  Total Tax
                 </span>
                 <span className="font-bold text-[#00288e] dark:text-[#a8b8ff]">
-                  ₹{Math.max(0, grossSalesValue - itemDiscountsTotal).toFixed(2)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74]">
-                  GST Tax
-                </span>
-                <span className="font-bold text-[#191c1d] dark:text-white">
-                  {taxMode === "exclusive" ? "+" : ""}₹{totalTaxAmount.toFixed(2)}
+                  ₹{totalTaxAmount.toFixed(2)}
                 </span>
               </div>
 
               <div className="flex justify-between items-center cursor-pointer hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] px-1 rounded transition-colors" onClick={() => setShowDefineFactorsModal(true)} title="Click to view/define Sales Factors (Alt+S)">
-                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#565e74] flex items-center gap-1">
-                  <span>Addon-Gen</span>
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-1.5 py-0.5 rounded text-[10px] font-bold text-[#565e74] flex items-center gap-1">
+                  <span>Total Addons</span>
                   <span className="font-mono text-[8px] bg-primary/10 text-primary px-1 rounded">Alt+S</span>
                 </span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400">
@@ -3055,9 +2700,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 </span>
               </div>
 
-              <div className="flex justify-between items-center pb-2 border-b border-[#eceef0] dark:border-[#444653] cursor-pointer hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] px-1 rounded transition-colors" onClick={() => setShowDefineFactorsModal(true)} title="Click to view/define Sales Factors (Alt+S)">
-                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a] flex items-center gap-1">
-                  <span>Dedns-Gen</span>
+              <div className="flex justify-between items-center pb-1 border-b border-[#eceef0] dark:border-[#444653] cursor-pointer hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] px-1 rounded transition-colors" onClick={() => setShowDefineFactorsModal(true)} title="Click to view/define Sales Factors (Alt+S)">
+                <span className="bg-[#f3f4f5] dark:bg-[#2d3133] px-1.5 py-0.5 rounded text-[10px] font-bold text-[#ba1a1a] flex items-center gap-1">
+                  <span>Total Deductions</span>
                   <span className="font-mono text-[8px] bg-rose-500/10 text-rose-600 px-1 rounded">Alt+S</span>
                 </span>
                 <span className="font-bold text-[#ba1a1a]">
@@ -3065,8 +2710,17 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
                 </span>
               </div>
 
-              <div className="flex justify-between items-center pt-1 text-sm font-bold text-[#00288e] dark:text-[#a8b8ff]">
-                <span>Net Payable</span>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-[#565e74]">
+                  Round Off
+                </span>
+                <span className="font-bold text-[#191c1d] dark:text-white">
+                  ₹0.00
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pt-1.5 border-t border-[#c4c5d5] dark:border-[#444653] text-sm font-bold text-[#00288e] dark:text-[#a8b8ff]">
+                <span>Net Amount</span>
                 <span className="text-base font-bold">₹{netPayableAmount.toFixed(2)}</span>
               </div>
             </div>
@@ -3076,117 +2730,79 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       </main>
 
       {/* ========================================================================= */}
-      {/* 3. FOOTER GROUP: Totals Dashboard Ribbon + Shortcuts & Fast Tenders      */}
+      {/* 3. FOOTER GROUP: 9-Box Dashboard Ribbon + Status Bar                      */}
       {/* ========================================================================= */}
-      <footer className="bg-white dark:bg-[#131b2e] border-t border-[#c4c5d5] dark:border-[#444653] shadow-lg flex flex-col p-3 w-full shrink-0 gap-2.5">
+      <footer className="bg-white dark:bg-[#131b2e] border-t border-[#c4c5d5] dark:border-[#444653] shadow-lg flex flex-col shrink-0">
         
-        {/* Totals KPI Dashboard Ribbon */}
-        <div className="grid grid-cols-2 md:grid-cols-9 gap-1 bg-[#f8f9fa] dark:bg-[#1d222e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl overflow-hidden divide-x divide-[#c4c5d5] dark:divide-[#444653] text-center">
+        {/* Shoper 9 Parity: 9 Metric Summary Boxes */}
+        <div className="grid grid-cols-3 md:grid-cols-9 bg-[#555e68] dark:bg-[#1e293b] text-white divide-x divide-white/20 text-center">
           
-          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Total Items</span>
-            <span className="text-base font-mono font-bold text-[#191c1d] dark:text-white">{totalItemsCount}</span>
+          <div className="flex flex-col py-1.5 px-1">
+            <span className="text-[9px] uppercase tracking-wider opacity-80">No. of Items</span>
+            <span className="text-sm font-mono font-bold">{totalItemsCount}</span>
           </div>
 
-          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Total Qty.</span>
-            <span className="text-base font-mono font-bold text-[#191c1d] dark:text-white">{totalQuantity.toFixed(2)}</span>
+          <div className="flex flex-col py-1.5 px-1">
+            <span className="text-[9px] uppercase tracking-wider opacity-80">Total Qty.</span>
+            <span className="text-sm font-mono font-bold">{totalQuantity.toFixed(2)}</span>
           </div>
 
-          <div className="flex flex-col p-1.5 bg-white dark:bg-[#2d3133] col-span-2 text-right px-4 justify-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Sales Value</span>
-            <span className="text-lg font-mono font-bold text-[#191c1d] dark:text-white">₹{grossSalesValue.toFixed(2)}</span>
+          <div className="flex flex-col py-1.5 px-1">
+            <span className="text-[9px] uppercase tracking-wider opacity-80">Sales Value</span>
+            <span className="text-sm font-mono font-bold">₹{grossSalesValue.toFixed(2)}</span>
+          </div>
+
+          <div className="flex flex-col py-1.5 px-1">
+            <span className="text-[9px] uppercase tracking-wider opacity-80">Item Lvl. Discount</span>
+            <span className="text-sm font-mono font-bold">-₹{itemDiscountsTotal.toFixed(2)}</span>
           </div>
 
           <div
             onClick={() => setShowF6PromoModal(true)}
-            className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center cursor-pointer hover:bg-[#e4e7eb] dark:hover:bg-[#282d3b] transition-colors"
-            title="Open Sales Promo & Discounts [F6]"
+            className="flex flex-col py-1.5 px-1 cursor-pointer hover:bg-white/10 transition"
+            title="Promotional Bill Discounts [F6]"
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#ba1a1a] flex items-center justify-end gap-1">
-              <span>Discounts</span>
-              <span className="font-mono text-[8px] px-1 py-0.2 rounded bg-[#ba1a1a]/20 text-[#ba1a1a] font-bold">F6</span>
-            </span>
-            <span className="text-sm font-mono font-bold text-[#ba1a1a]">-₹{(itemDiscountsTotal + billLevelPromo.discountAmt).toFixed(2)}</span>
+            <span className="text-[9px] uppercase tracking-wider opacity-80">Bill Discount</span>
+            <span className="text-sm font-mono font-bold">-₹{(billLevelPromo.discountAmt || 0).toFixed(2)}</span>
           </div>
 
-          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Total Tax</span>
-            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">₹{totalTaxAmount.toFixed(2)}</span>
+          <div className="flex flex-col py-1.5 px-1">
+            <span className="text-[9px] uppercase tracking-wider opacity-80">Total Tax</span>
+            <span className="text-sm font-mono font-bold">₹{totalTaxAmount.toFixed(2)}</span>
           </div>
 
-          <div className="flex flex-col p-1.5 bg-[#f3f4f5] dark:bg-[#191c1e] text-right px-3 justify-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Addons</span>
-            <span className="text-sm font-mono font-bold text-[#191c1d] dark:text-white">₹{addonGenAmount.toFixed(2)}</span>
+          <div className="flex flex-col py-1.5 px-1">
+            <span className="text-[9px] uppercase tracking-wider opacity-80">Total Addons</span>
+            <span className="text-sm font-mono font-bold">₹{addonGenAmount.toFixed(2)}</span>
           </div>
 
-          <div className="flex flex-col p-1.5 bg-[#00288e] text-white col-span-2 text-right px-5 justify-center border-l-4 border-[#1e40af] shadow-inner">
-            <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Net Amount</span>
-            <span className="text-2xl font-mono font-bold tracking-tight">₹{netPayableAmount.toFixed(2)}</span>
+          <div className="flex flex-col py-1.5 px-1">
+            <span className="text-[9px] uppercase tracking-wider opacity-80">Total Deductions</span>
+            <span className="text-sm font-mono font-bold">-₹{dednsGenAmount.toFixed(2)}</span>
+          </div>
+
+          <div className="flex flex-col py-1.5 px-1 bg-[#00288e] border-l-2 border-amber-400">
+            <span className="text-[9px] uppercase tracking-wider opacity-90 font-bold">Net Amount</span>
+            <span className="text-base font-mono font-bold tracking-tight">₹{netPayableAmount.toFixed(2)}</span>
           </div>
 
         </div>
 
-        {/* Shortcuts & Action Triggers */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-3">
-          <span className="text-[11px] font-bold text-[#565e74] dark:text-[#bec6e0]">
-            ProPOS Activities: [Alt+1: New Bill, Alt+2: Void, Alt+3: Return, Alt+5: Return w/o Ref, Alt+6: Reprint, Alt+H: Hotkeys, F6: Promos, Alt+P: Define Promos, Alt+S: Define Factors, F7: Cash, F8: Settle].
-          </span>
-
+        {/* Bottom Status Bar */}
+        <div className="bg-[#edeae1] dark:bg-[#191c1e] px-3 py-1 flex items-center justify-between text-[11px] font-sans border-t border-[#c4c5d5] dark:border-[#444653]">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={cartItems.length === 0 && !lastCompletedBill}
-              onClick={handlePreviewCurrentBill}
-              className="bg-white dark:bg-[#2d3133] border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#3f465c] text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 disabled:opacity-40 active:scale-95 shadow-2xs text-[#191c1d] dark:text-white"
-              title="Preview and print bill in standard A4 format (TT2026-2027/138) [Alt+V]"
-            >
-              <Eye size={14} className="text-[#00288e] dark:text-[#a8b8ff]" />
-              <span className="text-[#00288e] dark:text-[#a8b8ff] font-mono">[Alt+V]</span>
-              <span>Preview Bill</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={cartItems.length === 0}
-              onClick={() => {
-                handleSettlementSuccess({
-                  cash: netPayableAmount,
-                  card: 0,
-                  upi: 0,
-                  credit: 0,
-                  giftVoucher: 0,
-                  loyaltyPointsRedeemed: 0,
-                  loyaltyAmount: 0,
-                  creditNote: 0
-                }, 0);
-              }}
-              className="bg-[#e7e8e9] dark:bg-[#2d3133] hover:bg-[#d9dadb] dark:hover:bg-[#3f465c] text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 disabled:opacity-40 active:scale-95"
-            >
-              <span className="text-[#00288e] dark:text-[#a8b8ff] font-mono">[F7]</span>
-              <span>Exact Cash</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={cartItems.length === 0}
-              onClick={() => setShowSettlementModal(true)}
-              className="bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white hover:brightness-105 text-xs font-bold px-5 py-2 rounded-xl transition flex items-center gap-1.5 disabled:opacity-40 active:scale-95 shadow-xs"
-            >
-              <span className="font-mono">[F8]</span>
-              <span>Settlement</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={cartItems.length === 0}
-              onClick={() => setShowSettlementModal(true)}
-              className="bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold px-6 py-2 rounded-xl transition flex items-center gap-2 shadow-md disabled:opacity-40 active:scale-95"
-            >
-              <Printer size={15} />
-              <span className="opacity-80 font-mono">[F10]</span>
-              <span>Print &amp; Pay</span>
-            </button>
+            <span className="bg-yellow-300 dark:bg-yellow-600 text-black px-1.5 py-0.2 rounded font-bold font-mono text-[10px]">
+              Ready....
+            </span>
+            {selectedProductMeta && (
+              <span className="text-[#00288e] dark:text-[#a8b8ff] font-semibold">
+                Item: {selectedProductMeta.stockNo || selectedProductMeta.sku} | Stock: {selectedProductMeta.stockQty} {selectedProductMeta.uom} | MRP: ₹{selectedProductMeta.mrp.toFixed(2)}
+              </span>
+            )}
+          </div>
+          <div className="text-[#565e74] dark:text-[#bec6e0] font-mono text-[10px] hidden md:flex items-center gap-3">
+            <span>[Alt+1: New | Alt+2: Void | Alt+3: Return | Alt+6: Reprint | F7: Cash | F10: Settle | F12: Park | Esc: Cancel]</span>
+            <span className="text-emerald-700 dark:text-emerald-400 font-bold">Shift: {activeShiftId || "REG-01 (Active)"}</span>
           </div>
         </div>
 
@@ -3407,6 +3023,164 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         terminalId="COMMON"
         companyCode="SMRITI"
       />
+
+      {/* SMRITI Delivery Instructions & Customer Locations Modal */}
+      {showDeliveryModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] rounded-xl shadow-2xl border border-[#c4c5d5] dark:border-[#444653] max-w-xl w-full p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#c4c5d5] dark:border-[#444653]">
+              <div className="flex items-center gap-2">
+                <Truck size={18} className="text-[#00288e] dark:text-[#a8b8ff]" />
+                <h3 className="font-bold text-sm">Delivery Instructions &amp; Locations</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeliveryModal(false)}
+                className="p-1 rounded-lg hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-[#f8f9fa] dark:bg-[#131b2e] p-3 rounded-lg border border-[#c4c5d5] dark:border-[#444653] flex justify-between items-center">
+                <div>
+                  <div className="font-bold">{customer.name} ({customer.code})</div>
+                  <div className="text-[11px] text-[#565e74] dark:text-[#bec6e0]">{customer.phone} {customer.gstin ? `| GSTIN: ${customer.gstin}` : ""}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={openCustomerMaster}
+                  className="text-[11px] font-bold text-[#00288e] dark:text-[#a8b8ff] hover:underline"
+                >
+                  Manage Addresses →
+                </button>
+              </div>
+
+              {/* Bill To Location */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-[#444653] dark:text-[#bec6e0]">
+                  Bill To Location
+                </label>
+                <select
+                  value={selectedBillingLocationId}
+                  onChange={e => setSelectedBillingLocationId(e.target.value)}
+                  className="w-full h-8 px-2 border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#191c1e] text-xs font-semibold outline-none"
+                >
+                  <option value="">Default Billing Address</option>
+                  {customerBillingLocations.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      [{loc.billing_store_code}] {loc.name} — {formatLocationTail(loc.city, loc.state)}
+                    </option>
+                  ))}
+                </select>
+                {selectedBillingLocation && (
+                  <p className="text-[11px] text-[#565e74] dark:text-[#bec6e0] pl-1 font-mono">
+                    {formatBillingAddress(selectedBillingLocation)}
+                  </p>
+                )}
+              </div>
+
+              {/* Ship To / Delivery Location */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-[#444653] dark:text-[#bec6e0]">
+                  Ship To / Delivery Destination
+                </label>
+                <select
+                  value={selectedDeliveryLocationId}
+                  onChange={e => setSelectedDeliveryLocationId(e.target.value)}
+                  className="w-full h-8 px-2 border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#191c1e] text-xs font-semibold outline-none"
+                >
+                  <option value="">Default Counter Delivery (Store Pickup)</option>
+                  {customerDeliveryLocations.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      [{loc.store_code}] {loc.location_name} — {formatLocationTail(loc.city, loc.state_name)}
+                    </option>
+                  ))}
+                </select>
+                {selectedDeliveryLocation && (
+                  <p className="text-[11px] text-[#565e74] dark:text-[#bec6e0] pl-1 font-mono">
+                    {formatDeliveryAddress(selectedDeliveryLocation)}
+                  </p>
+                )}
+              </div>
+
+              {/* Delivery Instructions */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-[#444653] dark:text-[#bec6e0]">
+                  Special Delivery Instructions
+                </label>
+                <textarea
+                  rows={2}
+                  value={deliveryInstructions}
+                  onChange={e => setDeliveryInstructions(e.target.value)}
+                  placeholder="e.g. Deliver between 3-5 PM, call upon arrival..."
+                  className="w-full p-2 border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#191c1e] text-xs outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-[#c4c5d5] dark:border-[#444653]">
+              <button
+                type="button"
+                onClick={() => setShowDeliveryModal(false)}
+                className="px-4 py-1.5 bg-[#00288e] text-white rounded text-xs font-bold hover:bg-[#1e40af] transition"
+              >
+                Save &amp; Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SMRITI Item Serial & Batch Tags Modal */}
+      {showItemTagsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] rounded-xl shadow-2xl border border-[#c4c5d5] dark:border-[#444653] max-w-lg w-full p-5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#c4c5d5] dark:border-[#444653]">
+              <div className="flex items-center gap-2">
+                <Barcode size={18} className="text-[#00288e] dark:text-[#a8b8ff]" />
+                <h3 className="font-bold text-sm">Item Serial &amp; Batch Tags</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowItemTagsModal(false)}
+                className="p-1 rounded-lg hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-2 text-xs">
+              {cartItems.length === 0 ? (
+                <p className="text-gray-500 py-4 text-center">No items in bill yet. Scan items to view serial/batch tags.</p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto space-y-1 divide-y divide-gray-100 dark:divide-gray-800">
+                  {cartItems.map((item, idx) => (
+                    <div key={item.id} className="pt-1.5 flex justify-between items-center text-xs">
+                      <div>
+                        <span className="font-bold">#{idx + 1} {item.sku}</span> - {item.name}
+                        <div className="text-[10px] text-gray-500">Qty: {item.qty} | HSN: {item.hsnCode || "N/A"} {item.brand ? `| Brand: ${item.brand}` : ""}</div>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">
+                        {item.barcode || item.sku}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-2 border-t border-[#c4c5d5] dark:border-[#444653]">
+              <button
+                type="button"
+                onClick={() => setShowItemTagsModal(false)}
+                className="px-4 py-1.5 bg-[#00288e] text-white rounded text-xs font-bold hover:bg-[#1e40af]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

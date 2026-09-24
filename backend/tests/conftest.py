@@ -211,6 +211,7 @@ def seed_control_plane_test_assignments():
             ("menu-barcode", "Barcode Studio & Generator", "/barcode", "Inventory & Purchase", "menu-inventory", 140, "BARCODE.WORKSPACE.ACCESS"),
             ("menu-stock-ledger", "Stock Movements & Ledger", "/stock-ledger", "Inventory & Purchase", "menu-inventory", 150, "STOCK.WORKSPACE.ACCESS"),
             ("menu-purchase", "Purchase Studio & Orders", "/purchase", "Inventory & Purchase", "menu-inventory", 160, "PURCHASE.WORKSPACE.ACCESS"),
+            ("menu-grn", "Goods Receipt Note (GRN)", "/goods-receipt", "Inventory & Purchase", "menu-inventory", 165, "GRN.WORKSPACE.ACCESS"),
             ("menu-supplier-mgmt", "Supplier / Person Master", "/supplier-mgmt", "Inventory & Purchase", "menu-inventory", 170, "SUPPLIER.WORKSPACE.ACCESS"),
             ("menu-business-ledger", "Business Ledger & Statements", "/business-ledger", "Accounts", None, 180, "ACCOUNTS.WORKSPACE.ACCESS"),
             ("menu-accounting-sync", "Tally / ERP Accounting Sync", "/accounting-sync", "Accounts", None, 190, "ACCOUNTS.SYNC.EXECUTE"),

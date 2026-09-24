@@ -75,13 +75,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   },
   {
     id: "grn-studio",
-    title: "Goods Receipt (GRN) Studio",
-    subtitle: "Inward material verification, received vs damaged inspection, and purchase bill entry",
+    title: "Goods Receipt (GRN) Terminal",
+    subtitle: "Inward material verification, direct entry dock, received vs damaged inspection & landed cost entry",
     icon: "fact_check",
     tag: "Inward Dock",
     badgeType: "primary",
     group: "Retail Operations",
     roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "F4",
+    accentColor: "indigo",
   },
   {
     id: "profiles",
