@@ -131,12 +131,13 @@ Git revert of modified files restores the previous version without database or b
 Pure frontend component update, deployed via standard Vite client build.
 
 ## 17. Status
-Approved (In Progress)
+Completed — All Modern UX Refactor invariants, layouts, and tests verified.
 
 ## 18. Related ADRs
 - ADR-0034: Purchase Order Vendor Policy Enforcement Architecture
 - ADR-0028: F2 Universal Lookup Engine v2
 
 ## 19. Related Walkthroughs
+- `docs/walkthrough/purchase/Purchase_Order_Modern_UX_Refactor_v1.0.0.md`
 - `docs/walkthrough/procurement/Procurement_GRN_Inward_Engine_Immutability_And_PO_Lifecycle_Governance_v3.33.6.md`
 - `docs/walkthrough/purchase/Vendor_360_Universal_Party_Canonical_Architecture_v1.0.0.md`
