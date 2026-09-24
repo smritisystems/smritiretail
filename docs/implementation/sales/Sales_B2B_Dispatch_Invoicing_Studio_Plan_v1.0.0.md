@@ -186,7 +186,7 @@ flowchart TD
 ---
 
 ## 17. Status
-**Approved — Scheduled for Implementation**
+**Completed — All services, React Studio tab, Playwright artifact pipelines, and tests verified.**
 
 ---
 
@@ -198,5 +198,6 @@ flowchart TD
 ---
 
 ## 19. Related Walkthroughs
+- `docs/walkthrough/sales/Sales_B2B_Dispatch_Invoicing_Studio_v1.0.0.md`
 - `docs/walkthrough/sales/Sales_Dispatch_5_Stores_Invoices_Allof2nd_v6.26.0.md`
 - `docs/walkthrough/billing/Dispatch_Invoices_Update_And_Synchronization_v5.4.0.md`
