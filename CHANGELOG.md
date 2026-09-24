@@ -39,6 +39,16 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [3.33.6] - 2026-09-24 — Procurement Milestone: GRN Inward Engine Immutability & PO Lifecycle Governance
+
+> **Version Specification:** `3.33.6` denotes the procurement and inward landed cost governance milestone achieving 100% parity with Tally Shoper 9 (`GIR` / `PO` Governance).
+
+#### Procurement: Transactional Immutability & Purchase Order Lifecycle Governance
+- **Pre-Flight Duplicate GRN Guard:** Domain-level pre-flight deduplication on `receipt_no` across company tenant scope in `backend/app/services/purchase.py`, preventing duplicate inward submissions with clean HTTP 409 Conflict responses.
+- **PO Fulfillment State Transition:** Linked `PurchaseOrder.status` automatically and atomically transitions to `"RECEIVED"` upon GRN commit; duplicate receipt attempts against already fulfilled or completed POs are rejected with HTTP 409 Conflict.
+- **Inward PO Filter & Workspace Reset Hygiene:** Filtered open PO browsing in `src/components/purchase/GrnReceiptTab.tsx` to exclude `RECEIVED`, `COMPLETED`, `CANCELLED`, and `DRAFT` orders; implemented fail-safe post-commit workspace reset (`handleClearLines`) purging in-memory line state, carrier details, landed cost components, attachments, and E-Way Bill details while advancing the dynamic sequence counter; unconditionally navigates to read-only history view upon dismiss.
+- **Automated Verification:** 6/6 unit tests green in `src/tests/grnImmutability.test.ts`, 58/58 GRN procurement suite green across 8 test suites, 0 TypeScript compiler errors (`tsc --noEmit`), and 11/11 architecture gate checks passed.
+
 ### [6.44.2] - 2026-09-23 — Product Milestone: Release v4.0.0
 
 > **Version Specification:** `6.44.2` represents the SMRITI platform monorepo semantic version tracking this change set. `v4.0.0` denotes the major product release milestone achieving zero baseline UX exceptions.

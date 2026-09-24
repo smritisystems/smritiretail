@@ -15,7 +15,7 @@
 # Implementation Plan: GRN Inward Engine Immutability & Purchase Order Lifecycle Governance
 
 **Plan ID:** IP-PUR-3.33.6  
-**Status:** Approved  
+**Status:** Completed  
 **Version:** 3.33.6  
 **Target Subsystems:** Goods Receipt Note (GRN) Studio (`GrnReceiptTab.tsx`) & Backend Inward Engine (`backend/app/services/purchase.py`)  
 
@@ -106,12 +106,14 @@ In retail warehouse and store operations, duplicate inwarding causes catastrophi
 * Restart container `docker restart smriti-api`.
 
 ## 17. Status
-Approved — Ready for Execution.
+Completed — All Immutability and PO Lifecycle Governance invariants verified.
 
 ## 18. Related ADRs
 * **ADR-018**: SMRITI Enterprise Inward & Landed Cost Engine.
 * **ADR-042**: SMRITI Dual-Key Parameter & Governance Architecture.
+* **ADR-0044**: FastAPI + PostgreSQL Sole Backend System-of-Record.
 
 ## 19. Related Walkthroughs
+* `docs/walkthrough/procurement/Procurement_GRN_Inward_Engine_Immutability_And_PO_Lifecycle_Governance_v3.33.6.md`
 * `docs/walkthrough/procurement/Procurement_GRN_Real_Database_Wiring_Audit_v3.33.5.md`
 * `docs/walkthrough/procurement/Procurement_Inward_Landed_Cost_And_Freight_Engine_v3.33.0.md`
