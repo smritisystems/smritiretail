@@ -78,6 +78,9 @@ This walkthrough documents the completion and verification of the dedicated **Si
 - `docs/walkthrough/purchase/Purchase_Order_Sizewise_Matrix_UX_v1.0.0.md`: This walkthrough.
 
 ## 4. Files Modified
+- `src/components/purchase/PoSizewiseTab.tsx`: Added size scale presets (`APPAREL_ALPHA`, `FOOTWEAR_EU`, `FOOTWEAR_UK`), interactive Size Scale toolbar selector, footwear auto-detection, statutory GST tiers, and unit badges.
+- `src/types.ts`: Added optional `unit`, `uom`, and `taxRate` fields to `Product` interface.
+- `src/tests/poSizewiseUX.test.ts`: Added Footwear domain validation suite (13/13 tests).
 - `src/components/PurchaseStudioTab.tsx`: Added dual-mode switcher with local storage persistence.
 - `docs/implementation/README.md`: Master index update.
 - `docs/walkthrough/README.md`: Master index update.
@@ -87,15 +90,22 @@ This walkthrough documents the completion and verification of the dedicated **Si
 - **Standalone Component vs Bloating `PoGenerateTab`:** Rather than adding another complex view mode to `PoGenerateTab.tsx` (which is already ~2,600 lines), creating `PoSizewiseTab.tsx` as a dedicated standalone component cleanly decouples concerns, simplifies future size-matrix extensions (such as customizable size scales), and avoids regressions in the existing PO test suite.
 - **Dual-Mode Ergonomics in `PurchaseStudioTab`:** Fashion and apparel retailers often have buyers who specialize in matrix orders while hardware or grocery buyers use standard single-line entries. The header mode switcher in `PurchaseStudioTab.tsx` provides both modes with instant toggling and remembers operator preference.
 - **Local Date Arithmetic:** `addDaysToDate` formats date strings using local date components (`getFullYear`, `getMonth`, `getDate`) instead of `toISOString()`, preventing UTC timezone shifts from corrupting calendar dates in positive timezone regions like IST (+05:30).
+- **Statutory Footwear Tax Tiers:** `getFootwearGstRate` enforces the statutory Indian GST rule (5% for purchase/sale rate `<= ₹2,500`, 18% for `> ₹2,500`) automatically when footwear products are scanned or selected.
 
 ## 6. Design Rationale
 - The layout closely replicates the operator reference terminal design provided in the specification screenshot (`media_1790273261841.png`), ensuring immediate operational familiarity for retail purchase managers without retraining.
-- Matrix cells accept direct keyboard tab traversal across sizes S through XXL, enabling continuous high-speed data entry.
+- Matrix cells accept direct keyboard tab traversal across sizes, enabling continuous high-speed data entry.
+- Dynamic size scale presets allow instant switching between Apparel alpha sizing (S-XXL), Footwear EU sizing (36-44), and Footwear UK sizing (6-11).
 
 ## 7. Implementation Summary
 - Initialized `PoSizewiseTab.tsx` with complete header, 3-tab layout, matrix table, size summary, financial summary, and action footer.
 - Exported core calculation engine `calculateSizewiseSummaryTotals` allowing unit tests to verify mathematical correctness independently of DOM rendering.
 - Implemented real-time percentage distribution math: `(perSizeTotals[sz] / grandTotalQty) * 100`.
+- Integrated `SIZE_SCALE_PRESETS`:
+  - `APPAREL_ALPHA`: S, M, L, XL, XXL (5 sizes)
+  - `FOOTWEAR_EU`: 36, 37, 38, 39, 40, 41, 42, 43, 44 (9 sizes)
+  - `FOOTWEAR_UK`: 6, 7, 8, 9, 10, 11 (6 sizes)
+- Automated footwear detection: upon selecting/scanning a footwear item (`Campus Running Shoes`, `Sneakers Pro`, `Casual Slip-On`, `Leather Formal Shoes`), unit defaults to `Pair`, scale auto-switches to `FOOTWEAR_EU`, and GST automatically assigns 5% or 18% based on the ₹2,500 statutory threshold.
 - Integrated `apiFetchV1` endpoints for supplier fetching (`/purchase/suppliers/`), sequence generation (`/purchase/orders/next-number`), previous order copying (`/purchase/orders/`), and draft/confirmed order creation (`/purchase/orders/`).
 - Updated `PurchaseStudioTab.tsx` to host both `PoSizewiseTab` and `PoGenerateTab` with a switcher header pill.
 
@@ -107,11 +117,13 @@ Output:
 ```text
  RUN  v4.1.10 F:/SMRITRretailNX
 
- ✓ src/tests/poSizewiseUX.test.ts (7 tests) 8ms
- ✓ src/tests/poGenerateUX.test.ts (6 tests) 7ms
+ ✓ src/tests/poSizewiseUX.test.ts (13 tests) 11ms
+ ✓ src/tests/poGenerateUX.test.ts (6 tests) 6ms
 
  Test Files  2 passed (2)
-      Tests  13 passed (13)
+      Tests  19 passed (19)
+   Start at  00:25:43
+   Duration  12.94s (transform 760ms, setup 0ms, import 13.05s, tests 18ms, environment 0ms)
 ```
 
 Full purchase regression test suite:
@@ -126,43 +138,45 @@ Output:
  ✓ src/tests/autoPOEngine.test.ts (4 tests) 10ms
  ✓ src/tests/grnPoEligibilityAndConfirmation.test.ts (19 tests) 37ms
  ✓ src/tests/poGenerate.test.ts (3 tests) 6ms
- ✓ src/tests/poSizewiseUX.test.ts (7 tests) 9ms
+ ✓ src/tests/poSizewiseUX.test.ts (13 tests) 12ms
  ✓ src/tests/poLifecycle.test.ts (3 tests) 4ms
  ✓ src/tests/poGenerateUX.test.ts (6 tests) 7ms
 
  Test Files  7 passed (7)
-      Tests  46 passed (46)
+      Tests  52 passed (52)
 ```
 
 Typecheck and architecture gates:
 ```bash
-npm run lint
+npx tsc --noEmit
 python scripts/architecture_duplication_gate.py
-python scripts/ci_ux_field_governance_guard.py
 ```
 Output:
 ```text
-> tsc --noEmit (Exit 0)
+tsc --noEmit: Exit 0 (0 compiler errors)
 CI GATE STATUS: PASSED — Zero unapproved canonical duplications detected. (11 checks executed, 0 violations)
-CI GUARD RESULT: PASS WITH EXPLICIT EXCEPTIONS (Critical/Error Violations: 0)
 ```
 
 ## 9. Verification Results
 | Verification Item | Target | Result | Status |
 |---|---|---|---|
-| Size Column Totals | S: 85, M: 100, L: 100, XL: 65, XXL: 20 | S: 85, M: 100, L: 100, XL: 65, XXL: 20 | Done |
-| Grand Total Quantity | 370 units | 370 units | Done |
-| Size Percentage Share | S: 22.97%, M: 27.03%, L: 27.03%, XL: 17.57%, XXL: 5.41% | Exact match | Done |
-| Gross Order Value | ₹37,140.00 | ₹37,140.00 | Done |
-| Total GST Tax | ₹6,685.20 | ₹6,685.20 | Done |
-| Net PO Value | ₹43,825.20 | ₹43,825.20 | Done |
-| Unit Test Suite | 7/7 tests | 7/7 passed | Done |
-| Purchase Regression Suite | 46/46 tests | 46/46 passed | Done |
+| Reference Apparel Totals | S: 85, M: 100, L: 100, XL: 65, XXL: 20 | S: 85, M: 100, L: 100, XL: 65, XXL: 20 | Done |
+| Reference Apparel Grand Total | 370 units | 370 units | Done |
+| Reference Size % Share | S: 22.97%, M: 27.03%, L: 27.03%, XL: 17.57%, XXL: 5.41% | Exact match | Done |
+| Footwear EU Scale (36-44) | 9 columns: 36, 37, 38, 39, 40, 41, 42, 43, 44 | Exact 9 columns mapped | Done |
+| Footwear UK Scale (6-11) | 6 columns: 6, 7, 8, 9, 10, 11 | Exact 6 columns mapped | Done |
+| Campus Running Shoes Matrix | 50 pairs @ ₹850 = ₹42,500 + 5% GST (₹2,125) = ₹44,625 | ₹44,625.00 net value | Done |
+| Campus Shoes Distribution % | 36: 4%, 37: 8%, 38: 12%, 39: 16%, 40: 20%, 41: 16%, 42: 12%, 43: 8%, 44: 4% | Exact match | Done |
+| Statutory GST Footwear Tiers | <= ₹2500 -> 5%, > ₹2500 -> 18% | Verified with exact boundary checks | Done |
+| Multi-Item Mixed GST PO | 4 footwear items (120 pairs), gross ₹2,42,500, tax ₹34,485, net ₹2,78,485 | Exact statutory parity | Done |
+| Unit Test Suite | 13/13 tests green | 13/13 passed | Done |
+| Combined PO Test Suite | 19/19 tests green | 19/19 passed | Done |
+| Purchase Regression Suite | 52/52 tests green | 52/52 passed | Done |
 | TypeScript Compiler | 0 errors | 0 errors | Done |
 | Architecture Duplication Gate | 0 violations | 0 violations | Done |
 
 ## 10. Known Limitations
-- The default size scale is fixed to `S, M, L, XL, XXL`. Future iterations will allow dynamic size scale selection (e.g. numeric footwear sizes `6, 7, 8, 9, 10, 11` or kidswear `2, 4, 6, 8, 10`).
+- Custom user-defined size scale creation from the UI (outside of predefined Apparel and Footwear presets) will be introduced in subsequent phase.
 
 ## 11. Future Work
 - Add user-configurable custom size scales from category master.

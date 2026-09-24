@@ -48,7 +48,29 @@ import type { Product } from "../../types.ts";
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_SIZEWISE_SIZES = ["S", "M", "L", "XL", "XXL"];
+export const DEFAULT_SIZEWISE_SIZES = ["S", "M", "L", "XL", "XXL"];
+
+export const SIZE_SCALE_PRESETS: Record<string, { label: string; category: string; sizes: string[] }> = {
+  APPAREL_ALPHA: {
+    label: "Apparel (S - XXL)",
+    category: "Apparel",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+  },
+  FOOTWEAR_EU: {
+    label: "Footwear EU (36 - 44)",
+    category: "Footwear",
+    sizes: ["36", "37", "38", "39", "40", "41", "42", "43", "44"],
+  },
+  FOOTWEAR_UK: {
+    label: "Footwear UK (6 - 11)",
+    category: "Footwear",
+    sizes: ["6", "7", "8", "9", "10", "11"],
+  },
+};
+
+/** Footwear statutory GST rate: 5% for purchase/sale rate <= 2500, 18% for > 2500 */
+export const getFootwearGstRate = (rate: number): number => (rate <= 2500 ? 5 : 18);
+
 const PRICE_LIST_OPTIONS = [
   "Default Purchase Price",
   "Last Purchase Price",
@@ -217,10 +239,30 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   onNotification,
   onClose,
   onNavigateTab,
-  sizes = DEFAULT_SIZEWISE_SIZES,
+  sizes: propSizes,
 }) => {
   const today = new Date().toISOString().split("T")[0];
   const defaultDelivery = addDaysToDate(today, 7);
+
+  // Detect initial scale
+  const detectInitialScale = (): string => {
+    if (propSizes && propSizes.length > 0) {
+      if (propSizes.some(s => ["36", "37", "38", "39", "40", "41", "42", "43", "44"].includes(s))) {
+        return "FOOTWEAR_EU";
+      }
+      if (propSizes.some(s => ["6", "7", "8", "9", "10", "11"].includes(s))) {
+        return "FOOTWEAR_UK";
+      }
+    }
+    return "APPAREL_ALPHA";
+  };
+
+  const [selectedScaleKey, setSelectedScaleKey] = useState<string>(detectInitialScale);
+  const [sizes, setSizes] = useState<string[]>(() =>
+    propSizes && propSizes.length > 0
+      ? propSizes
+      : SIZE_SCALE_PRESETS[detectInitialScale()]?.sizes || DEFAULT_SIZEWISE_SIZES
+  );
 
   // ── State ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"items" | "delivery" | "other">("items");
@@ -389,21 +431,84 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     );
   }, []);
 
+  const handleScaleChange = useCallback((newScaleKey: string) => {
+    setSelectedScaleKey(newScaleKey);
+    const newSizes = SIZE_SCALE_PRESETS[newScaleKey]?.sizes || DEFAULT_SIZEWISE_SIZES;
+    setSizes(newSizes);
+    setLines(prev =>
+      prev.map(line => {
+        const newSizeQuantities: Record<string, number> = {};
+        newSizes.forEach(sz => {
+          newSizeQuantities[sz] = line.sizeQuantities[sz] || 0;
+        });
+        const totalQty = newSizes.reduce((s, sz) => s + (newSizeQuantities[sz] || 0), 0);
+        const netValue = totalQty * (line.rate || 0);
+        return {
+          ...line,
+          sizeQuantities: newSizeQuantities,
+          totalQty,
+          netValue,
+        };
+      })
+    );
+  }, []);
+
   const populateProductToLine = useCallback(
     (product: Product, rowIdx: number) => {
-      updateLine(rowIdx, {
-        itemCode: product.code || product.id,
-        barcode: product.barcode || "",
-        product: product.name,
-        brand: product.brand || "",
-        style: product.styleCode || "",
-        shade: product.color || "",
-        rate: product.costPrice || product.price || 0,
-        stockOnHand: product.stock || 0,
-        originalProduct: product,
-      });
+      const isFootwear =
+        product.category?.toLowerCase() === "footwear" ||
+        product.unit?.toLowerCase() === "pair" ||
+        /shoe|sneaker|slip-on|sandal|boot|footwear|heel|loafer/i.test(product.name || "") ||
+        /shoe|sneaker|boot|footwear/i.test(product.category || "");
+
+      const rate = product.costPrice || product.price || 0;
+      const taxPercent = isFootwear ? getFootwearGstRate(rate) : (product.gstPercentage ?? product.taxRate ?? header.commonTaxPercent ?? 18);
+      const unit = isFootwear ? "Pair" : (product.unit || "Pcs");
+
+      let currentSizes = sizes;
+      if (isFootwear && selectedScaleKey === "APPAREL_ALPHA") {
+        const fwSizes = SIZE_SCALE_PRESETS.FOOTWEAR_EU.sizes;
+        setSelectedScaleKey("FOOTWEAR_EU");
+        setSizes(fwSizes);
+        currentSizes = fwSizes;
+      }
+
+      setLines(prev =>
+        prev.map((line, i) => {
+          const baseLine =
+            i === rowIdx
+              ? {
+                  ...line,
+                  itemCode: product.code || product.id,
+                  barcode: product.barcode || "",
+                  product: product.name,
+                  brand: product.brand || "",
+                  style: product.styleCode || "",
+                  shade: product.color || "",
+                  unit,
+                  rate,
+                  taxPercent,
+                  stockOnHand: product.stock || 0,
+                  originalProduct: product,
+                }
+              : line;
+
+          const sizeQuantities: Record<string, number> = {};
+          currentSizes.forEach(sz => {
+            sizeQuantities[sz] = baseLine.sizeQuantities[sz] || 0;
+          });
+          const totalQty = currentSizes.reduce((s, sz) => s + (sizeQuantities[sz] || 0), 0);
+          const netValue = totalQty * (baseLine.rate || 0);
+          return {
+            ...baseLine,
+            sizeQuantities,
+            totalQty,
+            netValue,
+          };
+        })
+      );
     },
-    [updateLine]
+    [sizes, selectedScaleKey, header.commonTaxPercent]
   );
 
   // Barcode/search lookup
@@ -862,6 +967,24 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               Delete Row
             </button>
 
+            {/* Size Scale Selector */}
+            <div className="flex items-center gap-1.5 bg-indigo-50/80 border border-indigo-200 px-2.5 py-1 rounded-lg">
+              <span className="material-symbols-outlined text-[15px] text-indigo-600">straighten</span>
+              <span className="text-slate-600 font-bold text-xs whitespace-nowrap">Size Scale:</span>
+              <select
+                id="sw-size-scale-select"
+                value={selectedScaleKey}
+                onChange={e => handleScaleChange(e.target.value)}
+                className="bg-white border border-indigo-200 rounded px-2 py-0.5 text-xs font-bold text-indigo-900 outline-none focus:border-indigo-500 shadow-2xs cursor-pointer"
+              >
+                {Object.entries(SIZE_SCALE_PRESETS).map(([key, preset]) => (
+                  <option key={key} value={key}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex-1" />
 
             {/* Price List */}
@@ -984,8 +1107,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           onChange={e => updateLine(idx, { product: e.target.value })}
                           className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-6 font-medium text-xs outline-none"
                         />
-                        <div className="px-2 text-[10px] text-slate-400 leading-tight truncate">
-                          {[line.brand, line.style, line.shade].filter(Boolean).join(" / ") || <span className="italic">Brand / Style / Shade</span>}
+                        <div className="px-2 text-[10px] text-slate-400 leading-tight truncate flex items-center justify-between">
+                          <span className="truncate">
+                            {[line.brand, line.style, line.shade].filter(Boolean).join(" / ") || <span className="italic">Brand / Style / Shade</span>}
+                          </span>
+                          {line.unit && (
+                            <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded ml-1 shrink-0">
+                              {line.unit}
+                            </span>
+                          )}
                         </div>
                       </td>
 
