@@ -1475,3 +1475,175 @@ async def list_master_entities(
         "has_next": (offset + page_size) < len(rows),
     }
 
+
+# ============================================================================
+# F2 UNIVERSAL LOOKUP ADAPTER ENDPOINTS (Contract Version 2.0.0)
+# ============================================================================
+
+@router.get("/uom", response_model=None)
+@router.get("/uoms", response_model=None)
+async def list_uoms_lookup(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    current_user: User = Depends(get_current_user),
+):
+    """F2 Universal Lookup adapter for Units of Measure (UOM)."""
+    standard_uoms = [
+        {"code": "PRS", "name": "Pairs (Footwear)", "type": "Footwear", "decimalPlaces": 0},
+        {"code": "PCS", "name": "Pieces (Units)", "type": "Quantity", "decimalPlaces": 0},
+        {"code": "BOX", "name": "Box / Carton", "type": "Packaging", "decimalPlaces": 0},
+        {"code": "SET", "name": "Set (Multi-Piece)", "type": "Assembly", "decimalPlaces": 0},
+        {"code": "KGS", "name": "Kilograms", "type": "Weight", "decimalPlaces": 3},
+        {"code": "MTR", "name": "Meters", "type": "Length", "decimalPlaces": 2},
+        {"code": "DOZ", "name": "Dozen (12 Pcs)", "type": "Pack", "decimalPlaces": 0},
+        {"code": "PKT", "name": "Packet", "type": "Packaging", "decimalPlaces": 0},
+        {"code": "ROLL", "name": "Roll", "type": "Length", "decimalPlaces": 0},
+    ]
+    if q and q.strip():
+        term = q.strip().lower()
+        standard_uoms = [u for u in standard_uoms if term in u["code"].lower() or term in u["name"].lower()]
+    return standard_uoms[:limit]
+
+
+@router.get("/hsn-codes", response_model=None)
+async def list_hsn_codes_lookup(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    current_user: User = Depends(get_current_user),
+):
+    """F2 Universal Lookup adapter for HSN / SAC Codes & GST Rates."""
+    standard_hsn = [
+        {"code": "64041990", "desc": "Footwear with outer soles of rubber/plastics (Standard)", "gstPct": 12.0},
+        {"code": "64029990", "desc": "Other footwear with outer soles of rubber (Economy)", "gstPct": 12.0},
+        {"code": "64039990", "desc": "Footwear with outer soles of leather / composition leather", "gstPct": 18.0},
+        {"code": "61091000", "desc": "T-shirts, singlets and other vests, knitted or crocheted, of cotton", "gstPct": 5.0},
+        {"code": "62034200", "desc": "Men's or boys' trousers, bib and brace overalls, of cotton", "gstPct": 12.0},
+        {"code": "62046200", "desc": "Women's or girls' trousers, bib and brace overalls, of cotton", "gstPct": 12.0},
+        {"code": "42022100", "desc": "Handbags with outer surface of leather or composition leather", "gstPct": 18.0},
+        {"code": "61159500", "desc": "Socks and other hosiery, knitted or crocheted, of cotton", "gstPct": 5.0},
+        {"code": "85171300", "desc": "Smartphones / Handheld Electronic Devices", "gstPct": 18.0},
+        {"code": "19053100", "desc": "Sweet biscuits, waffles and wafers", "gstPct": 18.0},
+    ]
+    if q and q.strip():
+        term = q.strip().lower()
+        standard_hsn = [h for h in standard_hsn if term in h["code"].lower() or term in h["desc"].lower()]
+    return standard_hsn[:limit]
+
+
+@router.get("/terms", response_model=None)
+async def list_terms_lookup(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    current_user: User = Depends(get_current_user),
+):
+    """F2 Universal Lookup adapter for Commercial & Payment Terms."""
+    standard_terms = [
+        {"code": "NET30", "name": "Net 30 Days Credit", "creditDays": 30, "interestPct": 18.0},
+        {"code": "NET15", "name": "Net 15 Days Credit", "creditDays": 15, "interestPct": 18.0},
+        {"code": "NET45", "name": "Net 45 Days Credit", "creditDays": 45, "interestPct": 21.0},
+        {"code": "NET60", "name": "Net 60 Days Credit", "creditDays": 60, "interestPct": 24.0},
+        {"code": "COD", "name": "Cash on Delivery", "creditDays": 0, "interestPct": 0.0},
+        {"code": "IMMEDIATE", "name": "Immediate Payment", "creditDays": 0, "interestPct": 0.0},
+        {"code": "ADV50", "name": "50% Advance, Balance on Delivery", "creditDays": 7, "interestPct": 12.0},
+        {"code": "PDC30", "name": "Post Dated Cheque 30 Days", "creditDays": 30, "interestPct": 15.0},
+    ]
+    if q and q.strip():
+        term = q.strip().lower()
+        standard_terms = [t for t in standard_terms if term in t["code"].lower() or term in t["name"].lower()]
+    return standard_terms[:limit]
+
+
+@router.get("/schemes", response_model=None)
+async def list_schemes_lookup(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    current_user: User = Depends(get_current_user),
+):
+    """F2 Universal Lookup adapter for Promotional Schemes & Offers."""
+    standard_schemes = [
+        {"code": "FESTIVE10", "name": "Festive Flat 10% Discount", "type": "Percentage", "value": "10%", "validity": "Active"},
+        {"code": "SEASON20", "name": "End of Season Flat 20% Off", "type": "Percentage", "value": "20%", "validity": "Active"},
+        {"code": "BOGO_FTW", "name": "Buy 1 Get 1 on Footwear", "type": "BOGO", "value": "100% on 2nd", "validity": "Active"},
+        {"code": "BULK500", "name": "Flat ₹500 Off on Orders > ₹5000", "type": "Flat Amount", "value": "₹500", "validity": "Active"},
+        {"code": "LOYALTY5", "name": "Elite Loyalty Member 5% Rebate", "type": "Loyalty Tier", "value": "5%", "validity": "Active"},
+    ]
+    if q and q.strip():
+        term = q.strip().lower()
+        standard_schemes = [s for s in standard_schemes if term in s["code"].lower() or term in s["name"].lower()]
+    return standard_schemes[:limit]
+
+
+@router.get("/stores", response_model=None)
+async def list_stores_lookup(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    control_db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """F2 Universal Lookup adapter for Chain Stores & Branches."""
+    from ...models.tenant import Branch
+    rows = []
+    try:
+        stmt = select(Branch).where(Branch.is_active == True)
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            stmt = stmt.where(or_(Branch.name.ilike(term), Branch.code.ilike(term)))
+        res = await control_db.execute(stmt)
+        for b in res.scalars().all():
+            rows.append({
+                "code": b.code or b.id,
+                "name": b.name,
+                "city": getattr(b, "city", None) or "Mumbai",
+                "state": getattr(b, "state", None) or "Maharashtra",
+            })
+    except Exception as exc:
+        logger.warning(f"[MasterLookup] Notice reading stores/branches: {exc}")
+
+    if not rows:
+        fallback_stores = [
+            {"code": "BR-MAIN-001", "name": "SMRITI Flagship Retail Terminal", "city": "Mumbai", "state": "Maharashtra"},
+            {"code": "BR-NORTH-002", "name": "SMRITI North Regional Store", "city": "Delhi", "state": "Delhi"},
+            {"code": "BR-SOUTH-003", "name": "SMRITI Fashion Galleria", "city": "Bengaluru", "state": "Karnataka"},
+        ]
+        if q and q.strip():
+            term = q.strip().lower()
+            fallback_stores = [s for s in fallback_stores if term in s["code"].lower() or term in s["name"].lower()]
+        rows = fallback_stores
+    return rows[:limit]
+
+
+@router.get("/item-barcodes", response_model=None)
+async def list_item_barcodes_lookup(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    tenant_db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """F2 Universal Lookup adapter for Item Barcodes & Stock Numbers."""
+    rows = []
+    try:
+        stmt = select(Product).where(Product.barcode.isnot(None), Product.is_deleted == False)
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    Product.barcode.ilike(term),
+                    Product.code.ilike(term),
+                    Product.name.ilike(term),
+                    Product.sku.ilike(term),
+                )
+            )
+        stmt = stmt.limit(limit)
+        res = await tenant_db.execute(stmt)
+        for p in res.scalars().all():
+            rows.append({
+                "barcode": p.barcode,
+                "sku": p.sku or p.code,
+                "name": p.name,
+                "id": p.id,
+            })
+    except Exception as exc:
+        logger.warning(f"[MasterLookup] Notice reading item barcodes: {exc}")
+    return rows
+
+

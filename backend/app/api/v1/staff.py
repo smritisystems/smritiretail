@@ -27,6 +27,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
@@ -349,6 +350,71 @@ async def _staff_directory_record(
                 StaffProfile.is_deleted == False,
             ))).scalar_one_or_none()
     return _merge_staff_profile(user, profile)
+
+
+@router.get("", response_model=None)
+@router.get("/", response_model=None)
+async def list_staff_f2_lookup(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    company_db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    F2 Universal Lookup endpoint for sales staff and personnel.
+    Returns staff items matching LOOKUP_REGISTRY contract (code, name, role, counter).
+    """
+    cid = tenant.company_id or "COMP-001"
+    stmt = select(User).where(
+        or_(User.company_id == cid, User.company_id.is_(None)),
+        User.is_deleted == False,
+    )
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                User.username.ilike(term),
+                User.full_name.ilike(term),
+                User.display_name.ilike(term),
+                User.employee_code.ilike(term),
+            )
+        )
+    users = (await control_db.execute(stmt.order_by(User.username.asc()))).scalars().all()
+
+    profiles = (await company_db.execute(select(StaffProfile).where(
+        StaffProfile.company_id == cid,
+        StaffProfile.is_deleted == False,
+    ))).scalars().all()
+    profiles_by_user = {profile.user_id: profile for profile in profiles}
+
+    items = []
+    for u in users:
+        prof = profiles_by_user.get(u.id)
+        code = getattr(u, "employee_code", None) or u.username
+        name = getattr(u, "full_name", None) or getattr(u, "display_name", None) or u.username
+        role = getattr(u, "role", None) or "Salesperson"
+        counter = getattr(prof, "counter", None) or "Main Counter"
+        items.append({
+            "id": u.id,
+            "code": code,
+            "name": name,
+            "role": str(role).replace("UserRole.", ""),
+            "counter": counter,
+            "mobile": getattr(u, "mobile", ""),
+            "email": getattr(u, "email", ""),
+            "status": "Active" if getattr(u, "is_active", True) else "Inactive",
+        })
+
+    paged = items[offset:offset + limit]
+    return {
+        "items": paged,
+        "total": len(items),
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/directory")

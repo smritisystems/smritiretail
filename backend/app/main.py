@@ -298,6 +298,7 @@ _ROUTER_REGISTRY = [
     (users,                 "/users",                ["User Management"]),
     (roles,                 "/roles",                ["Role Matrix"]),
     (menus,                 "/menus",                ["Menu Governance"]),
+    (staff,                 "",                      ["Staff Management & Directory"]),
     (security,              "/security",             ["Security Management"]),
     (ui_control_plane,      "/ui",                   ["UI Control Plane"]),
     (workspace_ui,          "",                      ["Workspace UI"]),
