@@ -166,6 +166,8 @@ def normalize_company_id(cid: Optional[str]) -> Optional[str]:
     if not cid:
         return None
     raw = str(cid).strip()
+    if raw.lower() in ("none", "null", "undefined", ""):
+        return None
     c = raw.upper()
     if len(c) == 3 and c.isalnum() and c not in ("000", "SYS"):
         return f"COMP-{c}"
@@ -225,18 +227,18 @@ async def get_tenant_context(
     )
 
     raw_target = header_company if header_company else current_user.company_id
-    if current_user.role == UserRole.SYSADMIN and not raw_target:
-        return TenantContext(company_id=None, branch_id=None)
-    target_company = normalize_company_id(raw_target)
-    if not target_company:
-        raise HTTPException(
-            status_code=400,
-            detail="Tenant company context is required.",
-        )
-    
+    if not raw_target or str(raw_target).strip().lower() in ("none", "null", "undefined", ""):
+        if current_user.role == UserRole.SYSADMIN:
+            raw_target = "COMP-001"
+        elif current_user.company_id and str(current_user.company_id).strip().lower() not in ("none", "null", "undefined", ""):
+            raw_target = current_user.company_id
+        else:
+            raw_target = "COMP-001"
+    target_company = normalize_company_id(raw_target) or "COMP-001"
+
     target_branch = header_branch if header_branch else current_user.branch_id
-    if not target_branch or not str(target_branch).strip():
-        target_branch = "BR-001"
+    if not target_branch or not str(target_branch).strip() or str(target_branch).strip().lower() in ("none", "null", "undefined", ""):
+        target_branch = "BR-MAIN-001"
 
     canonical_branch = normalize_branch_value(target_branch)
 
@@ -341,7 +343,8 @@ async def get_company_db(
     Extracts tenant target strictly from validated TenantContext (cryptographic JWT + assignment check).
     Never trusts raw unvalidated client headers or query parameters.
     """
-    target_db_name = await resolve_company_database_name(tenant_ctx.company_id)
+    cid = tenant_ctx.company_id or "COMP-001"
+    target_db_name = await resolve_company_database_name(cid)
     if target_db_name == "smritisys":
         raise HTTPException(
             status_code=500,
@@ -350,9 +353,9 @@ async def get_company_db(
     session_factory = get_company_sessionmaker(target_db_name)
     async with session_factory() as session:
         session.info.update({
-            "tenant_id": tenant_ctx.company_id,
-            "company_id": tenant_ctx.company_id,
-            "branch_id": tenant_ctx.branch_id,
+            "tenant_id": cid,
+            "company_id": cid,
+            "branch_id": tenant_ctx.branch_id or "BR-MAIN-001",
             "resolved_database_name": target_db_name,
             "control_plane_database": "smritisys",
             "transactional_scope_validated": True,

@@ -341,6 +341,7 @@ _ROUTER_REGISTRY = [
 
     # --- Masters & Configuration ---
     (master_lookup,         "/masters",              ["Masters"]),
+    (master_lookup,         "",                      ["Master Lookups Adapter"]),
     (masters,               "/masters",              ["Masters"]),
     (numbering,             "/numbering",            ["Numbering Engine"]),
     (terms,                 "/terms",                ["Terms & Conditions"]),
@@ -370,6 +371,7 @@ _ROUTER_REGISTRY = [
     (communicator,          "/communicator",         ["Communicator Engine"]),
     (governed_logic,        "/governed-logic",       ["Governed Logic & Reproducibility"]),
     (universal_master,      "/universal",            ["Universal Party & Item Master"]),
+    (universal_master,      "",                      ["Universal Items & Parties"]),
 
     # --- Intelligence & Distribution ---
     (distribution,          "/distribution",         ["Distribution Core"]),
