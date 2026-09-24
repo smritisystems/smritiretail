@@ -19,6 +19,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
+  Package,
   PackageCheck,
   RefreshCw,
   Save,
@@ -82,6 +83,7 @@ import {
   ConfirmGrnPostModal,
   type GrnPostConfirmationDetails,
 } from "./ConfirmGrnPostModal.tsx";
+import { GrnDesktopTerminal } from "./GrnDesktopTerminal.tsx";
 import {
   filterEligibleOrders,
   calculatePoPendingInward,
@@ -160,6 +162,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [savedReceipts, setSavedReceipts] = useState<any[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [subView, setSubView] = useState<"create" | "history" | "bill">("create");
+  const [workspaceMode, setWorkspaceMode] = useState<"desktop" | "wizard">("desktop");
 
   // Persistent GRN Header State
   const [grnNumber, setGrnNumber] = useState(
@@ -2972,85 +2975,151 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         onNotification={onNotification}
       />
 
-      {/* Top Application Bar */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex items-center justify-between shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-indigo-600 text-white shadow-xs">
-            <PackageCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight">
-                Goods Receipt Note (GRN) Studio
-              </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                ● Inward Engine
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              Procurement Inward, Physical Verification, Landed Cost &amp; WMS Batch Staging
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSubView("create")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
-              subView === "create"
-                ? "bg-indigo-600 text-white shadow"
-                : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
-            }`}
-          >
-            <ClipboardList className="w-3.5 h-3.5" />
-            <span>Inward Studio</span>
-            {grnLines.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-200 text-indigo-900 font-mono">
-                {grnLines.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => {
+      {/* View 0: High-Speed Goods Receipt Desktop Terminal (Shoper 9 Parity) */}
+      {subView === "create" && workspaceMode === "desktop" && (
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <GrnDesktopTerminal
+            orders={orders}
+            selectedOrderId={selectedOrderId}
+            selectedOrder={selectedOrder}
+            onSelectOrder={handleSelectOrder}
+            suppliersList={suppliersList}
+            supplierId={supplierId}
+            supplierName={supplierName}
+            onSupplierChange={handleSupplierChange}
+            grnLines={grnLines}
+            onUpdateGrnLines={(lines) => setGrnLines(lines as GrnLineRow[])}
+            grnNumber={grnNumber}
+            onGrnNumberChange={setGrnNumber}
+            grnDate={grnDate}
+            onGrnDateChange={setGrnDate}
+            invoiceNumber={invoiceNumber}
+            onInvoiceNumberChange={setInvoiceNumber}
+            invoiceDate={invoiceDate}
+            onInvoiceDateChange={setInvoiceDate}
+            notes={notes}
+            onNotesChange={setNotes}
+            saving={saving || isPostingGrn}
+            onSaveGrn={handleOpenConfirmPost}
+            onResetGrn={handleClearLines}
+            onOpenHistory={() => {
               setSubView("history");
               loadReceipts();
             }}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
-              subView === "history"
-                ? "bg-indigo-600 text-white shadow"
-                : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>GRN History</span>
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-mono">
-              {savedReceipts.length}
-            </span>
-          </button>
-          <button
-            onClick={() => setSubView("bill")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-              subView === "bill"
-                ? "bg-indigo-600 text-white shadow"
-                : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
-            }`}
-          >
-            <Receipt className="w-3.5 h-3.5 inline mr-1" />
-            Purchase Bill
-          </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700 ml-2 shadow"
-            >
-              Exit
-            </button>
-          )}
+            onOpenPrint={() => {
+              if (latestPostedReceipt) {
+                setPrintReceiptData(latestPostedReceipt);
+              }
+              setIsPrintModalOpen(true);
+            }}
+            onOpenCsvImport={() => setIsCsvImportOpen(true)}
+            onOpenScanner={() => setIsCameraScannerOpen(true)}
+            onOpenThreeWayMatch={() => setShowThreeWayMatch(true)}
+            onOpenDebitNote={() => setIsDebitNoteOpen(true)}
+            onClose={onClose}
+            onNotification={
+              onNotification
+                ? (title: string, message: string, type?: "success" | "error" | "info" | "warning") =>
+                    onNotification(title, message, type || "info")
+                : undefined
+            }
+          />
         </div>
-      </div>
+      )}
+
+      {/* Top Application Bar (Shown for History, Bill, or Guided 5-Step Wizard) */}
+      {!(subView === "create" && workspaceMode === "desktop") && (
+        <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex items-center justify-between shrink-0 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-indigo-600 text-white shadow-xs">
+              <PackageCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight">
+                  Goods Receipt Note (GRN) Studio
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  ● Inward Engine
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Procurement Inward, Physical Verification, Landed Cost &amp; WMS Batch Staging
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setSubView("create");
+                setWorkspaceMode("desktop");
+              }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
+                subView === "create" && workspaceMode === "desktop"
+                  ? "bg-indigo-600 text-white shadow"
+                  : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
+              }`}
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>Desktop Terminal</span>
+            </button>
+            <button
+              onClick={() => {
+                setSubView("create");
+                setWorkspaceMode("wizard");
+              }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
+                subView === "create" && workspaceMode === "wizard"
+                  ? "bg-indigo-600 text-white shadow"
+                  : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
+              }`}
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>5-Step Wizard</span>
+            </button>
+            <button
+              onClick={() => {
+                setSubView("history");
+                loadReceipts();
+              }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
+                subView === "history"
+                  ? "bg-indigo-600 text-white shadow"
+                  : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>GRN History</span>
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-mono">
+                {savedReceipts.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setSubView("bill")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                subView === "bill"
+                  ? "bg-indigo-600 text-white shadow"
+                  : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750"
+              }`}
+            >
+              <Receipt className="w-3.5 h-3.5 inline mr-1" />
+              Purchase Bill
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700 ml-2 shadow"
+              >
+                Exit
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* View 1: GRN Studio (Authoritative 5-Step Workflow) */}
-      {subView === "create" && (
+      {subView === "create" && workspaceMode === "wizard" && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* 1. PERSISTENT GRN HEADER */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3" data-testid="persistent-grn-header">
