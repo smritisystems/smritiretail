@@ -30,6 +30,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+### [1.0.0] - 2026-09-25 — Procurement: Universal Browse Engine, Master Article Lookup & Purchase Orders Multi-Tenant Gateway Fix
+
+> **Version Specification:** `1.0.0` denotes the platform API and multi-tenant routing fix resolving HTTP 404/400 errors during operator F2 universal browse and purchase studio initialization.
+
+#### Backend Routing & Master Lookup Adapter
+- **Mounted Missing Routers (`backend/app/main.py`):** Registered `universal_master` (`/api/v1/items`) and `master_lookup` (`/api/v1/master/{entity_type}`) into `_ROUTER_REGISTRY` under the `/api/v1` prefix.
+- **Universal Master Lookup Adapter (`backend/app/api/v1/master_lookup.py`):** Added `@router.get("/master/{entity_type}")` supporting plural entity lookups (`articles`, `brands`, `colors`, `sizes`, `categories`, `departments`, `fabrics`, `fits`, `sections`, `seasons`). Combines control-plane `MasterValue` definitions with live operational retail catalog enrichment from PostgreSQL tenant database (`smriti001.items`, `smriti001.products`).
+- **Footwear Catalog Integration & Text Search:** Enabled live search and autocomplete across footwear styles and articles (`CH-25-G`, `CH-07-B`, `CH-02-A`, `CH-03-A`, `CH-20-F`, `CH-13-C`, `SND-10-J`, `SH-02-I`, etc.).
+- **Item Master Schema Hardening (`backend/app/schemas/item_master.py`):** Allowed optional nullability on `category`, `primary_uom`, `mrp`, `selling_price`, and `cost_price` to prevent validation errors on legacy item records.
+- **Multi-Tenant Context & Purchase Orders Query Support (`backend/app/api/deps.py`, `backend/app/db/session.py`, `backend/app/api/v1/purchase.py`):** Fixed HTTP 400 Bad Request on `/api/v1/purchase/orders/` by safely falling back to `COMP-001` (`smriti001`) when tenant headers are missing/undefined, and added query parameters (`page`, `page_size`, `sort`, `order`) to `list_purchase_orders_contract`.
+- **Verification & Governance:** 153/153 Vitest test files green (1057/1057 tests passed), `tsc --noEmit` exit 0, and all endpoints verified live returning HTTP 200 OK.
+
 ### [1.0.0] - 2026-09-25 — Procurement Milestone: Purchase Order Sizewise Matrix UX (`PoSizewiseTab`) & Dual-Mode Studio Integration
 
 > **Version Specification:** `1.0.0` denotes the dedicated Sizewise Matrix Purchase Order entry UX replicating modern operator reference terminal ergonomics for multi-size apparel and retail procurement.

@@ -161,8 +161,8 @@ class ItemResponse(BaseModel):
     identity_code: Optional[str] = None
     item_code: str
     item_name: str
-    item_type: str
-    category: str
+    item_type: str = "FINISHED_GOOD"
+    category: Optional[str] = "GENERAL"
     category_code: Optional[str] = None
     department: Optional[str] = None
     brand: Optional[str] = None
@@ -171,14 +171,14 @@ class ItemResponse(BaseModel):
     size: Optional[str] = None
     vendor_code: Optional[str] = None
     hsn_code: Optional[str] = None
-    tax_rate: float
-    primary_uom: str
-    mrp: float
-    selling_price: float
-    cost_price: float
-    is_batch_tracked: bool
-    is_serial_tracked: bool
-    status: str
+    tax_rate: Optional[float] = 18.0
+    primary_uom: Optional[str] = "PCS"
+    mrp: Optional[float] = 0.0
+    selling_price: Optional[float] = 0.0
+    cost_price: Optional[float] = 0.0
+    is_batch_tracked: bool = False
+    is_serial_tracked: bool = False
+    status: str = "ACTIVE"
     variants: List[ItemVariantItem] = Field(default_factory=list)
     barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
     batches: List[ItemBatchItem] = Field(default_factory=list)

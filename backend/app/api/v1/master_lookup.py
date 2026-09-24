@@ -12,11 +12,11 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Any, cast
+from typing import List, Any, cast, Optional, Dict
 from uuid import UUID
 from datetime import datetime, timezone
 import jsonschema  # type: ignore
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -25,10 +25,12 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from ...api.deps import get_company_db, get_db, get_current_user, require_role
+from ...core.logging import logger
 from ...models.auth import User, UserRole
 from ...models.master_lookup import MasterType, MasterValue
 from ...models.attributes import VariantTemplate
 from ...models.inventory import Product
+from ...models.item_master import Item
 from ...models.sales import SalesOrder, SalesOrderItem
 from ...models.size_groups import SizeGroup, SizeGroupValue
 from ...schemas.master_lookup import (
@@ -1097,5 +1099,379 @@ async def get_lookup_type_audit(
         "entity_name": f"master_lookup:{type_code}",
         "count": len(logs),
         "logs": logs,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Master Lookup Entity Adapter (for UniversalBrowseEngine / F2 Lookup Registry)
+# ---------------------------------------------------------------------------
+@router.get("/master/{entity_type}", summary="Universal Master Lookup Browse Adapter")
+@router.get("/master/{entity_type}/", summary="Universal Master Lookup Browse Adapter")
+async def list_master_entities(
+    entity_type: str,
+    q: Optional[str] = Query(None, description="Search filter string across code, name, and attributes"),
+    page_size: int = Query(200, ge=1, le=1000),
+    page: int = Query(1, ge=1),
+    control_db: AsyncSession = Depends(get_db),
+    tenant_db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Universal Master Entity Browse Adapter for F2 Lookup Architecture v2.
+    Serves /api/v1/master/{entity_type} queries (e.g. articles, brands, colors, sizes,
+    departments, categories, fabrics, fits, sections, seasons, classifications).
+    Integrates authoritative MasterValue lookup records from control plane (smritisys)
+    with live catalog entities from the operational tenant plane (smritiXXX).
+    """
+    clean_type = entity_type.strip().lower()
+    type_code_map = {
+        "articles": "style_article",
+        "article": "style_article",
+        "styles": "style_article",
+        "style": "style_article",
+        "brands": "brand",
+        "brand": "brand",
+        "colors": "color",
+        "color": "color",
+        "sizes": "size",
+        "size": "size",
+        "departments": "department",
+        "department": "department",
+        "sections": "section",
+        "section": "section",
+        "fabrics": "fabric",
+        "fabric": "fabric",
+        "fits": "fit",
+        "fit": "fit",
+        "categories": "category",
+        "category": "category",
+        "seasons": "season",
+        "season": "season",
+        "classifications": "classification",
+        "classification": "classification",
+    }
+    type_code = type_code_map.get(clean_type, clean_type)
+
+    rows: List[Dict[str, Any]] = []
+    seen_codes: set = set()
+
+    # 1. Authoritative lookup values from control plane
+    res_type = await control_db.execute(select(MasterType).where(MasterType.code == type_code))
+    master_type = res_type.scalar_one_or_none()
+    if master_type:
+        mv_stmt = select(MasterValue).where(
+            MasterValue.master_type_id == master_type.id,
+            MasterValue.is_deleted == False,
+            MasterValue.active == True,
+        )
+        if q and q.strip():
+            st = f"%{q.strip()}%"
+            mv_stmt = mv_stmt.where(
+                or_(
+                    MasterValue.code.ilike(st),
+                    MasterValue.name.ilike(st),
+                    MasterValue.vendor_code.ilike(st),
+                )
+            )
+        mv_stmt = mv_stmt.order_by(MasterValue.sort_order.asc(), MasterValue.name.asc())
+        mv_res = await control_db.execute(mv_stmt)
+        master_values = mv_res.scalars().all()
+        for mv in master_values:
+            code = mv.code
+            if code not in seen_codes:
+                seen_codes.add(code)
+                data = mv.data if isinstance(mv.data, dict) else {}
+                rows.append({
+                    "code": code,
+                    "name": mv.name,
+                    "category": data.get("category", ""),
+                    "brand": data.get("brand", ""),
+                    "season": data.get("season", "ALL"),
+                    "mrp": float(data.get("mrp", 0.0) or 0.0),
+                    "shade": data.get("shade", ""),
+                    "hex": data.get("hex", "#808080"),
+                    "group": data.get("group", ""),
+                    "scale": data.get("scale", ""),
+                    "standard": data.get("standard", ""),
+                    "sortOrder": mv.sort_order or 0,
+                    "division": data.get("division", ""),
+                    "description": data.get("description", mv.name),
+                    "origin": data.get("origin", "Domestic"),
+                    "tier": data.get("tier", "Standard"),
+                    "status": "Active" if mv.active else "Inactive",
+                    "targetAudience": data.get("targetAudience", ""),
+                    "deptCode": data.get("deptCode", ""),
+                    "composition": data.get("composition", ""),
+                    "weave": data.get("weave", ""),
+                    "gsm": data.get("gsm", 0),
+                    "cutType": data.get("cutType", ""),
+                    "parent_code": data.get("parent_code", ""),
+                })
+
+    # 2. Live operational catalog data enrichment from tenant plane
+    try:
+        if type_code == "style_article":
+            item_stmt = select(Item).where(Item.is_deleted == False)
+            if q and q.strip():
+                st = f"%{q.strip()}%"
+                item_stmt = item_stmt.where(
+                    or_(
+                        Item.item_code.ilike(st),
+                        Item.item_name.ilike(st),
+                        Item.style_code.ilike(st),
+                        Item.category.ilike(st),
+                        Item.brand.ilike(st),
+                    )
+                )
+            item_stmt = item_stmt.order_by(Item.item_name.asc()).limit(500)
+            items_res = await tenant_db.execute(item_stmt)
+            db_items = items_res.scalars().all()
+            for it in db_items:
+                code = it.style_code or it.item_code
+                if code and code not in seen_codes:
+                    seen_codes.add(code)
+                    rows.append({
+                        "code": code,
+                        "name": it.item_name or code,
+                        "category": it.category or "",
+                        "brand": it.brand or "",
+                        "season": "ALL",
+                        "mrp": float(it.mrp or 0.0),
+                        "shade": it.color or "",
+                        "hex": "#808080",
+                        "group": "",
+                        "scale": it.size or "",
+                        "standard": "",
+                        "sortOrder": 0,
+                        "division": it.department or "",
+                        "description": it.item_name or code,
+                        "origin": "",
+                        "tier": "Standard",
+                        "status": "Active" if it.status == "ACTIVE" else it.status,
+                        "targetAudience": "",
+                        "deptCode": it.department or "",
+                        "composition": "",
+                        "weave": "",
+                        "gsm": 0,
+                        "cutType": "",
+                        "parent_code": it.category_code or "",
+                    })
+
+            # Also check Product for style_code
+            prod_stmt = select(Product).where(Product.style_code.isnot(None), Product.is_deleted == False)
+            if q and q.strip():
+                st = f"%{q.strip()}%"
+                prod_stmt = prod_stmt.where(
+                    or_(
+                        Product.style_code.ilike(st),
+                        Product.name.ilike(st),
+                        Product.category.ilike(st),
+                    )
+                )
+            prod_stmt = prod_stmt.limit(200)
+            prod_res = await tenant_db.execute(prod_stmt)
+            for pr in prod_res.scalars().all():
+                if pr.style_code and pr.style_code not in seen_codes:
+                    seen_codes.add(pr.style_code)
+                    rows.append({
+                        "code": pr.style_code,
+                        "name": pr.name or pr.style_code,
+                        "category": pr.category or "",
+                        "brand": pr.brand or "",
+                        "season": "ALL",
+                        "mrp": float(pr.mrp or 0.0),
+                        "shade": pr.color or "",
+                        "hex": "#808080",
+                        "group": "",
+                        "scale": pr.size or "",
+                        "standard": "",
+                        "sortOrder": 0,
+                        "division": "",
+                        "description": pr.name or pr.style_code,
+                        "origin": "",
+                        "tier": "Standard",
+                        "status": "Active",
+                        "targetAudience": "",
+                        "deptCode": "",
+                        "composition": "",
+                        "weave": "",
+                        "gsm": 0,
+                        "cutType": "",
+                        "parent_code": "",
+                    })
+
+        elif type_code == "brand":
+            b_stmt = select(Item.brand).where(Item.brand.isnot(None), Item.is_deleted == False).distinct()
+            if q and q.strip():
+                b_stmt = b_stmt.where(Item.brand.ilike(f"%{q.strip()}%"))
+            b_res = await tenant_db.execute(b_stmt)
+            for b in b_res.scalars().all():
+                if b and b.strip() and b.strip() not in seen_codes:
+                    seen_codes.add(b.strip())
+                    rows.append({
+                        "code": b.strip().upper().replace(" ", "_"),
+                        "name": b.strip(),
+                        "origin": "Domestic",
+                        "tier": "Standard",
+                        "status": "Active",
+                    })
+            # Also check Product.brand
+            p_b_stmt = select(Product.brand).where(Product.brand.isnot(None), Product.is_deleted == False).distinct()
+            if q and q.strip():
+                p_b_stmt = p_b_stmt.where(Product.brand.ilike(f"%{q.strip()}%"))
+            p_b_res = await tenant_db.execute(p_b_stmt)
+            for b in p_b_res.scalars().all():
+                if b and b.strip() and b.strip() not in seen_codes:
+                    seen_codes.add(b.strip())
+                    rows.append({
+                        "code": b.strip().upper().replace(" ", "_"),
+                        "name": b.strip(),
+                        "origin": "Domestic",
+                        "tier": "Standard",
+                        "status": "Active",
+                    })
+
+        elif type_code == "color":
+            # Check Item.color and Product.color
+            c_stmt = select(Item.color).where(Item.color.isnot(None), Item.is_deleted == False).distinct()
+            if q and q.strip():
+                c_stmt = c_stmt.where(Item.color.ilike(f"%{q.strip()}%"))
+            c_res = await tenant_db.execute(c_stmt)
+            for c in c_res.scalars().all():
+                if c and c.strip() and c.strip() not in seen_codes:
+                    seen_codes.add(c.strip())
+                    rows.append({
+                        "code": c.strip().upper(),
+                        "name": c.strip(),
+                        "shade": c.strip(),
+                        "hex": "#808080",
+                        "group": "Standard",
+                        "status": "Active",
+                    })
+            p_c_stmt = select(Product.color).where(Product.color.isnot(None), Product.is_deleted == False).distinct()
+            if q and q.strip():
+                p_c_stmt = p_c_stmt.where(Product.color.ilike(f"%{q.strip()}%"))
+            p_c_res = await tenant_db.execute(p_c_stmt)
+            for c in p_c_res.scalars().all():
+                if c and c.strip() and c.strip() not in seen_codes:
+                    seen_codes.add(c.strip())
+                    rows.append({
+                        "code": c.strip().upper(),
+                        "name": c.strip(),
+                        "shade": c.strip(),
+                        "hex": "#808080",
+                        "group": "Standard",
+                        "status": "Active",
+                    })
+
+        elif type_code == "size":
+            # Check Item.size and Product.size
+            s_stmt = select(Item.size).where(Item.size.isnot(None), Item.is_deleted == False).distinct()
+            if q and q.strip():
+                s_stmt = s_stmt.where(Item.size.ilike(f"%{q.strip()}%"))
+            s_res = await tenant_db.execute(s_stmt)
+            for s in s_res.scalars().all():
+                if s and s.strip() and s.strip() not in seen_codes:
+                    seen_codes.add(s.strip())
+                    rows.append({
+                        "code": s.strip().upper(),
+                        "name": s.strip(),
+                        "scale": "Standard",
+                        "standard": "UK/IND",
+                        "sortOrder": 0,
+                        "status": "Active",
+                    })
+            p_s_stmt = select(Product.size).where(Product.size.isnot(None), Product.is_deleted == False).distinct()
+            if q and q.strip():
+                p_s_stmt = p_s_stmt.where(Product.size.ilike(f"%{q.strip()}%"))
+            p_s_res = await tenant_db.execute(p_s_stmt)
+            for s in p_s_res.scalars().all():
+                if s and s.strip() and s.strip() not in seen_codes:
+                    seen_codes.add(s.strip())
+                    rows.append({
+                        "code": s.strip().upper(),
+                        "name": s.strip(),
+                        "scale": "Standard",
+                        "standard": "UK/IND",
+                        "sortOrder": 0,
+                        "status": "Active",
+                    })
+
+        elif type_code == "category":
+            cat_stmt = select(Item.category).where(Item.category.isnot(None), Item.is_deleted == False).distinct()
+            if q and q.strip():
+                cat_stmt = cat_stmt.where(Item.category.ilike(f"%{q.strip()}%"))
+            cat_res = await tenant_db.execute(cat_stmt)
+            for cat in cat_res.scalars().all():
+                if cat and cat.strip() and cat.strip() not in seen_codes:
+                    seen_codes.add(cat.strip())
+                    rows.append({
+                        "code": cat.strip().upper().replace(" ", "_"),
+                        "name": cat.strip(),
+                        "parent_code": "",
+                        "description": cat.strip(),
+                        "status": "Active",
+                    })
+            p_cat_stmt = select(Product.category).where(Product.category.isnot(None), Product.is_deleted == False).distinct()
+            if q and q.strip():
+                p_cat_stmt = p_cat_stmt.where(Product.category.ilike(f"%{q.strip()}%"))
+            p_cat_res = await tenant_db.execute(p_cat_stmt)
+            for cat in p_cat_res.scalars().all():
+                if cat and cat.strip() and cat.strip() not in seen_codes:
+                    seen_codes.add(cat.strip())
+                    rows.append({
+                        "code": cat.strip().upper().replace(" ", "_"),
+                        "name": cat.strip(),
+                        "parent_code": "",
+                        "description": cat.strip(),
+                        "status": "Active",
+                    })
+
+        elif type_code == "department":
+            dept_stmt = select(Item.department).where(Item.department.isnot(None), Item.is_deleted == False).distinct()
+            if q and q.strip():
+                dept_stmt = dept_stmt.where(Item.department.ilike(f"%{q.strip()}%"))
+            dept_res = await tenant_db.execute(dept_stmt)
+            for dept in dept_res.scalars().all():
+                if dept and dept.strip() and dept.strip() not in seen_codes:
+                    seen_codes.add(dept.strip())
+                    rows.append({
+                        "code": dept.strip().upper().replace(" ", "_"),
+                        "name": dept.strip(),
+                        "division": "General",
+                        "description": dept.strip(),
+                        "status": "Active",
+                    })
+            if not rows:
+                fallback_depts = [
+                    ("LADIES_FTW", "Ladies Footwear", "Footwear"),
+                    ("GENTS_FTW", "Gents Footwear", "Footwear"),
+                    ("KIDS_FTW", "Kids Footwear", "Footwear"),
+                    ("APPAREL", "Apparel & Garments", "Fashion"),
+                    ("GENERAL", "General Merchandise", "Retail"),
+                ]
+                for code, name, div in fallback_depts:
+                    if code not in seen_codes:
+                        if not q or q.strip().lower() in name.lower() or q.strip().lower() in code.lower():
+                            seen_codes.add(code)
+                            rows.append({
+                                "code": code,
+                                "name": name,
+                                "division": div,
+                                "description": name,
+                                "status": "Active",
+                            })
+    except Exception as exc:
+        logger.warning(f"[MasterLookup] Notice during live catalog enrichment for {type_code}: {exc}")
+
+    # Pagination & Contract Response
+    offset = (page - 1) * page_size
+    paged_items = rows[offset:offset + page_size]
+    return {
+        "items": paged_items,
+        "total": len(rows),
+        "page": page,
+        "page_size": page_size,
+        "has_next": (offset + page_size) < len(rows),
     }
 

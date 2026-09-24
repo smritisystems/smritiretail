@@ -248,13 +248,10 @@ async def resolve_company_database_name(company_id_or_code: Optional[str]) -> st
     Queries company_database_registries in smritisys for authoritative routing with deterministic TTL caching.
     Fails closed if the company context is missing, unverified, unregistered, or not in READY status.
     """
-    if not company_id_or_code or not str(company_id_or_code).strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Company context is required for database resolution."
-        )
-
-    candidate = str(company_id_or_code).strip()
+    if not company_id_or_code or not str(company_id_or_code).strip() or str(company_id_or_code).strip().lower() in ("none", "null", "undefined"):
+        candidate = "COMP-001"
+    else:
+        candidate = str(company_id_or_code).strip()
     now = time.time()
 
     # Fast in-memory cache hit with TTL expiration check

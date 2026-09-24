@@ -24,6 +24,7 @@ Founders
 Classification: Internal
 """
 
+from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, Response, HTTPException
@@ -122,6 +123,10 @@ async def get_supplier(
 async def list_purchase_orders_contract(
     pending_only: bool = Query(default=False, description="Filter only pending/open POs (exclude RECEIVED and CANCELLED)"),
     supplier_id: Optional[str] = Query(default=None, description="Filter by supplier ID"),
+    page: Optional[int] = Query(default=None, ge=1, description="Page number"),
+    page_size: Optional[int] = Query(default=None, ge=1, le=500, description="Page size"),
+    sort: Optional[str] = Query(default=None, description="Sort field"),
+    order: Optional[str] = Query(default=None, description="Sort order: asc or desc"),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
@@ -149,6 +154,20 @@ async def list_purchase_orders_contract(
         resp = PurchaseOrderResponse.model_validate(o)
         resp.items = items_by_order.get(o.id, [])
         result.append(resp)
+
+    # Optional sorting
+    if sort:
+        reverse = (order or "desc").lower() == "desc"
+        if sort == "created_at":
+            result = sorted(result, key=lambda x: getattr(x, "created_at", None) or datetime.min, reverse=reverse)
+        elif sort == "order_no":
+            result = sorted(result, key=lambda x: getattr(x, "order_no", "") or "", reverse=reverse)
+
+    # Optional pagination
+    if page is not None and page_size is not None:
+        offset = (page - 1) * page_size
+        result = result[offset:offset + page_size]
+
     return result
 
 
