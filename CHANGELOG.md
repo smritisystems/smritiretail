@@ -39,6 +39,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **1-Click Statutory Artifact Pipeline:** Automated generation of individual statutory A4 PDFs (`<Store>_<PO>_<Invoice>.pdf`), 11-page master statement PDF, source Excel write-back (Cols M, N, O), NIC E-Way Bill JSON payloads, master reconciliation workbooks (`All_Master.xlsx`, `PO_Fulfillment_Matrix.xlsx`), and unified ZIP delivery archive.
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 
+### [1.0.0] - 2026-09-24 — Procurement Milestone: Purchase Order Modern UX Refactor
+
+> **Version Specification:** `1.0.0` denotes the major procurement operator ergonomics milestone delivering high-throughput retail purchase indent workflows.
+
+#### Procurement: Modern Operator-Friendly Purchase Order Workspace
+- **Modern Layout Architecture:** Refactored `src/components/purchase/PoGenerateTab.tsx` into a high-density, low-clutter operator workspace featuring a modern status header, 4 compact information cards (*Document Information*, *Supplier & Delivery*, *Terms & Reference*, *Status & Policy*), and a dedicated 17-column line items grid.
+- **Docked Toolbar Below Grid:** Relocated the entry toolbar immediately below the line items grid with high-speed barcode scanning, F2 universal catalog lookup, Excel import, and item view mode switcher (`Standard`, `Compact`, `Detailed`, `Size Pivot`).
+- **Retail MRP & Purchase Rate Separation:** Preserved strict visible separation between consumer Maximum Retail Price (`mrp`) and inward purchase rate (`cost_price` / `invoice_rate`) with real-time financial gross margin estimation.
+- **Tri-Section Bottom Financial Summary:** Added distinct notes card, item quantity breakdown (Total Items, Total Qty, Free Qty), and comprehensive Order Amount Summary with item discounts, freight, charges, and exact tax tiers.
+- **Automated Verification:** 6/6 unit tests green in `src/tests/poGenerateUX.test.ts`, 12/12 overall PO test suite green, and 0 TypeScript compiler errors.
+
 ### [3.33.6] - 2026-09-24 — Procurement Milestone: GRN Inward Engine Immutability & PO Lifecycle Governance
 
 > **Version Specification:** `3.33.6` denotes the procurement and inward landed cost governance milestone achieving 100% parity with Tally Shoper 9 (`GIR` / `PO` Governance).
