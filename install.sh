@@ -465,20 +465,8 @@ else
     echo -e "  ${YELLOW}[WARNING] Database container took longer than expected to report healthy.${NC}"
 fi
 
-# Run Alembic Database Migrations safely
-echo -e "  Checking and applying Alembic control-plane database migrations..."
-docker compose -f "$COMPOSE_FILE" exec -T -e PYTHONPATH="" "$API_CONTAINER" alembic -x target=control -x db="$DB_NAME" upgrade head 2>&1 || echo "Notice: Control-plane migrations verified."
-
-# Ensure primary company tenant database (smriti001) exists and is migrated
-echo -e "  Checking and provisioning tenant database (smriti001)..."
-docker compose -f "$COMPOSE_FILE" exec -T "$DB_CONTAINER" psql -U postgres -d postgres -t -c "SELECT 1 FROM pg_database WHERE datname = 'smriti001';" | grep -q 1 || \
-    docker compose -f "$COMPOSE_FILE" exec -T "$DB_CONTAINER" psql -U postgres -d postgres -c "CREATE DATABASE smriti001;" 2>&1 || true
-
-echo -e "  Checking and applying Alembic tenant database migrations (smriti001)..."
-docker compose -f "$COMPOSE_FILE" exec -T -e PYTHONPATH="" "$API_CONTAINER" alembic -x target=tenant -x db=smriti001 upgrade head 2>&1 || echo "Notice: Tenant migrations verified."
-
-# Seed baseline enterprise companies and users
-echo -e "  Verifying and seeding baseline enterprise users..."
+# Canonical Database Bootstrap Engine (Rule 4)
+echo -e "  Executing SMRITI Canonical Database Bootstrap Engine..."
 docker compose -f "$COMPOSE_FILE" exec -T \
     -e SMRITI_COMPANY_NAME="$SMRITI_COMPANY_NAME" \
     -e SMRITI_COMPANY_CODE="$SMRITI_COMPANY_CODE" \
@@ -488,7 +476,13 @@ docker compose -f "$COMPOSE_FILE" exec -T \
     -e SMRITI_ADMIN_USERNAME="$SMRITI_ADMIN_USERNAME" \
     -e SMRITI_ADMIN_EMAIL="$SMRITI_ADMIN_EMAIL" \
     -e SMRITI_ADMIN_PASSWORD="$SMRITI_ADMIN_PASSWORD" \
-    "$API_CONTAINER" python -m app.db.seed_baseline_users 2>&1 || echo "Notice: Seeding verified."
+    "$API_CONTAINER" python -m app.db.bootstrap_engine
+if [ $? -eq 0 ]; then
+    echo -e "  ${GREEN}[OK] Canonical database bootstrap completed (control plane & tenant databases provisioned).${NC}"
+else
+    echo -e "  ${RED}[ERROR] Database bootstrap failed.${NC}"
+    exit 1
+fi
 
 # Probe API Health
 echo -e "  Checking API health on http://localhost:$API_PORT/health..."
@@ -522,6 +516,16 @@ if [ "$WEB_HEALTHY" = true ]; then
     echo -e "  ${GREEN}[OK] Web frontend is live and responding (HTTP 200).${NC}"
 else
     echo -e "  ${YELLOW}[WARNING] Web frontend has not yet responded with HTTP 200. Container may still be initializing.${NC}"
+fi
+
+# Run Official Installation Verification (Rule 8)
+echo -e "\n  Running Official Installation & Database Topology Verification..."
+docker compose -f "$COMPOSE_FILE" exec -T "$API_CONTAINER" python /workspace/backend/tools/verify_installation.py --api-url "http://localhost:8000"
+if [ $? -eq 0 ]; then
+    echo -e "  ${GREEN}[OK] Installation verification PASSED (topology, routing, and operational APIs verified).${NC}"
+else
+    echo -e "  ${RED}[ERROR] Installation verification FAILED.${NC}"
+    exit 1
 fi
 
 # Display Container Status Table

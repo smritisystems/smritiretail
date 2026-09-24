@@ -13,7 +13,8 @@ param (
     [string]$Mode = "",
     [switch]$NonInteractive = $false,
     [switch]$SkipBrowser = $false,
-    [switch]$FreshInstall = $false
+    [switch]$FreshInstall = $false,
+    [string]$VolumeName = ""
 )
 
 $ErrorActionPreference = "Continue"
@@ -83,15 +84,22 @@ function Test-PortOccupied {
 
 function Show-ErrorDiagnostics {
     param(
-        [string]$StepName,
-        [string]$ErrorMessage,
-        [string]$CommandOutput = ""
+        [Alias("FailedStep")]
+        [string]$StepName = "Unknown Step",
+        [Alias("Details")]
+        [string]$ErrorMessage = "",
+        [Alias("ErrorDetails")]
+        [string]$CommandOutput = "",
+        [string]$Command = ""
     )
     Write-Host ""
     Write-Host "=====================================================================" -ForegroundColor Red
     Write-Host " [ERROR OCCURRED DURING INSTALLATION] - DIAGNOSTIC LOG DUMP" -ForegroundColor Red
     Write-Host "=====================================================================" -ForegroundColor Red
     Write-Host " Failed Step : $StepName" -ForegroundColor Yellow
+    if ($Command) {
+        Write-Host " Command     : $Command" -ForegroundColor Yellow
+    }
     if ($ErrorMessage) {
         Write-Host " Details     : $ErrorMessage" -ForegroundColor Yellow
     }
@@ -338,6 +346,10 @@ Get-Content ".env" | ForEach-Object {
 $env:PORT = "$webPort"
 $env:BACKEND_API_PORT = "$apiPort"
 $env:POSTGRES_PORT = "$pgPort"
+if ($VolumeName) {
+    $env:POSTGRES_VOLUME_NAME = "$VolumeName"
+    Write-Host "  [OK] Isolated PostgreSQL volume active: $VolumeName" -ForegroundColor Cyan
+}
 
 # -----------------------------------------------------------------------------
 # 5.5  Company / Business Profile Setup
@@ -391,31 +403,44 @@ if ($existingCompanyName.Length -gt 0 -and -not $doFreshInstall) {
     $defAdminPwd    = Get-EnvValue -FilePath ".env" -Key "SMRITI_ADMIN_PASSWORD"
     if (-not $defAdminPwd) { $defAdminPwd = "Admin@123" }
 
-    $companyName = (Read-Host "  Company / Business Name [$defCompanyName]").Trim()
-    if (-not $companyName) { $companyName = $defCompanyName }
+    if ($NonInteractive) {
+        $companyName = $defCompanyName
+        $companyCode = $defCompanyCode
+        $companyGst  = $defCompanyGst
+        $branchName  = $defBranchName
+        $branchCode  = $defBranchCode
+        $adminUsername = $defAdminUser
+        $adminEmail  = $defAdminEmail
+        $adminPwd    = $defAdminPwd
+        Write-Host "  [Non-Interactive] Using default business profile:" -ForegroundColor Cyan
+        Write-Host "    Company: $companyName ($companyCode), Branch: $branchName ($branchCode), Admin: $adminUsername" -ForegroundColor Gray
+    } else {
+        $companyName = (Read-Host "  Company / Business Name [$defCompanyName]").Trim()
+        if (-not $companyName) { $companyName = $defCompanyName }
 
-    $companyCode = (Read-Host "  Company Short Code (letters/numbers only, no spaces) [$defCompanyCode]").Trim() -replace '\s+',''
-    if (-not $companyCode) { $companyCode = $defCompanyCode }
+        $companyCode = (Read-Host "  Company Short Code (letters/numbers only, no spaces) [$defCompanyCode]").Trim() -replace '\s+',''
+        if (-not $companyCode) { $companyCode = $defCompanyCode }
 
-    $companyGst = (Read-Host "  GST Number (leave blank if not applicable) [$defCompanyGst]").Trim()
-    if (-not $companyGst -and $defCompanyGst) { $companyGst = $defCompanyGst }
+        $companyGst = (Read-Host "  GST Number (leave blank if not applicable) [$defCompanyGst]").Trim()
+        if (-not $companyGst -and $defCompanyGst) { $companyGst = $defCompanyGst }
 
-    $branchName = (Read-Host "  Main Branch Name [$defBranchName]").Trim()
-    if (-not $branchName) { $branchName = $defBranchName }
+        $branchName = (Read-Host "  Main Branch Name [$defBranchName]").Trim()
+        if (-not $branchName) { $branchName = $defBranchName }
 
-    $branchCode = (Read-Host "  Main Branch Code (letters/numbers only) [$defBranchCode]").Trim() -replace '\s+',''
-    if (-not $branchCode) { $branchCode = $defBranchCode }
+        $branchCode = (Read-Host "  Main Branch Code (letters/numbers only) [$defBranchCode]").Trim() -replace '\s+',''
+        if (-not $branchCode) { $branchCode = $defBranchCode }
 
-    Write-Host ""
-    Write-Host "  --- Admin Account ---" -ForegroundColor Cyan
-    $adminUsername = (Read-Host "  Admin Username [$defAdminUser]").Trim()
-    if (-not $adminUsername) { $adminUsername = $defAdminUser }
+        Write-Host ""
+        Write-Host "  --- Admin Account ---" -ForegroundColor Cyan
+        $adminUsername = (Read-Host "  Admin Username [$defAdminUser]").Trim()
+        if (-not $adminUsername) { $adminUsername = $defAdminUser }
 
-    $adminEmail = (Read-Host "  Admin Email [$defAdminEmail]").Trim()
-    if (-not $adminEmail) { $adminEmail = $defAdminEmail }
+        $adminEmail = (Read-Host "  Admin Email [$defAdminEmail]").Trim()
+        if (-not $adminEmail) { $adminEmail = $defAdminEmail }
 
-    $adminPwd = (Read-Host "  Admin Password [$defAdminPwd]").Trim()
-    if (-not $adminPwd) { $adminPwd = $defAdminPwd }
+        $adminPwd = (Read-Host "  Admin Password [$defAdminPwd]").Trim()
+        if (-not $adminPwd) { $adminPwd = $defAdminPwd }
+    }
 
     # Save to .env
     Update-EnvKey -FilePath ".env" -Key "SMRITI_COMPANY_NAME"  -Value $companyName
@@ -468,18 +493,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  [OK] Images built successfully." -ForegroundColor Green
 
-Write-Host "  Starting services in background (docker compose up -d)..." -ForegroundColor Gray
-docker compose -f $composeFile up -d
+# -----------------------------------------------------------------------------
+# 7. Database Readiness, Bootstrap Engine & Service Verification
+# -----------------------------------------------------------------------------
+Write-Section "7/7" "Validating Database Readiness, Bootstrap Engine, and Service Health"
+
+Write-Host "  Starting PostgreSQL database container ($dbContainer)..." -ForegroundColor Gray
+docker compose -f $composeFile up -d $dbContainer
 if ($LASTEXITCODE -ne 0) {
-    Show-ErrorDiagnostics -StepName "Docker Service Startup" -ErrorMessage "docker compose up -d failed with exit code $LASTEXITCODE."
+    Show-ErrorDiagnostics -StepName "Start Database Container" -ErrorMessage "Failed to start database container $dbContainer."
     exit 1
 }
-Write-Host "  [OK] Services started." -ForegroundColor Green
-
-# -----------------------------------------------------------------------------
-# 7. Database Readiness, Migrations & Health Checks
-# -----------------------------------------------------------------------------
-Write-Section "7/7" "Validating Database Readiness, Migrations, and Service Health"
 
 Write-Host "  Waiting for PostgreSQL database container ($dbContainer) to become healthy..." -ForegroundColor Gray
 $dbReady = $false
@@ -501,40 +525,20 @@ if (-not $dbReady) {
     Write-Host "  [OK] PostgreSQL database is healthy and ready for queries." -ForegroundColor Green
 }
 
-# Run Alembic Database Migrations safely
-Write-Host "  Checking and applying Alembic control-plane database migrations..." -ForegroundColor Gray
-$migOutput = docker compose -f $composeFile exec -T -e PYTHONPATH="" $apiContainer alembic -x target=control -x db=$dbName upgrade head 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "  [OK] Control-plane database migrations completed." -ForegroundColor Green
-} else {
-    Write-Host "  [ERROR] Database migrations failed with exit code $LASTEXITCODE." -ForegroundColor Red
-    Show-ErrorDiagnostics -FailedStep "Alembic Database Migration" -Command "alembic -x target=control -x db=$dbName upgrade head" -ErrorDetails ($migOutput | Out-String)
+# Start API Backend container (suppress background migrations during explicit installer execution)
+Write-Host "  Starting API backend container ($apiContainer)..." -ForegroundColor Gray
+$prevSkip = $env:SKIP_MIGRATIONS
+$env:SKIP_MIGRATIONS = "true"
+docker compose -f $composeFile up -d $apiContainer
+$env:SKIP_MIGRATIONS = $prevSkip
+if ($LASTEXITCODE -ne 0) {
+    Show-ErrorDiagnostics -StepName "Start API Container" -ErrorMessage "Failed to start API container $apiContainer."
     exit 1
 }
 
-# Ensure primary company tenant database (smriti001) exists and is migrated
-$tenantDbName = "smriti001"
-Write-Host "  Checking and provisioning tenant database ($tenantDbName)..." -ForegroundColor Gray
-$checkDbCmd = "SELECT 1 FROM pg_database WHERE datname = '$tenantDbName';"
-$dbExists = docker compose -f $composeFile exec -T $dbContainer psql -U postgres -d postgres -t -c $checkDbCmd 2>&1
-if ($dbExists -notmatch "1") {
-    Write-Host "  Creating database $tenantDbName..." -ForegroundColor Gray
-    docker compose -f $composeFile exec -T $dbContainer psql -U postgres -d postgres -c "CREATE DATABASE $tenantDbName;" 2>&1 | Out-Null
-}
-
-Write-Host "  Checking and applying Alembic tenant database migrations ($tenantDbName)..." -ForegroundColor Gray
-$tenantMigOutput = docker compose -f $composeFile exec -T -e PYTHONPATH="" $apiContainer alembic -x target=tenant -x db=$tenantDbName upgrade head 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "  [OK] Tenant database ($tenantDbName) migrations completed." -ForegroundColor Green
-} else {
-    Write-Host "  [ERROR] Tenant database migrations failed with exit code $LASTEXITCODE." -ForegroundColor Red
-    Show-ErrorDiagnostics -FailedStep "Tenant Database Migration" -Command "alembic -x target=tenant -x db=$tenantDbName upgrade head" -ErrorDetails ($tenantMigOutput | Out-String)
-    exit 1
-}
-
-# Seed baseline enterprise companies and users
-Write-Host "  Verifying and seeding baseline enterprise users..." -ForegroundColor Gray
-$seedOutput = docker compose -f $composeFile exec -T `
+# Execute Canonical Database Bootstrap Engine (Rule 4)
+Write-Host "  Executing SMRITI Canonical Database Bootstrap Engine..." -ForegroundColor Gray
+$bootstrapOutput = docker compose -f $composeFile exec -T `
     -e SMRITI_COMPANY_NAME="$env:SMRITI_COMPANY_NAME" `
     -e SMRITI_COMPANY_CODE="$env:SMRITI_COMPANY_CODE" `
     -e SMRITI_COMPANY_GST="$env:SMRITI_COMPANY_GST" `
@@ -543,15 +547,24 @@ $seedOutput = docker compose -f $composeFile exec -T `
     -e SMRITI_ADMIN_USERNAME="$env:SMRITI_ADMIN_USERNAME" `
     -e SMRITI_ADMIN_EMAIL="$env:SMRITI_ADMIN_EMAIL" `
     -e SMRITI_ADMIN_PASSWORD="$env:SMRITI_ADMIN_PASSWORD" `
-    $apiContainer python -m app.db.seed_baseline_users 2>&1
+    $apiContainer python -m app.db.bootstrap_engine 2>&1
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "  [OK] Baseline users and enterprise companies seeded." -ForegroundColor Green
+    Write-Host "  [OK] Canonical database bootstrap completed (control plane & tenant databases provisioned)." -ForegroundColor Green
 } else {
-    Write-Host "  [ERROR] Baseline seeding failed with exit code $LASTEXITCODE." -ForegroundColor Red
-    Show-ErrorDiagnostics -FailedStep "Baseline Seeding" -Command "python -m app.db.seed_baseline_users" -ErrorDetails ($seedOutput | Out-String)
+    Write-Host "  [ERROR] Database bootstrap failed with exit code $LASTEXITCODE." -ForegroundColor Red
+    Show-ErrorDiagnostics -StepName "Database Bootstrap Engine" -Command "python -m app.db.bootstrap_engine" -CommandOutput ($bootstrapOutput | Out-String)
     exit 1
 }
+
+# Start remaining stack services (Web Frontend, etc.)
+Write-Host "  Starting remaining services (docker compose up -d)..." -ForegroundColor Gray
+docker compose -f $composeFile up -d
+if ($LASTEXITCODE -ne 0) {
+    Show-ErrorDiagnostics -StepName "Docker Service Startup" -ErrorMessage "docker compose up -d failed with exit code $LASTEXITCODE."
+    exit 1
+}
+Write-Host "  [OK] All containers started." -ForegroundColor Green
 
 # Probe API Health
 Write-Host "  Checking API health on http://localhost:$apiPort/health..." -ForegroundColor Gray
@@ -597,6 +610,18 @@ if ($webHealthy) {
     Write-Host "`n--- smriti-web Container Logs (last 40 lines) ---" -ForegroundColor White
     $webLogs = docker logs $webContainer --tail=40 2>&1 | Out-String
     Write-Host $webLogs -ForegroundColor Red
+}
+
+# Run Official Installation Verification (Rule 8)
+Write-Host "`n  Running Official Installation & Database Topology Verification..." -ForegroundColor Gray
+$verifyOutput = docker compose -f $composeFile exec -T $apiContainer python /workspace/backend/tools/verify_installation.py --api-url "http://localhost:8000" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  [OK] Installation verification PASSED (topology, routing, and operational APIs verified)." -ForegroundColor Green
+} else {
+    Write-Host "  [ERROR] Installation verification FAILED." -ForegroundColor Red
+    Write-Host ($verifyOutput | Out-String) -ForegroundColor Red
+    Show-ErrorDiagnostics -StepName "Installation Verification" -ErrorMessage "verify_installation.py detected failure in topology, routing, or APIs." -CommandOutput ($verifyOutput | Out-String)
+    exit 1
 }
 
 # Display Container Status Table

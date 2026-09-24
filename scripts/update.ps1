@@ -47,23 +47,16 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# 4. Apply Database Migrations
-Write-Host "`n[4/5] Applying Alembic database migrations..." -ForegroundColor Yellow
-Write-Host "  Control-plane (smritisys)..." -ForegroundColor Gray
-docker compose exec -T -e PYTHONPATH="" smriti-api alembic -x target=control -x db=smritisys upgrade head 2>&1
-
-Write-Host "  Tenant database (smriti001)..." -ForegroundColor Gray
-$dbExists = docker compose exec -T smriti-db psql -U postgres -d postgres -t -c "SELECT 1 FROM pg_database WHERE datname = 'smriti001';" 2>&1
-if ($dbExists -notmatch "1") {
-    Write-Host "  Creating database smriti001..." -ForegroundColor Gray
-    docker compose exec -T smriti-db psql -U postgres -d postgres -c "CREATE DATABASE smriti001;" 2>&1 | Out-Null
+# 4. Canonical Database Bootstrap Engine (Control + Multi-Tenant Migrations & Seeding)
+Write-Host "`n[4/5] Executing SMRITI Canonical Database Bootstrap Engine..." -ForegroundColor Yellow
+$bootstrapOutput = docker compose exec -T smriti-api python -m app.db.bootstrap_engine 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  [OK] Canonical database bootstrap completed (control plane & tenant databases verified)." -ForegroundColor Green
+} else {
+    Write-Host "  [FAIL] Database bootstrap failed." -ForegroundColor Red
+    Write-Host ($bootstrapOutput | Out-String) -ForegroundColor Red
+    exit 1
 }
-docker compose exec -T -e PYTHONPATH="" smriti-api alembic -x target=tenant -x db=smriti001 upgrade head 2>&1
-
-# Seed baseline enterprise users/companies if needed
-Write-Host "  Syncing baseline users and customer registries..." -ForegroundColor Gray
-docker compose exec -T smriti-api python -m app.db.seed_baseline_users 2>&1
-Write-Host "  [OK] Migrations and baseline data verified." -ForegroundColor Green
 
 # 5. Service Health Probe
 Write-Host "`n[5/5] Running health verification..." -ForegroundColor Yellow

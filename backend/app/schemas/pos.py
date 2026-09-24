@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 """
 
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, field_validator
 
@@ -76,6 +76,7 @@ class POSProfileResponse(BaseModel):
 
     @classmethod
     def from_register(cls, reg: Any) -> "POSProfileResponse":
+        now = datetime.now(timezone.utc)
         return cls(
             id=reg.id,
             name=reg.name,
@@ -84,8 +85,8 @@ class POSProfileResponse(BaseModel):
             warehouse=getattr(reg, "warehouse", None),
             is_locked=getattr(reg, "is_locked", False),
             is_active=reg.is_active,
-            created_at=reg.created_at,
-            modified_at=reg.modified_at,
+            created_at=reg.created_at or now,
+            modified_at=reg.modified_at or now,
         )
 
 

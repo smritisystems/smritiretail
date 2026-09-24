@@ -30,6 +30,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+### [3.16.0] - 2026-09-24 — Foundation Milestone: Fresh PC Installation Database Bootstrap & Topology Fix
+
+> **Version Specification:** `3.16.0` denotes the core database provisioning and fresh PC installation reliability milestone.
+
+#### Foundation: Canonical Database Bootstrap Engine & Topology Verification
+- **Canonical Database Bootstrap Engine (`backend/app/db/bootstrap_engine.py`):** Multi-phase idempotent database orchestrator that provisions control plane (`smritisys`), runs control migrations, seeds baseline system users and company registries, discovers required tenant operational databases (`smriti001`, `smriti002`, `smriti003`), creates physical databases via raw autocommit PostgreSQL DDL, runs tenant migrations (`target=tenant`), and seeds baseline operational data (Customer Groups, Customers, Products, POS Cash Registers, Suppliers, and Universal Parties).
+- **Official Installation Verification Tool (`backend/tools/verify_installation.py`):** Standalone diagnostic and testing CLI asserting PostgreSQL catalog existence, table schema completeness (7 control tables, 11 tenant core tables across 285 total tables), `COMP-001 -> smriti001` routing resolution, and automated verification of 6 live operational API endpoints (`/crm/customers`, `/crm/customer-groups`, `/pos/shifts/`, `/pos/profiles/`, `/products/search`, `/purchase/vendors/`).
+- **Health & Readiness Diagnostic Probes (`backend/app/main.py`, `backend/app/db/session.py`):** Added `verify_tenant_connectivity()` and upgraded `/health` and `/ready` to inspect both control plane and tenant operational database connectivity, returning HTTP 503 if tenant database is disconnected or missing.
+- **Installer & Lifecycle Modernization (`install.ps1`, `install.sh`, `scripts/update.ps1`, `entrypoint.sh`):** Aligned installation lifecycles to start the database container, wait for readiness, execute the canonical bootstrap engine, start web and api services, and run the official installation verification tool. Fixed PowerShell parameter binding aliases in `Show-ErrorDiagnostics`.
+- **Automated Verification:** 12/12 installation topology and operational API checks green via live HTTP against port 8000; Python compile check passed with 0 errors.
+
 ### [1.0.0] - 2026-09-24 — Foundation & BI Milestone: Universal Reporting Engine (SURE) & Multi-Format Exporter Architecture
 
 > **Version Specification:** `1.0.0` denotes the major business intelligence milestone delivering schema-driven universal reporting with native multi-format exporters.
