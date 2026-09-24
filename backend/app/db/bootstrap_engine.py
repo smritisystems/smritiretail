@@ -352,7 +352,153 @@ def seed_tenant_baseline_data(database_name: str, company_id: str = "COMP-001") 
     finally:
         conn.close()
 
-    logger.info("Baseline operational data seeded successfully in '%s'.", database_name)
+def apply_tenant_schema_extensions(database_name: str) -> None:
+    """
+    Applies tenant schema extensions (party master extensions, item master extensions)
+    to ensure 100% column parity between development and fresh installations.
+    """
+    logger.info("Applying tenant schema extensions to '%s'...", database_name)
+    conn = get_raw_connection(database_name)
+    try:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            # 1. Party Master Extensions
+            cur.execute("""
+                ALTER TABLE parties ADD COLUMN IF NOT EXISTS merged_into_party_id VARCHAR(50);
+                CREATE INDEX IF NOT EXISTS ix_parties_merged_into ON parties(merged_into_party_id);
+
+                CREATE TABLE IF NOT EXISTS party_addresses (
+                    id VARCHAR(50) PRIMARY KEY,
+                    uuid VARCHAR(36),
+                    company_id VARCHAR(50),
+                    branch_id VARCHAR(50),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    modified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    created_by VARCHAR(50),
+                    updated_by VARCHAR(50),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    is_deleted BOOLEAN DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE,
+                    deleted_by VARCHAR(50),
+                    version INTEGER DEFAULT 1,
+                    party_id VARCHAR(50) NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+                    address_type VARCHAR(30) NOT NULL DEFAULT 'BILLING',
+                    address_title VARCHAR(100),
+                    address_line1 TEXT NOT NULL,
+                    address_line2 TEXT,
+                    city VARCHAR(100) NOT NULL,
+                    state VARCHAR(100) NOT NULL,
+                    state_code VARCHAR(5),
+                    pincode VARCHAR(10) NOT NULL,
+                    country VARCHAR(100) NOT NULL DEFAULT 'India',
+                    gstin VARCHAR(15),
+                    is_primary BOOLEAN NOT NULL DEFAULT FALSE
+                );
+                CREATE INDEX IF NOT EXISTS ix_party_addresses_party_id ON party_addresses(party_id);
+
+                CREATE TABLE IF NOT EXISTS party_contacts (
+                    id VARCHAR(50) PRIMARY KEY,
+                    uuid VARCHAR(36),
+                    company_id VARCHAR(50),
+                    branch_id VARCHAR(50),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    modified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    created_by VARCHAR(50),
+                    updated_by VARCHAR(50),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    is_deleted BOOLEAN DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE,
+                    deleted_by VARCHAR(50),
+                    version INTEGER DEFAULT 1,
+                    party_id VARCHAR(50) NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+                    contact_name VARCHAR(150) NOT NULL,
+                    designation VARCHAR(100),
+                    department VARCHAR(100),
+                    phone VARCHAR(20),
+                    mobile VARCHAR(20),
+                    email VARCHAR(255),
+                    is_primary BOOLEAN NOT NULL DEFAULT FALSE
+                );
+                CREATE INDEX IF NOT EXISTS ix_party_contacts_party_id ON party_contacts(party_id);
+
+                CREATE TABLE IF NOT EXISTS party_relationships (
+                    id VARCHAR(50) PRIMARY KEY,
+                    uuid VARCHAR(36),
+                    company_id VARCHAR(50),
+                    branch_id VARCHAR(50),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    modified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    created_by VARCHAR(50),
+                    updated_by VARCHAR(50),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    is_deleted BOOLEAN DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE,
+                    deleted_by VARCHAR(50),
+                    version INTEGER DEFAULT 1,
+                    source_party_id VARCHAR(50) NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+                    target_party_id VARCHAR(50) NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+                    relationship_type VARCHAR(50) NOT NULL,
+                    metadata_json JSONB DEFAULT '{}'
+                );
+                CREATE INDEX IF NOT EXISTS ix_party_rel_source ON party_relationships(source_party_id);
+                CREATE INDEX IF NOT EXISTS ix_party_rel_target ON party_relationships(target_party_id);
+            """)
+
+            # 2. Item Master Extensions
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS item_batches (
+                    id VARCHAR(50) PRIMARY KEY,
+                    uuid VARCHAR(36),
+                    company_id VARCHAR(50),
+                    branch_id VARCHAR(50),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    modified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    created_by VARCHAR(50),
+                    updated_by VARCHAR(50),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    is_deleted BOOLEAN DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE,
+                    deleted_by VARCHAR(50),
+                    version INTEGER DEFAULT 1,
+                    item_id VARCHAR(50) NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+                    variant_id VARCHAR(50) REFERENCES item_variants(id) ON DELETE CASCADE,
+                    batch_number VARCHAR(100) NOT NULL,
+                    mfg_date DATE,
+                    exp_date DATE,
+                    mrp NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+                    cost_price NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+                    CONSTRAINT uq_item_batch_no UNIQUE (item_id, batch_number)
+                );
+                CREATE INDEX IF NOT EXISTS ix_item_batches_item_id ON item_batches(item_id);
+                CREATE INDEX IF NOT EXISTS ix_item_batches_batch_no ON item_batches(batch_number);
+
+                CREATE TABLE IF NOT EXISTS item_serials (
+                    id VARCHAR(50) PRIMARY KEY,
+                    uuid VARCHAR(36),
+                    company_id VARCHAR(50),
+                    branch_id VARCHAR(50),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    modified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+                    created_by VARCHAR(50),
+                    updated_by VARCHAR(50),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    is_deleted BOOLEAN DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE,
+                    deleted_by VARCHAR(50),
+                    version INTEGER DEFAULT 1,
+                    item_id VARCHAR(50) NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+                    variant_id VARCHAR(50) REFERENCES item_variants(id) ON DELETE CASCADE,
+                    serial_number VARCHAR(100) NOT NULL,
+                    status VARCHAR(30) NOT NULL DEFAULT 'AVAILABLE',
+                    warehouse_id VARCHAR(50),
+                    cost_price NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+                    CONSTRAINT uq_item_serial_no UNIQUE (item_id, serial_number)
+                );
+                CREATE INDEX IF NOT EXISTS ix_item_serials_item_id ON item_serials(item_id);
+                CREATE INDEX IF NOT EXISTS ix_item_serials_serial_no ON item_serials(serial_number);
+            """)
+    finally:
+        conn.close()
 
 
 def provision_and_migrate_tenants(tenants: Optional[List[Dict[str, str]]] = None) -> List[Dict[str, Any]]:
@@ -371,6 +517,7 @@ def provision_and_migrate_tenants(tenants: Optional[List[Dict[str, str]]] = None
 
         created = create_database_if_missing(db_name)
         run_alembic_migration("tenant", db_name, "head")
+        apply_tenant_schema_extensions(db_name)
         seed_tenant_baseline_data(db_name, company_id)
 
         results.append({
