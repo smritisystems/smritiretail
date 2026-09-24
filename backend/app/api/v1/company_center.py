@@ -14,6 +14,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
+import psycopg2
 
 try:
     from app.services.db_resolver import (
@@ -21,7 +22,7 @@ try:
         generate_company_database_name,
         validate_company_database_name
     )
-    from app.services.code_allocator import CompanyCodeAllocator
+    from app.services.code_allocator import CompanyCodeAllocator, CONTROL_PLANE_DB_URL
     from app.services.db_provisioner import CompanyDatabaseProvisioner
     from app.api.deps import get_current_user, require_role
     from app.models.auth import User, UserRole
@@ -31,7 +32,7 @@ except ImportError:
         generate_company_database_name,
         validate_company_database_name
     )
-    from backend.app.services.code_allocator import CompanyCodeAllocator
+    from backend.app.services.code_allocator import CompanyCodeAllocator, CONTROL_PLANE_DB_URL
     from backend.app.services.db_provisioner import CompanyDatabaseProvisioner
     from backend.app.api.deps import get_current_user, require_role
     from backend.app.models.auth import User, UserRole

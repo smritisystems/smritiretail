@@ -173,14 +173,10 @@ async def list_staff_placement_options(
         Branch.is_deleted == False,
         Branch.is_active == True,
     ).order_by(Branch.code.asc()))).scalars().all()
-    stores = (await db.execute(select(Store).where(
-        Store.company_id == tenant.company_id,
-        Store.is_deleted == False,
-        Store.is_active == True,
-    ).order_by(Store.code.asc()))).scalars().all()
+    # Phase C (v1454): Store entity retired; canonical replacements are Branch and Warehouse
     return {
         "branches": [{"id": branch.id, "code": branch.code, "name": branch.name} for branch in branches],
-        "stores": [{"id": store.id, "code": store.code, "name": store.name, "branch_id": store.branch_id} for store in stores],
+        "stores": [],
     }
 
 
@@ -915,9 +911,8 @@ async def list_staff_placements(
     branch_ids = {row.internal_branch_id for row in rows if row.internal_branch_id}
     branches = (await db.execute(select(Branch).where(Branch.id.in_(branch_ids)))).scalars().all() if branch_ids else []
     branch_by_id = {branch.id: branch for branch in branches}
-    store_ids = {row.internal_store_id for row in rows if row.internal_store_id}
-    stores = (await db.execute(select(Store).where(Store.id.in_(store_ids)))).scalars().all() if store_ids else []
-    store_by_id = {store.id: store for store in stores}
+    # Phase C (v1454): Store entity retired; store_by_id mapping is empty
+    store_by_id = {}
     placements = []
     for row in rows:
         payload = _placement_payload(row)
@@ -971,16 +966,7 @@ async def create_staff_placement(
         ))).scalar_one_or_none()
         if not branch:
             raise HTTPException(status_code=404, detail="Internal branch was not found in the active company.")
-        if payload.internal_store_id:
-            store = (await db.execute(select(Store).where(
-                Store.id == payload.internal_store_id,
-                Store.company_id == tenant.company_id,
-                Store.branch_id == payload.internal_branch_id,
-                Store.is_deleted == False,
-                Store.is_active == True,
-            ))).scalar_one_or_none()
-            if not store:
-                raise HTTPException(status_code=404, detail="Internal store was not found under the selected branch.")
+        # Phase C (v1454): Store entity retired; internal_store_id retained as optional legacy reference
     else:
         if not payload.host_customer_id or not payload.host_delivery_location_id:
             raise HTTPException(status_code=422, detail="Partner placements require a host customer and store code location.")
@@ -1112,16 +1098,7 @@ async def reassign_staff_placement(
         ))).scalar_one_or_none()
         if not branch:
             raise HTTPException(status_code=404, detail="Internal branch was not found in the active company.")
-        if payload.internal_store_id:
-            store = (await db.execute(select(Store).where(
-                Store.id == payload.internal_store_id,
-                Store.company_id == tenant.company_id,
-                Store.branch_id == payload.internal_branch_id,
-                Store.is_deleted == False,
-                Store.is_active == True,
-            ))).scalar_one_or_none()
-            if not store:
-                raise HTTPException(status_code=404, detail="Internal store was not found under the selected branch.")
+        # Phase C (v1454): Store entity retired; internal_store_id retained as optional legacy reference
     else:
         if not payload.host_customer_id or not payload.host_delivery_location_id:
             raise HTTPException(status_code=422, detail="Partner placements require a host customer and store code location.")

@@ -297,6 +297,8 @@ async def commit_universal_import(
         resolved_rows.append({"row": row, "match": match, "request": entry_request})
 
     results: List[Dict[str, Any]] = []
+    purchase_items: List[PurchaseReceiptItemCreate] = []
+    return_items: List[SalesReturnItemCreate] = []
     try:
         for resolved in resolved_rows:
             if target == "ITEM_MASTER":
