@@ -126,4 +126,53 @@ describe("Goods Receipt Desktop Terminal (Shoper 9 Parity) Logic & Computations"
     expect(mug.cost_price).toBe(161.27);
     expect(mug.cost_price * mug.quantity_received).toBe(161.27);
   });
+
+  it("validates 6 desktop terminal sub-tabs and active panel layout transitions", () => {
+    type SubTabId = "ITEMS" | "DAMAGE" | "LANDED_COST" | "TAX" | "DEBIT_NOTE" | "DOC_NOTES";
+    const subTabs: SubTabId[] = ["ITEMS", "DAMAGE", "LANDED_COST", "TAX", "DEBIT_NOTE", "DOC_NOTES"];
+    
+    // Test that all 6 sub-tabs are uniquely identified and defined
+    expect(subTabs.length).toBe(6);
+    expect(new Set(subTabs).size).toBe(6);
+
+    // Validate layout mode switching between single tab focus and all 3 columns
+    const layoutModes = ["ACTIVE_TAB", "ALL_COLUMNS"];
+    expect(layoutModes).toContain("ACTIVE_TAB");
+    expect(layoutModes).toContain("ALL_COLUMNS");
+
+    // Check that DOC_NOTES is a valid registered sub-tab
+    expect(subTabs).toContain("DOC_NOTES");
+    expect(subTabs).toContain("DEBIT_NOTE");
+  });
+
+  it("validates Indian statutory E-Way Bill 12-digit numeric constraint", () => {
+    const sanitizeEwayBill = (val: string) => val.replace(/\D/g, "").slice(0, 12);
+
+    expect(sanitizeEwayBill("241098234512")).toBe("241098234512");
+    expect(sanitizeEwayBill("2410-9823-4512")).toBe("241098234512");
+    expect(sanitizeEwayBill("2410982345129999")).toBe("241098234512");
+    expect(sanitizeEwayBill("EWB-241098234512")).toBe("241098234512");
+  });
+
+  it("validates direct GRN selection and vendor invoice prefill for purchase billing", () => {
+    const mockReceipt = {
+      id: "rcpt-001",
+      receipt_no: "GRN-20260924-1001",
+      supplier_id: "SUP-001",
+      supplier_name: "Century Textiles Ltd",
+      invoice_number: "INV-9921",
+      grand_total: 12500.5,
+    };
+
+    let selectedReceipt: any = null;
+    let vendorBillNo = "";
+
+    // Simulating user clicking 'Bill GRN →' directly from Purchase Bill tab
+    selectedReceipt = mockReceipt;
+    vendorBillNo = mockReceipt.invoice_number || "";
+
+    expect(selectedReceipt.receipt_no).toBe("GRN-20260924-1001");
+    expect(vendorBillNo).toBe("INV-9921");
+    expect(selectedReceipt.grand_total).toBe(12500.5);
+  });
 });

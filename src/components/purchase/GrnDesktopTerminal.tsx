@@ -46,6 +46,7 @@ import {
   ChevronUp,
   Info,
   ArrowRight,
+  ClipboardList,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
@@ -103,6 +104,11 @@ export interface GrnDesktopTerminalProps {
   onOpenDebitNote?: () => void;
   onClose?: () => void;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
+  onSwitchToWizard?: () => void;
+  ewayBillNumber?: string;
+  onEwayBillNumberChange?: (val: string) => void;
+  ewayBillDate?: string;
+  onEwayBillDateChange?: (val: string) => void;
 }
 
 export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
@@ -137,6 +143,11 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
   onOpenDebitNote,
   onClose,
   onNotification,
+  onSwitchToWizard,
+  ewayBillNumber,
+  onEwayBillNumberChange,
+  ewayBillDate,
+  onEwayBillDateChange,
 }) => {
   // Form Header State
   const [transactionType, setTransactionType] = useState("Purchase");
@@ -201,7 +212,16 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<
     "ITEMS" | "DAMAGE" | "LANDED_COST" | "TAX" | "DEBIT_NOTE" | "DOC_NOTES"
   >("ITEMS");
+  const [panelLayout, setPanelLayout] = useState<"ACTIVE_TAB" | "ALL_COLUMNS">("ACTIVE_TAB");
   const [showBottomPanels, setShowBottomPanels] = useState(true);
+
+  // E-Way Bill fallback state
+  const [localEwayBillNo, setLocalEwayBillNo] = useState("");
+  const [localEwayBillDate, setLocalEwayBillDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const currentEwayBillNo = ewayBillNumber !== undefined ? ewayBillNumber : localEwayBillNo;
+  const setEwayBillNo = onEwayBillNumberChange || setLocalEwayBillNo;
+  const currentEwayBillDate = ewayBillDate !== undefined ? ewayBillDate : localEwayBillDate;
+  const setEwayBillDateVal = onEwayBillDateChange || setLocalEwayBillDate;
 
   // Quality Control & Damage Management State
   const [damageReason, setDamageReason] = useState("Transit Breakage");
@@ -893,6 +913,18 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             <span>Print</span>
           </button>
 
+          {onSwitchToWizard && (
+            <button
+              type="button"
+              onClick={onSwitchToWizard}
+              className="flex items-center gap-1 px-2.5 h-6.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded text-indigo-700 font-semibold text-xs shadow-2xs transition"
+              title="Switch to Guided 5-Step Wizard"
+            >
+              <ClipboardList size={12} className="text-indigo-600" />
+              <span>5-Step Wizard</span>
+            </button>
+          )}
+
           {/* Options Dropdown */}
           <div className="relative">
             <button
@@ -1307,8 +1339,41 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           </button>
         </div>
 
-        {/* Toggle Inspection Workspace Panels */}
-        <div className="flex items-center gap-2">
+        {/* Toggle Inspection Workspace Panels & Layout Mode */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center bg-slate-100 p-0.5 rounded border border-slate-200 text-[10px] font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setPanelLayout("ACTIVE_TAB");
+                setShowBottomPanels(true);
+              }}
+              className={`px-2 py-0.5 rounded transition ${
+                panelLayout === "ACTIVE_TAB"
+                  ? "bg-white text-[#00288e] shadow-2xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Focus bottom panel on selected sub-tab"
+            >
+              Tab Focus
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPanelLayout("ALL_COLUMNS");
+                setShowBottomPanels(true);
+              }}
+              className={`px-2 py-0.5 rounded transition ${
+                panelLayout === "ALL_COLUMNS"
+                  ? "bg-white text-[#00288e] shadow-2xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Show Damage, Landed Cost and Tax in 3-column view"
+            >
+              All (3-Col)
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setShowBottomPanels(!showBottomPanels)}
@@ -1318,12 +1383,12 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             {showBottomPanels ? (
               <>
                 <ChevronUp size={12} className="text-slate-500" />
-                <span>Hide Inspection Panels</span>
+                <span>Hide Panels</span>
               </>
             ) : (
               <>
                 <ChevronDown size={12} className="text-slate-500" />
-                <span>Show Inspection Panels (3-Col)</span>
+                <span>Show Panels</span>
               </>
             )}
           </button>
@@ -1851,316 +1916,865 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
         </section>
 
         {/* ========================================================================= */}
-        {/* 4.5. BOTTOM INSPECTION WORKSPACE PANELS (3-COLUMN LAYOUT)                 */}
+        {/* 4.5. BOTTOM INSPECTION WORKSPACE PANELS                                    */}
         {/* ========================================================================= */}
         {showBottomPanels && (
-          <section className="shrink-0">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              
-              {/* Panel 1: Quality Control & Damage Management */}
-              <div className="bg-white border border-rose-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
-                <div>
-                  <div className="flex items-center justify-between border-b border-rose-100 pb-1 mb-2">
-                    <div className="flex items-center gap-1.5 font-bold text-rose-800 text-[11px]">
-                      <AlertTriangle size={13} className="text-rose-600" />
-                      <span>2. Damage &amp; Returns (QC)</span>
+          <section className="shrink-0 space-y-2">
+            {panelLayout === "ALL_COLUMNS" ? (
+              /* All 3-Column Inspection Layout */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                
+                {/* Panel 1: Quality Control & Damage Management */}
+                <div className="bg-white border border-rose-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
+                  <div>
+                    <div className="flex items-center justify-between border-b border-rose-100 pb-1 mb-2">
+                      <div className="flex items-center gap-1.5 font-bold text-rose-800 text-[11px]">
+                        <AlertTriangle size={13} className="text-rose-600" />
+                        <span>2. Damage &amp; Returns (QC)</span>
+                      </div>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${totalDamageQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
+                        {totalDamageQty.toFixed(2)} Dmg Units
+                      </span>
                     </div>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${totalDamageQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
-                      {totalDamageQty.toFixed(2)} Dmg Units
-                    </span>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Damage Reason</label>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Damage Reason</label>
+                        <select
+                          value={damageReason}
+                          onChange={(e) => setDamageReason(e.target.value)}
+                          className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-white outline-none focus:border-rose-500"
+                        >
+                          <option value="Transit Breakage">Transit Breakage</option>
+                          <option value="Packaging Defect">Packaging Defect</option>
+                          <option value="Manufacturing Flaw">Manufacturing Flaw</option>
+                          <option value="Water / Moisture Damage">Water / Moisture Damage</option>
+                          <option value="Shortage / Mishandled">Shortage / Mishandled</option>
+                          <option value="Expired / Perished">Expired / Perished</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Handling Action</label>
+                        <select
+                          value={damageHandlingType}
+                          onChange={(e) => setDamageHandlingType(e.target.value)}
+                          className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-white outline-none focus:border-rose-500"
+                        >
+                          <option value="Reject & Debit Note (Supplier Chargeback)">Reject &amp; Debit Note</option>
+                          <option value="Hold in Quarantine for Inspection">Hold in Quarantine</option>
+                          <option value="Scrap & Write-Off (Abnormal Loss)">Scrap &amp; Write-Off</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mb-2">
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Quarantine Warehouse</label>
                       <select
-                        value={damageReason}
-                        onChange={(e) => setDamageReason(e.target.value)}
+                        value={damageWarehouse}
+                        onChange={(e) => setDamageWarehouse(e.target.value)}
                         className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-white outline-none focus:border-rose-500"
                       >
-                        <option value="Transit Breakage">Transit Breakage</option>
-                        <option value="Packaging Defect">Packaging Defect</option>
-                        <option value="Manufacturing Flaw">Manufacturing Flaw</option>
-                        <option value="Water / Moisture Damage">Water / Moisture Damage</option>
-                        <option value="Shortage / Mishandled">Shortage / Mishandled</option>
-                        <option value="Expired / Perished">Expired / Perished</option>
+                        <option value="WH-MAIN-DMG (Damage Quarantine)">WH-MAIN-DMG (Damage Quarantine)</option>
+                        <option value="WH-RETURN-BAY (Vendor Return Depot)">WH-RETURN-BAY (Vendor Return Depot)</option>
+                        <option value="WH-REJECT (Scrap Yard)">WH-REJECT (Scrap Yard)</option>
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Handling Action</label>
-                      <select
-                        value={damageHandlingType}
-                        onChange={(e) => setDamageHandlingType(e.target.value)}
-                        className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-white outline-none focus:border-rose-500"
-                      >
-                        <option value="Reject & Debit Note (Supplier Chargeback)">Reject &amp; Debit Note</option>
-                        <option value="Hold in Quarantine for Inspection">Hold in Quarantine</option>
-                        <option value="Scrap & Write-Off (Abnormal Loss)">Scrap &amp; Write-Off</option>
-                      </select>
+                    <div className="mb-2">
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">QC Remarks / Tagging</label>
+                      <input
+                        type="text"
+                        value={qcRemarks}
+                        onChange={(e) => setQcRemarks(e.target.value)}
+                        placeholder="Enter inspection remarks or tag references"
+                        className="w-full h-6 px-2 border border-slate-300 rounded text-[10px] bg-white outline-none focus:border-rose-500"
+                      />
+                    </div>
+
+                    {/* Damage Financial Telemetry */}
+                    <div className="grid grid-cols-2 gap-1.5 bg-rose-50/50 border border-rose-100 rounded p-1.5 text-[10px]">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Damage Value:</span>
+                        <span className="font-mono font-bold text-rose-700">₹{totalDamageValue.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Blocked ITC:</span>
+                        <span className="font-mono font-bold text-rose-700">₹{totalDamageGst.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between col-span-2 pt-1 border-t border-rose-200/60 font-semibold">
+                        <span className="text-rose-900">Total Debit Note Claim:</span>
+                        <span className="font-mono font-extrabold text-rose-800">₹{totalDebitNoteValue.toFixed(2)}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mb-2">
-                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Quarantine Warehouse</label>
-                    <select
-                      value={damageWarehouse}
-                      onChange={(e) => setDamageWarehouse(e.target.value)}
-                      className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-white outline-none focus:border-rose-500"
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[9px] text-slate-400 font-medium">u/s 17(5)(h) CGST</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenDebitNote) onOpenDebitNote();
+                        else onNotification?.("Debit Note", `Debit Note generated for ₹${totalDebitNoteValue.toFixed(2)}.`, "success");
+                      }}
+                      className="px-2.5 h-6 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition"
                     >
-                      <option value="WH-MAIN-DMG (Damage Quarantine)">WH-MAIN-DMG (Damage Quarantine)</option>
-                      <option value="WH-RETURN-BAY (Vendor Return Depot)">WH-RETURN-BAY (Vendor Return Depot)</option>
-                      <option value="WH-REJECT (Scrap Yard)">WH-REJECT (Scrap Yard)</option>
-                    </select>
-                  </div>
-
-                  <div className="mb-2">
-                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">QC Remarks / Tagging</label>
-                    <input
-                      type="text"
-                      value={qcRemarks}
-                      onChange={(e) => setQcRemarks(e.target.value)}
-                      placeholder="Enter inspection remarks or tag references"
-                      className="w-full h-6 px-2 border border-slate-300 rounded text-[10px] bg-white outline-none focus:border-rose-500"
-                    />
-                  </div>
-
-                  {/* Damage Financial Telemetry */}
-                  <div className="grid grid-cols-2 gap-1.5 bg-rose-50/50 border border-rose-100 rounded p-1.5 text-[10px]">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Damage Value:</span>
-                      <span className="font-mono font-bold text-rose-700">₹{totalDamageValue.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Blocked ITC:</span>
-                      <span className="font-mono font-bold text-rose-700">₹{totalDamageGst.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between col-span-2 pt-1 border-t border-rose-200/60 font-semibold">
-                      <span className="text-rose-900">Total Debit Note Claim:</span>
-                      <span className="font-mono font-extrabold text-rose-800">₹{totalDebitNoteValue.toFixed(2)}</span>
-                    </div>
+                      <FileText size={11} />
+                      <span>Generate Debit Note</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[9px] text-slate-400 font-medium">u/s 17(5)(h) CGST</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onOpenDebitNote) onOpenDebitNote();
-                      else onNotification?.("Debit Note", `Debit Note generated for ₹${totalDebitNoteValue.toFixed(2)}.`, "success");
-                    }}
-                    className="px-2.5 h-6 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition"
-                  >
-                    <FileText size={11} />
-                    <span>Generate Debit Note</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Panel 2: Landed Cost Addons */}
-              <div className="bg-white border border-blue-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
-                <div>
-                  <div className="flex items-center justify-between border-b border-blue-100 pb-1 mb-2">
-                    <div className="flex items-center gap-1.5 font-bold text-[#00288e] text-[11px]">
-                      <Truck size={13} className="text-[#00288e]" />
-                      <span>3. Landed Cost Addons (India)</span>
+                {/* Panel 2: Landed Cost Addons */}
+                <div className="bg-white border border-blue-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
+                  <div>
+                    <div className="flex items-center justify-between border-b border-blue-100 pb-1 mb-2">
+                      <div className="flex items-center gap-1.5 font-bold text-[#00288e] text-[11px]">
+                        <Truck size={13} className="text-[#00288e]" />
+                        <span>3. Landed Cost Addons (India)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowLandedCostModal(true)}
+                        className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5"
+                      >
+                        <span>Full Config</span>
+                        <ExternalLink size={9} />
+                      </button>
                     </div>
+
+                    {/* 6 Components mini-table */}
+                    <div className="space-y-1 text-[10px] max-h-[140px] overflow-y-auto pr-1">
+                      {/* 1. Freight */}
+                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
+                        <span className="text-slate-700 font-medium">Freight &amp; Shipping:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.freightTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.freightCharges || ""}
+                            onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, freightCharges: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 2. Labor / Hamali */}
+                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
+                        <span className="text-slate-700 font-medium">Labor &amp; Handling (Hamali):</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.laborTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.laborHandlingCharges || ""}
+                            onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, laborHandlingCharges: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 3. Insurance */}
+                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
+                        <span className="text-slate-700 font-medium">Transit Insurance:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-slate-400 font-mono">(A.Tax)</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.insuranceCharges || ""}
+                            onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, insuranceCharges: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. Customs Duties */}
+                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
+                        <span className="text-slate-700 font-medium">Customs Duties (BCD+SWS):</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-slate-400 font-mono">(Duty)</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.customsDutyBcd || ""}
+                            onChange={(e) => {
+                              const bcd = parseFloat(e.target.value) || 0;
+                              setLandedCostBreakdown({
+                                ...landedCostBreakdown,
+                                customsDutyBcd: bcd,
+                                customsSws: Math.round(bcd * 0.1 * 100) / 100,
+                              });
+                            }}
+                            placeholder="0.00"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 5. Clearance Fees */}
+                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
+                        <span className="text-slate-700 font-medium">Clearance (CHA Brokerage):</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.clearanceTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.clearanceChaFees || ""}
+                            onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, clearanceChaFees: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-[10px] bg-blue-50/60 p-1.5 rounded border border-blue-100">
+                      <div>
+                        <span className="text-slate-500">B.Tax: </span>
+                        <span className="font-mono font-bold text-[#00288e]">₹{addonBeforeTaxTotal.toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">A.Tax: </span>
+                        <span className="font-mono font-bold text-[#00288e]">₹{addonAfterTaxTotal.toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Total: </span>
+                        <span className="font-mono font-extrabold text-[#00288e]">₹{(addonBeforeTaxTotal + addonAfterTaxTotal).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                     <button
                       type="button"
                       onClick={() => setShowLandedCostModal(true)}
-                      className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5"
+                      className="px-2 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold transition"
                     >
-                      <span>Full Config</span>
-                      <ExternalLink size={9} />
+                      + Add Component
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleApplyLandedCostApportionment}
+                      className="px-2.5 h-6 bg-[#00288e] hover:bg-[#1e40af] text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition"
+                    >
+                      <span>Apportion to Lines</span>
+                      <ArrowRight size={11} />
                     </button>
                   </div>
+                </div>
 
-                  {/* 6 Components mini-table */}
-                  <div className="space-y-1 text-[10px] max-h-[140px] overflow-y-auto pr-1">
-                    {/* 1. Freight */}
-                    <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                      <span className="text-slate-700 font-medium">Freight &amp; Shipping:</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.freightTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
-                        <input
-                          type="number"
-                          value={landedCostBreakdown.freightCharges || ""}
-                          onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, freightCharges: parseFloat(e.target.value) || 0 })}
-                          placeholder="0.00"
-                          className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
-                        />
+                {/* Panel 3: Tax & Accounting Summary */}
+                <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
+                  <div>
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-1 mb-2">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-900 text-[11px]">
+                        <Receipt size={13} className="text-[#00288e]" />
+                        <span>4. Tax &amp; Accounting Summary</span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-mono font-bold">
+                        Ind AS 2 Parity
+                      </span>
+                    </div>
+
+                    {/* Tax Breakdown 4 items */}
+                    <div className="grid grid-cols-2 gap-1.5 text-[10px] mb-2">
+                      <div className="flex justify-between bg-slate-50 p-1 rounded">
+                        <span className="text-slate-500">CGST (Eligible):</span>
+                        <span className="font-mono font-bold text-emerald-700">₹{eligibleCgst.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-slate-50 p-1 rounded">
+                        <span className="text-slate-500">SGST (Eligible):</span>
+                        <span className="font-mono font-bold text-emerald-700">₹{eligibleSgst.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-slate-50 p-1 rounded">
+                        <span className="text-slate-500">IGST (Eligible):</span>
+                        <span className="font-mono font-bold text-emerald-700">₹{eligibleIgst.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-rose-50 p-1 rounded">
+                        <span className="text-rose-700 font-semibold">Blocked Tax (Dmg):</span>
+                        <span className="font-mono font-bold text-rose-700">₹{totalDamageGst.toFixed(2)}</span>
                       </div>
                     </div>
 
-                    {/* 2. Labor / Hamali */}
-                    <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                      <span className="text-slate-700 font-medium">Labor &amp; Handling (Hamali):</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.laborTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
-                        <input
-                          type="number"
-                          value={landedCostBreakdown.laborHandlingCharges || ""}
-                          onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, laborHandlingCharges: parseFloat(e.target.value) || 0 })}
-                          placeholder="0.00"
-                          className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
-                        />
+                    {/* Inventory Valuation Breakdown */}
+                    <div className="bg-slate-50/70 border border-slate-200 rounded p-1.5 space-y-1 text-[10px]">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Base Invoiced Value:</span>
+                        <span className="font-mono text-slate-800">₹{totalValue.toFixed(2)}</span>
                       </div>
-                    </div>
-
-                    {/* 3. Insurance */}
-                    <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                      <span className="text-slate-700 font-medium">Transit Insurance:</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-slate-400 font-mono">(A.Tax)</span>
-                        <input
-                          type="number"
-                          value={landedCostBreakdown.insuranceCharges || ""}
-                          onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, insuranceCharges: parseFloat(e.target.value) || 0 })}
-                          placeholder="0.00"
-                          className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
-                        />
+                      <div className="flex justify-between text-blue-700">
+                        <span>+ Capitalized Landed Addons:</span>
+                        <span className="font-mono font-semibold">+₹{totalCapitalizedLandedCost.toFixed(2)}</span>
                       </div>
-                    </div>
-
-                    {/* 4. Customs Duties */}
-                    <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                      <span className="text-slate-700 font-medium">Customs Duties (BCD+SWS):</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-slate-400 font-mono">(Duty)</span>
-                        <input
-                          type="number"
-                          value={landedCostBreakdown.customsDutyBcd || ""}
-                          onChange={(e) => {
-                            const bcd = parseFloat(e.target.value) || 0;
-                            setLandedCostBreakdown({
-                              ...landedCostBreakdown,
-                              customsDutyBcd: bcd,
-                              customsSws: Math.round(bcd * 0.1 * 100) / 100,
-                            });
-                          }}
-                          placeholder="0.00"
-                          className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
-                        />
+                      <div className="flex justify-between text-rose-700">
+                        <span>- Damage Stock (Excluded):</span>
+                        <span className="font-mono font-semibold">-₹{totalDamageValue.toFixed(2)}</span>
                       </div>
-                    </div>
-
-                    {/* 5. Clearance Fees */}
-                    <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                      <span className="text-slate-700 font-medium">Clearance (CHA Brokerage):</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.clearanceTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
-                        <input
-                          type="number"
-                          value={landedCostBreakdown.clearanceChaFees || ""}
-                          onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, clearanceChaFees: parseFloat(e.target.value) || 0 })}
-                          placeholder="0.00"
-                          className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
-                        />
+                      <div className="flex justify-between pt-1 border-t border-slate-200 font-bold text-slate-900">
+                        <span>= Capitalized Inventory Valuation:</span>
+                        <span className="font-mono text-[#00288e] font-extrabold">₹{totalInventoryValueWithLandedCost.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-2 flex items-center justify-between text-[10px] bg-blue-50/60 p-1.5 rounded border border-blue-100">
-                    <div>
-                      <span className="text-slate-500">B.Tax: </span>
-                      <span className="font-mono font-bold text-[#00288e]">₹{addonBeforeTaxTotal.toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">A.Tax: </span>
-                      <span className="font-mono font-bold text-[#00288e]">₹{addonAfterTaxTotal.toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Total: </span>
-                      <span className="font-mono font-extrabold text-[#00288e]">₹{(addonBeforeTaxTotal + addonAfterTaxTotal).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setShowLandedCostModal(true)}
-                    className="px-2 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold transition"
-                  >
-                    + Add Component
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleApplyLandedCostApportionment}
-                    className="px-2.5 h-6 bg-[#00288e] hover:bg-[#1e40af] text-white rounded text-[10px] font-bold shadow-2xs flex items-center gap-1 transition"
-                  >
-                    <span>Apportion to Lines</span>
-                    <ArrowRight size={11} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Panel 3: Tax & Accounting Summary */}
-              <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
-                <div>
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-1 mb-2">
-                    <div className="flex items-center gap-1.5 font-bold text-slate-900 text-[11px]">
-                      <Receipt size={13} className="text-[#00288e]" />
-                      <span>4. Tax &amp; Accounting Summary</span>
-                    </div>
-                    <span className="text-[10px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-mono font-bold">
-                      Ind AS 2 Parity
+                  {/* Statutory Yellow Callout Note */}
+                  <div className="p-1.5 bg-amber-50 border border-amber-200 rounded text-[9px] text-amber-900 leading-tight flex items-start gap-1">
+                    <Info size={11} className="text-amber-700 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Ind AS 2:</strong> Inward freight, hamali, insurance &amp; non-refundable duties are capitalized into inventory value. Damaged units excluded &amp; logged for recovery u/s 17(5)(h).
                     </span>
                   </div>
-
-                  {/* Tax Breakdown 4 items */}
-                  <div className="grid grid-cols-2 gap-1.5 text-[10px] mb-2">
-                    <div className="flex justify-between bg-slate-50 p-1 rounded">
-                      <span className="text-slate-500">CGST (Eligible):</span>
-                      <span className="font-mono font-bold text-emerald-700">₹{eligibleCgst.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between bg-slate-50 p-1 rounded">
-                      <span className="text-slate-500">SGST (Eligible):</span>
-                      <span className="font-mono font-bold text-emerald-700">₹{eligibleSgst.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between bg-slate-50 p-1 rounded">
-                      <span className="text-slate-500">IGST (Eligible):</span>
-                      <span className="font-mono font-bold text-emerald-700">₹{eligibleIgst.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between bg-rose-50 p-1 rounded">
-                      <span className="text-rose-700 font-semibold">Blocked Tax (Dmg):</span>
-                      <span className="font-mono font-bold text-rose-700">₹{totalDamageGst.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  {/* Inventory Valuation Breakdown */}
-                  <div className="bg-slate-50/70 border border-slate-200 rounded p-1.5 space-y-1 text-[10px]">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Base Invoiced Value:</span>
-                      <span className="font-mono text-slate-800">₹{totalValue.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-blue-700">
-                      <span>+ Capitalized Landed Addons:</span>
-                      <span className="font-mono font-semibold">+₹{totalCapitalizedLandedCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-rose-700">
-                      <span>- Damage Stock (Excluded):</span>
-                      <span className="font-mono font-semibold">-₹{totalDamageValue.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between pt-1 border-t border-slate-200 font-bold text-slate-900">
-                      <span>= Capitalized Inventory Valuation:</span>
-                      <span className="font-mono text-[#00288e] font-extrabold">₹{totalInventoryValueWithLandedCost.toFixed(2)}</span>
-                    </div>
-                  </div>
                 </div>
 
-                {/* Statutory Yellow Callout Note */}
-                <div className="p-1.5 bg-amber-50 border border-amber-200 rounded text-[9px] text-amber-900 leading-tight flex items-start gap-1">
-                  <Info size={11} className="text-amber-700 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Ind AS 2:</strong> Inward freight, hamali, insurance &amp; non-refundable duties are capitalized into inventory value. Damaged units excluded &amp; logged for recovery u/s 17(5)(h).
-                  </span>
-                </div>
               </div>
+            ) : (
+              /* Single Tab Focus Layout */
+              <div>
+                {activeSubTab === "ITEMS" && (
+                  <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="p-1.5 rounded bg-[#00288e]/10 text-[#00288e]">
+                        <Layers size={15} />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4 text-[11px]">
+                        <div>
+                          <span className="text-slate-400 text-[9px] uppercase font-bold block">Lines</span>
+                          <span className="font-mono font-bold text-slate-900">{grnLines.length}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[9px] uppercase font-bold block">Doc Qty</span>
+                          <span className="font-mono font-bold text-slate-900">{totalDocQty}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[9px] uppercase font-bold block">Act Qty</span>
+                          <span className="font-mono font-bold text-[#00288e]">{totalActQty}</span>
+                        </div>
+                        {totalDamageQty > 0 && (
+                          <div>
+                            <span className="text-rose-500 text-[9px] uppercase font-bold block">Damaged</span>
+                            <span className="font-mono font-bold text-rose-600">{totalDamageQty.toFixed(0)}</span>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-slate-400 text-[9px] uppercase font-bold block">Invoiced Value</span>
+                          <span className="font-mono font-bold text-slate-900">₹{totalValue.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[9px] uppercase font-bold block">Landed Addons</span>
+                          <span className="font-mono font-bold text-[#00288e]">₹{totalCapitalizedLandedCost.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[9px] uppercase font-bold block">Net Valuation</span>
+                          <span className="font-mono font-extrabold text-[#00288e]">₹{totalInventoryValueWithLandedCost.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
 
-            </div>
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <span className="text-slate-400 font-medium">Quick Open:</span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSubTab("DAMAGE")}
+                        className="px-2 py-0.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded font-semibold border border-rose-200 transition"
+                      >
+                        Damage (QC)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSubTab("LANDED_COST")}
+                        className="px-2 py-0.5 bg-blue-50 text-[#00288e] hover:bg-blue-100 rounded font-semibold border border-blue-200 transition"
+                      >
+                        Landed Cost
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSubTab("TAX")}
+                        className="px-2 py-0.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded font-semibold border border-slate-200 transition"
+                      >
+                        Tax &amp; Ind AS 2
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSubTab("DOC_NOTES")}
+                        className="px-2 py-0.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded font-semibold border border-slate-200 transition"
+                      >
+                        Notes &amp; EWB
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {activeSubTab === "DAMAGE" && (
+                  <div className="bg-white border border-rose-200 rounded-lg p-3 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-rose-100 pb-2">
+                      <div className="flex items-center gap-1.5 font-bold text-rose-800 text-xs">
+                        <AlertTriangle size={15} className="text-rose-600" />
+                        <span>2. Quality Control, Damage Assessment &amp; Quarantine Disposition</span>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${totalDamageQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
+                        {totalDamageQty.toFixed(2)} Damaged Units • Claim ₹{totalDebitNoteValue.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Damage Reason Code</label>
+                        <select
+                          value={damageReason}
+                          onChange={(e) => setDamageReason(e.target.value)}
+                          className="w-full h-7 px-2 border border-slate-300 rounded text-xs font-semibold bg-white outline-none focus:border-rose-500"
+                        >
+                          <option value="Transit Breakage">Transit Breakage</option>
+                          <option value="Packaging Defect">Packaging Defect</option>
+                          <option value="Manufacturing Flaw">Manufacturing Flaw</option>
+                          <option value="Water / Moisture Damage">Water / Moisture Damage</option>
+                          <option value="Shortage / Mishandled">Shortage / Mishandled</option>
+                          <option value="Expired / Perished">Expired / Perished</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Handling Disposition</label>
+                        <select
+                          value={damageHandlingType}
+                          onChange={(e) => setDamageHandlingType(e.target.value)}
+                          className="w-full h-7 px-2 border border-slate-300 rounded text-xs font-semibold bg-white outline-none focus:border-rose-500"
+                        >
+                          <option value="Reject & Debit Note (Supplier Chargeback)">Reject &amp; Debit Note</option>
+                          <option value="Hold in Quarantine for Inspection">Hold in Quarantine</option>
+                          <option value="Scrap & Write-Off (Abnormal Loss)">Scrap &amp; Write-Off</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Quarantine Depot</label>
+                        <select
+                          value={damageWarehouse}
+                          onChange={(e) => setDamageWarehouse(e.target.value)}
+                          className="w-full h-7 px-2 border border-slate-300 rounded text-xs font-semibold bg-white outline-none focus:border-rose-500"
+                        >
+                          <option value="WH-MAIN-DMG (Damage Quarantine)">WH-MAIN-DMG (Damage Quarantine)</option>
+                          <option value="WH-RETURN-BAY (Vendor Return Depot)">WH-RETURN-BAY (Vendor Return Depot)</option>
+                          <option value="WH-REJECT (Scrap Yard)">WH-REJECT (Scrap Yard)</option>
+                        </select>
+                      </div>
+
+                      <div className="flex flex-col justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onOpenDebitNote) onOpenDebitNote();
+                            else onNotification?.("Debit Note", `Debit Note generated for ₹${totalDebitNoteValue.toFixed(2)}.`, "success");
+                          }}
+                          className="w-full h-7 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold shadow-2xs flex items-center justify-center gap-1.5 transition"
+                        >
+                          <FileText size={12} />
+                          <span>Generate Supplier Debit Note</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">QC Inspector Remarks / Tagging</label>
+                        <input
+                          type="text"
+                          value={qcRemarks}
+                          onChange={(e) => setQcRemarks(e.target.value)}
+                          placeholder="Enter inspection remarks or tag references"
+                          className="w-full h-7 px-2 border border-slate-300 rounded text-xs bg-white outline-none focus:border-rose-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 bg-rose-50/70 border border-rose-200 rounded p-1.5 text-[10px]">
+                        <div>
+                          <span className="text-slate-500 block">Damage Value</span>
+                          <span className="font-mono font-bold text-rose-700 text-xs">₹{totalDamageValue.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Blocked ITC (17(5)(h))</span>
+                          <span className="font-mono font-bold text-rose-700 text-xs">₹{totalDamageGst.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-rose-900 font-bold block">Total Claim</span>
+                          <span className="font-mono font-extrabold text-rose-800 text-xs">₹{totalDebitNoteValue.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSubTab === "LANDED_COST" && (
+                  <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                      <div className="flex items-center gap-1.5 font-bold text-[#00288e] text-xs">
+                        <Truck size={15} className="text-[#00288e]" />
+                        <span>3. Landed Cost Addons &amp; Freight Apportionment Engine (India)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowLandedCostModal(true)}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+                        >
+                          <span>Full Modal Configuration</span>
+                          <ExternalLink size={11} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                      {/* 1. Freight */}
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Freight &amp; Shipping</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.freightTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.freightCharges || ""}
+                            onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, freightCharges: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 2. Labor / Hamali */}
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Labor / Hamali</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.laborTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.laborHandlingCharges || ""}
+                            onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, laborHandlingCharges: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 3. Insurance */}
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Transit Insurance</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[9px] text-slate-400 font-mono">(A.Tax)</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.insuranceCharges || ""}
+                            onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, insuranceCharges: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. Customs Duty */}
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Customs Duty (BCD)</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[9px] text-slate-400 font-mono">(Duty)</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.customsDutyBcd || ""}
+                            onChange={(e) => {
+                              const bcd = parseFloat(e.target.value) || 0;
+                              setLandedCostBreakdown({
+                                ...landedCostBreakdown,
+                                customsDutyBcd: bcd,
+                                customsSws: Math.round(bcd * 0.1 * 100) / 100,
+                              });
+                            }}
+                            placeholder="0.00"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 5. Clearance (CHA) */}
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Clearance (CHA)</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.clearanceTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
+                          <input
+                            type="number"
+                            value={landedCostBreakdown.clearanceChaFees || ""}
+                            onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, clearanceChaFees: parseFloat(e.target.value) || 0 })}
+                            placeholder="0.00"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100">
+                      <div className="flex items-center gap-4 text-xs font-mono">
+                        <div>
+                          <span className="text-slate-500">Before Tax: </span>
+                          <span className="font-bold text-[#00288e]">₹{addonBeforeTaxTotal.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">After Tax: </span>
+                          <span className="font-bold text-[#00288e]">₹{addonAfterTaxTotal.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Total Addons: </span>
+                          <span className="font-extrabold text-[#00288e]">₹{(addonBeforeTaxTotal + addonAfterTaxTotal).toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowLandedCostModal(true)}
+                          className="px-3 h-7 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold transition"
+                        >
+                          + Configure Components
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleApplyLandedCostApportionment}
+                          className="px-3.5 h-7 bg-[#00288e] hover:bg-[#1e40af] text-white rounded text-xs font-bold shadow-2xs flex items-center gap-1.5 transition"
+                        >
+                          <span>Apportion to Line Items</span>
+                          <ArrowRight size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSubTab === "TAX" && (
+                  <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
+                        <Receipt size={15} className="text-[#00288e]" />
+                        <span>4. Tax Breakdown &amp; Ind AS 2 Capitalized Inventory Valuation</span>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-mono font-bold">
+                        Ind AS 2 Parity Active
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      {/* Left: GST Components */}
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">GST Input Tax Credit Ledger</span>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex justify-between bg-slate-50 p-2 rounded border border-slate-200">
+                            <span className="text-slate-500">CGST (Eligible ITC):</span>
+                            <span className="font-mono font-bold text-emerald-700">₹{eligibleCgst.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between bg-slate-50 p-2 rounded border border-slate-200">
+                            <span className="text-slate-500">SGST (Eligible ITC):</span>
+                            <span className="font-mono font-bold text-emerald-700">₹{eligibleSgst.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between bg-slate-50 p-2 rounded border border-slate-200">
+                            <span className="text-slate-500">IGST (Eligible ITC):</span>
+                            <span className="font-mono font-bold text-emerald-700">₹{eligibleIgst.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between bg-rose-50 p-2 rounded border border-rose-200">
+                            <span className="text-rose-700 font-semibold">Blocked Tax (Damage):</span>
+                            <span className="font-mono font-bold text-rose-700">₹{totalDamageGst.toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        <div className="p-2 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-900 flex items-start gap-1.5">
+                          <Info size={13} className="text-amber-700 shrink-0 mt-0.5" />
+                          <span>
+                            <strong>Ind AS 2 Compliance:</strong> Non-refundable duties and freight are capitalized into inventory value. Damaged units are excluded from usable stock and reversed u/s 17(5)(h).
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: Capitalization Summary */}
+                      <div className="bg-slate-50/80 border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block border-b border-slate-200 pb-1">
+                          Inventory Acquisition Cost Math
+                        </span>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Base Invoiced Value:</span>
+                          <span className="font-mono text-slate-800 font-semibold">₹{totalValue.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-blue-700">
+                          <span>+ Capitalized Landed Addons:</span>
+                          <span className="font-mono font-semibold">+₹{totalCapitalizedLandedCost.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-rose-700">
+                          <span>- Damaged Goods (Quarantined):</span>
+                          <span className="font-mono font-semibold">-₹{totalDamageValue.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between pt-1.5 border-t border-slate-200 font-bold text-sm text-slate-900">
+                          <span>= Capitalized Inventory Valuation:</span>
+                          <span className="font-mono text-[#00288e] font-extrabold text-base">
+                            ₹{totalInventoryValueWithLandedCost.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSubTab === "DEBIT_NOTE" && (
+                  <div className="bg-white border border-rose-200 rounded-lg p-3 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-rose-100 pb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded bg-rose-100 text-rose-700">
+                          <FileText size={15} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-xs text-rose-900 leading-tight">5. Supplier Debit Note (Rejection &amp; Rate Variance Claim)</h4>
+                          <p className="text-[10px] text-slate-500">Sec 17(5)(h) CGST Act — Blocked input tax credit and supplier chargeback</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        Total Claim: ₹{totalDebitNoteValue.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                      <div className="bg-rose-50/60 border border-rose-100 rounded-lg p-2.5">
+                        <span className="text-slate-500 text-[10px] block uppercase font-bold">Damaged Stock Value</span>
+                        <span className="text-base font-extrabold font-mono text-rose-700 block">₹{totalDamageValue.toFixed(2)}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{totalDamageQty.toFixed(2)} damaged units</span>
+                      </div>
+                      <div className="bg-rose-50/60 border border-rose-100 rounded-lg p-2.5">
+                        <span className="text-slate-500 text-[10px] block uppercase font-bold">Blocked GST u/s 17(5)(h)</span>
+                        <span className="text-base font-extrabold font-mono text-rose-700 block">₹{totalDamageGst.toFixed(2)}</span>
+                        <span className="text-[10px] text-slate-500">Non-claimable ITC reversed</span>
+                      </div>
+                      <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-2.5">
+                        <span className="text-slate-500 text-[10px] block uppercase font-bold">Chargeback Supplier</span>
+                        <span className="text-xs font-bold text-slate-800 truncate block mt-0.5">{supplierName || supplierId || "Supplier Not Selected"}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">PO Ref: {selectedOrderId || "Direct Inward"}</span>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between">
+                        <span className="text-slate-500 text-[10px] uppercase font-bold">Issue Claim</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onOpenDebitNote) onOpenDebitNote();
+                            else onNotification?.("Debit Note", `Debit Note generated for ₹${totalDebitNoteValue.toFixed(2)}.`, "success");
+                          }}
+                          className="w-full py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-bold shadow-2xs flex items-center justify-center gap-1.5 transition"
+                        >
+                          <FileText size={12} />
+                          <span>Generate Debit Note Slip</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSubTab === "DOC_NOTES" && (
+                  <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded bg-blue-100 text-[#00288e]">
+                          <FileSpreadsheet size={15} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-xs text-slate-900 leading-tight">6. Document Notes, Delivery Instructions &amp; E-Way Bill Logistics</h4>
+                          <p className="text-[10px] text-slate-500">Consignment transport credentials, Rule 138 E-Way Bill validation and bay remarks</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-blue-50 text-[#00288e] border border-blue-200">
+                        GRN: {grnNumber}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      {/* Left Column: Transport & Indian E-Way Bill */}
+                      <div className="bg-slate-50/70 border border-slate-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[11px] border-b border-slate-200 pb-1">
+                          <Truck size={12} className="text-[#00288e]" />
+                          <span>Transport &amp; E-Way Bill (CGST Rule 138)</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">E-Way Bill No. (12-Digit)</label>
+                            <input
+                              type="text"
+                              maxLength={12}
+                              value={currentEwayBillNo}
+                              onChange={(e) => setEwayBillNo(e.target.value.replace(/\D/g, ""))}
+                              placeholder="e.g. 241098234512"
+                              className="w-full h-6 px-1.5 border border-slate-300 rounded font-mono font-bold text-slate-900 bg-white outline-none focus:border-[#00288e]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">E-Way Bill Date</label>
+                            <input
+                              type="date"
+                              value={currentEwayBillDate}
+                              onChange={(e) => setEwayBillDateVal(e.target.value)}
+                              className="w-full h-6 px-1.5 border border-slate-300 rounded text-slate-800 bg-white outline-none focus:border-[#00288e]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Transporter Name</label>
+                            <input
+                              type="text"
+                              value={docPrefix}
+                              onChange={(e) => setDocPrefix(e.target.value)}
+                              placeholder="e.g. V-Trans / TCI"
+                              className="w-full h-6 px-1.5 border border-slate-300 rounded text-slate-800 bg-white outline-none focus:border-[#00288e]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Vehicle Registration No.</label>
+                            <input
+                              type="text"
+                              value={docNo}
+                              onChange={(e) => setDocNo(e.target.value)}
+                              placeholder="e.g. MH-04-AB-1234"
+                              className="w-full h-6 px-1.5 border border-slate-300 rounded font-mono uppercase text-slate-800 bg-white outline-none focus:border-[#00288e]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column: Remarks & Delivery Instructions */}
+                      <div className="bg-slate-50/70 border border-slate-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[11px] border-b border-slate-200 pb-1">
+                          <FileSpreadsheet size={12} className="text-[#00288e]" />
+                          <span>Document Remarks &amp; Bay Instructions</span>
+                        </div>
+
+                        <div className="space-y-1.5 text-[10px]">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">General Inward Remarks</label>
+                            <textarea
+                              rows={2}
+                              value={notes}
+                              onChange={(e) => onNotesChange(e.target.value)}
+                              placeholder="Enter inward remarks, discrepancies, or carrier acknowledgments..."
+                              className="w-full p-1.5 border border-slate-300 rounded text-[10px] bg-white outline-none focus:border-[#00288e] resize-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Gate Bay Delivery Instructions</label>
+                            <input
+                              type="text"
+                              value={deliveryInstructions}
+                              onChange={(e) => setDeliveryInstructions(e.target.value)}
+                              placeholder="e.g. Unload at Gate 2 Staging Bay..."
+                              className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] bg-white outline-none focus:border-[#00288e]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         )}
 
