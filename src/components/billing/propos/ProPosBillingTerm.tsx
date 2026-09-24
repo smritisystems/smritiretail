@@ -81,7 +81,11 @@ import {
   MoreVertical,
   Eye,
   Truck,
-  UserPlus
+  UserPlus,
+  CreditCard,
+  Coins,
+  Tag,
+  Settings
 } from "lucide-react";
 import type { CustomerBillingLocationDTO, CustomerDeliveryLocationDTO } from "../types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
@@ -131,8 +135,29 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
   const [currentDateTime, setCurrentDateTime] = useState<string>(() => {
     const d = new Date();
-    return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
   });
+
+  const currentDateStr = useMemo(() => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}/${d.getFullYear()}`;
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const d = new Date();
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      setCurrentDateTime(`${day}/${month}/${year} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [customer, setCustomer] = useState<ProPosCustomer>({
     id: "cust-01",

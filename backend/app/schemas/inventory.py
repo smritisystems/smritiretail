@@ -37,7 +37,7 @@ class ProductBase(BaseModel):
     buying_price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None
     sku: Optional[str] = Field(None, max_length=100)
-    hsn_code: str = Field(..., max_length=15, description="HSN Code")
+    hsn_code: Optional[str] = Field("0000", max_length=15, description="HSN Code")
     pricing_mode: Optional[str] = "Fixed"
     tracking_mode: Optional[str] = "Standard"
     variant_template_id: Optional[str] = Field(None, max_length=50)
@@ -47,7 +47,7 @@ class ProductBase(BaseModel):
     gallery_images: Optional[List[str]] = Field(default_factory=list)
     historical_invoice_qty: Decimal = Decimal("0")
 
-    @field_validator("code", "name", "barcode", "hsn_code", mode="before")
+    @field_validator("code", "name", "barcode", mode="before")
     @classmethod
     def validate_non_blank_string(cls, v: Any, info: ValidationInfo) -> str:
         if v is None:
@@ -56,6 +56,14 @@ class ProductBase(BaseModel):
         if not s:
             raise ValueError(f"{info.field_name} is required and cannot be blank or whitespace-only.")
         return s
+
+    @field_validator("hsn_code", mode="before")
+    @classmethod
+    def validate_hsn_code(cls, v: Any) -> str:
+        if v is None:
+            return "0000"
+        s = str(v).strip()
+        return s if s else "0000"
 
     @field_validator("mrp", "price", "gst_percentage", mode="before")
     @classmethod

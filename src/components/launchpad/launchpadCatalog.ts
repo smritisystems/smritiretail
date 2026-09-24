@@ -32,8 +32,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   // 1. Retail Operations
   {
     id: "billing-workspace",
-    title: "Billing Workspace",
-    subtitle: "Retail POS checkout, payments, receipts & shift operations",
+    title: "Desktop Billing Terminal",
+    subtitle: "High-speed retail barcode checkout, docked direct entry, exact cash & multi-tender settlement",
     icon: "receipt_long",
     tag: "Billing",
     badgeType: "success",

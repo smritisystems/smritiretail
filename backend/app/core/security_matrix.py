@@ -35,6 +35,7 @@ CANONICAL_36_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
 
     # 3. Sales & POS (Parent: menu-pos)
     "menu-pos": {"resource": "pos_workspace", "view_perm": "POS.WORKSPACE.ACCESS", "parent_id": None},
+    "menu-desktop-billing": {"resource": "pos_terminal", "view_perm": "POS.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-sales": {"resource": "sales_billing", "view_perm": "SALES.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-customer-master": {"resource": "customer_master", "view_perm": "CUSTOMER.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-crm": {"resource": "crm_studio", "view_perm": "CRM.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
