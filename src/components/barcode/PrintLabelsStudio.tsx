@@ -22,7 +22,7 @@ import {
   Truck, BarChart2, ArrowLeftRight, MoreHorizontal, Zap, X,
   Tag, Layers, AlertTriangle, Circle,
 } from 'lucide-react';
-import { apiFetchV1 } from '../../lib/apiFetchV1.ts';
+import { apiFetchV1 } from '../../lib/apiFetch.ts';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
