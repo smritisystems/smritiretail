@@ -17,6 +17,7 @@ import { Product, POSProfile, Shift, Customer } from "../../types.ts";
 import { SmritiProPosBillingTerminal } from "./propos/ProPosBillingTerm.tsx";
 import { SmritiProPosEodReport } from "./propos/ProPosEodReportVie.tsx";
 import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
+import { SmritiCreditBillingTerminal } from "./SmritiCreditBillingTerminal.tsx";
 import {
   Receipt,
   FileSpreadsheet,
@@ -31,10 +32,11 @@ import {
   Info,
   RotateCcw,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 
 export type BillingWorkspaceMode = "RETAIL_POS";
-export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS";
+export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS" | "CREDIT_BILLING";
 
 export interface BillingWorkspaceProps {
   products?: Product[];
@@ -171,6 +173,21 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             <span className="hidden sm:inline">Reports</span>
           </button>
 
+          {/* Credit Billing Toggle */}
+          <button
+            type="button"
+            onClick={() => setAuxView(auxView === "CREDIT_BILLING" ? "WORKSPACE" : "CREDIT_BILLING")}
+            title="Credit Billing Terminal"
+            className={`px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border text-xs font-semibold ${
+              auxView === "CREDIT_BILLING"
+                ? "bg-[#7c3aed] text-white border-[#7c3aed] shadow-xs"
+                : "border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
+            }`}
+          >
+            <CreditCard size={13} />
+            <span className="hidden sm:inline">Credit Billing</span>
+          </button>
+
           {/* Shift HUD Badge */}
           <div className="flex items-center gap-1.5 bg-[#dcfce7] text-[#166534] dark:bg-[#14532d]/40 dark:text-[#86efac] px-2.5 py-1 rounded-lg border border-[#16a34a]/30">
             <ShieldCheck size={13} />
@@ -209,6 +226,12 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           />
         ) : auxView === "SHIFT_REPORTS" ? (
           <SmritiDailyReportsDashboard />
+        ) : auxView === "CREDIT_BILLING" ? (
+          <SmritiCreditBillingTerminal
+            currentUser={currentUser}
+            onNotification={showToast}
+            onBack={() => setAuxView("WORKSPACE")}
+          />
         ) : (
           <SmritiProPosBillingTerminal onNotification={showToast} shiftId={activeShift?.id} />
         )}
