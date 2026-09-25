@@ -32,6 +32,26 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.1] - 2026-09-26 — Login: Premium Login Screen v6.45.1 (Visual Upgrade)
+
+> **Commit:** `54ead7c9` | **Branch:** `smritiNX` | **Area:** Authentication / Login UX
+
+### Changed
+- **`LoginScreen.tsx`** — Visual-layer refactor to match the architect reference screenshot. **Authentication logic (handleSubmit, localStorage token storage, persistTenantContext, onLoginSuccess callback) is 100% unchanged.**
+  - **Left column (lg+)**: 7th pillar added (Settings & Configuration); `>` chevron indicator; `xl` font scaling for 1440p/4K; Caveat handwritten tagline.
+  - **Right column (xl+)**: Replaced architecture blurbs with reference screenshot layout — `RIGHT_CALLOUTS` (Fast / Real-Time / Secure / Cloud Ready / Multi-Device) with blue icon tiles + `RIGHT_MODULE_LABELS` vertical label stack (RETAIL / POS / INVENTORY / DISTRIBUTION / WAREHOUSE / REPORTS).
+  - **Login card**: Gradient top accent stripe; WCAG 2.1 `aria-*` on all inputs/buttons; `aria-label` on show/hide password toggle; `<h1>` for screen readers; `aria-live="assertive"` error banner; `min-h-[44px]` touch targets on all interactive elements.
+  - **Quick Persona buttons**: Added Shield / Users / CreditCard icons per reference screenshot; `aria-pressed` state.
+  - **Bottom footer**: Expanded from 5 to 8 capability badges matching reference (Multi-Store, Centralized Control, Role Based Access, Business Analytics, Modular & Scalable, API & Integration Ready, Backup & Data Safety, Web|Mobile|POS Access); horizontally scrollable on mobile; PEOPLE|PRODUCTS|PROCESS|PROFIT on left side.
+  - **New icons**: Activity, CreditCard, Database, Settings, Wifi, Zap; removed unused Sparkles, Server.
+  - **Language selector**: `aria-expanded`, `role="listbox"`, `role="option"`.
+  - **Forgot password modal**: `role="dialog"`, `aria-modal="true"`, `aria-labelledby`.
+
+### TypeScript Verification
+- `npx tsc --noEmit --skipLibCheck` — **Exit 0** (task-847 and task-864).
+
+---
+
 ## [6.45.0] - 2026-09-26 — Barcode: Print Labels Studio (New Feature)
 
 > **Commit:** `8731ad8a` | **Branch:** `smritiNX` | **Area:** Barcode / Label Printing
