@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, Index, text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, Index, UniqueConstraint, text
 from sqlalchemy import DateTime
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.dialects.postgresql import JSONB
@@ -21,6 +21,9 @@ from ..db.base import Base, BaseEntity
 
 class SalesInvoice(BaseEntity):
     __tablename__ = "sales_invoices"
+    __table_args__ = (
+        UniqueConstraint("company_id", "invoice_no", name="uq_sales_invoices_company_invoice_no"),
+    )
 
     invoice_no   = Column(String(100), nullable=False, unique=True)
     identity_code = Column(String(100), nullable=True, unique=True, index=True)

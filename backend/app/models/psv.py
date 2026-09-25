@@ -4,19 +4,32 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.17.0
 Created      : 2026-07-16
-Modified     : 2026-08-25
+Modified     : 2026-09-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from datetime import datetime, timezone
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Index, Boolean, Text
+from datetime import UTC, datetime
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
+
 from ..db.base import Base, BaseEntity
+
 
 class PSVParty(Base):
     __tablename__ = "psv_parties"
@@ -25,7 +38,12 @@ class PSVParty(Base):
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)
     branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True, index=True)
     host_customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True, index=True)
-    delivery_location_id = Column(String(50), ForeignKey("customer_delivery_locations.id", ondelete="RESTRICT"), nullable=True, index=True)
+    delivery_location_id = Column(
+        String(50),
+        ForeignKey("customer_delivery_locations.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     store_code = Column(String(50), nullable=True, index=True)
     store_name_snapshot = Column(String(255), nullable=True)
     stock_model = Column(String(30), nullable=False, default="OUTRIGHT_SALE")
@@ -36,8 +54,12 @@ class PSVParty(Base):
     weeks_of_cover = Column(Numeric(5, 2), default=0.00)
     capital_locked = Column(Numeric(15, 2), default=0.00)
     status = Column(String(20), default="Healthy")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    modified_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
 
     sku_tracking = relationship("PSVPartySkuTracking", back_populates="party", lazy="selectin")
 
@@ -68,7 +90,19 @@ class PSVStockEvent(Base):
     correlation_id = Column(String(100), nullable=False, index=True)
     causation_id = Column(String(100), nullable=True)
     event_schema_version = Column(String(20), nullable=False, default="1.0")
+    company_id = Column(
+        String(50),
+        ForeignKey("companies.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     company_code = Column(String(50), nullable=False, index=True)
+    product_id = Column(
+        String(50),
+        ForeignKey("products.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     source_database = Column(String(100), nullable=False)
     source_document_type = Column(String(50), nullable=False)
     source_document_id = Column(String(50), nullable=False)
@@ -92,10 +126,14 @@ class PSVStockEvent(Base):
     source_event_created_at = Column(DateTime(timezone=True), nullable=False)
     event_date = Column(DateTime(timezone=True), nullable=False)
     sync_status = Column(String(20), nullable=False, default="PENDING", index=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    company = relationship("Company", lazy="select")
+    product = relationship("Product", lazy="select")
 
     __table_args__ = (
         Index("idx_psv_events_party_sku", "company_code", "psv_party_id", "sku"),
+        Index("idx_psv_events_company_party_sku", "company_id", "psv_party_id", "sku"),
     )
 
 
@@ -106,7 +144,19 @@ class PSVStockBalance(Base):
     __tablename__ = "psv_stock_balances"
 
     id = Column(String(50), primary_key=True)
+    company_id = Column(
+        String(50),
+        ForeignKey("companies.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     company_code = Column(String(50), nullable=False, index=True)
+    product_id = Column(
+        String(50),
+        ForeignKey("products.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     psv_party_id = Column(String(50), nullable=False, index=True)
     psv_store_id = Column(String(50), nullable=True)
     delivery_location_id = Column(String(50), nullable=True, index=True)
@@ -120,6 +170,15 @@ class PSVStockBalance(Base):
     current_balance = Column(Numeric(12, 4), nullable=False, default=0.0000)
     last_reported_at = Column(DateTime(timezone=True), nullable=True)
     reconciliation_status = Column(String(30), nullable=False, default="AUTO_MATCHED")
+
+    company = relationship("Company", lazy="select")
+    product = relationship("Product", lazy="select")
+
+    __table_args__ = (
+        Index("idx_psv_balances_company_party_sku", "company_id", "psv_party_id", "sku"),
+        Index("uq_psv_stock_balances_company_party_sku", "company_id", "psv_party_id", "sku", unique=True),
+        UniqueConstraint("company_code", "psv_party_id", "sku", name="uq_psv_stock_balances_party_sku"),
+    )
 
 
 class PSVVisibilityPolicy(BaseEntity):

@@ -271,17 +271,13 @@ class InventoryWmsService:
 
         await self.db.flush()
 
-        # 4. Synchronize products.stock cached aggregate (Total usable on-hand: SUM(quantity - damaged_quantity))
-        q_sum = select(func.coalesce(func.sum(ProductBatchStock.quantity - ProductBatchStock.damaged_quantity), 0)).where(
-            ProductBatchStock.company_id == self.tenant_ctx.company_id,
-            ProductBatchStock.product_id == product_id,
-            ProductBatchStock.is_deleted == False
+        # 4. Synchronize products.stock cached aggregate via canonical StockSynchronizer
+        from .stock_synchronizer import StockSynchronizer
+        await StockSynchronizer.sync_product_stock_cache(
+            session=self.db,
+            product_id=product_id,
+            company_id=self.tenant_ctx.company_id,
         )
-        res_sum = await self.db.execute(q_sum)
-        total_usable = res_sum.scalar()
-        product.stock = int(total_usable)
-
-        await self.db.flush()
         return batch_stock
 
     async def create_stock_transfer(

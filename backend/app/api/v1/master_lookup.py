@@ -30,7 +30,7 @@ from ...models.auth import User, UserRole
 from ...models.master_lookup import MasterType, MasterValue
 from ...models.attributes import VariantTemplate
 from ...models.inventory import Product
-from ...models.item_master import Item
+from ...models.item_master import Item, ItemVariant, ItemBarcode
 from ...models.sales import SalesOrder, SalesOrderItem
 from ...models.size_groups import SizeGroup, SizeGroupValue
 from ...schemas.master_lookup import (
@@ -1619,29 +1619,70 @@ async def list_item_barcodes_lookup(
     tenant_db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
-    """F2 Universal Lookup adapter for Item Barcodes & Stock Numbers."""
+    """F2 Universal Lookup adapter for Item Barcodes & Stock Numbers with canonical ItemBarcode support."""
     rows = []
     try:
-        stmt = select(Product).where(Product.barcode.isnot(None), Product.is_deleted == False)
+        # 1. Canonical lookup via item_barcodes + item_variants + items
+        bc_stmt = (
+            select(ItemBarcode)
+            .options(
+                selectinload(ItemBarcode.item),
+                selectinload(ItemBarcode.variant),
+            )
+            .where(ItemBarcode.is_deleted == False)
+        )
         if q and q.strip():
             term = f"%{q.strip()}%"
-            stmt = stmt.where(
+            bc_stmt = bc_stmt.join(ItemBarcode.item, isouter=True).join(ItemBarcode.variant, isouter=True).where(
                 or_(
-                    Product.barcode.ilike(term),
-                    Product.code.ilike(term),
-                    Product.name.ilike(term),
-                    Product.sku.ilike(term),
+                    ItemBarcode.barcode.ilike(term),
+                    ItemBarcode.barcode_normalized.ilike(term),
+                    ItemVariant.variant_sku.ilike(term),
+                    Item.item_code.ilike(term),
+                    Item.item_name.ilike(term),
                 )
             )
-        stmt = stmt.limit(limit)
-        res = await tenant_db.execute(stmt)
-        for p in res.scalars().all():
+        bc_stmt = bc_stmt.limit(limit)
+        bc_res = await tenant_db.execute(bc_stmt)
+        for bc in bc_res.scalars().all():
+            sku_val = (bc.variant.variant_sku if bc.variant else None) or (bc.item.item_code if bc.item else None) or ""
+            name_val = (bc.variant.variant_name if bc.variant else None) or (bc.item.item_name if bc.item else None) or ""
             rows.append({
-                "barcode": p.barcode,
-                "sku": p.sku or p.code,
-                "name": p.name,
-                "id": p.id,
+                "barcode": bc.barcode,
+                "sku": sku_val,
+                "name": name_val,
+                "id": bc.variant_id or bc.item_id or bc.id,
+                "item_id": bc.item_id,
+                "variant_id": bc.variant_id,
             })
+
+        # 2. Dual-read fallback: supplement from legacy Product if fewer than limit
+        if len(rows) < limit:
+            existing_barcodes = {r["barcode"] for r in rows}
+            p_stmt = select(Product).where(Product.barcode.isnot(None), Product.is_deleted == False)
+            if q and q.strip():
+                term = f"%{q.strip()}%"
+                p_stmt = p_stmt.where(
+                    or_(
+                        Product.barcode.ilike(term),
+                        Product.code.ilike(term),
+                        Product.name.ilike(term),
+                        Product.sku.ilike(term),
+                    )
+                )
+            p_stmt = p_stmt.limit(limit - len(rows))
+            p_res = await tenant_db.execute(p_stmt)
+            for p in p_res.scalars().all():
+                if p.barcode not in existing_barcodes:
+                    rows.append({
+                        "barcode": p.barcode,
+                        "sku": p.sku or p.code,
+                        "name": p.name,
+                        "id": p.id,
+                        "item_id": p.item_id,
+                        "variant_id": str(p.item_variant_id) if p.item_variant_id else None,
+                    })
+                    existing_barcodes.add(p.barcode)
     except Exception as exc:
         logger.warning(f"[MasterLookup] Notice reading item barcodes: {exc}")
     return rows
