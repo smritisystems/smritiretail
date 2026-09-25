@@ -138,6 +138,13 @@ class SalesOrderReservationReleaseRequest(BaseModel):
     summary="Create Sales Invoice (Contract URL)",
     dependencies=[Depends(require_permission("sales_billing", "NEW"))],
 )
+@router.post(
+    "/invoices/",
+    response_model=SalesInvoiceResponse,
+    status_code=201,
+    summary="Create Sales Invoice (Contract URL with Slash)",
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
+)
 async def create_sales_invoice_contract(
     invoice_in: SalesInvoiceCreate,
     request: Request,
@@ -145,7 +152,11 @@ async def create_sales_invoice_contract(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a sales invoice — canonical contract URL with Idempotency-Key support."""
-    idempotency_key = request.headers.get("idempotency-key") or request.headers.get("Idempotency-Key")
+    idempotency_key = (
+        request.headers.get("x-idempotency-key")
+        or request.headers.get("idempotency-key")
+        or request.headers.get("Idempotency-Key")
+    )
     return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in, idempotency_key=idempotency_key)
 
 
@@ -465,10 +476,17 @@ async def close_or_cancel_sales_order_line(
 )
 async def create_sales_order(
     order_in: SalesOrderCreate,
+    request: Request,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    return await SalesService(db, tenant_ctx).create_sales_order(order_in)
+    idempotency_key = (
+        request.headers.get("x-idempotency-key")
+        or request.headers.get("idempotency-key")
+        or request.headers.get("Idempotency-Key")
+        or getattr(order_in, "idempotency_key", None)
+    )
+    return await SalesService(db, tenant_ctx).create_sales_order(order_in, idempotency_key=idempotency_key)
 
 
 @router.get("/orders", response_model=List[SalesOrderResponse])
@@ -692,7 +710,12 @@ async def create_sales_return(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    idempotency_key = request.headers.get("Idempotency-Key")
+    idempotency_key = (
+        request.headers.get("x-idempotency-key")
+        or request.headers.get("idempotency-key")
+        or request.headers.get("Idempotency-Key")
+        or getattr(sr_in, "idempotency_key", None)
+    )
     return await SalesService(db, tenant_ctx, control_db=control_db).create_sales_return(sr_in, idempotency_key=idempotency_key)
 
 
@@ -877,81 +900,127 @@ async def create_eway_bill(
     from ...models.sales import SalesInvoice
     from ...services.identity.engine import IdentityEngine
 
-    tech_id, id_code = await IdentityEngine.allocate_internal(
-        session=db,
-        entity_type="EWAY_BILL",
-        group_code="TAX",
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        purpose="EWAY_BILL_CREATION",
-    )
-    ewb_id = tech_id
-    ewb_no = req.eway_bill_no or id_code
-
-    # Register statutory NIC E-Way Bill Number as sovereign alias if supplied
-    if req.eway_bill_no and req.eway_bill_no != id_code:
-        await IdentityEngine.register_alias(
-            session=db,
-            entity_type="EWAY_BILL",
-            entity_id=ewb_id,
-            alias_code=req.eway_bill_no,
-            alias_type="NIC_EWAY",
-            source_system="NIC_PORTAL",
-            canonical_identity_code=id_code,
-            company_id=tenant_ctx.company_id,
-            branch_id=tenant_ctx.branch_id,
-            notes="Statutory NIC E-Way Bill Number",
-        )
-
-    ewb = EWayBill(
-        id=ewb_id,
-        uuid=ewb_id,
-        identity_code=id_code,
-        eway_bill_no=ewb_no,
-        invoice_id=req.invoice_id,
-        consignment_value=req.consignment_value or Decimal("0.00"),
-        transporter_id=req.transporter_id,
-        transporter_name=req.transporter_name,
-        transport_mode=req.transport_mode or "Road",
-        vehicle_no=req.vehicle_no,
-        distance_km=req.distance_km or Decimal("0.00"),
-        status=req.status or "DISPATCHED",
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        created_at=datetime.now(timezone.utc),
-    )
-    db.add(ewb)
-
     inv_res = await db.execute(
         select(SalesInvoice).where(
             SalesInvoice.id == req.invoice_id,
             SalesInvoice.company_id == tenant_ctx.company_id,
-            SalesInvoice.branch_id == tenant_ctx.branch_id,
-        )
+        ).with_for_update()
     )
     inv = inv_res.scalars().first()
-    if inv:
+    if not inv:
+        raise HTTPException(status_code=404, detail=f"Sales invoice '{req.invoice_id}' not found.")
+
+    # Idempotency and duplicate check
+    existing_ewb_res = await db.execute(
+        select(EWayBill).where(
+            EWayBill.invoice_id == req.invoice_id,
+            EWayBill.company_id == tenant_ctx.company_id,
+        )
+    )
+    existing_ewb = existing_ewb_res.scalars().first()
+    if existing_ewb:
+        if req.eway_bill_no and req.eway_bill_no != existing_ewb.eway_bill_no:
+            raise HTTPException(
+                status_code=409,
+                detail=f"SMRITI-EWB-001: Sales invoice '{inv.invoice_no}' already has an active E-Way Bill ({existing_ewb.eway_bill_no}). Duplicate dispatch generation blocked.",
+            )
+        return EWayBillResponse(
+            id=existing_ewb.id,
+            identity_code=existing_ewb.identity_code,
+            eway_bill_no=existing_ewb.eway_bill_no,
+            invoice_id=existing_ewb.invoice_id,
+            consignment_value=existing_ewb.consignment_value or Decimal("0.00"),
+            transporter_id=existing_ewb.transporter_id,
+            transporter_name=existing_ewb.transporter_name,
+            transport_mode=existing_ewb.transport_mode,
+            vehicle_no=existing_ewb.vehicle_no,
+            distance_km=existing_ewb.distance_km,
+            status=existing_ewb.status or "DISPATCHED",
+            created_at=existing_ewb.created_at,
+        )
+
+    from ...services.transaction_integrity_engine import TransactionIntegrityEngine
+    async with TransactionIntegrityEngine.guard(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        entity_type="EWAY_BILL",
+        idempotency_key=req.eway_bill_no or f"EWB:{req.invoice_id}",
+        business_key=req.eway_bill_no or req.invoice_id,
+        request_payload=req,
+        commit=True,
+    ) as guard:
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=db,
+            entity_type="EWAY_BILL",
+            group_code="TAX",
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            purpose="EWAY_BILL_CREATION",
+        )
+        ewb_id = tech_id
+        ewb_no = req.eway_bill_no or id_code
+
+        # Register statutory NIC E-Way Bill Number as sovereign alias if supplied
+        if req.eway_bill_no and req.eway_bill_no != id_code:
+            try:
+                await IdentityEngine.register_alias(
+                    session=db,
+                    entity_type="EWAY_BILL",
+                    entity_id=ewb_id,
+                    alias_code=req.eway_bill_no,
+                    alias_type="NIC_EWAY",
+                    source_system="NIC_PORTAL",
+                    canonical_identity_code=id_code,
+                    company_id=tenant_ctx.company_id,
+                    branch_id=tenant_ctx.branch_id,
+                    notes="Statutory NIC E-Way Bill Number",
+                )
+            except ValueError as ve:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"SMRITI-EWB-002: Alias collision for E-Way Bill number '{req.eway_bill_no}': {ve}",
+                )
+
+        ewb = EWayBill(
+            id=ewb_id,
+            uuid=ewb_id,
+            identity_code=id_code,
+            eway_bill_no=ewb_no,
+            invoice_id=req.invoice_id,
+            consignment_value=req.consignment_value or Decimal("0.00"),
+            transporter_id=req.transporter_id,
+            transporter_name=req.transporter_name,
+            transport_mode=req.transport_mode or "Road",
+            vehicle_no=req.vehicle_no,
+            distance_km=req.distance_km or Decimal("0.00"),
+            status=req.status or "DISPATCHED",
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(ewb)
         inv.eway_bill_no = ewb_no
 
-    from ...services.outbox_service import OutboxService
-    await OutboxService.record_event(
-        session=db,
-        target_channel="SALES_DISPATCH_QUEUE",
-        event_type="EWAY_BILL_DISPATCH_RECORDED",
-        aggregate_type="EWayBill",
-        aggregate_id=ewb_id,
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        payload={
-            "eway_bill_no": ewb_no,
-            "identity_code": id_code,
-            "invoice_id": req.invoice_id,
-            "vehicle_no": req.vehicle_no,
-            "transporter_name": req.transporter_name,
-            "consignment_value": str(req.consignment_value or Decimal("0.00")),
-        }
-    )
-    await db.commit()
+        from ...services.outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=db,
+            target_channel="SALES_DISPATCH_QUEUE",
+            event_type="EWAY_BILL_DISPATCH_RECORDED",
+            aggregate_type="EWayBill",
+            aggregate_id=ewb_id,
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            payload={
+                "eway_bill_no": ewb_no,
+                "identity_code": id_code,
+                "invoice_id": req.invoice_id,
+                "vehicle_no": req.vehicle_no,
+                "transporter_name": req.transporter_name,
+                "consignment_value": str(req.consignment_value or Decimal("0.00")),
+            }
+        )
+        guard.complete(document_id=ewb_id, document_no=ewb_no)
+
     return EWayBillResponse(
         id=ewb_id,
         identity_code=id_code,

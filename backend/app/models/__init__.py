@@ -267,3 +267,7 @@ from .dispatch_batch import (
 # KPI Definition Registry — data-driven KPI configuration for Executive Hub dashboards (v1.0.0 — 2026-09-24)
 from .kpi_definition import KPIDefinition
 
+# SMRITI Transaction Integrity Engine (STIE) — Universal Idempotency & Concurrency Ledger
+from .transaction_integrity import TransactionIdempotencyRecord
+
+

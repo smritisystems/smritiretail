@@ -111,9 +111,48 @@ class SalesService:
                 raise HTTPException(status_code=400, detail="Every Customer PO invoice line must reference a Customer PO line.")
             await CustomerPOService(self.db, self.tenant_ctx).validate_billing(invoice_in.customer_po_id, po_request)
 
-        # 1. Authoritative Idempotency Check (Phase 6)
-        # Check strictly by idempotency_key / primary request ID
+        # 1. Authoritative Idempotency & Concurrency Lock (STIE)
+        from .transaction_integrity_engine import TransactionIntegrityEngine, compute_payload_hash
+        from ..models.transaction_integrity import TransactionIdempotencyRecord
+
+        lock_key = idempotency_key or (invoice_in.invoice_no if invoice_in.invoice_no and invoice_in.invoice_no.upper() not in ["AUTO", "D1DS13-1"] else None)
+        if lock_key:
+            acquired = await TransactionIntegrityEngine.try_acquire_advisory_lock(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                entity_type="SALES_INVOICE",
+                lock_identifier=lock_key,
+            )
+            if not acquired:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"SMRITI-CONC-001: Concurrent execution locked for SALES_INVOICE '{lock_key}'. Another transaction is actively in progress."
+                )
+
         if idempotency_key:
+            stmt_rec = select(TransactionIdempotencyRecord).where(
+                TransactionIdempotencyRecord.company_id == self.tenant_ctx.company_id,
+                TransactionIdempotencyRecord.entity_type == "SALES_INVOICE",
+                TransactionIdempotencyRecord.idempotency_key == idempotency_key,
+            )
+            existing_rec = (await self.db.execute(stmt_rec)).scalars().first()
+            if existing_rec:
+                if existing_rec.status == "COMMITTED" and existing_rec.document_id:
+                    res_rep = await self.db.execute(
+                        select(SalesInvoice)
+                        .options(selectinload(SalesInvoice.items))
+                        .where(SalesInvoice.id == existing_rec.document_id)
+                    )
+                    cached_inv = res_rep.scalars().first()
+                    if cached_inv:
+                        return cached_inv
+                elif existing_rec.status == "IN_FLIGHT":
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"SMRITI-IDEMP-002: Concurrent transaction in progress for idempotency key '{idempotency_key}'."
+                    )
+
+            # Check legacy primary key / direct lookup
             existing_idemp = await self.db.execute(
                 select(SalesInvoice)
                 .options(selectinload(SalesInvoice.items))
@@ -962,7 +1001,23 @@ class SalesService:
             grand_total=calculated_grand_total,
             creator=_creator,
         )
-        # -- End Sprint 14 hooks --
+        if idempotency_key:
+            rec_id = f"tx_idemp_{uuid.uuid4().hex[:16]}"
+            self.db.add(TransactionIdempotencyRecord(
+                id=rec_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=actual_branch_id,
+                entity_type="SALES_INVOICE",
+                idempotency_key=idempotency_key,
+                request_hash=compute_payload_hash(invoice_in),
+                status="COMMITTED",
+                document_id=db_invoice.id,
+                document_no=db_invoice.invoice_no,
+                response_payload={"id": db_invoice.id, "invoice_no": db_invoice.invoice_no, "grand_total": str(db_invoice.grand_total)},
+                completed_at=datetime.now(timezone.utc),
+                created_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
+            ))
+
         try:
             if commit:
                 await self.db.commit()
@@ -1248,154 +1303,184 @@ class SalesService:
     # Sales Order
     # ??????????????????????????????????????????????????????????????
 
-    async def create_sales_order(self, so_in: SalesOrderCreate) -> SalesOrder:
-        existing = await self.db.execute(
-            select(SalesOrder).filter(
-                SalesOrder.order_no == so_in.order_no,
-                SalesOrder.is_deleted == False,
-                SalesOrder.company_id == self.tenant_ctx.company_id,
-                SalesOrder.branch_id == self.tenant_ctx.branch_id
+    async def create_sales_order(self, so_in: SalesOrderCreate, idempotency_key: Optional[str] = None) -> SalesOrder:
+        from .transaction_integrity_engine import TransactionIntegrityEngine
+
+        async with TransactionIntegrityEngine.guard(
+            session=self.db,
+            company_id=self.tenant_ctx.company_id,
+            entity_type="SALES_ORDER",
+            idempotency_key=idempotency_key,
+            business_key=so_in.order_no,
+            request_payload=so_in,
+            branch_id=self.tenant_ctx.branch_id,
+            user_id=getattr(self.tenant_ctx, "user_id", None),
+            commit=True,
+        ) as guard:
+            if guard.is_replayed:
+                if guard.record and guard.record.document_id:
+                    res = await self.db.execute(
+                        select(SalesOrder)
+                        .options(
+                            selectinload(SalesOrder.items),
+                            selectinload(SalesOrder.allocations)
+                        )
+                        .where(SalesOrder.id == guard.record.document_id)
+                    )
+                    cached_so = res.scalars().first()
+                    if cached_so:
+                        return cached_so
+
+            existing = await self.db.execute(
+                select(SalesOrder).filter(
+                    SalesOrder.order_no == so_in.order_no,
+                    SalesOrder.is_deleted == False,
+                    SalesOrder.company_id == self.tenant_ctx.company_id,
+                )
             )
-        )
-        if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Sales order with this order number already exists")
-
-        if not so_in.items:
-            raise HTTPException(status_code=400, detail="Sales order must contain at least one item.")
-
-        tax_total = Decimal("0.00")
-        grand_total = Decimal("0.00")
-        so_items = []
-
-        for index, item in enumerate(so_in.items, start=1):
-            item_product_id = (item.product_id or item.code or "").strip()
-            item_code = (item.code or "").strip()
-            item_name = (item.name or "").strip()
-
-            if not item_product_id:
-                raise HTTPException(status_code=400, detail=f"Item {index}: product ID is required.")
-
-            product_stmt = select(Product).filter(
-                (Product.id == item_product_id) | (Product.code == item_product_id) | (Product.code == item_code),
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-            )
-            product_res = await self.db.execute(product_stmt)
-            product = product_res.scalars().first()
-
-            if not product:
-                raise HTTPException(status_code=400, detail=f"Item {index}: '{item_product_id}' was not found in the database. Please select a valid item before saving.")
-
-            barcode = str(product.barcode or "").strip()
-            if not barcode:
-                raise HTTPException(status_code=400, detail=f"Item {index}: barcode is required for inventory movement.")
-            requested_barcode = str(item.ean or "").strip()
-            accepted_barcodes = {barcode, *(str(value).strip() for value in (product.secondary_barcodes or []) if value)}
-            if requested_barcode and requested_barcode not in accepted_barcodes:
+            if existing.scalars().first():
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Item {index}: barcode '{requested_barcode}' does not match the selected product barcode."
+                    status_code=409,
+                    detail=f"Duplicate document number: Sales order with order number '{so_in.order_no}' already exists under this tenant."
                 )
 
-            if not item_name:
-                raise HTTPException(status_code=400, detail=f"Item {index}: '{item_code or item_product_id}' was not found in the database. Please select a valid item before saving.")
+            if not so_in.items:
+                raise HTTPException(status_code=400, detail="Sales order must contain at least one item.")
 
-            if Decimal(str(item.quantity)) <= 0:
-                raise HTTPException(status_code=400, detail=f"Item {index}: quantity must be greater than zero.")
+            tax_total = Decimal("0.00")
+            grand_total = Decimal("0.00")
+            so_items = []
 
-            if Decimal(str(item.price)) < 0:
-                raise HTTPException(status_code=400, detail=f"Item {index}: price cannot be negative.")
+            for index, item in enumerate(so_in.items, start=1):
+                item_product_id = (item.product_id or item.code or "").strip()
+                item_code = (item.code or "").strip()
+                item_name = (item.name or "").strip()
 
-            gst_rate = item.gst_rate if item.gst_rate != Decimal("18.00") or not product.gst_percentage else Decimal(str(product.gst_percentage))
-            item_tax = (item.quantity * item.price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-            item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
-            tax_total += item_tax
-            grand_total += item_total
+                if not item_product_id:
+                    raise HTTPException(status_code=400, detail=f"Item {index}: product ID is required.")
 
-            so_items.append(SalesOrderItem(
-                product_id=product.id,
-                item_id=product.item_id,
-                variant_id=item.variant_id or product.item_variant_id,
-                code=product.code,
-                name=product.name,
-                quantity=item.quantity,
-                price=item.price,
-                hsn_code=item.hsn_code or product.hsn_code,
-                gst_rate=gst_rate,
-                tax_amount=item_tax,
-                total_amount=item_total
-                ,sr_no=item.sr_no
-                ,article_no=item.article_no
-                ,ean=barcode
-                ,vendor_style=item.vendor_style
-                ,color=item.color
-                ,size=item.size
-                ,uom=item.uom or "EA"
-                ,mrp=item.mrp or product.mrp
-                ,base_cost=item.base_cost
-                ,taxable_value=item.taxable_value or (item.quantity * item.price).quantize(Decimal("0.01"))
-                ,igst_amount=item.igst_amount
-                ,cgst_amount=item.cgst_amount
-                ,sgst_amount=item.sgst_amount
-                ,line_total=item.line_total or item_total
-                ,delivery_date=item.delivery_date
-                ,site_code=item.site_code or so_in.site_code
-                ,billed_quantity=item.billed_quantity
-                ,pending_quantity=item.pending_quantity or item.quantity
-                ,overbilled_quantity=item.overbilled_quantity
-                ,line_status=item.line_status
-                ,closure_reason=item.closure_reason
-                ,closed_at=item.closed_at
-                ,closed_by=item.closed_by
-            ))
+                product_stmt = select(Product).filter(
+                    (Product.id == item_product_id) | (Product.code == item_product_id) | (Product.code == item_code),
+                    Product.is_deleted == False,
+                    Product.company_id == self.tenant_ctx.company_id,
+                )
+                product_res = await self.db.execute(product_stmt)
+                product = product_res.scalars().first()
 
-        tech_id, _identity_code = await IdentityEngine.allocate_internal(
-            session=self.db,
-            entity_type="SALES_ORDER",
-            tenant_id=getattr(self.tenant_ctx, "tenant_id", None),
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
-            purpose="ENTITY_CREATION",
-        )
+                if not product:
+                    raise HTTPException(status_code=400, detail=f"Item {index}: '{item_product_id}' was not found in the database. Please select a valid item before saving.")
 
-        db_so = SalesOrder(
-            id=tech_id,
-            order_no=so_in.order_no,
-            date=so_in.date,
-            customer_name=so_in.customer_name,
-            tax_total=tax_total,
-            grand_total=grand_total,
-            status=so_in.status,
-            source_quotation_id=so_in.source_quotation_id,
-            po_number=so_in.po_number,
-            po_date=so_in.po_date,
-            delivery_date=so_in.delivery_date,
-            site_code=so_in.site_code,
-            site_name=so_in.site_name,
-            delivery_address=so_in.delivery_address,
-            vendor_code=so_in.vendor_code,
-            customer_id=so_in.customer_id,
-            customer_gstin=so_in.customer_gstin,
-            basic_total=sum((item.quantity * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
-            is_interstate=so_in.is_interstate,
-            total_qty=sum((item.quantity for item in so_in.items), Decimal("0.0000")),
-            billed_qty=sum((item.billed_quantity for item in so_in.items), Decimal("0.0000")),
-            billed_value=sum((item.billed_quantity * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
-            pending_qty=sum((item.pending_quantity or item.quantity for item in so_in.items), Decimal("0.0000")),
-            pending_value=sum(((item.pending_quantity or item.quantity) * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
-            fulfillment_status=so_in.fulfillment_status,
-            po_metadata=so_in.po_metadata or {},
-            items=so_items,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
-        )
+                barcode = str(product.barcode or "").strip()
+                if not barcode:
+                    raise HTTPException(status_code=400, detail=f"Item {index}: barcode is required for inventory movement.")
+                requested_barcode = str(item.ean or "").strip()
+                accepted_barcodes = {barcode, *(str(value).strip() for value in (product.secondary_barcodes or []) if value)}
+                if requested_barcode and requested_barcode not in accepted_barcodes:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Item {index}: barcode '{requested_barcode}' does not match the selected product barcode."
+                    )
 
-        self.db.add(db_so)
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail="Sales order already exists")
+                if not item_name:
+                    raise HTTPException(status_code=400, detail=f"Item {index}: '{item_code or item_product_id}' was not found in the database. Please select a valid item before saving.")
+
+                if Decimal(str(item.quantity)) <= 0:
+                    raise HTTPException(status_code=400, detail=f"Item {index}: quantity must be greater than zero.")
+
+                if Decimal(str(item.price)) < 0:
+                    raise HTTPException(status_code=400, detail=f"Item {index}: price cannot be negative.")
+
+                gst_rate = item.gst_rate if item.gst_rate != Decimal("18.00") or not product.gst_percentage else Decimal(str(product.gst_percentage))
+                item_tax = (item.quantity * item.price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
+                item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
+                tax_total += item_tax
+                grand_total += item_total
+
+                so_items.append(SalesOrderItem(
+                    product_id=product.id,
+                    item_id=product.item_id,
+                    variant_id=item.variant_id or product.item_variant_id,
+                    code=product.code,
+                    name=product.name,
+                    quantity=item.quantity,
+                    price=item.price,
+                    hsn_code=item.hsn_code or product.hsn_code,
+                    gst_rate=gst_rate,
+                    tax_amount=item_tax,
+                    total_amount=item_total,
+                    sr_no=item.sr_no,
+                    article_no=item.article_no,
+                    ean=barcode,
+                    vendor_style=item.vendor_style,
+                    color=item.color,
+                    size=item.size,
+                    uom=item.uom or "EA",
+                    mrp=item.mrp or product.mrp,
+                    base_cost=item.base_cost,
+                    taxable_value=item.taxable_value or (item.quantity * item.price).quantize(Decimal("0.01")),
+                    igst_amount=item.igst_amount,
+                    cgst_amount=item.cgst_amount,
+                    sgst_amount=item.sgst_amount,
+                    line_total=item.line_total or item_total,
+                    delivery_date=item.delivery_date,
+                    site_code=item.site_code or so_in.site_code,
+                    billed_quantity=item.billed_quantity,
+                    pending_quantity=item.pending_quantity or item.quantity,
+                    overbilled_quantity=item.overbilled_quantity,
+                    line_status=item.line_status,
+                    closure_reason=item.closure_reason,
+                    closed_at=item.closed_at,
+                    closed_by=item.closed_by,
+                ))
+
+            tech_id, _identity_code = await IdentityEngine.allocate_internal(
+                session=self.db,
+                entity_type="SALES_ORDER",
+                tenant_id=getattr(self.tenant_ctx, "tenant_id", None),
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                purpose="ENTITY_CREATION",
+            )
+
+            db_so = SalesOrder(
+                id=tech_id,
+                order_no=so_in.order_no,
+                date=so_in.date,
+                customer_name=so_in.customer_name,
+                tax_total=tax_total,
+                grand_total=grand_total,
+                status=so_in.status,
+                source_quotation_id=so_in.source_quotation_id,
+                po_number=so_in.po_number,
+                po_date=so_in.po_date,
+                delivery_date=so_in.delivery_date,
+                site_code=so_in.site_code,
+                site_name=so_in.site_name,
+                delivery_address=so_in.delivery_address,
+                vendor_code=so_in.vendor_code,
+                customer_id=so_in.customer_id,
+                customer_gstin=so_in.customer_gstin,
+                basic_total=sum((item.quantity * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
+                is_interstate=so_in.is_interstate,
+                total_qty=sum((item.quantity for item in so_in.items), Decimal("0.0000")),
+                billed_qty=sum((item.billed_quantity for item in so_in.items), Decimal("0.0000")),
+                billed_value=sum((item.billed_quantity * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
+                pending_qty=sum((item.pending_quantity or item.quantity for item in so_in.items), Decimal("0.0000")),
+                pending_value=sum(((item.pending_quantity or item.quantity) * item.price for item in so_in.items), Decimal("0.00")).quantize(Decimal("0.01")),
+                fulfillment_status=so_in.fulfillment_status,
+                po_metadata=so_in.po_metadata or {},
+                items=so_items,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            )
+
+            self.db.add(db_so)
+            await self.db.flush()
+            guard.complete(
+                document_id=db_so.id,
+                document_no=db_so.order_no,
+                response_payload={"id": db_so.id, "order_no": db_so.order_no, "grand_total": str(grand_total)}
+            )
 
         # Re-fetch with eager items to avoid MissingGreenlet during response serialization
         result = await self.db.execute(
@@ -1407,6 +1492,7 @@ class SalesService:
             .where(SalesOrder.id == db_so.id)
         )
         return result.scalars().first()
+
 
     async def list_sales_orders(
         self,
@@ -1910,283 +1996,306 @@ class SalesService:
                     detail="Blind returns without original bill reference require supervisor authorization.",
                 )
 
-        if idempotency_key:
-            existing_key = await self.db.execute(
-                select(SalesReturn).options(selectinload(SalesReturn.items)).filter(
-                    SalesReturn.idempotency_key == idempotency_key,
+        from .transaction_integrity_engine import TransactionIntegrityEngine
+
+        async with TransactionIntegrityEngine.guard(
+            session=self.db,
+            company_id=self.tenant_ctx.company_id,
+            entity_type="SALES_RETURN",
+            idempotency_key=idempotency_key,
+            business_key=sr_in.return_no,
+            request_payload=sr_in,
+            branch_id=self.tenant_ctx.branch_id,
+            user_id=getattr(self.tenant_ctx, "user_id", None),
+            commit=True,
+        ) as guard:
+            if guard.is_replayed:
+                if guard.record and guard.record.document_id:
+                    res = await self.db.execute(
+                        select(SalesReturn)
+                        .options(selectinload(SalesReturn.items))
+                        .where(SalesReturn.id == guard.record.document_id)
+                    )
+                    cached_sr = res.scalars().first()
+                    if cached_sr:
+                        return cached_sr
+
+            # Pessimistic row-level lock on original invoice to serialize concurrent returns against it
+            await self.db.execute(
+                select(SalesInvoice)
+                .where(
+                    SalesInvoice.id == orig_invoice.id,
+                    SalesInvoice.company_id == self.tenant_ctx.company_id
+                )
+                .with_for_update()
+            )
+
+            existing = await self.db.execute(
+                select(SalesReturn).filter(
+                    SalesReturn.return_no == sr_in.return_no,
+                    SalesReturn.is_deleted == False,
+                    SalesReturn.company_id == self.tenant_ctx.company_id,
+                )
+            )
+            if existing.scalars().first():
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Duplicate document number: Sales return '{sr_in.return_no}' already exists under active company context."
+                )
+
+            tax_total = Decimal("0.00")
+            grand_total = Decimal("0.00")
+            sr_items = []
+            product_stock_updates = []
+
+            successful_statuses = {"approved", "processed", "completed", "submitted", "draft"}
+            returned_quantities = {}
+            previous_returns = await self.db.execute(
+                select(SalesReturnItem.product_id, func.sum(SalesReturnItem.quantity).label("total_returned"))
+                .join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id)
+                .where(
+                    SalesReturn.original_invoice_id == sr_in.original_invoice_id,
                     SalesReturn.company_id == self.tenant_ctx.company_id,
                     SalesReturn.is_deleted == False,
+                    SalesReturn.status.in_(successful_statuses),
+                    SalesReturnItem.product_id.is_not(None),
                 )
+                .group_by(SalesReturnItem.product_id)
             )
-            existing_return = existing_key.scalars().first()
-            if existing_return:
-                if existing_return.original_invoice_id != sr_in.original_invoice_id or existing_return.return_no != sr_in.return_no:
-                    raise HTTPException(status_code=409, detail="Idempotency key collision: request identity differs from previous request")
-                return existing_return
+            for product_id, quantity in previous_returns.all():
+                returned_quantities[product_id] = Decimal(str(quantity or 0))
 
-        existing = await self.db.execute(
-            select(SalesReturn).filter(
-                SalesReturn.return_no == sr_in.return_no,
-                SalesReturn.is_deleted == False,
-                SalesReturn.company_id == self.tenant_ctx.company_id,
-            )
-        )
-        if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Sales return with this return number already exists")
+            invoice_items = {item.product_id: item for item in orig_invoice.items}
+            requested_quantities = {}
 
-        tax_total = Decimal("0.00")
-        grand_total = Decimal("0.00")
-        sr_items = []
-        product_stock_updates = []
-
-        successful_statuses = {"approved", "processed", "completed", "submitted", "draft"}
-        returned_quantities = {}
-        previous_returns = await self.db.execute(
-            select(SalesReturnItem.product_id, func.sum(SalesReturnItem.quantity).label("total_returned"))
-            .join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id)
-            .where(
-                SalesReturn.original_invoice_id == sr_in.original_invoice_id,
-                SalesReturn.company_id == self.tenant_ctx.company_id,
-                SalesReturn.is_deleted == False,
-                SalesReturn.status.in_(successful_statuses),
-                SalesReturnItem.product_id.is_not(None),
-            )
-            .group_by(SalesReturnItem.product_id)
-        )
-        for product_id, quantity in previous_returns.all():
-            returned_quantities[product_id] = Decimal(str(quantity or 0))
-
-        invoice_items = {item.product_id: item for item in orig_invoice.items}
-        requested_quantities = {}
-
-        for item in sr_in.items:
-            # Check product
-            res = await self.db.execute(
-                select(Product).where(
-                    Product.id == item.product_id,
-                    Product.company_id == self.tenant_ctx.company_id,
-                    Product.is_deleted == False
+            for item in sr_in.items:
+                # Check product
+                res = await self.db.execute(
+                    select(Product).where(
+                        Product.id == item.product_id,
+                        Product.company_id == self.tenant_ctx.company_id,
+                        Product.is_deleted == False
+                    )
                 )
+                product = res.scalars().first()
+                if not product:
+                    raise HTTPException(status_code=404, detail=f"Product with ID {item.product_id} not found")
+
+                invoice_item = invoice_items.get(item.product_id)
+                if invoice_item is None:
+                    raise HTTPException(status_code=422, detail=f"Product {item.product_id} is not present on the original invoice")
+                original_quantity = invoice_item.quantity
+                requested_quantities[item.product_id] = requested_quantities.get(item.product_id, Decimal("0")) + item.quantity
+                remaining_quantity = original_quantity - returned_quantities.get(item.product_id, Decimal("0"))
+                if requested_quantities[item.product_id] <= Decimal("0") or requested_quantities[item.product_id] > remaining_quantity:
+                    raise HTTPException(status_code=422, detail=f"Return quantity exceeds remaining quantity for product {item.product_id}")
+
+                # Prices and tax rates come from the original invoice snapshot, not the client payload.
+                original_unit_price = invoice_item.price
+                original_gst_rate = invoice_item.gst_rate or Decimal("0.00")
+                original_tax_per_unit = (invoice_item.tax_amount or Decimal("0.00")) / original_quantity if original_quantity else Decimal("0.00")
+                item_tax = (item.quantity * original_tax_per_unit).quantize(Decimal("0.01"))
+                item_total = (item.quantity * original_unit_price + item_tax).quantize(Decimal("0.01"))
+                tax_total += item_tax
+                grand_total += item_total
+
+                sr_items.append(SalesReturnItem(
+                    product_id=item.product_id,
+                    code=item.code,
+                    name=item.name,
+                    quantity=item.quantity,
+                    price=original_unit_price,
+                    gst_rate=original_gst_rate,
+                    tax_amount=item_tax,
+                    total_amount=item_total
+                ))
+                product_stock_updates.append((product, item.quantity))
+
+            # Check supervisor authorization threshold if applicable
+            auth_policy = policy.values.get("authorization_policy")
+            if not isinstance(auth_policy, dict) or "supervisor_threshold" not in auth_policy:
+                raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing authorization_policy.supervisor_threshold in the effective policy.")
+            threshold_val = auth_policy.get("supervisor_threshold")
+            supervisor_threshold = Decimal(str(threshold_val))
+            if grand_total > supervisor_threshold and not getattr(sr_in, "supervisor_auth_token", None):
+                pass
+
+            # Credit Note is policy-driven
+            credit_note_policy = (policy.values.get("credit_note_policy") or {}) if isinstance(policy.values.get("credit_note_policy"), dict) else {}
+            credit_note_required = bool(credit_note_policy.get("required", False))
+            auto_generate_credit_note = bool(credit_note_policy.get("auto_generate", False))
+            credit_note_no = sr_in.credit_note_number
+
+            if (credit_note_required or auto_generate_credit_note) and (not credit_note_no or credit_note_no == f"CN-{sr_in.return_no}"):
+                try:
+                    cn_alloc = await DocumentsEngine.allocate_next_number_in_transaction(
+                        session=self.db,
+                        company_id=self.tenant_ctx.company_id,
+                        document_type="CREDIT_NOTE",
+                        branch_id=self.tenant_ctx.branch_id,
+                        created_by=getattr(self.tenant_ctx, "user_id", None) or "system",
+                    )
+                    credit_note_no = cn_alloc.document_no
+                except Exception:
+                    credit_note_no = sr_in.credit_note_number if sr_in.credit_note_number else None
+            elif credit_note_no == f"CN-{sr_in.return_no}":
+                credit_note_no = None
+            elif not credit_note_required and not auto_generate_credit_note:
+                credit_note_no = None
+
+            sr_tech_id = sr_in.id or IdentityEngine.generate_technical_id()
+            db_sr = SalesReturn(
+                id=sr_tech_id,
+                uuid=sr_tech_id,
+                return_no=sr_in.return_no,
+                original_invoice_id=sr_in.original_invoice_id,
+                credit_note_number=credit_note_no,
+                date=sr_in.date,
+                reason=sr_in.reason,
+                tax_total=tax_total,
+                grand_total=grand_total,
+                is_interstate=sr_in.is_interstate,
+                status=sr_in.status or "Completed",
+                items=sr_items,
+
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                customer_id=orig_invoice.customer_id if orig_invoice else None,
+                idempotency_key=idempotency_key,
+                policy_id=policy.policy_id,
+                policy_version=policy.policy_version,
+                policy_scope=policy.resolution_scope,
+                policy_snapshot={
+                    "values": policy.values,
+                    "resolution_source": policy.resolution_source,
+                    "resolved_at": policy.resolved_at,
+                    "refund_mode": getattr(sr_in, "refund_mode", "CREDIT_NOTE"),
+                },
             )
-            product = res.scalars().first()
-            if not product:
-                raise HTTPException(status_code=404, detail=f"Product with ID {item.product_id} not found")
 
-            invoice_item = invoice_items.get(item.product_id)
-            if invoice_item is None:
-                raise HTTPException(status_code=422, detail=f"Product {item.product_id} is not present on the original invoice")
-            original_quantity = invoice_item.quantity
-            requested_quantities[item.product_id] = requested_quantities.get(item.product_id, Decimal("0")) + item.quantity
-            remaining_quantity = original_quantity - returned_quantities.get(item.product_id, Decimal("0"))
-            if requested_quantities[item.product_id] <= Decimal("0") or requested_quantities[item.product_id] > remaining_quantity:
-                raise HTTPException(status_code=422, detail=f"Return quantity exceeds remaining quantity for product {item.product_id}")
+            _ret_creator = getattr(self.tenant_ctx, "user_id", None) or "system"
+            resolver = InventoryWarehouseResolver(self.db)
 
-            # Prices and tax rates come from the original invoice snapshot, not the client payload.
-            original_unit_price = invoice_item.price
-            original_gst_rate = invoice_item.gst_rate or Decimal("0.00")
-            original_tax_per_unit = (invoice_item.tax_amount or Decimal("0.00")) / original_quantity if original_quantity else Decimal("0.00")
-            item_tax = (item.quantity * original_tax_per_unit).quantize(Decimal("0.01"))
-            item_total = (item.quantity * original_unit_price + item_tax).quantize(Decimal("0.01"))
-            tax_total += item_tax
-            grand_total += item_total
+            # Apply stock increments and record StockMovement (RETURN_INWARD)
+            for product, qty in product_stock_updates:
+                if product.tracking_mode != "No-stock":
+                    product.stock = int((product.stock or 0) + Decimal(str(qty)))
+                    product.modified_at = datetime.now(timezone.utc)
+                    self.db.add(product)
 
-            sr_items.append(SalesReturnItem(
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
-                quantity=item.quantity,
-                price=original_unit_price,
-                gst_rate=original_gst_rate,
-                tax_amount=item_tax,
-                total_amount=item_total
-            ))
-            product_stock_updates.append((product, item.quantity))
+                    movement_id = IdentityEngine.generate_technical_id()
+                    resolved_warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
+                    db_movement = StockMovement(
+                        id=movement_id,
+                        uuid=movement_id,
+                        product_id=product.id,
+                        product_name=product.name,
+                        sku=product.sku or product.code,
+                        quantity=qty,
+                        movement_type="RETURN_INWARD",
+                        reference_doc_type="Sales Return",
+                        reference_doc_id=db_sr.id,
+                        warehouse_id=resolved_warehouse.id,
+                        warehouse=resolved_warehouse.name,
+                        unit_cost=product.cost_price or product.price,
+                        remarks=f"Stock incremented for sales return: {db_sr.return_no}",
+                        source_module="Sales",
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id
+                    )
+                    self.db.add(db_movement)
 
-        # Check supervisor authorization threshold if applicable
-        auth_policy = policy.values.get("authorization_policy")
-        if not isinstance(auth_policy, dict) or "supervisor_threshold" not in auth_policy:
-            raise HTTPException(status_code=500, detail="SALES_RETURN_POLICY_NOT_CONFIGURED: missing authorization_policy.supervisor_threshold in the effective policy.")
-        threshold_val = auth_policy.get("supervisor_threshold")
-        supervisor_threshold = Decimal(str(threshold_val))
-        if grand_total > supervisor_threshold and not getattr(sr_in, "supervisor_auth_token", None):
-            # If strict threshold enforced: record audit authorization need or proceed with token
-            pass
+                    # Record INVENTORY_POSTED audit event
+                    await ComplianceAuditService.record_audit_event(
+                        session=self.db,
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id,
+                        event_type="INVENTORY_POSTED",
+                        entity_name="StockMovement",
+                        entity_id=movement_id,
+                        actor_user_id=_ret_creator,
+                        action_summary=f"Restocked {qty} units of {product.name} ({product.code}) via RETURN_INWARD for {db_sr.return_no}",
+                        after_state={
+                            "product_id": product.id,
+                            "sku": product.sku or product.code,
+                            "quantity": float(qty),
+                            "movement_type": "RETURN_INWARD",
+                            "return_id": db_sr.id,
+                        },
+                    )
 
-        # Credit Note is policy-driven; a return only creates one when the effective policy requires or auto-generates it.
-        credit_note_policy = (policy.values.get("credit_note_policy") or {}) if isinstance(policy.values.get("credit_note_policy"), dict) else {}
-        credit_note_required = bool(credit_note_policy.get("required", False))
-        auto_generate_credit_note = bool(credit_note_policy.get("auto_generate", False))
-        credit_note_no = sr_in.credit_note_number
+            # Process authoritative refund effect via SalesReturnRefundAdapter
+            await SalesReturnRefundAdapter.process_sales_return_refund(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                sales_return=db_sr,
+                orig_invoice=orig_invoice,
+                policy=policy,
+                requested_refund_mode=getattr(sr_in, "refund_mode", "CREDIT_NOTE"),
+                idempotency_key=idempotency_key,
+                actor_user_id=_ret_creator,
+            )
 
-        if (credit_note_required or auto_generate_credit_note) and (not credit_note_no or credit_note_no == f"CN-{sr_in.return_no}"):
-            try:
-                cn_alloc = await DocumentsEngine.allocate_next_number_in_transaction(
-                    session=self.db,
-                    company_id=self.tenant_ctx.company_id,
-                    document_type="CREDIT_NOTE",
-                    branch_id=self.tenant_ctx.branch_id,
-                    created_by=getattr(self.tenant_ctx, "user_id", None) or "system",
-                )
-                credit_note_no = cn_alloc.document_no
-            except Exception:
-                credit_note_no = sr_in.credit_note_number if sr_in.credit_note_number else None
-        elif credit_note_no == f"CN-{sr_in.return_no}":
-            credit_note_no = None
-        elif not credit_note_required and not auto_generate_credit_note:
-            credit_note_no = None
+            # Loyalty REVERSAL hook (atomic, pre-commit)
+            from .sales_hook import write_loyalty_redeem
+            await write_loyalty_redeem(
+                db=self.db,
+                return_id=db_sr.id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                customer_id=orig_invoice.customer_id if orig_invoice else None,
+                return_total=grand_total,
+                creator=_ret_creator,
+            )
 
-        sr_tech_id = sr_in.id or IdentityEngine.generate_technical_id()
-        db_sr = SalesReturn(
-            id=sr_tech_id,
-            uuid=sr_tech_id,
-            return_no=sr_in.return_no,
-            original_invoice_id=sr_in.original_invoice_id,
-            credit_note_number=credit_note_no,
-            date=sr_in.date,
-            reason=sr_in.reason,
-            tax_total=tax_total,
-            grand_total=grand_total,
-            is_interstate=sr_in.is_interstate,
-            status=sr_in.status or "Completed",
-            items=sr_items,
-
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
-            customer_id=orig_invoice.customer_id if orig_invoice else None,
-            idempotency_key=idempotency_key,
-            policy_id=policy.policy_id,
-            policy_version=policy.policy_version,
-            policy_scope=policy.resolution_scope,
-            policy_snapshot={
-                "values": policy.values,
-                "resolution_source": policy.resolution_source,
-                "resolved_at": policy.resolved_at,
-                "refund_mode": getattr(sr_in, "refund_mode", "CREDIT_NOTE"),
-            },
-        )
-
-        _ret_creator = getattr(self.tenant_ctx, "user_id", None) or "system"
-        resolver = InventoryWarehouseResolver(self.db)
-
-        # Apply stock increments and record StockMovement (RETURN_INWARD)
-        for product, qty in product_stock_updates:
-            if product.tracking_mode != "No-stock":
-                product.stock = int((product.stock or 0) + Decimal(str(qty)))
-                product.modified_at = datetime.now(timezone.utc)
-                self.db.add(product)
-
-                movement_id = IdentityEngine.generate_technical_id()
-                resolved_warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
-                db_movement = StockMovement(
-                    id=movement_id,
-                    uuid=movement_id,
-                    product_id=product.id,
-                    product_name=product.name,
-                    sku=product.sku or product.code,
-                    quantity=qty,
-                    movement_type="RETURN_INWARD",
-                    reference_doc_type="Sales Return",
-                    reference_doc_id=db_sr.id,
-                    warehouse_id=resolved_warehouse.id,
-                    warehouse=resolved_warehouse.name,
-                    unit_cost=product.cost_price or product.price,
-                    remarks=f"Stock incremented for sales return: {db_sr.return_no}",
-                    source_module="Sales",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id
-                )
-                self.db.add(db_movement)
-
-                # Record INVENTORY_POSTED audit event
+            # Record CREDIT_NOTE_CREATED audit event only when an actual credit note was created.
+            if db_sr.credit_note_number:
                 await ComplianceAuditService.record_audit_event(
                     session=self.db,
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
-                    event_type="INVENTORY_POSTED",
-                    entity_name="StockMovement",
-                    entity_id=movement_id,
+                    event_type="CREDIT_NOTE_CREATED",
+                    entity_name="SalesReturn",
+                    entity_id=db_sr.id,
                     actor_user_id=_ret_creator,
-                    action_summary=f"Restocked {qty} units of {product.name} ({product.code}) via RETURN_INWARD for {db_sr.return_no}",
+                    action_summary=f"Credit note {db_sr.credit_note_number} generated for invoice {db_sr.original_invoice_id} via return {db_sr.return_no}",
                     after_state={
-                        "product_id": product.id,
-                        "sku": product.sku or product.code,
-                        "quantity": float(qty),
-                        "movement_type": "RETURN_INWARD",
-                        "return_id": db_sr.id,
+                        "credit_note_number": db_sr.credit_note_number,
+                        "return_no": db_sr.return_no,
+                        "invoice_id": db_sr.original_invoice_id,
+                        "grand_total": float(db_sr.grand_total),
                     },
                 )
 
-        # Process authoritative refund effect via SalesReturnRefundAdapter
-        await SalesReturnRefundAdapter.process_sales_return_refund(
-            session=self.db,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
-            sales_return=db_sr,
-            orig_invoice=orig_invoice,
-            policy=policy,
-            requested_refund_mode=getattr(sr_in, "refund_mode", "CREDIT_NOTE"),
-            idempotency_key=idempotency_key,
-            actor_user_id=_ret_creator,
-        )
-
-        # Loyalty REVERSAL hook (atomic, pre-commit)
-        from .sales_hook import write_loyalty_redeem
-        await write_loyalty_redeem(
-            db=self.db,
-            return_id=db_sr.id,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
-            customer_id=orig_invoice.customer_id if orig_invoice else None,
-            return_total=grand_total,
-            creator=_ret_creator,
-        )
-
-        # Record CREDIT_NOTE_CREATED audit event only when an actual credit note was created.
-        if db_sr.credit_note_number:
+            # Record RETURN_CREATED audit event
             await ComplianceAuditService.record_audit_event(
                 session=self.db,
                 company_id=self.tenant_ctx.company_id,
                 branch_id=self.tenant_ctx.branch_id,
-                event_type="CREDIT_NOTE_CREATED",
+                event_type="RETURN_CREATED",
                 entity_name="SalesReturn",
                 entity_id=db_sr.id,
                 actor_user_id=_ret_creator,
-                action_summary=f"Credit note {db_sr.credit_note_number} generated for invoice {db_sr.original_invoice_id} via return {db_sr.return_no}",
+                action_summary=f"Sales return {db_sr.return_no} created for invoice {db_sr.original_invoice_id}",
                 after_state={
-                    "credit_note_number": db_sr.credit_note_number,
-                    "return_no": db_sr.return_no,
                     "invoice_id": db_sr.original_invoice_id,
+                    "return_no": db_sr.return_no,
+                    "policy_id": db_sr.policy_id,
+                    "policy_version": db_sr.policy_version,
+                    "policy_scope": db_sr.policy_scope,
+                    "tax_total": float(db_sr.tax_total),
                     "grand_total": float(db_sr.grand_total),
                 },
             )
 
-        # Record RETURN_CREATED audit event
-        await ComplianceAuditService.record_audit_event(
-            session=self.db,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
-            event_type="RETURN_CREATED",
-            entity_name="SalesReturn",
-            entity_id=db_sr.id,
-            actor_user_id=_ret_creator,
-            action_summary=f"Sales return {db_sr.return_no} created for invoice {db_sr.original_invoice_id}",
-            after_state={
-                "invoice_id": db_sr.original_invoice_id,
-                "return_no": db_sr.return_no,
-                "policy_id": db_sr.policy_id,
-                "policy_version": db_sr.policy_version,
-                "policy_scope": db_sr.policy_scope,
-                "tax_total": float(db_sr.tax_total),
-                "grand_total": float(db_sr.grand_total),
-            },
-        )
-
-        self.db.add(db_sr)
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail="Sales return already exists")
+            self.db.add(db_sr)
+            await self.db.flush()
+            guard.complete(
+                document_id=db_sr.id,
+                document_no=db_sr.return_no,
+                response_payload={"id": db_sr.id, "return_no": db_sr.return_no, "grand_total": str(grand_total)}
+            )
 
         # Re-fetch with eager items to avoid MissingGreenlet during response serialization
         result = await self.db.execute(
@@ -2195,6 +2304,7 @@ class SalesService:
             .where(SalesReturn.id == db_sr.id)
         )
         return result.scalars().first()
+
 
     async def list_sales_returns(self) -> List[SalesReturn]:
         res = await self.db.execute(

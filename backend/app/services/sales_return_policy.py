@@ -103,6 +103,10 @@ class SalesReturnPolicyResolver:
         result = await db_session.execute(stmt)
         policies = result.scalars().all()
 
+        if not policies and self.company_db is not None and db_session != self.company_db:
+            result = await self.company_db.execute(stmt)
+            policies = result.scalars().all()
+
         if not policies:
             raise ValueError("SALES_RETURN_POLICY_NOT_CONFIGURED: no active sales return policy exists in the database.")
 

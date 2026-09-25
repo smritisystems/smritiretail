@@ -322,14 +322,23 @@ class PurchaseService:
                     )
                     product = res_p.scalars().first()
                     if not product:
+                        # Barcodes in Universal Item Master are normalized in item_barcodes table
+                        from ..models.item_master import ItemBarcode
+                        bc_stmt = select(ItemBarcode.barcode).where(
+                            ItemBarcode.item_id == db_item.id,
+                            ItemBarcode.is_deleted == False,
+                        ).order_by(ItemBarcode.is_primary.desc())
+                        bc_res = await self.db.execute(bc_stmt)
+                        resolved_barcode = bc_res.scalars().first() or db_item.item_code
+
                         product = Product(
                             id=f"prd_{db_item.id[:20]}",
                             item_id=db_item.id,
                             code=db_item.item_code,
                             name=db_item.item_name,
                             category=db_item.category or "GENERAL",
-                            barcode=db_item.barcode or db_item.item_code,
-                            hsn_code=getattr(db_item, "hsn_code", None) or "6109",
+                            barcode=resolved_barcode,
+                            hsn_code=db_item.hsn_code or "6109",
                             company_id=self.tenant.company_id,
                             branch_id=eff_branch_id,
                             price=Decimal("0.00"),
@@ -595,18 +604,24 @@ class PurchaseService:
 
         # Register external challan/paper GRN as alias if custom number provided
         if req.receipt_no and req.receipt_no != id_code:
-            await IdentityEngine.register_alias(
-                session=self.db,
-                entity_type="PURCHASE_RECEIPT",
-                entity_id=receipt_id,
-                alias_code=req.receipt_no,
-                alias_type="PHYSICAL_GRN",
-                source_system="CHALLAN",
-                canonical_identity_code=id_code,
-                company_id=self.tenant.company_id,
-                branch_id=self.tenant.branch_id,
-                notes="Supplier physical challan GRN reference",
-            )
+            try:
+                await IdentityEngine.register_alias(
+                    session=self.db,
+                    entity_type="PURCHASE_RECEIPT",
+                    entity_id=receipt_id,
+                    alias_code=req.receipt_no,
+                    alias_type="PHYSICAL_GRN",
+                    source_system="CHALLAN",
+                    canonical_identity_code=id_code,
+                    company_id=self.tenant.company_id,
+                    branch_id=self.tenant.branch_id,
+                    notes="Supplier physical challan GRN reference",
+                )
+            except ValueError:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Purchase Receipt / GRN '{req.receipt_no.strip()}' has already been registered or committed. Duplicate GRN submission is prohibited.",
+                )
 
         for idx, item in enumerate(req.items, start=1):
             if item.quantity_received <= Decimal("0.00"):
@@ -897,7 +912,7 @@ class PurchaseService:
         except IntegrityError:
             await self.db.rollback()
             raise HTTPException(
-                status_code=400,
+                status_code=409,
                 detail="A purchase receipt with this receipt number already exists.",
             )
         await self.db.refresh(receipt)
