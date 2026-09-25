@@ -22,10 +22,7 @@ backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-try:
-    from app.schemas.sales import SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse
-except ImportError:
-    from backend.app.schemas.sales import SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse
+from app.schemas.sales import SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse
 
 import os
 from urllib.parse import urlparse

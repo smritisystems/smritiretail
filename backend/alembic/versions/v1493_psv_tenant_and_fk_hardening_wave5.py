@@ -20,7 +20,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "v1493_psv_tenant_and_fk_hardening_wave5"
-down_revision: str | None = "v1492_promotions_company_id_unification_wave3"
+down_revision: str | None = "v1492b_create_psv_stock_tables"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

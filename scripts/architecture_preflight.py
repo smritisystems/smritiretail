@@ -26,7 +26,8 @@ from lib.certificate_manager import PreflightCertificateManager
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-DB_CONN = "postgresql://postgres:postgres@localhost:5432/smritisys"
+_PG_PORT = os.getenv("POSTGRES_PORT", "2781")
+DB_CONN = os.getenv("CONTROL_PLANE_URL", f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys")
 
 
 def query_registry(entity: str, capability: str, proposed_name: str, file_path: str = None, adr_id: str = None, asset_type: str = "component") -> dict:

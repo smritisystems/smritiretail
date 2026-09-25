@@ -106,10 +106,13 @@ class TestSemanticFingerprintAndGovernance:
         # Should not falsely resolve to customer.lookup
         assert "lookup" not in fp.detected_capabilities
 
-    def test_preflight_certificate_verification(self):
+    def test_preflight_certificate_verification(self, monkeypatch, tmp_path):
         """
         Tests certificate issuance and validation through PreflightCertificateManager.
+        Uses tmp_path to prevent writing untracked certificates to .architecture/certificates/.
         """
+        import lib.certificate_manager as cm
+        monkeypatch.setattr(cm, "CERT_DIR", str(tmp_path / "certificates"))
         cert = PreflightCertificateManager.issue_certificate(
             entity="customer",
             capability="customer.lookup",

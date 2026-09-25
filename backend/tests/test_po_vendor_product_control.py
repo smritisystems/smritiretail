@@ -74,7 +74,7 @@ class TestLevelPrecedence:
     """Tests for VendorProductAssignmentService.select_most_specific()."""
 
     def _selector(self, assignments):
-        from backend.app.services.vendor_product_assignment import VendorProductAssignmentService
+        from app.services.vendor_product_assignment import VendorProductAssignmentService
         return VendorProductAssignmentService.select_most_specific(assignments)
 
     def test_empty_returns_none(self):
@@ -123,7 +123,7 @@ class TestClassification:
     """Tests for POProductPolicyEngine._classify()."""
 
     def _engine(self):
-        from backend.app.services.po_product_policy_engine import POProductPolicyEngine
+        from app.services.po_product_policy_engine import POProductPolicyEngine
         engine = POProductPolicyEngine.__new__(POProductPolicyEngine)
         return engine
 
@@ -173,12 +173,12 @@ class TestStatusActionIndependence:
     """
 
     def _engine(self):
-        from backend.app.services.po_product_policy_engine import POProductPolicyEngine, _PolicySnapshot
+        from app.services.po_product_policy_engine import POProductPolicyEngine, _PolicySnapshot
         engine = POProductPolicyEngine.__new__(POProductPolicyEngine)
         return engine, _PolicySnapshot
 
     def _resolved(self, name="Test Product", ref="ITEM-001"):
-        from backend.app.services.po_product_policy_engine import _ResolvedProduct
+        from app.services.po_product_policy_engine import _ResolvedProduct
         r = _ResolvedProduct(product_ref=ref)
         r.item_name = name
         r.item_code = ref
@@ -242,7 +242,7 @@ class TestStatusActionIndependence:
 class TestAssignmentCandidates:
 
     def _resolved(self, **kwargs):
-        from backend.app.services.po_product_policy_engine import _ResolvedProduct
+        from app.services.po_product_policy_engine import _ResolvedProduct
         r = _ResolvedProduct(product_ref="ref")
         for k, v in kwargs.items():
             setattr(r, k, v)
@@ -284,15 +284,15 @@ class TestAssignmentCandidates:
 class TestPolicySnapshot:
 
     def test_to_dict_contains_all_8_keys(self):
-        from backend.app.services.po_product_policy_engine import _PolicySnapshot
-        from backend.app.services.po_product_policy_engine import _P_VISIBILITY
-        from backend.app.services.po_product_policy_engine import _P_CROSS_VENDOR
-        from backend.app.services.po_product_policy_engine import _P_UNASSIGNED
-        from backend.app.services.po_product_policy_engine import _P_RESTRICTED
-        from backend.app.services.po_product_policy_engine import _P_SHOW_STATUS
-        from backend.app.services.po_product_policy_engine import _P_SHOW_EXPL
-        from backend.app.services.po_product_policy_engine import _P_REASON_REQ
-        from backend.app.services.po_product_policy_engine import _P_AUDIT
+        from app.services.po_product_policy_engine import _PolicySnapshot
+        from app.services.po_product_policy_engine import _P_VISIBILITY
+        from app.services.po_product_policy_engine import _P_CROSS_VENDOR
+        from app.services.po_product_policy_engine import _P_UNASSIGNED
+        from app.services.po_product_policy_engine import _P_RESTRICTED
+        from app.services.po_product_policy_engine import _P_SHOW_STATUS
+        from app.services.po_product_policy_engine import _P_SHOW_EXPL
+        from app.services.po_product_policy_engine import _P_REASON_REQ
+        from app.services.po_product_policy_engine import _P_AUDIT
         snap = _PolicySnapshot()
         d = snap.to_dict()
         assert len(d) == 8
@@ -301,13 +301,13 @@ class TestPolicySnapshot:
             assert key in d, f"Missing key: {key}"
 
     def test_version_hash_changes_with_policy(self):
-        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        from app.services.po_product_policy_engine import _PolicySnapshot
         s1 = _PolicySnapshot(cross_vendor_policy="ALLOW")
         s2 = _PolicySnapshot(cross_vendor_policy="BLOCK")
         assert s1.version_hash() != s2.version_hash()
 
     def test_same_policy_same_hash(self):
-        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        from app.services.po_product_policy_engine import _PolicySnapshot
         s1 = _PolicySnapshot()
         s2 = _PolicySnapshot()
         assert s1.version_hash() == s2.version_hash()
@@ -320,7 +320,7 @@ class TestPolicySnapshot:
 class TestPOPolicyTemplates:
 
     def _svc(self):
-        from backend.app.services.po_policy_config_service import POPolicyConfigService
+        from app.services.po_policy_config_service import POPolicyConfigService
         svc = POPolicyConfigService.__new__(POPolicyConfigService)
         svc.db = AsyncMock()
         svc.tenant = MagicMock(company_id="co-001", branch_id=None)
@@ -368,7 +368,7 @@ class TestPOPolicyTemplates:
 class TestVPASchemaValidation:
 
     def test_effective_to_before_from_raises(self):
-        from backend.app.schemas.vendor_product_assignment import VendorProductAssignmentCreate
+        from app.schemas.vendor_product_assignment import VendorProductAssignmentCreate
         with pytest.raises(Exception):
             VendorProductAssignmentCreate(
                 vendor_party_id="pty-V1",
@@ -380,7 +380,7 @@ class TestVPASchemaValidation:
             )
 
     def test_valid_schema_passes(self):
-        from backend.app.schemas.vendor_product_assignment import VendorProductAssignmentCreate
+        from app.schemas.vendor_product_assignment import VendorProductAssignmentCreate
         req = VendorProductAssignmentCreate(
             vendor_party_id="pty-V1",
             assignment_level="BARCODE",
@@ -400,7 +400,7 @@ class TestVPASchemaValidation:
 class TestPOProductDecisionSchema:
 
     def test_cross_vendor_approval_required(self):
-        from backend.app.schemas.vendor_product_assignment import POProductDecision
+        from app.schemas.vendor_product_assignment import POProductDecision
         d = POProductDecision(
             product_ref="ITEM-001",
             status="CROSS_VENDOR",
@@ -416,7 +416,7 @@ class TestPOProductDecisionSchema:
         assert d.approval_required is True
 
     def test_default_approval_reasons_empty_when_not_required(self):
-        from backend.app.schemas.vendor_product_assignment import POProductDecision
+        from app.schemas.vendor_product_assignment import POProductDecision
         d = POProductDecision(
             product_ref="ITEM-001",
             status="ASSIGNED",
@@ -441,7 +441,7 @@ class TestTenantIsolation:
         Two companies: Company A has assignment for V1→ITEM-001, Company B does not.
         For Company B's context, result should be UNASSIGNED.
         """
-        from backend.app.services.po_product_policy_engine import POProductPolicyEngine
+        from app.services.po_product_policy_engine import POProductPolicyEngine
         engine = POProductPolicyEngine.__new__(POProductPolicyEngine)
 
         # Company A: assignment exists for V1
@@ -471,7 +471,7 @@ class TestHistoricalImmutability:
         assert id1 != id2, "Each PO product decision must produce a unique log entry"
 
     def test_policy_snapshot_captures_state_at_evaluation_time(self):
-        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        from app.services.po_product_policy_engine import _PolicySnapshot
         snap = _PolicySnapshot(cross_vendor_policy="ALLOW")
         d1 = snap.to_dict()
 
@@ -493,12 +493,12 @@ class TestPOSubmitValidationEndpoint:
     """Tests for the validate-po-submit batch endpoint logic."""
 
     def _engine(self):
-        from backend.app.services.po_product_policy_engine import POProductPolicyEngine, _PolicySnapshot, _ResolvedProduct
+        from app.services.po_product_policy_engine import POProductPolicyEngine, _PolicySnapshot, _ResolvedProduct
         engine = POProductPolicyEngine.__new__(POProductPolicyEngine)
         return engine, _PolicySnapshot, _ResolvedProduct
 
     def _resolved(self, ref="ITEM-001"):
-        from backend.app.services.po_product_policy_engine import _ResolvedProduct
+        from app.services.po_product_policy_engine import _ResolvedProduct
         r = _ResolvedProduct(product_ref=ref)
         r.item_name = "Test Product"
         r.item_code = ref
@@ -568,11 +568,11 @@ class TestVendorChangeReeval:
     """Tests for the evaluate-vendor-change endpoint logic (8-line batch)."""
 
     def _engine(self):
-        from backend.app.services.po_product_policy_engine import POProductPolicyEngine
+        from app.services.po_product_policy_engine import POProductPolicyEngine
         return POProductPolicyEngine.__new__(POProductPolicyEngine)
 
     def _resolved(self, ref="ITEM-001"):
-        from backend.app.services.po_product_policy_engine import _ResolvedProduct
+        from app.services.po_product_policy_engine import _ResolvedProduct
         r = _ResolvedProduct(product_ref=ref)
         r.item_name = "Test Product"
         r.item_code = ref
@@ -588,7 +588,7 @@ class TestVendorChangeReeval:
 
     def test_eight_lines_all_reassigned(self):
         """8 lines all assigned to new vendor V2 → all ALLOW."""
-        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        from app.services.po_product_policy_engine import _PolicySnapshot
         engine = self._engine()
         snap = _PolicySnapshot()
         batch = [
@@ -605,7 +605,7 @@ class TestVendorChangeReeval:
         2 lines are cross-vendor (assigned to V3, not V2) with ALLOW_WITH_APPROVAL policy,
         1 line is unassigned (BLOCK).
         """
-        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        from app.services.po_product_policy_engine import _PolicySnapshot
         engine = self._engine()
 
         # Assigned to new vendor V2 → ALLOW
@@ -638,7 +638,7 @@ class TestVendorChangeReeval:
 
     def test_empty_product_list_returns_empty_decisions(self):
         """An empty PO (no lines) produces empty decisions and all-zero summary."""
-        from backend.app.services.po_product_policy_engine import _PolicySnapshot
+        from app.services.po_product_policy_engine import _PolicySnapshot
         engine = self._engine()
         snap = _PolicySnapshot()
         actions = self._classify_batch(engine, snap, "pty-V2", [])

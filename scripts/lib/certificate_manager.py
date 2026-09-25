@@ -23,7 +23,8 @@ import psycopg2
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CERT_DIR = os.path.join(REPO_ROOT, ".architecture", "certificates")
-DB_CONN = "postgresql://postgres:postgres@localhost:5432/smritisys"
+_PG_PORT = os.getenv("POSTGRES_PORT", "2781")
+DB_CONN = os.getenv("CONTROL_PLANE_URL", f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys")
 
 
 def get_current_git_commit() -> str:
