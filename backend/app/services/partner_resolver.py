@@ -98,6 +98,7 @@ class PartnerIdentifierResolver:
             ecom_stmt = select(EcomSkuMapping).where(
                 EcomSkuMapping.company_id == company_id,
                 EcomSkuMapping.external_sku == q_sku,
+                EcomSkuMapping.is_active == True,
                 EcomSkuMapping.is_deleted == False,
             )
             ecom = (await session.execute(ecom_stmt)).scalars().first()
@@ -111,13 +112,14 @@ class PartnerIdentifierResolver:
                     ).limit(1)
                     prod_id = (await session.execute(p_stmt)).scalar_one_or_none()
 
+                channel = getattr(ecom, "channel_code", None) or getattr(ecom, "channel_name", None)
                 return PartnerResolutionResult(
                     found=True,
                     product_id=prod_id,
                     item_id=ecom.item_id,
                     variant_id=ecom.variant_id,
                     resolution_tier="TIER_2_ECOM_SKU_MAPPING",
-                    metadata={"channel_name": ecom.channel_name},
+                    metadata={"channel_code": channel, "channel_name": channel},
                 )
         except Exception:
             pass
