@@ -32,6 +32,29 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.44.5] - 2026-09-26 — Billing: Credit Billing Terminal (New Feature)
+
+> **Branch:** `smritiNX` | **Area:** Billing / B2B Credit Sales
+
+### Added
+- **`SmritiCreditBillingTerminal.tsx`** (592 lines) — Dedicated B2B/distributor credit-sale invoicing terminal, accessible from the Billing Workspace navigation header as `CREDIT_BILLING` auxiliary view.
+  - Customer typeahead search wired to `/api/v1/crm/customers?search=`.
+  - Barcode scan wired to `/api/v1/item-barcodes?barcode=` with `productId`-level deduplication (re-scans increment qty).
+  - Inline Qty and Disc% editing with live total recomputation (amount, disc amount, tax amount, net amount).
+  - Credit limit advisory sidebar — shows Credit Limit / Total Outstanding / Current Invoice / Available Credit. Warns when credit limit will be exceeded (advisory only; hard enforcement by backend).
+  - Real `POST /api/v1/sales/invoices` on Submit (F6) with `payment_mode: 'CREDIT'` mapped to full `SalesInvoiceCreate` + `SalesInvoiceItemCreate` schema fields via camelCase AliasChoices.
+  - Draft mode (F4) — button present; future sprint will persist to backend with `status: 'Draft'`.
+  - F-key shortcuts: F4 Save Draft · F6 Submit · F7 Switch to Credit mode · F8 Switch to Hold mode.
+  - Draft / Submitted explainer banners (per SMRITI HREP policy — no technical language exposed).
+  - Right sidebar tabs: Customer Details (customer info), Credit Info (live), Delivery (stubbed), Other (stubbed).
+  - Status bar with terminal ID, session user, clock, hotkey legend.
+- **`BillingWorkspace.tsx`** — `CREDIT_BILLING` added to `BillingAuxiliaryView` type; `SmritiCreditBillingTerminal` import; `CreditCard` icon; **Credit Billing** button in Billing Workspace header (purple accent, `bg-[#7c3aed]`); routed in workspace body switch.
+
+### TypeScript Verification
+- `npx tsc --noEmit --skipLibCheck` — **Exit 0** (3 sequential checks: task-656, task-671, task-706).
+
+---
+
 ## [6.44.4] - 2026-09-26 — POS: Shift-Close Frontend/Backend Schema Alignment (Critical Data Integrity Fix)
 
 > **Commit:** `f36f7c8b` | **Branch:** `smritiNX` | **Severity:** CRITICAL — Cash Reconciliation Silent Data Loss
