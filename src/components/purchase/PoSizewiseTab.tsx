@@ -639,10 +639,14 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           .filter(Boolean)
           .join(" | "),
         items: activeLines.map(l => ({
+          code: l.itemCode,
+          name: l.product,
           product_ref: l.itemCode,
           product_name: l.product,
           quantity: l.totalQty,
+          cost_price: l.rate,
           rate: l.rate,
+          gst_rate: l.taxPercent,
           tax_percent: l.taxPercent,
           total_value: l.netValue,
           size_quantities: l.sizeQuantities,

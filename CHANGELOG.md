@@ -30,6 +30,48 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+### [1.3.0] - 2026-09-25 — Procurement: Final GRN Hardening Audit & Universal Movement Integrity Certification
+
+> **Version Specification:** `1.3.0` certifies the execution of the 7-gate resilience audit across concurrency, attachments lifecycle, rollback safety, database constraints, and container restart persistence.
+
+#### Procurement: Final GRN Hardening Audit & Integrity Certification
+- **10× Simultaneous Concurrency Attack Gate (`scripts/final_grn_hardening_audit.py`):** Verified 10 concurrent PO requests (1 × 201, 9 × 409, 1 DB row) and 10 concurrent GRN requests (1 × 201, 9 × 409, 1 DB row, exact +10.00 stock delta, 1 stock movement). Intercepted identity alias collision in `IdentityEngine.register_alias` to return deterministic HTTP 409 Conflict.
+- **Attachments Multi-Stage Lifecycle Gate:** Validated zero attachments, single attachment, multi-attachment (3 files), and statutory Debit Note attachment with 100% persistence and reload fidelity across database queries.
+- **HTTP 500 Serialization Regression Gate:** Verified `GET /api/v1/purchase/receipts/` serializes 80 receipts with zero `MissingGreenlet` exceptions via async `selectinload`.
+- **Transaction Rollback Invariant:** Verified that deliberate failure prior to commit results in 0 partial receipts, 0 partial movements, and invariant stock.
+- **PostgreSQL Database Unique Constraints:** Verified that direct SQL duplicate attacks on `purchase_orders` and `purchase_receipts` are blocked at the database kernel level via SQLSTATE `23505` (`unique_violation`).
+- **Container Restart & Durability:** Proved that stopping and restarting `smriti-db` and `smriti-api` containers preserves all GRN records, stock balances, movements, and attachments.
+- **Relational Barcode Normalization Review:** Resolved `Item` barcode via explicit relational lookup in `item_barcodes` table (`ItemBarcode`) and accessed statutory `db_item.hsn_code` directly, eliminating defensive `getattr`.
+
+### [1.2.0] - 2026-09-25 — Procurement: Headless End-to-End Validation of PO Creation to Warehouse Stock Inward (GRN)
+
+> **Version Specification:** `1.2.0` certifies the autonomous headless verification of the complete procurement-to-inventory lifecycle executed without a physical browser window, backed by 9 high-resolution visual evidence artifacts and PostgreSQL `smriti001` database parity.
+
+#### Procurement: Complete PO-to-Warehouse Stock Headless Validation
+- **Autonomous Headless Orchestration Engine (`scripts/validate_po_to_warehouse_stock_headless.py`):** Built end-to-end headless verification engine using Playwright Edge Chromium (1920x1080) testing the full procurement flow against Vite preview (`http://localhost:8101`) and FastAPI core (`http://localhost:1981`).
+- **Comprehensive Step-by-Step Validation & Telemetry:**
+  - *PO Creation Studio Elements:* Validated supplier selection, header parameters, line item entry (`ITM-API-095A`, 20 units @ Rs. 450.00), and live tax calculation (`01_po_creation_studio_elements.png`, `02_po_line_items_and_live_calculation.png`).
+  - *PO Persistence & Status:* Submitted and confirmed `PO-AUTO-25094042-15` in PostgreSQL `smriti001` with status `CONFIRMED` (`03_po_saved_and_confirmed_modal.png`).
+  - *GRN Desktop Terminal & PO Selection:* Mounted `GrnDesktopTerminal.tsx`, loaded confirmed PO via modal, and hydrated line items (`04_grn_desktop_terminal_mounted.png`, `05_grn_po_selection_modal.png`).
+  - *Logistics & QC Discrepancy:* Configured sound vs. damaged quantities, carrier details (`VRL Logistics Ltd`, `MH-31-CB-4892`), and Indian E-Way Bill Rule 138 tracking (`241098234512`) (`06_grn_loaded_with_qc_and_landed_costs.png`).
+  - *Pre-Flight Confirmation Gate:* Audited `ConfirmGrnPostModal.tsx` showing irreversible inventory commitment gate (`07_grn_preflight_confirmation_gate_modal.png`).
+  - *WMS Ledger Posting:* Committed receipt `GRN-20260925-5086` to backend; verified `GrnPostedSuccessModal.tsx` with 20 units accepted into stock (`08_grn_posted_success_modal.png`).
+  - *Warehouse Stock Movement Ledger:* Verified `StockLedgerTab.tsx` displaying `INWARD_GRN` movement, reference document, and running stock balance (`09_warehouse_stock_movement_ledger.png`).
+- **PostgreSQL Database Parity Assertions:**
+  - `products.stock` incremented from `0` to `20` units (+20 units inward).
+  - `stock_movements` record created with `movement_type = 'INWARD_GRN'`, quantity `+20.00`, and unit cost `Rs. 450.00`.
+  - `purchase_orders.status` transitioned from `CONFIRMED` to `RECEIVED`.
+  - `purchase_receipts` and `purchase_receipt_items` created with exact financial and line item fidelity.
+
+### [1.1.0] - 2026-09-25 — Procurement: Purchase Order Item Barcode Remediation, Deep Contract Audit & Sizewise Payload Alignment
+
+> **Version Specification:** `1.1.0` denotes the forensic verification and targeted code remediation resolving purchase order creation crashes when line items match existing catalog items in the Universal Item Master.
+
+#### Procurement: Purchase Order Item Barcode & Payload Remediation
+- **Safe Item Barcode Attribute Resolution (`backend/app/services/purchase.py`):** Fixed fatal `AttributeError: 'Item' object has no attribute 'barcode'` during purchase order creation when an item matches an existing entry in the `items` catalog table. Replaced direct attribute access with `getattr(db_item, 'barcode', None) or db_item.item_code`.
+- **Sizewise Tab Line Items Payload Alignment (`src/components/purchase/PoSizewiseTab.tsx`):** Added standard `code`, `name`, `cost_price`, `gst_rate` to line items payload mapping in addition to `product_ref`, `product_name`, `rate`, and `tax_percent` to ensure clean parsing by `PurchaseOrderItemCreate` normalizer.
+- **Runtime Verification:** Verified live `POST /api/v1/purchase/orders/` returns `201 Created` with catalog items; verified `vitest run src/tests/poLifecycle.test.ts` (3/3 passed); verified `pytest backend/app/tests/test_purchase.py -k test_create_purchase_order` (1/1 passed).
+
 ### [1.0.0] - 2026-09-25 — Procurement: Universal Browse Engine, Master Article Lookup & Purchase Orders Multi-Tenant Gateway Fix
 
 > **Version Specification:** `1.0.0` denotes the platform API and multi-tenant routing fix resolving HTTP 404/400 errors during operator F2 universal browse and purchase studio initialization.

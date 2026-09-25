@@ -331,7 +331,8 @@ class DistributionService:
             doi.line_total = doi.line_total + doi.tax_amount
 
         await session.commit()
-        await session.refresh(order)
+        stmt = select(DistributionOrder).options(selectinload(DistributionOrder.lines)).where(DistributionOrder.id == order.id)
+        order = (await session.execute(stmt)).scalars().first()
         return order
 
     @classmethod
@@ -339,67 +340,95 @@ class DistributionService:
         cls,
         session: AsyncSession,
         order_id: str,
-        delivery_challan_no: Optional[str] = None
+        delivery_challan_no: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
     ) -> DistributionOrder:
         """
         Dispatches distribution order, assigns delivery challan, and records authoritative stock movement.
+        Guarded by SMRITI Transaction Integrity Engine (STIE).
         """
+        from fastapi import HTTPException
+        from .transaction_integrity_engine import TransactionIntegrityEngine
+
         stmt = select(DistributionOrder).options(
             selectinload(DistributionOrder.lines)
-        ).where(DistributionOrder.id == order_id)
+        ).where(DistributionOrder.id == order_id).with_for_update()
         order = (await session.execute(stmt)).scalars().first()
         if not order:
-            raise ValueError(f"Distribution order '{order_id}' not found.")
+            raise HTTPException(status_code=404, detail=f"Distribution order '{order_id}' not found.")
 
-        order.status = "DISPATCHED"
-        order.delivery_challan_no = delivery_challan_no or f"DC-{uuid.uuid4().hex[:8].upper()}"
+        async with TransactionIntegrityEngine.guard(
+            session=session,
+            company_id=order.company_id,
+            entity_type="DISPATCH",
+            idempotency_key=idempotency_key or f"DISP:{order.order_no}",
+            business_key=f"DISPATCH:{order.order_no}",
+            request_payload={"order_id": order_id, "delivery_challan_no": delivery_challan_no},
+            commit=True,
+        ) as guard:
+            if guard.is_replayed:
+                return order
 
-        # Record authoritative Stock Movements (OUTWARD)
-        for line in order.lines:
-            item_stmt = select(Item).where(Item.id == line.item_id)
-            item_obj = (await session.execute(item_stmt)).scalars().first()
-            item_code = item_obj.item_code if item_obj else "ITEM"
-            item_name = item_obj.item_name if item_obj else "Item Name"
-
-            prod_stmt = select(Product).where((Product.id == line.item_id) | (Product.sku == item_code) | (Product.code == item_code))
-            prod_obj = (await session.execute(prod_stmt)).scalars().first()
-            if not prod_obj:
-                prod_obj = Product(
-                    id=line.item_id,
-                    company_id=order.company_id,
-                    code=item_code,
-                    name=item_name,
-                    sku=item_code,
-                    barcode=item_code,
-                    category=item_obj.category if item_obj else "GENERAL",
-                    hsn_code=getattr(item_obj, "hsn_code", "5208") or "5208",
-                    price=line.unit_price,
-                    mrp=line.unit_price,
-                    stock=0
+            if order.status == "DISPATCHED":
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"SMRITI-DISP-001: Distribution order '{order.order_no}' has already been dispatched with Challan '{order.delivery_challan_no}'. Duplicate dispatch and inventory deduction is blocked.",
                 )
-                session.add(prod_obj)
-                await session.flush()
 
-            mov = StockMovement(
-                id=f"sm_{uuid.uuid4().hex[:12]}",
-                company_id=order.company_id,
-                movement_type="OUTWARD_SALE",
-                reference_doc_type="DISTRIBUTION_ORDER",
-                reference_doc_id=order.order_no,
-                product_id=prod_obj.id,
-                product_name=item_name,
-                sku=item_code,
-                quantity=line.quantity,
-                unit_cost=line.unit_price,
-                remarks=f"Distribution Dispatch for Order {order.order_no}",
-                is_active=True,
-                is_deleted=False,
+            order.status = "DISPATCHED"
+            order.delivery_challan_no = delivery_challan_no or f"DC-{uuid.uuid4().hex[:8].upper()}"
+
+            # Record authoritative Stock Movements (OUTWARD)
+            for line in order.lines:
+                item_stmt = select(Item).where(Item.id == line.item_id)
+                item_obj = (await session.execute(item_stmt)).scalars().first()
+                item_code = item_obj.item_code if item_obj else "ITEM"
+                item_name = item_obj.item_name if item_obj else "Item Name"
+
+                prod_stmt = select(Product).where((Product.id == line.item_id) | (Product.sku == item_code) | (Product.code == item_code))
+                prod_obj = (await session.execute(prod_stmt)).scalars().first()
+                if not prod_obj:
+                    prod_obj = Product(
+                        id=line.item_id,
+                        company_id=order.company_id,
+                        code=item_code,
+                        name=item_name,
+                        sku=item_code,
+                        barcode=item_code,
+                        category=item_obj.category if item_obj else "GENERAL",
+                        hsn_code=getattr(item_obj, "hsn_code", "5208") or "5208",
+                        price=line.unit_price,
+                        mrp=line.unit_price,
+                        stock=0
+                    )
+                    session.add(prod_obj)
+                    await session.flush()
+
+                mov = StockMovement(
+                    id=f"sm_{uuid.uuid4().hex[:12]}",
+                    company_id=order.company_id,
+                    movement_type="OUTWARD_SALE",
+                    reference_doc_type="DISTRIBUTION_ORDER",
+                    reference_doc_id=order.order_no,
+                    product_id=prod_obj.id,
+                    product_name=item_name,
+                    sku=item_code,
+                    quantity=line.quantity,
+                    unit_cost=line.unit_price,
+                    remarks=f"Distribution Dispatch for Order {order.order_no}",
+                    is_active=True,
+                    is_deleted=False,
+                )
+                session.add(mov)
+
+            guard.complete(
+                document_id=order.id,
+                document_no=order.order_no,
+                response_payload={"order_no": order.order_no, "delivery_challan_no": order.delivery_challan_no}
             )
-            session.add(mov)
 
-        await session.commit()
-        await session.refresh(order)
         return order
+
 
     # -----------------------------------------------------------------------
     # 4. Loading Sheet Workflow
