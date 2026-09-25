@@ -8,9 +8,14 @@ from sqlalchemy import create_engine, inspect, text
 from app.models.crm import CustomerBillingLocation, CustomerExternalIdentity
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 DATABASE_URL = os.getenv(
     "MIGRATION_TEST_DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/smriti_test_empty",
+    f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_empty",
 )
 
 

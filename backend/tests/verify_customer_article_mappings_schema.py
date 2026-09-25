@@ -29,12 +29,17 @@ import psycopg2
 from app.models.customer_article_mapping import CustomerArticleMapping
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def verify_database_schema(db_name: str) -> bool:
     print(f"\n=======================================================")
     print(f"=== VERIFYING SCHEMA PARITY FOR: {db_name} ===")
     print(f"=======================================================")
 
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
     cur = conn.cursor()
 
     # 1. Migration Lineage Check

@@ -17,7 +17,12 @@ import psycopg2
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 
-COMPANY_DB = "postgresql://postgres:postgres@localhost:5432/smriti001"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+COMPANY_DB = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
 
 def test_wms_phase1_tables_and_scoped_constraints():
     """

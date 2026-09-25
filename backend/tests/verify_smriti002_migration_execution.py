@@ -28,6 +28,11 @@ import psycopg2
 from psycopg2 import errors
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def seed_base_entities(cur, uid, cust_id, item_id, var_id, bc_id, barcode_val):
     # 1. Company
     cur.execute("""
@@ -73,7 +78,7 @@ def verify_live_migration_execution(db_name: str = "smriti002") -> bool:
     print(f"=== LIVE MIGRATION DDL EXECUTION & REFERENTIAL INTEGRITY PROOF: {db_name} ===")
     print("================================================================================")
 
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
     conn.autocommit = False
     cur = conn.cursor()
 

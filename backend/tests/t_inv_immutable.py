@@ -47,8 +47,13 @@ from app.services.tax_invoice_spec import (
 from app.models.tax_inv_template import TaxInvoiceTemplate, TaxInvoiceTemplateVersion
 from app.services.invoice_pdf_service import InvoicePdfService, paginate_items
 
-DB_SYNC_URL = "postgresql://postgres:postgres@localhost:5432/smriti001"
-DB_ASYNC_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+DB_SYNC_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+DB_ASYNC_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001"
 
 
 @pytest.fixture(scope="module")

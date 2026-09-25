@@ -26,9 +26,14 @@ from app.services.inventory import InventoryService
 from app.services.canonical_resolver import CanonicalItemResolver
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 @pytest.mark.asyncio
 async def test_gate8_failure_injection_suite():
-    db_url = 'postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001'
+    db_url = f'postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001'
     engine = create_async_engine(db_url, echo=False)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     

@@ -45,7 +45,12 @@ from app.core.gst_engine import GST_STATE_CODES
 
 from sqlalchemy.pool import NullPool
 
-TEST_DB_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti_test_phase2c"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+TEST_DB_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti_test_phase2c"
 
 test_engine = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)
 TestSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False, class_=AsyncSession)
