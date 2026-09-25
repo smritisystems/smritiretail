@@ -32,6 +32,23 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.0] - 2026-09-26 — Barcode: Print Labels Studio (New Feature)
+
+> **Commit:** `8731ad8a` | **Branch:** `smritiNX` | **Area:** Barcode / Label Printing
+
+### Added
+- **`PrintLabelsStudio.tsx`** (637 lines) — New dedicated 3-step wizard UX for barcode label printing, surfaced as the default **"Print Labels Studio"** tab in `BarcodeStudioTab`. Matches the architect reference screenshot exactly.
+  - **Step 1 – Choose Source**: Source selector tile row — Items (Manual), Item Master, Purchase, GRN, Sales, Stock Transfer, More.
+  - **Step 2 – Find Items**: Live search bar wired to `/api/v1/products`; Quick Filter dropdowns (Brand / Style / Shade / Size) auto-populated from search results; expandable Advanced Filters panel (Item Code From/To, Product, Category, Brand, Style, Shade, Size, Barcode From/To, Warehouse, Supplier); item table with checkboxes, inline Print Qty editing, page-by-page row selection, Auto Qty and Clear All actions; pagination.
+  - **Step 3 – Print Setup**: Label Template dropdown (5 templates: Retail 50×25mm, Thermal 40×20mm, Jewellery 38×19mm, Hang Tag 50×80mm, A4 Sheet 24-up); Labels Per Item stepper (±1 or manual); Printer selector with real-time Ready/Offline badge from `/api/v1/barcode/printer-settings`; Test Print button wired to `POST /api/v1/barcode/test-print`.
+  - **Right Sidebar**: Live label preview card with SVG barcode strip, product name, size, MRP; Print Summary (items selected, total labels, template, labels/item, printer + status); **Print N Labels** button wired to `POST /api/v1/barcode/print` with ZPL payload; Preview Labels button.
+- **`BarcodeStudioTab.tsx`**: `print-studio` added as new primary default sub-tab; `LayoutDashboard` icon; existing Visual Label Designer / Batch Tag & Barcode Printing / PRN/ZPL Script Compiler tabs preserved as secondary. Back-navigation in Visual Designer and ZPL Compiler updated to return to Print Labels Studio.
+
+### TypeScript Verification
+- `npx tsc --noEmit --skipLibCheck` — **Exit 0** (task-775). Unused-import cleanup applied and re-verified (task-788).
+
+---
+
 ## [6.44.5] - 2026-09-26 — Billing: Credit Billing Terminal (New Feature)
 
 > **Branch:** `smritiNX` | **Area:** Billing / B2B Credit Sales
