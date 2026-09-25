@@ -30,6 +30,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+### [6.38.0] - 2026-09-25 — Inventory: Product Identity & Identifier Architecture Refactor
+
+> **Version Specification:** `6.38.0` executes the enterprise-wide Product Identity & Identifier Architecture Refactor, enforcing strict separation across canonical database identity (`products.id`, `item_variants.id`), business SKU identity (`item_code`, `variant_sku`), barcode scanning identity (`item_barcodes`), tenant identity (`company_id`), and external partner identifiers (`customer_article_mappings`, partner SKUs in PSV).
+
+#### Inventory: Product Identity & Identifier Architecture Refactor
+- **Alembic Migration v1494 Deployment:** Deployed `v1494_product_identity_psv_tenant_hardening.py` adding compound unique constraint `uq_psv_stock_balances_company_party_sku` on `psv_stock_balances(company_id, psv_party_id, sku)`, optical barcode normalized index `idx_item_barcodes_company_normalized`, primary barcode partial unique index `uq_item_barcodes_company_primary_variant`, purchase order item index `ix_po_items_company_variant`, and sales invoice item index `ix_sales_invoice_items_variant_id`.
+- **Decoupled Partner Identifier Resolver:** Implemented 5-tier resolution engine `PartnerIdentifierResolver` (`backend/app/services/partner_resolver.py`) resolving buyer article mappings (`CustomerArticleMapping`), e-commerce SKUs (`EcomSkuMapping`), optical barcodes (`ItemBarcode`), internal variants (`ItemVariant`), and legacy catalog items (`Product`) with strict multi-tenant boundaries.
+- **PSV Projection Engine Hardening:** Enhanced `PSVProjectionService` (`backend/app/services/psv_projection.py`) to write authoritative `company_id` to events and balances, resolve partner SKUs via resolver, assign `reconciliation_status = 'AUTO_MATCHED'` when resolved or gracefully assign `'PENDING_CATALOG_MAPPING'` for unmapped third-party feeds without failing ingestion, and supported `RECEIVED_AT_STORE` movement type.
+- **Master Lookup F2 Dual-Read Adapter:** Upgraded `/api/v1/item-barcodes` in `backend/app/api/v1/master_lookup.py` to query canonical `item_barcodes` with fallback to `Product`, providing seamless backwards compatibility for POS and warehouse barcode scanning terminals.
+- **Data Remediation & Preflight Safety:** Conducted forensic preflight checks verifying 0 active duplicate item codes across the tenant database and soft-deleted unreferenced test duplicate code `itm_8e5e3af6d51a`.
+- **Automated Verification:** Added `backend/tests/test_product_identity_refactor.py` (7/7 tests passed in 12.15s) and verified regression safety via `backend/tests/t_univ_item.py` (10/10 tests passed in 13.39s).
+
 ### [1.10.0] - 2026-09-25 — Database: Phase 1 Schema Remediation Wave 6 (Child Table Tenant Model Finalization)
 
 > **Version Specification:** `1.10.0` concludes the Phase 1 Database Schema Remediation Plan by formalizing the Child Table Tenant Isolation Governance Policy (ADR-DB-006), verifying 100% parent referential integrity, and proving that parent-join inheritance delivers 0.306 ms query execution with zero parent/child tenant drift risk.

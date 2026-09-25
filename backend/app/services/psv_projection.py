@@ -16,12 +16,11 @@ import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from sqlalchemy import select, or_, and_
+from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.psv import (
     PSVParty,
-    PSVPartySkuTracking,
     PSVStockEvent,
     PSVStockBalance,
     PSVVisibilityPolicy,
