@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.customer_article_mapping import CustomerArticleMapping
 from ..models.ecom import EcomSkuMapping
 from ..models.identity_registry import SmritiIdentityAlias
-from ..models.item_master import ItemBarcode, ItemVariant, Item
+from ..models.item_master import ItemBarcode, ItemVariant
 from ..models.inventory import Product
 
 
