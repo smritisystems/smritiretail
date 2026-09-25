@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.44.2
+  * Version    : 6.44.4
   * Created    : 2026-07-11
-  * Modified   : 2026-09-23
+  * Modified   : 2026-09-26
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -29,6 +29,28 @@
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
 ## [Upcoming Features / Roadmap]
+
+---
+
+## [6.44.4] - 2026-09-26 — POS: Shift-Close Frontend/Backend Schema Alignment (Critical Data Integrity Fix)
+
+> **Commit:** `f36f7c8b` | **Branch:** `smritiNX` | **Severity:** CRITICAL — Cash Reconciliation Silent Data Loss
+
+### Fixed
+- **POS Shift-Close Silent Data Loss (`ProPosShiftCloseDl.tsx`):** Every shift-close submission was sending wrong field names (`actual_cash`, `notes`, `denominations.coins`) that did not match the authoritative `ShiftClose` Pydantic schema (`closing_balance`, `closing_notes`, `denominations.coins_total`). Pydantic `extra='ignore'` silently dropped all mismatched fields, causing HTTP 400 rejections or false cash shortage variances on every shift close. This affected end-of-day cash reconciliation and the financial audit ledger (`pos_shift_denomination_counts`).
+- **Coin denomination persistence (`backend/app/services/pos.py`):** `denom_multiplier_map` in `POSService.close_shift` was missing the `coins_total` key, silently discarding coin amounts sent by the corrected frontend.
+- **Spurious API fields removed:** `actual_card` and `actual_upi` were sent in the `ShiftClose` payload but are not `ShiftClose` schema fields — both removed from the wire payload.
+- **API response mapping corrected:** Frontend now reads `res.closing_balance`, `res.variance`, `res.closed_at`, `res.identity_code` from the backend `ShiftResponse` shape.
+
+### Added
+- **Regression test `backend/tests/test_shift_close_frontend_schema_regression.py`:** Covers full reconciliation scenario (₹5,000 in notes + ₹50 in coins = ₹5,050 closing balance, zero variance, coin audit row in `pos_shift_denomination_counts`) and denomination-free fallback path.
+
+### Test Results
+- `pytest test_shift_close_frontend_schema_regression.py`: **2/2 PASSED** (4.86s)
+- `vitest run`: **153 test files / 1057 tests PASSED** (21.63s)
+- Baseline comparison on clean HEAD: identical pre-existing failures in `t_pos_shift_gl.py` — zero new failures introduced
+
+---
 
 ### [6.38.0] - 2026-09-25 — Inventory: Product Identity & Identifier Architecture Refactor
 
