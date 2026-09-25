@@ -87,6 +87,9 @@ The following architectural components are verified to exist, operate, and have 
 | **"PartnerIdentifierResolver is the sole resolution authority"** | The established system of record for item/barcode resolution is `CanonicalItemResolver` (`canonical_resolver.py`). `PartnerIdentifierResolver` was introduced as a parallel module in `partner_resolver.py`. | **DUPLICATIVE** | Fragmented resolution paths risk divergence between POS/checkout barcode scanning and partner feed EDI ingestion. |
 | **"Backend test suite collection is 100% green with 0 errors"** | `pytest -q --tb=line` aborts collection immediately with `1 error` due to a syntax error in `backend/app/tests/t_api_v1_migr.py:231` (`unterminated string literal`). Collection only proceeds when passed `--continue-on-collection-errors`. | **FALSE** | Full backend test automation is gated by pre-existing collection errors in unmaintained migration test scripts. |
 
+> [!WARNING]
+> **Self-Generated Status Report Reliability Advisory:** The claims in `docs/reports/2026-09-25/TEST_STATUS.md` (e.g., blanket "Fully covered with assertions" checkmarks across nearly all modules) have zero connection to actual pytest results (verified real pass rate is 85.1%, not the blanket claim this doc makes) and are not to be trusted until the status report generator itself is audited and fixed; this is now a recurring pattern caught across 3 separate branches/sessions that requires addressing at the tooling level, not per-report.
+
 ---
 
 ## (d) Actual Test Numbers

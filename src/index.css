@@ -15,9 +15,11 @@
 @import "./smriti_scroll.css";
 
 @theme {
-	--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+	--font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
 	--font-display: "Space Grotesk", sans-serif;
 	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+	--font-script: "Caveat", cursive;
+	--font-brand: "Plus Jakarta Sans", sans-serif;
 
 	/* Surfaces */
 	--color-theme-base: var(--c-theme-base);
