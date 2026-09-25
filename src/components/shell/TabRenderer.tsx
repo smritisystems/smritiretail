@@ -36,7 +36,7 @@ import { AboutSmritiTab } from "../AboutSmritiTab.tsx";
 import { TaxInvoicePrintPage } from "../TaxInvoicePrintPag.tsx";
 import { DevTrackerTab } from "../../modules/dev_tracker/ui/DevTrackerTab.tsx";
 import { FioriLaunchpad } from "../launchpad/FioriLaunchpad.tsx";
-import { SecManageDlg } from "../security/SecManageDlg.tsx";
+import { SecurityAccessShell } from "../security/SecurityAccessShell.tsx";
 
 // Lazy-loaded components (heavy feature modules)
 const SalesStudioTab = lazy(() => import("../SalesStudioTab.tsx").then(m => ({ default: m.SalesStudioTab })));
@@ -449,25 +449,25 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "menu-studio":
       return <MenuManagerStudioTab currentUser={currentUser} onNavigateTab={(t) => setActiveTab(t)} />;
     case "security-management":
+      return (
+        <SecurityAccessShell
+          initialSection="users"
+          onNavigateAway={() => setActiveTab("dashboard")}
+        />
+      );
     case "menu-access-control":
       return (
-        <div className="w-full h-full flex items-center justify-center p-2">
-          <SecManageDlg
-            isOpen={true}
-            onClose={() => setActiveTab("dashboard")}
-            initialTab="Manage Menu Access"
-          />
-        </div>
+        <SecurityAccessShell
+          initialSection="menu-access"
+          onNavigateAway={() => setActiveTab("dashboard")}
+        />
       );
     case "security-configuration":
       return (
-        <div className="w-full h-full flex items-center justify-center p-2">
-          <SecManageDlg
-            isOpen={true}
-            onClose={() => setActiveTab("dashboard")}
-            initialTab="Configuration"
-          />
-        </div>
+        <SecurityAccessShell
+          initialSection="security-config"
+          onNavigateAway={() => setActiveTab("dashboard")}
+        />
       );
     case "dispatch-studio":
     case "b2b-dispatch-studio":
