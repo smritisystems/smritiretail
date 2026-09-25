@@ -66,6 +66,11 @@ from verify_ts_registry_drift import verify_registry_drift, normalize_content, g
 # Domain 1: Registry Invariants & Conflict Prevention
 # ==============================================================================
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 class TestRegistryInvariants:
     """Verifies that the Canonical Field Registry satisfies all strict uniqueness invariants."""
 
@@ -137,7 +142,7 @@ class TestDatabaseReconciliation:
         schema = {"smriti001": {}, "smritisys": {}}
         for db_name in ["smriti001", "smritisys"]:
             try:
-                conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+                conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
                 cur = conn.cursor()
                 cur.execute("""
                     SELECT table_name, column_name
@@ -528,7 +533,7 @@ class TestReverseDatabaseColumnClassification:
         cols = {}
         for db in ["smriti001", "smritisys"]:
             try:
-                conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db}")
+                conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db}")
                 cur = conn.cursor()
                 cur.execute("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'")
                 for t, c in cur.fetchall():

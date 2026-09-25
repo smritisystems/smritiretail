@@ -26,8 +26,13 @@ from app.models.inventory import (
 from app.services.stock_audit_service import StockAuditService
 from app.api.deps import TenantContext
 
-DB_001_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001"
-DB_002_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti002"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+DB_001_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+DB_002_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti002"
 
 
 @pytest.fixture

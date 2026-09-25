@@ -26,7 +26,12 @@ from app.services.db_resolver import (
 )
 from app.db.session import resolve_company_database_name, get_company_async_engine
 
-CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+CONTROL_PLANE_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 
 
 @pytest.fixture(autouse=True)

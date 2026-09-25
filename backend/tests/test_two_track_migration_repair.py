@@ -32,6 +32,11 @@ from app.db.bootstrap import (
 from app.db.base import Base
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def get_pg_conn(db_name: str):
     info = EphemeralTenantHarness._get_pg_admin_connection_info()
     info["dbname"] = db_name
@@ -68,7 +73,7 @@ def test_fresh_install_bootstrap_prerequisite(disposable_db):
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
     # 1. Table doesn't exist yet -> bootstrap skips cleanly
-    engine = sa.create_engine(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+    engine = sa.create_engine(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
     with engine.connect() as sa_conn:
         res1 = bootstrap_company_database_prerequisites(sa_conn, db_name=db_name)
         assert res1["status"] == "SKIPPED_TABLE_NOT_FOUND"
@@ -263,7 +268,7 @@ def test_scenario_d_orm_ahead_of_alembic_revision(disposable_db):
     - Migration v1417 safely checks existence and cleanly stamps/upgrades to head.
     """
     db_name = disposable_db
-    engine = sa.create_engine(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+    engine = sa.create_engine(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
 
     # 1. Create schema using Base.metadata (simulating dev/bootstrap ahead of Alembic)
     Base.metadata.create_all(engine)
@@ -306,7 +311,7 @@ def test_idempotency_of_migration_and_bootstrap(disposable_db):
     - Repeated execution of v1417 migration against column-present and column-absent states succeeds cleanly.
     """
     db_name = disposable_db
-    engine = sa.create_engine(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+    engine = sa.create_engine(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
 
     with engine.connect() as sa_conn:
         # Create base sales_orders
@@ -397,7 +402,7 @@ def test_control_plane_routing_guard():
     assert is_company_database_target("template0") is False
 
     # 2. bootstrap prerequisite raises ValueError when passed smritisys
-    mock_conn = sa.create_engine("postgresql://postgres:postgres@localhost:5432/smriti001").connect()
+    mock_conn = sa.create_engine(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001").connect()
     try:
         with pytest.raises(ValueError, match="Bootstrap prerequisite must NEVER execute against smritisys"):
             bootstrap_company_database_prerequisites(mock_conn, db_name="smritisys")

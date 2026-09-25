@@ -19,6 +19,11 @@ from app.services.control_registry import ControlDatabaseRegistryService
 from app.models.company_registry import CompanyDatabaseRegistry
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def test_production_mode_fails_on_default_postgres_password():
     """
     Production startup guard must fail closed if default 'postgres:postgres'
@@ -94,7 +99,7 @@ def test_development_mode_permits_local_credentials():
         "JWT_SECRET_KEY": "dev-test-jwt-secret-key-32-chars-long-smriti",
         "INTERNAL_SERVICE_KEY": "dev-test-internal-service-key-32-chars",
         "POSTGRES_PASSWORD": "postgres",
-        "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys"
+        "DATABASE_URL": f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smritisys"
     }
     with patch.dict(os.environ, env_vars, clear=False):
         loaded = load_settings()

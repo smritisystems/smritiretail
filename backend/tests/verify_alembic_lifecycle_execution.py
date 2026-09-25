@@ -28,8 +28,13 @@ if str(backend_dir) not in sys.path:
 import psycopg2
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def check_db_state(db_name: str = "smriti002"):
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
     cur = conn.cursor()
     cur.execute("SELECT version_num FROM alembic_version;")
     versions = [r[0] for r in cur.fetchall()]
@@ -100,7 +105,7 @@ def run_alembic_lifecycle(db_name: str = "smriti002") -> bool:
     print("  ✅ Proved: Alembic engine physically executed upgrade and created table.")
 
     # Step 6: Verify Column Count and Constraints
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
     cur = conn.cursor()
     cur.execute("SELECT count(*) FROM information_schema.columns WHERE table_name = 'customer_article_mappings';")
     col_count = cur.fetchone()[0]

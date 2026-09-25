@@ -19,7 +19,12 @@ import psycopg2
 from fastapi import HTTPException
 from app.services.db_resolver import CompanyDatabaseResolver
 
-CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+CONTROL_PLANE_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 
 def test_smritisys_control_plane_connection():
     """Verify smritisys PostgreSQL Control Plane connection."""

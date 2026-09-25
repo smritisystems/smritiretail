@@ -14,12 +14,17 @@
 import pytest
 import psycopg2
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def test_supplier_database_schema_and_crud():
     """
     Test Blocker #1 Supplier Master Creation against PostgreSQL database.
     Verifies that supplier record can be inserted and fetched cleanly.
     """
-    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
     cur = conn.cursor()
 
     # Check suppliers table existence

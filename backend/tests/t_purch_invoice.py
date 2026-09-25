@@ -21,6 +21,11 @@ _TEST_COMPANY_ID = "PURCHBTEST"   # 10 chars, ^[A-Z0-9]{3,12}$ compliant
 _TEST_BRANCH_ID  = "PURCHBR"      # 7 chars
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def test_purchase_invoice_and_stock_verification():
     """
     Test Blocker #4 Stock Verification & Purchase Invoice / Supplier Payment Settlement.
@@ -28,7 +33,7 @@ def test_purchase_invoice_and_stock_verification():
     - Supplier creation and initial outstanding balance
     - Supplier Payment registration reduces outstanding balance to 0.00
     """
-    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smritisys")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys")
     conn.autocommit = False
     cur = conn.cursor()
 

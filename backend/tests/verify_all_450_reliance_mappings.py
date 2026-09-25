@@ -37,13 +37,18 @@ from app.db.session import get_company_sessionmaker
 from app.services.item_master_svc import UniversalItemMasterService
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 async def verify_450_reliance_mappings(db_name: str = "smriti001") -> bool:
     print("================================================================================")
     print(f"=== 450 RELIANCE B2B CUSTOMER ARTICLE MAPPINGS AUDIT: {db_name} ===")
     print("================================================================================")
 
     # 1. SQL Direct Audit
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
     cur = conn.cursor()
 
     # Total and customer scoping
