@@ -18,8 +18,9 @@ import React, { useState } from "react";
 import { TagLabelPrintingTab } from "./barcode/TagLabelPrintingTa.tsx";
 import { VisualLabelDesigner } from "./barcode/VisualLabelDesign.tsx";
 import { BarcodeScriptGenerationView } from "./barcode/BarcodeScriptGenVi.tsx";
+import { PrintLabelsStudio } from "./barcode/PrintLabelsStudio.tsx";
 import { Product } from "../types.ts";
-import { Printer, Sliders, Code } from "lucide-react";
+import { Printer, Sliders, Code, LayoutDashboard } from "lucide-react";
 
 interface BarcodeStudioTabProps {
   currentUser?: { role: string; name: string } | null;
@@ -34,13 +35,26 @@ export const BarcodeStudioTab: React.FC<BarcodeStudioTabProps> = ({
   onNotification,
   onClose
 }) => {
-  const [subTab, setSubTab] = useState<"batch-print" | "visual-designer" | "script-compiler">("visual-designer");
+  const [subTab, setSubTab] = useState<"print-studio" | "batch-print" | "visual-designer" | "script-compiler">("print-studio");
 
   return (
     <div className="h-full flex flex-col bg-theme-base text-theme-body select-none overflow-hidden">
       {/* Studio Sub-Navigation Bar */}
       <div className="h-11 bg-theme-surface-1 border-b border-theme-divider px-4 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setSubTab("print-studio")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+              subTab === "print-studio"
+                ? "bg-primary-500 text-white shadow-sm font-bold"
+                : "text-theme-muted hover:text-theme-body hover:bg-theme-surface-2"
+            }`}
+          >
+            <LayoutDashboard size={14} />
+            <span>Print Labels Studio</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setSubTab("visual-designer")}
@@ -88,9 +102,16 @@ export const BarcodeStudioTab: React.FC<BarcodeStudioTabProps> = ({
 
       {/* Main SubTab Content Area */}
       <div className="flex-1 overflow-hidden">
+        {subTab === "print-studio" && (
+          <PrintLabelsStudio
+            currentUser={currentUser}
+            onNotification={onNotification}
+          />
+        )}
+
         {subTab === "visual-designer" && (
           <VisualLabelDesigner
-            onBackToPrinting={() => setSubTab("batch-print")}
+            onBackToPrinting={() => setSubTab("print-studio")}
             onNotification={onNotification}
           />
         )}
@@ -106,7 +127,7 @@ export const BarcodeStudioTab: React.FC<BarcodeStudioTabProps> = ({
 
         {subTab === "script-compiler" && (
           <BarcodeScriptGenerationView
-            onBackToPrinting={() => setSubTab("batch-print")}
+            onBackToPrinting={() => setSubTab("print-studio")}
             onNotification={onNotification}
           />
         )}
