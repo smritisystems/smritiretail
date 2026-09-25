@@ -950,6 +950,7 @@ class POSService:
                 "notes_2": Decimal("2.00"),
                 "notes_1": Decimal("1.00"),
                 "coins": Decimal("1.00"),
+                "coins_total": Decimal("1.00"),
             }
             for k, val in shift.denominations.items():
                 if k not in denom_multiplier_map:
