@@ -63,10 +63,10 @@ class ReportSchedule(BaseEntity):
     created_by_id = Column(String(100), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     dispatch_logs = relationship(
-        "app.models.report_schedule.ReportDispatchLog",
+        "ReportDispatchLog",
         back_populates="schedule",
         cascade="all, delete-orphan",
-        order_by="desc(app.models.report_schedule.ReportDispatchLog.created_at)"
+        order_by="desc(ReportDispatchLog.created_at)"
     )
 
 
