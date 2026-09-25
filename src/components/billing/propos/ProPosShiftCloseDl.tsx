@@ -125,12 +125,24 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
 
     setClosing(true);
     try {
+      const backendDenominations = {
+        notes_2000: denominations.notes_2000 || 0,
+        notes_500: denominations.notes_500 || 0,
+        notes_200: denominations.notes_200 || 0,
+        notes_100: denominations.notes_100 || 0,
+        notes_50: denominations.notes_50 || 0,
+        notes_20: denominations.notes_20 || 0,
+        notes_10: denominations.notes_10 || 0,
+        notes_5: denominations.notes_5 || 0,
+        notes_2: denominations.notes_2 || 0,
+        notes_1: denominations.notes_1 || 0,
+        coins_total: denominations.coins || 0,
+      };
+
       const payload = {
-        actual_cash: countedCash,
-        actual_card: parseFloat(actualCard) || (zReportData?.card_sales ?? 0),
-        actual_upi: parseFloat(actualUpi) || (zReportData?.upi_sales ?? 0),
-        denominations,
-        notes: closingNotes.trim() || undefined,
+        closing_balance: countedCash,
+        closing_notes: closingNotes.trim() || undefined,
+        denominations: backendDenominations,
       };
 
       const res = await apiFetchV1<any>(`/pos/shifts/close/${shiftId}`, {
@@ -141,13 +153,13 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
       const updatedZReport: POSZReportData = {
         ...(zReportData || ({} as any)),
         shift_id: shiftId,
-        shift_code: res.shift_code || zReportData?.shift_code || shiftId,
+        shift_code: res.identity_code || res.shift_code || zReportData?.shift_code || shiftId,
         status: "CLOSED",
-        end_time: res.end_time || new Date().toISOString(),
-        actual_cash_counted: countedCash,
-        cash_variance: res.cash_variance ?? cashVariance,
+        end_time: res.closed_at || res.end_time || new Date().toISOString(),
+        actual_cash_counted: res.closing_balance !== undefined ? Number(res.closing_balance) : countedCash,
+        cash_variance: res.variance !== undefined ? Number(res.variance) : (res.cash_variance ?? cashVariance),
         denominations,
-        closing_notes: closingNotes,
+        closing_notes: res.closing_notes || closingNotes,
         shift_close_voucher_id: res.shift_close_voucher_id || "JV-BALANCED",
       };
 
