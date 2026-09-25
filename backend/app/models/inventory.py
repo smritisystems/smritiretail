@@ -26,6 +26,8 @@ class Product(BaseEntity):
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    # Cached aggregate stock on hand. Authoritative source of truth is product_batch_stocks
+    # (for batch-tracked items) and stock_movements (for standard items). Synchronized via StockSynchronizer.
     stock = Column(Integer, nullable=False, default=0)
     category = Column(String(100), nullable=False, index=True)
     is_favorite = Column(Boolean, default=False)

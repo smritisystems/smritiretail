@@ -2179,10 +2179,6 @@ class SalesService:
             # Apply stock increments and record StockMovement (RETURN_INWARD)
             for product, qty in product_stock_updates:
                 if product.tracking_mode != "No-stock":
-                    product.stock = int((product.stock or 0) + Decimal(str(qty)))
-                    product.modified_at = datetime.now(timezone.utc)
-                    self.db.add(product)
-
                     movement_id = IdentityEngine.generate_technical_id()
                     resolved_warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
                     db_movement = StockMovement(
@@ -2204,6 +2200,13 @@ class SalesService:
                         branch_id=self.tenant_ctx.branch_id
                     )
                     self.db.add(db_movement)
+                    await self.db.flush()
+
+                    # Synchronize cached aggregate via canonical StockSynchronizer
+                    from .stock_synchronizer import StockSynchronizer
+                    await StockSynchronizer.sync_product_stock_cache(self.db, product.id, self.tenant_ctx.company_id)
+                    product.modified_at = datetime.now(timezone.utc)
+                    self.db.add(product)
 
                     # Record INVENTORY_POSTED audit event
                     await ComplianceAuditService.record_audit_event(

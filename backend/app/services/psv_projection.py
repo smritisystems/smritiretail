@@ -29,7 +29,9 @@ from ..models.psv import (
 )
 from ..models.sales import SalesInvoice
 from ..models.crm import Customer, CustomerDeliveryLocation
+from ..models.tenant import Company
 from ..models.control.control_models import ControlPSVConfig
+from .partner_resolver import PartnerIdentifierResolver
 from ..schemas.psv import (
     PSVScopedVisibilityResponse,
     PSVScopedBalanceItem,
@@ -105,7 +107,9 @@ class PSVProjectionService:
                 event_payload={
                     "source_event_id": f"PSV-INVOICE-{invoice.id}-{line.id}",
                     "correlation_id": f"SALES-INVOICE-{invoice.id}",
+                    "company_id": company_id,
                     "company_code": company_id,
+                    "product_id": getattr(line, "product_id", None),
                     "source_document_type": "SALES_INVOICE",
                     "source_document_id": invoice.id,
                     "source_document_line_id": str(line.id),
@@ -248,13 +252,33 @@ class PSVProjectionService:
         if isinstance(evt_dt, str):
             evt_dt = datetime.fromisoformat(evt_dt)
 
+        # Extract authoritative company_id and resolve product_id
+        company_id = event_payload.get("company_id")
+        comp_code = event_payload["company_code"].strip().upper()
+        if not company_id:
+            c_stmt = select(Company.id).where(or_(Company.id == comp_code, Company.name.ilike(f"%{comp_code}%"))).limit(1)
+            company_id = (await psv_session.execute(c_stmt)).scalar_one_or_none() or comp_code
+
+        product_id = event_payload.get("product_id")
+        if not product_id and company_id:
+            res = await PartnerIdentifierResolver.resolve(
+                session=psv_session,
+                company_id=company_id,
+                external_sku=event_payload["sku"],
+                party_id=event_payload.get("psv_party_id"),
+            )
+            if res.found and res.product_id:
+                product_id = res.product_id
+
         psv_event = PSVStockEvent(
             event_id=f"psve_{uuid.uuid4().hex[:16]}",
             source_event_id=source_event_id,
             correlation_id=event_payload.get("correlation_id", f"corr_{uuid.uuid4().hex[:16]}"),
             causation_id=event_payload.get("causation_id"),
             event_schema_version=event_payload.get("event_schema_version", "1.0"),
-            company_code=event_payload["company_code"].strip().upper(),
+            company_id=company_id,
+            company_code=comp_code,
+            product_id=product_id,
             source_database=event_payload.get("source_database", "smriti001"),
             source_document_type=event_payload["source_document_type"],
             source_document_id=event_payload["source_document_id"],
@@ -283,16 +307,22 @@ class PSVProjectionService:
 
         # 2. Update or Create PSVStockBalance
         bal_stmt = select(PSVStockBalance).where(
-            PSVStockBalance.company_code == psv_event.company_code,
             PSVStockBalance.psv_party_id == psv_event.psv_party_id,
-            PSVStockBalance.sku == psv_event.sku
+            PSVStockBalance.sku == psv_event.sku,
         )
+        if company_id:
+            bal_stmt = bal_stmt.where(PSVStockBalance.company_id == company_id)
+        else:
+            bal_stmt = bal_stmt.where(PSVStockBalance.company_code == psv_event.company_code)
+
         bal = (await psv_session.execute(bal_stmt)).scalar_one_or_none()
 
         if not bal:
             bal = PSVStockBalance(
                 id=f"psvb_{uuid.uuid4().hex[:16]}",
+                company_id=company_id,
                 company_code=psv_event.company_code,
+                product_id=product_id,
                 psv_party_id=psv_event.psv_party_id,
                 psv_store_id=psv_event.psv_store_id,
                 delivery_location_id=psv_event.delivery_location_id,
@@ -303,9 +333,16 @@ class PSVProjectionService:
                 sold_qty=Decimal("0.0000"),
                 returned_qty=Decimal("0.0000"),
                 transferred_qty=Decimal("0.0000"),
-                current_balance=Decimal("0.0000")
+                current_balance=Decimal("0.0000"),
+                reconciliation_status="AUTO_MATCHED" if product_id else "PENDING_CATALOG_MAPPING",
             )
             psv_session.add(bal)
+        else:
+            if bal.company_id is None and company_id:
+                bal.company_id = company_id
+            if bal.product_id is None and product_id:
+                bal.product_id = product_id
+                bal.reconciliation_status = "AUTO_MATCHED"
 
         mtype = psv_event.movement_type.upper()
         qty = psv_event.quantity
@@ -327,7 +364,7 @@ class PSVProjectionService:
         if mtype in ["GST_BILLED", "INVOICE", "INWARD", "BILLED_TO_PARTNER"]:
             bal.billed_qty += qty
             bal.current_balance += qty
-        elif mtype in ["STORE_RECEIVED", "RECEIVED"]:
+        elif mtype in ["STORE_RECEIVED", "RECEIVED", "RECEIVED_AT_STORE"]:
             bal.received_qty += qty
         elif mtype in ["SOLD", "SOLD_THROUGH", "OUTWARD_SALE", "POS_SALE"]:
             bal.sold_qty += qty
@@ -340,7 +377,10 @@ class PSVProjectionService:
             bal.current_balance -= qty
 
         bal.last_reported_at = psv_event.event_date
-        bal.reconciliation_status = "AUTO_MATCHED"
+        if bal.product_id:
+            bal.reconciliation_status = "AUTO_MATCHED"
+        else:
+            bal.reconciliation_status = "PENDING_CATALOG_MAPPING"
 
         if commit:
             await psv_session.commit()

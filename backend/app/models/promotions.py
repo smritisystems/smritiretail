@@ -44,7 +44,9 @@ class SmritiPromotion(BaseEntity):
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "promotion_code", name="uq_smriti_promotions_tenant_code"),
+        UniqueConstraint("company_id", "promotion_code", name="uq_smriti_promotions_company_code"),
         Index("idx_smriti_promotions_active_lookup", "tenant_id", "status", "is_active", "start_at", "end_at"),
+        Index("idx_smriti_promotions_company_active_lookup", "company_id", "status", "is_active", "start_at", "end_at"),
     )
 
 
@@ -66,7 +68,9 @@ class SmritiPromotionVersion(BaseEntity):
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "promotion_id", "version_no", name="uq_smriti_promo_versions_tenant_ver"),
+        UniqueConstraint("company_id", "promotion_id", "version_no", name="uq_smriti_promo_versions_company_ver"),
         Index("idx_smriti_promo_versions_lookup", "tenant_id", "promotion_id", "status", "effective_from", "effective_to"),
+        Index("idx_smriti_promo_versions_company_lookup", "company_id", "promotion_id", "status", "effective_from", "effective_to"),
     )
 
 
