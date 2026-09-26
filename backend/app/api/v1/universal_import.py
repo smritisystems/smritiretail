@@ -14,6 +14,8 @@ Classification: Internal
 
 import hashlib
 import json
+import uuid
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,7 +26,8 @@ from sqlalchemy.orm import selectinload
 
 from ...api.deps import get_company_db, get_current_user, get_tenant_context, TenantContext
 from ...models.audit import ComplianceImmutableAuditLog
-from ...models.item_master import Item, ItemVariant
+from ...models.item_master import Item, ItemVariant, ItemBarcode, ItemWarehouseLocation
+from ...models.pricing import PriceBook, PriceBookEntry
 from ...models.inventory import Product
 from ...schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
 from ...schemas.stock_acct import StockMovementRecordRequest
@@ -53,6 +56,7 @@ class ImportCommitRequest(ImportPreviewRequest):
     reason: Optional[str] = None
     original_invoice_id: Optional[str] = None
     return_no: Optional[str] = None
+    price_mode: Optional[str] = "DO_NOT_CREATE"  # DO_NOT_CREATE, CREATE_AS_DRAFT, CREATE_LIVE_RETAIL
 
 
 def _text(row: Dict[str, Any], *keys: str) -> str:
@@ -142,6 +146,135 @@ async def preview_universal_import(
     _current_user: Any = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Resolve rows without creating products, changing stock, or changing prices."""
+    if request.target.upper().strip() == "ITEM_MASTER":
+        company_id = getattr(_current_user, "company_id", None) or (_current_user.get("company_id") if isinstance(_current_user, dict) else "COMP-001")
+        reconciliation_report: List[Dict[str, Any]] = []
+        batch_barcodes = set()
+        batch_skus = set()
+        seen_styles = set()
+        processed_styles = set()
+        summary = {
+            "total_rows": len(request.rows),
+            "valid_rows": 0,
+            "duplicate_barcodes": 0,
+            "duplicate_skus": 0,
+            "pricing_conflicts": 0,
+            "distinct_styles": 0,
+            "status": "READY_FOR_IMPORT",
+        }
+        for index, row in enumerate(request.rows, start=1):
+            row_num = row.get("rowNumber", index)
+            barcode = _text(row, "barcode", "Barcode", "BARCODE_NO", "ean", "upc")
+            sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW")
+            style = _text(row, "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE", "item_code")
+            color = _text(row, "color", "colour", "Color", "Colour", "COLOR")
+            size = _text(row, "size", "Size", "SIZE")
+            mrp_val = float(row.get("mrp", row.get("MRP", 0)) or 0)
+            selling_val = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))) or 0)
+            warehouse_code = _text(row, "warehouse_code", "WAREHOUSE_CODE", "warehouse_id")
+
+            errors = []
+            if not barcode:
+                errors.append("Missing BARCODE_NO")
+            elif barcode in batch_barcodes:
+                errors.append(f"Duplicate barcode in batch: {barcode}")
+
+            if not sku:
+                if style and color and size:
+                    sku = f"{style}-{color}-{size}".upper()
+                else:
+                    errors.append("Missing SKU_CODE or Style/Color/Size")
+            elif sku in batch_skus:
+                errors.append(f"Duplicate SKU in batch: {sku}")
+
+            if selling_val > mrp_val and mrp_val > 0:
+                errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
+
+            # Check DB barcode
+            if barcode:
+                db_bc = await UniversalItemMasterService.lookup_by_barcode(db, barcode)
+                if db_bc:
+                    errors.append(f"Barcode already exists in database (Item: {db_bc.get('item_name')})")
+
+            # Check DB SKU
+            if sku:
+                existing_var = (await db.execute(
+                    select(ItemVariant).where(ItemVariant.variant_sku == sku.upper(), ItemVariant.is_deleted == False)
+                )).scalar_one_or_none()
+                if existing_var:
+                    errors.append(f"SKU already exists in database: {sku}")
+
+            # Check DB Style
+            db_item = None
+            if style:
+                item_stmt = select(Item).where(
+                    Item.company_id == company_id,
+                    Item.item_code == style,
+                    Item.is_deleted == False
+                )
+                db_item = (await db.execute(item_stmt)).scalars().first()
+
+            if barcode:
+                batch_barcodes.add(barcode)
+            if sku:
+                batch_skus.add(sku)
+            if style:
+                seen_styles.add(style)
+
+            is_valid = len(errors) == 0
+            if is_valid:
+                summary["valid_rows"] += 1
+                row_status = "VALID"
+                if style and (style in processed_styles or db_item):
+                    action = "ATTACH_VARIANT_TO_STYLE"
+                else:
+                    action = "CREATE_ITEM_AND_VARIANT"
+                    if style:
+                        processed_styles.add(style)
+            else:
+                row_status = "INVALID"
+                action = "BLOCK"
+                if any("barcode" in e.lower() for e in errors):
+                    summary["duplicate_barcodes"] += 1
+                if any("sku" in e.lower() for e in errors):
+                    summary["duplicate_skus"] += 1
+                if any("selling_price" in e.lower() for e in errors):
+                    summary["pricing_conflicts"] += 1
+
+            reconciliation_report.append({
+                "row_number": row_num,
+                "barcode": barcode,
+                "sku": sku,
+                "style_code": style,
+                "status": row_status,
+                "action": action,
+                "errors": errors,
+                "color": color,
+                "size": size,
+                "mrp": mrp_val,
+                "selling_price": selling_val,
+                "warehouse_code": warehouse_code or "WH-MAIN",
+            })
+
+        summary["distinct_styles"] = len(seen_styles)
+        if summary["valid_rows"] < summary["total_rows"]:
+            summary["status"] = "VALIDATION_ISSUES_FOUND"
+
+        return {
+            "target": "ITEM_MASTER",
+            "summary": summary,
+            "counts": {
+                "total": summary["total_rows"],
+                "valid": summary["valid_rows"],
+                "invalid": summary["total_rows"] - summary["valid_rows"],
+                "duplicate_barcodes": summary["duplicate_barcodes"],
+                "duplicate_skus": summary["duplicate_skus"],
+                "pricing_conflicts": summary["pricing_conflicts"],
+                "distinct_styles": summary["distinct_styles"],
+            },
+            "rows": reconciliation_report,
+        }
+
     results: List[Dict[str, Any]] = []
     purchase_items: List[PurchaseReceiptItemCreate] = []
     return_items: List[SalesReturnItemCreate] = []
@@ -210,18 +343,41 @@ async def commit_universal_import(
             selected_item = (await db.execute(select(Item).where(Item.id == str(row["selected_item_id"]), Item.is_deleted == False))).scalars().first()
             if selected_item:
                 resolution = {"status": "MATCHED", "match_type": "USER_SELECTED", "match": _candidate_payload(selected_item)}
-        if target == "ITEM_MASTER" and resolution.get("status") == "MATCHED":
-            raise HTTPException(status_code=409, detail={"row_number": row.get("rowNumber", index), "message": "Item already exists. Item Master import creates new items only."})
+        if target == "ITEM_MASTER":
+            barcode = _text(row, "barcode", "Barcode", "BARCODE_NO", "ean", "upc")
+            sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW")
+            style_code = _text(row, "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE", "item_code")
+            item_name = _text(row, "item_name", "itemName", "name", "ITEM_DESCRIPTION", "product_name") or style_code or sku or barcode
+
+            if not (barcode or sku or style_code):
+                raise HTTPException(status_code=422, detail={"row_number": row.get("rowNumber", index), "message": "At least one identifier (Barcode, SKU, or Style Code) is required."})
+
+            if barcode:
+                existing_bc = (await db.execute(
+                    select(ItemBarcode).where(ItemBarcode.company_id == company_id, ItemBarcode.barcode == barcode.strip().upper(), ItemBarcode.is_deleted == False)
+                )).scalars().first()
+                if existing_bc:
+                    raise HTTPException(status_code=409, detail={"row_number": row.get("rowNumber", index), "message": f"Barcode '{barcode}' already exists in database."})
+
+            if sku:
+                existing_sku = (await db.execute(
+                    select(ItemVariant).where(ItemVariant.company_id == company_id, ItemVariant.variant_sku == sku.strip().upper(), ItemVariant.is_deleted == False)
+                )).scalars().first()
+                if existing_sku:
+                    raise HTTPException(status_code=409, detail={"row_number": row.get("rowNumber", index), "message": f"SKU '{sku}' already exists in database."})
+
+            resolved_rows.append({
+                "row": row,
+                "item_name": item_name,
+                "item_code": style_code or sku or barcode,
+                "style_code": style_code or sku or barcode,
+                "barcode": barcode,
+                "sku": sku,
+            })
+            continue
+
         if target in {"PRICE_BOOK", "PURCHASE_INWARD", "STOCK_ADJUSTMENT", "SALES_RETURN", "LABEL_PRINT"} and resolution.get("status") != "MATCHED":
             raise HTTPException(status_code=422, detail={"row_number": row.get("rowNumber", index), "status": resolution.get("status"), "message": "Every row must resolve to one product before commit."})
-
-        if target == "ITEM_MASTER":
-            item_name = _text(row, "item_name", "itemName", "name", "product_name", "Product Name")
-            item_code = _text(row, "item_code", "itemCode", "sku", "SKU", "styleArticle", "style", "article", "barcode")
-            if not item_name or not item_code:
-                raise HTTPException(status_code=422, detail={"row_number": row.get("rowNumber", index), "message": "Item name and item code, SKU, style, or barcode are required to create an item."})
-            resolved_rows.append({"row": row, "item_name": item_name, "item_code": item_code})
-            continue
 
         if target == "PURCHASE_INWARD":
             match = resolution["match"]
@@ -299,28 +455,205 @@ async def commit_universal_import(
     results: List[Dict[str, Any]] = []
     purchase_items: List[PurchaseReceiptItemCreate] = []
     return_items: List[SalesReturnItemCreate] = []
+    created_styles_map: Dict[str, Any] = {}
     try:
-        for resolved in resolved_rows:
+        for index, resolved in enumerate(resolved_rows, start=1):
             if target == "ITEM_MASTER":
                 row = resolved["row"]
-                item = await UniversalItemMasterService.create_item(
-                    session=db,
-                    company_id=company_id,
-                    item_code=resolved["item_code"],
-                    item_name=resolved["item_name"],
-                    category=_text(row, "category", "Category") or "General",
-                    tax_rate=float(row.get("tax_rate", row.get("gst", 18)) or 18),
-                    mrp=float(row.get("mrp", 0) or 0),
-                    selling_price=float(row.get("sellingPrice", row.get("price", 0)) or 0),
-                    cost_price=float(row.get("costPrice", 0) or 0),
-                    primary_barcode=_text(row, "barcode", "Barcode") or None,
-                    primary_uom=_text(row, "uom", "UOM") or "PCS",
-                    hsn_code=_text(row, "hsn", "hsn_code", "HSN") or "64041990",
-                    brand=_text(row, "brand", "Brand") or None,
-                    branch_id=getattr(current_user, "branch_id", None) or "BR-001",
-                    commit=False,
+                style_code = resolved["style_code"]
+                clean_barcode = (resolved.get("barcode") or "").strip().upper()
+                clean_sku = (resolved.get("sku") or "").strip().upper()
+
+                # 1. Resolve or create parent Item
+                if style_code in created_styles_map:
+                    item = created_styles_map[style_code]
+                else:
+                    item_stmt = select(Item).where(
+                        Item.company_id == company_id,
+                        Item.item_code == style_code,
+                        Item.is_deleted == False
+                    )
+                    existing_item = (await db.execute(item_stmt)).scalars().first()
+                    if existing_item:
+                        item = existing_item
+                    else:
+                        cat_raw = _text(row, "category", "Category", "MERCHANDISE_CATEGORY") or "Footwear"
+                        dept_raw = _text(row, "department", "Department", "MERCHANDISE_DEPARTMENT")
+                        cat = "Footwear" if "footwear" in (cat_raw + " " + (dept_raw or "")).lower() else cat_raw
+                        dept = dept_raw or ("Footwear" if cat == "Footwear" else None)
+                        brand = _text(row, "brand", "Brand", "BRAND_NAME")
+                        hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN") or "64041990"
+                        uom = _text(row, "uom", "UOM") or "PRS"
+                        tax_rate = float(row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT", 18))) or 18)
+                        buying_price = float(row.get("buyingPrice", row.get("buying_price", row.get("BUYING_PRICE", 0))) or 0)
+                        cost_price = float(row.get("costPrice", row.get("cost_price", row.get("LANDED_COST_PRICE", 0))) or 0)
+                        mrp = float(row.get("mrp", row.get("MRP", 0)) or 0)
+                        selling_price = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))) or 0)
+
+                        item = await UniversalItemMasterService.create_item(
+                            session=db,
+                            company_id=company_id,
+                            item_code=style_code,
+                            item_name=resolved["item_name"],
+                            category=cat,
+                            department=dept,
+                            brand=brand,
+                            style_code=style_code,
+                            tax_rate=tax_rate,
+                            mrp=mrp,
+                            selling_price=selling_price,
+                            cost_price=cost_price,
+                            buying_price=buying_price if buying_price > 0 else None,
+                            primary_uom=uom,
+                            hsn_code=hsn,
+                            branch_id=getattr(current_user, "branch_id", None) or "BR-001",
+                            commit=False,
+                        )
+                    created_styles_map[style_code] = item
+
+                # 2. Create ItemVariant
+                color = _text(row, "color", "colour", "COLOR")
+                size = _text(row, "size", "SIZE")
+                if not clean_sku:
+                    clean_sku = f"{style_code}-{color}-{size}".upper() if (color and size) else f"{style_code}-VAR-{index}"
+
+                attrs = {
+                    "color": color,
+                    "size": size,
+                    "collection_type": _text(row, "collection_type", "COLLECTION_TYPE"),
+                    "gender": _text(row, "gender", "GENDER"),
+                    "product_type": _text(row, "product_type", "PRODUCT_TYPE"),
+                    "design_attribute": _text(row, "design_attribute", "DESIGN_ATTRIBUTE"),
+                    "heel_type": _text(row, "heel_type", "HEEL_TYPE"),
+                    "upper_material": _text(row, "upper_material", "UPPER_MATERIAL"),
+                    "outsole_material": _text(row, "outsole_material", "OUTSOLE_MATERIAL"),
+                    "purchase_class": _text(row, "purchase_class", "PURCHASE_CLASS"),
+                }
+                attrs = {k: v for k, v in attrs.items() if v}
+
+                row_mrp = float(row.get("mrp", row.get("MRP", item.mrp)) or item.mrp or 0)
+                row_selling = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", item.selling_price))) or item.selling_price or 0)
+                row_cost = float(row.get("costPrice", row.get("cost_price", row.get("LANDED_COST_PRICE", item.cost_price))) or item.cost_price or 0)
+
+                variant_stmt = select(ItemVariant).where(
+                    ItemVariant.company_id == company_id,
+                    ItemVariant.variant_sku == clean_sku,
+                    ItemVariant.is_deleted == False
                 )
-                results.append({"row_number": row.get("rowNumber"), "status": "CREATED", "item_id": item.id, "item_code": item.item_code})
+                variant = (await db.execute(variant_stmt)).scalars().first()
+                if not variant:
+                    variant = ItemVariant(
+                        id=f"var_{uuid.uuid4().hex[:12]}",
+                        company_id=company_id,
+                        item_id=item.id,
+                        variant_sku=clean_sku,
+                        variant_name=f"{style_code} {color} {size}".strip() or item.item_name,
+                        attributes_json=attrs,
+                        mrp=Decimal(str(row_mrp)),
+                        selling_price=Decimal(str(row_selling)),
+                        cost_price=Decimal(str(row_cost)),
+                        is_active=True,
+                    )
+                    db.add(variant)
+                    await db.flush()
+
+                # 3. Create ItemBarcode
+                if clean_barcode:
+                    bc_stmt = select(ItemBarcode).where(
+                        ItemBarcode.company_id == company_id,
+                        ItemBarcode.barcode == clean_barcode,
+                        ItemBarcode.is_deleted == False
+                    )
+                    existing_bc = (await db.execute(bc_stmt)).scalars().first()
+                    if not existing_bc:
+                        tax_inc = _text(row, "tax_inclusive_yn", "TAX_INCLUSIVE_YN").upper() == "Y" if _text(row, "tax_inclusive_yn", "TAX_INCLUSIVE_YN") else None
+                        barcode_entity = ItemBarcode(
+                            id=f"bc_{uuid.uuid4().hex[:12]}",
+                            company_id=company_id,
+                            item_id=item.id,
+                            variant_id=variant.id,
+                            barcode=clean_barcode,
+                            barcode_type="EAN13" if len(clean_barcode) == 13 and clean_barcode.isdigit() else "CUSTOM",
+                            is_primary=True,
+                            is_tax_inclusive=tax_inc,
+                        )
+                        db.add(barcode_entity)
+
+                # 4. Warehouse Location
+                wh_code = _text(row, "warehouse_code", "WAREHOUSE_CODE", "warehouse_id")
+                reorder = row.get("reorder_level", row.get("REORDER_LEVEL"))
+                if wh_code and reorder is not None:
+                    try:
+                        loc_stmt = select(ItemWarehouseLocation).where(
+                            ItemWarehouseLocation.item_id == item.id,
+                            ItemWarehouseLocation.warehouse_id == wh_code,
+                            ItemWarehouseLocation.is_deleted == False
+                        )
+                        existing_loc = (await db.execute(loc_stmt)).scalars().first()
+                        if not existing_loc:
+                            db.add(ItemWarehouseLocation(
+                                id=f"loc_{uuid.uuid4().hex[:12]}",
+                                company_id=company_id,
+                                item_id=item.id,
+                                warehouse_id=wh_code,
+                                min_reorder_level=Decimal(str(reorder)),
+                            ))
+                    except Exception:
+                        pass
+
+                # 5. Price Book Entry (if requested)
+                price_mode = (request.price_mode or "DO_NOT_CREATE").upper().strip()
+                if price_mode in {"CREATE_AS_DRAFT", "CREATE_LIVE_RETAIL"}:
+                    pb_id = request.price_book_id
+                    if not pb_id:
+                        pb_stmt = select(PriceBook).where(
+                            PriceBook.company_id == company_id,
+                            PriceBook.is_default == True,
+                            PriceBook.is_deleted == False
+                        )
+                        default_pb = (await db.execute(pb_stmt)).scalars().first()
+                        if not default_pb:
+                            default_pb = PriceBook(
+                                id=f"pb_{uuid.uuid4().hex[:12]}",
+                                company_id=company_id,
+                                name="Default Retail Price Book",
+                                code=f"PB-RETAIL-{company_id}",
+                                currency="INR",
+                                is_default=True,
+                                status="ACTIVE" if price_mode == "CREATE_LIVE_RETAIL" else "DRAFT",
+                            )
+                            db.add(default_pb)
+                            await db.flush()
+                        pb_id = default_pb.id
+
+                    pbe_stmt = select(PriceBookEntry).where(
+                        PriceBookEntry.price_book_id == pb_id,
+                        PriceBookEntry.item_id == item.id,
+                        PriceBookEntry.variant_id == variant.id,
+                        PriceBookEntry.is_deleted == False
+                    )
+                    existing_pbe = (await db.execute(pbe_stmt)).scalars().first()
+                    if not existing_pbe:
+                        db.add(PriceBookEntry(
+                            id=f"pbe_{uuid.uuid4().hex[:12]}",
+                            company_id=company_id,
+                            price_book_id=pb_id,
+                            item_id=item.id,
+                            variant_id=variant.id,
+                            min_quantity=Decimal("1.0000"),
+                            selling_price=Decimal(str(row_selling)),
+                            mrp=Decimal(str(row_mrp)),
+                            cost_price=Decimal(str(row_cost)) if row_cost > 0 else None,
+                        ))
+
+                results.append({
+                    "row_number": row.get("rowNumber", index),
+                    "status": "CREATED",
+                    "item_id": item.id,
+                    "item_code": item.item_code,
+                    "variant_sku": variant.variant_sku,
+                    "barcode": clean_barcode,
+                })
             elif target == "PRICE_BOOK":
                 entry = await PricingEngine.add_price_book_entry(
                     session=db,
