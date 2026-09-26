@@ -202,20 +202,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     <div className="relative min-h-[100dvh] w-full flex flex-col overflow-x-hidden font-sans select-none bg-slate-950 text-slate-100">
 
       {/* ── Background layers ── */}
-      <div className="fixed inset-0 pointer-events-none bg-gradient-to-b from-slate-950 via-[#070e22] to-slate-950" />
-      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,rgba(37,99,235,0.22),transparent_75%)]" />
-      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_80%_30%,rgba(6,182,212,0.10),transparent_55%)]" />
-      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_15%_75%,rgba(37,99,235,0.13),transparent_55%)]" />
-
-      {/* Boutique ambient backdrop with bokeh blur */}
+      {/* 4K Footwear Retail Showroom Backdrop (Stretches to fit any device) */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.18] mix-blend-luminosity bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url('/assets/branding/retail_login_bg.jpg')", filter: "blur(14px)", transform: "scale(1.06)" }}
+        className="fixed inset-0 pointer-events-none w-full h-full bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: "url('/assets/branding/retail_login_bg.jpg')",
+          filter: "contrast(1.02) brightness(0.96)",
+        }}
         aria-hidden="true"
       />
-      {/* Vignette */}
-      <div className="fixed inset-0 pointer-events-none bg-gradient-to-t from-slate-950 via-slate-950/65 to-slate-950/80" />
-      <div className="fixed inset-0 pointer-events-none bg-gradient-to-r from-slate-950/90 via-transparent to-slate-950/90" />
+      {/* Soft luxury vignette & atmospheric depth scrim protecting text readability */}
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(15,23,42,0.18)_0%,rgba(2,6,23,0.65)_100%)]" />
+      <div className="fixed inset-0 pointer-events-none bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/45" />
 
       {/* ── Language selector (top-right, always visible) ── */}
       <div className="absolute top-3 right-4 sm:top-4 sm:right-6 z-30">
@@ -281,11 +279,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             {/* Desktop brand header */}
             <div className="hidden lg:flex flex-col gap-0.5">
               <div className="flex items-baseline gap-1">
-                <span className="font-display font-black text-4xl xl:text-5xl tracking-tight text-white leading-none">SM<span className="text-blue-500">&#8377;</span>ITI</span>
-                <span className="text-xs font-mono text-slate-500 self-start mt-1">&#174;</span>
+                <span className="font-display font-black text-4xl xl:text-5xl tracking-tight text-white leading-none drop-shadow-md">SM<span className="text-blue-500">&#8377;</span>ITI</span>
+                <span className="text-xs font-mono text-slate-400 self-start mt-1 drop-shadow-sm">&#174;</span>
               </div>
-              <div className="font-display font-bold text-2xl xl:text-3xl text-slate-100 tracking-tight leading-tight">Retail OS</div>
-              <div className="text-[10px] font-mono tracking-[0.18em] text-slate-400 uppercase font-semibold mt-0.5">SIMPLE RETAIL. SMARTER BUSINESS.</div>
+              <div className="font-display font-bold text-2xl xl:text-3xl text-slate-100 tracking-tight leading-tight drop-shadow-md">Retail OS</div>
+              <div className="text-[10px] font-mono tracking-[0.18em] text-slate-300 uppercase font-semibold mt-0.5 drop-shadow-sm">SIMPLE RETAIL. SMARTER BUSINESS.</div>
             </div>
 
             {/* Feature pillars */}
@@ -298,7 +296,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: 0.05 * idx }}
-                    className="group flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900/60 backdrop-blur-sm border border-white/8 hover:border-blue-500/40 hover:bg-slate-900/85 hover:translate-x-1 transition-all duration-200 cursor-default"
+                    className="group flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/10 hover:border-blue-500/40 hover:bg-slate-900/95 hover:translate-x-1 transition-all duration-200 cursor-default"
                   >
                     <div className="w-7 h-7 xl:w-8 xl:h-8 rounded-lg bg-blue-950/70 border border-blue-800/40 flex-shrink-0 flex items-center justify-center text-blue-400 group-hover:bg-blue-600 group-hover:text-white group-hover:scale-105 transition-all">
                       <Icon size={14} strokeWidth={2.2} />
@@ -536,7 +534,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     initial={{ opacity: 0, x: 16 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: 0.18 + 0.06 * idx }}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-900/55 border border-white/8 hover:border-blue-500/30 hover:bg-slate-900/80 transition-all cursor-default"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/10 hover:border-blue-500/30 hover:bg-slate-900/95 transition-all cursor-default"
                   >
                     <div className="w-8 h-8 rounded-xl bg-blue-950/70 border border-blue-800/40 flex-shrink-0 flex items-center justify-center text-blue-400">
                       <Icon size={16} strokeWidth={2} aria-hidden="true" />
