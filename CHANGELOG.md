@@ -32,6 +32,37 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.2] - 2026-09-26 — Security: Security & Access UX Refactor (Visual Upgrade)
+
+> **Commit:** `2b4d109d` | **Branch:** `smritiNX` | **Area:** Security & Access Management
+
+### Added
+- **`SecurityAccessShell.tsx`** (353 lines) — New full-page shell replacing the legacy modal-in-tab anti-pattern. Dark navy grouped left sidebar (Security & Access / Security Operations / My Account / Utilities) matching the architect reference screenshots. Collapsible sidebar, primary tab bar, ARIA nav landmarks, toast notification bus.
+- **`UsersView.tsx`** — Enterprise User Listing wired to `GET /api/v1/users/` with live search, role/status filters, pagination. Table: User ID | Description | Group/Role badge | Active/Inactive dot | Last Login | 3-dot action menu. Toolbar: New User, Edit, Delete, Unlock, Export CSV. Confirmation dialogs for destructive actions. Skeleton loading and empty state.
+- **`DataAccessView.tsx`** — Data Access Control with toggle rows for the 3 existing rules (Hide Cost Price in Reports, Restrict Products/Brands in Reports, Restrict Dashboard Reports). Toggle syncs from `/security/config` on mount; persists via `persistSecurityConfiguration`. WCAG `role="switch"` toggles, save/discard bar, Reset to Default with `confirm()` guard.
+
+### Changed
+- **`TabRenderer.tsx`** — `security-management` / `menu-access-control` / `security-configuration` tab cases now render `SecurityAccessShell` instead of the `SecManageDlg` modal wrapper.
+
+### Unchanged (explicitly verified)
+- `securityStore.ts` — all state, API calls, permission logic intact.
+- `MenuAccessView.tsx` — all logic, API wiring, menu tree, save/reset.
+- `SecConfigView.tsx` — all password/housekeeping config logic.
+- `types.ts` — all data models.
+- Backend APIs: `/security/menu-access`, `/security/config`, `/users/`, `/roles/`.
+
+### Test Results
+```
+menuAccess.test.ts          6/6  passed
+salesAuditAndFormatters.test.ts  12/12 passed
+Total: 18/18 passed
+```
+
+### TypeScript Verification
+- TSC task-970: **Exit 0** (after fixing TS2322 icon types + TS2869 nullish coalescing).
+
+---
+
 ## [6.45.1] - 2026-09-26 — Login: Premium Login Screen v6.45.1 (Visual Upgrade)
 
 > **Commit:** `54ead7c9` | **Branch:** `smritiNX` | **Area:** Authentication / Login UX
