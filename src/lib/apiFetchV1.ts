@@ -31,6 +31,7 @@ const AUTH_STORAGE_KEYS = [
   "smriti_branch_code",
   "smriti_company_name",
   "smriti_branch_name",
+  "smriti_last_activity",
 ];
 
 export function normalizeCompanyId(raw: string | null | undefined): string {
