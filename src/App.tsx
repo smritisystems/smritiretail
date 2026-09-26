@@ -60,6 +60,8 @@ import { SalesOrderFormPremium } from "./components/sales/SalesOrderFormPremium.
 import { VendorReturnModal } from "./components/procurement/VendorReturnModal.tsx";
 import { StandaloneWindowView } from "./components/standalone/StandaloneWindowView.tsx";
 import { TabRenderer, mapModuleId, TabLoadingFallback } from "./components/shell/TabRenderer.tsx";
+import { useInactivityTimeout } from "./hooks/useInactivityTimeout.ts";
+import { InactivityWarningModal } from "./components/auth/InactivityWarningModal.tsx";
 
 const PrintPreviewModal = lazy(() => import("./components/PrintPreviewModal.tsx").then(m => ({ default: m.PrintPreviewModal })));
 
@@ -141,11 +143,63 @@ const AppContent: React.FC = () => {
     setCompanyContextResolved(Boolean(user.companyId && user.branchId));
   };
 
-  const handleLogout = () => {
-    clearAuthSession("manual_logout");
+  const [sessionTimeoutNotice, setSessionTimeoutNotice] = useState<string | null>(null);
+
+  const handleLogout = useCallback((reason = "manual_logout") => {
+    clearAuthSession(reason);
     setCurrentUser(null);
     setCompanyContextResolved(false);
-  };
+  }, []);
+
+  const handleAutoLogout = useCallback((notice = "Your session expired due to 15 minutes of inactivity. Please log in again.") => {
+    const refreshToken = typeof window !== "undefined" ? localStorage.getItem("smriti_refresh_token") : null;
+    if (refreshToken) {
+      try {
+        fetch("/api/v1/auth/logout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        }).catch(() => {});
+      } catch {}
+    }
+
+    clearAuthSession("inactivity_timeout");
+    setCurrentUser(null);
+    setCompanyContextResolved(false);
+    setSessionTimeoutNotice(notice);
+  }, []);
+
+  useEffect(() => {
+    const handleSessionCleared = (e: Event) => {
+      const customEvent = e as CustomEvent<{ reason?: string }>;
+      const reason = customEvent.detail?.reason;
+      if (reason === "inactivity_timeout") {
+        setSessionTimeoutNotice("Your session expired due to 15 minutes of inactivity. Please log in again.");
+      } else if (reason === "token_expired") {
+        setSessionTimeoutNotice("Your session has expired. Please log in again.");
+      }
+      setCurrentUser(null);
+      setCompanyContextResolved(false);
+    };
+
+    window.addEventListener("smriti_auth_session_cleared", handleSessionCleared);
+    return () => {
+      window.removeEventListener("smriti_auth_session_cleared", handleSessionCleared);
+    };
+  }, []);
+
+  const {
+    isWarningOpen,
+    remainingSeconds,
+    resetTimer,
+  } = useInactivityTimeout({
+    isEnabled: Boolean(currentUser),
+    timeoutMs: 15 * 60 * 1000,
+    warningDurationMs: 60 * 1000,
+    onTimeout: () => {
+      handleAutoLogout("Your session expired due to 15 minutes of inactivity. Please log in again.");
+    },
+  });
 
 
 
@@ -476,7 +530,16 @@ const AppContent: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <LoginScreen
+        onLoginSuccess={(user) => {
+          setSessionTimeoutNotice(null);
+          handleLoginSuccess(user);
+        }}
+        sessionNotice={sessionTimeoutNotice}
+        onClearSessionNotice={() => setSessionTimeoutNotice(null)}
+      />
+    );
   }
 
   if (currentUser.passwordResetRequired) {
@@ -491,15 +554,24 @@ const AppContent: React.FC = () => {
 
   if (currentUser && !companyContextResolved) {
     return (
-      <CompanySelectionScreen
-        currentUser={currentUser}
-        onCompanySelected={(ctx) => {
-          setCurrentUser((prev) => prev ? { ...prev, companyId: ctx.companyId, branchId: ctx.branchId } : prev);
-          setCompanyContextResolved(true);
-          fetchSystemState();
-        }}
-        onLogout={handleLogout}
-      />
+      <>
+        <CompanySelectionScreen
+          currentUser={currentUser}
+          onCompanySelected={(ctx) => {
+            setCurrentUser((prev) => prev ? { ...prev, companyId: ctx.companyId, branchId: ctx.branchId } : prev);
+            setCompanyContextResolved(true);
+            fetchSystemState();
+          }}
+          onLogout={handleLogout}
+        />
+        {isWarningOpen && (
+          <InactivityWarningModal
+            remainingSeconds={remainingSeconds}
+            onStayLoggedIn={resetTimer}
+            onLogoutNow={handleLogout}
+          />
+        )}
+      </>
     );
   }
 
@@ -531,7 +603,8 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <AppShell
+    <>
+      <AppShell
       activeModuleId={activeTab}
       activeModuleTitle={getTabLabel(activeTab)}
       onSelectModule={(id) => setActiveTab(mapModuleId(id))}
@@ -630,6 +703,14 @@ const AppContent: React.FC = () => {
       )}
     </div>
     </AppShell>
+    {isWarningOpen && (
+      <InactivityWarningModal
+        remainingSeconds={remainingSeconds}
+        onStayLoggedIn={resetTimer}
+        onLogoutNow={handleLogout}
+      />
+    )}
+    </>
   );
 };
 

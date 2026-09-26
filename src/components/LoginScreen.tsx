@@ -53,6 +53,7 @@ import {
   Activity,
   CreditCard,
   Wifi,
+  Clock,
 } from "lucide-react";
 import { APP_VERSION_LABEL } from "../config/version.ts";
 import { persistTenantContext, normalizeBranchId, normalizeCompanyId } from "../lib/apiFetchV1";
@@ -68,6 +69,8 @@ interface LoginScreenProps {
     companyId?: string;
     branchId?: string;
   }) => void;
+  sessionNotice?: string | null;
+  onClearSessionNotice?: () => void;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -112,7 +115,11 @@ const LANGUAGES = [
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({
+  onLoginSuccess,
+  sessionNotice,
+  onClearSessionNotice,
+}) => {
   const [username, setUsername]         = useState("");
   const [password, setPassword]         = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -123,6 +130,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [error, setError]               = useState<string | null>(null);
   const [loading, setLoading]           = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
 
   // ── Authentication logic (UNCHANGED) ────────────────────────────────────
 
@@ -352,6 +360,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     </div>
                   </div>
                 </div>
+
+                {/* Session Inactivity / Expiration Notice */}
+                <AnimatePresence>
+                  {sessionNotice && !noticeDismissed && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      role="status"
+                      aria-live="polite"
+                      className="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5 backdrop-blur-md shadow-md"
+                    >
+                      <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" aria-hidden="true" />
+                      <div className="flex-1 leading-snug">
+                        <span className="font-semibold text-amber-300 block mb-0.5">Session Terminated</span>
+                        {sessionNotice}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNoticeDismissed(true);
+                          onClearSessionNotice?.();
+                        }}
+                        className="text-amber-400/80 hover:text-amber-200 p-0.5 rounded transition cursor-pointer"
+                        aria-label="Dismiss session notice"
+                      >
+                        <X size={14} />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Error banner */}
                 <AnimatePresence>

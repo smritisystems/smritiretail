@@ -32,6 +32,23 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.6] - 2026-09-26 — Security: Enterprise 15-Minute Session Inactivity Auto-Logout Subsystem & Multi-Tab Synchronization
+
+> **Branch:** `smritiNX` | **Area:** Terminal Security & Session Management Infrastructure
+
+### Added
+- **Authoritative 15-Minute Inactivity Auto-Logout Hook & Controller** (`src/hooks/useInactivityTimeout.ts`) — Pure TypeScript `InactivityTimeoutController` and React hook tracking user presence across discrete events (`mousedown`, `keydown`, `touchstart`, `click`) and throttled high-frequency events (`mousemove`, `touchmove`, `scroll`, `wheel`) with a 15-minute (900,000ms) security timeout baseline.
+- **Cross-Tab Synchronization via Web Storage Events** — Real-time synchronization through `localStorage.setItem("smriti_last_activity", ...)` and `storage` event listeners ensuring active work in any store tab automatically extends the session across all tabs.
+- **Sleep & Fast-Path Tab Wake Recovery** — Automatic elapsed time calculation on `visibilitychange` and `focus` events that instantly triggers logout if the computer was suspended or tab was backgrounded for $\ge$ 15 minutes.
+- **Session Inactivity Warning Modal** (`src/components/auth/InactivityWarningModal.tsx`) — Real-time countdown modal triggered at 14 minutes (60 seconds before expiration) featuring an amber security badge, digital countdown timer (`mm:ss`), percentage progress bar, "Stay Logged In" session renewal, and "Logout Now" immediate exit.
+- **Session Termination Banner on Login Screen** (`src/components/LoginScreen.tsx`) — Integrated `Clock` icon and dismissible security alert badge informing operators when their session timed out due to 15 minutes of inactivity.
+- **10-Scenario Verification Test Suite** (`src/tests/inactivityTimeout.test.ts`) — Automated Vitest suite validating defaults, start initialization, event recording, throttling, cross-tab synchronization, warning countdown, user input cancellation, 15-minute expiration, sleep recovery, and session token purging.
+
+### Hardened
+- **Universal Session Purge Registration** (`src/lib/apiFetchV1.ts`) — Added `smriti_last_activity` to `AUTH_STORAGE_KEYS` to guarantee complete cleanup on manual or automated session invalidation.
+
+---
+
 ## [6.45.5] - 2026-09-26 — Inventory: Universal Item Master Standard v2.1, 6-State Reconciliation Engine & Dynamic Live Template
 
 > **Branch:** `smritiNX` | **Area:** Inventory Catalog & Data Ingestion Infrastructure
