@@ -32,6 +32,23 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.5] - 2026-09-26 — Inventory: Universal Item Master Standard v2.1, 6-State Reconciliation Engine & Dynamic Live Template
+
+> **Branch:** `smritiNX` | **Area:** Inventory Catalog & Data Ingestion Infrastructure
+
+### Added
+- **Canonical Excel Item Master Creation Standard v2.1** — Engineered `assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx` featuring 36 governed columns, dynamic formula `=IF(C5="","",C5&"-"&F5&"-"&G5&"-"&Q5)` SKU preview, `WAREHOUSE_CODE` dropdown linked to `List_WAREHOUSE_CODE`, and snapshot audit metadata header.
+- **Dynamic Live Excel Template Generation** — Added `GET /api/v1/universal-import/templates/item-master.xlsx` streaming a governed workbook on-the-fly with live database lookups (`warehouses`, `brands`, `categories`, `departments`) populated directly from PostgreSQL tenant data.
+- **6-State Reconciliation Decision Hierarchy** — Enhanced `/api/v1/universal-import/preview` to classify imported rows into 6 explicit states (`NEW`, `EXISTING_MATCH`, `EXISTING_CONFLICT`, `DUPLICATE_IN_FILE`, `INVALID`), distinguishing benign re-imports from cross-product barcode collisions and intra-batch duplicates.
+- **3-Tier Cascade Commit with Ingestion Modes** — Enhanced `/api/v1/universal-import/commit` to execute the full normalization cascade (`Item` style parent $\rightarrow$ `ItemVariant` child $\rightarrow$ `ItemBarcode` optical identity $\rightarrow$ `ItemWarehouseLocation` $\rightarrow$ `PriceBookEntry`), with `existing_match_mode` (`SKIP`, `UPDATE_METADATA_AND_PRICE`, `FAIL_ON_EXISTING`) and `price_mode` (`DO_NOT_CREATE`, `CREATE_AS_DRAFT`, `CREATE_LIVE_RETAIL`) controls and SHA-256 payload idempotency.
+- **8-Test Verification Suite** — Created `backend/tests/test_universal_import_item_master.py` with 8 comprehensive scenarios covering dry runs, 6-state conflict discrimination, pricing modes, multi-variant matrices, and dynamic template streaming.
+
+### Fixed & Hardened
+- **Identity Allocation Collision Prevention** — Hardened `SmritiNumberingRegistry` in `backend/app/services/identity/code_generator.py` to anchor new sequence counters to `MAX(sequence_value) + 1` across existing items, preventing `uq_items_identity_code` duplicate key collisions.
+- **Catalog Dimension Validation Fallback** — Added HSN, UOM, and Footwear dimension normalization in `backend/app/services/catalog_validation.py` with resilient clean string fallbacks.
+
+---
+
 ## [6.45.4] - 2026-09-26 — Sales & Billing: URL Parameter Sanitization, Document Inspection Hardening & Navigation Aliases
 
 > **Branch:** `smritiNX` | **Area:** Sales & Billing Infrastructure
