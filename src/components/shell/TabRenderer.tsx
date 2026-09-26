@@ -283,6 +283,20 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           initialMode="RETAIL_POS"
         />
       );
+    case "credit-billing":
+    case "credit-sale":
+      return (
+        <BillingWorkspace
+          products={products}
+          profiles={profiles}
+          shifts={shifts}
+          currentUser={currentUser}
+          onRefreshData={fetchSystemState}
+          onNotification={addNotification}
+          initialMode="RETAIL_POS"
+          initialView="CREDIT_BILLING"
+        />
+      );
     case "tax-invoice":
     case "dist-invoice":
     case "create-tax-invoice":
