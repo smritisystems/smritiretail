@@ -32,6 +32,27 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.4] - 2026-09-26 — Sales & Billing: URL Parameter Sanitization, Document Inspection Hardening & Navigation Aliases
+
+> **Branch:** `smritiNX` | **Area:** Sales & Billing Infrastructure
+
+### Added
+- **`TabRenderer.tsx` Direct Navigation Aliases** — Registered `credit-billing` and `credit-sale` tab routes directly rendering `BillingWorkspace` with `initialView="CREDIT_BILLING"`.
+
+### Fixed & Hardened
+- **`apiFetchV1.ts` Universal Path Sanitization** — Added pre-flight URL path cleansing (`.replace(/\/:(?=[a-zA-Z0-9_-]+)/g, "/")`) to strip accidental Express-style parameter colon prefixes from client endpoints, eliminating `400 Bad Request` gateway/backend rejections.
+- **`BillingTerm.tsx` Document Inspection** — Hardened `handleSelectDocumentFromBrowser` to clean IDs, discriminate Customer POs (`po_number && !order_no`) from Sales Orders, route to `/sales/customer-pos/${id}`, and parse lines from both `items` and `lines` (supporting `unit_price`, `quantity_ordered`, etc.).
+- **Identifier Sanitization Across Studios & Forms** — Guarded single-order lookups in `ReportDesignerTab.tsx` (`handleConvertToInvoice`, `handlePreviewSO`), `SalesStudioTab.tsx` (`handleSalesOrderLineAction`), and `SalesOrderFormPremium.tsx` (`handleRecall`) using `.replace(/^:/, "").trim()` and URL component encoding.
+
+### Test Results
+```
+Type Check: npx tsc --noEmit (Exit 0, 0 errors)
+Unit & Integration Tests: 20/20 targeted vitest tests passed (billingTerm, salesAuditAndFormatters)
+Git State: Cleanly committed and pushed to origin/smritiNX
+```
+
+---
+
 ## [6.45.3] - 2026-09-26 — Security: Complete Sub-Views & Operations Implementation
 
 > **Branch:** `smritiNX` | **Area:** Security & Access Management
