@@ -282,14 +282,14 @@ export function contentAwarePaginate(items: ProcessedItem[]): PageChunk[] {
   return pages;
 }
 
-export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => {
+export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} as InvoiceData }) => {
   const parsed = parseNotes(data.notes);
   const isPurchaseOrder = data.documentType === "purchase-order";
   const isJobWorkOrder = data.documentType === "job-work-order";
   const currencySymbol = data.currencySymbol || "₹";
   
-  // Tattly Threads Approved Branding & Company Info
-  const companyName = "TATTLY THREADS";
+  // Tattly Threads Approved Branding & Company Info (supports custom company override)
+  const companyName = data.companyName || "TATTLY THREADS";
   const companyAddress = data.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump, Mumbai, Maharashtra 400003";
   const companyGst = data.companyGst || "27AAXFT2508H1ZR";
   const dispatchEmail = data.dispatchEmail || "dispatch@tattlythreads.com";

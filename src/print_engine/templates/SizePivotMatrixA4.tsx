@@ -1,19 +1,49 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
+ * Organization : AITDL NETWORKS
+ *
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 3.32.0
+ * Created      : 2026-09-22
+ * Modified     : 2026-09-26
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Classification: Internal
+ */
+
 import React from "react";
 import type { PurchaseOrderHeader, PurchaseOrderSizePivotRow } from "../../components/purchase/types.ts";
 
-interface SizePivotMatrixA4Props {
-  header: PurchaseOrderHeader;
-  rows: PurchaseOrderSizePivotRow[];
-  currencySymbol: string;
+export interface SizePivotMatrixA4Props {
+  header?: PurchaseOrderHeader;
+  rows?: PurchaseOrderSizePivotRow[];
+  currencySymbol?: string;
   vendorName?: string;
+  data?: {
+    header?: PurchaseOrderHeader;
+    rows?: PurchaseOrderSizePivotRow[];
+    currencySymbol?: string;
+    vendorName?: string;
+  };
 }
 
 const SIZES = ["36", "37", "38", "39", "40", "41", "42", "43", "44"];
 
-export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = ({ header, rows, currencySymbol, vendorName }) => {
-  const validRows = rows.filter((row) => row.articleNo.trim() || row.product.trim());
+export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
+  const header = props.header || props.data?.header || {} as PurchaseOrderHeader;
+  const rows = props.rows || props.data?.rows || [];
+  const currencySymbol = props.currencySymbol || props.data?.currencySymbol || "₹";
+  const vendorName = props.vendorName || props.data?.vendorName || header.supplierName || "Selected Supplier";
+
+  const validRows = (rows || []).filter((row) => (row.articleNo || "").trim() || (row.product || "").trim());
   const totalQty = validRows.reduce((sum, row) => sum + (row.totalQty || 0), 0);
-  const totalValue = validRows.reduce((sum, row) => sum + (row.totalValue || row.totalQty * row.rate), 0);
+  const totalValue = validRows.reduce((sum, row) => sum + (row.totalValue || (row.totalQty || 0) * (row.rate || 0)), 0);
+
+  const poNumberDisplay = `${header.prefix || "PO"}-${header.orderNumber || "1"}`;
 
   return (
     <div className="w-[210mm] min-h-[297mm] bg-white text-slate-900 p-8 mx-auto box-border text-[11px] font-sans print-only-container">
@@ -21,14 +51,14 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = ({ header, ro
         <div>
           <div className="text-xl font-black text-slate-950">SMRITI RETAIL OS</div>
           <div className="text-xs text-slate-600">Size Pivot Matrix Procurement</div>
-          <div className="text-[10px] mt-2">Supplier: <strong>{vendorName || header.supplierName || "Selected Supplier"}</strong></div>
+          <div className="text-[10px] mt-2">Supplier: <strong>{vendorName}</strong></div>
           <div className="text-[10px]">Delivery: {header.deliveryLocation || "Main Store (MAIN)"}</div>
         </div>
         <div className="text-right">
           <div className="bg-slate-900 text-white px-3 py-1 font-bold text-xs">SIZE PIVOT MATRIX</div>
-          <div className="font-mono font-bold mt-2">PO No: {header.prefix || "PO"}-{header.orderNumber || "1"}</div>
-          <div className="text-[10px]">Date: {header.orderDate}</div>
-          <div className="text-[10px]">Due: {header.deliveryDate}</div>
+          <div className="font-mono font-bold mt-2">PO No: {poNumberDisplay}</div>
+          <div className="text-[10px]">Date: {header.orderDate || new Date().toISOString().slice(0, 10)}</div>
+          <div className="text-[10px]">Due: {header.deliveryDate || "-"}</div>
         </div>
       </header>
 
@@ -49,19 +79,24 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = ({ header, ro
         <tbody>
           {validRows.length === 0 ? (
             <tr><td colSpan={17} className="p-5 text-center italic text-slate-500">No pivot items available</td></tr>
-          ) : validRows.map((row, index) => (
-            <tr key={row.id} className="border-b border-slate-200">
-              <td className="p-1 border border-slate-300 text-center">{index + 1}</td>
-              <td className="p-1 border border-slate-300 font-mono font-bold">{row.articleNo || "-"}</td>
-              <td className="p-1 border border-slate-300 font-semibold">{row.product || "-"}</td>
-              <td className="p-1 border border-slate-300">{row.color || "-"}</td>
-              {SIZES.map((size) => <td key={size} className="p-1 border border-slate-300 text-center font-mono">{row.sizeQuantities[size] || 0}</td>)}
-              <td className="p-1 border border-slate-300 text-right font-bold">{row.totalQty}</td>
-              <td className="p-1 border border-slate-300 text-right">{currencySymbol}{row.rate.toFixed(2)}</td>
-              <td className="p-1 border border-slate-300 text-right">{row.gstPercent.toFixed(2)}%</td>
-              <td className="p-1 border border-slate-300 text-right font-bold">{currencySymbol}{(row.totalValue || row.totalQty * row.rate).toFixed(2)}</td>
-            </tr>
-          ))}
+          ) : validRows.map((row, index) => {
+            const rowQty = row.totalQty || 0;
+            const rowRate = row.rate || 0;
+            const rowValue = row.totalValue ?? (rowQty * rowRate);
+            return (
+              <tr key={row.id || index} className="border-b border-slate-200">
+                <td className="p-1 border border-slate-300 text-center">{index + 1}</td>
+                <td className="p-1 border border-slate-300 font-mono font-bold">{row.articleNo || "-"}</td>
+                <td className="p-1 border border-slate-300 font-semibold">{row.product || "-"}</td>
+                <td className="p-1 border border-slate-300">{row.color || "-"}</td>
+                {SIZES.map((size) => <td key={size} className="p-1 border border-slate-300 text-center font-mono">{row.sizeQuantities?.[size] || 0}</td>)}
+                <td className="p-1 border border-slate-300 text-right font-bold">{rowQty}</td>
+                <td className="p-1 border border-slate-300 text-right">{currencySymbol}{rowRate.toFixed(2)}</td>
+                <td className="p-1 border border-slate-300 text-right">{(row.gstPercent || 0).toFixed(2)}%</td>
+                <td className="p-1 border border-slate-300 text-right font-bold">{currencySymbol}{rowValue.toFixed(2)}</td>
+              </tr>
+            );
+          })}
         </tbody>
         <tfoot>
           <tr className="bg-slate-100 font-bold">
@@ -90,7 +125,7 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = ({ header, ro
       <footer className="mt-5 border-t border-slate-300 pt-2 text-[9px] text-slate-600 space-y-1">
         <div className="flex justify-between gap-4">
           <span className="font-semibold text-slate-800">SMRITI Retail OS | Size Pivot Matrix</span>
-          <span>PO: {header.prefix || "PO"}-{header.orderNumber || "1"} | Status: DRAFT</span>
+          <span>PO: {poNumberDisplay} | Status: DRAFT</span>
         </div>
         <div className="flex justify-between gap-4">
           <span>Payment: {header.paymentTerms || "30 Days"} | Purchaser: {header.buyer || "-"}</span>
