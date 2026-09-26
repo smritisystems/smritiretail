@@ -1858,22 +1858,31 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       let fullDoc = doc;
       if (doc.id && (docType === "INVOICES" || docType === "CANCELLED")) {
         try {
-          const fetched = await apiFetchV1<any>(`/sales/invoices/${doc.id}`);
+          const cleanId = String(doc.id).replace(/^:/, "").trim();
+          const fetched = await apiFetchV1<any>(`/sales/invoices/${encodeURIComponent(cleanId)}`);
           if (fetched) fullDoc = fetched;
         } catch {
           fullDoc = doc;
         }
       } else if (doc.id && docType === "ORDERS") {
         try {
-          const fetched = await apiFetchV1<any>(`/sales/orders/${doc.id}`);
-          if (fetched) fullDoc = fetched;
+          const cleanId = String(doc.id || doc.order_no || doc.po_number || "").replace(/^:/, "").trim();
+          if (cleanId) {
+            if (doc.po_number && !doc.order_no) {
+              const fetched = await apiFetchV1<any>(`/sales/customer-pos/${encodeURIComponent(cleanId)}`);
+              if (fetched) fullDoc = fetched;
+            } else {
+              const fetched = await apiFetchV1<any>(`/sales/orders/${encodeURIComponent(cleanId)}`);
+              if (fetched) fullDoc = fetched;
+            }
+          }
         } catch {
           fullDoc = doc;
         }
       }
 
       const docNo = fullDoc.invoice_no || fullDoc.order_no || fullDoc.return_no || fullDoc.po_number || "DOC";
-      const dateStr = fullDoc.date || fullDoc.billDate || new Date().toLocaleDateString("en-GB");
+      const dateStr = fullDoc.date || fullDoc.billDate || fullDoc.po_date || new Date().toLocaleDateString("en-GB");
 
       setHeaderState(prev => ({
         ...prev,
@@ -1899,13 +1908,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         remarks: fullDoc.remarks || `Audit View: ${fullDoc.status || "Finalized"}`,
       }));
 
-      const rawItems = fullDoc.items || [];
+      const rawItems = fullDoc.items || fullDoc.lines || [];
       const mappedItems: BillingLineItem[] = rawItems.map((it: any, idx: number) => {
-        const rate = Number(it.price || it.rate || 0);
-        const qty = Number(it.quantity || it.qty || 1);
+        const rate = Number(it.price || it.rate || it.unit_price || 0);
+        const qty = Number(it.quantity || it.qty || it.quantity_ordered || 1);
         const taxable = Number(it.taxable_value || (rate * qty));
         const discAmt = Number(it.disc_amt || 0);
-        const total = Number(it.total_amount || it.total || (taxable + Number(it.tax_amount || 0)));
+        const total = Number(it.total_amount || it.total || it.ordered_value || (taxable + Number(it.tax_amount || 0)));
         return {
           id: it.id ? String(it.id) : `audit-item-${idx}`,
           sNo: idx + 1,
@@ -1917,7 +1926,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           value: taxable,
           discCode: "",
           discQty: 0,
-          discPercent: Number(it.disc_pct || 0),
+          discPercent: Number(it.disc_pct || it.discPercent || 0),
           discAmt,
           total,
           salesStaff: headerState.salesStaff,
