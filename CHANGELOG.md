@@ -32,6 +32,30 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.3] - 2026-09-26 — Security: Complete Sub-Views & Operations Implementation
+
+> **Branch:** `smritiNX` | **Area:** Security & Access Management
+
+### Added
+- **`RolesGroupsView.tsx`** (178 lines) — Dedicated Roles & Groups management view wired to `GET /api/v1/roles/`. Displays role matrices, system badges (`SYSADMIN`, `ADMIN`) vs custom badges, and collapsible granular permissions lists.
+- **`LockedUsersView.tsx`** (172 lines) — Locked operator accounts dashboard wired to `GET /api/v1/users/?status=Inactive`. Displays operator credentials, role assignment, and last login timestamps with a one-click unlock flow and confirmation dialogs.
+- **`AuditLogView.tsx`** (179 lines) — Activity / Audit Log viewer querying `/api/v1/security/audit-log` with color-coded badges for INSERT, UPDATE, DELETE, and LOGIN events, CSV export, and graceful structured fallback messaging.
+- **`MyProfileView.tsx`** (221 lines) — Operator profile management decoding JWT credentials for authenticated user identity, displaying branch codes, full names, and contact details with toggleable edit mode.
+- **`ChangePasswordView.tsx`** (215 lines) — Operator password change interface featuring a 5-point password strength evaluation meter, real-time policy rules validation, and password visibility toggles.
+- **`MenuShortcutsView.tsx`** (193 lines) — Quick-access navigation shortcuts manager with a catalog of standard ERP studios, allowing operators to add, remove, and persist preferences in `localStorage["smriti_menu_shortcuts"]`.
+
+### Changed
+- **`SecurityAccessShell.tsx`** — Wired all 6 new presentation components into the internal routing switch, completely replacing placeholder stubs for all active sections.
+
+### Test Results
+```
+Type Check: npx tsc --noEmit (Exit 0, 0 errors)
+Unit & Integration Tests: 153/153 test suites passed (1,057 tests passed, 0 failures)
+Production Build: vite build (Exit 0, 32.80s)
+```
+
+---
+
 ## [6.45.2] - 2026-09-26 — Security: Security & Access UX Refactor (Visual Upgrade)
 
 > **Commit:** `2b4d109d` | **Branch:** `smritiNX` | **Area:** Security & Access Management
