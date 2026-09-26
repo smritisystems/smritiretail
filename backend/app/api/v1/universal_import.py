@@ -16,9 +16,13 @@ import hashlib
 import json
 import uuid
 from decimal import Decimal
+from io import BytesIO
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
+import openpyxl
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +32,7 @@ from ...api.deps import get_company_db, get_current_user, get_tenant_context, Te
 from ...models.audit import ComplianceImmutableAuditLog
 from ...models.item_master import Item, ItemVariant, ItemBarcode, ItemWarehouseLocation
 from ...models.pricing import PriceBook, PriceBookEntry
-from ...models.inventory import Product
+from ...models.inventory import Product, Warehouse
 from ...schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
 from ...schemas.stock_acct import StockMovementRecordRequest
 from ...schemas.sales import SalesReturnCreate, SalesReturnItemCreate
@@ -57,6 +61,7 @@ class ImportCommitRequest(ImportPreviewRequest):
     original_invoice_id: Optional[str] = None
     return_no: Optional[str] = None
     price_mode: Optional[str] = "DO_NOT_CREATE"  # DO_NOT_CREATE, CREATE_AS_DRAFT, CREATE_LIVE_RETAIL
+    existing_match_mode: Optional[str] = "SKIP"  # SKIP, UPDATE_METADATA_AND_PRICE, FAIL_ON_EXISTING
 
 
 def _text(row: Dict[str, Any], *keys: str) -> str:
@@ -156,8 +161,11 @@ async def preview_universal_import(
         summary = {
             "total_rows": len(request.rows),
             "valid_rows": 0,
-            "duplicate_barcodes": 0,
-            "duplicate_skus": 0,
+            "new_rows": 0,
+            "existing_match_rows": 0,
+            "existing_conflict_rows": 0,
+            "duplicate_in_file_rows": 0,
+            "invalid_rows": 0,
             "pricing_conflicts": 0,
             "distinct_styles": 0,
             "status": "READY_FOR_IMPORT",
@@ -174,10 +182,14 @@ async def preview_universal_import(
             warehouse_code = _text(row, "warehouse_code", "WAREHOUSE_CODE", "warehouse_id")
 
             errors = []
+            duplicate_in_file = False
+            pricing_conflict = False
+
             if not barcode:
                 errors.append("Missing BARCODE_NO")
             elif barcode in batch_barcodes:
-                errors.append(f"Duplicate barcode in batch: {barcode}")
+                duplicate_in_file = True
+                errors.append(f"Duplicate barcode within file: {barcode}")
 
             if not sku:
                 if style and color and size:
@@ -185,24 +197,24 @@ async def preview_universal_import(
                 else:
                     errors.append("Missing SKU_CODE or Style/Color/Size")
             elif sku in batch_skus:
-                errors.append(f"Duplicate SKU in batch: {sku}")
+                duplicate_in_file = True
+                errors.append(f"Duplicate SKU within file: {sku}")
 
             if selling_val > mrp_val and mrp_val > 0:
+                pricing_conflict = True
                 errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
 
             # Check DB barcode
+            db_bc = None
             if barcode:
                 db_bc = await UniversalItemMasterService.lookup_by_barcode(db, barcode)
-                if db_bc:
-                    errors.append(f"Barcode already exists in database (Item: {db_bc.get('item_name')})")
 
             # Check DB SKU
+            existing_var = None
             if sku:
                 existing_var = (await db.execute(
                     select(ItemVariant).where(ItemVariant.variant_sku == sku.upper(), ItemVariant.is_deleted == False)
                 )).scalar_one_or_none()
-                if existing_var:
-                    errors.append(f"SKU already exists in database: {sku}")
 
             # Check DB Style
             db_item = None
@@ -214,16 +226,44 @@ async def preview_universal_import(
                 )
                 db_item = (await db.execute(item_stmt)).scalars().first()
 
-            if barcode:
-                batch_barcodes.add(barcode)
-            if sku:
-                batch_skus.add(sku)
-            if style:
-                seen_styles.add(style)
+            # 6-State Reconciliation Decision Hierarchy
+            if duplicate_in_file:
+                reconciliation_state = "DUPLICATE_IN_FILE"
+                row_status = "INVALID"
+                action = "BLOCK"
+            elif errors:
+                reconciliation_state = "INVALID"
+                row_status = "INVALID"
+                action = "BLOCK"
+            elif db_bc:
+                existing_item_code = (db_bc.get("item_code") or "").strip().upper()
+                existing_variant_sku = (db_bc.get("variant_sku") or "").strip().upper()
+                incoming_style = (style or "").strip().upper()
+                incoming_sku = (sku or "").strip().upper()
 
-            is_valid = len(errors) == 0
-            if is_valid:
-                summary["valid_rows"] += 1
+                if (existing_variant_sku == incoming_sku) or (existing_item_code == incoming_style):
+                    reconciliation_state = "EXISTING_MATCH"
+                    row_status = "VALID"
+                    action = "SKIP"
+                else:
+                    reconciliation_state = "EXISTING_CONFLICT"
+                    row_status = "INVALID"
+                    action = "BLOCK"
+                    errors.append(
+                        f"Barcode {barcode} conflicts with existing database item '{db_bc.get('item_name')}' ({existing_item_code}/{existing_variant_sku})"
+                    )
+            elif existing_var:
+                if db_item and existing_var.item_id == db_item.id:
+                    reconciliation_state = "EXISTING_MATCH"
+                    row_status = "VALID"
+                    action = "SKIP"
+                else:
+                    reconciliation_state = "EXISTING_CONFLICT"
+                    row_status = "INVALID"
+                    action = "BLOCK"
+                    errors.append(f"SKU {sku} already exists in database under different item")
+            else:
+                reconciliation_state = "NEW"
                 row_status = "VALID"
                 if style and (style in processed_styles or db_item):
                     action = "ATTACH_VARIANT_TO_STYLE"
@@ -231,15 +271,30 @@ async def preview_universal_import(
                     action = "CREATE_ITEM_AND_VARIANT"
                     if style:
                         processed_styles.add(style)
-            else:
-                row_status = "INVALID"
-                action = "BLOCK"
-                if any("barcode" in e.lower() for e in errors):
-                    summary["duplicate_barcodes"] += 1
-                if any("sku" in e.lower() for e in errors):
-                    summary["duplicate_skus"] += 1
-                if any("selling_price" in e.lower() for e in errors):
-                    summary["pricing_conflicts"] += 1
+
+            if barcode:
+                batch_barcodes.add(barcode)
+            if sku:
+                batch_skus.add(sku)
+            if style:
+                seen_styles.add(style)
+
+            # Accumulate metrics
+            if reconciliation_state == "NEW":
+                summary["new_rows"] += 1
+            elif reconciliation_state == "EXISTING_MATCH":
+                summary["existing_match_rows"] += 1
+            elif reconciliation_state == "EXISTING_CONFLICT":
+                summary["existing_conflict_rows"] += 1
+            elif reconciliation_state == "DUPLICATE_IN_FILE":
+                summary["duplicate_in_file_rows"] += 1
+            elif reconciliation_state == "INVALID":
+                summary["invalid_rows"] += 1
+
+            if row_status == "VALID":
+                summary["valid_rows"] += 1
+            if pricing_conflict:
+                summary["pricing_conflicts"] += 1
 
             reconciliation_report.append({
                 "row_number": row_num,
@@ -247,6 +302,7 @@ async def preview_universal_import(
                 "sku": sku,
                 "style_code": style,
                 "status": row_status,
+                "reconciliation_state": reconciliation_state,
                 "action": action,
                 "errors": errors,
                 "color": color,
@@ -257,7 +313,9 @@ async def preview_universal_import(
             })
 
         summary["distinct_styles"] = len(seen_styles)
-        if summary["valid_rows"] < summary["total_rows"]:
+        if summary["existing_conflict_rows"] == 0 and summary["duplicate_in_file_rows"] == 0 and summary["invalid_rows"] == 0:
+            summary["status"] = "READY_FOR_IMPORT"
+        else:
             summary["status"] = "VALIDATION_ISSUES_FOUND"
 
         return {
@@ -267,10 +325,15 @@ async def preview_universal_import(
                 "total": summary["total_rows"],
                 "valid": summary["valid_rows"],
                 "invalid": summary["total_rows"] - summary["valid_rows"],
-                "duplicate_barcodes": summary["duplicate_barcodes"],
-                "duplicate_skus": summary["duplicate_skus"],
+                "new": summary["new_rows"],
+                "existing_match": summary["existing_match_rows"],
+                "existing_conflict": summary["existing_conflict_rows"],
+                "duplicate_in_file": summary["duplicate_in_file_rows"],
                 "pricing_conflicts": summary["pricing_conflicts"],
                 "distinct_styles": summary["distinct_styles"],
+                # Backward-compatibility aliases
+                "duplicate_barcodes": summary["existing_conflict_rows"] + summary["duplicate_in_file_rows"],
+                "duplicate_skus": summary["duplicate_in_file_rows"],
             },
             "rows": reconciliation_report,
         }
@@ -352,19 +415,21 @@ async def commit_universal_import(
             if not (barcode or sku or style_code):
                 raise HTTPException(status_code=422, detail={"row_number": row.get("rowNumber", index), "message": "At least one identifier (Barcode, SKU, or Style Code) is required."})
 
-            if barcode:
-                existing_bc = (await db.execute(
-                    select(ItemBarcode).where(ItemBarcode.company_id == company_id, ItemBarcode.barcode == barcode.strip().upper(), ItemBarcode.is_deleted == False)
-                )).scalars().first()
-                if existing_bc:
-                    raise HTTPException(status_code=409, detail={"row_number": row.get("rowNumber", index), "message": f"Barcode '{barcode}' already exists in database."})
+            match_mode = (request.existing_match_mode or "SKIP").upper().strip()
+            if match_mode == "FAIL_ON_EXISTING":
+                if barcode:
+                    existing_bc = (await db.execute(
+                        select(ItemBarcode).where(ItemBarcode.company_id == company_id, ItemBarcode.barcode == barcode.strip().upper(), ItemBarcode.is_deleted == False)
+                    )).scalars().first()
+                    if existing_bc:
+                        raise HTTPException(status_code=409, detail={"row_number": row.get("rowNumber", index), "message": f"Barcode '{barcode}' already exists in database."})
 
-            if sku:
-                existing_sku = (await db.execute(
-                    select(ItemVariant).where(ItemVariant.company_id == company_id, ItemVariant.variant_sku == sku.strip().upper(), ItemVariant.is_deleted == False)
-                )).scalars().first()
-                if existing_sku:
-                    raise HTTPException(status_code=409, detail={"row_number": row.get("rowNumber", index), "message": f"SKU '{sku}' already exists in database."})
+                if sku:
+                    existing_sku = (await db.execute(
+                        select(ItemVariant).where(ItemVariant.company_id == company_id, ItemVariant.variant_sku == sku.strip().upper(), ItemVariant.is_deleted == False)
+                    )).scalars().first()
+                    if existing_sku:
+                        raise HTTPException(status_code=409, detail={"row_number": row.get("rowNumber", index), "message": f"SKU '{sku}' already exists in database."})
 
             resolved_rows.append({
                 "row": row,
@@ -565,7 +630,39 @@ async def commit_universal_import(
                         ItemBarcode.is_deleted == False
                     )
                     existing_bc = (await db.execute(bc_stmt)).scalars().first()
-                    if not existing_bc:
+                    if existing_bc:
+                        match_mode = (request.existing_match_mode or "SKIP").upper().strip()
+                        if match_mode == "FAIL_ON_EXISTING":
+                            raise HTTPException(
+                                status_code=status.HTTP_409_CONFLICT,
+                                detail=f"Row {index}: Barcode '{clean_barcode}' already exists in database.",
+                            )
+                        elif match_mode == "UPDATE_METADATA_AND_PRICE":
+                            if variant:
+                                variant.mrp = Decimal(str(row_mrp))
+                                variant.selling_price = Decimal(str(row_selling))
+                                if row_cost > 0:
+                                    variant.cost_price = Decimal(str(row_cost))
+                            results.append({
+                                "row_number": row.get("rowNumber", index),
+                                "status": "UPDATED_EXISTING_MATCH",
+                                "item_id": item.id,
+                                "variant_sku": variant.variant_sku if variant else clean_sku,
+                                "barcode": clean_barcode,
+                                "message": "Updated pricing for existing item match",
+                            })
+                            continue
+                        else:  # SKIP
+                            results.append({
+                                "row_number": row.get("rowNumber", index),
+                                "status": "SKIPPED_EXISTING_MATCH",
+                                "item_id": existing_bc.item_id,
+                                "variant_id": existing_bc.variant_id,
+                                "barcode": clean_barcode,
+                                "message": "Skipped existing item match",
+                            })
+                            continue
+                    else:
                         tax_inc = _text(row, "tax_inclusive_yn", "TAX_INCLUSIVE_YN").upper() == "Y" if _text(row, "tax_inclusive_yn", "TAX_INCLUSIVE_YN") else None
                         barcode_entity = ItemBarcode(
                             id=f"bc_{uuid.uuid4().hex[:12]}",
@@ -773,3 +870,103 @@ async def commit_universal_import(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Universal import rolled back: {error}") from error
     return {"success": True, "idempotent_replay": False, "idempotency_key": request.idempotency_key, "results": results}
+
+
+@router.get("/templates/item-master.xlsx", summary="Download dynamic Item Master template pre-populated with live database masters")
+async def download_item_master_template(
+    company_id: Optional[str] = Query("COMP-001"),
+    warehouse_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    _current_user: Any = Depends(get_current_user),
+):
+    """
+    Generate and stream an authoritative SMRITI Item Master Standard v2.1 Excel workbook,
+    dynamically pre-populating lookup dropdown lists (Warehouses, Brands, Departments, Categories)
+    from live database records for the specified company.
+    """
+    effective_company = company_id or "COMP-001"
+
+    # 1. Fetch live warehouses
+    wh_stmt = select(Warehouse.code).where(
+        Warehouse.company_id == effective_company,
+        Warehouse.is_deleted == False
+    ).order_by(Warehouse.code)
+    wh_codes = [r[0] for r in (await db.execute(wh_stmt)).all() if r[0]]
+
+    # 2. Fetch live brands
+    brand_stmt = select(Item.brand).where(
+        Item.company_id == effective_company,
+        Item.brand.isnot(None),
+        Item.is_deleted == False
+    ).distinct().order_by(Item.brand)
+    brand_names = [r[0] for r in (await db.execute(brand_stmt)).all() if r[0]]
+
+    # 3. Fetch live departments
+    dept_stmt = select(Item.department).where(
+        Item.company_id == effective_company,
+        Item.department.isnot(None),
+        Item.is_deleted == False
+    ).distinct().order_by(Item.department)
+    dept_names = [r[0] for r in (await db.execute(dept_stmt)).all() if r[0]]
+
+    # 4. Fetch live categories
+    cat_stmt = select(Item.category).where(
+        Item.company_id == effective_company,
+        Item.category.isnot(None),
+        Item.is_deleted == False
+    ).distinct().order_by(Item.category)
+    cat_names = [r[0] for r in (await db.execute(cat_stmt)).all() if r[0]]
+
+    # Load canonical template base
+    template_path = Path("assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx")
+    if not template_path.exists():
+        template_path = Path(__file__).resolve().parents[4] / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"
+    if not template_path.exists():
+        template_path = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"
+
+    wb = openpyxl.load_workbook(template_path)
+    if "Validation Lists" in wb.sheetnames:
+        vl_ws = wb["Validation Lists"]
+        # Update warehouses in column S (Col 19)
+        if wh_codes:
+            for idx, w in enumerate(wh_codes, start=2):
+                vl_ws.cell(row=idx, column=19, value=w)
+            if "List_WAREHOUSE_CODE" in wb.defined_names:
+                wb.defined_names["List_WAREHOUSE_CODE"].attr_text = f"'Validation Lists'!$S$2:$S${len(wh_codes)+1}"
+
+        # Update brands in column B (Col 2)
+        if brand_names:
+            for idx, b in enumerate(brand_names, start=2):
+                vl_ws.cell(row=idx, column=2, value=b)
+            if "List_BRAND_NAME" in wb.defined_names:
+                wb.defined_names["List_BRAND_NAME"].attr_text = f"'Validation Lists'!$B$2:$B${len(brand_names)+1}"
+
+        # Update departments in column F (Col 6)
+        if dept_names:
+            for idx, d in enumerate(dept_names, start=2):
+                vl_ws.cell(row=idx, column=6, value=d)
+            if "List_MERCHANDISE_DEPARTMENT" in wb.defined_names:
+                wb.defined_names["List_MERCHANDISE_DEPARTMENT"].attr_text = f"'Validation Lists'!$F$2:$F${len(dept_names)+1}"
+
+        # Update categories in column G (Col 7)
+        if cat_names:
+            for idx, c in enumerate(cat_names, start=2):
+                vl_ws.cell(row=idx, column=7, value=c)
+            if "List_MERCHANDISE_CATEGORY" in wb.defined_names:
+                wb.defined_names["List_MERCHANDISE_CATEGORY"].attr_text = f"'Validation Lists'!$G$2:$G${len(cat_names)+1}"
+
+    # If warehouse_id was selected, prefill sample row 5
+    if warehouse_id and "Item Master Template" in wb.sheetnames:
+        it_ws = wb["Item Master Template"]
+        it_ws.cell(row=5, column=28, value=warehouse_id.strip().upper())
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    filename = f"SMRITI_Item_Master_Standard_v2.1_{effective_company}.xlsx"
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
