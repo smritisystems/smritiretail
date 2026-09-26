@@ -58,6 +58,16 @@ class CatalogDimensionValidator:
         "vendor_code": "vendor_code",
         "vendorcode": "vendor_code",
         "product": "product",
+        "hsn": "hsn_code",
+        "hsn_code": "hsn_code",
+        "uom": "uom",
+        "gender": "gender",
+        "product_type": "product_type",
+        "heel_type": "heel_type",
+        "upper_material": "upper_material",
+        "outsole_material": "outsole_material",
+        "purchase_class": "purchase_class",
+        "collection_type": "collection_type",
     }
 
     DIMENSION_LABELS = {
@@ -70,6 +80,15 @@ class CatalogDimensionValidator:
         "size": "Size",
         "vendor_code": "Vendor Code",
         "product": "Product",
+        "hsn_code": "HSN Code",
+        "uom": "Unit of Measure (UOM)",
+        "gender": "Gender",
+        "product_type": "Product Type",
+        "heel_type": "Heel Type",
+        "upper_material": "Upper Material",
+        "outsole_material": "Outsole Material",
+        "purchase_class": "Purchase Class",
+        "collection_type": "Collection Type",
     }
 
     @classmethod
@@ -158,7 +177,11 @@ class CatalogDimensionValidator:
                         if str(v).strip().casefold() == target_lower:
                             return str(v).strip()
 
-        # 3. Unmatched value handling
+        # 3. Dynamic Attribute Framework fallback for secondary dimensions or unseeded master dimensions
+        if not direct_rows and type_code not in {"color", "size", "category", "brand"}:
+            return clean_val
+
+        # 4. Unmatched value handling
         if strict:
             raise HTTPException(
                 status_code=422,

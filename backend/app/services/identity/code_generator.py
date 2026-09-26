@@ -15,7 +15,7 @@ Classification: Internal
 # smriti_capability(entity="IDENTITY", capability="UNIFIED_IDENTITY_CONTROL_PLANE", role="ADAPTER", canonicalOwner="backend/app/services/identity/engine.py")
 
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models.identity_registry import (
@@ -118,6 +118,13 @@ class IdentityCodeGenerator:
         if not numbering_record:
             # Race-safe counter initialization: handle concurrent first allocations cleanly
             try:
+                max_seq_stmt = select(func.max(SmritiNumberingRegistry.sequence_value)).where(
+                    SmritiNumberingRegistry.entity_type == entity_type_upper,
+                    SmritiNumberingRegistry.prefix == actual_prefix,
+                )
+                max_existing_seq = (await session.execute(max_seq_stmt)).scalar() or 0
+                initial_seq = max(1, max_existing_seq + 1)
+
                 async with session.begin_nested():
                     new_rec = SmritiNumberingRegistry(
                         id=uuid7(),
@@ -127,7 +134,7 @@ class IdentityCodeGenerator:
                         prefix=actual_prefix,
                         format_template=f"{actual_prefix}-{{seq:0{padding}d}}",
                         scope=scope_mode,
-                        sequence_value=1,
+                        sequence_value=initial_seq,
                         padding=padding,
                         reset_policy="NEVER",
                         financial_year=scoped_fy,
@@ -139,7 +146,7 @@ class IdentityCodeGenerator:
                     session.add(new_rec)
                     await session.flush()
                     numbering_record = new_rec
-                    allocated_seq = 1
+                    allocated_seq = initial_seq
             except IntegrityError:
                 # Concurrent worker initialized the sequence simultaneously; acquire lock and increment
                 num_res = await session.execute(num_stmt)
