@@ -132,6 +132,23 @@ def run(db_url: str, dry_run: bool) -> None:
     engine = sa.create_engine(db_url, echo=False)
     TABLE = "smriti_legacy_menu_map"
 
+    # CONTROL PLANE BOUNDARY GUARD: smriti_legacy_menu_map is Control Plane metadata.
+    # It must ONLY be seeded into smritisys, never into tenant company databases.
+    try:
+        with engine.connect() as _chk_conn:
+            target_db = _chk_conn.execute(text("SELECT current_database();")).scalar()
+        if str(target_db).strip().lower() != "smritisys":
+            print(
+                f"ERROR: TENANT DATA BOUNDARY VIOLATION\n"
+                f"  smriti_legacy_menu_map is Control Plane metadata and MUST only be seeded into smritisys.\n"
+                f"  Target database resolved as: '{target_db}'\n"
+                f"  Use --db-url pointing to smritisys, or set DATABASE_URL to smritisys."
+            )
+            sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Unable to verify target database: {e}")
+        sys.exit(1)
+
     inserted = 0
     updated  = 0
     errors   = 0
@@ -234,6 +251,8 @@ def main() -> None:
     if not db_url and not args.dry_run:
         db_url = load_env_db_url()
 
+    # NOTE: smriti_legacy_menu_map is Control Plane metadata.
+    # The db_url / DATABASE_URL must resolve to smritisys. A guard in run() enforces this.
     run(db_url=db_url or "", dry_run=args.dry_run)
 
 

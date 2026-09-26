@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.32.0
+ * Version      : 3.33.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-02
  * Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -103,7 +103,6 @@ export const GlobalSearch: React.FC = () => {
     category: activeCategory,
     fieldLabel,
     fieldValue,
-    insertValueIntoActiveField,
   } = useActiveField();
 
   const [query, setQuery] = useState("");
@@ -177,12 +176,8 @@ export const GlobalSearch: React.FC = () => {
         setSearchOpen(false);
         return;
       }
-      // 1. Always inject the appropriate value into the active input field
-      const insertKey = descriptor.insertValueKeys.find((k) => row[k]) ?? "name";
-      const valueToInsert = row[insertKey] || row.name || row.code || row.id || "";
-      insertValueIntoActiveField(valueToInsert);
 
-      // 2. For products and customers, also push a drill-down context panel
+      // For products and customers, push a drill-down context panel
       if (selectedCategory === "product" || selectedCategory === "customer") {
         const context = {
           entityType: selectedCategory === "product" ? ("item" as const) : ("customer" as const),
@@ -196,7 +191,7 @@ export const GlobalSearch: React.FC = () => {
 
       setSearchOpen(false);
     },
-    [descriptor, selectedCategory, insertValueIntoActiveField, openPanel, pushContext, setSearchOpen]
+    [selectedCategory, openPanel, pushContext, setSearchOpen]
   );
 
   const handleConfirm = useCallback(() => {

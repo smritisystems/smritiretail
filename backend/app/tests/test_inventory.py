@@ -161,3 +161,93 @@ async def test_soft_delete_product_unauthorized_role(db_session):
     await db_session.refresh(product)
     assert product.is_deleted is False
     assert product.deleted_by is None
+
+
+# ---------------------------------------------------------------------------
+# Regression: NULL buying_price / cost_price MUST NOT cause ResponseValidationError
+# This covers the production 500 on GET /api/v1/products/search?q=&limit=5
+# Root cause: ProductBase.validate_pricing_hierarchy() raised on serialization
+# of legacy DB rows.  Fixed by overriding the validator in ProductResponse.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_product_response_serializes_null_buying_price(db_session):
+    """
+    ProductResponse must not raise a ValueError (=> HTTP 500) when a
+    Product row has NULL buying_price and/or NULL cost_price.
+    """
+    from decimal import Decimal
+    from app.schemas.inventory import ProductResponse
+
+    # Simulate an ORM Product row with NULL buying / cost prices
+    comp, br = await _make_tenant(db_session, "nullbp")
+    prod_id = f"prod-nbp-{uuid.uuid4().hex[:6]}"
+    product = Product(
+        id=prod_id,
+        code=f"P-NBP-{uuid.uuid4().hex[:4]}",
+        name="Legacy Item No Buying Price",
+        price=250.0,
+        mrp=250.0,
+        gst_percentage=18.0,
+        stock=5,
+        category="Footwear",
+        barcode=f"BC-{uuid.uuid4().hex[:8]}",
+        hsn_code="64041190",
+        buying_price=None,   # <-- this caused the 500 error
+        cost_price=None,     # <-- and this
+        company_id=comp.id,
+        branch_id=br.id,
+        is_deleted=False,
+    )
+    db_session.add(product)
+    await db_session.commit()
+    await db_session.refresh(product)
+
+    # This MUST NOT raise a ValidationError
+    resp = ProductResponse.model_validate(product)
+    assert resp.id == prod_id
+    assert resp.buying_price >= Decimal("0.00")
+    assert resp.cost_price >= Decimal("0.00")
+
+
+@pytest.mark.asyncio
+async def test_search_endpoint_with_null_buying_price(db_session):
+    """
+    GET /api/v1/products/search?q=&limit=5 must return 200 even when
+    matching products have NULL buying_price (legacy rows).
+    """
+    comp, br = await _make_tenant(db_session, "srchnull")
+    manager = await _make_user(db_session, "mgr", comp.id, br.id, role=UserRole.MANAGER)
+    headers = _bearer(manager, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    # Insert a legacy product with NULL buying_price
+    prod_id = f"prod-srch-{uuid.uuid4().hex[:6]}"
+    product = Product(
+        id=prod_id,
+        code=f"P-SRCH-{uuid.uuid4().hex[:4]}",
+        name="Searchable Legacy Product",
+        price=150.0,
+        mrp=150.0,
+        gst_percentage=12.0,
+        stock=3,
+        category="General",
+        barcode=f"BC-{uuid.uuid4().hex[:8]}",
+        hsn_code="64041190",
+        buying_price=None,
+        cost_price=None,
+        company_id=comp.id,
+        branch_id=br.id,
+        is_deleted=False,
+    )
+    db_session.add(product)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/v1/products/search", params={"q": "", "limit": 5}, headers=headers)
+
+    assert res.status_code == 200, (
+        f"Expected 200, got {res.status_code}. Body: {res.text[:400]}"
+    )
+    data = res.json()
+    assert isinstance(data, list)

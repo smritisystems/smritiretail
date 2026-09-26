@@ -28,6 +28,7 @@ class ProductBase(BaseModel):
     barcode: str = Field(..., max_length=100, description="Barcode")
     secondary_barcodes: Optional[List[str]] = Field(default_factory=list)
     brand: Optional[str] = Field(None, max_length=100)
+    vendor_code: Optional[str] = Field(None, max_length=100)
     color: Optional[str] = Field(None, max_length=50)
     size: Optional[str] = Field(None, max_length=50)
     mrp: Decimal = Field(..., ge=0, description="MRP")
@@ -36,7 +37,7 @@ class ProductBase(BaseModel):
     buying_price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None
     sku: Optional[str] = Field(None, max_length=100)
-    hsn_code: str = Field(..., max_length=15, description="HSN Code")
+    hsn_code: Optional[str] = Field("0000", max_length=15, description="HSN Code")
     pricing_mode: Optional[str] = "Fixed"
     tracking_mode: Optional[str] = "Standard"
     variant_template_id: Optional[str] = Field(None, max_length=50)
@@ -44,8 +45,9 @@ class ProductBase(BaseModel):
     attributes: Optional[Dict[str, Any]] = Field(default_factory=dict)
     primary_image_url: Optional[str] = Field(None, max_length=512)
     gallery_images: Optional[List[str]] = Field(default_factory=list)
+    historical_invoice_qty: Decimal = Decimal("0")
 
-    @field_validator("code", "name", "barcode", "hsn_code", mode="before")
+    @field_validator("code", "name", "barcode", mode="before")
     @classmethod
     def validate_non_blank_string(cls, v: Any, info: ValidationInfo) -> str:
         if v is None:
@@ -54,6 +56,14 @@ class ProductBase(BaseModel):
         if not s:
             raise ValueError(f"{info.field_name} is required and cannot be blank or whitespace-only.")
         return s
+
+    @field_validator("hsn_code", mode="before")
+    @classmethod
+    def validate_hsn_code(cls, v: Any) -> str:
+        if v is None:
+            return "0000"
+        s = str(v).strip()
+        return s if s else "0000"
 
     @field_validator("mrp", "price", "gst_percentage", mode="before")
     @classmethod
@@ -97,6 +107,24 @@ class ProductBase(BaseModel):
                 raise ValueError(f"{info.field_name} must be a valid number.")
         return dec
 
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
+
     @model_validator(mode="after")
     def validate_pricing_hierarchy(self) -> "ProductBase":
         # Check if item is an exempt non-stock/service/sample/free item
@@ -117,21 +145,35 @@ class ProductBase(BaseModel):
         if self.price < Decimal("0"):
             raise ValueError("Selling Price must be greater than or equal to 0.")
 
-        if self.buying_price is None:
-            self.buying_price = self.cost_price or (self.price if self.price > Decimal("0") else Decimal("100.00"))
-        if self.buying_price <= Decimal("0"):
-            self.buying_price = self.price if self.price > Decimal("0") else Decimal("100.00")
+        if "buying_price" in self.model_fields_set:
+            if self.buying_price is None:
+                raise ValueError("Buying Price is mandatory for stock items.")
+            if self.buying_price <= Decimal("0"):
+                raise ValueError("Buying Price must be greater than 0.")
+        else:
+            if self.buying_price is None:
+                self.buying_price = self.cost_price or (self.price if self.price > Decimal("0") else Decimal("100.00"))
+            if self.buying_price <= Decimal("0"):
+                self.buying_price = self.price if self.price > Decimal("0") else Decimal("100.00")
 
-        if self.cost_price is None:
-            self.cost_price = self.buying_price or self.price or Decimal("100.00")
-        if self.cost_price <= Decimal("0"):
-            self.cost_price = self.buying_price or self.price or Decimal("100.00")
+        if "cost_price" in self.model_fields_set:
+            if self.cost_price is None:
+                raise ValueError("Cost Price is mandatory for stock items.")
+            if self.cost_price <= Decimal("0"):
+                raise ValueError("Cost Price must be greater than 0.")
+        else:
+            if self.cost_price is None:
+                self.cost_price = self.buying_price or self.price or Decimal("100.00")
+            if self.cost_price <= Decimal("0"):
+                self.cost_price = self.buying_price or self.price or Decimal("100.00")
 
-        if self.mrp is None or self.mrp < self.price:
+        if self.mrp is None:
             self.mrp = self.price
+        elif self.mrp < self.price:
+            raise ValueError(f"MRP ({self.mrp}) must be greater than or equal to Selling Price ({self.price}).")
 
-        if self.cost_price > self.buying_price:
-            self.buying_price = self.cost_price
+        if self.cost_price is not None and self.buying_price is not None and self.cost_price > self.buying_price:
+            raise ValueError(f"Cost Price ({self.cost_price}) must be less than or equal to Buying Price ({self.buying_price}).")
 
         return self
 
@@ -150,6 +192,7 @@ class ProductUpdate(BaseModel):
     barcode: Optional[str] = None
     secondary_barcodes: Optional[List[str]] = None
     brand: Optional[str] = None
+    vendor_code: Optional[str] = None
     color: Optional[str] = None
     size: Optional[str] = None
     mrp: Optional[Decimal] = None
@@ -197,6 +240,24 @@ class ProductUpdate(BaseModel):
                 raise ValueError(f"{info.field_name} must be a valid number.")
         return dec
 
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_update_style_article_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("style_code"):
+                alias_val = (
+                    data.get("style_code")
+                    or data.get("styleCode")
+                    or data.get("style")
+                    or data.get("stylecode")
+                    or data.get("article")
+                    or data.get("article_no")
+                    or data.get("style_article")
+                )
+                if alias_val is not None:
+                    data["style_code"] = alias_val
+        return data
+
     @model_validator(mode="after")
     def validate_update_pricing_hierarchy(self) -> "ProductUpdate":
         if self.buying_price is not None and self.buying_price <= Decimal("0"):
@@ -216,6 +277,8 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: str
+    item_id: Optional[str] = None
+    item_variant_id: Optional[str] = None
     uuid: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
@@ -226,6 +289,24 @@ class ProductResponse(ProductBase):
     version: Optional[int] = 1
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def validate_pricing_hierarchy(self) -> "ProductResponse":  # type: ignore[override]
+        """
+        Override the strict input validator from ProductBase.
+        During response serialization, legacy DB rows may have NULL buying_price /
+        cost_price. We coerce to safe defaults instead of raising, so that
+        existing inventory data never causes a 500 ResponseValidationError.
+        """
+        if self.price is None:
+            self.price = Decimal("0.00")
+        if self.mrp is None:
+            self.mrp = self.price
+        if self.buying_price is None or self.buying_price <= Decimal("0"):
+            self.buying_price = self.price if self.price > Decimal("0") else Decimal("0.00")
+        if self.cost_price is None or self.cost_price <= Decimal("0"):
+            self.cost_price = self.buying_price
+        return self
 
 
 class StockMovementCreate(BaseModel):
@@ -247,9 +328,16 @@ class StockMovementCreate(BaseModel):
     branch: Optional[str] = Field(None, max_length=100)
     source_module: Optional[str] = Field(None, max_length=50)
     approval: Optional[str] = Field(None, max_length=50)
-    id: Optional[str] = Field(None, max_length=50)
+    id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     company_id: Optional[str] = Field(None, max_length=50)
     branch_id: Optional[str] = Field(None, max_length=50)
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 
 class StockMovementResponse(BaseModel):
@@ -297,3 +385,21 @@ class StockMovementResponse(BaseModel):
     closing_value: Optional[Decimal] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StockLedgerTotals(BaseModel):
+    total_in_qty: Decimal = Decimal("0.00")
+    total_out_qty: Decimal = Decimal("0.00")
+    total_in_value: Decimal = Decimal("0.00")
+    total_out_value: Decimal = Decimal("0.00")
+    total_movement_value: Decimal = Decimal("0.00")
+    total_moved_qty: Decimal = Decimal("0.00")
+    net_qty: Decimal = Decimal("0.00")
+
+
+class StockLedgerPageResponse(BaseModel):
+    items: List[StockMovementResponse]
+    total: int
+    skip: int
+    limit: int
+    totals: StockLedgerTotals

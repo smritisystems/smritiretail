@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-09-09
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -45,6 +45,8 @@ async def cleanup_outbox_test_data():
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-OUTBOX-%")))
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-ATOMIC-%")))
 
+            comp_id = "COMP-001" if db == "smriti001" else "COMP-002"
+
             # Ensure test customer exists
             cust = (await session.execute(
                 select(Customer).where(Customer.id == "cust_outbox_test_01")
@@ -52,7 +54,7 @@ async def cleanup_outbox_test_data():
             if not cust:
                 session.add(Customer(
                     id="cust_outbox_test_01",
-                    company_id="COMP-001",
+                    company_id=comp_id,
                     code="CUST-OBX-01",
                     name="Outbox Test Customer",
                     mobile="9820099887",
@@ -68,7 +70,7 @@ async def cleanup_outbox_test_data():
             if not prod:
                 session.add(Product(
                     id="prod_outbox_test_01",
-                    company_id="COMP-001",
+                    company_id=comp_id,
                     code="PROD-OBX-01",
                     name="Outbox Test SKU",
                     category="General",

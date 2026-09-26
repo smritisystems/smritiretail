@@ -28,6 +28,7 @@ from ..models.inventory import (
     Warehouse, Product, StockMovement,
     ProductBatchStock, StockTransfer, StockTransferItem, TransferStatus
 )
+from .identity.engine import IdentityEngine
 
 
 class InventoryWmsService:
@@ -140,9 +141,10 @@ class InventoryWmsService:
         res_count = await self.db.execute(q_count)
         batch_count = res_count.scalar() or 0
         if batch_count == 0 and (product.stock or 0) > 0 and qty_delta > 0:
+            opening_pbs_id = IdentityEngine.generate_technical_id()
             opening_batch = ProductBatchStock(
-                id=f"pbs-{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
+                id=opening_pbs_id,
+                uuid=opening_pbs_id,
                 company_id=self.tenant_ctx.company_id,
                 branch_id=self.tenant_ctx.branch_id,
                 product_id=product_id,
@@ -173,9 +175,10 @@ class InventoryWmsService:
                 # If product has aggregate stock >= requested deduction, initialize opening batch
                 agg_stock = Decimal(str(product.stock or 0))
                 if agg_stock >= abs(qty_delta_dec):
+                    pbs_id = IdentityEngine.generate_technical_id()
                     batch_stock = ProductBatchStock(
-                        id=f"pbs-{uuid.uuid4().hex[:12]}",
-                        uuid=str(uuid.uuid4()),
+                        id=pbs_id,
+                        uuid=pbs_id,
                         company_id=self.tenant_ctx.company_id,
                         branch_id=self.tenant_ctx.branch_id,
                         product_id=product_id,
@@ -195,12 +198,17 @@ class InventoryWmsService:
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"SMRITI-STOCK-001: Cannot deduct from non-existent batch {batch_no} in warehouse {warehouse_id}."
+                        detail=(
+                            f"SMRITI-STOCK-001: Insufficient stock available for product {product_id} "
+                            f"in warehouse {warehouse_id}. Available: {agg_stock}, "
+                            f"requested: {abs(qty_delta_dec)}."
+                        )
                     )
             else:
+                pbs_id = IdentityEngine.generate_technical_id()
                 batch_stock = ProductBatchStock(
-                    id=f"pbs-{uuid.uuid4().hex[:12]}",
-                    uuid=str(uuid.uuid4()),
+                    id=pbs_id,
+                    uuid=pbs_id,
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
                     product_id=product_id,
@@ -239,9 +247,10 @@ class InventoryWmsService:
                 batch_stock.sale_rate = sale_rate
 
         # 3. Create immutable StockMovement audit record
+        sm_id = IdentityEngine.generate_technical_id()
         movement = StockMovement(
-            id=f"sm-{uuid.uuid4().hex[:12]}",
-            uuid=str(uuid.uuid4()),
+            id=sm_id,
+            uuid=sm_id,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             product_id=product_id,
@@ -262,17 +271,13 @@ class InventoryWmsService:
 
         await self.db.flush()
 
-        # 4. Synchronize products.stock cached aggregate (Total usable on-hand: SUM(quantity - damaged_quantity))
-        q_sum = select(func.coalesce(func.sum(ProductBatchStock.quantity - ProductBatchStock.damaged_quantity), 0)).where(
-            ProductBatchStock.company_id == self.tenant_ctx.company_id,
-            ProductBatchStock.product_id == product_id,
-            ProductBatchStock.is_deleted == False
+        # 4. Synchronize products.stock cached aggregate via canonical StockSynchronizer
+        from .stock_synchronizer import StockSynchronizer
+        await StockSynchronizer.sync_product_stock_cache(
+            session=self.db,
+            product_id=product_id,
+            company_id=self.tenant_ctx.company_id,
         )
-        res_sum = await self.db.execute(q_sum)
-        total_usable = res_sum.scalar()
-        product.stock = int(total_usable)
-
-        await self.db.flush()
         return batch_stock
 
     async def create_stock_transfer(
@@ -322,10 +327,11 @@ class InventoryWmsService:
             if existing:
                 return existing
 
-        transfer_no = f"STO-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        st_id = IdentityEngine.generate_technical_id()
+        transfer_no = f"STO-{datetime.now().strftime('%Y%m%d')}-{st_id[:8].upper()}"
         transfer = StockTransfer(
-            id=f"st-{uuid.uuid4().hex[:12]}",
-            uuid=str(uuid.uuid4()),
+            id=st_id,
+            uuid=st_id,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             transfer_no=transfer_no,
@@ -358,9 +364,10 @@ class InventoryWmsService:
                     raise HTTPException(status_code=400, detail=f"Duplicate product/batch entry in transfer: {item_key}.")
                 seen_items.add(item_key)
 
+                sti_id = IdentityEngine.generate_technical_id()
                 transfer_item = StockTransferItem(
-                    id=f"sti-{uuid.uuid4().hex[:12]}",
-                    uuid=str(uuid.uuid4()),
+                    id=sti_id,
+                    uuid=sti_id,
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
                     transfer_id=transfer.id,

@@ -14,23 +14,116 @@ Classification: Internal
 
 from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, require_role, require_permission
+from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, get_current_user, require_role, require_permission
 from ...models.auth import UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
     SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
-    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse,
+    SalesOrderCreate, SalesOrderUpdate, SalesOrderResponse, SalesOrderItemResponse, SalesOrderInvoiceAllocationResponse, SalesOrderLineActionRequest,
     SalesReturnCreate, SalesReturnUpdate, SalesReturnResponse, SalesReturnItemResponse,
     SalesReturnContextResponse,
+    EWayBillCreate, EWayBillResponse,
 )
 
 from ...repositories.sales import SalesInvoiceRepository
 from ...services.sales import SalesService
+from ...services.customer_po import CustomerPOService
 from ...services.eway_bill_service import EWayBillService
+from ...schemas.customer_po import (
+    CustomerPOBillingRequest, CustomerPOCreate, CustomerPOUpdate, CustomerPOResponse,
+    CustomerPOUtilizationResponse, CustomerPOBillingHistoryResponse,
+)
 
 router = APIRouter()
+
+
+@router.post("/customer-pos", response_model=CustomerPOResponse, status_code=201, summary="Create Customer PO")
+async def create_customer_po(
+    payload: CustomerPOCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    _user=Depends(require_permission("sales_billing", "NEW")),
+):
+    return await CustomerPOService(db, tenant_ctx).create(payload)
+
+
+@router.get("/customer-pos", response_model=list[CustomerPOResponse], summary="List Customer POs")
+async def list_customer_pos(
+    customer_id: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    return await CustomerPOService(db, tenant_ctx).list(customer_id=customer_id, q=q, status=status)
+
+
+@router.get("/customer-pos/{po_id}", response_model=CustomerPOResponse, summary="Get Customer PO")
+async def get_customer_po(po_id: str, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context)):
+    return await CustomerPOService(db, tenant_ctx).get(po_id)
+
+
+@router.patch("/customer-pos/{po_id}", response_model=CustomerPOResponse, summary="Update Customer PO")
+async def update_customer_po(po_id: str, payload: CustomerPOUpdate, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context), _user=Depends(require_permission("sales_billing", "EDIT"))):
+    return await CustomerPOService(db, tenant_ctx).update(po_id, payload)
+
+
+@router.get("/customer-pos/{po_id}/utilization", response_model=CustomerPOUtilizationResponse, summary="Get Customer PO Utilization")
+async def get_customer_po_utilization(po_id: str, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context)):
+    return await CustomerPOService(db, tenant_ctx).utilization(po_id)
+
+
+@router.get("/customer-pos/{po_id}/billing-history", response_model=list[CustomerPOBillingHistoryResponse], summary="Get Customer PO Billing History")
+async def get_customer_po_billing_history(po_id: str, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context)):
+    return await CustomerPOService(db, tenant_ctx).history(po_id)
+
+
+@router.post("/customer-pos/{po_id}/validate-billing", response_model=dict, summary="Validate Customer PO Billing")
+async def validate_customer_po_billing(po_id: str, payload: CustomerPOBillingRequest, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context)):
+    service = CustomerPOService(db, tenant_ctx)
+    po, po_lines = await service.validate_billing(po_id, payload)
+    policy, policy_snapshot = await service._policy()
+    violations = [
+        line.customer_po_line_id
+        for line in payload.lines
+        if line.quantity > po_lines[line.customer_po_line_id].quantity_remaining
+    ]
+    is_valid = True
+    if violations:
+        if policy == "BLOCK":
+            is_valid = False
+        elif policy == "ALLOW_WITH_AUTHORIZATION" and not payload.authorization:
+            is_valid = False
+    return {"valid": is_valid, "policy": policy, "policy_snapshot": policy_snapshot, "violations": violations, "utilization": await service.utilization(po_id)}
+
+
+@router.post("/customer-pos/{po_id}/bill", response_model=SalesInvoiceResponse, status_code=201, summary="Create Tax Invoice Against Customer PO")
+async def bill_customer_po(
+    po_id: str,
+    payload: CustomerPOBillingRequest,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    _user=Depends(require_permission("sales_billing", "NEW")),
+):
+    key = idempotency_key or payload.idempotency_key
+    return await CustomerPOService(db, tenant_ctx).bill(po_id, payload, idempotency_key=key)
+
+
+@router.post("/customer-pos/{po_id}/close", response_model=CustomerPOResponse, summary="Close Fully Billed Customer PO")
+async def close_customer_po(po_id: str, db: AsyncSession = Depends(get_company_db), tenant_ctx: TenantContext = Depends(get_tenant_context), _user=Depends(require_permission("sales_billing", "EDIT"))):
+    return await CustomerPOService(db, tenant_ctx).close(po_id)
+
+
+class SalesOrderReservationRequest(BaseModel):
+    idempotency_key: str = Field(..., min_length=8, max_length=100)
+
+
+class SalesOrderReservationReleaseRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
 
 
 
@@ -45,6 +138,13 @@ router = APIRouter()
     summary="Create Sales Invoice (Contract URL)",
     dependencies=[Depends(require_permission("sales_billing", "NEW"))],
 )
+@router.post(
+    "/invoices/",
+    response_model=SalesInvoiceResponse,
+    status_code=201,
+    summary="Create Sales Invoice (Contract URL with Slash)",
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
+)
 async def create_sales_invoice_contract(
     invoice_in: SalesInvoiceCreate,
     request: Request,
@@ -52,7 +152,11 @@ async def create_sales_invoice_contract(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a sales invoice — canonical contract URL with Idempotency-Key support."""
-    idempotency_key = request.headers.get("idempotency-key") or request.headers.get("Idempotency-Key")
+    idempotency_key = (
+        request.headers.get("x-idempotency-key")
+        or request.headers.get("idempotency-key")
+        or request.headers.get("Idempotency-Key")
+    )
     return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in, idempotency_key=idempotency_key)
 
 
@@ -210,32 +314,33 @@ async def get_sales_invoice_reprint_contract(
 )
 async def get_sales_invoice_pdf_stream(
     invoice_id: str,
-    format: Optional[str] = None,
+    format: Optional[str] = "binary",
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Stream rendered Tax Invoice PDF document from single Canonical TaxInvoiceRenderer."""
     from ...services.invoice_pdf_service import InvoicePdfService
-    if format == "binary":
-        pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
+    if format == "html":
+        html_content = await InvoicePdfService.generate_invoice_html(
             session=db,
             invoice_id=invoice_id,
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id
         )
-        safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
-        )
-    html_content = await InvoicePdfService.generate_invoice_html(
+        return Response(content=html_content, media_type="text/html")
+
+    pdf_bytes, meta = await InvoicePdfService.get_or_render_pdf_artifact(
         session=db,
         invoice_id=invoice_id,
         company_id=tenant_ctx.company_id,
         branch_id=tenant_ctx.branch_id
     )
-    return Response(content=html_content, media_type="text/html")
+    safe_no = meta.get("invoice_no", invoice_id).replace("/", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="TaxInvoice_{safe_no}.pdf"'}
+    )
 
 
 @router.get(
@@ -337,6 +442,23 @@ async def delete_sales_quotation(
     await SalesService(db, tenant_ctx).delete_sales_quotation(quotation_id)
     return Response(status_code=204)
 
+@router.post("/orders/{order_id}/lines/{line_id}/{action}", response_model=SalesOrderItemResponse)
+async def close_or_cancel_sales_order_line(
+    order_id: str,
+    line_id: int,
+    action: str,
+    request: SalesOrderLineActionRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Close or cancel an unbilled Sales Order line without changing its invoice history."""
+    user_name = getattr(current_user, "username", None) or getattr(current_user, "name", None) or "system"
+    line = await SalesService(db, tenant_ctx).close_or_cancel_sales_order_line(
+        order_id, line_id, action, request, user_name
+    )
+    return SalesOrderItemResponse.model_validate(line)
+
 
 # ─────────────────────────── Sales Order ───────────────────────────
 
@@ -354,10 +476,17 @@ async def delete_sales_quotation(
 )
 async def create_sales_order(
     order_in: SalesOrderCreate,
+    request: Request,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    return await SalesService(db, tenant_ctx).create_sales_order(order_in)
+    idempotency_key = (
+        request.headers.get("x-idempotency-key")
+        or request.headers.get("idempotency-key")
+        or request.headers.get("Idempotency-Key")
+        or getattr(order_in, "idempotency_key", None)
+    )
+    return await SalesService(db, tenant_ctx).create_sales_order(order_in, idempotency_key=idempotency_key)
 
 
 @router.get("/orders", response_model=List[SalesOrderResponse])
@@ -383,6 +512,26 @@ async def list_sales_orders(
         skip=skip,
         limit=limit,
     )
+
+
+@router.get("/orders/po-address-candidates")
+async def list_po_address_candidates(
+    customer_id: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Preview historical PO billing addresses before adding them to customer master."""
+    return await SalesService(db, tenant_ctx).list_po_address_candidates(customer_id)
+
+
+@router.get("/orders/reconciliation")
+async def get_sales_order_reconciliation(
+    customer_id: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Reconcile PO, Sales Order, reservation, and invoice status for a customer."""
+    return await SalesService(db, tenant_ctx).get_customer_reconciliation(customer_id)
 
 
 @router.get("/orders/{order_id}", response_model=SalesOrderResponse)
@@ -413,6 +562,32 @@ async def update_sales_order(
 ):
     """Partial-update a sales order."""
     return await SalesService(db, tenant_ctx).update_sales_order(order_id, update_in)
+
+
+@router.post(
+    "/orders/{order_id}/reserve",
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
+)
+async def reserve_sales_order(
+    order_id: str,
+    request_in: SalesOrderReservationRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    return await SalesService(db, tenant_ctx).reserve_sales_order(order_id, request_in.idempotency_key)
+
+
+@router.post(
+    "/orders/{order_id}/release-reservation",
+    dependencies=[Depends(require_permission("sales_billing", "EDIT"))],
+)
+async def release_sales_order_reservation(
+    order_id: str,
+    request_in: SalesOrderReservationReleaseRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    return await SalesService(db, tenant_ctx).release_sales_order_reservations(order_id, request_in.reason)
 
 
 @router.delete(
@@ -535,7 +710,12 @@ async def create_sales_return(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    idempotency_key = request.headers.get("Idempotency-Key")
+    idempotency_key = (
+        request.headers.get("x-idempotency-key")
+        or request.headers.get("idempotency-key")
+        or request.headers.get("Idempotency-Key")
+        or getattr(sr_in, "idempotency_key", None)
+    )
     return await SalesService(db, tenant_ctx, control_db=control_db).create_sales_return(sr_in, idempotency_key=idempotency_key)
 
 
@@ -693,4 +873,195 @@ async def get_invoice_eway_bill_payload(
         trans_mode=trans_mode,
         strict_validation=strict_validation
     )
+
+
+# ───────────────────────────────────────── E-Way Bills / Dispatch ─────────────────────────────────────────
+
+@router.post(
+    "/eway-bills",
+    response_model=EWayBillResponse,
+    status_code=201,
+)
+@router.post(
+    "/eway-bills/",
+    response_model=EWayBillResponse,
+    status_code=201,
+)
+async def create_eway_bill(
+    req: EWayBillCreate,
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Create a registered E-Way Bill / dispatch record for a sales invoice."""
+    from sqlalchemy.future import select
+    from decimal import Decimal
+    from datetime import datetime, timezone
+    from ...models.distribution import EWayBill
+    from ...models.sales import SalesInvoice
+    from ...services.identity.engine import IdentityEngine
+
+    inv_res = await db.execute(
+        select(SalesInvoice).where(
+            SalesInvoice.id == req.invoice_id,
+            SalesInvoice.company_id == tenant_ctx.company_id,
+        ).with_for_update()
+    )
+    inv = inv_res.scalars().first()
+    if not inv:
+        raise HTTPException(status_code=404, detail=f"Sales invoice '{req.invoice_id}' not found.")
+
+    # Idempotency and duplicate check
+    existing_ewb_res = await db.execute(
+        select(EWayBill).where(
+            EWayBill.invoice_id == req.invoice_id,
+            EWayBill.company_id == tenant_ctx.company_id,
+        )
+    )
+    existing_ewb = existing_ewb_res.scalars().first()
+    if existing_ewb:
+        if req.eway_bill_no and req.eway_bill_no != existing_ewb.eway_bill_no:
+            raise HTTPException(
+                status_code=409,
+                detail=f"SMRITI-EWB-001: Sales invoice '{inv.invoice_no}' already has an active E-Way Bill ({existing_ewb.eway_bill_no}). Duplicate dispatch generation blocked.",
+            )
+        return EWayBillResponse(
+            id=existing_ewb.id,
+            identity_code=existing_ewb.identity_code,
+            eway_bill_no=existing_ewb.eway_bill_no,
+            invoice_id=existing_ewb.invoice_id,
+            consignment_value=existing_ewb.consignment_value or Decimal("0.00"),
+            transporter_id=existing_ewb.transporter_id,
+            transporter_name=existing_ewb.transporter_name,
+            transport_mode=existing_ewb.transport_mode,
+            vehicle_no=existing_ewb.vehicle_no,
+            distance_km=existing_ewb.distance_km,
+            status=existing_ewb.status or "DISPATCHED",
+            created_at=existing_ewb.created_at,
+        )
+
+    from ...services.transaction_integrity_engine import TransactionIntegrityEngine
+    async with TransactionIntegrityEngine.guard(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        entity_type="EWAY_BILL",
+        idempotency_key=req.eway_bill_no or f"EWB:{req.invoice_id}",
+        business_key=req.eway_bill_no or req.invoice_id,
+        request_payload=req,
+        commit=True,
+    ) as guard:
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=db,
+            entity_type="EWAY_BILL",
+            group_code="TAX",
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            purpose="EWAY_BILL_CREATION",
+        )
+        ewb_id = tech_id
+        ewb_no = req.eway_bill_no or id_code
+
+        # Register statutory NIC E-Way Bill Number as sovereign alias if supplied
+        if req.eway_bill_no and req.eway_bill_no != id_code:
+            try:
+                await IdentityEngine.register_alias(
+                    session=db,
+                    entity_type="EWAY_BILL",
+                    entity_id=ewb_id,
+                    alias_code=req.eway_bill_no,
+                    alias_type="NIC_EWAY",
+                    source_system="NIC_PORTAL",
+                    canonical_identity_code=id_code,
+                    company_id=tenant_ctx.company_id,
+                    branch_id=tenant_ctx.branch_id,
+                    notes="Statutory NIC E-Way Bill Number",
+                )
+            except ValueError as ve:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"SMRITI-EWB-002: Alias collision for E-Way Bill number '{req.eway_bill_no}': {ve}",
+                )
+
+        ewb = EWayBill(
+            id=ewb_id,
+            uuid=ewb_id,
+            identity_code=id_code,
+            eway_bill_no=ewb_no,
+            invoice_id=req.invoice_id,
+            consignment_value=req.consignment_value or Decimal("0.00"),
+            transporter_id=req.transporter_id,
+            transporter_name=req.transporter_name,
+            transport_mode=req.transport_mode or "Road",
+            vehicle_no=req.vehicle_no,
+            distance_km=req.distance_km or Decimal("0.00"),
+            status=req.status or "DISPATCHED",
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(ewb)
+        inv.eway_bill_no = ewb_no
+
+        from ...services.outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=db,
+            target_channel="SALES_DISPATCH_QUEUE",
+            event_type="EWAY_BILL_DISPATCH_RECORDED",
+            aggregate_type="EWayBill",
+            aggregate_id=ewb_id,
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            payload={
+                "eway_bill_no": ewb_no,
+                "identity_code": id_code,
+                "invoice_id": req.invoice_id,
+                "vehicle_no": req.vehicle_no,
+                "transporter_name": req.transporter_name,
+                "consignment_value": str(req.consignment_value or Decimal("0.00")),
+            }
+        )
+        guard.complete(document_id=ewb_id, document_no=ewb_no)
+
+    return EWayBillResponse(
+        id=ewb_id,
+        identity_code=id_code,
+        eway_bill_no=ewb_no,
+        invoice_id=req.invoice_id,
+        consignment_value=req.consignment_value or Decimal("0.00"),
+        transporter_id=req.transporter_id,
+        transporter_name=req.transporter_name,
+        transport_mode=req.transport_mode,
+        vehicle_no=req.vehicle_no,
+        distance_km=req.distance_km,
+        status=req.status or "DISPATCHED",
+        created_at=ewb.created_at,
+    )
+
+
+@router.get(
+    "/eway-bills",
+    response_model=List[EWayBillResponse],
+)
+@router.get(
+    "/eway-bills/",
+    response_model=List[EWayBillResponse],
+)
+async def list_eway_bills(
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """List all registered E-Way Bills / dispatch records."""
+    from sqlalchemy.future import select
+    from ...models.distribution import EWayBill
+
+    res = await db.execute(
+        select(EWayBill)
+        .where(
+            EWayBill.company_id == tenant_ctx.company_id,
+            EWayBill.branch_id == tenant_ctx.branch_id,
+        )
+        .order_by(EWayBill.created_at.desc())
+    )
+    rows = res.scalars().all()
+    return [EWayBillResponse.model_validate(r) for r in rows]
+
 

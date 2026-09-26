@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0917-5CEE3E",
+  "entity": "IDENTITY",
+  "capability": "UNIFIED_IDENTITY_CONTROL_PLANE",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "validator.py",
+  "target_file_path": "backend/app/services/identity/validator.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/identity/validator.py",
+  "content_hash": "78277ac801f27e077e4b91450ae8fedfec09d5fe76d68354fb12959b09ba377d",
+  "git_commit": "20cd1171feb8d386664e0b84808c0b5b39919327",
+  "issued_at": "2026-09-17T21:48:06.682153+00:00",
+  "expires_at": "2026-09-24T21:48:06.682153+00:00",
+  "status": "ISSUED"
+}

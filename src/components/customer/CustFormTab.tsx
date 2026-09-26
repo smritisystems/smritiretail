@@ -15,7 +15,7 @@
 import React, { useState, useEffect } from "react";
 import { User, MapPin, Store, FileText, Tag, Layers, CheckSquare, Sliders } from "lucide-react";
 import { RetailCustomerRecord, CustomerPriceGroup } from "./types.ts";
-import { getCustomerPriceGroups } from "../../services/customerStore.ts";
+import { getCustomerPriceGroups, getCustomerGroups, CustomerGroup } from "../../services/customerStore.ts";
 import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
 
 interface SmritiCustomerFormTabProps {
@@ -31,14 +31,20 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
 }) => {
   const primaryAddress = customer.mailingAddresses[0];
   const [priceGroups, setPriceGroups] = useState<CustomerPriceGroup[]>(() => getCustomerPriceGroups());
+  const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>(() => getCustomerGroups());
   const [showPriceGroupModal, setShowPriceGroupModal] = useState<boolean>(false);
 
   useEffect(() => {
     const handleUpdate = () => {
       setPriceGroups(getCustomerPriceGroups());
+      setCustomerGroups(getCustomerGroups());
     };
     window.addEventListener("smriti_customer_price_groups_updated", handleUpdate);
-    return () => window.removeEventListener("smriti_customer_price_groups_updated", handleUpdate);
+    window.addEventListener("smriti_customer_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("smriti_customer_price_groups_updated", handleUpdate);
+      window.removeEventListener("smriti_customer_updated", handleUpdate);
+    };
   }, []);
 
   return (
@@ -76,9 +82,70 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                 value={customer.name}
                 data-field-key="customer_name"
                 onChange={(e) => onChange("name", e.target.value)}
-                placeholder="e.g. Farida Jameel"
+                placeholder="Customer Name / Company Name"
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-bold text-xs outline-none focus:border-[#00355f]"
               />
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block">
+                  Customer Group*
+                </label>
+                <span className="text-[10px] text-[#515f74] dark:text-[#bec6e0] font-medium">
+                  AR / Credit Terms Policy
+                </span>
+              </div>
+              <select
+                value={customer.customerGroupId || (customer.customerType === "Corporate" || customer.customerType === "Wholesale" ? "CG-Corporate" : (customer.customerType === "VIP" ? "CG-LargeRetail" : "CG-Retail"))}
+                data-field-key="customer_group_id"
+                onChange={e => {
+                  const grpId = e.target.value;
+                  onChange("customerGroupId", grpId);
+                  onChange("customer_group_id", grpId);
+
+                  const selectedGrp = customerGroups.find(g => g.id === grpId);
+                  if (grpId === "CG-Corporate") {
+                    onChange("customerType", "Corporate");
+                    onChange("environment", "Corporate");
+                    const corpPriceGrp = priceGroups.find(p => p.code === "CORP");
+                    if (corpPriceGrp && (!customer.priceGroup || customer.priceGroup.startsWith("CPP") || customer.priceGroup.startsWith("RETAIL"))) {
+                      onChange("priceGroup", `${corpPriceGrp.code}#${corpPriceGrp.description}`);
+                    }
+                  } else if (grpId === "CG-LargeRetail") {
+                    onChange("customerType", "VIP");
+                    onChange("environment", "Retail");
+                  } else if (grpId === "CG-Retail") {
+                    if (customer.customerType === "Corporate") {
+                      onChange("customerType", "Retail");
+                      onChange("environment", "Retail");
+                    }
+                  }
+
+                  if (selectedGrp) {
+                    const days = selectedGrp.credit_days ?? selectedGrp.creditDays;
+                    if (days !== undefined && days !== null) {
+                      onChange("creditDays", days);
+                    }
+                    const limit = selectedGrp.credit_limit ?? selectedGrp.creditLimit;
+                    if (limit !== undefined && limit !== null) {
+                      onChange("creditLimit", Number(limit));
+                    }
+                  }
+                }}
+                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold outline-none focus:border-[#00355f]"
+              >
+                {customerGroups.map(cg => (
+                  <option key={cg.id} value={cg.id}>
+                    {cg.name} ({cg.id})
+                  </option>
+                ))}
+                {!customerGroups.some(cg => cg.id === (customer.customerGroupId || (customer.customerType === "Corporate" ? "CG-Corporate" : "CG-Retail"))) && (
+                  <option value={customer.customerGroupId || "CG-Corporate"}>
+                    {customer.customerGroupId === "CG-Corporate" ? "Corporate Clients (CG-Corporate)" : (customer.customerGroupId || "Corporate Clients (CG-Corporate)")}
+                  </option>
+                )}
+              </select>
             </div>
 
             <div>
@@ -96,12 +163,23 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               </div>
               <div className="flex gap-1.5">
                 <select
-                  value={customer.priceGroup}
+                  value={customer.priceGroup?.split("#")[0] || customer.priceGroup}
+                  data-field-key="customer_price_group"
                   onChange={e => {
-                    const val = e.target.value;
+                    const code = e.target.value;
+                    const grp = priceGroups.find(p => p.code === code || `${p.code}#${p.description}` === code);
+                    const val = grp ? `${grp.code}#${grp.description}` : code;
                     onChange("priceGroup", val);
-                    const code = val.split("#")[0];
-                    const grp = priceGroups.find(p => p.code === code);
+                    if (code === "CORP") {
+                      onChange("customerType", "Corporate");
+                      onChange("environment", "Corporate");
+                    } else if (code === "VIP") {
+                      onChange("customerType", "VIP");
+                      onChange("environment", "Retail");
+                    } else if (code === "CPP" || code === "RETAIL") {
+                      onChange("customerType", "Retail");
+                      onChange("environment", "Retail");
+                    }
                     if (grp) {
                       onChange("paymentTerm", grp.paymentTerms);
                       onChange("creditDays", grp.creditDays);
@@ -114,17 +192,16 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                   }}
                   className="flex-1 p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold outline-none focus:border-[#00355f]"
                 >
-                  {priceGroups.map(pg => {
-                    const val = `${pg.code}#${pg.description}`;
-                    return (
-                      <option key={pg.code} value={val}>
-                        {pg.code} - {pg.description} ({pg.paymentTerms}, {pg.creditDays} Days)
-                      </option>
-                    );
-                  })}
+                  {priceGroups.map(pg => (
+                    <option key={pg.code} value={pg.code}>
+                      {pg.code} - {pg.description} ({pg.paymentTerms}, {pg.creditDays} Days)
+                    </option>
+                  ))}
                   {/* Fallback legacy option */}
-                  {!priceGroups.some(pg => `${pg.code}#${pg.description}` === customer.priceGroup) && customer.priceGroup && (
-                    <option value={customer.priceGroup}>{customer.priceGroup}</option>
+                  {!priceGroups.some(pg => pg.code === (customer.priceGroup?.split("#")[0] || customer.priceGroup)) && customer.priceGroup && (
+                    <option value={customer.priceGroup?.split("#")[0] || customer.priceGroup}>
+                      {customer.priceGroup}
+                    </option>
                   )}
                 </select>
                 <button
@@ -145,6 +222,16 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               selectedGroupCode={customer.priceGroup?.split("#")[0] || "CPP"}
               onSelectGroup={(grp) => {
                 onChange("priceGroup", `${grp.code}#${grp.description}`);
+                if (grp.code === "CORP") {
+                  onChange("customerType", "Corporate");
+                  onChange("environment", "Corporate");
+                } else if (grp.code === "VIP") {
+                  onChange("customerType", "VIP");
+                  onChange("environment", "Retail");
+                } else if (grp.code === "CPP" || grp.code === "RETAIL") {
+                  onChange("customerType", "Retail");
+                  onChange("environment", "Retail");
+                }
                 onChange("paymentTerm", grp.paymentTerms);
                 onChange("creditDays", grp.creditDays);
                 onChange("creditLimit", grp.creditLimit);
@@ -246,7 +333,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <input
                 type="text"
                 value={customer.profession}
-                data-field-key="customer_name"
+                data-field-key="customer_profession"
                 onChange={(e) => onChange("profession", e.target.value)}
                 placeholder="e.g. Architect, Doctor, Teacher"
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
@@ -259,12 +346,42 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               </label>
               <select
                 value={customer.customerType}
-                onChange={e => onChange("customerType", e.target.value)}
+                data-field-key="customer_type"
+                onChange={e => {
+                  const val = e.target.value;
+                  onChange("customerType", val);
+                  if (val === "Corporate" || val === "Wholesale" || val === "Distribution") {
+                    onChange("environment", "Corporate");
+                    if (val === "Corporate") {
+                      onChange("customerGroupId", "CG-Corporate");
+                      onChange("customer_group_id", "CG-Corporate");
+                      const corpGrp = priceGroups.find(p => p.code === "CORP");
+                      if (corpGrp) {
+                        onChange("priceGroup", `${corpGrp.code}#${corpGrp.description}`);
+                        onChange("paymentTerm", corpGrp.paymentTerms);
+                        onChange("creditDays", corpGrp.creditDays);
+                        onChange("creditLimit", corpGrp.creditLimit);
+                        onChange("destinationTaxType", corpGrp.destTaxType);
+                        onChange("allowCreditInvoice", corpGrp.allowCreditInvoice);
+                        onChange("allowCashBill", corpGrp.allowCashInvoice);
+                        onChange("allowMiscIssue", corpGrp.allowMiscIssue);
+                      }
+                    }
+                  } else if (val === "VIP") {
+                    onChange("environment", "Retail");
+                    onChange("customerGroupId", "CG-LargeRetail");
+                    onChange("customer_group_id", "CG-LargeRetail");
+                  } else {
+                    onChange("environment", "Retail");
+                    onChange("customerGroupId", "CG-Retail");
+                    onChange("customer_group_id", "CG-Retail");
+                  }
+                }}
                 className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold"
               >
                 <option value="Retail">Retail Shopper</option>
-                <option value="VIP">VIP Privilege Account</option>
                 <option value="Corporate">Corporate / B2B</option>
+                <option value="VIP">VIP Privilege Account</option>
                 <option value="Wholesale">Wholesale Trader</option>
                 <option value="Walk-In">Walk-In Occasional</option>
               </select>
@@ -288,10 +405,10 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
         />
       </div>
 
-      {/* 3. Details of Shoper (Environment & File Integration) */}
+      {/* 3. Details of Shopper (Environment & File Integration) */}
       <div className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-4">
         <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
-          <Store size={15} /> Details of Shoper
+          <Store size={15} /> Details of Shopper
         </h3>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -302,7 +419,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             <input
               type="text"
               value={customer.companyCode}
-              data-field-key="customer_code"
+              data-field-key="company_code"
               onChange={(e) => onChange("companyCode", e.target.value)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs font-bold"
             />
@@ -314,12 +431,15 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             </label>
             <select
               value={customer.environment}
+              data-field-key="customer_environment"
               onChange={e => onChange("environment", e.target.value)}
               className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold"
             >
               <option value="Retail">Retail</option>
+              <option value="Corporate">Corporate</option>
               <option value="Distribution">Distribution</option>
               <option value="Warehouse">Warehouse</option>
+              <option value="Wholesale">Wholesale</option>
             </select>
           </div>
 
@@ -354,6 +474,19 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
 
           <div>
             <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+              Store Code
+            </label>
+            <input
+              type="text"
+              value={customer.storeCode ?? ""}
+              data-field-key="store_code"
+              onChange={(e) => onChange("storeCode", e.target.value)}
+              className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
               Buying Factor
             </label>
             <input
@@ -380,18 +513,63 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
             />
           </div>
 
-          <div className="flex items-end pb-2 md:col-span-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={customer.isTaxInclusive}
-                onChange={(e) => onChange("isTaxInclusive", e.target.checked)}
-                className="rounded text-[#00355f] focus:ring-[#00355f]"
-              />
-              <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
-                Tax Inclusive Pricing Applicable
-              </span>
+          <div>
+            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+              Billing Basis (Bill On)*
             </label>
+            <select
+              value={customer.pricingBasis || customer.pricing_basis || "MRP"}
+              data-field-key="pricing_basis"
+              onChange={e => {
+                const val = e.target.value as "MRP" | "RATE";
+                onChange("pricingBasis", val);
+                onChange("pricing_basis", val);
+                if (val === "RATE") {
+                  onChange("isTaxInclusive", false);
+                  onChange("is_tax_inclusive", false);
+                }
+              }}
+              className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] rounded-lg text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] outline-none"
+            >
+              <option value="MRP">MRP (Retail Maximum Price)</option>
+              <option value="RATE">RATE (Wholesale / Trade Price)</option>
+            </select>
+          </div>
+
+          <div className="flex items-end pb-2 md:col-span-3">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  data-field-key="is_tax_inclusive"
+                  checked={Boolean(customer.isTaxInclusive ?? customer.is_tax_inclusive)}
+                  onChange={(e) => {
+                    onChange("isTaxInclusive", e.target.checked);
+                    onChange("is_tax_inclusive", e.target.checked);
+                  }}
+                  className="rounded text-[#00355f] focus:ring-[#00355f]"
+                />
+                <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
+                  Tax Inclusive Pricing Applicable {customer.pricingBasis === "RATE" && "(Note: Wholesale Rate is typically Tax-Exclusive)"}
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  data-field-key="allow_promotions_on_rate"
+                  checked={Boolean(customer.allowPromotionsOnRate ?? customer.allow_promotions_on_rate)}
+                  onChange={(e) => {
+                    onChange("allowPromotionsOnRate", e.target.checked);
+                    onChange("allow_promotions_on_rate", e.target.checked);
+                  }}
+                  className="rounded text-[#ba1a1a] focus:ring-[#ba1a1a]"
+                />
+                <span className="text-xs font-medium text-[#515f74] dark:text-[#bec6e0]">
+                  <strong className="text-[#ba1a1a] dark:text-[#ffb4ab]">Allow Retail Promotions on Trade Rate</strong> — (Default OFF to prevent double-discounting margin erosion)
+                </span>
+              </label>
+            </div>
           </div>
         </div>
       </div>

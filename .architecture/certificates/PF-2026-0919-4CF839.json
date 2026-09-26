@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-4CF839",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "component",
+  "proposed_name": "GrnPostedSuccessModal.tsx",
+  "target_file_path": "src/components/purchase/GrnPostedSuccessModal.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/GrnPostedSuccessModal.tsx",
+  "content_hash": "d63623dc5a75bcc764cd3455dcb81408c8a4bbe2c2b46f8294e473c502f94611",
+  "git_commit": "529b6ce54bdd9d51b942fd1618c45ff53ff56890",
+  "issued_at": "2026-09-19T18:28:14.963791+00:00",
+  "expires_at": "2026-09-26T18:28:14.963791+00:00",
+  "status": "ISSUED"
+}

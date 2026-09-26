@@ -130,3 +130,18 @@ certs/
 *.pfx
 *.p12
 
+# Session Diagnostics & Test Outputs
+backend/*_output*.txt
+backend/pytest_*.txt
+backend/test_results*.txt
+backend/*.log
+backend/tmp_*.py
+backend/lint-output.txt
+backend/gate_auth.txt
+backend/mypy-baseline.txt
+
+# Post-mortem and Scratch Fix Scripts
+fix-typescript-errors.*
+
+
+

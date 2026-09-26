@@ -13,14 +13,15 @@ Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, DateTime, Text, text
+from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, text
 from ..db.base import BaseEntity
 
 
 class ComplianceImmutableAuditLog(BaseEntity):
     """
     Tamper-evident regulatory audit trail capturing financial transactions,
-    security events, and master data modifications with SHA-256 event checksums (Section 12).
+    security events, and master data modifications with cryptographic SHA-256
+    hash-chaining and immutable WORM governance (Section 12).
     """
     __tablename__ = "compliance_immutable_audit_logs"
 
@@ -33,5 +34,12 @@ class ComplianceImmutableAuditLog(BaseEntity):
     before_state_json = Column(Text, nullable=True)
     after_state_json = Column(Text, nullable=True)
     action_summary = Column(Text, nullable=False)
-    payload_hash = Column(String(64), nullable=False, index=True)  # SHA-256 Hex
+    payload_hash = Column(String(64), nullable=False, index=True)  # SHA-256 Hex of current record + previous_hash
+    previous_hash = Column(String(64), nullable=True, index=True)  # SHA-256 Hex of immediate predecessor block
+    hash_chain_verified = Column(Boolean, nullable=False, default=True)  # Set to True on insertion
+    request_id = Column(String(100), nullable=True, index=True)  # Ingress request correlation UUID
+    client_user_agent = Column(String(255), nullable=True)  # Audit client / terminal identifier
+    retention_policy = Column(String(50), nullable=False, default="STATUTORY_7_YEARS")  # WORM statutory period
+    worm_locked = Column(Boolean, nullable=False, default=True)  # WORM immutable flag preventing modification
     timestamp = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), index=True)
+

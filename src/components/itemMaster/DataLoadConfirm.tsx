@@ -46,7 +46,7 @@ export const DataLoadConfirm: React.FC<SmritiDataLoadConfirmationModalProps> = (
           
           <div className="p-3 bg-[#e9edff] dark:bg-[#1d3054] border border-[#c4d2ff] dark:border-[#434654] rounded-lg space-y-2 text-[11px] text-[#003d9b] dark:text-[#b2c5ff]">
             <p><strong>• Yes:</strong> Loads all item records directly into the grid matrix.</p>
-            <p><strong>• No:</strong> Opens a blank workspace where you can apply specific Category or Brand filters before loading.</p>
+            <p><strong>• No:</strong> Opens a blank workspace where you can search by SKU, barcode, name, brand, style, or other item fields.</p>
           </div>
         </div>
 
@@ -58,7 +58,7 @@ export const DataLoadConfirm: React.FC<SmritiDataLoadConfirmationModalProps> = (
             className="px-4 py-2 border border-[#c6c6cd] dark:border-[#45464d] bg-white dark:bg-[#2d3133] hover:bg-[#eceef0] rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
           >
             <Filter size={14} className="text-[#0052cc]" />
-            No (Apply Filter First)
+            No (Search First)
           </button>
           <button
             type="button"

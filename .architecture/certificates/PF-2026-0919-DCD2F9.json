@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-DCD2F9",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "component",
+  "proposed_name": "AddProductToGrnModal.tsx",
+  "target_file_path": "src/components/purchase/AddProductToGrnModal.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/AddProductToGrnModal.tsx",
+  "content_hash": "1e05633cc670cfb61568112679b627813bb79a0a001c190001b4e9656d40b07f",
+  "git_commit": "2d5037252e11494080b600221f84f9e99c2fe3ac",
+  "issued_at": "2026-09-19T20:37:10.908256+00:00",
+  "expires_at": "2026-09-26T20:37:10.908256+00:00",
+  "status": "ISSUED"
+}

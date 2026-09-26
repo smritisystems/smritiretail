@@ -7,7 +7,7 @@ Founders
 
 * Pushpa Devi Jawahar Mallah
   * Founder & Chairperson
-  * Phone: +91 9324117007
+  * Phone: [REDACTED_PUBLIC_PII]
   * Email: founder@aitdl.com
 
 * Jawahar Ramkripal Mallah
@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.25.0
+* Version    : 6.27.3
 * Created    : 2026-07-11
-* Modified   : 2026-08-20
+* Modified   : 2026-09-16
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -41,6 +41,7 @@ from ..db.session import (
     get_session_by_db_name,
 )
 from ..models.auth import User, UserRole
+from ..models.tenant import Branch
 from ..models.role import Role
 from ..models.security import SmritiPermission
 from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
@@ -49,7 +50,7 @@ from ..core.security import decode_token
 get_db = _get_db  # re-exported for router convenience
 
 # OAuth2 Bearer scheme — token URL points at the login endpoint
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -57,22 +58,59 @@ class TenantContext:
     company_id: str
     branch_id: str
 
+    @property
+    def tenant_id(self) -> str:
+        return self.company_id
+
 
 # ---------------------------------------------------------------------------
 # get_current_user
 # ---------------------------------------------------------------------------
 async def get_current_user(
     request: Request,
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme),
     db: AsyncSession = Depends(_get_db),
 ) -> User:
     """
     Decode the Bearer JWT and return the authenticated User object.
+    Supports Authorization header and validated secure session cookies.
 
     Raises 401 if:
     - Token is missing, expired, or tampered.
     - User referenced by the token is inactive or deleted.
     """
+    if not token:
+        # Check raw Authorization header in case OAuth2 scheme didn't extract it
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth_header:
+            if auth_header.lower().startswith("bearer "):
+                token = auth_header[7:].strip()
+            else:
+                token = auth_header.strip()
+
+    if not token:
+        token = (
+            request.headers.get("x-auth-token")
+            or request.headers.get("x-access-token")
+            or request.cookies.get("access_token")
+            or request.cookies.get("smriti_jwt_token")
+            or request.cookies.get("token")
+        )
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="A valid access token is required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if isinstance(token, str):
+        token = token.strip()
+        if token.lower().startswith("bearer "):
+            token = token[7:].strip()
+        if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
+            token = token[1:-1].strip()
+
     payload = decode_token(token)
 
     if payload.get("type") != "access":
@@ -128,12 +166,38 @@ def normalize_company_id(cid: Optional[str]) -> Optional[str]:
     if not cid:
         return None
     raw = str(cid).strip()
+    if raw.lower() in ("none", "null", "undefined", ""):
+        return None
     c = raw.upper()
     if len(c) == 3 and c.isalnum() and c not in ("000", "SYS"):
         return f"COMP-{c}"
     if c.startswith("COMP-") and len(c) == 8 and c[5:].isalnum():
         return c
     return raw
+
+
+def normalize_branch_value(branch: Optional[str]) -> Optional[str]:
+    """Normalize known branch aliases to the canonical database branch identifier.
+
+    We intentionally do not rewrite arbitrary branch codes like "SOUTH-01".
+    Only legacy aliases that are known to refer to the primary branch are mapped
+    to their canonical DB branch row, while preserving the real branch code values
+    for branch lookups.
+    """
+    if not branch:
+        return None
+
+    raw = str(branch).strip()
+    if not raw:
+        return None
+
+    normalized = raw.upper()
+    aliases = {
+        "MAIN": "BR-MAIN-001",
+        "BR-MAIN-001": "BR-MAIN-001",
+        "BR-001": "BR-MAIN-001",
+    }
+    return aliases.get(normalized, raw)
 
 
 async def get_tenant_context(
@@ -146,28 +210,70 @@ async def get_tenant_context(
     Enforces header tampering checks against X-Company-Code and X-Branch-Code headers.
     Normalizes company codes (e.g. '001' and 'COMP-001') before validation.
     """
-    header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID")
-    header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code")
+    query_company_id = request.query_params.get("company_id") or request.query_params.get("companyId")
+    query_company = query_company_id or request.query_params.get("company_code") or request.query_params.get("companyCode") or request.cookies.get("smriti_company_id")
+    header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID") or query_company_id
+    header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code") or query_company
     header_branch = (
         request.headers.get("x-branch-code")
         or request.headers.get("X-Branch-Code")
         or request.headers.get("x-branch-id")
         or request.headers.get("X-Branch-ID")
+        or request.query_params.get("branch_code")
+        or request.query_params.get("branch_id")
+        or request.query_params.get("branchCode")
+        or request.query_params.get("branchId")
+        or request.cookies.get("smriti_branch_id")
     )
 
     raw_target = header_company if header_company else current_user.company_id
-    target_company = normalize_company_id(raw_target)
-    if not target_company:
-        raise HTTPException(
-            status_code=400,
-            detail="Tenant company context is required.",
-        )
-    
+    if not raw_target or str(raw_target).strip().lower() in ("none", "null", "undefined", ""):
+        if current_user.role == UserRole.SYSADMIN:
+            raw_target = "COMP-001"
+        elif current_user.company_id and str(current_user.company_id).strip().lower() not in ("none", "null", "undefined", ""):
+            raw_target = current_user.company_id
+        else:
+            raw_target = "COMP-001"
+    target_company = normalize_company_id(raw_target) or "COMP-001"
+
     target_branch = header_branch if header_branch else current_user.branch_id
-    if not target_branch or not str(target_branch).strip():
-        target_branch = "BR-001"
-    if target_branch == "BR-MAIN-001":
-        target_branch = "MAIN"
+    if not target_branch or not str(target_branch).strip() or str(target_branch).strip().lower() in ("none", "null", "undefined", ""):
+        target_branch = "BR-MAIN-001"
+
+    canonical_branch = normalize_branch_value(target_branch)
+
+    # A branch is part of the tenant identity, not a client-provided label.
+    # Resolve it only when it belongs to the selected company and is active.
+    branch_res = await db.execute(
+        select(Branch).where(
+            Branch.company_id == target_company,
+            (
+                (Branch.id == canonical_branch)
+                | (Branch.code == canonical_branch)
+                | (Branch.id == target_branch)
+                | (Branch.code == target_branch)
+            ),
+            Branch.is_deleted == False,
+            Branch.is_active == True,
+        )
+    )
+    branch = branch_res.scalars().first()
+    if branch is None:
+        fallback_branch_res = await db.execute(
+            select(Branch).where(
+                Branch.company_id == target_company,
+                Branch.is_deleted == False,
+                Branch.is_active == True,
+            ).order_by(Branch.id.asc())
+        )
+        branch = fallback_branch_res.scalars().first()
+
+    if branch is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied: the selected branch does not belong to the selected company.",
+        )
+    target_branch = branch.id
 
     if current_user.role != UserRole.SYSADMIN:
         # Header Tampering Security Check with normalized company IDs
@@ -237,9 +343,23 @@ async def get_company_db(
     Extracts tenant target strictly from validated TenantContext (cryptographic JWT + assignment check).
     Never trusts raw unvalidated client headers or query parameters.
     """
-    target_db_name = await resolve_company_database_name(tenant_ctx.company_id)
+    cid = tenant_ctx.company_id or "COMP-001"
+    target_db_name = await resolve_company_database_name(cid)
+    if target_db_name == "smritisys":
+        raise HTTPException(
+            status_code=500,
+            detail="Routing invariant violated: business data cannot use the control-plane database.",
+        )
     session_factory = get_company_sessionmaker(target_db_name)
     async with session_factory() as session:
+        session.info.update({
+            "tenant_id": cid,
+            "company_id": cid,
+            "branch_id": tenant_ctx.branch_id or "BR-MAIN-001",
+            "resolved_database_name": target_db_name,
+            "control_plane_database": "smritisys",
+            "transactional_scope_validated": True,
+        })
         try:
             yield session
         finally:

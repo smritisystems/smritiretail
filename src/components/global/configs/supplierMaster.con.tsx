@@ -39,6 +39,7 @@ export const supplierMasterConfig: MasterConfig = {
   columns: [
     {
       key: "name",
+      fieldId: "supplier.name",
       label: "Vendor Name",
       width: "220px",
       sortable: true,
@@ -56,6 +57,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       key: "gst_number",
+      fieldId: "supplier.gst_number",
       label: "GSTIN",
       width: "150px",
       render: (val) => val ? (
@@ -68,6 +70,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       key: "mobile",
+      fieldId: "supplier.mobile",
       label: "Contact",
       width: "160px",
       render: (val, item) => (
@@ -89,6 +92,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       key: "city",
+      fieldId: "supplier.city",
       label: "Location",
       width: "140px",
       render: (val, item) => (
@@ -100,6 +104,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       key: "outstanding",
+      fieldId: "supplier.outstanding",
       label: "Payables",
       width: "130px",
       align: "right",
@@ -118,6 +123,7 @@ export const supplierMasterConfig: MasterConfig = {
   fields: [
     {
       name: "name",
+      fieldId: "supplier.name",
       label: "Vendor Name",
       type: "text",
       required: true,
@@ -126,6 +132,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       name: "code",
+      fieldId: "supplier.code",
       label: "Vendor Code",
       type: "text",
       placeholder: "Auto-generated if blank",
@@ -133,6 +140,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       name: "gst_number",
+      fieldId: "supplier.gst_number",
       label: "GSTIN Number",
       type: "text",
       placeholder: "15-character GSTIN",
@@ -141,6 +149,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       name: "mobile",
+      fieldId: "supplier.mobile",
       label: "Contact Mobile",
       type: "text",
       placeholder: "10-digit mobile number",
@@ -148,6 +157,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       name: "email",
+      fieldId: "supplier.email",
       label: "Email Address",
       type: "email",
       placeholder: "accounts@vendor.com",
@@ -155,6 +165,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       name: "city",
+      fieldId: "supplier.city",
       label: "City",
       type: "text",
       placeholder: "e.g. Mumbai",
@@ -162,6 +173,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       name: "state",
+      fieldId: "supplier.state",
       label: "State",
       type: "text",
       placeholder: "e.g. Maharashtra",
@@ -169,6 +181,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       name: "pincode",
+      fieldId: "supplier.pincode",
       label: "Pincode",
       type: "text",
       placeholder: "e.g. 400053",
@@ -176,6 +189,7 @@ export const supplierMasterConfig: MasterConfig = {
     },
     {
       name: "address",
+      fieldId: "supplier.address",
       label: "Full Registered Address",
       type: "textarea",
       placeholder: "Building, Street, Landmark...",

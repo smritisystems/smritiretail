@@ -18,7 +18,12 @@ import pytest
 import psycopg2
 from app.services.db_provisioner import CompanyDatabaseProvisioner
 
-CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+CONTROL_PLANE_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 
 def test_provisioning_dry_run_alphanumeric_abc():
     """Verify dry-run provisioning plan for Alphanumeric Code ABC produces smritiABC."""

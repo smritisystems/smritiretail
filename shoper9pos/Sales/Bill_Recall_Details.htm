@@ -1,0 +1,118 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Bill Recall Details</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+-->
+</style>
+</head>
+<body>
+<h1>Recall</h1>
+
+<p class=Body-Text>The Recall option allows you to recall (<a href="Billing_Configuration.htm#Recall">configurable</a>) 
+ transaction types (expected transactions) like<span> Sales Advice Slips,</span> 
+ Sales Orders<span>, Service Orders</span> and Suspended <span>Bills</span> 
+ at any stage of <span>a billing </span>process. On recalling any of these 
+ transaction types, you get the items, which are entered previously in 
+ the respective transaction types. In a single <span>billing</span> process, 
+ you can recall any or all the transaction types available for that particular 
+ <span>billing</span> type (i.e., Product <span>billing</span> or Service 
+ <span>billing</span>). Once you recall a document in a terminal, the same 
+ document will not be available for recall in any other terminals. Customer 
+ validation can be done before recalling a transaction slip, if <a href="Billing_Configuration.htm#Recall">configured</a>.</p>
+
+<p class=Body-Text>On clicking <span class="hcp1">Recall</span> 
+ button from the <span>B</span><span>illing</span> window, Recall Details 
+ is displayed.</p>
+
+<p class=Body-Text><img src="Bill_Recall_Details.gif" x-maintain-ratio="TRUE" style="border: none;
+								float: none;
+								width: 220px;
+								height: 103px;
+								border-style: none;
+								border-style: none;" width="220" height="103" border="0"></p>
+
+<p class=Body-Text><span class="hcp1">Transaction Type</span>: 
+ Select the type of transaction from the drop down list.</p>
+
+<p class=Body-Text>The transactions types available for recall are <span>Sales 
+ Advice Slip, </span>Sales Order (for Product <span>Billing</span>)<span>, 
+ Service Order (for Service Billing)</span> and Suspension (for both Product 
+ and Service <span>Billing</span>).</p>
+
+<p class=Body-Text><span class="hcp1">Doc No Prefix</span>: 
+ The document prefix used for the selected Transaction Type is displayed 
+ by default. You can edit this value, if required.</p>
+
+<p class=Body-Text><span class="hcp1">Document No</span>: 
+ Enter the document number. Alternatively, press <span class="hcp1">F2</span> 
+ and the<span class="hcp1"> <a href="Document_Search_POS.htm">Document 
+ Search</a></span> window for the selected Transaction Type pops up. You 
+ can browse for the document number in this window.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Navigation><span class="hcp1">Submit</span>: To 
+ submit the recall details entered to proceed with the <span>billing</span>.</p>
+
+<p class=Navigation><span class="hcp1">Cancel</span>: To 
+ exit from the Recall Details window. You can also press <span class="hcp1">Esc</span> 
+ to exit.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note><span class="hcp1">Notes:</span> </p>
+
+<p class=Note>&nbsp;&nbsp;&nbsp;&nbsp;<font
+face="Symbol">&#183;</font> You may delete items from 
+ the document that is recalled, if <a href="Billing_Configuration.htm#Recall">configured</a>.</p>
+
+<p class=Note>&nbsp;&nbsp;&nbsp;&nbsp;<font
+face="Symbol">&#183;</font> You may suspend <span>a bill</span> 
+ even after recalling any document. The suspended <span>bill</span> is 
+ available for recall later. </p>
+
+<p class=Body-Text>When you delete any items from a document that is recalled, 
+ or suspend a bill after recalling any document, the status of the respective 
+ document varies according to the type of the transaction. The possible 
+ scenarios are explained.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Sales Advice Slip</p>
+
+<p class=Body-Text>After recalling a Sales Advice Slip, if you perform 
+ partial deletion, i.e., if you delete one or more items from the recalled 
+ Slip, and billed for the rest of the items, then the status of the sales 
+ advice slip will be disabled (closed). Here, the sales advice slip cannot 
+ be recalled once again.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Sales Order<span>/ Service Order</span></p>
+
+<p class=Body-Text>After recalling a Sales Order<span>/ Service Order</span>, 
+ if you perform partial deletion, i.e., if you delete one or more items 
+ from the recalled transaction type, and <span>billed</span> for the rest 
+ of the items, then the status of the Sales Order<span>/ Service Order</span> 
+ will still be enabled (opened). Here, the Sales Order<span>/ Service Order</span> 
+ can be recalled till all the items get <span>billed</span>. </p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Suspension</p>
+
+<p class=Body-Text>After recalling a<span> Sales Advice Slip,</span> Sales 
+ Order<span> or Service Order</span>, if you suspend the <span>bill</span>, 
+ then the status of the respective transaction type is disabled (closed). 
+ However, if you <a href="Billing_Configuration.htm#Suspension">delete</a> 
+ this suspended <span>bill </span>later, then the respective transaction 
+ type will be available for recalling it again.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

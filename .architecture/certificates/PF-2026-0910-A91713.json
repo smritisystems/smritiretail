@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0910-A91713",
+  "entity": "customer",
+  "capability": "customer.lookup",
+  "asset_type": "component",
+  "proposed_name": "ValidCustomerView.tsx",
+  "target_file_path": "src/components/customer/ValidCustomerView.tsx",
+  "decision": "REUSE_EXISTING",
+  "canonical_owner": "UniversalBrowseEngine.tsx",
+  "content_hash": "9cb9b9d2a7088d707cc97faba0c9070809a219dadbf83bbf7abfda9915ec7cbb",
+  "git_commit": "3805ec8c956eaad0edfcef98379d65dd43a8279e",
+  "issued_at": "2026-09-10T08:35:37.658698+00:00",
+  "expires_at": "2026-09-17T08:35:37.658698+00:00",
+  "status": "ISSUED"
+}

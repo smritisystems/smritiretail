@@ -30,6 +30,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
   columns: [
     {
       key: "name",
+      fieldId: "document_series.name",
       label: "Series Name",
       width: "220px",
       sortable: true,
@@ -42,6 +43,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     },
     {
       key: "prefix",
+      fieldId: "document_series.prefix",
       label: "Prefix Pattern",
       width: "200px",
       render: (val, item) => (
@@ -52,6 +54,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     },
     {
       key: "currentNumber",
+      fieldId: "document_series.current_number",
       label: "Current Sequence",
       width: "140px",
       align: "right",
@@ -64,6 +67,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     },
     {
       key: "resetRule",
+      fieldId: "document_series.reset_rule",
       label: "Reset Cycle",
       width: "140px",
       render: (val) => (
@@ -74,6 +78,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     },
     {
       key: "isActive",
+      fieldId: "document_series.is_active",
       label: "Status",
       width: "100px",
       render: (val) => (
@@ -89,6 +94,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
   fields: [
     {
       name: "name",
+      fieldId: "document_series.name",
       label: "Series Name",
       type: "text",
       required: true,
@@ -115,6 +121,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     },
     {
       name: "prefix",
+      fieldId: "document_series.prefix",
       label: "Prefix Format",
       type: "text",
       required: true,
@@ -131,6 +138,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     },
     {
       name: "currentNumber",
+      fieldId: "document_series.current_number",
       label: "Initial / Starting Counter",
       type: "number",
       defaultValue: 0,

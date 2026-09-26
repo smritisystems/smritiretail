@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,14 +7,14 @@
  * Version      : 6.7.0
  * Created      : 2026-08-21
  * Modified     : 2026-08-22
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useMemo, useEffect } from "react";
 import { ProPosCustomer } from "./types.ts";
-import { getCustomers, initialCustomers, saveCustomers, persistCustomerChange } from "../../../services/customerStore.ts";
+import { getCustomers, saveCustomers, persistCustomerChange } from "../../../services/customerStore.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { X, Search, UserPlus, Check } from "lucide-react";
 
@@ -43,6 +43,10 @@ const mapToProPosCustomers = (custs: any[]): ProPosCustomer[] => {
       state: c.state || parsed.stateName || undefined,
       stateCode: c.stateCode || parsed.stateCode || undefined,
       registrationType: parsed.isValid ? "REGISTERED" : "UNREGISTERED",
+      customerGroup: c.customerGroup || c.customer_group || c.customerGroupId || c.customer_group_id || (c.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
+      customerGroupId: c.customerGroupId || c.customer_group_id || (c.name?.toUpperCase().includes("RELIANCE") ? "CG-LargeRetail" : undefined),
+      pricingBasis: (c.pricingBasis || c.pricing_basis || (c.customerGroup === "CG-Corporate" || c.customerGroupId === "CG-Corporate" || c.customerType === "Corporate" || c.customerType === "Wholesale" ? "RATE" : "MRP")) as "MRP" | "RATE",
+      allowPromotionsOnRate: Boolean(c.allowPromotionsOnRate || c.allow_promotions_on_rate),
     };
   });
 };
@@ -67,7 +71,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
   // Fetch live customers from server on modal mount
   useEffect(() => {
     let isMounted = true;
-    apiFetchV1("/customers")
+    apiFetchV1("/crm/customers")
       .then((res: any) => {
         if (isMounted && Array.isArray(res) && res.length > 0) {
           setCustomerList(mapToProPosCustomers(res));
@@ -90,6 +94,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
   const [newCustName, setNewCustName] = useState<string>("");
   const [newCustPhone, setNewCustPhone] = useState<string>("");
   const [newCustCode, setNewCustCode] = useState<string>("C01");
+  const [newCustPricingBasis, setNewCustPricingBasis] = useState<"MRP" | "RATE">("MRP");
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customerList;
@@ -119,7 +124,9 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
       loyaltyTier: "Silver",
       loyaltyPoints: 0,
       creditLimit: 10000,
-      currentBalance: 0
+      currentBalance: 0,
+      pricingBasis: newCustPricingBasis,
+      allowPromotionsOnRate: false,
     };
 
     // Update local modal list
@@ -232,7 +239,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
 
         {/* Quick Add Form on the Fly */}
         {showAddForm && (
-          <div className="p-4 bg-[#dde1ff]/30 dark:bg-[#1e40af]/10 border-b border-[#00288e]/20 grid grid-cols-1 md:grid-cols-4 gap-3 shrink-0">
+          <div className="p-4 bg-[#dde1ff]/30 dark:bg-[#1e40af]/10 border-b border-[#00288e]/20 grid grid-cols-1 md:grid-cols-5 gap-3 shrink-0">
             <div>
               <label className="block text-[10px] font-bold uppercase text-[#565e74] mb-1">Customer Code</label>
               <input
@@ -262,6 +269,17 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
                 className="w-full px-2.5 py-1.5 border border-[#c4c5d5] rounded-lg text-xs font-mono bg-white dark:bg-[#191c1e]"
               />
             </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-[#565e74] mb-1">Bill On Price</label>
+              <select
+                value={newCustPricingBasis}
+                onChange={e => setNewCustPricingBasis(e.target.value as "MRP" | "RATE")}
+                className="w-full px-2.5 py-1.5 border border-[#c4c5d5] rounded-lg text-xs bg-white dark:bg-[#191c1e] font-bold"
+              >
+                <option value="MRP">MRP (Retail)</option>
+                <option value="RATE">RATE (Wholesale)</option>
+              </select>
+            </div>
             <div className="flex items-end">
               <button
                 type="button"
@@ -282,6 +300,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
                 <th className="px-3 py-2 w-20">Code</th>
                 <th className="px-3 py-2">Customer Name</th>
                 <th className="px-3 py-2">Mobile</th>
+                <th className="px-3 py-2 text-center">Bill On</th>
                 <th className="px-3 py-2 text-center">Loyalty Tier</th>
                 <th className="px-3 py-2 text-right">Points</th>
                 <th className="px-3 py-2 text-right">Credit Limit</th>
@@ -309,12 +328,21 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
                     <td className="px-3 py-2.5">{c.name}</td>
                     <td className="px-3 py-2.5 font-mono">{c.phone}</td>
                     <td className="px-3 py-2.5 text-center">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        c.pricingBasis === "RATE"
+                          ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950 dark:text-amber-200"
+                          : "bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200"
+                      }`}>
+                        {c.pricingBasis === "RATE" ? "RATE" : "MRP"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
                       <span className="px-2 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded text-[10px] font-bold">
                         {c.loyaltyTier || "Silver"}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono">{c.loyaltyPoints?.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-right font-mono">â‚¹{c.creditLimit?.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right font-mono">₹{c.creditLimit?.toLocaleString()}</td>
                     <td className="px-3 py-2.5 text-center">
                       <button
                         type="button"

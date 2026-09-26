@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-AF8BF6",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "component",
+  "proposed_name": "WhyThisCostModal.tsx",
+  "target_file_path": "src/components/purchase/WhyThisCostModal.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/WhyThisCostModal.tsx",
+  "content_hash": "802f8f2844402bf05310716ce95b2ba8b52d1d65c5c2aecee72a936b84248533",
+  "git_commit": "529b6ce54bdd9d51b942fd1618c45ff53ff56890",
+  "issued_at": "2026-09-19T18:28:15.117857+00:00",
+  "expires_at": "2026-09-26T18:28:15.117857+00:00",
+  "status": "ISSUED"
+}

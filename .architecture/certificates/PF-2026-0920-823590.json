@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0920-823590",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "component",
+  "proposed_name": "GrnCsvImportModal.tsx",
+  "target_file_path": "src/components/purchase/GrnCsvImportModal.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/GrnCsvImportModal.tsx",
+  "content_hash": "352595d89b85823c728d2712c69582a1d73f48eaef4091d8e4ce861b72f4f59a",
+  "git_commit": "1381639a1c025534400381b169c093449e4f7958",
+  "issued_at": "2026-09-20T01:55:14.181189+00:00",
+  "expires_at": "2026-09-27T01:55:14.181189+00:00",
+  "status": "ISSUED"
+}

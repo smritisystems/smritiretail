@@ -129,7 +129,7 @@ To design, build, and deploy a centralized, schema-driven **Universal Reporting 
 ---
 
 ## 17. Status
-Approved — In Progress
+Completed
 
 ---
 
@@ -140,4 +140,5 @@ Approved — In Progress
 ---
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/sales/Sales_Order_Fulfillment_Variance_And_Matrix_Suite_v3.30.0.md`
+- [`docs/walkthrough/reports/SMRITI_Universal_Report_Engine_v1.0.md`](../walkthrough/reports/SMRITI_Universal_Report_Engine_v1.0.md)
+- [`docs/walkthrough/sales/Sales_Order_Fulfillment_Variance_And_Matrix_Suite_v3.30.0.md`](../walkthrough/sales/Sales_Order_Fulfillment_Variance_And_Matrix_Suite_v3.30.0.md)

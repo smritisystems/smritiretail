@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-F93A07",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "component",
+  "proposed_name": "CostAllocationPreviewModal.tsx",
+  "target_file_path": "src/components/purchase/CostAllocationPreviewModal.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/CostAllocationPreviewModal.tsx",
+  "content_hash": "4df84a5df23dcb33c2d6cc832153c0839469635f0b34272a84075b7967a7facf",
+  "git_commit": "acba70c30d5776ce3e903d0ec4a0a2fe7da12cd6",
+  "issued_at": "2026-09-19T19:15:07.969209+00:00",
+  "expires_at": "2026-09-26T19:15:07.969209+00:00",
+  "status": "ISSUED"
+}

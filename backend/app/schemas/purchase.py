@@ -18,16 +18,17 @@ Founders
 
 * Version    : 3.18.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-14
+* Modified   : 2026-09-18
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
 """
 
 from decimal import Decimal
-from typing import Optional, List
-from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from typing import Optional, List, Dict, Any
+from datetime import datetime, date
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from .inward_cost import InwardCostComponentCreate, InwardCostComponentResponse
 
 
 # ─────────────────────────── Supplier ───────────────────────────
@@ -46,22 +47,22 @@ class SupplierCreate(BaseModel):
 
 
 class SupplierResponse(BaseModel):
-    id:          str
-    name:        str
-    code:        str
-    gst_number:  Optional[str] = None
-    mobile:      Optional[str] = None
-    email:       Optional[str] = None
-    address:     Optional[str] = None
-    city:        Optional[str] = None
-    state:       Optional[str] = None
-    pincode:     Optional[str] = None
-    outstanding: Decimal
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    id:            str
+    identity_code: Optional[str] = None
+    name:          str
+    code:          str
+    gst_number:    Optional[str] = None
+    mobile:        Optional[str] = None
+    email:         Optional[str] = None
+    address:       Optional[str] = None
+    city:          Optional[str] = None
+    state:         Optional[str] = None
+    pincode:       Optional[str] = None
+    outstanding:   Decimal
+    company_id:    Optional[str] = None
+    branch_id:     Optional[str] = None
 
     model_config = {"from_attributes": True}
-
 
 
 class SupplierUpdate(BaseModel):
@@ -79,17 +80,39 @@ class SupplierUpdate(BaseModel):
 # ─────────────────────────── Purchase Order ───────────────────────────
 
 class PurchaseOrderItemCreate(BaseModel):
-    product_id: str
-    code:       str
-    name:       str
+    product_id: Optional[str] = None
+    item_id:    Optional[str] = None
+    code:       Optional[str] = None
+    name:       Optional[str] = None
     quantity:   Decimal
-    cost_price: Decimal
+    cost_price: Optional[Decimal] = None
     gst_rate:   Decimal = Decimal("18.00")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_line_item(cls, data: any) -> any:
+        if isinstance(data, dict):
+            if not data.get("code") and data.get("item_code"):
+                data["code"] = str(data["item_code"])
+            if not data.get("product_id"):
+                data["product_id"] = data.get("code") or data.get("item_code") or "PROD-GENERIC"
+            if not data.get("name") and data.get("item_name"):
+                data["name"] = str(data["item_name"])
+            elif not data.get("name"):
+                data["name"] = data.get("code") or "Item"
+            if data.get("cost_price") is None and data.get("rate") is not None:
+                data["cost_price"] = data["rate"]
+            elif data.get("cost_price") is None:
+                data["cost_price"] = Decimal("0.00")
+            if data.get("gst_rate") is None and data.get("tax_percent") is not None:
+                data["gst_rate"] = data["tax_percent"]
+        return data
 
 
 class PurchaseOrderItemResponse(BaseModel):
     id:         str
     product_id: str
+    item_id:    Optional[str] = None
     code:       str
     name:       str
     quantity:   Decimal
@@ -102,11 +125,30 @@ class PurchaseOrderItemResponse(BaseModel):
 
 
 class PurchaseOrderCreate(BaseModel):
-    id:          str
-    order_no:    str
+    id:          Optional[str] = Field(None, max_length=50, description="Persistent technical IDs are governed and generated server-side by IdentityEngine.")
+    order_no:    Optional[str] = None
     supplier_id: str
     notes:       Optional[str] = None
-    items:       List[PurchaseOrderItemCreate]
+    items:       Optional[List[PurchaseOrderItemCreate]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_po_create(cls, data: any) -> any:
+        if isinstance(data, dict):
+            data["id"] = None
+            if not data.get("order_no") and data.get("order_number"):
+                data["order_no"] = str(data["order_number"])
+            if data.get("items") is None and data.get("lines") is not None:
+                data["items"] = data["lines"]
+        return data
+
+    @field_validator("order_no")
+    @classmethod
+    def validate_order_no(cls, v: Optional[str]) -> str:
+        if not v or not v.strip():
+            raise ValueError("order_no is required")
+        return v.strip()
+
 
 class PurchaseOrderCancelRequest(BaseModel):
     """Optional cancellation reason for cancelling a purchase order."""
@@ -118,23 +160,24 @@ class PurchaseOrderAmendRequest(BaseModel):
     Amendment: the original (Confirmed) PO is cancelled and a new Confirmed
     PO is created from the supplied items.
     """
-    new_order_id: str
+    new_order_id: Optional[str] = None
     new_order_no: str
     items:        List[PurchaseOrderItemCreate]
     reason:       Optional[str] = None
 
 class PurchaseOrderResponse(BaseModel):
-    id:          str
-    order_no:    str
-    supplier_id: str
-    status:      str
-    notes:       Optional[str] = None
-    subtotal:    Decimal
-    tax_total:   Decimal
-    grand_total: Decimal
-    items:       List[PurchaseOrderItemResponse] = []
-    company_id:  Optional[str] = None
-    branch_id:   Optional[str] = None
+    id:            str
+    identity_code: Optional[str] = None
+    order_no:      str
+    supplier_id:   str
+    status:        str
+    notes:         Optional[str] = None
+    subtotal:      Decimal
+    tax_total:     Decimal
+    grand_total:   Decimal
+    items:         List[PurchaseOrderItemResponse] = []
+    company_id:    Optional[str] = None
+    branch_id:     Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -145,53 +188,171 @@ from datetime import datetime, date
 # ─────────────────────────── Purchase Receipt (GRN) ───────────────────────────
 
 class PurchaseReceiptItemCreate(BaseModel):
-    product_id:        str
-    code:              str
-    name:              str
-    batch_no:          Optional[str] = None
-    mfg_date:          Optional[date] = None
-    expiry_date:       Optional[date] = None
-    mrp:               Optional[Decimal] = None
-    quantity_ordered:  Optional[Decimal] = None
-    quantity_received: Decimal
-    quantity_damaged:  Optional[Decimal] = Decimal("0.00")
-    cost_price:        Decimal
-    gst_rate:          Decimal = Decimal("18.00")
+    product_id:            Optional[str] = None
+    item_id:               Optional[str] = None
+    code:                  Optional[str] = None
+    name:                  Optional[str] = None
+    batch_no:              Optional[str] = None
+    mfg_date:              Optional[date] = None
+    expiry_date:           Optional[date] = None
+    mrp:                   Optional[Decimal] = None
+    quantity_ordered:      Optional[Decimal] = None
+    quantity_received:     Optional[Decimal] = None
+    quantity_damaged:      Optional[Decimal] = Decimal("0.00")
+    cost_price:            Optional[Decimal] = None
+    gst_rate:              Decimal = Decimal("18.00")
+    landed_cost:           Optional[Decimal] = None
+    freight_allocated:     Optional[Decimal] = Decimal("0.00")
+    purchase_order_id:     Optional[str] = None
+    purchase_order_no:     Optional[str] = None
+    purchase_order_line_id: Optional[str] = None
+    order_id:              Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_receipt_item(cls, data: any) -> any:
+        if isinstance(data, dict):
+            if not data.get("product_id") and (data.get("item_id") or data.get("code")):
+                data["product_id"] = data.get("item_id") or data.get("code")
+            if not data.get("code") and (data.get("item_code") or data.get("item_id") or data.get("product_id")):
+                data["code"] = data.get("item_code") or data.get("item_id") or data.get("product_id")
+            if not data.get("name") and (data.get("item_name") or data.get("product_name")):
+                data["name"] = data.get("item_name") or data.get("product_name")
+            elif not data.get("name"):
+                data["name"] = data.get("code") or "Item"
+            if data.get("quantity_received") is None:
+                data["quantity_received"] = data.get("received_qty") or data.get("accepted_qty") or data.get("quantity") or Decimal("0.00")
+            if data.get("cost_price") is None:
+                data["cost_price"] = data.get("unit_price") or data.get("purchase_rate") or data.get("rate") or Decimal("0.00")
+            if data.get("gst_rate") is None and data.get("tax_rate") is not None:
+                data["gst_rate"] = data.get("tax_rate")
+            if not data.get("purchase_order_id"):
+                data["purchase_order_id"] = data.get("po_id") or data.get("purchase_order") or data.get("order_id")
+            if not data.get("purchase_order_no"):
+                data["purchase_order_no"] = data.get("po_no") or data.get("purchase_order_no") or data.get("order_no")
+            if not data.get("purchase_order_line_id"):
+                data["purchase_order_line_id"] = data.get("po_line_id") or data.get("purchase_order_item_id") or data.get("order_line_id")
+        return data
 
 
 class PurchaseReceiptItemResponse(BaseModel):
-    id:                str
-    product_id:        str
-    code:              str
-    name:              str
-    batch_no:          Optional[str] = None
-    mfg_date:          Optional[date] = None
-    expiry_date:       Optional[date] = None
-    mrp:               Optional[Decimal] = None
-    quantity_ordered:  Optional[Decimal] = None
-    quantity_received: Decimal
-    quantity_damaged:  Decimal = Decimal("0.00")
-    cost_price:        Decimal
-    gst_rate:          Decimal
-    tax_amount:        Decimal
-    line_total:        Decimal
+    id:                    str
+    product_id:            str
+    item_id:               Optional[str] = None
+    purchase_order_id:     Optional[str] = None
+    purchase_order_no:     Optional[str] = None
+    purchase_order_line_id: Optional[str] = None
+    code:                  str
+    name:                  str
+    batch_no:              Optional[str] = None
+    mfg_date:              Optional[date] = None
+    expiry_date:           Optional[date] = None
+    mrp:                   Optional[Decimal] = None
+    quantity_ordered:      Optional[Decimal] = None
+    quantity_received:     Decimal
+    quantity_damaged:      Decimal = Decimal("0.00")
+    cost_price:            Decimal
+    gst_rate:              Decimal
+    tax_amount:            Decimal
+    line_total:            Decimal
+    landed_cost:           Optional[Decimal] = None
+    freight_allocated:     Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
 
 
 class PurchaseReceiptCreate(BaseModel):
-    id:           str
-    receipt_no:   str
-    supplier_id:  str
-    warehouse_id: Optional[str] = None  # target godown — optional (defaults to Central Godown)
-    order_id:     Optional[str] = None   # link to PO — optional
-    notes:        Optional[str] = None
-    items:        List[PurchaseReceiptItemCreate]
+    id:                 Optional[str] = None
+    receipt_no:         Optional[str] = None
+    supplier_id:        str
+    warehouse_id:       Optional[str] = None  # target godown — optional (defaults to Central Godown)
+    order_id:           Optional[str] = None   # link to PO — optional
+    notes:              Optional[str] = None
+    transporter_name:   Optional[str] = None
+    lr_number:          Optional[str] = None
+    lr_date:            Optional[date] = None
+    vehicle_number:     Optional[str] = None
+    freight_amount:     Optional[Decimal] = Decimal("0.00")
+    handling_amount:    Optional[Decimal] = Decimal("0.00")
+    insurance_amount:   Optional[Decimal] = Decimal("0.00")
+    pkg_forward_amount: Optional[Decimal] = Decimal("0.00")
+    allocation_method:  Optional[str] = "VALUE"
+    cost_components:    Optional[List[InwardCostComponentCreate]] = None
+    attachments:        Optional[List[Dict[str, Any]]] = None
+    items:              List[PurchaseReceiptItemCreate]
+
+
+class PurchaseReceiptUpdate(BaseModel):
+    notes:              Optional[str] = None
+    transporter_name:   Optional[str] = None
+    lr_number:          Optional[str] = None
+    lr_date:            Optional[date] = None
+    vehicle_number:     Optional[str] = None
+    attachments:        Optional[List[Dict[str, Any]]] = None
+
+
+class DebitNoteCreate(BaseModel):
+    id:                 Optional[str] = None
+    debit_note_no:      Optional[str] = None
+    supplier_id:        str
+    receipt_id:         Optional[str] = None
+    claim_amount:       Decimal
+    tax_amount:         Optional[Decimal] = Decimal("0.00")
+    total_debit_amount: Decimal
+    status:             Optional[str] = "ISSUED"
+    reason:             Optional[str] = None
+
+
+class DebitNoteResponse(BaseModel):
+    id:                 str
+    identity_code:      Optional[str] = None
+    debit_note_no:      str
+    supplier_id:        str
+    receipt_id:         Optional[str] = None
+    claim_amount:       Decimal
+    tax_amount:         Decimal
+    total_debit_amount: Decimal
+    status:             str
+    reason:             Optional[str] = None
+    created_at:         Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class PurchaseBillCreate(BaseModel):
+    id:                 Optional[str] = None
+    bill_no:            str
+    supplier_id:        str
+    receipt_id:         Optional[str] = None
+    order_id:           Optional[str] = None
+    bill_date:          Optional[date] = None
+    taxable_amount:     Decimal
+    tax_amount:         Decimal
+    total_amount:       Decimal
+    notes:              Optional[str] = None
+
+
+class PurchaseBillResponse(BaseModel):
+    id:                 str
+    identity_code:      Optional[str] = None
+    bill_no:            str
+    supplier_id:        str
+    receipt_id:         Optional[str] = None
+    order_id:           Optional[str] = None
+    bill_date:          Optional[date] = None
+    taxable_amount:     Decimal
+    tax_amount:         Decimal
+    total_amount:       Decimal
+    status:             str
+    notes:              Optional[str] = None
+
+    model_config = {"from_attributes": True}
 
 
 class PurchaseReceiptResponse(BaseModel):
-    id:           str
-    receipt_no:   str
+    id:            str
+    identity_code: Optional[str] = None
+    receipt_no:    str
     supplier_id:  str
     warehouse_id: Optional[str] = None
     order_id:     Optional[str] = None
@@ -201,6 +362,8 @@ class PurchaseReceiptResponse(BaseModel):
     tax_total:    Decimal
     grand_total:  Decimal
     items:        List[PurchaseReceiptItemResponse] = []
+    cost_components: Optional[List[InwardCostComponentResponse]] = []
+    attachments:  Optional[List[Dict[str, Any]]] = None
     company_id:   Optional[str] = None
     branch_id:    Optional[str] = None
 

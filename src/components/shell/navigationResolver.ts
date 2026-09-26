@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 6.42.4
  * Created      : 2026-08-16
- * Modified     : 2026-08-16
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -41,12 +41,19 @@ export interface NavigationQuery {
   userRole?: string;
 }
 
+export interface BreadcrumbAncestor {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
 export interface ResolvedNavigation {
   context: BusinessContext;
   contextLabel: string;
   contextIcon: string;
   items: ContextualMenuItem[];
   nextBestAction?: ContextualMenuItem;
+  breadcrumbAncestors?: BreadcrumbAncestor[];
 }
 
 const LAUNCHPAD_ITEM: ContextualMenuItem = {
@@ -54,6 +61,24 @@ const LAUNCHPAD_ITEM: ContextualMenuItem = {
   title: 'SMRITI Launchpad',
   icon: 'grid_view',
 };
+
+function getAncestorsForContext(context: BusinessContext, isDocumentActive: boolean): BreadcrumbAncestor[] {
+  if (context === 'launchpad') return [];
+  const home: BreadcrumbAncestor = { id: 'launchpad', label: 'Home', icon: 'home' };
+  if (!isDocumentActive) {
+    return [home];
+  }
+  const contextLabels: Record<BusinessContext, string> = {
+    sales: 'Sales & Billing',
+    purchase: 'Purchase & Procurement',
+    inventory: 'Stock & Inventory',
+    masters: 'Master Data',
+    reports: 'BI Reports',
+    system: 'System Governance',
+    launchpad: 'Home',
+  };
+  return [home, { id: context, label: contextLabels[context] || context }];
+}
 
 export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
   const role = query.userRole || 'Operator';
@@ -94,6 +119,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         title: 'View Stock Impact',
         icon: 'warehouse',
       },
+      breadcrumbAncestors: getAncestorsForContext(query.context, true),
     };
   }
 
@@ -106,10 +132,10 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         items: [
           LAUNCHPAD_ITEM,
           { id: 'sales', title: 'Sales Billing', icon: 'point_of_sale', isNextBestAction: true },
-          { id: 'pos', title: 'POS Touch Terminal', icon: 'receipt_long', badgeCount: 2 },
+          { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
           { id: 'crm', title: 'Customer 360', icon: 'badge' },
-          { id: 'create-tax-invoice', title: 'Tax Invoice Builder', icon: 'description' },
           { id: 'tax-invoice-print', title: 'Statutory A4 Print', icon: 'print' },
+          { id: 'b2b-dispatch-studio', title: 'B2B Dispatch Studio', icon: 'local_shipping' },
           { id: 'reports', title: 'Sales Analytics', icon: 'analytics' },
         ],
         nextBestAction: {
@@ -117,6 +143,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Open Sales Billing',
           icon: 'point_of_sale',
         },
+        breadcrumbAncestors: getAncestorsForContext('sales', false),
       };
 
     case 'purchase':
@@ -128,7 +155,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           LAUNCHPAD_ITEM,
           { id: 'purchase', title: 'Purchase Orders', icon: 'shopping_cart', isNextBestAction: true },
           { id: 'grn', title: 'Goods Receipt (GRN)', icon: 'local_shipping' },
-          { id: 'supplier-mgmt', title: 'Supplier Directory', icon: 'storefront' },
+          { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
           { id: 'approval-matrix', title: 'PO Approval Matrix', icon: 'rule' },
           { id: 'inventory', title: 'Stock Ledger Impact', icon: 'warehouse' },
           { id: 'reports', title: 'Procurement BI', icon: 'analytics' },
@@ -138,6 +165,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Create Purchase Order',
           icon: 'add_shopping_cart',
         },
+        breadcrumbAncestors: getAncestorsForContext('purchase', false),
       };
 
     case 'inventory':
@@ -158,6 +186,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'View Stock Movement',
           icon: 'insights',
         },
+        breadcrumbAncestors: getAncestorsForContext('inventory', false),
       };
 
     case 'masters':
@@ -169,8 +198,9 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           LAUNCHPAD_ITEM,
           { id: 'item-master', title: 'Item Master (Browse)', icon: 'inventory_2' },
           { id: 'item-create-grid', title: 'Create Items (Excel Grid)', icon: 'grid_on', isNextBestAction: true },
+          { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
           { id: 'customer-master', title: 'Customer Master', icon: 'person_search' },
-          { id: 'supplier-mgmt', title: 'Supplier Master', icon: 'storefront' },
+          { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
           { id: 'masters', title: 'Master Registry', icon: 'tune' },
           { id: 'document-series', title: 'Document Series Prefix', icon: 'tag' },
         ],
@@ -179,6 +209,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Open Excel Bulk Grid',
           icon: 'grid_on',
         },
+        breadcrumbAncestors: getAncestorsForContext('masters', false),
       };
 
     case 'reports':
@@ -199,6 +230,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Launch BI Studio',
           icon: 'analytics',
         },
+        breadcrumbAncestors: getAncestorsForContext('reports', false),
       };
 
     case 'system':
@@ -208,6 +240,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         contextIcon: 'admin_panel_settings',
         items: [
           LAUNCHPAD_ITEM,
+          { id: 'system-parameters', title: 'System Parameters Studio', icon: 'tune' },
           { id: 'database-manager', title: 'Database Manager (DB Studio)', icon: 'storage' },
           { id: 'masters', title: 'System Master Registry', icon: 'tune' },
           { id: 'staff-management', title: 'Staff & Role Governance', icon: 'group' },
@@ -220,6 +253,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Check Diagnostics',
           icon: 'speed',
         },
+        breadcrumbAncestors: getAncestorsForContext('system', false),
       };
 
     case 'launchpad':
@@ -236,6 +270,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           title: 'Fiori Launchpad',
           icon: 'grid_view',
         },
+        breadcrumbAncestors: getAncestorsForContext('launchpad', false),
       };
   }
 }

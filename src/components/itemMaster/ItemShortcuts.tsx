@@ -43,7 +43,7 @@ export const ItemShortcuts: React.FC<SmritiKeyboardShortcutsModalProps> = ({
       items: [
         { key: "F1", desc: "Show Keyboard Shortcuts Guide" },
         { key: "F2", desc: "Open Select Codes & SKU/Barcode Generator" },
-        { key: "Ctrl + S / Ok", desc: "Save / Commit Items to PostgreSQL Database" },
+        { key: "Ctrl + S / Ok", desc: "Save / Commit Items to Database" },
         { key: "Ctrl + F / Replace", desc: "Open Find & Replace Data Utility" },
         { key: "Ctrl + V", desc: "Paste Multiple Rows from Excel / CSV" },
         { key: "Esc", desc: "Close Active Modal / Cancel Operation" }

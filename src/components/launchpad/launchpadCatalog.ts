@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.2.0
+ * Version      : 6.42.4
  * Created      : 2026-08-20
- * Modified     : 2026-08-24
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -31,17 +31,17 @@ export interface TileData {
 export const LAUNCHPAD_CATALOG: TileData[] = [
   // 1. Retail Operations
   {
-    id: "pos",
-    title: "Billing Desk (POS)",
-    subtitle: "High-speed retail billing, cashier shift tracking & cash drawer reconciliation",
-    icon: "point_of_sale",
-    tag: "Core POS",
-    badgeType: "primary",
+    id: "billing-workspace",
+    title: "Desktop Billing Terminal",
+    subtitle: "High-speed retail barcode checkout, docked direct entry, exact cash & multi-tender settlement",
+    icon: "receipt_long",
+    tag: "Billing",
+    badgeType: "success",
     group: "Retail Operations",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
     shortcut: "F1",
-    accentColor: "emerald",
+    accentColor: "blue",
   },
   {
     id: "sales",
@@ -54,27 +54,37 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
   },
   {
-    id: "create-tax-invoice",
-    title: "Create Tax Invoice (B2B)",
-    subtitle: "Advanced B2B tax invoice generator with statutory reverse charge & GST rules",
-    icon: "post_add",
-    tag: "GST A4",
-    badgeType: "primary",
-    group: "Retail Operations",
-    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
-    isQuickAction: true,
-    shortcut: "F3",
-    accentColor: "indigo",
+    id: "ewaybill-management",
+    title: "E-Way Bill Management",
+    subtitle: "Review invoice sets, prepare NIC v1.03 JSON & generate selected or ranged bills",
+    icon: "local_shipping",
+    tag: "GST Compliance",
+    badgeType: "warning",
+    group: "Finance & Ledgers",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "purchase",
     title: "Purchase Studio",
-    subtitle: "Vendor purchase orders, goods receipt notes (GRN) & matrix grid paste",
+    subtitle: "Vendor purchase orders, sizing curve matrix, and procurement pricing control",
     icon: "shopping_cart",
     tag: "Procurement",
     badgeType: "info",
     group: "Retail Operations",
     roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "grn-studio",
+    title: "Goods Receipt (GRN) Terminal",
+    subtitle: "Inward material verification, direct entry dock, received vs damaged inspection & landed cost entry",
+    icon: "fact_check",
+    tag: "Inward Dock",
+    badgeType: "primary",
+    group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "F4",
+    accentColor: "indigo",
   },
   {
     id: "profiles",
@@ -128,6 +138,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "amber",
   },
   {
+    id: "barcode-management",
+    title: "Barcode Management",
+    subtitle: "GS1 intake, bulk barcode import, permanent stock assignment & registry audit",
+    icon: "fact_check",
+    tag: "Registry",
+    badgeType: "warning",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
     id: "stock-ledger",
     title: "Stock Movement Ledger",
     subtitle: "Real-time stock ledger movements, inward/outward logs & batch valuations",
@@ -141,11 +161,21 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "blue",
   },
   {
+    id: "wms-dashboard",
+    title: "Warehouse & Batch Hub",
+    subtitle: "Warehouse operations, stock transfers, batch controls & fulfillment workflows",
+    icon: "warehouse",
+    tag: "Warehouse",
+    badgeType: "primary",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
     id: "supplier-mgmt",
-    title: "Supplier Directory",
-    subtitle: "Vendor master profiles, GSTIN validation, commercial terms & payable balances",
+    title: "Vendor 360 Workspace",
+    subtitle: "Universal Party vendor master, statutory GSTIN/MSME, banking, contacts, procurement & payables",
     icon: "local_shipping",
-    tag: "Vendors",
+    tag: "Vendor 360",
     badgeType: "info",
     group: "Master Data & Stock",
     roles: ["MANAGER", "SYSADMIN"],
@@ -179,6 +209,19 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "success",
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "sales-promotions",
+    title: "Sales Promotions Studio",
+    subtitle: "Define retail schemes, BOGO, combo offers, happy hours & customer group targeting",
+    icon: "percent",
+    tag: "Promotions",
+    badgeType: "success",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "Alt+P",
+    accentColor: "rose",
   },
 
   // 3. Finance & Ledgers
@@ -391,9 +434,21 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN", "AUDITOR"],
   },
   {
+    id: "system-parameters",
+    title: "System Parameters Studio",
+    subtitle: "828 governed architectural switches, Tally Shoper 9 parity & profile blueprint templates",
+    icon: "tune",
+    tag: "Parameters",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["SYSADMIN", "MANAGER"],
+    shortcut: "Alt+Y",
+    accentColor: "indigo",
+  },
+  {
     id: "database-manager",
     title: "Database Manager (DB Studio)",
-    subtitle: "Multi-tenant PostgreSQL schema browser, table data explorer, live telemetry & SQL console",
+    subtitle: "Multi-tenant database schema browser, table data explorer, live telemetry & SQL console",
     icon: "database",
     tag: "DB Studio",
     badgeType: "primary",

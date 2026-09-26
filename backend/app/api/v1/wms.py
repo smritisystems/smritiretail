@@ -25,9 +25,10 @@ from ...api.deps import (
     require_role, require_permission
 )
 from ...models.auth import UserRole
-from ...models.inventory import Warehouse, ProductBatchStock, StockTransfer, StockTransferItem, StockAudit, StockAuditItem
+from ...models.inventory import Warehouse, WarehouseLocation, ProductBatchStock, StockTransfer, StockTransferItem, StockAudit, StockAuditItem
 from ...schemas.wms import (
     WarehouseCreate, WarehouseUpdate, WarehouseResponse,
+    WarehouseLocationCreate, WarehouseLocationResponse,
     ProductBatchStockResponse, BatchAllocationRequest, BatchAllocationItem,
     StockTransferCreate, StockTransferResponse, StockTransferReceiptRequest,
     StockAuditCreate, StockAuditResponse, StockAuditItemResponse,
@@ -41,6 +42,73 @@ router = APIRouter()
 
 
 # ─────────────────────────── Warehouse Masters ───────────────────────────
+
+@router.get("/locations", response_model=List[WarehouseLocationResponse])
+async def list_all_warehouse_locations(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List active locations across the active company for governed selectors."""
+    q = select(WarehouseLocation).where(
+        WarehouseLocation.company_id == tenant_ctx.company_id,
+        WarehouseLocation.is_deleted == False,
+        WarehouseLocation.is_active == True,
+    ).order_by(WarehouseLocation.warehouse_id.asc(), WarehouseLocation.code.asc())
+    result = await db.execute(q)
+    return [WarehouseLocationResponse.model_validate(location) for location in result.scalars().all()]
+
+@router.get("/warehouses/{warehouse_id}/locations", response_model=List[WarehouseLocationResponse])
+async def list_warehouse_locations(
+    warehouse_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List active governed locations for a warehouse."""
+    q = select(WarehouseLocation).where(
+        WarehouseLocation.warehouse_id == warehouse_id,
+        WarehouseLocation.company_id == tenant_ctx.company_id,
+        WarehouseLocation.is_deleted == False,
+        WarehouseLocation.is_active == True,
+    ).order_by(WarehouseLocation.code.asc())
+    result = await db.execute(q)
+    return [WarehouseLocationResponse.model_validate(location) for location in result.scalars().all()]
+
+
+@router.post("/warehouses/{warehouse_id}/locations", response_model=WarehouseLocationResponse, status_code=201)
+async def create_warehouse_location(
+    warehouse_id: str,
+    req: WarehouseLocationCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
+):
+    """Create a governed warehouse location; Item Master consumes these values."""
+    warehouse = await db.scalar(select(Warehouse).where(
+        Warehouse.id == warehouse_id,
+        Warehouse.company_id == tenant_ctx.company_id,
+        Warehouse.is_deleted == False,
+    ))
+    if not warehouse:
+        raise HTTPException(status_code=404, detail="Warehouse not found.")
+    duplicate = await db.scalar(select(WarehouseLocation).where(
+        WarehouseLocation.warehouse_id == warehouse_id,
+        WarehouseLocation.code == req.code,
+        WarehouseLocation.is_deleted == False,
+    ))
+    if duplicate:
+        raise HTTPException(status_code=400, detail=f"Location code '{req.code}' already exists in this warehouse.")
+    location = WarehouseLocation(
+        id=f"loc-{uuid.uuid4().hex[:12]}",
+        uuid=str(uuid.uuid4()),
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        warehouse_id=warehouse_id,
+        **req.model_dump(exclude={"warehouse_id"}),
+    )
+    db.add(location)
+    await db.commit()
+    await db.refresh(location)
+    return WarehouseLocationResponse.model_validate(location)
 
 @router.get("/warehouses", response_model=List[WarehouseResponse])
 async def list_warehouses(

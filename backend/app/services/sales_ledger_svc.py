@@ -24,7 +24,9 @@ from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement, ProductBatchStock
 from ..models.crm import Customer
 from ..models.party import Party
+from ..platform.events import EventEnvelope, get_platform_event_service
 from .outbox_service import OutboxService
+from .identity.engine import IdentityEngine
 
 
 def _quantize_currency(val: float | Decimal) -> Decimal:
@@ -69,7 +71,7 @@ class UnifiedSalesLedgerService:
         if existing:
             raise ValueError(f"Invoice '{clean_inv_no}' already exists in company database.")
 
-        invoice_id = f"inv_{uuid.uuid4().hex[:12]}"
+        invoice_id = IdentityEngine.generate_technical_id()
         total_taxable = Decimal("0.00")
         total_tax = Decimal("0.00")
         grand_total = Decimal("0.00")
@@ -78,7 +80,7 @@ class UnifiedSalesLedgerService:
         stock_movements: List[StockMovement] = []
 
         for idx, itm in enumerate(items_data, start=1):
-            product_id = itm.get("product_id") or itm.get("item_id") or itm.get("id") or f"prod_adhoc_{uuid.uuid4().hex[:8]}"
+            product_id = itm.get("product_id") or itm.get("item_id") or itm.get("id") or IdentityEngine.generate_technical_id()
             code = itm.get("code") or itm.get("sku") or f"PROD-{idx}"
             name = itm.get("name") or itm.get("item_name") or "Sales Item"
             qty = Decimal(str(itm.get("quantity", 1.0)))
@@ -134,8 +136,10 @@ class UnifiedSalesLedgerService:
             invoice_items.append(inv_item)
 
             # 3. Stock Movement Ledger Entry (Authoritative Stock Truth)
+            sm_id = IdentityEngine.generate_technical_id()
             movement = StockMovement(
-                id=f"smv_{uuid.uuid4().hex[:12]}",
+                id=sm_id,
+                uuid=sm_id,
                 company_id=company_id,
                 branch_id=branch_id,
                 product_id=product_id,
@@ -195,10 +199,13 @@ class UnifiedSalesLedgerService:
         for smv_obj in stock_movements:
             session.add(smv_obj)
 
-        # 7. Stage Canonical Outbox Event atomically in the same transaction
-        await OutboxService.record_event(
-            session=session,
-            target_channel="SALES_INVOICE_PUBLISH",
+        # 7. Stage Canonical Outbox Event atomically in the same transaction via PlatformEventService Kernel
+        event_service = get_platform_event_service()
+        envelope = EventEnvelope(
+            eventType="sales.invoice.confirmed",
+            schemaVersion="1.0",
+            source="sales.unified_ledger",
+            tenantId=company_id,
             payload={
                 "invoice_id": invoice_id,
                 "invoice_no": clean_inv_no,
@@ -207,14 +214,17 @@ class UnifiedSalesLedgerService:
                 "is_interstate": is_interstate,
                 "status": "Confirmed"
             },
-            correlation_id=f"corr_inv_{invoice_id}",
-            causation_id=invoice_id,
-            event_type="SALES_INVOICE_CONFIRMED",
-            aggregate_type="SALES_INVOICE",
-            aggregate_id=invoice_id,
-            company_id=company_id,
-            branch_id=branch_id
+            correlationId=f"corr_inv_{invoice_id}",
+            causationId=invoice_id,
+            metadata={
+                "aggregate_id": invoice_id,
+                "company_id": company_id,
+                "branch_id": branch_id,
+                "target_channel": "SALES_INVOICE_PUBLISH",
+                "event_type": "SALES_INVOICE_CONFIRMED",
+            }
         )
+        await event_service.stage_event(envelope, session)
 
         await session.commit()
         session.expire_all()
@@ -259,8 +269,10 @@ class UnifiedSalesLedgerService:
         # Reversal movements
         for itm in invoice.items:
             qty = Decimal(str(itm.quantity))
+            rev_sm_id = IdentityEngine.generate_technical_id()
             rev_movement = StockMovement(
-                id=f"smv_{uuid.uuid4().hex[:12]}",
+                id=rev_sm_id,
+                uuid=rev_sm_id,
                 company_id=company_id,
                 branch_id=branch_id,
                 product_id=itm.product_id,
@@ -299,24 +311,30 @@ class UnifiedSalesLedgerService:
         inv_id = invoice.id
         invoice.status = "Cancelled"
 
-        # Stage Canonical Outbox Event for Cancellation in same transaction
-        await OutboxService.record_event(
-            session=session,
-            target_channel="SALES_INVOICE_PUBLISH",
+        # Stage Canonical Outbox Event for Cancellation in same transaction via PlatformEventService Kernel
+        event_service = get_platform_event_service()
+        cancel_envelope = EventEnvelope(
+            eventType="sales.invoice.cancelled",
+            schemaVersion="1.0",
+            source="sales.unified_ledger",
+            tenantId=company_id,
             payload={
                 "invoice_id": invoice.id,
                 "invoice_no": clean_inv_no,
                 "status": "Cancelled",
                 "reason": reason
             },
-            correlation_id=f"corr_cancel_{invoice.id}",
-            causation_id=invoice.id,
-            event_type="SALES_INVOICE_CANCELLED",
-            aggregate_type="SALES_INVOICE",
-            aggregate_id=invoice.id,
-            company_id=company_id,
-            branch_id=branch_id
+            correlationId=f"corr_cancel_{invoice.id}",
+            causationId=invoice.id,
+            metadata={
+                "aggregate_id": invoice.id,
+                "company_id": company_id,
+                "branch_id": branch_id,
+                "target_channel": "SALES_INVOICE_PUBLISH",
+                "event_type": "SALES_INVOICE_CANCELLED",
+            }
         )
+        await event_service.stage_event(cancel_envelope, session)
 
         await session.commit()
         session.expire_all()
@@ -327,3 +345,8 @@ class UnifiedSalesLedgerService:
             .options(selectinload(SalesInvoice.items))
         )
         return (await session.execute(res_stmt)).scalar_one()
+
+
+# Canonical architectural alias for Phase A Domain Writer Convergence
+CanonicalSalesWriter = UnifiedSalesLedgerService
+

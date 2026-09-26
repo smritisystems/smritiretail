@@ -2,15 +2,15 @@
 # Author       : Jawahar Ramkripal Mallah
 # Email        : support@smritibooks.com
 # Websites     : smritibooks.com | erpnbook.com | aitdl.com
-# Version      : 3.15.0
+# Version      : 6.32.0
 # Created      : 2026-07-11
-# Modified     : 2026-07-12
+# Modified     : 2026-09-17
 # Copyright    : © SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
 services:
-  db:
+  smriti-db:
     image: postgres:15-alpine
     container_name: smriti-db
     restart: unless-stopped
@@ -19,7 +19,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-smritisys}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-2781}:5432"
+    networks:
+      default:
+        aliases:
+          - db
+          - smriti-db
     volumes:
       - smriti_db_volume:/var/lib/postgresql/data
     healthcheck:
@@ -36,30 +41,26 @@ services:
     container_name: smriti-web
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-8101}:3000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smritisys}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
       DATABASE_PROVIDER: "postgres"
       SYNC_PROVIDER: "postgres"
       CACHE_PROVIDER: "memory"
       STORAGE_PROVIDER: "filesystem"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       PYTHON_CORE_HOST: "smriti-api:8000"
-    volumes:
-      - ./.git:/usr/src/app/.git
-      - ./dist:/usr/src/app/dist
-      - ./public:/usr/src/app/public
     depends_on:
-      db:
+      smriti-db:
         condition: service_healthy
       smriti-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
-      interval: 15s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 20s
+      start_period: 30s
 
   smriti-api:
     build:
@@ -68,28 +69,32 @@ services:
     container_name: smriti-api
     restart: unless-stopped
     ports:
-      - "${BACKEND_API_PORT:-8000}:8000"
+      - "${BACKEND_API_PORT:-1981}:8000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smritisys}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env — see .env.example}"
       INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY in .env — see .env.example}"
       SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:?Set SGIP_VAULT_MASTER_KEY in .env — see .env.example}"
-      # When true, the container will skip running Alembic migrations on startup.
-      # Recommended long-term: run migrations as a one-off job from CI or an init container.
-      SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-true}"
+      SDIC_REPOSITORY_ROOT: "/workspace"
+      # Run Alembic migrations on startup by default. Set SKIP_MIGRATIONS=true to disable.
+      SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/tools:/app/tools
+      - ./backend/alembic:/app/alembic
+      - ./backend/entrypoint.sh:/app/entrypoint.sh
+      - ./:/workspace
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:
-      db:
+      smriti-db:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
-      interval: 15s
+      interval: 10s
       timeout: 10s
-      retries: 3
-      start_period: 20s
+      retries: 5
+      start_period: 60s
 
   mssql:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -112,7 +117,7 @@ services:
 
 volumes:
   smriti_db_volume:
-    name: smriti_db_volume
+    name: ${POSTGRES_VOLUME_NAME:-smriti_db_volume}
   smriti_mssql_volume:
-    name: smriti_mssql_volume
+    name: ${MSSQL_VOLUME_NAME:-smriti_mssql_volume}
 

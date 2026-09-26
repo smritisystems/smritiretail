@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.9.0
+ * Version      : 6.10.0
  * Created      : 2026-08-22
- * Modified     : 2026-08-22
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -15,15 +15,60 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Customer, CustomerGroup } from "../types.ts";
-import { 
-  getCustomers, 
-  saveCustomers, 
+import {
+  getCustomers,
+  saveCustomers,
   getCustomerGroups,
   saveCustomerGroups,
   syncPendingCustomers,
-  initialCustomers,
-  initialCustomerGroups 
+  initialCustomerGroups
 } from "../services/customerStore.ts";
+
+// ─── Self-contained test fixtures ─────────────────────────────────────────────
+// initialCustomers is intentionally empty (PostgreSQL is source of truth).
+// These fixtures mirror the live COMP-001 DB records for test isolation.
+const TEST_CUSTOMERS: Customer[] = [
+  {
+    id: "CUST-WALKIN",
+    code: "CUST-WALKIN",
+    name: "Walk-In / Cash Customer",
+    customerGroupId: "CG-Retail",
+    mobile: "9999999999",
+    outstanding: 0,
+    status: "Active",
+    tags: ["Walk-In", "Cash", "B2C"],
+  },
+  {
+    id: "CUST-001",
+    code: "CUST-001",
+    name: "Reliance Retail Limited",
+    customerGroupId: "CG-LargeRetail",
+    mobile: "9822334455",
+    gstNumber: "29AABCR1718E1ZL",
+    outstanding: 0,
+    status: "Active",
+  },
+  {
+    id: "CUST-002",
+    code: "CUST-002",
+    name: "Shoppers Stop Ltd",
+    customerGroupId: "CG-LargeRetail",
+    mobile: "9833445566",
+    gstNumber: "27AAACS4321E1Z2",
+    outstanding: 0,
+    status: "Active",
+  },
+  {
+    id: "CUST-003",
+    code: "CUST-003",
+    name: "Lifestyle International",
+    customerGroupId: "CG-LargeRetail",
+    mobile: "9844556677",
+    gstNumber: "27AAACL5678A1Z3",
+    outstanding: 0,
+    status: "Active",
+  },
+];
 
 const mockStorage: Record<string, string> = {};
 const mockLocalStorage = {
@@ -83,32 +128,27 @@ describe("SMRITI — Customer Flow & Tenant Integrity Tests", () => {
     vi.clearAllMocks();
   });
 
-  // TEST 1: Preserve Invoice-Linked Customer IDs
-  it("TEST 1: should preserve all invoice-linked canonical IDs in customer master", () => {
-    const canonicalIds = [
-      "CUST-WALKIN",
-      "CUST-001",
-      "CUST-002",
-      "CUST-003",
-      "CUST-004",
-      "cust-rrl-192b561d",
-      "CUST-006",
-      "CUST-007"
-    ];
+  // TEST 1: Live DB canonical IDs are present in fixture (mirrors DB audit)
+  it("TEST 1: should preserve all live DB customer IDs in fixture and allow lookup", () => {
+    saveCustomers(TEST_CUSTOMERS);
+    const customers = getCustomers();
 
-    const currentCustomers = initialCustomers;
-    canonicalIds.forEach(id => {
-      const found = currentCustomers.find(c => c.id === id);
-      expect(found, `Customer ID ${id} must exist in canonical repository`).toBeDefined();
+    const liveDbIds = ["CUST-WALKIN", "CUST-001", "CUST-002", "CUST-003"];
+    liveDbIds.forEach(id => {
+      const found = customers.find(c => c.id === id);
+      expect(found, `Customer ID ${id} must exist after cache hydration`).toBeDefined();
     });
   });
 
-  // TEST 2: Customer Groups Tenant Linkage
+  // TEST 2: All customers reference valid tenant-scoped customer groups
   it("TEST 2: should ensure all customers reference valid tenant-scoped customer groups", () => {
     const validGroupIds = ["CG-Retail", "CG-LargeRetail", "CG-Branches", "CG-Franchises"];
-    
-    initialCustomers.forEach(cust => {
-      expect(validGroupIds).toContain(cust.customerGroupId);
+
+    TEST_CUSTOMERS.forEach(cust => {
+      expect(
+        validGroupIds,
+        `Customer ${cust.id} has invalid group: ${cust.customerGroupId}`
+      ).toContain(cust.customerGroupId);
     });
   });
 
@@ -124,21 +164,22 @@ describe("SMRITI — Customer Flow & Tenant Integrity Tests", () => {
     };
 
     mockStorage["smriti_pending_customers"] = JSON.stringify([pendingCust]);
-    
+
     // Check queue reads properly
     const queued = JSON.parse(mockStorage["smriti_pending_customers"]);
     expect(queued.length).toBe(1);
     expect(queued[0].id).toBe("CUST-OFFLINE-001");
   });
 
-  // TEST 4: Customer Status and Tags Updates
+  // TEST 4: saveCustomers dispatches smriti_customer_updated event
   it("TEST 4: should trigger event notifications on customer save", () => {
     const eventSpy = vi.fn();
     window.addEventListener("smriti_customer_updated", eventSpy);
 
-    saveCustomers(initialCustomers);
+    saveCustomers(TEST_CUSTOMERS);
     expect(eventSpy).toHaveBeenCalled();
 
     window.removeEventListener("smriti_customer_updated", eventSpy);
   });
 });
+

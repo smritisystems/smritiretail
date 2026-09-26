@@ -963,7 +963,7 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
         </h4>
 
         {history.length === 0 ? (
-          <p className="text-xs text-theme-muted text-center py-10 font-mono">No printing logs recorded yet in Postgres ledger.</p>
+          <p className="text-xs text-theme-muted text-center py-10 font-mono">No printing logs recorded yet in system ledger.</p>
         ) : (
           <div className="overflow-x-auto max-h-56 border border-theme-divider/70 rounded-xl">
             <table className="w-full text-left text-xs table-fixed border-collapse">

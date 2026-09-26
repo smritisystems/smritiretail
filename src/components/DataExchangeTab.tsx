@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
 import {
   Globe,
@@ -431,14 +431,22 @@ export const DataExchangeTab: React.FC<DataExchangeTabProps> = ({ onNotification
     }
   };
 
-  const filteredPartners = partners.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.type.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPartners = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return partners.filter(p => 
+      p.name.toLowerCase().includes(q) || 
+      p.code.toLowerCase().includes(q) ||
+      p.type.toLowerCase().includes(q)
+    );
+  }, [partners, searchQuery]);
 
   return (
-    <div className="p-6 bg-[#f8fafc] min-h-screen">
+    <div
+      role="region"
+      aria-label="Data Exchange & Integration Engine"
+      title="Data Exchange & Integration Engine (en-IN Locale & Currency Compliant)"
+      className="p-6 bg-[#f8fafc] min-h-screen sm:p-3 md:p-6"
+    >
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-5 mb-6">
         <div>

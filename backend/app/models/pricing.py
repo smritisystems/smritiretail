@@ -70,4 +70,56 @@ class CustomerPriceTier(BaseEntity):
     code = Column(String(50), nullable=False, unique=True, index=True)
     price_book_id = Column(String(50), ForeignKey("price_books.id", ondelete="SET NULL"), nullable=True)
     discount_percentage = Column(Numeric(5, 2), nullable=False, default=0.00)
+    is_tax_inclusive = Column(Boolean, nullable=True, default=None)
     description = Column(Text, nullable=True)
+
+
+class CustomerPriceAssignment(BaseEntity):
+    """Authoritative customer-to-price-tier assignment."""
+    __tablename__ = "customer_price_assignments"
+    __table_args__ = (
+        UniqueConstraint("customer_id", name="uq_customer_price_assignment_customer"),
+    )
+
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    price_tier_id = Column(String(50), ForeignKey("customer_price_tiers.id", ondelete="RESTRICT"), nullable=False, index=True)
+    valid_from = Column(DateTime(timezone=True), nullable=True)
+    valid_to = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(30), nullable=False, default="ACTIVE")
+    notes = Column(Text, nullable=True)
+
+
+class SalesFactor(BaseEntity):
+    """
+    Authoritative Sales Factor Master governing Add-ons, Deductions,
+    Retail Price Factors, and Bill Round-Off rules.
+    Enforces statutory Above vs Below Sales Tax timing (CGST Section 15).
+    """
+    __tablename__ = "sales_factors"
+
+    code = Column(String(50), nullable=False, index=True)
+    description = Column(String(200), nullable=False)
+    factor_type = Column(String(30), nullable=False, default="ADD_ON")  # RETAIL_PRICE_FACTOR, PRICE_ROUND_OFF, ADD_ON, DEDUCTION, BILL_ROUND_OFF
+    factor_category = Column(String(30), nullable=False, default="ALL_CUSTOMERS")  # CUSTOMER_SPECIFIC, PRICE_GROUP_SPECIFIC, ALL_CUSTOMERS
+    
+    # Target Scope
+    customer_id = Column(String(50), nullable=True, index=True)
+    price_group_code = Column(String(50), nullable=True, index=True)
+    applicable_categories = Column(JSONB, server_default=text("'[]'"), default=list)
+    applicable_brands = Column(JSONB, server_default=text("'[]'"), default=list)
+    
+    # Computation Mechanics
+    computation_timing = Column(String(20), nullable=False, default="ABOVE_TAX")  # ABOVE_TAX (Consider for Tax), BELOW_TAX (Ignore for Tax)
+    computed_on = Column(String(30), nullable=False, default="DISCOUNTED_VALUE")  # SALE_VALUE_BEFORE_DISCOUNT, DISCOUNTED_VALUE, VALUE_INCLUSIVE_OF_TAX
+    rate_or_amount = Column(String(10), nullable=False, default="RATE")  # RATE (%), AMOUNT (₹)
+    value = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    is_variable = Column(Boolean, nullable=False, default=False)  # Cashier override allowed
+    
+    # Thresholds & Validity
+    min_bill_value = Column(Numeric(15, 2), nullable=True)
+    max_bill_value = Column(Numeric(15, 2), nullable=True)
+    valid_from = Column(String(20), nullable=True)
+    valid_to = Column(String(20), nullable=True)
+    applicable_days = Column(JSONB, server_default=text("'[]'"), default=list)
+    is_active = Column(Boolean, nullable=False, default=True)
+

@@ -7,13 +7,14 @@ Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.25.0
 Created      : 2026-08-18
 Modified     : 2026-08-23
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
+Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
 import asyncio
 import json
+import os
 from sqlalchemy import select
 try:
     from app.db.session import async_session
@@ -62,15 +63,22 @@ async def seed():
         await db.flush()
 
         # 1. Multiple Enterprise Companies with Branches & READY Registries
+        # Primary company is driven by environment variables set during installation.
+        # Falls back to demo defaults if not configured.
+        _primary_name   = os.environ.get("SMRITI_COMPANY_NAME",  "").strip() or "My Retail Store"
+        _primary_code   = os.environ.get("SMRITI_COMPANY_CODE",  "").strip() or "COMP-001"
+        _primary_gst    = os.environ.get("SMRITI_COMPANY_GST",   "").strip() or ""
+        _branch_name    = os.environ.get("SMRITI_BRANCH_NAME",   "").strip() or "Main Branch"
+        _branch_code    = os.environ.get("SMRITI_BRANCH_CODE",   "").strip() or "MAIN"
+
         enterprise_companies = [
             {
                 "id": "COMP-001",
-                "name": "Tattly Threads",
-                "gst_number": "27AAXFT2508H1ZR",
+                "name": _primary_name,
+                "gst_number": _primary_gst,
                 "db_name": "smriti001",
                 "branches": [
-                    {"id": "BR-MAIN-001", "name": "Main Corporate Branch", "code": "MAIN"},
-                    {"id": "BR-SOUTH-001", "name": "South Distribution Hub", "code": "SOUTH-01"},
+                    {"id": "BR-MAIN-001", "name": _branch_name, "code": _branch_code},
                 ]
             },
             {
@@ -151,8 +159,13 @@ async def seed():
         await db.flush()
 
         # 2. Users: admin, sysadmin, manager, cashier with standard hashes
+        # Admin credentials driven by installer env vars (fallback to defaults)
+        _admin_uname = os.environ.get("SMRITI_ADMIN_USERNAME", "").strip() or "admin"
+        _admin_email = os.environ.get("SMRITI_ADMIN_EMAIL",    "").strip() or "admin@smritibooks.com"
+        _admin_pwd   = os.environ.get("SMRITI_ADMIN_PASSWORD", "").strip() or "Admin@123"
+
         users_to_seed = [
-            ("admin", "usr-admin", "admin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
+            (_admin_uname, "usr-admin", _admin_email, _admin_pwd, UserRole.SYSADMIN, "role-sysadmin", None, None),
             ("sysadmin", "usr-sysadmin-direct", "sysadmin_direct@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
             ("usr_sysadmin", "usr-sysadmin", "sysadmin@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
             ("usr_super", "usr-super", "super@smritibooks.com", "Admin@123", UserRole.SYSADMIN, "role-sysadmin", None, None),
@@ -232,18 +245,49 @@ async def seed():
                         )
                     )
 
-        # 3. Seed baseline customer groups and active customers for billing
-        try:
-            from app.models.crm import CustomerGroup, Customer
-        except ImportError:
-            from backend.app.models.crm import CustomerGroup, Customer
+        # Commit baseline roles, enterprise companies, and users to control plane
+        await db.commit()
 
         # 3. Seed baseline customer groups and active customers for billing
         try:
-            from app.models.crm import CustomerGroup, Customer
+            from app.models.crm import (
+                Customer,
+                CustomerBillingLocation,
+                CustomerDeliveryLocation,
+                CustomerGSTRegistration,
+                CustomerGroup,
+            )
+            from app.models.inventory import Product
+        except ImportError:
+            from backend.app.models.crm import (
+                Customer,
+                CustomerBillingLocation,
+                CustomerDeliveryLocation,
+                CustomerGSTRegistration,
+                CustomerGroup,
+            )
+            from backend.app.models.inventory import Product
+
+        # 3. Seed baseline customer groups and active customers for billing
+        try:
+            from app.models.crm import (
+                Customer,
+                CustomerBillingLocation,
+                CustomerDeliveryLocation,
+                CustomerGSTRegistration,
+                CustomerGroup,
+            )
+            from app.models.inventory import Product
             from app.db.session import get_company_sessionmaker
         except ImportError:
-            from backend.app.models.crm import CustomerGroup, Customer
+            from backend.app.models.crm import (
+                Customer,
+                CustomerBillingLocation,
+                CustomerDeliveryLocation,
+                CustomerGSTRegistration,
+                CustomerGroup,
+            )
+            from backend.app.models.inventory import Product
             from backend.app.db.session import get_company_sessionmaker
 
         async def _seed_crm_data(target_session, comp_id="COMP-001"):
@@ -343,8 +387,194 @@ async def seed():
                         setattr(c, k, v)
             await target_session.commit()
 
-        # Seed into control DB
-        await _seed_crm_data(db, "COMP-001")
+            gst = (
+                await target_session.execute(
+                    select(CustomerGSTRegistration).where(
+                        CustomerGSTRegistration.customer_id == "CUST-003",
+                        CustomerGSTRegistration.gstin == "27AAACL5678A1Z3",
+                        CustomerGSTRegistration.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not gst:
+                gst = CustomerGSTRegistration(
+                    id="CGR-CUST-003-27",
+                    customer_id="CUST-003",
+                    company_id=comp_id,
+                    gstin="27AAACL5678A1Z3",
+                    state_name="Maharashtra",
+                    state_code="27",
+                    registration_type="REGULAR",
+                    is_primary=True,
+                    status="ACTIVE",
+                    is_active=True,
+                    is_deleted=False,
+                )
+                target_session.add(gst)
+                await target_session.flush()
+
+            delivery = (
+                await target_session.execute(
+                    select(CustomerDeliveryLocation).where(
+                        CustomerDeliveryLocation.customer_id == "CUST-003",
+                        CustomerDeliveryLocation.store_code == "LIF-BLR-001",
+                        CustomerDeliveryLocation.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not delivery:
+                target_session.add(CustomerDeliveryLocation(
+                    id="CDL-CUST-003-BLR",
+                    customer_id="CUST-003",
+                    company_id=comp_id,
+                    store_code="LIF-BLR-001",
+                    location_name="Lifestyle Bangalore Store",
+                    address_line1="Bangalore Central",
+                    city="Bangalore",
+                    state="Karnataka",
+                    state_code="29",
+                    pincode="560027",
+                    country="India",
+                    gst_registration_id=gst.id,
+                    gstin=None,
+                    is_default=True,
+                    status="ACTIVE",
+                    is_active=True,
+                    is_deleted=False,
+                ))
+
+            billing = (
+                await target_session.execute(
+                    select(CustomerBillingLocation).where(
+                        CustomerBillingLocation.customer_id == "CUST-003",
+                        CustomerBillingLocation.billing_store_code == "LIF-BLR-BILL",
+                        CustomerBillingLocation.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not billing:
+                target_session.add(CustomerBillingLocation(
+                    id="CBL-CUST-003-BLR",
+                    customer_id="CUST-003",
+                    company_id=comp_id,
+                    billing_store_code="LIF-BLR-BILL",
+                    location_name="Lifestyle Bangalore Accounts",
+                    address_line1="Bangalore Central",
+                    city="Bangalore",
+                    state="Karnataka",
+                    state_code="29",
+                    pincode="560027",
+                    country="India",
+                    gst_registration_id=gst.id,
+                    gstin=None,
+                    contact_person="Lifestyle Accounts",
+                    phone="9844556677",
+                    email="accounts@lifestylestores.com",
+                    is_default=True,
+                    status="ACTIVE",
+                    is_active=True,
+                    is_deleted=False,
+                ))
+
+            product = await target_session.get(Product, "PROD-UAT-B2B-001")
+            if not product:
+                target_session.add(Product(
+                    id="PROD-UAT-B2B-001",
+                    company_id=comp_id,
+                    code="UAT-B2B-001",
+                    sku="UAT-B2B-001",
+                    barcode="8900000000001",
+                    name="UAT Corporate Cotton Shirt",
+                    category="Apparel",
+                    brand="SMRITI",
+                    color="Blue",
+                    size="M",
+                    style_code="UAT-SHIRT-001",
+                    price=1200,
+                    mrp=1500,
+                    buying_price=800,
+                    cost_price=800,
+                    stock=100,
+                    gst_percentage=18,
+                    hsn_code="6203",
+                    workflow_status="Approved",
+                    is_active=True,
+                    is_deleted=False,
+                ))
+
+            # 4. Seed default POS Terminal Profiles (Installation baseline)
+            try:
+                from app.models.pos import CashRegister
+                from app.models.tenant import Branch
+            except ImportError:
+                from backend.app.models.pos import CashRegister
+                from backend.app.models.tenant import Branch
+
+            primary_branch = (
+                await target_session.execute(
+                    select(Branch).where(
+                        Branch.company_id == comp_id,
+                        Branch.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            actual_br_id = primary_branch.id if primary_branch else None
+
+            reg1 = (
+                await target_session.execute(
+                    select(CashRegister).where(
+                        CashRegister.company_id == comp_id,
+                        CashRegister.code == "REG-01",
+                        CashRegister.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not reg1:
+                target_session.add(CashRegister(
+                    id="PROF-DEFAULT-REG01",
+                    name="Counter 01 - Express Billing",
+                    code="REG-01",
+                    cashier="EMP001 - John Doe",
+                    warehouse="Main Store",
+                    notes="Default installation counter with high-speed POS billing, thermal printer, and barcode scanner.",
+                    is_locked=False,
+                    is_active=True,
+                    is_deleted=False,
+                    company_id=comp_id,
+                    branch_id=actual_br_id,
+                ))
+
+            reg2 = (
+                await target_session.execute(
+                    select(CashRegister).where(
+                        CashRegister.company_id == comp_id,
+                        CashRegister.code == "REG-02",
+                        CashRegister.is_deleted == False,
+                    )
+                )
+            ).scalars().first()
+            if not reg2:
+                target_session.add(CashRegister(
+                    id="PROF-DEFAULT-REG02",
+                    name="Counter 02 - Standard Checkout",
+                    code="REG-02",
+                    cashier="EMP002 - Jane Smith",
+                    warehouse="Main Store",
+                    notes="Secondary standard checkout counter for retail sales and customer returns.",
+                    is_locked=False,
+                    is_active=True,
+                    is_deleted=False,
+                    company_id=comp_id,
+                    branch_id=actual_br_id,
+                ))
+
+            await target_session.commit()
+
+        # Seed CRM data into control DB if schema allows (fallback gracefully for tenant boundaries)
+        try:
+            await _seed_crm_data(db, "COMP-001")
+        except Exception as e:
+            print(f"Notice: skipping control plane CRM seed: {e}")
 
         # Seed into tenant company DBs
         for comp_db in ["smriti001", "smriti002", "smriti003"]:

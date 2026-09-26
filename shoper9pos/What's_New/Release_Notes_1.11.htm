@@ -1,0 +1,521 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Release Notes 1.11</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+-->
+</style>
+</head>
+<body>
+<h1>New Features in Shoper 9 POS Series A Release 1.11</h1>
+
+<p class=Body-Text>Enhancements:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Salespromo_ENH_1_11">Sales 
+ Promotion</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#TallyInterface_ENH_1_11">Tally 
+ Interface</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Setup_ENH_1_11">Setup</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Catalogue_ENH_1_11">Catalogue</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Reports_ENH_1_11">Reports</a></p></li>
+</ul>
+
+<p class=Body-Text>Issues Resolved:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Salesorder_ISR_1_11">Sales 
+ Order</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Billing_ISR_1_11">Billing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Purchaseorder_ISR_1_11">Purchase 
+ Order</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Barcodeprinting_ISR_1_11">Barcode 
+ Printing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Inwards_ISR_1_11">Inwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Outwards_ISR_1_11">Outwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Datasync_ISR_1_11">Data 
+ Synchronisation</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Tallyinterface_ISR_1_11">Tally 
+ Interface</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#DataimportfromHO_ISR_1_11">Data 
+ Import from HO</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#DCimport_ISR_1_11">DC 
+ Import</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Catalogue_ISR_1_11">Catalogue</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Reports_ISR_1_11">Reports</a></p></li>
+</ul>
+
+<h2>Enhancements</h2>
+
+<h3><a name=Salespromo_ENH_1_11>Sales Promotion</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Sales Promotion option 
+ has been enhanced with a new fixed type discount at the item level, <span class="hcp1">Buy X</span> quantity of an item and <span class="hcp1">Get Discount on (X+1)th</span> item.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;"><span class="hcp1">For Example</span>: 
+ Buy 2 Shirts and get a 50% discount on the 3rd Shirt.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The discount type has been 
+ enhanced to define sales promotions on item combinations.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;"><span class="hcp1">For Example</span>: 
+ Buy 1 Shirt <span class="hcp1">AND</span> 1 Trouser get 
+ a 25% discount.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Sales Promotions can be configured 
+ to give higher priced items or lower priced items as offer/ discount items. 
+ </p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;"><span class="hcp1">For Example</span>: 
+ Buy 1 get 1 free. Free item can be a higher valued item or lower valued 
+ item.</p>
+
+<h3><a name=TallyInterface_ENH_1_11>Tally Interface</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The DC Date entered in Inwards 
+ transaction in Shoper 9 POS will be displayed in Tally.ERP 9 as Supplier 
+ Invoice Date in the Purchase Voucher.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Tally interface has been 
+ enhanced to create ledgers in Tally.ERP 9 only for the transacted chain 
+ stores. </p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A new option has been provided 
+ in Tally interface mapping that allows the user to prefix mapping codes 
+ to bill references.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A new option has been provided 
+ in Tally interface mapping that allows the user to stop the creation of 
+ customer ledger in Tally.ERP 9 (if not required). The bill references 
+ will have the corresponding customer code prefixed.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A new option has been provided 
+ in Tally interface mapping that allows the user to send the store code 
+ of Shoper 9 company as a Cost Centre name to Tally.ERP 9.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Interface Mapping has 
+ been enhanced to optionally have Map Name as prefix for voucher number 
+ depending on the settings.</p></li>
+</ul>
+
+<h3><a name=Setup_ENH_1_11>Setup</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>An enhancement has been provided 
+ to change company name and address details.</p></li>
+</ul>
+
+<h3><a name=Catalogue_ENH_1_11>Catalogue</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The price revision option 
+ has been enhanced to display a confirmation message before deleting an 
+ existing price revision.</p></li>
+</ul>
+
+<h3><a name=Reports_ENH_1_11>Reports</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Walk-In report has been 
+ enhanced to display the date wise Walk-in details.</p></li>
+</ul>
+
+<h2>Issues Resolved</h2>
+
+<h3><a name=Salesorder_ISR_1_11>Sales Order</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The sales order entry was 
+ getting repeatedly created due to the printer being not ready.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Billing_ISR_1_11>Billing</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>If the date format is changed 
+ in the Regional Settings of the computer system there was an error in 
+ billing.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Purchaseorder_ISR_1_11>Purchase Order</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Purchase Order status 
+ report (Summary and Detailed) was not displaying the correct status if 
+ a purchase order was reopened.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Barcodeprinting_ISR_1_11>Barcode Printing</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When Item Masters importing 
+ was in progress, barcodes printing was not happening.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Inwards_ISR_1_11>Inwards</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>PT File with Source Tax Code 
+ having alphanumeric characters could not be loaded in Inwards.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The customer insertions done 
+ on the fly in billing was not acknowledged during Goods Inwards.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Transactions with negative 
+ net value at item level (deductions being more than Value) could be saved 
+ during GIR and GOR.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This has been rectified.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Passwords with special characters 
+ could be entered in Cost Fixing. Hence, Stock Scan Utility was resulting 
+ in error.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This has been rectified.</p>
+
+<h3><a name=Outwards_ISR_1_11>Outwards</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Despatch Advice containing 
+ special characters in the prefix field could be loaded in Goods Outwards. 
+ This was resulting in error.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This has been rectified.</p>
+
+<h3><a name=Datasync_ISR_1_11>Data Synchronisation</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Sync Agent was displaying 
+ a message when FTP fails to upload/ download data during synchronisation.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved by not displaying 
+ the message.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When the Day End program 
+ starts if any exe listed in Agent Activity was running in the memory, 
+ then the Day End program was repeating the activities in the list.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The data upload program was 
+ allowing multiple instances to run simultaneously.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Tallyinterface_ISR_1_11>Tally Interface</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Dual pay modes that have 
+ been accepted in Sales Orders as a Cash Receipt were not being posted 
+ to Tally.ERP 9.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Supplier Invoice Number and 
+ Date entered in Transfer transactions were not being posted to Tally.ERP 
+ 9.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Decimal value in the quantity 
+ field was not being sent to Tally.ERP 9.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Tally interface posting has 
+ been corrected to create Ledgers of the customers and vendors who have 
+ bill references (Credit note, Advances, Credit bill or partial credit 
+ bills) in Shoper 9 POS during the posting period.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When different Payment Modes 
+ are created with logically same codes, Tally interface was failing to 
+ post the data.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<p class=bullet
+	style="margin-left: 64px;"><span class="hcp1">For Example</span>: 
+ Now GV100, G V 100, G.V.100 are posted to GV100 in Tally.ERP 9.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>If any cumulative voucher 
+ was deleted in Tally.ERP 9, the missing voucher utility was not posting 
+ these vouchers. </p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Tally interface was not posting 
+ the correct credit bill references to Tally.ERP 9.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Ledger names in Tally.ERP 
+ 9 with special characters were not being accepted by Shoper 9 HO during 
+ mapping.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Voucher creation was failing 
+ in Tally.ERP 9 while recreating vouchers with credit note.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Tally interface mapping does 
+ not display or allow the selection of a company when any statutory option 
+ is enabled and the respective state is not selected in Tally.ERP 9.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Tally interface was failing 
+ when the same bill prefix was used for more than one transaction type 
+ in Shoper 9.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>During Tally interface, the 
+ opening balance of stock ledger was not getting posted.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=DataimportfromHO_ISR_1_11>Data Import from HO</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When complete data is imported 
+ from Shoper 9 HO as a part of disaster recovery (AST import), the latest 
+ document number is correctly updated in general lookup to avoid duplication 
+ of bills.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When data is imported from 
+ Shoper 9 HO as a part of disaster recovery (AST import) the latest price 
+ revision details are updated.</p></li>
+</ul>
+
+<h3><a name=DCimport_ISR_1_11>DC Import</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>During the DC Import process, 
+ it was not possible to load PT and TT file if the document remarks had 
+ any special characters.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Catalogue_ISR_1_11>Catalogue</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While cataloguing a new agency 
+ details for the credit card mode of payment, the Account ID field was 
+ accepting any special characters.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved. Now, the Account 
+ ID field accepts only alphanumeric values.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While performing any operation 
+ in the Item Classification catalogue, it was not possible to either refresh 
+ the entries made or change to any other operations without exiting from 
+ the Item Classification window.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved. Now, a <span class="hcp1">Cancel</span> button is provided in the Item 
+ Classification catalogue window to either clear the entries made or change 
+ to any other operations.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While entering values in 
+ the code and description fields in the General Lookup catalogue, special 
+ characters could be used. </p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved. Now, the code 
+ and description fields accept only alphanumeric values.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While cataloguing any mode 
+ of payment, it was allowed to enter numeric values or special characters 
+ as payment code (currency code). This was creating problems during Tally 
+ Interface Posting.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved. Now, the payment 
+ code accepts only alphabets. </p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While cataloguing the payment 
+ modes: Credit Card, Gift Coupons or Discount Cards, if the payment code 
+ was skipped, there was no proper message indicating the same.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Item Masters details 
+ were not getting saved when details were copied and pasted into the item 
+ details grid.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Reports_ISR_1_11>Reports</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Tax Register Report displayed 
+ the details of tax under one heading without showing them under the corresponding 
+ headings as catalogued.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

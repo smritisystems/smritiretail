@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.1
+ * Version      : 6.42.4
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -116,21 +116,15 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Operations",
     },
     {
-      id: "pos",
-      label: "Billing Desk",
-      icon: "point_of_sale",
+      id: "billing-workspace",
+      label: "Billing Workspace",
+      icon: "receipt_long",
       category: "Sales & POS",
     },
     {
       id: "sales",
       label: "Sales Studio",
       icon: "receipt_long",
-      category: "Sales & POS",
-    },
-    {
-      id: "create-tax-invoice",
-      label: "Create Tax Invoice (B2B)",
-      icon: "post_add",
       category: "Sales & POS",
     },
     {
@@ -151,6 +145,18 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       icon: "stars",
       category: "Sales & POS",
     },
+    {
+      id: "sales-promotions",
+      label: "Promotions Studio",
+      icon: "percent",
+      category: "Sales & POS",
+    },
+    {
+      id: "dispatch-studio",
+      label: "B2B Dispatch Studio",
+      icon: "local_shipping",
+      category: "Sales & POS",
+    },
 
     {
       id: "profiles",
@@ -165,8 +171,14 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
-      id: "supplier-mgmt",
-      label: "Supplier Dashboard",
+      id: "grn-studio",
+      label: "Goods Receipt (GRN)",
+      icon: "fact_check",
+      category: "Inventory & Sourcing",
+    },
+    {
+      id: "vendor-360",
+      label: "Vendor 360 Workspace",
       icon: "local_shipping",
       category: "Inventory & Sourcing",
     },
@@ -312,6 +324,18 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       id: "audit-logs",
       label: "Audit Logs",
       icon: "policy",
+      category: "System",
+    },
+    {
+      id: "system-parameters",
+      label: "System Parameters Studio",
+      icon: "tune",
+      category: "System",
+    },
+    {
+      id: "database-manager",
+      label: "Database Manager (DB Studio)",
+      icon: "storage",
       category: "System",
     },
   ]);

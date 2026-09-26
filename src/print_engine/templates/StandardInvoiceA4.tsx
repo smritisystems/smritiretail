@@ -16,6 +16,7 @@
 
 import React from "react";
 import { DEFAULT_SBI_BANK_ACCOUNT } from "../../services/bankStore.ts";
+import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 
 export interface InvoiceItem {
   code?: string;
@@ -61,6 +62,19 @@ export interface BankAccountDetails {
 }
 
 export interface InvoiceData {
+  documentType?: "invoice" | "purchase-order" | "job-work-order";
+  currencySymbol?: string;
+  supplierName?: string;
+  supplierAddress?: string;
+  supplierGst?: string;
+  supplierPhone?: string;
+  deliveryLocation?: string;
+  deliveryDate?: string;
+  paymentTerms?: string;
+  supplierReference?: string;
+  purchaser?: string;
+  department?: string;
+  specialInstructions?: string;
   companyName?: string;
   companyAddress?: string;
   companyGst?: string;
@@ -103,6 +117,9 @@ export interface InvoiceData {
   status?: string;
   isInterstate?: boolean;
   is_interstate?: boolean;
+  dispatch_from_snapshot?: any;
+  dispatchFromSnapshot?: any;
+  dispatchFromAddress?: string;
   items?: InvoiceItem[];
 }
 
@@ -116,6 +133,7 @@ export interface ProcessedItem {
   rateInclGst: number;
   taxableVal: number;
   lineGst: number;
+  gstRate: number;
   grossLineValue: number;
 }
 
@@ -264,11 +282,14 @@ export function contentAwarePaginate(items: ProcessedItem[]): PageChunk[] {
   return pages;
 }
 
-export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => {
+export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} as InvoiceData }) => {
   const parsed = parseNotes(data.notes);
+  const isPurchaseOrder = data.documentType === "purchase-order";
+  const isJobWorkOrder = data.documentType === "job-work-order";
+  const currencySymbol = data.currencySymbol || "₹";
   
-  // Tattly Threads Approved Branding & Company Info
-  const companyName = "TATTLY THREADS";
+  // Tattly Threads Approved Branding & Company Info (supports custom company override)
+  const companyName = data.companyName || "TATTLY THREADS";
   const companyAddress = data.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump, Mumbai, Maharashtra 400003";
   const companyGst = data.companyGst || "27AAXFT2508H1ZR";
   const dispatchEmail = data.dispatchEmail || "dispatch@tattlythreads.com";
@@ -315,9 +336,10 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
     const qty = Number(item.qty ?? item.quantity ?? 0);
     const rateInclGst = Number(item.rate ?? item.price ?? item.unitPrice ?? 0);
     const hsn = item.hsnCode || item.hsn || item.hsn_code || "64041990";
+    const gstRate = Number(item.gstRate ?? item.gst_rate ?? 5);
     
     const grossLineValue = qty * rateInclGst;
-    const taxableVal = Math.round((grossLineValue / 1.05) * 100) / 100;
+    const taxableVal = Math.round((grossLineValue / (1 + gstRate / 100)) * 100) / 100;
     const lineGst = Math.round((grossLineValue - taxableVal) * 100) / 100;
 
     totalPairs += qty;
@@ -325,7 +347,7 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
     totalGrand += grossLineValue;
 
     const itemIgst = Number(item.igstAmount ?? item.igst_amount ?? 0);
-    if (itemIgst > 0 || data.isInterstate || data.is_interstate !== false) {
+    if (itemIgst > 0 || data.isInterstate === true || data.is_interstate === true) {
       totalIgst += lineGst;
     } else {
       totalCgst += Math.round((lineGst / 2) * 100) / 100;
@@ -352,12 +374,23 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
       rateInclGst,
       taxableVal,
       lineGst,
+      gstRate,
       grossLineValue
     };
   });
 
+  const hsnSummary = Array.from(processedItems.reduce((summary, item) => {
+    const existing = summary.get(item.hsn) || { hsn: item.hsn, taxable: 0, tax: 0 };
+    existing.taxable += item.taxableVal;
+    existing.tax += item.lineGst;
+    summary.set(item.hsn, existing);
+    return summary;
+  }, new Map<string, { hsn: string; taxable: number; tax: number }>()).values());
   const isInterstate = data.isInterstate ?? data.is_interstate ?? (totalIgst > 0 || (totalCgst === 0 && totalSgst === 0));
   const totalTax = isInterstate ? totalIgst : (totalCgst + totalSgst);
+  const igstRate = totalTaxableVal > 0 ? (totalIgst / totalTaxableVal) * 100 : 0;
+  const cgstRate = totalTaxableVal > 0 ? (totalCgst / totalTaxableVal) * 100 : 0;
+  const sgstRate = totalTaxableVal > 0 ? (totalSgst / totalTaxableVal) * 100 : 0;
 
   if (totalTaxableVal === 0 && data.subtotal) {
     totalTaxableVal = Number(data.subtotal);
@@ -396,7 +429,7 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                   <div className="flex justify-between items-start border-b-2 border-slate-900 pb-2 mb-3">
                     <div>
                       <div className="flex items-center gap-2.5 mb-1">
-                        <img src="/myImages/tattly_logo_black.png" alt="TATTLY THREADS" className="h-9 w-auto object-contain" />
+                        <img src={tattlyLogoBlack} alt="TATTLY THREADS" className="h-9 w-auto object-contain" />
                         <h1 className="text-xl font-extrabold tracking-tight text-slate-950 uppercase m-0 leading-tight">
                           {companyName}
                         </h1>
@@ -413,15 +446,27 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                       <p className="text-[10.5px] text-slate-800 font-bold mt-0.5 m-0">
                         GSTIN: <span className="font-mono">{companyGst}</span>
                       </p>
+                      {((data as any).dispatchFromSnapshot || (data as any).dispatch_from_snapshot || (data as any).dispatchFromAddress) && (
+                        <div className="mt-2 pt-1.5 border-t border-dashed border-slate-300">
+                          <div className="text-blue-900 font-bold uppercase text-[9px] tracking-wider mb-0.5">DISPATCH FROM</div>
+                          <p className="font-bold text-slate-900 text-[10.5px] m-0">{((data as any).dispatchFromSnapshot?.name || (data as any).dispatch_from_snapshot?.name || companyName)}</p>
+                          <p className="text-slate-600 text-[10px] leading-tight m-0">
+                            {((data as any).dispatchFromSnapshot?.address_line1 || (data as any).dispatch_from_snapshot?.address_line1 || (data as any).dispatchFromAddress)}
+                            {((data as any).dispatchFromSnapshot?.city || (data as any).dispatch_from_snapshot?.city) ? `, ${((data as any).dispatchFromSnapshot?.city || (data as any).dispatch_from_snapshot?.city)}` : ""}
+                            {((data as any).dispatchFromSnapshot?.state || (data as any).dispatch_from_snapshot?.state) ? `, ${((data as any).dispatchFromSnapshot?.state || (data as any).dispatch_from_snapshot?.state)}` : ""}
+                            {((data as any).dispatchFromSnapshot?.pincode || (data as any).dispatch_from_snapshot?.pincode) ? ` - ${((data as any).dispatchFromSnapshot?.pincode || (data as any).dispatch_from_snapshot?.pincode)}` : ""}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="text-right flex flex-col items-end">
                       <div className="bg-slate-900 text-white font-bold text-[10.5px] uppercase tracking-widest px-2.5 py-1 rounded inline-block">
-                        TAX INVOICE
+                        {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}
                       </div>
                       <div className="mt-1.5 text-right">
                         <p className="text-xs font-extrabold text-slate-900 m-0 whitespace-nowrap font-mono tracking-tight">
-                          Invoice No: {invoiceNo}
+                          {isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo}
                         </p>
                         <p className="text-[10.5px] font-medium text-slate-700 m-0 mt-0.5">
                           Date: <span className="font-mono">{formattedDate}</span>
@@ -432,10 +477,10 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                 ) : (
                   <div className="flex justify-between items-center border-b-2 border-slate-900 pb-2 mb-3">
                     <div className="flex items-center gap-2">
-                      <img src="/myImages/tattly_logo_black.png" alt="TATTLY THREADS" className="h-5 w-auto object-contain" />
-                      <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">{companyName} — TAX INVOICE</span>
+                      <img src={tattlyLogoBlack} alt="TATTLY THREADS" className="h-5 w-auto object-contain" />
+                      <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">{companyName} — {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}</span>
                     </div>
-                    <span className="text-[11px] font-bold font-mono text-slate-700">Invoice No: {invoiceNo}</span>
+                    <span className="text-[11px] font-bold font-mono text-slate-700">{isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo}</span>
                   </div>
                 )}
 
@@ -445,27 +490,28 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                     {/* BOX 1: BILLED TO (BUYER) */}
                     <div>
                       <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1 uppercase text-[9px] tracking-wider">
-                        Billed To (Buyer Details)
+                        {isJobWorkOrder ? "Job Work Contractor" : isPurchaseOrder ? "Supplier Details" : "Billed To (Buyer Details)"}
                       </p>
-                      <p className="font-extrabold text-slate-950 text-[10.5px] m-0">{customerName}</p>
-                      <p className="text-slate-600 m-0 mt-0.5 leading-snug">{customerAddress}</p>
-                      {customerGst && (
+                      <p className="font-extrabold text-slate-950 text-[10.5px] m-0">{isPurchaseOrder || isJobWorkOrder ? (data.supplierName || customerName) : customerName}</p>
+                      <p className="text-slate-600 m-0 mt-0.5 leading-snug">{isPurchaseOrder || isJobWorkOrder ? (data.supplierAddress || customerAddress) : customerAddress}</p>
+                      {(isPurchaseOrder || isJobWorkOrder ? (data.supplierGst || customerGst) : customerGst) && (
                         <p className="text-slate-900 font-bold m-0 mt-1">
-                          GSTIN: <span className="font-mono">{customerGst}</span>
+                          GSTIN: <span className="font-mono">{isPurchaseOrder || isJobWorkOrder ? (data.supplierGst || customerGst) : customerGst}</span>
                         </p>
                       )}
+                      {(isPurchaseOrder || isJobWorkOrder) && data.supplierPhone && <p className="text-slate-600 m-0 mt-0.5">{data.supplierPhone}</p>}
                     </div>
 
                     {/* BOX 2: RECIPIENT DETAILS (SHIPPED TO) */}
                     <div>
                       <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1 uppercase text-[9px] tracking-wider">
-                        Recipient Details (Shipped To)
+                        {isJobWorkOrder ? "Work Delivery Details" : isPurchaseOrder ? "Delivery Details" : "Recipient Details (Shipped To)"}
                       </p>
                       <p className="font-extrabold text-slate-950 text-[10.5px] m-0">
-                        {data.shippingName || data.shipping_name || `Reliance Retail Limited (RRL-${sisCode})`}
+                        {isPurchaseOrder || isJobWorkOrder ? (data.deliveryLocation || "Main Store") : (data.shippingName || data.shipping_name || `Reliance Retail Limited (RRL-${sisCode})`)}
                       </p>
                       <p className="text-slate-600 m-0 mt-0.5 leading-snug">
-                        {data.shippingAddress || data.shipping_address || customerAddress}
+                        {isPurchaseOrder || isJobWorkOrder ? `Due: ${data.deliveryDate || ""}` : (data.shippingAddress || data.shipping_address || customerAddress)}
                       </p>
                       <p className="text-slate-900 font-bold m-0 mt-1">
                         GSTIN: <span className="font-mono">{data.shippingGst || data.shipping_gstin || customerGst || "27AAACR0293P1ZT"}</span>
@@ -475,34 +521,56 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                     {/* BOX 3: INVOICE METADATA */}
                     <div>
                       <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1 uppercase text-[9px] tracking-wider">
-                        Invoice & Statutory Metadata
+                          {isJobWorkOrder ? "Job Work Metadata" : isPurchaseOrder ? "PO & Commercial Metadata" : "Invoice & Statutory Metadata"}
                       </p>
                       <table className="w-full text-left text-[10px] border-collapse">
                         <tbody>
                           <tr>
-                            <td className="py-0.5 text-slate-500 font-medium w-24">Store Code:</td>
-                            <td className="py-0.5 font-bold font-mono text-slate-900">{sisCode}</td>
+                            <td className="py-0.5 text-slate-500 font-medium w-24">{isPurchaseOrder || isJobWorkOrder ? "Delivery:" : "Store Code:"}</td>
+                            <td className="py-0.5 font-bold font-mono text-slate-900">{isPurchaseOrder || isJobWorkOrder ? (data.deliveryLocation || "Main Store (MAIN)") : sisCode}</td>
                           </tr>
-                          <tr>
-                            <td className="py-0.5 text-slate-500 font-medium">POS State:</td>
-                            <td className="py-0.5 font-semibold text-slate-800">{posState}</td>
-                          </tr>
+                          {!isPurchaseOrder && (
+                            <tr>
+                              <td className="py-0.5 text-slate-500 font-medium">POS State:</td>
+                              <td className="py-0.5 font-semibold text-slate-800">{posState}</td>
+                            </tr>
+                          )}
                           {poNumber && (
                             <tr>
                               <td className="py-0.5 text-slate-500 font-medium">PO / Ref No:</td>
                               <td className="py-0.5 font-bold font-mono text-slate-900">{poNumber}</td>
                             </tr>
                           )}
-                          <tr>
-                            <td className="py-0.5 text-slate-500 font-medium whitespace-nowrap" style={{ position: "relative", left: "-8px", top: "3px" }}>E-Way Bill No.:</td>
-                            <td className="py-0.5 font-bold font-mono text-slate-900 min-w-[130px] inline-block tracking-wider" style={{ "--eway-bill-field-width": "130px", "--eway-bill-field-height": "14px" } as React.CSSProperties}>
-                              {ewayBillNo ? (
-                                <span>{ewayBillNo}</span>
-                              ) : (
-                                <span id="eway_bill_acro_box" className="inline-block w-[var(--eway-bill-field-width,130px)] h-[var(--eway-bill-field-height,14px)] border-b border-slate-300 align-middle relative top-[2px]"></span>
-                              )}
-                            </td>
-                          </tr>
+                          {(isPurchaseOrder || isJobWorkOrder) && data.supplierReference && (
+                            <tr>
+                              <td className="py-0.5 text-slate-500 font-medium">Supplier Ref:</td>
+                              <td className="py-0.5 font-bold font-mono text-slate-900">{data.supplierReference}</td>
+                            </tr>
+                          )}
+                          {(isPurchaseOrder || isJobWorkOrder) && data.purchaser && (
+                            <tr>
+                              <td className="py-0.5 text-slate-500 font-medium">Purchaser:</td>
+                              <td className="py-0.5 font-semibold text-slate-800">{data.purchaser}</td>
+                            </tr>
+                          )}
+                          {(isPurchaseOrder || isJobWorkOrder) && data.paymentTerms && (
+                            <tr>
+                              <td className="py-0.5 text-slate-500 font-medium">Payment:</td>
+                              <td className="py-0.5 font-semibold text-slate-800">{data.paymentTerms}</td>
+                            </tr>
+                          )}
+                          {!isPurchaseOrder && (
+                            <tr>
+                              <td className="py-0.5 text-slate-500 font-medium whitespace-nowrap" style={{ position: "relative", left: "-8px", top: "3px" }}>E-Way Bill No.:</td>
+                              <td className="py-0.5 font-bold font-mono text-slate-900 min-w-[130px] inline-block tracking-wider" style={{ "--eway-bill-field-width": "130px", "--eway-bill-field-height": "14px" } as React.CSSProperties}>
+                                {ewayBillNo ? (
+                                  <span>{ewayBillNo}</span>
+                                ) : (
+                                  <span id="eway_bill_acro_box" className="inline-block w-[var(--eway-bill-field-width,130px)] h-[var(--eway-bill-field-height,14px)] border-b border-slate-300 align-middle relative top-[2px]"></span>
+                                )}
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -534,12 +602,12 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                         <td className="p-1 border border-slate-200 font-bold text-slate-900">{item.description}</td>
                         <td className="p-1 border border-slate-200 text-center font-mono text-slate-600">{item.hsn}</td>
                         <td className="p-1 border border-slate-200 text-right font-bold font-mono">{item.qty}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">₹{item.mrp.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-600">₹{item.disc.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono">₹{item.rateInclGst.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono">₹{item.taxableVal.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">₹{item.lineGst.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-extrabold font-mono text-slate-950">₹{item.grossLineValue.toFixed(2)}</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{currencySymbol}{item.mrp.toFixed(2)}</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-600">{currencySymbol}{item.disc.toFixed(2)}</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono">{currencySymbol}{item.rateInclGst.toFixed(2)}</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono">{currencySymbol}{item.taxableVal.toFixed(2)}</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{currencySymbol}{item.lineGst.toFixed(2)}</td>
+                        <td className="p-1 border border-slate-200 text-right font-extrabold font-mono text-slate-950">{currencySymbol}{item.grossLineValue.toFixed(2)}</td>
                       </tr>
                     ))}
 
@@ -585,24 +653,29 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                         </tr>
                       </thead>
                       <tbody>
-                        <tr className="border-b border-slate-200">
-                          <td className="p-1 border border-slate-200 text-center font-mono font-bold text-slate-800">64041990</td>
-                          <td className="p-1 border border-slate-200 text-right font-mono font-bold">₹{totalTaxableVal.toFixed(2)}</td>
-                          {isInterstate ? (
-                            <>
-                              <td className="p-1 border border-slate-200 text-right font-mono">5.00%</td>
-                              <td className="p-1 border border-slate-200 text-right font-mono">₹{totalIgst.toFixed(2)}</td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="p-1 border border-slate-200 text-right font-mono">2.50%</td>
-                              <td className="p-1 border border-slate-200 text-right font-mono">₹{totalCgst.toFixed(2)}</td>
-                              <td className="p-1 border border-slate-200 text-right font-mono">2.50%</td>
-                              <td className="p-1 border border-slate-200 text-right font-mono">₹{totalSgst.toFixed(2)}</td>
-                            </>
-                          )}
-                          <td className="p-1 border border-slate-200 text-right font-extrabold font-mono text-slate-950">₹{totalTax.toFixed(2)}</td>
-                        </tr>
+                        {hsnSummary.map((summary) => {
+                          const summaryTaxRate = summary.taxable > 0 ? (summary.tax / summary.taxable) * 100 : 0;
+                          return (
+                            <tr key={summary.hsn} className="border-b border-slate-200">
+                              <td className="p-1 border border-slate-200 text-center font-mono font-bold text-slate-800">{summary.hsn}</td>
+                              <td className="p-1 border border-slate-200 text-right font-mono font-bold">{currencySymbol}{summary.taxable.toFixed(2)}</td>
+                              {isInterstate ? (
+                                <>
+                                  <td className="p-1 border border-slate-200 text-right font-mono">{summaryTaxRate.toFixed(2)}%</td>
+                                  <td className="p-1 border border-slate-200 text-right font-mono">{currencySymbol}{summary.tax.toFixed(2)}</td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="p-1 border border-slate-200 text-right font-mono">{(summaryTaxRate / 2).toFixed(2)}%</td>
+                                  <td className="p-1 border border-slate-200 text-right font-mono">{currencySymbol}{(summary.tax / 2).toFixed(2)}</td>
+                                  <td className="p-1 border border-slate-200 text-right font-mono">{(summaryTaxRate / 2).toFixed(2)}%</td>
+                                  <td className="p-1 border border-slate-200 text-right font-mono">{currencySymbol}{(summary.tax / 2).toFixed(2)}</td>
+                                </>
+                              )}
+                              <td className="p-1 border border-slate-200 text-right font-extrabold font-mono text-slate-950">{currencySymbol}{summary.tax.toFixed(2)}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -618,22 +691,22 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                           </tr>
                           <tr>
                             <td className="py-0.5 text-slate-600 font-medium">TAXABLE VALUE:</td>
-                            <td className="py-0.5 font-bold font-mono text-slate-900">₹{totalTaxableVal.toFixed(2)}</td>
+                            <td className="py-0.5 font-bold font-mono text-slate-900">{currencySymbol}{totalTaxableVal.toFixed(2)}</td>
                           </tr>
                           {isInterstate ? (
                             <tr>
-                              <td className="py-0.5 text-slate-600 font-medium">IGST (5%):</td>
-                              <td className="py-0.5 font-bold font-mono text-slate-900">₹{totalIgst.toFixed(2)}</td>
+                              <td className="py-0.5 text-slate-600 font-medium">IGST:</td>
+                              <td className="py-0.5 font-bold font-mono text-slate-900">{currencySymbol}{totalIgst.toFixed(2)}</td>
                             </tr>
                           ) : (
                             <>
                               <tr>
-                                <td className="py-0.5 text-slate-600 font-medium">CGST (2.5%):</td>
-                                <td className="py-0.5 font-bold font-mono text-slate-900">₹{totalCgst.toFixed(2)}</td>
+                                <td className="py-0.5 text-slate-600 font-medium">CGST:</td>
+                                <td className="py-0.5 font-bold font-mono text-slate-900">{currencySymbol}{totalCgst.toFixed(2)}</td>
                               </tr>
                               <tr>
-                                <td className="py-0.5 text-slate-600 font-medium">SGST (2.5%):</td>
-                                <td className="py-0.5 font-bold font-mono text-slate-900">₹{totalSgst.toFixed(2)}</td>
+                                <td className="py-0.5 text-slate-600 font-medium">SGST:</td>
+                                <td className="py-0.5 font-bold font-mono text-slate-900">{currencySymbol}{totalSgst.toFixed(2)}</td>
                               </tr>
                             </>
                           )}
@@ -643,7 +716,7 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                           </tr>
                           <tr className="border-t-2 border-slate-900 bg-slate-950 text-white font-bold text-xs">
                             <td className="py-1 px-2 font-extrabold uppercase">GRAND TOTAL:</td>
-                            <td className="py-1 px-2 font-extrabold font-mono text-sm">₹{roundedGrand.toFixed(2)}</td>
+                            <td className="py-1 px-2 font-extrabold font-mono text-sm">{currencySymbol}{roundedGrand.toFixed(2)}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -670,8 +743,16 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                         Terms & Conditions
                       </p>
                       <p className="m-0 text-slate-700 leading-snug font-medium text-[8.5px]">
-                        1. Goods once sold will not be taken back without prior written approval.<br />
-                        2. All disputes subject to Mumbai Jurisdiction.
+                        {isPurchaseOrder || isJobWorkOrder ? (
+                          <>
+                            {data.specialInstructions || "Goods to be delivered against this purchase order and accepted subject to inspection."}<br />
+                            Department: {data.department || "General Purchase"}<br />
+                            Payment Terms: {data.paymentTerms || "30 Days"}
+                          </>
+                        ) : (
+                          <>1. Goods once sold will not be taken back without prior written approval.<br />
+                          2. All disputes subject to Nagpur Jurisdiction.</>
+                        )}
                       </p>
                     </div>
 
@@ -687,11 +768,29 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
                     </div>
                   </div>
 
+                  {isPurchaseOrder || isJobWorkOrder ? (
+                    <div className="grid grid-cols-4 gap-2 mb-2 text-[8.5px]">
+                      {[
+                        ["Prepared By", data.purchaser || "Procurement User"],
+                        ["Verified By", "Name / Signature"],
+                        ["Approved By", "Name / Signature"],
+                        ["Supplier Acknowledgement", "Name / Signature / Stamp"],
+                      ].map(([label, value]) => (
+                        <div key={label} className="border border-slate-300 rounded p-2 min-h-[42px] flex flex-col justify-between">
+                          <span className="font-bold uppercase text-slate-700">{label}</span>
+                          <span className="border-t border-dashed border-slate-400 pt-1 text-slate-500">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
                   {/* STATUTORY DECLARATION & WATERMARK */}
                   <div className="mt-2 border-t border-slate-200 pt-1.5 text-center text-[8.5px] text-slate-500 font-medium leading-tight">
-                    <p className="m-0">This is a computer-generated tax invoice and does not require a physical signature.</p>
-                    <p className="m-0 font-bold text-slate-700 tracking-wider">SUBJECT TO MUMBAI JURISDICTION.</p>
-                    <p className="m-0 text-[8px] text-slate-400 font-mono tracking-tight mt-0.5">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</p>
+                    <p className="m-0">This is a computer-generated {isPurchaseOrder ? "purchase order" : "tax invoice"} and does not require a physical signature.</p>
+                    <p className="m-0 font-bold text-slate-700 tracking-wider">SUBJECT TO NAGPUR JURISDICTION.</p>
+                    <p className="m-0 text-[8.5px] text-slate-500 font-mono tracking-tight mt-0.5">
+                      <strong className="text-slate-800">SMRITISYS</strong> • SMRITI Retail OS • Enterprise Commerce Suite • smritibooks.com
+                    </p>
                   </div>
 
                 </div>
@@ -699,9 +798,14 @@ export const StandardInvoiceA4: React.FC<{ data: InvoiceData }> = ({ data }) => 
             </div>
 
             {/* 5. RUNNING PAGE FOOTER (Page X of Y) */}
-            <div className="flex justify-between items-center text-[8.5px] text-slate-500 border-t border-slate-200 pt-1 mt-1">
-              <div>TATTLY THREADS — TAX INVOICE</div>
-              <div>Page {pageNum} of {totalPages} &nbsp;|&nbsp; Invoice No: <span className="font-mono">{invoiceNo}</span></div>
+            <div className="flex justify-between items-center text-[8.5px] text-slate-500 border-t border-slate-200 pt-1 mt-1 font-mono">
+              <div className="flex items-center gap-1.5">
+                <span className="bg-slate-900 text-white font-black px-1.5 py-0.5 rounded text-[7.5px]">SMRITI</span>
+                <span className="font-bold text-slate-800">SMRITI Retail OS</span>
+                <span className="text-slate-400">|</span>
+                <span>{isPurchaseOrder ? "Purchase Order" : "Tax Invoice"}</span>
+              </div>
+              <div>Page {pageNum} of {totalPages} &nbsp;|&nbsp; {isPurchaseOrder ? "PO No" : "Invoice No"}: <span className="font-mono">{invoiceNo}</span></div>
             </div>
 
           </div>

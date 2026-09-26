@@ -32,6 +32,7 @@ import { StandardInvoiceA4 } from "./templates/StandardInvoiceA4.tsx";
 import { ThermalReceipt80mm } from "./templates/ThermalReceipt80mm.tsx";
 import { GoodsReceiptNoteA4 } from "./templates/GoodsReceiptNoteA4.tsx";
 import { BarcodeLabel } from "./templates/BarcodeLabel.tsx";
+import { FootwearPurchaseOrderA4 } from "./templates/FootwearPurchaseOrderA4.tsx";
 
 const MOCK_DATA = {
   invoiceNo: "INV-2023-0891",
@@ -97,6 +98,12 @@ export const PrintStudioTab: React.FC = () => {
       name: "Product Barcode Label (50x25mm)",
       format: "Label",
       component: BarcodeLabel
+    });
+    registerTemplate({
+      id: "footwear-po-a4",
+      name: "Footwear Purchase Order (Euro Scale & Currency)",
+      format: "A4",
+      component: FootwearPurchaseOrderA4
     });
   }, [registerTemplate]);
 

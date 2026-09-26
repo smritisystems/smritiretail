@@ -22,8 +22,8 @@ from ..models.role import Role
 from ..models.security import SmritiPermission
 from ..api.deps import TenantContext
 
-# Canonical 34-Menu Contract Mapping
-CANONICAL_34_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
+# Canonical 36-Menu Contract Mapping
+CANONICAL_36_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
     # 1. Dashboard & Operations
     "menu-dashboard": {"resource": "dashboard", "view_perm": "DASHBOARD.ACCESS", "parent_id": None},
     "menu-user-profile": {"resource": "user_profile", "view_perm": "PROFILE.ACCESS", "parent_id": None},
@@ -35,11 +35,13 @@ CANONICAL_34_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
 
     # 3. Sales & POS (Parent: menu-pos)
     "menu-pos": {"resource": "pos_workspace", "view_perm": "POS.WORKSPACE.ACCESS", "parent_id": None},
+    "menu-desktop-billing": {"resource": "pos_terminal", "view_perm": "POS.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-sales": {"resource": "sales_billing", "view_perm": "SALES.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-customer-master": {"resource": "customer_master", "view_perm": "CUSTOMER.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-crm": {"resource": "crm_studio", "view_perm": "CRM.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-loyalty": {"resource": "loyalty_rewards", "view_perm": "LOYALTY.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
     "menu-profiles": {"resource": "terminal_profiles", "view_perm": "TERMINALS.MANAGE", "parent_id": "menu-pos"},
+    "menu-sales-promotions": {"resource": "promotions_studio", "view_perm": "PROMOTIONS.WORKSPACE.ACCESS", "parent_id": "menu-pos"},
 
     # 4. Inventory & Purchase (Parent: menu-inventory)
     "menu-inventory": {"resource": "inventory_workspace", "view_perm": "INVENTORY.WORKSPACE.ACCESS", "parent_id": None},
@@ -73,12 +75,17 @@ CANONICAL_34_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
     "menu-approval-matrix": {"resource": "approval_matrix", "view_perm": "APPROVAL.MANAGE", "parent_id": None},
     "menu-company-setup": {"resource": "company_setup", "view_perm": "COMPANY.SETUP.ACCESS", "parent_id": None},
     "menu-audit-logs": {"resource": "audit_logs", "view_perm": "AUDIT.WORKSPACE.ACCESS", "parent_id": None},
+    "menu-manager": {"resource": "menu_manager", "view_perm": "NAVIGATION.MANAGE", "parent_id": None},
+    "menu-security": {"resource": "security_management", "view_perm": "SECURITY.MENU.ACCESS", "parent_id": None},
 }
+
+# Backward-compatible import name for callers that still reference the old contract label.
+CANONICAL_34_MENU_MATRIX = CANONICAL_36_MENU_MATRIX
 
 # Standard operational modules allowed by default for Cashier / Store User
 CASHIER_DEFAULT_VIEW_ALLOWLIST: Set[str] = {
     "dashboard", "pos_workspace", "sales_billing", "customer_master", "item_master",
-    "user_profile", "wiki_docs", "about_smriti"
+    "user_profile", "wiki_docs", "about_smriti", "promotions_studio"
 }
 
 

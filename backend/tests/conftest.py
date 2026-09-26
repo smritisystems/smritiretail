@@ -11,22 +11,36 @@ License      : Proprietary Commercial Software
 """
 
 import sys, os
+from pathlib import Path
+
+backend_dir = Path(__file__).resolve().parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from dotenv import dotenv_values
+env_file = backend_dir.parent / ".env"
+if env_file.exists():
+    for k, v in dotenv_values(env_file).items():
+        if v is not None and k not in os.environ:
+            os.environ[k] = v
+
 import pytest
 import psycopg2
 import uuid
 import asyncio
 
-# Force SelectorEventLoop on Windows to prevent asyncpg socket concurrency collisions
+# Use ProactorEventLoop on Windows to support subprocesses (Playwright PDF rendering) and asyncpg
 if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # ============================================================
 # Architecture-Compliant Connection URLs
 # ============================================================
+_PG_PORT = os.getenv("POSTGRES_PORT", "5432")
 # Control Plane: governance metadata, users, companies, menus, audit log
-CONTROL_PLANE_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+CONTROL_PLANE_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 # Company 001 Operational DB: products, customers, suppliers, invoices, orders
-COMPANY_001_DB_URL = "postgresql://postgres:postgres@localhost:5432/smriti001"
+COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -118,11 +132,11 @@ def seed_control_plane_test_assignments():
                  port_reference, status, schema_version, provisioning_status, migration_status,
                  created_at, updated_at)
             VALUES
-                ('COMP-001', %s, 'smriti001', 'postgresql', 'localhost', 5432,
+                ('COMP-001', %s, 'smriti001', 'postgresql', 'localhost', %s,
                  'READY', '3.29.0', 'COMPLETED', 'UP_TO_DATE', NOW(), NOW())
             ON CONFLICT (company_id) DO UPDATE
                 SET database_name = 'smriti001', status = 'READY', updated_at = NOW();
-        """, (str(uuid.uuid4()),))
+        """, (str(uuid.uuid4()), int(_PG_PORT)))
 
         # 1. Clean and insert test users into smritisys.users (Control Plane auth table)
         users_data = [
@@ -180,7 +194,7 @@ def seed_control_plane_test_assignments():
                 DO UPDATE SET is_active = true, is_deleted = false;
             """, (uca_id, str(uuid.uuid4()), actual_user_id, cid))
 
-        # 3. Seed smriti_menus (Control Plane — exactly 34 canonical immutable menus)
+        # 3. Seed smriti_menus (Control Plane — exactly 36 canonical immutable menus)
         canonical_menus = [
             ("menu-dashboard", "Dashboard & Executive Hub", "/dashboard", "Dashboard & Operations", None, 10, "DASHBOARD.ACCESS"),
             ("menu-user-profile", "My Profile Dashboard", "/user-profile", "Dashboard & Operations", None, 20, "PROFILE.ACCESS"),
@@ -188,6 +202,7 @@ def seed_control_plane_test_assignments():
             ("menu-about-smriti", "About SMRITI Retail OS", "/about-smriti", "System & Knowledge Base", None, 40, "ABOUT.ACCESS"),
             ("menu-dev-tracker", "Dev Intelligence Center", "/dev-tracker", "System & Knowledge Base", None, 50, "SYSTEM.DEV"),
             ("menu-pos", "Billing Desk (Universal POS)", "/pos", "Sales & POS", None, 60, "POS.WORKSPACE.ACCESS"),
+            ("menu-desktop-billing", "Desktop Billing Terminal", "/billing", "Sales & POS", "menu-pos", 65, "POS.WORKSPACE.ACCESS"),
             ("menu-sales", "Sales Studio & Ledger", "/sales", "Sales & POS", "menu-pos", 70, "SALES.WORKSPACE.ACCESS"),
             ("menu-customer-master", "Customer Master Directory", "/customer-master", "Sales & POS", "menu-pos", 80, "CUSTOMER.WORKSPACE.ACCESS"),
             ("menu-crm", "CRM & Engagement Studio", "/crm", "Sales & POS", "menu-pos", 90, "CRM.WORKSPACE.ACCESS"),
@@ -198,6 +213,7 @@ def seed_control_plane_test_assignments():
             ("menu-barcode", "Barcode Studio & Generator", "/barcode", "Inventory & Purchase", "menu-inventory", 140, "BARCODE.WORKSPACE.ACCESS"),
             ("menu-stock-ledger", "Stock Movements & Ledger", "/stock-ledger", "Inventory & Purchase", "menu-inventory", 150, "STOCK.WORKSPACE.ACCESS"),
             ("menu-purchase", "Purchase Studio & Orders", "/purchase", "Inventory & Purchase", "menu-inventory", 160, "PURCHASE.WORKSPACE.ACCESS"),
+            ("menu-grn", "Goods Receipt Note (GRN)", "/goods-receipt", "Inventory & Purchase", "menu-inventory", 165, "GRN.WORKSPACE.ACCESS"),
             ("menu-supplier-mgmt", "Supplier / Person Master", "/supplier-mgmt", "Inventory & Purchase", "menu-inventory", 170, "SUPPLIER.WORKSPACE.ACCESS"),
             ("menu-business-ledger", "Business Ledger & Statements", "/business-ledger", "Accounts", None, 180, "ACCOUNTS.WORKSPACE.ACCESS"),
             ("menu-accounting-sync", "Tally / ERP Accounting Sync", "/accounting-sync", "Accounts", None, 190, "ACCOUNTS.SYNC.EXECUTE"),
@@ -216,6 +232,8 @@ def seed_control_plane_test_assignments():
             ("menu-approval-matrix", "Approval Matrix Governance", "/approval-matrix", "Administration", None, 320, "APPROVAL.MANAGE"),
             ("menu-company-setup", "Company Setup & Branch Config", "/company-setup", "Administration", None, 330, "COMPANY.SETUP.ACCESS"),
             ("menu-audit-logs", "System Audit Trail & Security Logs", "/audit-logs", "Administration", None, 340, "AUDIT.WORKSPACE.ACCESS"),
+            ("menu-manager", "Menu Manager & Navigation Studio", "/menu-manager", "Administration", None, 350, "NAVIGATION.MANAGE"),
+            ("menu-security", "Security Management & Menu Access", "/security-management", "Administration", None, 360, "SECURITY.MENU.ACCESS"),
         ]
 
         # Insert parents first
@@ -343,6 +361,40 @@ def seed_control_plane_test_assignments():
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_version INTEGER DEFAULT 1;
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_scope VARCHAR(50) DEFAULT 'GLOBAL';
             ALTER TABLE IF EXISTS sales_returns ADD COLUMN IF NOT EXISTS policy_snapshot JSONB;
+            ALTER TABLE IF EXISTS master_values ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);
+            ALTER TABLE IF EXISTS master_values ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);
+            CREATE TABLE IF NOT EXISTS customer_credit_ledger_entries (
+                id VARCHAR(50) PRIMARY KEY, uuid UUID, company_id VARCHAR(50), branch_id VARCHAR(50),
+                created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),
+                is_active BOOLEAN DEFAULT TRUE, is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMPTZ,
+                deleted_by VARCHAR(50), version INTEGER DEFAULT 1, customer_id VARCHAR(50) NOT NULL,
+                entry_date TIMESTAMPTZ NOT NULL, entry_type VARCHAR(20) NOT NULL, amount NUMERIC(15, 2) NOT NULL,
+                balance_after NUMERIC(15, 2) NOT NULL, reference_type VARCHAR(50) NOT NULL,
+                reference_id VARCHAR(100) NOT NULL, due_date DATE, notes TEXT,
+                UNIQUE (reference_type, reference_id)
+            );
+            DROP TABLE IF EXISTS sales_factors CASCADE;
+            CREATE TABLE IF NOT EXISTS sales_factors (
+                id VARCHAR(50) PRIMARY KEY, uuid VARCHAR(36), company_id VARCHAR(50), branch_id VARCHAR(50),
+                created_at TIMESTAMPTZ, modified_at TIMESTAMPTZ, created_by VARCHAR(50), updated_by VARCHAR(50),
+                is_active BOOLEAN DEFAULT TRUE, is_deleted BOOLEAN DEFAULT FALSE, deleted_at TIMESTAMPTZ,
+                deleted_by VARCHAR(50), version INTEGER DEFAULT 1,
+                code VARCHAR(50) NOT NULL, description VARCHAR(200) NOT NULL,
+                factor_type VARCHAR(30) NOT NULL, factor_category VARCHAR(30) NOT NULL,
+                customer_id VARCHAR(50), price_group_code VARCHAR(50),
+                applicable_categories JSONB DEFAULT '[]'::jsonb,
+                applicable_brands JSONB DEFAULT '[]'::jsonb,
+                computation_timing VARCHAR(20) NOT NULL DEFAULT 'ABOVE_TAX',
+                computed_on VARCHAR(30) NOT NULL DEFAULT 'DISCOUNTED_VALUE',
+                rate_or_amount VARCHAR(10) NOT NULL DEFAULT 'RATE',
+                value NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
+                is_variable BOOLEAN DEFAULT FALSE,
+                min_bill_value NUMERIC(15, 2), max_bill_value NUMERIC(15, 2),
+                valid_from VARCHAR(20), valid_to VARCHAR(20),
+                applicable_days JSONB DEFAULT '[]'::jsonb
+            );
+            CREATE INDEX IF NOT EXISTS ix_sales_factors_code ON sales_factors (code);
+            CREATE INDEX IF NOT EXISTS ix_sales_factors_price_group_code ON sales_factors (price_group_code);
         """)
 
         # Seed sample products for integration tests in Company DB

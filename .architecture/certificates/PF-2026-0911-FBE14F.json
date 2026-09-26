@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-FBE14F",
+  "entity": "vendor",
+  "capability": "vendor.print",
+  "asset_type": "component",
+  "proposed_name": "VendorPrintModal.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/VendorPrintModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "c30666c990ecf0c39a6eb9c644c8fe214e6bce64f2e487ea0ce834bcc52f1ee9",
+  "git_commit": "09a66e28b5451d4b156810c32d62ad8060996fbf",
+  "issued_at": "2026-09-11T06:25:06.375960+00:00",
+  "expires_at": "2026-09-18T06:25:06.375960+00:00",
+  "status": "ISSUED"
+}

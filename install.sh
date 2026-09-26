@@ -1,108 +1,560 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Project      : SMRITI Retail OS
 # Author       : Jawahar Ramkripal Mallah
 # Email        : support@smritibooks.com
 # Websites     : smritibooks.com | erpnbook.com | aitdl.com
 # Version      : 3.16.0
 # Created      : 2026-07-13
-# Modified     : 2026-07-13
-# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# Modified     : 2026-09-23
+# Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
+set -e
+
 # Color definitions
 GREEN='\033[0;32m'
+CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}=====================================================================${NC}"
-echo -e "${GREEN} SMRITI Retail OS - Linux / macOS One-Command Installer${NC}"
-echo -e "${GREEN}=====================================================================${NC}"
+write_banner() {
+    echo -e "${CYAN}=====================================================================${NC}"
+    echo -e "${GREEN}       SMRITI RETAIL OS - PRODUCTION-GRADE INSTALLER                 ${NC}"
+    echo -e "${CYAN}=====================================================================${NC}"
+}
 
-# 1. Check Prerequisites
-echo -e "${YELLOW}[1/4] Verifying system prerequisites...${NC}"
-prereqs=("git" "node" "python3" "docker")
-missing=()
+write_section() {
+    local step="$1"
+    local title="$2"
+    echo -e "\n${YELLOW}[$step] $title...${NC}"
+}
 
-for cmd in "${prereqs[@]}"; do
-    if command -v "$cmd" >/dev/null 2>&1; then
-        version=$($cmd --version 2>&1 | head -n 1)
-        echo -e "  ✓ $cmd is installed ($version)"
+generate_secret_key() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 32
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -c "import secrets; print(secrets.token_hex(32))"
     else
-        echo -e "  ${RED}✗ $cmd is NOT installed.${NC}"
-        missing+=("$cmd")
+        # Fallback to /dev/urandom
+        head -c 32 /dev/urandom | xxd -p -c 32 2>/dev/null || od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
     fi
+}
+
+update_env_key() {
+    local file="$1"
+    local key="$2"
+    local val="$3"
+    
+    if [ ! -f "$file" ]; then return; fi
+    
+    # Check if key exists and has non-empty value (excluding comments and quotes)
+    if grep -qE "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*[\"']?[a-zA-Z0-9_-]{8,}" "$file"; then
+        return 0
+    fi
+    
+    # If key exists with empty value, replace it in place
+    if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$file"; then
+        sed -i.bak -E "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${val}|" "$file" && rm -f "${file}.bak"
+        echo -e "  ${GREEN}[OK] Injected secure ${key} into ${file}.${NC}"
+    else
+        echo "${key}=${val}" >> "$file"
+        echo -e "  ${GREEN}[OK] Added secure ${key} to ${file}.${NC}"
+    fi
+}
+
+is_port_in_use() {
+    local port="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "import socket; s = socket.socket(); s.bind(('127.0.0.1', $port))" >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            return 0 # occupied
+        else
+            return 1 # available
+        fi
+    elif command -v nc >/dev/null 2>&1; then
+        nc -z 127.0.0.1 "$port" >/dev/null 2>&1
+        return $?
+    elif command -v lsof >/dev/null 2>&1; then
+        lsof -i ":$port" >/dev/null 2>&1
+        return $?
+    else
+        return 1
+    fi
+}
+
+# Parse CLI flags
+MODE=""
+NON_INTERACTIVE=false
+SKIP_BROWSER=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode|-m)
+            MODE="$2"
+            shift 2
+            ;;
+        --non-interactive|-y)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+        --skip-browser)
+            SKIP_BROWSER=true
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
 done
 
-if [ ${#missing[@]} -ne 0 ]; then
-    echo -e "${RED}[WARNING] Missing prerequisites: ${missing[*]}.${NC}"
-    echo -e "${YELLOW}Please install them to ensure full functionality (Docker is highly recommended).${NC}"
+write_banner
+
+# -----------------------------------------------------------------------------
+# 1. OS & Architecture Detection
+# -----------------------------------------------------------------------------
+write_section "1/7" "Detecting Operating System and Architecture"
+
+OS_TYPE="$(uname -s)"
+ARCH_TYPE="$(uname -m)"
+
+case "$OS_TYPE" in
+    Darwin)
+        OS_DISPLAY="macOS"
+        if [ "$ARCH_TYPE" = "arm64" ]; then
+            ARCH_DISPLAY="Apple Silicon ($ARCH_TYPE)"
+        else
+            ARCH_DISPLAY="Intel ($ARCH_TYPE)"
+        fi
+        DOCKER_INSTALL_URL="https://docs.docker.com/desktop/setup/install/mac-install/"
+        ;;
+    Linux)
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            OS_DISPLAY="Linux ($NAME $VERSION_ID)"
+        else
+            OS_DISPLAY="Linux (Generic)"
+        fi
+        ARCH_DISPLAY="$ARCH_TYPE"
+        DOCKER_INSTALL_URL="https://docs.docker.com/engine/install/"
+        ;;
+    *)
+        OS_DISPLAY="$OS_TYPE"
+        ARCH_DISPLAY="$ARCH_TYPE"
+        DOCKER_INSTALL_URL="https://docs.docker.com/get-docker/"
+        ;;
+esac
+
+echo -e "  Operating System : $OS_DISPLAY"
+echo -e "  Architecture     : $ARCH_DISPLAY"
+echo -e "  Working Directory: $(pwd)"
+
+# -----------------------------------------------------------------------------
+# 2. Prerequisite Checks
+# -----------------------------------------------------------------------------
+write_section "2/7" "Verifying System Prerequisites"
+
+# Git CLI
+if command -v git >/dev/null 2>&1; then
+    GIT_VER="$(git --version | head -n 1)"
+    echo -e "  ${GREEN}[OK] Git: $GIT_VER${NC}"
+else
+    echo -e "  ${RED}[FAIL] Git CLI is not found.${NC}"
+    echo -e "  Please install Git before proceeding."
+    exit 1
 fi
 
-# 2. Setup Environment Configuration File
-echo -e "${YELLOW}[2/4] Setting up environment configuration (.env)...${NC}"
+# Docker CLI
+if command -v docker >/dev/null 2>&1; then
+    DOCKER_VER="$(docker --version | head -n 1)"
+    echo -e "  ${GREEN}[OK] Docker CLI: $DOCKER_VER${NC}"
+else
+    echo -e "  ${RED}[FAIL] Docker CLI is not installed.${NC}"
+    echo -e "  ${YELLOW}Docker is required to run SMRITI Retail OS.${NC}"
+    echo -e "  Install Docker for $OS_DISPLAY: ${CYAN}$DOCKER_INSTALL_URL${NC}"
+    exit 1
+fi
+
+# Docker Engine Daemon
+if docker info >/dev/null 2>&1; then
+    echo -e "  ${GREEN}[OK] Docker Engine is running and responsive.${NC}"
+else
+    echo -e "  ${RED}[FAIL] Docker daemon is not running or not responsive.${NC}"
+    echo -e "  ${YELLOW}Please start Docker Desktop / Engine before continuing.${NC}"
+    echo -e "  Install/Start guide: ${CYAN}$DOCKER_INSTALL_URL${NC}"
+    exit 1
+fi
+
+# Docker Compose CLI
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE_VER="$(docker compose version | head -n 1)"
+    echo -e "  ${GREEN}[OK] Docker Compose: $COMPOSE_VER${NC}"
+else
+    echo -e "  ${RED}[FAIL] Docker Compose v2 is required.${NC}"
+    exit 1
+fi
+
+# -----------------------------------------------------------------------------
+# 3. Installation Mode Selection
+# -----------------------------------------------------------------------------
+write_section "3/7" "Selecting Installation Mode"
+
+SELECTED_MODE="$MODE"
+DO_FRESH_INSTALL=false
+
+if [ -z "$SELECTED_MODE" ] && [ "$NON_INTERACTIVE" = false ]; then
+    echo -e "Select installation mode:\n"
+    echo -e "  ${GREEN}[1] Production${NC}"
+    echo -e "      Stable customer runtime (Ports 2781:5432, 1981:8000, 8101:3000)\n"
+    echo -e "  ${CYAN}[2] Development${NC}"
+    echo -e "      Developer runtime with hot reload (Ports 2782:5432, 1982:8000, 8102:3000)\n"
+    echo -e "  ${YELLOW}[3] Custom / Advanced${NC}"
+    echo -e "      Custom host port mappings and options\n"
+    echo -e "  ${RED}[4] Fresh Install (Clean Slate)${NC}"
+    echo -e "      Drops all volumes + rebuilds from scratch (use on new/broken machines)\n"
+
+    read -r -p "Enter choice [1-4] (Default: 1): " user_choice
+    case "$user_choice" in
+        2)
+            SELECTED_MODE="Development"
+            ;;
+        3)
+            SELECTED_MODE="Custom"
+            ;;
+        4)
+            SELECTED_MODE="Production"
+            DO_FRESH_INSTALL=true
+            ;;
+        *)
+            SELECTED_MODE="Production"
+            ;;
+    esac
+elif [ -z "$SELECTED_MODE" ]; then
+    SELECTED_MODE="Production"
+fi
+
+if [ "$DO_FRESH_INSTALL" = true ]; then
+    echo -e "  Selected Mode: ${RED}$SELECTED_MODE [FRESH INSTALL - volumes will be wiped]${NC}"
+else
+    echo -e "  Selected Mode: ${GREEN}$SELECTED_MODE${NC}"
+fi
+
+COMPOSE_FILE="docker-compose.yml"
+PG_PORT=2781
+API_PORT=1981
+WEB_PORT=8101
+DB_CONTAINER="smriti-db"
+API_CONTAINER="smriti-api"
+WEB_CONTAINER="smriti-web"
+DB_NAME="smritisys"
+
+if [ "$SELECTED_MODE" = "Development" ]; then
+    COMPOSE_FILE="docker-compose.dev.yml"
+    PG_PORT=2782
+    API_PORT=1982
+    WEB_PORT=8102
+    DB_CONTAINER="smriti-dev-db"
+    API_CONTAINER="smriti-dev-api"
+    WEB_CONTAINER="smriti-dev-web"
+    DB_NAME="smritisys_dev"
+elif [ "$SELECTED_MODE" = "Custom" ]; then
+    if [ "$NON_INTERACTIVE" = false ]; then
+        read -r -p "Enter Web host port (Default: 8101): " in_web
+        [ -n "$in_web" ] && WEB_PORT="$in_web"
+        read -r -p "Enter API host port (Default: 1981): " in_api
+        [ -n "$in_api" ] && API_PORT="$in_api"
+        read -r -p "Enter PostgreSQL host port (Default: 2781): " in_pg
+        [ -n "$in_pg" ] && PG_PORT="$in_pg"
+    fi
+fi
+
+# -----------------------------------------------------------------------------
+# 4. Port Conflict Probing
+# -----------------------------------------------------------------------------
+write_section "4/7" "Verifying Port Availability"
+
+ACTIVE_CONTAINERS="$(docker ps --format '{{.Names}}' 2>/dev/null || true)"
+
+check_port() {
+    local port="$1"
+    local name="$2"
+    local target_cont="$3"
+    
+    if is_port_in_use "$port"; then
+        if echo "$ACTIVE_CONTAINERS" | grep -qw "$target_cont"; then
+            echo -e "  ${GREEN}[OK] Port $port is in use by running container '$target_cont' (will be reused/updated).${NC}"
+        else
+            echo -e "  ${RED}[CONFLICT] Port $port ($name) is currently occupied by an external process.${NC}"
+            echo -e "  ${YELLOW}Please stop the conflicting process or choose Custom mode to assign a different port.${NC}"
+            exit 1
+        fi
+    else
+        echo -e "  ${GREEN}[OK] Port $port ($name) is available.${NC}"
+    fi
+}
+
+check_port "$WEB_PORT" "Web Frontend" "$WEB_CONTAINER"
+check_port "$API_PORT" "API Backend"  "$API_CONTAINER"
+check_port "$PG_PORT"  "PostgreSQL"   "$DB_CONTAINER"
+
+# -----------------------------------------------------------------------------
+# 5. Environment Configuration
+# -----------------------------------------------------------------------------
+write_section "5/7" "Configuring Environment (.env)"
+
 if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
         cp .env.example .env
-        echo -e "  ✓ Created .env file from .env.example template."
+        echo -e "  ${GREEN}[OK] Initialized .env from .env.example.${NC}"
     else
-        echo -e "  ${RED}✗ .env.example template not found. Creating default .env...${NC}"
-        cat <<EOT > .env
-PORT=3000
-BACKEND_API_PORT=8000
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=smritisys
-DATABASE_PROVIDER=postgres
-EOT
-        echo -e "  ✓ Created default .env file."
+        touch .env
+        echo -e "  ${GREEN}[OK] Created clean .env.${NC}"
     fi
 else
-    echo -e "  ✓ .env file already exists. Skipping copy."
+    echo -e "  ${GREEN}[OK] Existing .env file detected  -- preserving all user settings.${NC}"
 fi
 
-# 3. Create Python Virtual Environment & Install Backend Dependencies
-echo -e "${YELLOW}[3/4] Setting up Python virtual environment and dependencies...${NC}"
-if [ ! -d ".venv" ]; then
-    echo -e "  Creating virtual environment (.venv)..."
-    python3 -m venv .venv 2>/dev/null || python -m venv .venv 2>/dev/null
-    if [ $? -eq 0 ]; then
-        echo -e "  ✓ Virtual environment created."
-    else
-        echo -e "  ${RED}✗ Failed to create virtual environment.${NC}"
+# Ensure critical secrets are populated and valid (never empty, never quotes-only)
+update_env_key ".env" "JWT_SECRET_KEY" "$(generate_secret_key)"
+update_env_key ".env" "INTERNAL_SERVICE_KEY" "$(generate_secret_key)"
+update_env_key ".env" "SGIP_VAULT_MASTER_KEY" "$(generate_secret_key)"
+
+# Export all .env variables directly into process environment
+set -a
+# shellcheck disable=SC1091
+source .env 2>/dev/null || true
+set +a
+
+export PORT="$WEB_PORT"
+export BACKEND_API_PORT="$API_PORT"
+export POSTGRES_PORT="$PG_PORT"
+
+# -----------------------------------------------------------------------------
+# 5.5  Company / Business Profile Setup
+# -----------------------------------------------------------------------------
+write_section "5.5/7" "Business Profile Setup"
+
+_existing_company=$(grep -E "^SMRITI_COMPANY_NAME=.+" .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")
+
+if [ -n "$_existing_company" ] && [ "$DO_FRESH_INSTALL" = false ]; then
+    echo -e "  ${GREEN}[OK] Business profile already configured in .env  -- skipping.${NC}"
+    echo -e "       Company: $_existing_company"
+    # Re-export for seed step
+    export SMRITI_COMPANY_NAME="$(grep -E '^SMRITI_COMPANY_NAME=' .env | cut -d= -f2-)"
+    export SMRITI_COMPANY_CODE="$(grep -E '^SMRITI_COMPANY_CODE=' .env | cut -d= -f2-)"
+    export SMRITI_COMPANY_GST="$(grep -E '^SMRITI_COMPANY_GST=' .env | cut -d= -f2-)"
+    export SMRITI_BRANCH_NAME="$(grep -E '^SMRITI_BRANCH_NAME=' .env | cut -d= -f2-)"
+    export SMRITI_BRANCH_CODE="$(grep -E '^SMRITI_BRANCH_CODE=' .env | cut -d= -f2-)"
+    export SMRITI_ADMIN_USERNAME="$(grep -E '^SMRITI_ADMIN_USERNAME=' .env | cut -d= -f2-)"
+    export SMRITI_ADMIN_EMAIL="$(grep -E '^SMRITI_ADMIN_EMAIL=' .env | cut -d= -f2-)"
+    export SMRITI_ADMIN_PASSWORD="$(grep -E '^SMRITI_ADMIN_PASSWORD=' .env | cut -d= -f2-)"
+else
+    echo ""
+    echo -e "  Please enter your business information."
+    echo -e "  (Press ENTER to keep the default value shown in brackets)\n"
+
+    _def_cn="${_existing_company:-My Retail Store}"
+    _def_cc="$(grep -E '^SMRITI_COMPANY_CODE=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_cc="${_def_cc:-MYSTORE}"
+    _def_gst="$(grep -E '^SMRITI_COMPANY_GST=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_bn="$(grep -E '^SMRITI_BRANCH_NAME=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_bn="${_def_bn:-Main Branch}"
+    _def_bc="$(grep -E '^SMRITI_BRANCH_CODE=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_bc="${_def_bc:-MAIN}"
+    _def_au="$(grep -E '^SMRITI_ADMIN_USERNAME=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_au="${_def_au:-admin}"
+    _def_ae="$(grep -E '^SMRITI_ADMIN_EMAIL=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_ae="${_def_ae:-admin@mystore.com}"
+    _def_ap="$(grep -E '^SMRITI_ADMIN_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    _def_ap="${_def_ap:-Admin@123}"
+
+    read -r -p "  Company / Business Name [$_def_cn]: " _cn
+    SMRITI_COMPANY_NAME="${_cn:-$_def_cn}"
+
+    read -r -p "  Company Short Code (no spaces) [$_def_cc]: " _cc
+    SMRITI_COMPANY_CODE="${_cc:-$_def_cc}"
+    SMRITI_COMPANY_CODE="${SMRITI_COMPANY_CODE// /}"
+
+    read -r -p "  GST Number (leave blank if not applicable) [$_def_gst]: " _gst
+    SMRITI_COMPANY_GST="${_gst:-$_def_gst}"
+
+    read -r -p "  Main Branch Name [$_def_bn]: " _bn
+    SMRITI_BRANCH_NAME="${_bn:-$_def_bn}"
+
+    read -r -p "  Main Branch Code (no spaces) [$_def_bc]: " _bc
+    SMRITI_BRANCH_CODE="${_bc:-$_def_bc}"
+    SMRITI_BRANCH_CODE="${SMRITI_BRANCH_CODE// /}"
+
+    echo ""
+    echo -e "  --- Admin Account ---"
+
+    read -r -p "  Admin Username [$_def_au]: " _au
+    SMRITI_ADMIN_USERNAME="${_au:-$_def_au}"
+
+    read -r -p "  Admin Email [$_def_ae]: " _ae
+    SMRITI_ADMIN_EMAIL="${_ae:-$_def_ae}"
+
+    read -r -p "  Admin Password [$_def_ap]: " _ap
+    SMRITI_ADMIN_PASSWORD="${_ap:-$_def_ap}"
+
+    # Save to .env
+    update_env_key ".env" "SMRITI_COMPANY_NAME"   "$SMRITI_COMPANY_NAME"
+    update_env_key ".env" "SMRITI_COMPANY_CODE"   "$SMRITI_COMPANY_CODE"
+    update_env_key ".env" "SMRITI_COMPANY_GST"    "$SMRITI_COMPANY_GST"
+    update_env_key ".env" "SMRITI_BRANCH_NAME"    "$SMRITI_BRANCH_NAME"
+    update_env_key ".env" "SMRITI_BRANCH_CODE"    "$SMRITI_BRANCH_CODE"
+    update_env_key ".env" "SMRITI_ADMIN_USERNAME" "$SMRITI_ADMIN_USERNAME"
+    update_env_key ".env" "SMRITI_ADMIN_EMAIL"    "$SMRITI_ADMIN_EMAIL"
+    update_env_key ".env" "SMRITI_ADMIN_PASSWORD" "$SMRITI_ADMIN_PASSWORD"
+
+    export SMRITI_COMPANY_NAME SMRITI_COMPANY_CODE SMRITI_COMPANY_GST
+    export SMRITI_BRANCH_NAME SMRITI_BRANCH_CODE
+    export SMRITI_ADMIN_USERNAME SMRITI_ADMIN_EMAIL SMRITI_ADMIN_PASSWORD
+
+    echo ""
+    echo -e "  ${GREEN}[OK] Business profile saved:${NC}"
+    echo -e "       Company : $SMRITI_COMPANY_NAME ($SMRITI_COMPANY_CODE)"
+    echo -e "       Branch  : $SMRITI_BRANCH_NAME ($SMRITI_BRANCH_CODE)"
+    echo -e "       Admin   : $SMRITI_ADMIN_USERNAME / $SMRITI_ADMIN_EMAIL"
+fi
+
+# -----------------------------------------------------------------------------
+# 6. Docker Build & Startup
+# -----------------------------------------------------------------------------
+write_section "6/7" "Building and Starting SMRITI Retail OS Stack"
+
+# Fresh Install: wipe existing volumes for a completely clean database
+if [ "$DO_FRESH_INSTALL" = true ]; then
+    echo -e "  ${RED}[FRESH INSTALL] Stopping any running containers and removing all volumes...${NC}"
+    docker compose -f "$COMPOSE_FILE" down -v 2>/dev/null || true
+    docker volume rm smriti_db_volume smriti_mssql_volume 2>/dev/null || true
+    echo -e "  ${GREEN}[OK] Old volumes removed. Starting with a clean slate.${NC}"
+else
+    # Gracefully stop without removing volumes (preserves existing data)
+    docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+    echo -e "  ${GREEN}[OK] Previous containers stopped (data volumes preserved).${NC}"
+fi
+
+echo -e "  Building required images using $COMPOSE_FILE..."
+docker compose -f "$COMPOSE_FILE" build
+
+echo -e "  Starting services in background (docker compose up -d)..."
+docker compose -f "$COMPOSE_FILE" up -d
+echo -e "  ${GREEN}[OK] Services started.${NC}"
+
+# -----------------------------------------------------------------------------
+# 7. Database Readiness, Migrations & Health Checks
+# -----------------------------------------------------------------------------
+write_section "7/7" "Validating Database Readiness, Migrations, and Service Health"
+
+echo -e "  Waiting for PostgreSQL database container ($DB_CONTAINER) to become healthy..."
+DB_READY=false
+for i in {1..30}; do
+    STATUS=$(docker inspect "$DB_CONTAINER" --format '{{.State.Health.Status}}' 2>/dev/null || true)
+    if [ "$STATUS" = "healthy" ]; then
+        DB_READY=true
+        break
     fi
+    sleep 2
+done
+
+if [ "$DB_READY" = true ]; then
+    echo -e "  ${GREEN}[OK] PostgreSQL database is healthy and ready for queries.${NC}"
 else
-    echo -e "  ✓ Virtual environment (.venv) already exists."
+    echo -e "  ${YELLOW}[WARNING] Database container took longer than expected to report healthy.${NC}"
 fi
 
-if [ -f ".venv/bin/pip" ]; then
-    echo -e "  Installing Python dependencies (backend/requirements.txt)..."
-    .venv/bin/pip install --upgrade pip
-    .venv/bin/pip install -r backend/requirements.txt
-    echo -e "  ✓ Python dependencies installed successfully."
+# Canonical Database Bootstrap Engine (Rule 4)
+echo -e "  Executing SMRITI Canonical Database Bootstrap Engine..."
+docker compose -f "$COMPOSE_FILE" exec -T \
+    -e SMRITI_COMPANY_NAME="$SMRITI_COMPANY_NAME" \
+    -e SMRITI_COMPANY_CODE="$SMRITI_COMPANY_CODE" \
+    -e SMRITI_COMPANY_GST="$SMRITI_COMPANY_GST" \
+    -e SMRITI_BRANCH_NAME="$SMRITI_BRANCH_NAME" \
+    -e SMRITI_BRANCH_CODE="$SMRITI_BRANCH_CODE" \
+    -e SMRITI_ADMIN_USERNAME="$SMRITI_ADMIN_USERNAME" \
+    -e SMRITI_ADMIN_EMAIL="$SMRITI_ADMIN_EMAIL" \
+    -e SMRITI_ADMIN_PASSWORD="$SMRITI_ADMIN_PASSWORD" \
+    "$API_CONTAINER" python -m app.db.bootstrap_engine
+if [ $? -eq 0 ]; then
+    echo -e "  ${GREEN}[OK] Canonical database bootstrap completed (control plane & tenant databases provisioned).${NC}"
 else
-    echo -e "  ${RED}[SKIP] Python pip not found. Virtual environment might be corrupt.${NC}"
+    echo -e "  ${RED}[ERROR] Database bootstrap failed.${NC}"
+    exit 1
 fi
 
-# 4. Install Node.js Frontend Dependencies
-echo -e "${YELLOW}[4/4] Installing frontend Node.js dependencies...${NC}"
-if command -v npm >/dev/null 2>&1; then
-    echo -e "  Running npm install..."
-    npm install
-    echo -e "  ✓ Node.js dependencies installed successfully."
+# Probe API Health
+echo -e "  Checking API health on http://localhost:$API_PORT/health..."
+API_HEALTHY=false
+for i in {1..30}; do
+    if curl -s -f "http://localhost:$API_PORT/health" >/dev/null 2>&1; then
+        API_HEALTHY=true
+        break
+    fi
+    sleep 2
+done
+
+if [ "$API_HEALTHY" = true ]; then
+    echo -e "  ${GREEN}[OK] API is healthy and connected to database.${NC}"
 else
-    echo -e "  ${RED}✗ npm command not found. Cannot install frontend packages.${NC}"
+    echo -e "  ${YELLOW}[WARNING] API health endpoint has not yet responded.${NC}"
 fi
 
-# Ensure launch scripts are executable
-chmod +x startup.sh 2>/dev/null
+# Probe Web Frontend
+echo -e "  Checking Web frontend on http://localhost:$WEB_PORT/..."
+WEB_HEALTHY=false
+for i in {1..20}; do
+    if curl -s -f "http://localhost:$WEB_PORT/" >/dev/null 2>&1; then
+        WEB_HEALTHY=true
+        break
+    fi
+    sleep 2
+done
 
+if [ "$WEB_HEALTHY" = true ]; then
+    echo -e "  ${GREEN}[OK] Web frontend is live and responding (HTTP 200).${NC}"
+else
+    echo -e "  ${YELLOW}[WARNING] Web frontend has not yet responded with HTTP 200. Container may still be initializing.${NC}"
+fi
+
+# Run Official Installation Verification (Rule 8)
+echo -e "\n  Running Official Installation & Database Topology Verification..."
+docker compose -f "$COMPOSE_FILE" exec -T "$API_CONTAINER" python /workspace/backend/tools/verify_installation.py --api-url "http://localhost:8000"
+if [ $? -eq 0 ]; then
+    echo -e "  ${GREEN}[OK] Installation verification PASSED (topology, routing, and operational APIs verified).${NC}"
+else
+    echo -e "  ${RED}[ERROR] Installation verification FAILED.${NC}"
+    exit 1
+fi
+
+# Display Container Status Table
+echo -e "\nActive Containers:"
+docker compose -f "$COMPOSE_FILE" ps
+
+# Automatically launch default browser if requested
+if [ "$SKIP_BROWSER" = false ]; then
+    if [ "$OS_TYPE" = "Darwin" ]; then
+        open "http://localhost:$WEB_PORT" 2>/dev/null || true
+    elif [ "$OS_TYPE" = "Linux" ]; then
+        xdg-open "http://localhost:$WEB_PORT" 2>/dev/null || true
+    fi
+fi
+
+# -----------------------------------------------------------------------------
+# Completion Summary
+# -----------------------------------------------------------------------------
+echo -e "\n${GREEN}=====================================================================${NC}"
+echo -e "${GREEN} SMRITI RETAIL OS INSTALLATION COMPLETE & READY!${NC}"
 echo -e "${GREEN}=====================================================================${NC}"
-echo -e "${GREEN} SMRITI Retail OS installation complete!${NC}"
+echo -e "  Mode            : ${CYAN}$SELECTED_MODE${NC}"
+echo -e "  Web Frontend    : ${CYAN}http://localhost:$WEB_PORT${NC}"
+echo -e "  API Backend     : ${CYAN}http://localhost:$API_PORT${NC}"
+echo -e "  PostgreSQL DB   : ${CYAN}localhost:$PG_PORT${NC}"
+echo -e "  API Docs        : ${CYAN}http://localhost:$API_PORT/docs${NC}"
 echo -e "${GREEN}=====================================================================${NC}"
-echo -e "To launch SMRITI Retail OS:"
-echo -e "  Run: ./startup.sh (or docker compose up -d)"
-echo -e "  Access Frontend : http://localhost:3000"
-echo -e "  Access Backend  : http://localhost:8000"
-echo -e "${GREEN}=====================================================================${NC}"
+echo -e "${YELLOW}Management Commands:${NC}"
+echo -e "  Stop Stack      : docker compose -f $COMPOSE_FILE stop"
+echo -e "  Start Stack     : docker compose -f $COMPOSE_FILE up -d"
+echo -e "  View Logs       : docker compose -f $COMPOSE_FILE logs -f"
+echo -e "${GREEN}=====================================================================${NC}\n"

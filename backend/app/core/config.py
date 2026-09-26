@@ -4,20 +4,38 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 6.31.0
 Created      : 2026-07-11
-Modified     : 2026-08-17
+Modified     : 2026-09-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 import os
+import sys
 import json
 import socket
 import asyncio
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 from pydantic_settings import BaseSettings
+try:
+    from dotenv import load_dotenv
+    _cfg_file = Path(__file__).resolve()
+    # F:\SMRITRretailNX\backend\app\core\config.py -> parents[3] is F:\SMRITRretailNX
+    _env_candidates = [
+        _cfg_file.parents[3] / ".env",
+        Path(".env").resolve(),
+        Path("../.env").resolve(),
+    ]
+    for _p in _env_candidates:
+        if _p.exists():
+            load_dotenv(str(_p), override=False)
+            if not os.getenv("JWT_SECRET_KEY"):
+                load_dotenv(str(_p), override=True)
+            break
+except ImportError:
+    pass
 
 
 def _is_port_open(host: str, port: int, timeout: float = 0.8) -> bool:
@@ -33,24 +51,19 @@ def _is_postgres_server(host: str, port: int, user: str = "postgres", password: 
         return False
 
     try:
-        import asyncpg
-    except ImportError:
-        return False
-
-    conn_str = f"postgresql://{user}:{password}@{host}:{port}/{database}"
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        conn = loop.run_until_complete(asyncpg.connect(conn_str, timeout=timeout))
-        loop.run_until_complete(conn.close())
+        import psycopg2
+        conn = psycopg2.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            dbname=database,
+            connect_timeout=int(max(1, timeout))
+        )
+        conn.close()
         return True
     except Exception:
         return False
-    finally:
-        try:
-            loop.close()
-        except Exception:
-            pass
 
 
 def _replace_url_port(conn_str: str, port_int: int) -> str:
@@ -90,26 +103,30 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
     if _is_postgres_server(host, port):
         return conn_str
 
-    try:
-        import subprocess
-        out = subprocess.check_output(["wsl", "-d", "docker-desktop", "-e", "/sbin/ip", "addr"], text=True, stderr=subprocess.DEVNULL)
-        for line in out.splitlines():
-            line = line.strip()
-            if line.startswith("inet "):
-                ip = line.split()[1].split("/")[0]
-                if ip != "127.0.0.1" and _is_postgres_server(ip, port):
-                    auth = ""
-                    if parsed.username:
-                        auth = parsed.username
-                        if parsed.password:
-                            auth += f":{parsed.password}"
-                        auth += "@"
-                    netloc = f"{auth}{ip}:{port}"
-                    return urlunparse(parsed._replace(netloc=netloc))
-    except Exception:
-        pass
+    # WSL IP probe: skip entirely on cloud / Linux production deployments unless IS_WSL is explicitly enabled
+    if os.environ.get("IS_WSL", "").lower() in {"1", "true", "yes"} or (
+        sys.platform == "win32" and os.environ.get("ENVIRONMENT", "development").lower() not in {"production", "staging", "test"}
+    ):
+        try:
+            import subprocess
+            out = subprocess.check_output(["wsl", "-d", "docker-desktop", "-e", "/sbin/ip", "addr"], text=True, stderr=subprocess.DEVNULL)
+            for line in out.splitlines():
+                line = line.strip()
+                if line.startswith("inet "):
+                    ip = line.split()[1].split("/")[0]
+                    if ip != "127.0.0.1" and _is_postgres_server(ip, port):
+                        auth = ""
+                        if parsed.username:
+                            auth = parsed.username
+                            if parsed.password:
+                                auth += f":{parsed.password}"
+                            auth += "@"
+                        netloc = f"{auth}{ip}:{port}"
+                        return urlunparse(parsed._replace(netloc=netloc))
+        except Exception:
+            pass
 
-    for alt_port in (5432, 5434):
+    for alt_port in (5432, 2781, 2782, 5434):
         if alt_port == port:
             continue
         if _is_postgres_server(host, alt_port):
@@ -118,15 +135,19 @@ def _resolve_local_dev_postgres_url(conn_str: str) -> str:
     return conn_str
 
 
+_root_dir = Path(__file__).resolve().parent.parent.parent.parent
+_root_env_path = _root_dir / ".env"
+
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
-    VERSION: str = "3.16.0"
+    VERSION: str = "6.43.5"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     
     # Priority defaults
     PORT: int = 8000
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:2781/smritisys"
     JWT_SECRET_KEY: str  # Remove default — raise error if missing
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480      # 8 hours — covers a full retail shift without interruption
@@ -140,6 +161,10 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:8101",
+        "http://127.0.0.1:8101",
+        "http://localhost:8102",
+        "http://127.0.0.1:8102",
         "http://localhost:5000",
         "http://127.0.0.1:5000",
         "http://localhost:5173",
@@ -158,8 +183,24 @@ class Settings(BaseSettings):
     # Statutory Compliance Configuration
     STRICT_STATUTORY_MODE: bool = False
 
+    # NIC E-Way Bill v1.03 integration. Live calls remain disabled until explicitly configured.
+    EWAYBILL_LIVE_ENABLED: bool = False
+    EWAYBILL_BASE_URL: str = "https://ewb-apisandbox.nic.in/ewbv1"
+    EWAYBILL_CLIENT_ID: str | None = None
+    EWAYBILL_CLIENT_SECRET: str | None = None
+    EWAYBILL_GSTIN: str | None = None
+    EWAYBILL_USERNAME: str | None = None
+    EWAYBILL_PASSWORD: str | None = None
+    EWAYBILL_PUBLIC_KEY: str | None = None
+    EWAYBILL_TIMEOUT_SECONDS: float = 30.0
+
+    # Report Scheduler Daemon — asyncio background dispatch engine
+    # Set REPORT_SCHEDULER_ENABLED=true in .env or container env to activate.
+    REPORT_SCHEDULER_ENABLED: bool = False
+    REPORT_SCHEDULER_POLL_SECONDS: int = 60
+
     model_config = {
-        "env_file": ".env",
+        "env_file": (str(_root_env_path), ".env"),
         "case_sensitive": True,
         "extra": "ignore"
     }
@@ -224,11 +265,13 @@ def load_settings() -> Settings:
 
     # Fail closed on insecure secrets in production
     if env in {"production", "prod"}:
-        if not base_settings.JWT_SECRET_KEY or len(base_settings.JWT_SECRET_KEY) < 32:
+        insecure_jwt_markers = {"dev-test", "development", "dev_test", "default", "example"}
+        if not base_settings.JWT_SECRET_KEY or len(base_settings.JWT_SECRET_KEY) < 32 or any(m in base_settings.JWT_SECRET_KEY.lower() for m in insecure_jwt_markers):
             raise ValueError(
                 "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong JWT_SECRET_KEY (min 32 chars) from the runtime secret store."
             )
-        if not base_settings.INTERNAL_SERVICE_KEY or len(base_settings.INTERNAL_SERVICE_KEY) < 32:
+        insecure_key_markers = {"dev-test", "development", "dev_test", "default", "example"}
+        if not base_settings.INTERNAL_SERVICE_KEY or len(base_settings.INTERNAL_SERVICE_KEY) < 32 or any(m in base_settings.INTERNAL_SERVICE_KEY.lower() for m in insecure_key_markers):
             raise ValueError(
                 "SECURITY FAULT: Production mode requires a dedicated, cryptographically strong INTERNAL_SERVICE_KEY (min 32 chars) from the runtime secret store."
             )
@@ -240,5 +283,57 @@ def load_settings() -> Settings:
 
     return base_settings
 
-settings = load_settings()
+import sys as _sys
+
+def _abort_with_config_error(message: str) -> None:
+    """
+    Print a clear, human-readable SMRITI startup configuration error and exit.
+    Never expose raw Pydantic / Python tracebacks to the operator.
+    """
+    border = "=" * 70
+    print("", flush=True)
+    print(border, flush=True)
+    print("  SMRITI STARTUP ERROR — Configuration Problem", flush=True)
+    print(border, flush=True)
+    print(flush=True)
+    for line in message.strip().splitlines():
+        print(f"  {line}", flush=True)
+    print(flush=True)
+    print("  Refer to the SMRITI Installation Guide or your .env file.", flush=True)
+    print("  Contact: support@smritibooks.com", flush=True)
+    print(border, flush=True)
+    print("", flush=True)
+    _sys.exit(1)
+
+
+try:
+    from pydantic import ValidationError as _PydanticValidationError
+    try:
+        settings = load_settings()
+    except _PydanticValidationError as _pve:
+        # Pydantic raises this when a required field (JWT_SECRET_KEY or
+        # INTERNAL_SERVICE_KEY) is completely absent from the environment.
+        missing = [e["loc"][0] for e in _pve.errors() if e.get("type") == "missing"]
+        if missing:
+            _abort_with_config_error(
+                "Required secret keys are not set in your .env file:\n"
+                + "\n".join(f"  - {f}" for f in missing)
+                + "\n\n"
+                "To generate secure values, run:\n"
+                "  python -c \"import secrets; print(secrets.token_hex(32))\""
+                "\n\n"
+                "Then set them in your .env file:\n"
+                "  JWT_SECRET_KEY=<generated-value>\n"
+                "  INTERNAL_SERVICE_KEY=<generated-value>"
+            )
+        else:
+            _abort_with_config_error(
+                "Configuration validation failed:\n" + str(_pve)
+            )
+    except ValueError as _ve:
+        _abort_with_config_error(str(_ve))
+except ImportError:
+    # pydantic not installed yet — let the import error propagate naturally
+    settings = load_settings()
+
 BaseDir = Path(__file__).resolve().parent.parent.parent.parent

@@ -23,8 +23,13 @@ import fitz
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-COMPANY_DB_URL = "postgresql://postgres:postgres@localhost:5432/smriti001"
-CONTROL_PLANE_DB_URL = "postgresql://postgres:postgres@localhost:5432/smritisys"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+COMPANY_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+CONTROL_PLANE_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 TT_DIR = r"F:\SMRITRretailNX\TT"
 EXPORTS_PDF_DIR = r"F:\SMRITRretailNX\exports\tt_batch_74_103"
 TATTLY_LOGO_PATH = os.path.join(TT_DIR, "logo", "tattly_logo_black.png")

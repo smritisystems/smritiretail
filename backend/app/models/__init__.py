@@ -4,17 +4,22 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.21.0
+Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-08-15
+Modified     : 2026-09-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 # SMRITI database models init
-from .crm import CustomerGroup, Customer
-from .inventory import Product, StockMovement
-from .sales import SalesInvoice, SalesInvoiceItem
+from .crm import (
+    CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation,
+    CustomerCreditLedgerEntry, CustomerPolicy, CustomerRelationship,
+)
+from .inventory import Product, StockMovement, WarehouseLocation
+from .sales import SalesInvoice, SalesInvoiceItem, SalesOrderReservation
+from .customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
+from .customer_article_mapping import CustomerArticleMapping
 from .tenant import Company, Branch
 from .company_policy import CompanyBankAccount, CompanyPolicySetting, ComplianceThreshold
 from .company_registry import CompanyDatabaseRegistry
@@ -27,11 +32,16 @@ from .purchase import (
 )
 from .pos import CashRegister, Shift, ShiftCashTransaction
 from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
-from .user_assignment import UserCompanyAssignment, UserBranchAssignment, UserStoreAssignment
+from .user_assignment import UserCompanyAssignment, UserBranchAssignment
 from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
 from .report_schedule import ReportSchedule, ReportDispatchLog
 from .role import Role
+from .hr import AttendanceRecord, LeaveBalance, LeaveRequest
+from .staff_profile import StaffProfile
+from .size_groups import SizeGroup, SizeGroupValue
+from .staff_profile_history import StaffProfileHistory
+from .staff_placement import StaffPlacementAssignment
 
 
 # CRM, Loyalty Program & Universal Incentive Commission Engine (SICE)
@@ -86,11 +96,16 @@ from .party import (
     PartyRole,
     CustomerProfile,
     SupplierProfile,
+    PartyAddress,
+    PartyContact,
+    SupplierBankAccount,
+    VendorIdentityMigration,
 )
 from .item_master import (
     Item,
     ItemVariant,
     ItemBarcode,
+    BarcodeRegistryAudit,
 )
 
 # Canonical Pricing, Payment Ledger & Document Sequence Models (Slice 4)
@@ -98,6 +113,8 @@ from .pricing import (
     PriceBook,
     PriceBookEntry,
     CustomerPriceTier,
+    CustomerPriceAssignment,
+    SalesFactor,
 )
 from .payment_ledger import (
     PaymentTransaction,
@@ -206,4 +223,51 @@ from .audit import (
 
 # Legacy Migration Registry (Sprint 2)
 from .legacy_menu_map import LegacyMenuMap
+
+# SMRITI System Parameters Subsystem & Governance Engine
+from .system_parameter import SystemParameter
+
+# Barcode Billing CSV Templates & Statutory Import Audit Logs
+from .billing_csv import BillingCsvTemplate, BillingCsvImportLog
+
+# SMRITI Unified Identity & Governance Control Plane (Phase 1)
+from .identity_registry import (
+    SmritiIdentityRegistry,
+    SmritiNumberingRegistry,
+    SmritiIdentityAlias,
+    SmritiIdentityAllocationLog,
+)
+
+# PO Vendor Product Control — Phase 2 (v6.42.0)
+from .vendor_product_assignment import (
+    VendorProductAssignment,
+    POProductDecisionLog,
+)
+
+# Inward Landed Cost & Freight Engine (v3.33.0)
+from .inward_cost import (
+    InwardCostComponentType,
+    InwardCostComponent,
+    InwardCostAllocation,
+    InwardCostAdjustment,
+)
+
+# Goods Receipt Note — canonical inward receiving record (v1.0.0 — 2026-09-23)
+from .goods_receipt import (
+    GoodsReceiptNote,
+    GoodsReceiptLine,
+)
+
+# B2B Dispatch Batch — persistent dispatch session replacing in-memory caches (v1.0.0 — 2026-09-23)
+from .dispatch_batch import (
+    DispatchBatch,
+    DispatchBatchInvoice,
+)
+
+# KPI Definition Registry — data-driven KPI configuration for Executive Hub dashboards (v1.0.0 — 2026-09-24)
+from .kpi_definition import KPIDefinition
+
+# SMRITI Transaction Integrity Engine (STIE) — Universal Idempotency & Concurrency Ledger
+from .transaction_integrity import TransactionIdempotencyRecord
+
 

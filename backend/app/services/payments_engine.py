@@ -21,6 +21,8 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.payment_ledger import PaymentTransaction, PaymentAllocation
+from ..models.identity_registry import SmritiIdentityAlias
+from .identity.engine import IdentityEngine
 from ..schemas.payments import (
     PaymentTenderItem,
     ProcessPaymentRequest,
@@ -33,6 +35,38 @@ from ..schemas.payments import (
     PaymentReceiptResponse,
     PaymentReceiptTenderLine,
 )
+
+
+def _resolve_gateway_source_system(tender: PaymentTenderItem) -> str:
+    """
+    Derive specific external source system identifier (RAZORPAY, STRIPE, PAYTM, PINE_LABS, PHONEPE, UPI, BANK)
+    when present in tender metadata. Falls back to tender_type (e.g. 'UPI', 'CARD') or 'GATEWAY' as canonical
+    generic transitional source.
+    """
+    text_corpus = f"{tender.bank_name or ''} {tender.notes or ''} {tender.gateway_reference or ''}".upper()
+    known_gateways = {
+        "RAZORPAY": "RAZORPAY",
+        "STRIPE": "STRIPE",
+        "PAYTM": "PAYTM",
+        "PINE_LABS": "PINE_LABS",
+        "PINELABS": "PINE_LABS",
+        "PHONEPE": "PHONEPE",
+        "GPAY": "GOOGLE_PAY",
+        "GOOGLEPAY": "GOOGLE_PAY",
+        "BHIM": "BHIM",
+        "CRED": "CRED",
+        "BILLDESK": "BILLDESK",
+        "CCAVENUE": "CCAVENUE",
+        "CASHFREE": "CASHFREE",
+    }
+    for marker, canonical_source in known_gateways.items():
+        if marker in text_corpus:
+            return canonical_source
+
+    if tender.tender_type in ("UPI", "CARD", "NETBANKING", "WALLET", "BANK_TRANSFER"):
+        return tender.tender_type
+
+    return "GATEWAY"
 
 
 class PaymentsEngine:
@@ -49,6 +83,7 @@ class PaymentsEngine:
         company_id: str,
         req: ProcessPaymentRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> MultiTenderPaymentResponse:
         """
         Records multi-tender payment allocations atomically with strict idempotency gating.
@@ -120,7 +155,7 @@ class PaymentsEngine:
             if tender_amt <= 0:
                 raise ValueError("Tender amount must be greater than zero.")
 
-            tx_id = f"pay_{uuid.uuid4().hex[:12]}"
+            tx_id = IdentityEngine.generate_technical_id()
             tx_no = f"PAY-{date_str}-{uuid.uuid4().hex[:6].upper()}"
             sub_idempotency_key = f"{clean_key}_{idx}" if len(req.tenders) > 1 else clean_key
 
@@ -145,9 +180,27 @@ class PaymentsEngine:
             )
             session.add(tx)
 
+            # Ingest external processor gateway reference into alias bridge via IdentityEngine
+            if tender.gateway_reference and str(tender.gateway_reference).strip():
+                clean_gw = str(tender.gateway_reference).strip()
+                source_sys = _resolve_gateway_source_system(tender)
+                await IdentityEngine.register_alias(
+                    session=session,
+                    entity_type="PAYMENT_TRANSACTION",
+                    entity_id=tx_id,
+                    alias_code=clean_gw,
+                    alias_type="GATEWAY_REF",
+                    source_system=source_sys,
+                    canonical_identity_code=None,
+                    company_id=company_id,
+                    branch_id=req.branch_id,
+                    notes=f"Payment gateway reference ({tender.tender_type})",
+                    created_by=created_by,
+                )
+
             if req.auto_allocate:
                 alloc = PaymentAllocation(
-                    id=f"pal_{uuid.uuid4().hex[:12]}",
+                    id=IdentityEngine.generate_technical_id(),
                     company_id=company_id,
                     branch_id=req.branch_id,
                     payment_id=tx_id,
@@ -163,7 +216,10 @@ class PaymentsEngine:
 
             created_txs.append(tx)
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
 
         # Re-fetch created transactions with allocations loaded
         tx_ids = [t.id for t in created_txs]
@@ -222,6 +278,7 @@ class PaymentsEngine:
         company_id: str,
         req: PaymentRefundRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> PaymentRefundResponse:
         """
         Executes a full or partial refund against an existing payment transaction
@@ -288,7 +345,10 @@ class PaymentsEngine:
         else:
             orig_tx.status = "PARTIALLY_REFUNDED"
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
 
         remaining_balance = orig_amt - new_total_refunded
 
@@ -310,6 +370,7 @@ class PaymentsEngine:
         payment_id: str,
         req: PaymentAllocationRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> PaymentAllocationDetail:
         """
         Distributes unallocated balance of a payment across an invoice.
@@ -353,7 +414,11 @@ class PaymentsEngine:
             created_by=created_by,
         )
         session.add(alloc)
-        await session.commit()
+
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
 
         return PaymentAllocationDetail(
             id=alloc.id,

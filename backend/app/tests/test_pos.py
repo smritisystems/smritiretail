@@ -67,6 +67,8 @@ async def _make_tenant(db_session, suffix):
     warehouse = Warehouse(
         id=f"wh-central-{suffix}", company_id=comp.id, branch_id=br.id,
         code=f"WH-POS-{suffix}", name="Central Warehouse", is_active=True,
+        address="POS Test Warehouse", city="Mumbai", state="Maharashtra",
+        pincode="400001",
     )
     db_session.add(warehouse)
     await db_session.commit()
@@ -168,7 +170,7 @@ async def test_open_shift(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         res = await c.post("/api/v1/pos/shifts/open",
-                           json={"id": f"sh-{s}", "register_id": reg.id,
+                           json={"register_id": reg.id,
                                  "opening_balance": "500.00"},
                            headers=_bearer(cashier, comp.id, br.id))
     assert res.status_code == 201
@@ -188,12 +190,12 @@ async def test_cannot_open_two_shifts_same_register(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r1 = await c.post("/api/v1/pos/shifts/open",
-                          json={"id": f"sh1-{s}", "register_id": reg.id},
+                          json={"register_id": reg.id},
                           headers=_bearer(cashier, comp.id, br.id))
         assert r1.status_code == 201
 
         r2 = await c.post("/api/v1/pos/shifts/open",
-                          json={"id": f"sh2-{s}", "register_id": reg.id},
+                          json={"register_id": reg.id},
                           headers=_bearer(cashier, comp.id, br.id))
     assert r2.status_code == 400
     assert "already has an open shift" in r2.json()["detail"].lower()
@@ -208,7 +210,7 @@ async def test_open_shift_invalid_register_returns_404(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         res = await c.post("/api/v1/pos/shifts/open",
-                           json={"id": f"sh-{s}", "register_id": "nonexistent"},
+                           json={"register_id": "nonexistent"},
                            headers=_bearer(cashier, comp.id, br.id))
     assert res.status_code == 404
 
@@ -225,12 +227,13 @@ async def test_close_shift_no_sales(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         open_res = await c.post("/api/v1/pos/shifts/open",
-                                json={"id": f"sh-{s}", "register_id": reg.id,
+                                json={"register_id": reg.id,
                                       "opening_balance": "1000.00"},
                                 headers=_bearer(cashier, comp.id, br.id))
         assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
 
-        close_res = await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        close_res = await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                                  json={"closing_balance": "1000.00"},
                                  headers=_bearer(cashier, comp.id, br.id))
 
@@ -308,13 +311,15 @@ async def test_close_already_closed_shift_returns_400(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        await c.post("/api/v1/pos/shifts/open",
-                     json={"id": f"sh-{s}", "register_id": reg.id},
-                     headers=_bearer(cashier, comp.id, br.id))
-        await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        open_res = await c.post("/api/v1/pos/shifts/open",
+                                json={"register_id": reg.id},
+                                headers=_bearer(cashier, comp.id, br.id))
+        assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
+        await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                      json={"closing_balance": "0.00"},
                      headers=_bearer(cashier, comp.id, br.id))
-        second_close = await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        second_close = await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                                     json={"closing_balance": "0.00"},
                                     headers=_bearer(cashier, comp.id, br.id))
     assert second_close.status_code == 400
@@ -336,13 +341,15 @@ async def test_get_active_shift(db_session):
         assert r1.status_code == 404
 
         # Open a shift → 200
-        await c.post("/api/v1/pos/shifts/open",
-                     json={"id": f"sh-{s}", "register_id": reg.id},
-                     headers=_bearer(cashier, comp.id, br.id))
+        open_res = await c.post("/api/v1/pos/shifts/open",
+                                json={"register_id": reg.id},
+                                headers=_bearer(cashier, comp.id, br.id))
+        assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
         r2 = await c.get(f"/api/v1/shifts/active/{reg.id}",
                          headers=_bearer(cashier, comp.id, br.id))
         assert r2.status_code == 200
-        assert r2.json()["id"] == f"sh-{s}"
+        assert r2.json()["id"] == shift_id
 
 
 # ─────────────────────────── POS Checkout tests (Phase 1) ───────────────────────────
@@ -401,6 +408,8 @@ async def test_pos_checkout_happy_path(db_session):
         "shift_id": shift.id,
         "payment_mode": "CASH",
         "grand_total": "100.00",
+        "billing_address": "1 Corporate Park, Mumbai, Maharashtra - 400001",
+        "shipping_address": "12 MG Road, Bengaluru, Karnataka - 560001",
         "items": [{
             "product_id": product.id,
             "code": product.code,
@@ -423,6 +432,13 @@ async def test_pos_checkout_happy_path(db_session):
     assert data["invoice_no"] == f"POS-{s}"
     assert data["payment_mode"] == "CASH"
     assert Decimal(data["grand_total"]) == Decimal("100.00")
+
+    invoice = (await db_session.execute(
+        select(SalesInvoice).where(SalesInvoice.invoice_no == f"POS-{s}")
+    )).scalars().first()
+    assert invoice is not None
+    assert invoice.billing_address == "1 Corporate Park, Mumbai, Maharashtra - 400001"
+    assert invoice.shipping_address == "12 MG Road, Bengaluru, Karnataka - 560001"
 
     # Verify stock was deducted in DB
     await db_session.refresh(product)
@@ -585,7 +601,7 @@ async def test_open_shift_contract_url(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r = await c.post(
             "/api/v1/pos/shifts/open",
-            json={"id": f"sh4a-{s}", "register_id": reg.id, "opening_balance": "500.00"},
+            json={"register_id": reg.id, "opening_balance": "500.00"},
             headers=_bearer(cashier, comp.id, br.id),
         )
     assert r.status_code == 201, r.text
@@ -605,7 +621,7 @@ async def test_close_shift_contract_url(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         open_r = await c.post(
             "/api/v1/pos/shifts/open",
-            json={"id": f"sh4b-{s}", "register_id": reg.id, "opening_balance": "100.00"},
+            json={"register_id": reg.id, "opening_balance": "100.00"},
             headers=hdrs,
         )
         assert open_r.status_code == 201, open_r.text
@@ -617,3 +633,44 @@ async def test_close_shift_contract_url(db_session):
         )
     assert close_r.status_code == 200, close_r.text
     assert close_r.json()["id"] == shift_id
+
+
+async def test_pos_checkout_rejects_rate_exceeding_mrp(db_session):
+    """
+    Statutory Price Validation: Selling price cannot exceed MRP.
+    """
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"mrp{s}")
+    cashier = await _make_user(db_session, f"mrp{s}", comp.id, br.id)
+    reg = await _make_register(db_session, f"mrp{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"mrp{s}", comp.id, br.id, stock=10)
+    shift = await _make_open_shift(db_session, f"mrp{s}", comp.id, br.id, cashier.id, reg.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    payload = {
+        "invoice_no": f"INV-MRP-{s}",
+        "shift_id": shift.id,
+        "payment_mode": "CASH",
+        "grand_total": "1200.00",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1",
+            "price": "1200.00",
+            "mrp": "1000.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/pos/checkout",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+
+    assert r.status_code == 400
+    assert "Selling price" in r.text
+    assert "cannot exceed MRP" in r.text
+

@@ -40,12 +40,14 @@ import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { recordAuditAction } from "../../../lib/apiFetch.ts";
 import { SmritiScrollArea } from "../../SmritiScrollArea.tsx";
 import { useWorkspace } from "../../../contexts/WorkspaceContext.tsx";
+import { getCanonicalField } from "../../../services/canonicalFieldRegistry.ts";
 
 export interface MasterListScreenProps<T = any> {
   config: MasterConfig<T>;
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
   initialSubTab?: string;
+  onSubTabChange?: (subTabId: string) => void;
   // Optional slot overrides provided directly at screen instantiation
   extraColumns?: (item: T) => React.ReactNode;
   extraFields?: (formState: any, setFormField: (name: string, val: any) => void) => React.ReactNode;
@@ -58,6 +60,7 @@ export function MasterListScreen<T extends Record<string, any>>({
   currentUser,
   onNotification,
   initialSubTab,
+  onSubTabChange,
   extraColumns,
   extraFields,
   customActions,
@@ -510,20 +513,23 @@ export function MasterListScreen<T extends Record<string, any>>({
 
       {/* Sub Tabs Bar (if defined) */}
       {config.subTabs && config.subTabs.length > 0 && (
-        <div className="flex items-center space-x-1 border-b border-theme-divider pb-2 overflow-x-auto">
-          {config.subTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveSubTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                activeSubTab === tab.id
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 border-b border-theme-divider pb-3">
+          <label htmlFor="master-lookup-type" className="text-xs font-bold text-theme-muted whitespace-nowrap">
+            Lookup Type
+          </label>
+          <select
+            id="master-lookup-type"
+            value={config.subTabs.some((tab) => tab.id === activeSubTab) ? activeSubTab : config.subTabs[0].id}
+            onChange={(event) => {
+              setActiveSubTab(event.target.value);
+              onSubTabChange?.(event.target.value);
+            }}
+            className="min-w-64 max-w-full rounded-lg border border-theme-divider bg-theme-surface-1 px-3 py-2 text-xs font-bold text-theme-primary outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          >
+            {config.subTabs.map((tab) => (
+              <option key={tab.id} value={tab.id}>{tab.label}</option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -610,7 +616,7 @@ export function MasterListScreen<T extends Record<string, any>>({
                       <div className={`flex items-center space-x-1.5 ${
                         col.align === "right" ? "justify-end" : col.align === "center" ? "justify-center" : "justify-start"
                       }`}>
-                        <span>{col.label}</span>
+                        <span>{col.label || (col.fieldId ? getCanonicalField(col.fieldId)?.label : undefined) || col.key}</span>
                         {col.sortable && (
                           <span className="text-theme-muted">
                             {sortState.key === col.key ? (
@@ -884,7 +890,7 @@ export function MasterListScreen<T extends Record<string, any>>({
                   Confirm Deletion
                 </h3>
                 <p className="text-xs text-theme-muted leading-relaxed">
-                  Are you sure you want to permanently delete this {config.entityName.toLowerCase()} record? This action cannot be undone.
+                  Delete this {config.entityName.toLowerCase()} only if it has no live references. The server will validate linked templates, products, orders, and child values before retiring it.
                 </p>
               </div>
             </div>

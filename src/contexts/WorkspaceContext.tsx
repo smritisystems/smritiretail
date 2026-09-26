@@ -55,6 +55,7 @@ export interface FloatingWindow {
 interface WorkspaceContextType {
   focusMode: boolean;
   globalZoom: number;
+  isAutoFit: boolean;
   floatingWindows: FloatingWindow[];
   activeWindowId: string | null;
   dragSnapPreview: "none" | "left" | "right" | "top" | "bottom" | "full";
@@ -63,6 +64,8 @@ interface WorkspaceContextType {
   setFocusMode: (mode: boolean) => void;
   adjustGlobalZoom: (delta: number) => void;
   resetGlobalZoom: () => void;
+  toggleAutoFit: () => void;
+  setAutoFit: (enabled: boolean) => void;
   
   popOutTab: (tabId: string, title: string, icon: string) => void;
   popOutExternalWindow: (tabId: string, title: string, icon?: string, options?: { fullScreen?: boolean }) => void;
@@ -90,6 +93,32 @@ interface WorkspaceContextType {
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
+/**
+ * Calculates optimal proportional scale factor based on screen viewport dimensions.
+ * Reference retail canvas: 1440x860.
+ * Ensures the entire workspace, tables, buttons, and totals fit without overflow.
+ */
+export const calculateAutoFitScale = (viewportWidth: number, viewportHeight: number): number => {
+  if (typeof window === "undefined" || viewportWidth <= 0 || viewportHeight <= 0) {
+    return 1.0;
+  }
+  // Reference baseline desktop canvas: 1440w x 860h
+  const targetW = 1440;
+  const targetH = 860;
+
+  const ratioW = viewportWidth / targetW;
+  const ratioH = viewportHeight / targetH;
+  const rawRatio = Math.min(ratioW, ratioH);
+
+  // If on Full HD 1920x1080 (native 1:1), keep exactly 1.00 for razor-sharp rendering
+  if (rawRatio >= 0.96 && rawRatio <= 1.10) {
+    return 1.0;
+  }
+
+  // Safe bounds: 0.70x (1024x768 POS touch screen) to 1.25x (high-DPI 4K)
+  return Math.max(0.70, Math.min(1.25, Number(rawRatio.toFixed(2))));
+};
+
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Restore State from LocalStorage
   const [focusMode, setFocusModeState] = useState<boolean>(() => {
@@ -97,7 +126,17 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return saved === "true";
   });
 
+  const [isAutoFit, setIsAutoFitState] = useState<boolean>(() => {
+    const saved = localStorage.getItem("smriti_workspace_autofit");
+    return saved === null ? true : saved === "true"; // Default to Auto-Fit on fresh setup
+  });
+
   const [globalZoom, setGlobalZoom] = useState<number>(() => {
+    const savedAutoFit = localStorage.getItem("smriti_workspace_autofit");
+    const autoFitActive = savedAutoFit === null ? true : savedAutoFit === "true";
+    if (autoFitActive && typeof window !== "undefined") {
+      return calculateAutoFitScale(window.innerWidth, window.innerHeight);
+    }
     const saved = localStorage.getItem("smriti_workspace_global_zoom");
     return saved ? parseFloat(saved) : 1.0;
   });
@@ -110,10 +149,41 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [dragSnapPreview, setDragSnapPreview] = useState<"none" | "left" | "right" | "top" | "bottom" | "full">("none");
 
+  // Dynamic Window Resize Listener for Auto-Fit
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let resizeTimer: any;
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (isAutoFit) {
+          const autoScale = calculateAutoFitScale(window.innerWidth, window.innerHeight);
+          setGlobalZoom(autoScale);
+        }
+      }, 100);
+    };
+
+    if (isAutoFit) {
+      const autoScale = calculateAutoFitScale(window.innerWidth, window.innerHeight);
+      setGlobalZoom(autoScale);
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(resizeTimer);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isAutoFit]);
+
   // Save changes to LocalStorage
   useEffect(() => {
     localStorage.setItem("smriti_workspace_focus_mode", String(focusMode));
   }, [focusMode]);
+
+  useEffect(() => {
+    localStorage.setItem("smriti_workspace_autofit", String(isAutoFit));
+  }, [isAutoFit]);
 
   useEffect(() => {
     localStorage.setItem("smriti_workspace_global_zoom", String(globalZoom));
@@ -131,12 +201,25 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setFocusModeState(mode);
   };
 
+  const setAutoFit = (enabled: boolean) => {
+    setIsAutoFitState(enabled);
+    if (enabled && typeof window !== "undefined") {
+      const autoScale = calculateAutoFitScale(window.innerWidth, window.innerHeight);
+      setGlobalZoom(autoScale);
+    }
+  };
+
+  const toggleAutoFit = () => {
+    setAutoFit(!isAutoFit);
+  };
+
   const adjustGlobalZoom = (delta: number) => {
+    setIsAutoFitState(false);
     setGlobalZoom((prev) => Math.max(0.5, Math.min(2.0, Number((prev + delta).toFixed(2)))));
   };
 
   const resetGlobalZoom = () => {
-    setGlobalZoom(1.0);
+    setAutoFit(true);
   };
 
   const getNextZIndex = () => {
@@ -562,6 +645,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         focusMode,
         globalZoom,
+        isAutoFit,
         floatingWindows,
         activeWindowId,
         dragSnapPreview,
@@ -569,6 +653,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setFocusMode,
         adjustGlobalZoom,
         resetGlobalZoom,
+        toggleAutoFit,
+        setAutoFit,
         popOutTab,
         popOutExternalWindow,
         closeWindow,

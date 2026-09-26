@@ -26,8 +26,13 @@ from app.models.inventory import (
 from app.services.stock_audit_service import StockAuditService
 from app.api.deps import TenantContext
 
-DB_001_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001"
-DB_002_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti002"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+DB_001_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+DB_002_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti002"
 
 
 @pytest.fixture
@@ -60,7 +65,7 @@ def tenant_ctx():
 def tenant_ctx_002():
     return TenantContext(
         company_id="COMP-002",
-        branch_id="BR-002"
+        branch_id="BR-001"
     )
 
 
@@ -154,6 +159,10 @@ async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession
         assert float(item2.counted_qty) == 0.0
 
     finally:
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         if created_audit_id:
             await async_db.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
@@ -236,6 +245,10 @@ async def test_stock_audit_barcode_scanning_and_secondary_barcodes(async_db: Asy
         assert res2["discrepancy_reason"] == "MATCHED"
 
     finally:
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         if created_audit_id:
             await async_db.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
@@ -339,6 +352,10 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
         assert "Audit Write-off: DAMAGED" in sm.remarks
 
     finally:
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         if created_audit_id:
             await async_db.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
@@ -438,6 +455,10 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
         assert sm.batch == batch_no
 
     finally:
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         if created_audit_id:
             await async_db.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
@@ -471,7 +492,7 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
                 branch_id=tenant_ctx_002.branch_id,
                 code=f"WH2-{unique_suffix.upper()}",
                 name="COMP-002 Main Godown",
-                warehouse_type="CENTRAL_WAREHOUSE"
+                is_central_godown=True
             )
             async_db_002.add(wh)
             await async_db_002.flush()
@@ -532,6 +553,10 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
         assert reconciled.status == "COMPLETED"
 
     finally:
+        try:
+            await async_db_002.rollback()
+        except Exception:
+            pass
         if created_audit_id:
             await async_db_002.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db_002.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
@@ -635,6 +660,10 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
         assert "intervening transactions post-snapshot" in audit_sm.remarks
 
     finally:
+        try:
+            await async_db.rollback()
+        except Exception:
+            pass
         if created_audit_id:
             await async_db.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})

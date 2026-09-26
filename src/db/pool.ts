@@ -28,7 +28,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const databaseUrl = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/smritisys";
+const databaseUrl = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:2781/smritisys";
 
 export const pool = new pg.Pool({
   connectionString: databaseUrl,

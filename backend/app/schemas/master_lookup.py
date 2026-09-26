@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MasterTypeCreate(BaseModel):
@@ -50,6 +50,7 @@ class MasterTypeResponse(BaseModel):
 class MasterValueCreate(BaseModel):
     code: str
     name: str
+    vendorCode: str | None = Field(None, alias="vendorCode")
     parent_value_id: UUID | None = None
     data: dict[str, Any] | None = None
     active: bool | None = True
@@ -59,6 +60,7 @@ class MasterValueCreate(BaseModel):
 class MasterValueUpdate(BaseModel):
     code: str | None = None
     name: str | None = None
+    vendorCode: str | None = Field(None, alias="vendorCode")
     parent_value_id: UUID | None = None
     data: dict[str, Any] | None = None
     active: bool | None = None
@@ -70,10 +72,11 @@ class MasterValueResponse(BaseModel):
     master_type_id: UUID
     code: str
     name: str
+    vendorCode: str | None = Field(None, validation_alias="vendor_code", serialization_alias="vendorCode")
     parent_value_id: UUID | None = None
     data: dict[str, Any]
     active: bool
     sort_order: int
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}

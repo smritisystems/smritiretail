@@ -12,23 +12,29 @@
  """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
 
 class Product(BaseEntity):
     __tablename__ = "products"
 
+    # Canonical ItemMaster links retained alongside the legacy product identity.
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="SET NULL"), nullable=True, index=True)
     variant_id = Column(BigInteger, autoincrement=True, index=True)
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    # Cached aggregate stock on hand. Authoritative source of truth is product_batch_stocks
+    # (for batch-tracked items) and stock_movements (for standard items). Synchronized via StockSynchronizer.
     stock = Column(Integer, nullable=False, default=0)
     category = Column(String(100), nullable=False, index=True)
     is_favorite = Column(Boolean, default=False)
     barcode = Column(String(100), nullable=False, index=True)
     secondary_barcodes = Column(ARRAY(String), server_default="{}")
     brand = Column(String(100))
+    vendor_code = Column(String(100))
     color = Column(String(50))
     size = Column(String(50))
     mrp = Column(Numeric(15, 2), default=0.00, server_default="0.00")
@@ -37,7 +43,7 @@ class Product(BaseEntity):
     buying_price = Column(Numeric(15, 2))
     cost_price = Column(Numeric(15, 2))
     sku = Column(String(100), unique=True)
-    hsn_code = Column(String(15), default="6403", server_default="6403")
+    hsn_code = Column(String(15), nullable=True)
     pricing_mode = Column(String(30), default="Fixed")
     tracking_mode = Column(String(30), default="Standard")
     variant_template_id = Column(String(50))
@@ -102,6 +108,8 @@ class StockMovement(BaseEntity):
     __tablename__ = "stock_movements"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     product_name = Column(String(255), nullable=False)
     sku = Column(String(50), nullable=False)
     quantity = Column(Numeric(10, 2), nullable=False)
@@ -122,23 +130,14 @@ class StockMovement(BaseEntity):
     approval = Column(String(50), nullable=True)
 
 
-class Store(BaseEntity):
-    __tablename__ = "stores"
+# RETIRED — Phase C (2026-09-16, v6.26.0)
+# Table 'stores' formally dropped via Alembic migration v1454_retire_stores_table.py.
+# All 5 safety gates passed (Gate 1: 0 rows, Gate 2: 0 write paths, Gate 3: FK severed,
+# Gate 4: DDL archived at docs/archive/stores_phase_b_archive_v4.17.0.sql, Gate 5: tests green).
+# Canonical replacements are Warehouse and Branch entities.
+# class Store(BaseEntity):
+#     __tablename__ = "stores"
 
-    code = Column(String(50), nullable=False)
-    name = Column(String(200), nullable=False)
-    store_type = Column(String(50), nullable=True)
-    address = Column(Text, nullable=True)
-
-    __table_args__ = (
-        Index(
-            "uq_company_store_code_active",
-            "company_id",
-            "code",
-            unique=True,
-            postgresql_where=text("is_deleted = false"),
-        ),
-    )
 
 
 class Warehouse(BaseEntity):
@@ -166,10 +165,28 @@ class Warehouse(BaseEntity):
     )
 
 
+class WarehouseLocation(BaseEntity):
+    """Reusable warehouse location master for governed bin assignments."""
+    __tablename__ = "warehouse_locations"
+
+    warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(50), nullable=False)
+    name = Column(String(100), nullable=False)
+    aisle = Column(String(50), nullable=True)
+    rack = Column(String(50), nullable=True)
+    shelf = Column(String(50), nullable=True)
+    bin_code = Column(String(50), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_warehouse_location_code"),
+    )
+
+
 class ProductBatchStock(BaseEntity):
     __tablename__ = "product_batch_stocks"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True)
     batch_no = Column(String(100), nullable=False, index=True)
     mfg_date = Column(Date, nullable=True)

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.4
+ * Version      : 6.27.3
  * Created      : 2026-07-10
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -17,13 +17,16 @@ import { Printer, MessageCircle, Mail, AlignJustify,
   ArrowRight, FileCheck, AlertCircle, ShoppingCart,
   CheckCircle2, X, Eye, Layers, Undo2, Ban, ShieldAlert,
   UserCheck, UserX, CreditCard, Check, MoreVertical,
-  Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet
+  Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet,
+  Truck
 } from "lucide-react";
+import { PrepareDispatchModal } from "./PrepareDispatchDlg.tsx";
+import { ProcessSalesReturnModal } from "./ProcessSalesReturn.tsx";
 import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
-import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { apiFetchV1, openAuthenticatedDocument } from "../lib/apiFetchV1.ts";
 import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
@@ -31,7 +34,6 @@ import { CompanySelector } from "./layout/CompanySelector.tsx";
 import { formatDate, formatDateTime, formatCurrency, formatNumber, safeNumber } from "../utils/formatters.ts";
 import { normalizeSalesOrders, normalizeQuotations } from "../utils/normalizeSales.ts";
 import { isValidMobile } from "../utils/validators.ts";
-import { DistTaxInvoice } from "./sales/DistTaxInvoice.tsx";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SalesOrderFormPremium, SalesOrderFormData } from "./sales/SalesOrderFormPremium";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
@@ -296,12 +298,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [editorStatus, setEditorStatus] = useState<"Draft" | "Submitted">("Draft");
 
   // Editor states (for creating Sales Invoices)
-  const [isCreatingInvoice, setIsCreatingInvoice] = useState<boolean>(false);
-  const [invoiceCustomerId, setInvoiceCustomerId] = useState<string>("");
-  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
-  const [invoiceStatus, setInvoiceStatus] = useState<"Draft" | "Submitted">("Draft");
-  const [invoiceIsInterstate, setInvoiceIsInterstate] = useState<boolean>(false);
-  const [invoiceEWayBill, setInvoiceEWayBill] = useState<string>("");
   const [selectedEWayBill, setSelectedEWayBill] = useState<string>("");
 
   // Editor states (for creating Sales Returns)
@@ -311,6 +307,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [returnReason, setReturnReason] = useState<string>("Standard Return");
   const [returnIsInterstate, setReturnIsInterstate] = useState<boolean>(false);
   const [returnStatus, setReturnStatus] = useState<"Draft" | "Submitted">("Draft");
+
+  // Modal states for ProcessSalesReturn and PrepareDispatch
+  const [dispatchModalInvoice, setDispatchModalInvoice] = useState<any | null>(null);
+  const [returnModalInvoice, setReturnModalInvoice] = useState<any | null>(null);
 
   // CSV Import States
   const [isImportingCustomers, setIsImportingCustomers] = useState<boolean>(false);
@@ -601,7 +601,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     const handlePrintInvoice = (e: any) => {
       const inv = e.detail;
       if (inv?.id) {
-        window.open(`/api/v1/sales/invoices/${inv.id}/print`, "_blank");
+        openAuthenticatedDocument(`/api/v1/sales/invoices/${inv.id}/print`, "_blank");
         onNotification("Print Action", `Sales Invoice ${inv.invoiceNo} opened in canonical print spooler.`, "success");
       }
     };
@@ -711,6 +711,30 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   };
 
+  const handleSalesOrderLineAction = async (line: SalesItemLine, action: "close" | "cancel") => {
+    if (!selectedOrder || line.id == null) {
+      onNotification("Action unavailable", "This order line has no server identity.", "error");
+      return;
+    }
+    const reason = window.prompt(`Reason to ${action} ${line.code}:`);
+    if (!reason || reason.trim().length < 3) return;
+    try {
+      const cleanOrderId = String(selectedOrder.id || "").replace(/^:/, "").trim();
+      const cleanLineId = String(line.id).replace(/^:/, "").trim();
+      await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanOrderId)}/lines/${encodeURIComponent(cleanLineId)}/${action}`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const refreshed = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanOrderId)}`);
+      const normalized = normalizeSalesOrders([refreshed])[0];
+      if (normalized) setSelectedOrder(normalized);
+      await fetchSalesOrders();
+      onNotification("Sales Order updated", `${line.code} marked ${action === "cancel" ? "cancelled" : "closed"}.`, "success");
+    } catch (error: any) {
+      onNotification("Update failed", error?.message || `Could not ${action} the order line.`, "error");
+    }
+  };
+
   // Group products for Matrix Mode
   // articleNames are distinct names (e.g. Classic Cotton T-Shirt, Retro Leather Sneakers)
   const baseArticles = Array.from(new Set(products.map(p => p.name)));
@@ -740,8 +764,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       return;
     }
 
-    const currentItems = isCreatingInvoice ? invoiceItems : editorItems;
-    const setCurrentItems = isCreatingInvoice ? setInvoiceItems : setEditorItems;
+    const currentItems = editorItems;
+    const setCurrentItems = setEditorItems;
 
     // Check if variant already exists in current draft items list
     const existingIndex = currentItems.findIndex(item => item.productId === prod.id);
@@ -798,8 +822,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       return;
     }
 
-    const currentItems = isCreatingInvoice ? invoiceItems : editorItems;
-    const setCurrentItems = isCreatingInvoice ? setInvoiceItems : setEditorItems;
+    const currentItems = editorItems;
+    const setCurrentItems = setEditorItems;
 
     // Merge into current list
     const updated = [...currentItems];
@@ -819,11 +843,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   };
 
   const handleRemoveDraftItem = (index: number) => {
-    if (isCreatingInvoice) {
-      setInvoiceItems(invoiceItems.filter((_, i) => i !== index));
-    } else {
-      setEditorItems(editorItems.filter((_, i) => i !== index));
-    }
+    setEditorItems(editorItems.filter((_, i) => i !== index));
   };
 
   const handleSaveQuotation = async () => {
@@ -880,22 +900,20 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       await apiFetchV1("/sales/orders", {
         method: "POST",
         body: JSON.stringify({
-          doc_prefix: formData.docPrefix || "SO",
-          doc_number: formData.docNumber || undefined,
-          doc_date: formData.docDate || new Date().toISOString().slice(0, 10),
-          doc_time: formData.docTime || new Date().toTimeString().slice(0, 5),
+          id: `so-${Date.now().toString(36)}`,
+          order_no: `${formData.docPrefix || "SO"}-${formData.docNumber || Date.now().toString().slice(-6)}`,
+          date: formData.docDate || new Date().toISOString().slice(0, 10),
           customer_id: formData.customerId || formData.customerCode || "",
-          customer_code: formData.customerCode || formData.customerId || "",
           customer_name: formData.customerName || "Walk-in Customer",
-          sales_staff: formData.salesStaff || "",
           items: (formData.items || []).map((item) => ({
-            stock_no: item.stockNo || "",
-            description: item.description || "",
-            rate: Number(item.rate || 0),
+            product_id: item.id || item.stockNo || "",
+            code: item.stockNo || "",
+            name: item.description || item.stockNo || "Item",
+            price: Number(item.rate || 0),
             quantity: Number(item.quantity || 0),
-            disc_percent: Number(item.discPercent || 0),
-            disc_amount: Number(item.discAmount || 0),
-            sales_staff: item.salesStaff || formData.salesStaff || "",
+            hsn_code: item.hsn || undefined,
+            gst_rate: Number(item.gstRate ?? item.taxPercent ?? 0),
+            total_amount: Number(item.total || item.value || 0),
           })),
         })
       });
@@ -920,62 +938,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     } catch (e: any) {
       console.error(e);
       onNotification("Error", e.message || "Network error", "error");
-    }
-  };
-
-  const handleSaveInvoice = async () => {
-    if (isReadOnly) {
-      onNotification("Access Denied", "Operating under a Read-Only Report User role. Write operations are prohibited.", "error");
-      return;
-    }
-    if (!invoiceCustomerId) {
-      onNotification("Validation Error", "Please select a Customer.", "error");
-      return;
-    }
-    if (invoiceItems.length === 0) {
-      onNotification("Validation Error", "Please add at least one item line.", "error");
-      return;
-    }
-
-    try {
-      // Client-Generated Idempotency Key — persists across request retries
-      const idempotencyKey = (window as any)._activeInvoiceIdempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `idempotent-key-${Date.now()}`);
-      (window as any)._activeInvoiceIdempotencyKey = idempotencyKey;
-
-      // Migrated: POST /api/sales/invoices (Express) → POST /api/v1/sales/invoices (FastAPI)
-      const serverResponse = await apiFetchV1("/sales/invoices", {
-        method: "POST",
-        headers: {
-          "Idempotency-Key": idempotencyKey
-        },
-        body: JSON.stringify({
-          customerId: invoiceCustomerId,
-          items: invoiceItems,
-          status: invoiceStatus,
-          isInterstate: invoiceIsInterstate,
-          eWayBillNo: invoiceEWayBill || undefined
-        })
-      });
-      // Clear idempotency key upon successful commit
-      delete (window as any)._activeInvoiceIdempotencyKey;
-
-      // Authoritative State Replacement: replace local state with complete server response
-      const normalizedInv = {
-        ...serverResponse,
-        invoiceNo: serverResponse.invoiceNo || serverResponse.invoice_no || "INV",
-        customerId: serverResponse.customerId || serverResponse.customer_id || "",
-        grandTotal: typeof serverResponse.grandTotal === "number" ? serverResponse.grandTotal : parseFloat(serverResponse.grand_total || "0"),
-        taxTotal: typeof serverResponse.taxTotal === "number" ? serverResponse.taxTotal : parseFloat(serverResponse.tax_total || "0"),
-      };
-      onNotification("Success", `Sales Invoice ${normalizedInv.invoiceNo} written to database ledger.`, "success");
-      setSelectedInvoice(normalizedInv);
-      setIsCreatingInvoice(false);
-      setInvoiceCustomerId("");
-      setInvoiceItems([]);
-      setInvoiceEWayBill("");
-      fetchSalesInvoices();
-    } catch (e: any) {
-      onNotification("Network Error", e.message || "Connection failed while writing Invoice.", "error");
     }
   };
 
@@ -1117,7 +1079,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               setSelectedReturn(null);
               setSelectedCustomer(null);
               setIsCreatingQuotation(false);
-              setIsCreatingInvoice(false);
               setIsCreatingReturn(false);
               setIsImportingCustomers(false);
               if (tab === "quotations") fetchQuotations(activeFilters);
@@ -1302,21 +1263,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             >
               <Plus size={14} />
               <span>Generate Sales Order</span>
-            </button>
-          )}
-          {subView === "invoices" && (
-            <button
-              onClick={() => {
-                setIsCreatingInvoice(true);
-                setInvoiceCustomerId("");
-                setInvoiceItems([]);
-                setInvoiceEWayBill("");
-              }}
-              disabled={isReadOnly}
-              className={`px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center space-x-2 shadow-lg hover:shadow-emerald-900/30 transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-            >
-              <Plus size={14} />
-              <span>Generate Sales Invoice</span>
             </button>
           )}
           {subView === "returns" && (
@@ -1752,18 +1698,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 </div>
               </div>
             </div>
-          ) : isCreatingInvoice ? (
-            /* Smriti Distributor Stitch-Integrated Tax Invoice Workspace */
-            <div className="w-full h-full overflow-hidden animate-in fade-in duration-200">
-              <DistTaxInvoice
-                onExit={() => {
-                  setIsCreatingInvoice(false);
-                  fetchSalesInvoices();
-                }}
-                onNotification={onNotification}
-                currentUser={currentUser}
-              />
-            </div>
           ) : isCreatingReturn ? (
             /* Record Sales Return Panel */
             <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">
@@ -2191,7 +2125,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         };
 
                         try {
-                          const data = await apiFetchV1("/customers/validate-add", {
+                          const data = await apiFetchV1("/crm/customers/validate-add", {
                             method: "POST",
                             body: JSON.stringify({
                               customer: payload,
@@ -3024,6 +2958,26 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      setDispatchModalInvoice(si);
+                                    }}
+                                    className="p-1 rounded hover:bg-theme-surface-3 text-amber-400 hover:text-amber-300"
+                                    title="Prepare Dispatch / E-Way Bill"
+                                  >
+                                    <Truck size={13} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReturnModalInvoice(si);
+                                    }}
+                                    className="p-1 rounded hover:bg-theme-surface-3 text-rose-400 hover:text-rose-300"
+                                    title="Process Sales Return"
+                                  >
+                                    <Undo2 size={13} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       openMenu(e, {
                                         module: "sales",
                                         type: "sales-invoice",
@@ -3185,21 +3139,30 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                       <thead>
                         <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                          <th className={`px-5 ${densityPadding}`}>Identity Info</th>
-                          <th className={`px-5 ${densityPadding}`}>Mobile No</th>
-                          <th className={`px-5 ${densityPadding}`}>Region / Group</th>
-                          <th className={`px-5 ${densityPadding}`}>Tags</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Tier Limit</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Outstanding Balance</th>
+                          <th className={`px-5 ${densityPadding}`}>Customer Code</th>
+                          <th className={`px-5 ${densityPadding}`}>Customer Name</th>
+                          <th className={`px-5 ${densityPadding}`}>Price Group</th>
+                          <th className={`px-5 ${densityPadding}`}>Phone</th>
+                          <th className={`px-5 ${densityPadding}`}>City</th>
+                          <th className={`px-5 ${densityPadding}`}>Classification</th>
+                          <th className={`px-5 ${densityPadding}`}>Loyalty Tier</th>
+                          <th className={`px-5 ${densityPadding} text-right`}>Credit Limit</th>
                           <th className={`px-5 ${densityPadding} text-center`}>Status</th>
+                          <th className={`px-5 ${densityPadding} text-right`}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredCustomers.map(c => {
                           const group = customerGroups.find(g => g.id === c.customerGroupId);
+                          const city = c.city || c.billingCity || c.shippingCity || c.mailingAddresses?.[0]?.city || "Bangalore";
+                          const customerCode = c.code || c.id?.slice(-6).toUpperCase() || "CUST";
+                          const priceGroup = c.priceGroup || c.priceGroupCode || group?.name || "Standard Retail";
+                          const classification = c.religion || c.customerType || c.ageGroup || "Retail";
+                          const loyaltyTier = c.loyaltyTier || "Standard";
+                          const loyaltyPoints = c.loyaltyPointsBalance ?? 0;
                           return (
                             <tr
                               key={c.id}
@@ -3218,6 +3181,9 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 selectedCustomer?.id === c.id ? "bg-theme-surface-3" : ""
                               }`}
                             >
+                              <td className={`px-5 ${densityPadding} font-mono font-bold text-theme-body`}>
+                                {customerCode}
+                              </td>
                               <td className={`px-5 ${densityPadding} font-display font-semibold text-theme-body`}>
                                 <div className="flex items-center space-x-2">
                                   <div className="w-6 h-6 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-900 flex items-center justify-center text-[10px] font-bold">
@@ -3225,46 +3191,47 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   </div>
                                   <div>
                                     <div className="font-bold">{c.name}</div>
-                                    <div className="text-[10px] text-theme-muted font-mono">{c.gstNumber || "No GSTIN"}</div>
+                                    <div className="text-[10px] text-theme-muted font-mono">{c.gstNumber || c.gstin || "No GSTIN"}</div>
                                   </div>
                                 </div>
                               </td>
+                              <td className={`px-5 ${densityPadding} text-[11px] text-theme-muted`}>
+                                {priceGroup}
+                              </td>
                               <td className={`px-5 ${densityPadding} font-mono text-theme-muted`}>
-                                {c.mobile}
+                                {c.mobile || c.phone || "—"}
                               </td>
-                              <td className={`px-5 ${densityPadding}`}>
-                                <span className="bg-theme-surface-3 px-2 py-0.5 rounded text-[10px] text-theme-muted border border-theme-divider">
-                                  {group?.name || "Standard Retail Group"}
-                                </span>
+                              <td className={`px-5 ${densityPadding} text-theme-body`}>
+                                {city}
                               </td>
-                              <td className={`px-5 ${densityPadding}`}>
-                                <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                  {(c.tags || []).length === 0 ? (
-                                    <span className="text-[10px] text-theme-muted italic font-mono">-</span>
-                                  ) : (
-                                    (c.tags || []).map(t => (
-                                      <span
-                                        key={t}
-                                        className="inline-block px-1.5 py-0.5 rounded bg-indigo-950/60 text-indigo-400 border border-indigo-900/40 text-[9px] font-bold font-mono whitespace-nowrap"
-                                      >
-                                        {t}
-                                      </span>
-                                    ))
-                                  )}
-                                </div>
+                              <td className={`px-5 ${densityPadding} text-theme-muted`}>
+                                {classification}
                               </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
-                                ₹{(c.creditLimit || 50000).toLocaleString("en-IN")}
+                              <td className={`px-5 ${densityPadding} font-semibold text-theme-body`}>
+                                {loyaltyTier} ({loyaltyPoints} pts)
                               </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono font-semibold ${c.outstanding > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                                ₹{c.outstanding.toLocaleString("en-IN")}
+                              <td className={`px-5 ${densityPadding} text-right font-mono font-bold text-theme-body`}>
+                                ₹{(c.creditLimit ?? 0).toLocaleString("en-IN")}
                               </td>
                               <td className={`px-5 ${densityPadding} text-center`}>
-                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                                  c.status === "Active" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" : "bg-theme-surface-3 text-theme-muted border border-theme-divider"
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                  c.status === "Active" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" : c.status === "Inactive" ? "bg-amber-950/80 text-amber-400 border border-amber-800" : "bg-rose-950/80 text-rose-400 border border-rose-800"
                                 }`}>
-                                  {c.status}
+                                  {c.status || "Active"}
                                 </span>
+                              </td>
+                              <td className={`px-5 ${densityPadding} text-right`} onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCustomer(c);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#00355f] text-white hover:bg-[#0f4c81] rounded-lg font-bold text-[11px] transition"
+                                  title={`Edit Customer ${customerCode}`}
+                                >
+                                  <Edit3 size={12} />
+                                  <span>Edit</span>
+                                </button>
                               </td>
                             </tr>
                           );
@@ -3565,6 +3532,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div className="text-right">
                         <div className="font-semibold text-theme-body font-mono">{formatCurrency(line.totalAmount)}</div>
                         <div className="text-[9px] text-theme-muted mt-0.5 font-mono">{formatCurrency(line.price)} + {line.taxRate || line.gstRate || 0}% GST</div>
+                        <div className="mt-1 flex items-center justify-end gap-1.5">
+                          <span className="text-[9px] uppercase font-mono text-theme-muted">{line.lineStatus || line.line_status || "OPEN"}</span>
+                          {(!line.lineStatus || line.lineStatus === "OPEN" || line.lineStatus === "PARTIALLY_BILLED") && (
+                            <>
+                              <button type="button" onClick={() => handleSalesOrderLineAction(line, "close")} className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-700 text-emerald-400 hover:bg-emerald-950/40">Close</button>
+                              <button type="button" onClick={() => handleSalesOrderLineAction(line, "cancel")} className="text-[9px] px-1.5 py-0.5 rounded border border-rose-700 text-rose-400 hover:bg-rose-950/40">Cancel</button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -3780,7 +3756,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 {/* Canonical Print & Document Actions */}
                 <button
                   onClick={() => {
-                    window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/print`, "_blank");
+                    openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/print`, "_blank");
                     onNotification("Print Action", `Sales Invoice ${selectedInvoice.invoiceNo} opened in canonical print spooler.`, "success");
                   }}
                   className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all"
@@ -3792,21 +3768,21 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
                 <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/preview`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/preview`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Open Live Canonical Preview"
                   >
                     Preview
                   </button>
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/download`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/download`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-emerald-400 rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Export / Download PDF"
                   >
                     Export PDF
                   </button>
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/reprint`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/reprint`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-amber-400 rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Reprint Immutable Historical Artifact"
                   >
@@ -4019,6 +3995,37 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           </div>
         </div>
       )}
+
+      {/* Prepare Dispatch / E-Way Bill Modal */}
+      <PrepareDispatchModal
+        isOpen={Boolean(dispatchModalInvoice)}
+        onClose={() => setDispatchModalInvoice(null)}
+        onDispatchPrepared={() => {
+          onNotification(
+            "Dispatch Prepared",
+            "E-Way Bill registered and invoice marked for dispatch.",
+            "success"
+          );
+          fetchSalesInvoices();
+        }}
+        invoice={dispatchModalInvoice}
+      />
+
+      {/* Process Sales Return Modal */}
+      <ProcessSalesReturnModal
+        isOpen={Boolean(returnModalInvoice)}
+        onClose={() => setReturnModalInvoice(null)}
+        onReturnProcessed={() => {
+          onNotification(
+            "Return Processed",
+            "Credit note generated and stock reinstated into inventory.",
+            "success"
+          );
+          fetchSalesInvoices();
+          fetchSalesReturns();
+        }}
+        invoice={returnModalInvoice}
+      />
 
         </motion.div>
       </SmritiScrollArea>

@@ -12,18 +12,19 @@ License      : Proprietary Commercial Software
 """
 
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CashRegisterCreate(BaseModel):
-    id:        str = Field(..., max_length=50)
-    name:      str = Field(..., min_length=2, max_length=100)
-    code:      str = Field(..., min_length=2, max_length=50)
-    notes:     Optional[str] = Field(None, max_length=500)
-    cashier:   Optional[str] = None
-    warehouse: Optional[str] = None
+    id:           str = Field(..., max_length=50)
+    name:         str = Field(..., min_length=2, max_length=100)
+    code:         str = Field(..., min_length=2, max_length=50)
+    notes:        Optional[str] = Field(None, max_length=500)
+    cashier:      Optional[str] = None
+    warehouse_id: Optional[str] = None
+    warehouse:    Optional[str] = None
 
 
 class CashRegisterResponse(BaseModel):
@@ -41,6 +42,7 @@ class CashRegisterResponse(BaseModel):
     active_shift_opened: Optional[datetime] = None
     is_locked:           bool = False
     cashier:             Optional[str] = None
+    warehouse_id:        Optional[str] = None
     warehouse:           Optional[str] = None
     company_id:          Optional[str] = None
     branch_id:           Optional[str] = None
@@ -51,12 +53,12 @@ class CashRegisterResponse(BaseModel):
 
 class POSProfileCreate(BaseModel):
     """Maps the frontend PosProfilesTab create form to CashRegister fields."""
-    name:        str = Field(..., min_length=2, max_length=100)
-    code:        str = Field(..., min_length=2, max_length=50)
-    cashier:     Optional[str] = Field(None, max_length=100)
-    warehouse:   Optional[str] = Field(None, max_length=100)
+    name:        str = Field(default="Counter 01 - Express Billing", min_length=2, max_length=100)
+    code:        Optional[str] = Field(default="REG-01", max_length=50)
+    cashier:     Optional[str] = Field(default="EMP001 - John Doe", max_length=100)
+    warehouse:   Optional[str] = Field(default="Main Store", max_length=100)
     is_locked:   Optional[bool] = False
-    notes:       Optional[str] = Field(None, max_length=500)
+    notes:       Optional[str] = Field(default="Default installation POS terminal profile", max_length=500)
 
 
 class POSProfileResponse(BaseModel):
@@ -74,6 +76,7 @@ class POSProfileResponse(BaseModel):
 
     @classmethod
     def from_register(cls, reg: Any) -> "POSProfileResponse":
+        now = datetime.now(timezone.utc)
         return cls(
             id=reg.id,
             name=reg.name,
@@ -82,15 +85,22 @@ class POSProfileResponse(BaseModel):
             warehouse=getattr(reg, "warehouse", None),
             is_locked=getattr(reg, "is_locked", False),
             is_active=reg.is_active,
-            created_at=reg.created_at,
-            modified_at=reg.modified_at,
+            created_at=reg.created_at or now,
+            modified_at=reg.modified_at or now,
         )
 
 
 class ShiftOpen(BaseModel):
-    id:              str = Field(..., max_length=50)
+    id:              Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     register_id:     str = Field(..., max_length=50)
     opening_balance: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"))
+
+    @field_validator("id")
+    @classmethod
+    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
+        return None
 
 
 class CashDenominationBreakdown(BaseModel):
@@ -195,6 +205,7 @@ class ShiftClose(BaseModel):
 
 class ShiftResponse(BaseModel):
     id:                  str
+    identity_code:       Optional[str] = None
     register_id:         str
     cashier_id:          str
     status:              str
@@ -259,12 +270,19 @@ class POSCheckoutItem(BaseModel):
     logic in POSService can be reused without conversion.
     """
     product_id: str
+    variant_id: Optional[str] = None
     code:       str
     name:       str
-    quantity:   Decimal
-    price:      Decimal
+    quantity:   Decimal           = Field(..., gt=Decimal("0.00"))
+    price:      Decimal           = Field(..., ge=Decimal("0.00"))
     hsn_code:   Optional[str]     = None
-    gst_rate:   Decimal           = Decimal("0.00")
+    gst_rate:   Decimal           = Field(Decimal("0.00"), ge=Decimal("0.00"))
+    mrp:        Optional[Decimal] = Field(None, ge=Decimal("0.00"))
+    category:   Optional[str] = None
+    brand:      Optional[str] = None
+    is_tax_inclusive: Optional[bool] = None
+    salesperson_id:   Optional[str] = None
+    salesperson_name: Optional[str] = None
 
 
 class POSCheckoutRequest(BaseModel):
@@ -277,14 +295,26 @@ class POSCheckoutRequest(BaseModel):
     """
     invoice_no:           str
     shift_id:             str
-    items:                List[POSCheckoutItem]
+    items:                List[POSCheckoutItem] = Field(..., min_length=1)
     payment_mode:         str                  = "CASH"   # CASH | CARD | UPI | CREDIT
     grand_total:          Decimal                          # client display total; server re-computes
     customer_id:          Optional[str]        = None
     customer_name:        Optional[str]        = None
+    billing_location_id:  Optional[str]        = None
+    billing_store_code:   Optional[str]        = None
+    billing_address:      Optional[str]        = None
+    delivery_location_id: Optional[str]        = None
+    delivery_store_code:  Optional[str]        = None
+    delivery_gstin:       Optional[str]        = None
+    delivery_location_snapshot: Optional[Dict[str, Any]] = None
+    shipping_address:     Optional[str]        = None
+    place_of_supply_code: Optional[str]        = None
     bill_discount_val:    Optional[Decimal]    = None
     bill_discount_type:   Optional[str]        = None     # "percent" | "flat"
     loyalty_redeem_points: Optional[int]       = None
+    promotion_campaign_id: Optional[str] = None
+    promotion_coupon_code: Optional[str] = None
+    promotion_coupon_id: Optional[str] = None
 
 
 class POSCheckoutResponse(BaseModel):

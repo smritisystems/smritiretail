@@ -80,6 +80,68 @@ async def get_state_by_gst_code(
     return st
 
 
+@router.get("/districts", response_model=List[DistrictResponse])
+async def list_districts(
+    state_id: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """List active districts, optionally limited to one state."""
+    return await GlobalReferenceService(db).get_districts(state_id)
+
+
+@router.get("/postal-codes", response_model=List[PostalCodeResponse])
+async def search_postal_codes(
+    query: Optional[str] = Query(default=None, min_length=1, max_length=100),
+    state_code: Optional[str] = Query(default=None, min_length=2, max_length=10),
+    city: Optional[str] = Query(default=None, min_length=1, max_length=150),
+    country_code: str = Query(default="IN", min_length=2, max_length=3),
+    limit: int = Query(default=25, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Search active postal records for address autocomplete and validation."""
+    return await GlobalReferenceService(db).search_postal_codes(
+        query=query,
+        state_code=state_code,
+        city=city,
+        country_code=country_code,
+        limit=limit,
+    )
+
+
+@router.get("/postal-codes/{postal_code}", response_model=PostalCodeResponse)
+async def get_postal_code(
+    postal_code: str,
+    country_code: str = Query(default="IN", min_length=2, max_length=3),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Resolve one active postal code for address validation."""
+    postal = await GlobalReferenceService(db).get_postal_code(postal_code, country_code)
+    if not postal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Postal code not found")
+    return postal
+
+
+@router.get("/postal-codes/{postal_code}/validate")
+async def validate_postal_code(
+    postal_code: str,
+    city: Optional[str] = Query(default=None, max_length=150),
+    state_code: Optional[str] = Query(default=None, max_length=10),
+    country_code: str = Query(default="IN", min_length=2, max_length=3),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Validate PIN, city, and state against the database reference master."""
+    return await GlobalReferenceService(db).validate_postal_location(
+        postal_code=postal_code,
+        city=city,
+        state_code=state_code,
+        country_code=country_code,
+    )
+
+
 @router.get("/currencies", response_model=List[CurrencyResponse])
 async def list_currencies(
     active_only: bool = Query(default=True, description="Filter active currencies"),
