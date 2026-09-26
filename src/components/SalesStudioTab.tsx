@@ -719,11 +719,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     const reason = window.prompt(`Reason to ${action} ${line.code}:`);
     if (!reason || reason.trim().length < 3) return;
     try {
-      await apiFetchV1(`/sales/orders/${selectedOrder.id}/lines/${line.id}/${action}`, {
+      const cleanOrderId = String(selectedOrder.id || "").replace(/^:/, "").trim();
+      const cleanLineId = String(line.id).replace(/^:/, "").trim();
+      await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanOrderId)}/lines/${encodeURIComponent(cleanLineId)}/${action}`, {
         method: "POST",
         body: JSON.stringify({ reason: reason.trim() }),
       });
-      const refreshed = await apiFetchV1(`/sales/orders/${selectedOrder.id}`);
+      const refreshed = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanOrderId)}`);
       const normalized = normalizeSalesOrders([refreshed])[0];
       if (normalized) setSelectedOrder(normalized);
       await fetchSalesOrders();

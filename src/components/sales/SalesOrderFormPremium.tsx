@@ -626,7 +626,9 @@ const RecallTransactionModal: React.FC<{
 
   const handleRecall = async (transactionId: string) => {
     try {
-      const data = await apiFetchV1(`/sales/orders/${transactionId}`);
+      const cleanId = String(transactionId || "").replace(/^:/, "").trim();
+      if (!cleanId) return;
+      const data = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanId)}`);
       if (data) {
         onRecall(data);
         onClose();

@@ -722,8 +722,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   const handleConvertToInvoice = async (orderId: string, orderNo: string) => {
     try {
-      setConvertingOrderId(orderId);
-      const res = await apiFetchV1(`/sales/orders/${orderId}/convert-to-invoice`, { method: "POST" });
+      const cleanId = String(orderId || "").replace(/^:/, "").trim();
+      setConvertingOrderId(cleanId || orderId);
+      const res = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanId)}/convert-to-invoice`, { method: "POST" });
       showNotification("success", `Sales Order ${orderNo} converted to Tax Invoice ${res.invoice_no}!`);
       const params = `?from_date=${filters.startDate}&to_date=${filters.endDate}`;
       if (selectedReport?.id === "RPT-SO-009") {
@@ -742,7 +743,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   const handlePreviewSO = async (orderId: string) => {
     try {
-      const order = await apiFetchV1(`/sales/orders/${orderId}`);
+      const cleanId = String(orderId || "").replace(/^:/, "").trim();
+      if (!cleanId) return;
+      const order = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanId)}`);
       setSoPreviewData(order);
       setShowSoPrintModal(true);
     } catch (e: any) {

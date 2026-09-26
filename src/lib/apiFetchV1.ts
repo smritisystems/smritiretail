@@ -231,7 +231,9 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "")
     // Bare (no-protocol) Docker hostnames — e.g. "smriti-api:8000/api/v1/..."
     .replace(/^python-core(:[0-9]+)?\//gi, "/")
-    .replace(/^smriti-api(:[0-9]+)?\//gi, "/");
+    .replace(/^smriti-api(:[0-9]+)?\//gi, "/")
+    // Strip accidental Express-style parameter colon prefixes in URL path segments (e.g. "/orders/:1" -> "/orders/1")
+    .replace(/\/:(?=[a-zA-Z0-9_-]+)/g, "/");
 
   if (cleanEndpoint.startsWith("/api/v1")) {
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
