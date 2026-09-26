@@ -94,7 +94,7 @@ export interface FootwearPurchaseOrderData {
   authorizedSignatoryVendor?: string;
 }
 
-export const FootwearPurchaseOrderA4: React.FC<{ data: FootwearPurchaseOrderData }> = ({ data }) => {
+export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderData }> = ({ data = {} as FootwearPurchaseOrderData }) => {
   const currencySymbol = data.currencySymbol || (data.currency === "INR" ? "₹" : data.currency === "USD" ? "$" : "€");
   const currencyCode = data.currency || "EUR";
   const sizingScale = data.sizingScale || "EURO";
@@ -317,16 +317,16 @@ export const FootwearPurchaseOrderA4: React.FC<{ data: FootwearPurchaseOrderData
                 <td className="p-1 text-center font-mono font-semibold border-r border-slate-300">{item.eu44 || "-"}</td>
                 <td className="p-1 text-center font-mono border-r border-slate-300">{item.eu45 || "-"}</td>
                 {/* Summary cols */}
-                <td className="p-1.5 text-center font-mono font-bold bg-rose-50/50 border-r border-slate-300">{item.cartons} Ctns</td>
-                <td className="p-1.5 text-right font-mono font-black bg-amber-50/50 border-r border-slate-300">{item.pairs} Prs</td>
+                <td className="p-1.5 text-center font-mono font-bold bg-rose-50/50 border-r border-slate-300">{item.cartons ?? 0} Ctns</td>
+                <td className="p-1.5 text-right font-mono font-black bg-amber-50/50 border-r border-slate-300">{item.pairs ?? 0} Prs</td>
                 <td className="p-1.5 text-right font-mono border-r border-slate-300">
-                  {currencySymbol} {item.ratePerPair.toFixed(2)}
+                  {currencySymbol} {(item.ratePerPair ?? 0).toFixed(2)}
                 </td>
                 <td className="p-1.5 text-center font-mono text-[8.5px] border-r border-slate-300 text-emerald-700 font-bold">
-                  {item.taxRatePercent.toFixed(1)}%
+                  {(item.taxRatePercent ?? 0).toFixed(1)}%
                 </td>
                 <td className="p-1.5 text-right font-mono font-black text-indigo-950">
-                  {currencySymbol} {item.lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {currencySymbol} {(item.lineTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
             ))}
@@ -346,7 +346,7 @@ export const FootwearPurchaseOrderA4: React.FC<{ data: FootwearPurchaseOrderData
               <td className="p-2 text-right font-mono text-indigo-950 bg-amber-100">{totalPairs} Pairs</td>
               <td colSpan={2} className="p-2 text-right uppercase">Net Total:</td>
               <td className="p-2 text-right font-mono text-indigo-950 text-xs">
-                {currencySymbol} {netOrderValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {currencySymbol} {(netOrderValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
             </tr>
           </tfoot>

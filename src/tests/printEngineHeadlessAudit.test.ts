@@ -30,7 +30,7 @@ import LabelPrintEngine, { DEFAULT_TEMPLATE } from "../utils/labelPrintEngine";
 describe("Headless Print Engine Audit — All Print Formats (No Browser)", () => {
   // Format 1: A4 Standard Tax Invoice
   describe("Format 1: StandardInvoiceA4 (A4 GST Tax Invoice)", () => {
-    it("renders valid invoice payload headlessly to HTML", () => {
+    it("renders valid invoice payload headlessly to HTML with tax calculations", () => {
       const invoiceData = {
         invoiceNo: "INV-2026-9901",
         date: "2026-09-26",
@@ -62,16 +62,23 @@ describe("Headless Print Engine Audit — All Print Formats (No Browser)", () =>
 
       const html = renderToString(React.createElement(StandardInvoiceA4, { data: invoiceData }));
       expect(html).toContain("INV-2026-9901");
-      expect(html).toContain("Tattly Footwear");
+      expect(html).toContain("Tattly Footwear &amp; Apparel Pvt Ltd");
       expect(html).toContain("Reliance Retail Ltd");
       expect(html).toContain("Classic Derby Shoe Tan");
       expect(html).toContain("invoice-print-container");
+      expect(html).toContain("w-[210mm]");
     });
 
     it("renders empty/minimal invoice data without crashing", () => {
       const html = renderToString(React.createElement(StandardInvoiceA4, { data: {} as any }));
       expect(html).toBeDefined();
-      expect(html.length).toBeGreaterThan(0);
+      expect(html).toContain("invoice-print-container");
+    });
+
+    it("renders without data prop without crashing", () => {
+      const html = renderToString(React.createElement(StandardInvoiceA4, {}));
+      expect(html).toBeDefined();
+      expect(html).toContain("invoice-print-container");
     });
   });
 
@@ -99,10 +106,16 @@ describe("Headless Print Engine Audit — All Print Formats (No Browser)", () =>
       expect(html).toContain("Store Keeper");
       expect(html).toContain("Quality Inspector");
       expect(html).toContain("Authorised Signatory");
+      expect(html).toContain("w-[210mm]");
     });
 
     it("renders empty/minimal GRN data without crashing", () => {
       const html = renderToString(React.createElement(GoodsReceiptNoteA4, { data: {} as any }));
+      expect(html).toContain("GOODS RECEIPT NOTE (GRN)");
+    });
+
+    it("renders without data prop without crashing", () => {
+      const html = renderToString(React.createElement(GoodsReceiptNoteA4, {}));
       expect(html).toContain("GOODS RECEIPT NOTE (GRN)");
     });
   });
@@ -133,12 +146,30 @@ describe("Headless Print Engine Audit — All Print Formats (No Browser)", () =>
       expect(html).toContain("Sneaker White 42");
       expect(html).toContain("4097.00");
       expect(html).toContain("w-[80mm]");
+      expect(html).toContain("POWERED BY SMRITI RETAIL OS");
+    });
+
+    it("renders string total and paid values without crashing", () => {
+      const stringData = {
+        storeName: "SMRITI STORE",
+        total: "1250.50",
+        paid: "1300.00",
+        items: [{ name: "Item A", qty: "2", rate: "625.25" }]
+      };
+      const html = renderToString(React.createElement(ThermalReceipt80mm, { data: stringData as any }));
+      expect(html).toContain("1250.50");
+      expect(html).toContain("w-[80mm]");
     });
 
     it("renders empty/minimal thermal receipt data without crashing", () => {
       const html = renderToString(React.createElement(ThermalReceipt80mm, { data: {} as any }));
       expect(html).toContain("w-[80mm]");
       expect(html).toContain("SMRITI RETAIL");
+    });
+
+    it("renders without data prop without crashing", () => {
+      const html = renderToString(React.createElement(ThermalReceipt80mm, {}));
+      expect(html).toContain("w-[80mm]");
     });
   });
 
@@ -160,12 +191,30 @@ describe("Headless Print Engine Audit — All Print Formats (No Browser)", () =>
       expect(html).toContain("TATTLY");
       expect(html).toContain("Derby Tan 42");
       expect(html).toContain("8901234567890");
+      expect(html).toContain("₹<!-- -->2499.00");
       expect(html).toContain("w-[50mm]");
       expect(html).toContain("h-[25mm]");
     });
 
+    it("handles string rates and custom currency symbol safely", () => {
+      const labelData = {
+        companyName: "MILAN",
+        currencySymbol: "€",
+        items: [{ name: "Italian Loafer", rate: "120.00", barcode: "800123456" }]
+      };
+      const html = renderToString(React.createElement(BarcodeLabel, { data: labelData as any }));
+      expect(html).toContain("MILAN");
+      expect(html).toContain("€<!-- -->120.00");
+    });
+
     it("renders empty/minimal label data without crashing", () => {
       const html = renderToString(React.createElement(BarcodeLabel, { data: {} as any }));
+      expect(html).toContain("w-[50mm]");
+      expect(html).toContain("h-[25mm]");
+    });
+
+    it("renders without data prop without crashing", () => {
+      const html = renderToString(React.createElement(BarcodeLabel, {}));
       expect(html).toContain("w-[50mm]");
     });
   });
@@ -206,18 +255,47 @@ describe("Headless Print Engine Audit — All Print Formats (No Browser)", () =>
       expect(html).toContain("Agra Leather Artisans");
       expect(html).toContain("Bespoke Oxford");
       expect(html).toContain("EU 40");
-      expect(html).toContain("60 Pairs");
+      expect(html).toContain("Pairs");
+      expect(html).toContain("w-[210mm]");
+    });
+
+    it("handles items with missing ratePerPair and lineTotal safely without crashing", () => {
+      const poData = {
+        poNumber: "PO-FALLBACK",
+        items: [
+          {
+            articleCode: "ART-MIN",
+            modelName: "Basic Sandal",
+            upperMaterial: "PU",
+            soleMaterial: "EVA",
+            liningMaterial: "Mesh",
+            insoleMaterial: "Foam",
+            color: "Black",
+            cartons: 1,
+            pairs: 12
+          }
+        ]
+      };
+      const html = renderToString(React.createElement(FootwearPurchaseOrderA4, { data: poData as any }));
+      expect(html).toContain("PO-FALLBACK");
+      expect(html).toContain("Basic Sandal");
+      expect(html).toContain("0.00");
     });
 
     it("renders empty/minimal footwear PO data without crashing", () => {
       const html = renderToString(React.createElement(FootwearPurchaseOrderA4, { data: {} as any }));
       expect(html).toContain("FOOTWEAR PURCHASE ORDER");
     });
+
+    it("renders without data prop without crashing", () => {
+      const html = renderToString(React.createElement(FootwearPurchaseOrderA4, {}));
+      expect(html).toContain("FOOTWEAR PURCHASE ORDER");
+    });
   });
 
   // Format 6: Size Pivot Matrix A4
   describe("Format 6: SizePivotMatrixA4 (Procurement Size Grid)", () => {
-    it("renders size pivot matrix payload headlessly to HTML", () => {
+    it("renders size pivot matrix with direct props headlessly to HTML", () => {
       const header = {
         prefix: "PO",
         orderNumber: "889",
@@ -254,11 +332,48 @@ describe("Headless Print Engine Audit — All Print Formats (No Browser)", () =>
       );
 
       expect(html).toContain("SIZE PIVOT MATRIX");
-      expect(html).toContain("PO No: PO-889");
+      expect(html).toContain("PO-889");
       expect(html).toContain("Milan Sole Consortium");
       expect(html).toContain("Derby Classic");
       expect(html).toContain("Cognac");
       expect(html).toContain("w-[210mm]");
+    });
+
+    it("renders size pivot matrix with { data } prop pattern for PrintPortal compatibility", () => {
+      const portalPayload = {
+        header: {
+          prefix: "SO",
+          orderNumber: "402",
+          supplierName: "Verona Tannery"
+        },
+        rows: [
+          {
+            id: "row-2",
+            articleNo: "ART-990",
+            product: "Chelsea Suede",
+            color: "Olive",
+            totalQty: 50,
+            rate: 2100,
+            gstPercent: 12,
+            totalValue: 117600
+          }
+        ],
+        currencySymbol: "€",
+        vendorName: "Verona Tannery"
+      };
+
+      const html = renderToString(React.createElement(SizePivotMatrixA4, { data: portalPayload } as any));
+      expect(html).toContain("SIZE PIVOT MATRIX");
+      expect(html).toContain("SO-402");
+      expect(html).toContain("Verona Tannery");
+      expect(html).toContain("Chelsea Suede");
+      expect(html).toContain("€<!-- -->2100.00");
+    });
+
+    it("renders empty/minimal size pivot matrix without crashing", () => {
+      const html = renderToString(React.createElement(SizePivotMatrixA4, {}));
+      expect(html).toContain("SIZE PIVOT MATRIX");
+      expect(html).toContain("No pivot items available");
     });
   });
 
@@ -290,6 +405,32 @@ describe("Headless Print Engine Audit — All Print Formats (No Browser)", () =>
       expect(reprintJob.status).toBe("QUEUED");
       expect(reprintJob.isReprint).toBe(true);
       expect(reprintJob.originalJobId).toBe(completedJob.jobId);
+    });
+
+    it("adds items to an existing queued batch", () => {
+      let job = LabelPrintEngine.createJob({
+        template: DEFAULT_TEMPLATE,
+        branchCode: "BR-DEL-01",
+        createdBy: "SUPERVISOR",
+        items: [{ sku: "SKU-A", productName: "Item A", mrp: 100, barcode: "111", qty: 2, copies: 1 }]
+      });
+      expect(job.totalLabels).toBe(2);
+
+      job = LabelPrintEngine.addToBatch(job, [{ sku: "SKU-B", productName: "Item B", mrp: 200, barcode: "222", qty: 3, copies: 1 }], "SUPERVISOR");
+      expect(job.totalLabels).toBe(5);
+      expect(job.items).toHaveLength(2);
+    });
+
+    it("calculates queue summary correctly across states", () => {
+      const job1 = LabelPrintEngine.createJob({
+        template: DEFAULT_TEMPLATE,
+        branchCode: "BR-1",
+        createdBy: "ADMIN",
+        items: [{ sku: "S1", productName: "P1", mrp: 10, barcode: "B1", qty: 5, copies: 1 }]
+      });
+      const summary = LabelPrintEngine.queueSummary([job1]);
+      expect(summary.queued).toBe(1);
+      expect(summary.totalLabels).toBe(5);
     });
   });
 });

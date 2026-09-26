@@ -25,7 +25,7 @@
 
 import React from "react";
 
-export const GoodsReceiptNoteA4: React.FC<{ data: any }> = ({ data }) => {
+export const GoodsReceiptNoteA4: React.FC<{ data?: any }> = ({ data = {} }) => {
   return (
     <div className="w-[210mm] min-h-[297mm] bg-white text-black p-[20mm] mx-auto box-border text-sm font-sans">
       <div className="text-center border-b-2 border-black pb-4 mb-6">
