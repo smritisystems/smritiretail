@@ -57,6 +57,12 @@ import { UsersView } from "./UsersView.tsx";
 import { DataAccessView } from "./DataAccessView.tsx";
 import { MenuAccessView } from "./MenuAccessView.tsx";
 import { SecConfigView } from "./SecConfigView.tsx";
+import { RolesGroupsView } from "./RolesGroupsView.tsx";
+import { LockedUsersView } from "./LockedUsersView.tsx";
+import { AuditLogView } from "./AuditLogView.tsx";
+import { MyProfileView } from "./MyProfileView.tsx";
+import { ChangePasswordView } from "./ChangePasswordView.tsx";
+import { MenuShortcutsView } from "./MenuShortcutsView.tsx";
 
 // ── Nav hierarchy matching reference design ───────────────────────────────
 
@@ -192,6 +198,8 @@ export const SecurityAccessShell: React.FC<SecurityAccessShellProps> = ({
     switch (activeSection) {
       case "users":
         return <UsersView onNotification={showToast} />;
+      case "roles-groups":
+        return <RolesGroupsView onNotification={showToast} />;
       case "menu-access":
         return <MenuAccessView onClose={onNavigateAway ?? (() => {})} />;
       case "data-access":
@@ -199,6 +207,16 @@ export const SecurityAccessShell: React.FC<SecurityAccessShellProps> = ({
       case "security-policies":
       case "security-config":
         return <SecConfigView onClose={onNavigateAway ?? (() => {})} />;
+      case "locked-users":
+        return <LockedUsersView onNotification={showToast} />;
+      case "audit-log":
+        return <AuditLogView onNotification={showToast} />;
+      case "my-profile":
+        return <MyProfileView onNotification={showToast} />;
+      case "change-password":
+        return <ChangePasswordView onNotification={showToast} />;
+      case "menu-shortcuts":
+        return <MenuShortcutsView onNotification={showToast} />;
       default:
         return <ComingSoonView section={activeSection} />;
     }
