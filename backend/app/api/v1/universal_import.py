@@ -870,82 +870,84 @@ async def commit_universal_import(
                         pass
 
                 # 5. Authoritative Pricing Domain: Route pricing to PriceBookEntry (SSOT) + items baseline fallback
-                pb_id = request.price_book_id
-                if not pb_id:
-                    pb_stmt = select(PriceBook).where(
-                        PriceBook.company_id == company_id,
-                        PriceBook.is_default == True,
-                        PriceBook.is_deleted == False
-                    )
-                    default_pb = (await db.execute(pb_stmt)).scalars().first()
-                    if not default_pb:
-                        default_pb = PriceBook(
-                            id=f"pb_{uuid.uuid4().hex[:12]}",
-                            company_id=company_id,
-                            name="Default Retail Price Book",
-                            code=f"PB-RETAIL-{company_id}",
-                            currency="INR",
-                            is_default=True,
-                            status="ACTIVE",
+                effective_price_mode = (request.price_mode or "DO_NOT_CREATE").upper().strip()
+                if effective_price_mode in ("CREATE_AS_DRAFT", "CREATE_LIVE_RETAIL"):
+                    pb_id = request.price_book_id
+                    if not pb_id:
+                        pb_stmt = select(PriceBook).where(
+                            PriceBook.company_id == company_id,
+                            PriceBook.is_default == True,
+                            PriceBook.is_deleted == False
                         )
-                        db.add(default_pb)
-                        await db.flush()
-                    pb_id = default_pb.id
+                        default_pb = (await db.execute(pb_stmt)).scalars().first()
+                        if not default_pb:
+                            default_pb = PriceBook(
+                                id=f"pb_{uuid.uuid4().hex[:12]}",
+                                company_id=company_id,
+                                name="Default Retail Price Book",
+                                code=f"PB-RETAIL-{company_id}",
+                                currency="INR",
+                                is_default=True,
+                                status="ACTIVE" if effective_price_mode == "CREATE_LIVE_RETAIL" else "DRAFT",
+                            )
+                            db.add(default_pb)
+                            await db.flush()
+                        pb_id = default_pb.id
 
-                # 5a. Variant-level PriceBookEntry
-                if variant:
-                    pbe_stmt = select(PriceBookEntry).where(
-                        PriceBookEntry.price_book_id == pb_id,
-                        PriceBookEntry.item_id == item.id,
-                        PriceBookEntry.variant_id == variant.id,
-                        PriceBookEntry.min_quantity == Decimal("1.0000"),
-                        PriceBookEntry.is_deleted == False
-                    )
-                    existing_pbe = (await db.execute(pbe_stmt)).scalars().first()
-                    if existing_pbe:
-                        existing_pbe.selling_price = Decimal(str(row_selling))
-                        existing_pbe.mrp = Decimal(str(row_mrp))
-                        if row_cost > 0:
-                            existing_pbe.cost_price = Decimal(str(row_cost))
+                    # 5a. Variant-level PriceBookEntry
+                    if variant:
+                        pbe_stmt = select(PriceBookEntry).where(
+                            PriceBookEntry.price_book_id == pb_id,
+                            PriceBookEntry.item_id == item.id,
+                            PriceBookEntry.variant_id == variant.id,
+                            PriceBookEntry.min_quantity == Decimal("1.0000"),
+                            PriceBookEntry.is_deleted == False
+                        )
+                        existing_pbe = (await db.execute(pbe_stmt)).scalars().first()
+                        if existing_pbe:
+                            existing_pbe.selling_price = Decimal(str(row_selling))
+                            existing_pbe.mrp = Decimal(str(row_mrp))
+                            if row_cost > 0:
+                                existing_pbe.cost_price = Decimal(str(row_cost))
+                        else:
+                            db.add(PriceBookEntry(
+                                id=f"pbe_{uuid.uuid4().hex[:12]}",
+                                company_id=company_id,
+                                price_book_id=pb_id,
+                                item_id=item.id,
+                                variant_id=variant.id,
+                                min_quantity=Decimal("1.0000"),
+                                selling_price=Decimal(str(row_selling)),
+                                mrp=Decimal(str(row_mrp)),
+                                cost_price=Decimal(str(row_cost)) if row_cost > 0 else None,
+                            ))
                     else:
-                        db.add(PriceBookEntry(
-                            id=f"pbe_{uuid.uuid4().hex[:12]}",
-                            company_id=company_id,
-                            price_book_id=pb_id,
-                            item_id=item.id,
-                            variant_id=variant.id,
-                            min_quantity=Decimal("1.0000"),
-                            selling_price=Decimal(str(row_selling)),
-                            mrp=Decimal(str(row_mrp)),
-                            cost_price=Decimal(str(row_cost)) if row_cost > 0 else None,
-                        ))
-
-                # 5b. Item-level PriceBookEntry (authoritative item-level pricing record)
-                item_pbe_stmt = select(PriceBookEntry).where(
-                    PriceBookEntry.price_book_id == pb_id,
-                    PriceBookEntry.item_id == item.id,
-                    PriceBookEntry.variant_id.is_(None),
-                    PriceBookEntry.min_quantity == Decimal("1.0000"),
-                    PriceBookEntry.is_deleted == False
-                )
-                existing_item_pbe = (await db.execute(item_pbe_stmt)).scalars().first()
-                if existing_item_pbe:
-                    existing_item_pbe.selling_price = Decimal(str(row_selling))
-                    existing_item_pbe.mrp = Decimal(str(row_mrp))
-                    if row_cost > 0:
-                        existing_item_pbe.cost_price = Decimal(str(row_cost))
-                else:
-                    db.add(PriceBookEntry(
-                        id=f"pbe_{uuid.uuid4().hex[:12]}",
-                        company_id=company_id,
-                        price_book_id=pb_id,
-                        item_id=item.id,
-                        variant_id=None,
-                        min_quantity=Decimal("1.0000"),
-                        selling_price=Decimal(str(row_selling)),
-                        mrp=Decimal(str(row_mrp)),
-                        cost_price=Decimal(str(row_cost)) if row_cost > 0 else None,
-                    ))
+                        # 5b. Item-level PriceBookEntry (when no variant exists)
+                        item_pbe_stmt = select(PriceBookEntry).where(
+                            PriceBookEntry.price_book_id == pb_id,
+                            PriceBookEntry.item_id == item.id,
+                            PriceBookEntry.variant_id.is_(None),
+                            PriceBookEntry.min_quantity == Decimal("1.0000"),
+                            PriceBookEntry.is_deleted == False
+                        )
+                        existing_item_pbe = (await db.execute(item_pbe_stmt)).scalars().first()
+                        if existing_item_pbe:
+                            existing_item_pbe.selling_price = Decimal(str(row_selling))
+                            existing_item_pbe.mrp = Decimal(str(row_mrp))
+                            if row_cost > 0:
+                                existing_item_pbe.cost_price = Decimal(str(row_cost))
+                        else:
+                            db.add(PriceBookEntry(
+                                id=f"pbe_{uuid.uuid4().hex[:12]}",
+                                company_id=company_id,
+                                price_book_id=pb_id,
+                                item_id=item.id,
+                                variant_id=None,
+                                min_quantity=Decimal("1.0000"),
+                                selling_price=Decimal(str(row_selling)),
+                                mrp=Decimal(str(row_mrp)),
+                                cost_price=Decimal(str(row_cost)) if row_cost > 0 else None,
+                            ))
 
                 # 5c. Documented legacy baseline fallback write on Item
                 if row_mrp > 0:
