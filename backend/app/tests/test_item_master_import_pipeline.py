@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.17.0
 Created      : 2026-09-27
-Modified     : 2026-09-27 (Part 2: Route item pricing to authoritative Pricing Domain PriceBookEntry)
+Modified     : 2026-09-28 (Align test fixtures with Item Master Standard v2.2 and IM-001 two-tier validation)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Regression Test Suite — Item Master & Pricing Import Pipeline
@@ -79,6 +79,7 @@ async def test_import_item_pricing_routes_to_authoritative_price_book_entry(sess
         target="ITEM_MASTER",
         rows=[sample_row],
         idempotency_key=f"idemp-{uuid.uuid4().hex}",
+        price_mode="CREATE_LIVE_RETAIL",
     )
 
     async with session_factory() as session:
@@ -362,18 +363,19 @@ async def test_style_code_consistency_validation_flags_snd_row_bug(session_facto
     shared_image_url = f"https://cdn.smriti.internal/catalog/snd_sneaker_{token}.jpg"
 
     # Simulate exact SND-row bug: 14 rows, 14 sizes, each with an inconsistent style_code per size, same image
+    valid_sizes = ["35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "UK-6", "UK-7", "UK-8"]
     snd_rows = []
     for i in range(1, 15):
         snd_rows.append({
             "barcode": f"BC-SND-{token}-{i}",
             "sku": f"SKU-SND-{token}-{i}",
             "style_code": f"SND-{token}-SZ{i}",  # Inconsistent style_code per size!
-            "size": str(5 + i),
+            "size": valid_sizes[i - 1],
             "color": "BLACK",
             "IMAGE_LINK": shared_image_url,      # Identical image across all 14 rows
             "brand": "SND",
             "category": "Footwear",
-            "department": "Footwear",
+            "department": "FOOTWEAR",
             "mrp": 1999,
             "sellingPrice": 1999,
             "vendor_code": supplier_code,
