@@ -32,6 +32,28 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.7] - 2026-09-27 — UI & Architecture: SMRITI Frosted Glass Boutique Login Window & Modular Architecture
+
+> **Branch:** `smritiNX` | **Area:** Frontend Authentication & Responsive Design System
+
+### Added
+- **Modular Login Component Hierarchy** (`src/components/login/`) — Decomposed monolithic login page into decoupled, single-responsibility components:
+  - `<SmritiBrandLogo />`: Scalable brand wordmark with royal blue Indian Rupee (`₹`) glyph and size variants.
+  - `<FeatureList />`: 6 floating frosted cards (*Sales & Billing*, *Inventory Management*, *Distribution*, *Warehouse*, *Customer Management*, *Reports & Analytics*) with circular blue badges.
+  - `<BrandPanel />`: Desktop left column integrating logo, feature list, and handwritten cursive `"Built for Modern Retail"` accent with cyan-blue wave underline.
+  - `<ResponsiveBackground />`: Dual-mode backdrop engine (ambient gradient on mobile; 4K boutique showroom with POS terminal, daylight organic wave wash, and electric blue waves on tablet/desktop).
+  - `<LoginForm />`: Accessible credential inputs with eye toggle, 44px minimum touch targets, custom remember-me checkbox, and loading verification state.
+  - `<QuickAccess />`: 3 persona buttons (*Admin*, *Manager*, *Cashier*) with active manager highlighting.
+  - `<SecurityFooter />`: AES-256 secure authentication tag with authentic application version metadata (`APP_VERSION_LABEL`).
+  - `<EnterpriseDock />`: Floating dark navy ribbon housing 5 enterprise pillars and `PEOPLE | PRODUCTS | PROCESS | PROFIT` capsule tab.
+  - `<LoginCard />`: Frosted container (`backdrop-blur-2xl`) with top glowing blue accent, language selector, session timeout alert banner, and error alert.
+- **Multi-Viewport Responsive Verification Suite** (`scratch/test_all_responsive_viewports.py`) — Automated headless Playwright audit asserting 0 horizontal overflow, button visibility, and input usability across 9 viewports: `320x568`, `375x667`, `390x844`, `414x896`, `768x1024`, `1024x768`, `1280x720`, `1440x900`, `1920x1080` (9/9 passed green).
+
+### Changed
+- **`src/components/LoginScreen.tsx`** — Refactored to cleanly orchestrate modular login components while preserving all authentication logic (`/api/v1/auth/login`), JWT storage, tenant context persistence (`persistTenantContext`), 15-minute inactivity session expiration alerts, and security assistance modals.
+
+---
+
 ## [6.45.6] - 2026-09-26 — Security: Enterprise 15-Minute Session Inactivity Auto-Logout Subsystem & Multi-Tab Synchronization
 
 > **Branch:** `smritiNX` | **Area:** Terminal Security & Session Management Infrastructure
