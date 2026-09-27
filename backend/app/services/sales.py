@@ -13,6 +13,7 @@ Classification: Internal
 """
 
 import uuid
+import logging
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime, timezone, date
@@ -22,6 +23,8 @@ from sqlalchemy import delete, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
+
+logger = logging.getLogger("smriti.sales")
 from ..models.sales import (
     SalesInvoice, SalesInvoiceItem,
     SalesQuotation, SalesQuotationItem,
@@ -31,7 +34,7 @@ from ..models.sales import (
 )
 from ..models.inventory import Product, StockMovement
 from ..models.tenant import Company
-from ..models.crm import Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
+from ..models.crm import Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation, CustomerCreditLedgerEntry
 from ..core.gst_engine import (
     calculate_line_item_tax,
     validate_gstin,
@@ -91,6 +94,10 @@ class SalesService:
     # ??????????????????????????????????????????????????????????????
 
     async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate, idempotency_key: Optional[str] = None, commit: bool = True) -> SalesInvoice:
+        """
+        Delegates to CanonicalSalesPostingWriter as the sole authoritative transactional writer.
+        This method serves as a canonical ingress adapter for SalesInvoiceCreate payloads.
+        """
         if idempotency_key:
             idempotency_key = str(idempotency_key).strip()
             if not idempotency_key:
@@ -111,938 +118,112 @@ class SalesService:
                 raise HTTPException(status_code=400, detail="Every Customer PO invoice line must reference a Customer PO line.")
             await CustomerPOService(self.db, self.tenant_ctx).validate_billing(invoice_in.customer_po_id, po_request)
 
-        # 1. Authoritative Idempotency & Concurrency Lock (STIE)
-        from .transaction_integrity_engine import TransactionIntegrityEngine, compute_payload_hash
-        from ..models.transaction_integrity import TransactionIdempotencyRecord
-
-        lock_key = idempotency_key or (invoice_in.invoice_no if invoice_in.invoice_no and invoice_in.invoice_no.upper() not in ["AUTO", "D1DS13-1"] else None)
-        if lock_key:
-            acquired = await TransactionIntegrityEngine.try_acquire_advisory_lock(
-                session=self.db,
-                company_id=self.tenant_ctx.company_id,
-                entity_type="SALES_INVOICE",
-                lock_identifier=lock_key,
-            )
-            if not acquired:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"SMRITI-CONC-001: Concurrent execution locked for SALES_INVOICE '{lock_key}'. Another transaction is actively in progress."
-                )
-
-        if idempotency_key:
-            stmt_rec = select(TransactionIdempotencyRecord).where(
-                TransactionIdempotencyRecord.company_id == self.tenant_ctx.company_id,
-                TransactionIdempotencyRecord.entity_type == "SALES_INVOICE",
-                TransactionIdempotencyRecord.idempotency_key == idempotency_key,
-            )
-            existing_rec = (await self.db.execute(stmt_rec)).scalars().first()
-            if existing_rec:
-                if existing_rec.status == "COMMITTED" and existing_rec.document_id:
-                    res_rep = await self.db.execute(
-                        select(SalesInvoice)
-                        .options(selectinload(SalesInvoice.items))
-                        .where(SalesInvoice.id == existing_rec.document_id)
-                    )
-                    cached_inv = res_rep.scalars().first()
-                    if cached_inv:
-                        return cached_inv
-                elif existing_rec.status == "IN_FLIGHT":
-                    raise HTTPException(
-                        status_code=409,
-                        detail=f"SMRITI-IDEMP-002: Concurrent transaction in progress for idempotency key '{idempotency_key}'."
-                    )
-
-            # Check legacy primary key / direct lookup
-            existing_idemp = await self.db.execute(
-                select(SalesInvoice)
-                .options(selectinload(SalesInvoice.items))
-                .filter(
-                    SalesInvoice.id == idempotency_key,
-                    SalesInvoice.is_deleted == False,
-                    SalesInvoice.company_id == self.tenant_ctx.company_id,
-                    SalesInvoice.branch_id == self.tenant_ctx.branch_id
-                )
-            )
-            existing_inv = existing_idemp.scalars().first()
-            if existing_inv:
-                return existing_inv
-
-        tech_id, identity_code = await IdentityEngine.allocate_internal(
-            session=self.db,
-            entity_type="SALES_INVOICE",
-            tenant_id=getattr(self.tenant_ctx, "tenant_id", None) or self.tenant_ctx.company_id,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
-            purpose="ENTITY_CREATION",
+        import uuid
+        from ..schemas.canonical_posting import (
+            CanonicalPostingRequest,
+            CanonicalPostingContext,
+            CanonicalPostingLineItem,
+            CanonicalTenderItem,
         )
-        invoice_id = idempotency_key or tech_id
+        from .canonical_sales_writer import CanonicalSalesPostingWriter
 
-        # 2. Canonical Document Number Allocation (Phase 5 & Phase 6)
-        # If invoice_no is missing, empty, AUTO, or static default D1DS13-1, allocate next canonical sequence
-        raw_inv_no = (invoice_in.invoice_no or "").strip()
-        if not raw_inv_no or raw_inv_no.upper() == "AUTO" or raw_inv_no == "D1DS13-1":
-            from .documents_engine import DocumentsEngine
-            while True:
-                seq_alloc = await DocumentsEngine.allocate_next_number_in_transaction(
-                    session=self.db,
-                    company_id=self.tenant_ctx.company_id,
-                    document_type="SALES_INVOICE",
-                    branch_id=self.tenant_ctx.branch_id,
-                    company_code=self.tenant_ctx.company_id,
-                    created_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM"
-                )
-                candidate_no = seq_alloc.document_no
-                dup_check = await self.db.execute(
-                    select(SalesInvoice.id).filter(
-                        SalesInvoice.invoice_no == candidate_no,
-                        SalesInvoice.is_deleted == False,
-                        SalesInvoice.company_id == self.tenant_ctx.company_id
-                    )
-                )
-                if not dup_check.scalars().first():
-                    invoice_no = candidate_no
-                    break
-        else:
-            invoice_no = raw_inv_no
-            # 3. Document Uniqueness Check (Separate from Idempotency - Phase 6)
-            dup_stmt = select(SalesInvoice).filter(
-                SalesInvoice.invoice_no == invoice_no,
-                SalesInvoice.is_deleted == False,
-                SalesInvoice.company_id == self.tenant_ctx.company_id
-            )
-            dup_res = await self.db.execute(dup_stmt)
-            if dup_res.scalars().first():
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Duplicate document number: Invoice '{invoice_no}' already exists under active company context."
-                )
-
-        # Resolve company store state code
-        company_state_code = "27"  # Default Maharashtra
-        comp_stmt = select(Company).filter(Company.id == self.tenant_ctx.company_id, Company.is_deleted == False)
-        comp_res = await self.db.execute(comp_stmt)
-        company_obj = comp_res.scalars().first()
-        if company_obj and company_obj.gst_number:
-            extracted_comp_state = extract_state_code_from_gstin(company_obj.gst_number)
-            if extracted_comp_state:
-                company_state_code = extracted_comp_state
-
-        # Determine settlement and credit modes early
-        is_credit_mode = (invoice_in.payment_mode or "").strip().upper() == "CREDIT"
-        is_settled_status = (invoice_in.status or "Draft").upper() not in ["DRAFT", "SUSPENDED", "HOLD", "CANCELLED"]
-
-        # Resolve customer details & tenant validation
-        resolved_customer_id = invoice_in.customer_id or "CUST-WALKIN"
-        customer_gstin = invoice_in.customer_gstin
-        customer_name = invoice_in.customer_name
-        pos_state_name = invoice_in.pos_state
-        pos_state_code = None
-
-        cust_db_record = None
-        customer_discount_policy = None
-        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
-            # Tenant verification
-            cust_stmt = select(Customer).options(
-                selectinload(Customer.gst_registrations)
-            ).where(
-                Customer.id == resolved_customer_id,
-                Customer.company_id == self.tenant_ctx.company_id,
-                (Customer.branch_id == self.tenant_ctx.branch_id) | (Customer.branch_id.is_(None)),
-                Customer.is_deleted == False
-            )
-            if is_credit_mode or is_settled_status:
-                cust_stmt = cust_stmt.with_for_update()
-
-            cust_db_record = (await self.db.execute(cust_stmt)).scalars().first()
-            if not cust_db_record:
-                # Check if customer exists in another tenant for proper 403 vs 404
-                cross_check_stmt = select(Customer.company_id).filter(
-                    Customer.id == resolved_customer_id,
-                    Customer.is_deleted == False,
-                )
-                cross_res = await self.db.execute(cross_check_stmt)
-                found_company_id = cross_res.scalars().first()
-                if found_company_id and found_company_id != self.tenant_ctx.company_id:
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Cross-company customer access is prohibited."
-                    )
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Customer '{resolved_customer_id}' not found."
-                )
-
-            if cust_db_record.company_id != self.tenant_ctx.company_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cross-company customer access is prohibited."
-                )
-
-            if not customer_name:
-                customer_name = getattr(cust_db_record, "name", None)
-            if not customer_gstin:
-                customer_gstin = cust_db_record.canonical_gstin
-            customer_discount_policy = await resolve_customer_discount_policy(
-                self.db,
-                resolved_customer_id,
-                self.tenant_ctx.company_id,
-                self.tenant_ctx.branch_id,
-            )
-        else:
-            if not customer_name:
-                customer_name = "Walk-In / Cash Customer"
-
-        # Reject Corporate B2B fields on walk-in customer
-        if resolved_customer_id == "CUST-WALKIN":
-            if invoice_in.billed_party_gstin_id or invoice_in.delivery_location_id or getattr(invoice_in, "billing_location_id", None):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Billed GST registration, billing location, and delivery location cannot be specified for walk-in customer."
-                )
-
-        # 1.5 Validate Billing Location if supplied
-        billing_loc_record = None
-        snapshot_billing_store_code = getattr(invoice_in, "billing_store_code", None)
-        snapshot_billing_address = invoice_in.billing_address
-        if getattr(invoice_in, "billing_location_id", None):
-            b_stmt = select(CustomerBillingLocation).filter(
-                CustomerBillingLocation.id == invoice_in.billing_location_id,
-                CustomerBillingLocation.is_deleted == False,
-            )
-            billing_loc_record = (await self.db.execute(b_stmt)).scalars().first()
-            if not billing_loc_record:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Billing location '{invoice_in.billing_location_id}' not found."
-                )
-            if billing_loc_record.company_id != self.tenant_ctx.company_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cross-company billing location access is prohibited."
-                )
-            if billing_loc_record.branch_id and billing_loc_record.branch_id != self.tenant_ctx.branch_id:
-                raise HTTPException(status_code=403, detail="Cross-branch billing location access is prohibited.")
-            if billing_loc_record.customer_id != resolved_customer_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Billing location does not belong to the selected customer."
-                )
-            if billing_loc_record.status != "ACTIVE":
-                raise HTTPException(
-                    status_code=400,
-                    detail="Selected billing location is inactive."
-                )
-            if not snapshot_billing_store_code:
-                snapshot_billing_store_code = billing_loc_record.billing_store_code
-            if not snapshot_billing_address:
-                parts = [billing_loc_record.address_line1, billing_loc_record.address_line2, billing_loc_record.city, f"{billing_loc_record.state} - {billing_loc_record.pincode}"]
-                snapshot_billing_address = ", ".join(p for p in parts if p)
-
-        # 2. Validate Billed Party GST Registration if supplied
-        billed_reg_record = None
-        if invoice_in.billed_party_gstin_id:
-            reg_stmt = select(CustomerGSTRegistration).filter(
-                CustomerGSTRegistration.id == invoice_in.billed_party_gstin_id,
-                CustomerGSTRegistration.is_deleted == False,
-            )
-            billed_reg_record = (await self.db.execute(reg_stmt)).scalars().first()
-            if not billed_reg_record:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Billed GST registration '{invoice_in.billed_party_gstin_id}' not found."
-                )
-            if billed_reg_record.company_id != self.tenant_ctx.company_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cross-company GST registration access is prohibited."
-                )
-            if billed_reg_record.branch_id and billed_reg_record.branch_id != self.tenant_ctx.branch_id:
-                raise HTTPException(status_code=403, detail="Cross-branch GST registration access is prohibited.")
-            if billed_reg_record.customer_id != resolved_customer_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Billed GST registration does not belong to the selected customer."
-                )
-            if not billed_reg_record.is_active:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Selected Billed GST registration is inactive."
-                )
-            # Authoritative customer GSTIN snapshot
-            customer_gstin = billed_reg_record.gstin
-
-        # 3. Validate Delivery Location if supplied
-        delivery_loc_record = None
-        if invoice_in.delivery_location_id:
-            loc_stmt = select(CustomerDeliveryLocation).filter(
-                CustomerDeliveryLocation.id == invoice_in.delivery_location_id,
-                CustomerDeliveryLocation.is_deleted == False,
-            )
-            delivery_loc_record = (await self.db.execute(loc_stmt)).scalars().first()
-            if not delivery_loc_record:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Delivery location '{invoice_in.delivery_location_id}' not found."
-                )
-            if delivery_loc_record.company_id != self.tenant_ctx.company_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cross-company delivery location access is prohibited."
-                )
-            if delivery_loc_record.branch_id and delivery_loc_record.branch_id != self.tenant_ctx.branch_id:
-                raise HTTPException(status_code=403, detail="Cross-branch delivery location access is prohibited.")
-            if delivery_loc_record.customer_id != resolved_customer_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Delivery location does not belong to the selected customer."
-                )
-            if not delivery_loc_record.is_active:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Selected delivery location is inactive."
-                )
-            # Validate linked delivery GST registration if present
-            if delivery_loc_record.gst_registration_id:
-                linked_reg_stmt = select(CustomerGSTRegistration).filter(
-                    CustomerGSTRegistration.id == delivery_loc_record.gst_registration_id,
-                    CustomerGSTRegistration.is_deleted == False,
-                )
-                linked_reg = (await self.db.execute(linked_reg_stmt)).scalars().first()
-                if linked_reg:
-                    if linked_reg.company_id != self.tenant_ctx.company_id:
-                        raise HTTPException(
-                            status_code=403,
-                            detail="Delivery location linked GST registration belongs to a different company."
-                        )
-                    if linked_reg.branch_id and linked_reg.branch_id != self.tenant_ctx.branch_id:
-                        raise HTTPException(status_code=403, detail="Delivery location linked GST registration belongs to a different branch.")
-                    if linked_reg.customer_id != resolved_customer_id:
-                        raise HTTPException(
-                            status_code=400,
-                            detail="Delivery location linked GST registration does not belong to the selected customer."
-                        )
-            # Delivery GSTIN and state consistency check
-            eff_del_gstin = invoice_in.delivery_gstin or delivery_loc_record.gstin
-            if eff_del_gstin:
-                val_ok, del_st_code, _ = validate_gstin(eff_del_gstin)
-                if not val_ok:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Delivery GSTIN '{eff_del_gstin}' is invalid."
-                    )
-                if del_st_code != delivery_loc_record.state_code:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Delivery GSTIN state '{del_st_code}' does not match delivery location state '{delivery_loc_record.state_code}'."
-                    )
-
-        # 4. Snapshots preparation
-        if delivery_loc_record:
-            snapshot_del_store_code = delivery_loc_record.store_code
-            snapshot_del_gstin = invoice_in.delivery_gstin or delivery_loc_record.gstin
-            snapshot_del_loc = {
-                "id": delivery_loc_record.id,
-                "store_code": delivery_loc_record.store_code,
-                "location_name": delivery_loc_record.location_name,
-                "address_line1": delivery_loc_record.address_line1,
-                "address_line2": delivery_loc_record.address_line2,
-                "city": delivery_loc_record.city,
-                "state_code": delivery_loc_record.state_code,
-                "state_name": delivery_loc_record.state,
-                "pincode": delivery_loc_record.pincode,
-                "delivery_gstin": snapshot_del_gstin,
-                "contact_person": delivery_loc_record.contact_person,
-                "phone": delivery_loc_record.phone,
-                "metadata_json": delivery_loc_record.metadata_json,
-            }
-        else:
-            snapshot_del_store_code = invoice_in.delivery_store_code
-            snapshot_del_gstin = invoice_in.delivery_gstin
-            snapshot_del_loc = invoice_in.delivery_location_snapshot
-
-        # 5. Place of Supply (POS) Derivation
-        # Rule E: place_of_supply_code MUST be transaction-derived from authoritative delivery/tax context
-        pos_state_code = None
-        pos_state_name = invoice_in.pos_state
-        is_registered_b2b = bool(customer_gstin or billed_reg_record)
-
-        if delivery_loc_record:
-            pos_state_code = delivery_loc_record.state_code
-            pos_state_name = delivery_loc_record.state or GST_STATE_CODES.get(pos_state_code, "Delivery State")
-        elif invoice_in.place_of_supply_code:
-            pos_state_code = invoice_in.place_of_supply_code
-            pos_state_name = pos_state_name or GST_STATE_CODES.get(pos_state_code, "Transaction POS")
-        elif billed_reg_record:
-            pos_state_code = billed_reg_record.state_code
-            pos_state_name = billed_reg_record.state_name or GST_STATE_CODES.get(pos_state_code, "Billed State")
-        elif customer_gstin:
-            is_valid_gstin, st_code, st_name = validate_gstin(customer_gstin)
-            if is_valid_gstin and st_code:
-                pos_state_code = st_code
-                pos_state_name = pos_state_name or st_name
-
-        if not pos_state_code:
-            pos_state_code = company_state_code
-            pos_state_name = pos_state_name or GST_STATE_CODES.get(company_state_code, "Home State")
-
-        # Determine inter-state jurisdiction based on transaction POS
-        if delivery_loc_record or invoice_in.place_of_supply_code or billed_reg_record:
-            is_interstate = (company_state_code != pos_state_code)
-        elif invoice_in.is_interstate is not None:
-            is_interstate = invoice_in.is_interstate
-        else:
-            is_interstate = (company_state_code != pos_state_code)
-
-        from .inventory_wms import InventoryWmsService
-        from .inventory_warehouse_resolver import InventoryWarehouseResolver
-        wms_service = InventoryWmsService(self.db, self.tenant_ctx)
-        resolver = InventoryWarehouseResolver(self.db)
-        warehouse_id = invoice_in.warehouse_id
-        if not warehouse_id:
-            warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
-            warehouse_id = warehouse.id
-
-        # 1. Validate items and calculate totals
-        if not invoice_in.items:
-            raise HTTPException(status_code=400, detail="SMRITI-VAL-001: Sales invoice must contain at least one line item.")
-
-        calculated_taxable_total = Decimal("0.00")
-        calculated_tax_total = Decimal("0.00")
-        calculated_grand_total = Decimal("0.00")
-        calculated_gross_total = Decimal("0.00")
-        calculated_discount_total = Decimal("0.00")
-        invoice_items = []
-        batch_deductions = []
-        promotion_result = None
-        if any(getattr(invoice_in, field, None) for field in ("promotion_campaign_id", "promotion_coupon_code", "promotion_coupon_id")):
-            promotion_result = await PromotionsEngine.evaluate_promotions(
-                session=self.db,
-                company_id=self.tenant_ctx.company_id,
-                req=PromotionEvaluationRequest(
-                    items=[PromotionCartItem(
-                        item_id=item.item_id or item.product_id or item.code,
-                        product_name=item.name,
-                        category=item.category,
-                        brand=item.brand,
-                        unit_price=float(item.price),
-                        quantity=float(item.quantity),
-                    ) for item in invoice_in.items],
-                    campaign_id=getattr(invoice_in, "promotion_campaign_id", None),
-                    coupon_code=getattr(invoice_in, "promotion_coupon_code", None),
-                    coupon_id=getattr(invoice_in, "promotion_coupon_id", None),
-                    customer_id=resolved_customer_id,
-                    customer_group_id=getattr(cust_db_record, "customer_group_id", None),
-                    branch_id=self.tenant_ctx.branch_id,
-                    store_id=self.tenant_ctx.branch_id,
-                    channel="POS" if invoice_in.payment_mode else "B2B",
-                ),
-            )
-            if not promotion_result.applied_promotions:
-                raise HTTPException(status_code=400, detail="Requested promotion is not eligible for this invoice.")
-        cart_gross_total = sum(Decimal(str(item.quantity)) * Decimal(str(item.price)) for item in invoice_in.items)
-
-        for idx, item in enumerate(invoice_in.items, start=1):
-            quantity = Decimal(str(item.quantity))
-            unit_price = Decimal(str(item.price))
-            if quantity <= Decimal("0.00"):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"SMRITI-VAL-002: Line item '{item.code}' has non-positive quantity ({quantity}). Quantity must be greater than zero.",
-                )
-            if unit_price < Decimal("0.00"):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"SMRITI-VAL-003: Line item '{item.code}' has negative unit price ({unit_price}). Unit price cannot be negative.",
-                )
-            if item.mrp is not None and Decimal(str(item.mrp)) > Decimal("0.00") and unit_price > Decimal(str(item.mrp)):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"SMRITI-PRICE-001: Selling price (₹{unit_price:,.2f}) cannot exceed statutory MRP (₹{Decimal(str(item.mrp)):,.2f}) for item '{item.name}'.",
-                )
-
-            product_stmt = select(Product).filter(
-                (Product.id == item.product_id) | (Product.code == item.product_id) | (Product.code == item.code),
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-            )
-            product_res = await self.db.execute(product_stmt)
-            product = product_res.scalars().first()
-            is_customer_po_service_line = invoice_in.source_document_type == "CUSTOMER_PO" and not item.product_id
-            if not product and not is_customer_po_service_line:
-                raise HTTPException(status_code=404, detail=f"Product not found: {item.product_id or item.code}")
-
-            gst_rate = Decimal(str(item.gst_rate if item.gst_rate is not None else "18.00"))
-
-            # Determine batch allocation
-            assigned_batch = item.batch_no or "BATCH-OPENING"
-            is_settled_status = (invoice_in.status or "Draft").upper() not in ["DRAFT", "SUSPENDED", "HOLD", "CANCELLED"]
-            if product and product.tracking_mode != "No-stock" and is_settled_status:
-                if item.batch_no:
-                    batch_deductions.append({
-                        "product": product,
-                        "batch_no": item.batch_no,
-                        "quantity": quantity
-                    })
-                else:
-                    try:
-                        # Auto-allocate via FEFO
-                        allocs = await wms_service.allocate_stock_fefo(
-                            product_id=product.id,
-                            warehouse_id=warehouse_id,
-                            requested_qty=quantity
-                        )
-                        assigned_batch = allocs[0]["batch_no"] if allocs else "BATCH-OPENING"
-                        for a in allocs:
-                            batch_deductions.append({
-                                "product": product,
-                                "batch_no": a["batch_no"],
-                                "quantity": Decimal(str(a["allocated_quantity"]))
-                            })
-                    except Exception:
-                        assigned_batch = "BATCH-OPENING"
-                        batch_deductions.append({
-                            "product": product,
-                            "batch_no": assigned_batch,
-                            "quantity": quantity
-                        })
-
-            # Determine whether line is tax-inclusive (Hierarchy: Line Item Override -> Barcode -> Customer -> Price Group -> B2C consumer MRP / B2B wholesale)
-            if item.is_tax_inclusive is not None:
-                is_inclusive = item.is_tax_inclusive
-            else:
-                # 1. Barcode check
-                barcode_tax_inc = None
-                code_to_check = str(item.code or (product.barcode if product else "")).strip()
-                if code_to_check:
-                    from ..models.item_master import ItemBarcode
-                    bc_tax = await self.db.scalar(
-                        select(ItemBarcode.is_tax_inclusive).where(
-                            ItemBarcode.company_id == self.tenant_ctx.company_id,
-                            ItemBarcode.barcode == code_to_check,
-                            ItemBarcode.is_deleted == False,
-                        ).limit(1)
-                    )
-                    if bc_tax is not None:
-                        barcode_tax_inc = bc_tax
-
-                # 2. Customer check
-                cust_tax_inc = getattr(cust_db_record, "is_tax_inclusive", None) if cust_db_record else None
-
-                # 3. Price Group check
-                pg_tax_inc = None
-                if cust_db_record and getattr(cust_db_record, "customer_group_id", None):
-                    pg_tax_inc = await self.db.scalar(
-                        select(CustomerGroup.is_tax_inclusive).where(
-                            CustomerGroup.id == cust_db_record.customer_group_id,
-                            CustomerGroup.is_deleted == False,
-                        )
-                    )
-                elif cust_db_record and getattr(cust_db_record, "price_tier_id", None):
-                    from ..models.pricing import CustomerPriceTier
-                    pg_tax_inc = await self.db.scalar(
-                        select(CustomerPriceTier.is_tax_inclusive).where(
-                            CustomerPriceTier.id == cust_db_record.price_tier_id,
-                            CustomerPriceTier.is_deleted == False,
-                        )
-                    )
-
-                if barcode_tax_inc is not None:
-                    is_inclusive = barcode_tax_inc
-                elif cust_tax_inc is not None:
-                    is_inclusive = cust_tax_inc
-                elif pg_tax_inc is not None:
-                    is_inclusive = pg_tax_inc
-                else:
-                    is_inclusive = not is_registered_b2b
-
-            # Statutory Price Validation: Unit Rate cannot exceed statutory MRP
-            effective_mrp = item.mrp or (product.mrp if product else None)
-            if effective_mrp and effective_mrp > Decimal("0.00") and unit_price > effective_mrp:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Selling price (₹{unit_price:,.2f}) cannot exceed statutory MRP (₹{effective_mrp:,.2f}) for item '{item.name or item.code}'."
-                )
-
-            # Compute discount amount if discount percentage is given
-            if promotion_result:
-                promo_total = Decimal(str(promotion_result.total_promotional_discount))
-                discount_amount = (promo_total * unit_price * quantity / cart_gross_total).quantize(Decimal("0.01")) if cart_gross_total > 0 else Decimal("0.00")
-                disc_pct = (discount_amount / (unit_price * quantity) * Decimal("100.00")) if unit_price * quantity > 0 else Decimal("0.00")
-            else:
-                disc_pct = Decimal(str(item.disc_pct or "0.00"))
-                discount_amount = (unit_price * quantity * disc_pct / Decimal("100.00")) if disc_pct > 0 else Decimal("0.00")
-            calculated_gross_total += unit_price * quantity
-            calculated_discount_total += discount_amount
-
-            tax_calc = calculate_line_item_tax(
-                unit_price=unit_price,
-                quantity=quantity,
-                discount_amount=discount_amount,
-                gst_rate=gst_rate,
-                is_tax_inclusive=is_inclusive,
-                is_interstate=is_interstate,
-            )
-
-            calculated_taxable_total += tax_calc["taxable_value"]
-            calculated_tax_total += tax_calc["tax_amount"]
-            calculated_grand_total += tax_calc["total_amount"]
-
-            db_item = SalesInvoiceItem(
-                product_id=product.id if product else None,
-                item_id=item.item_id,
-                code=item.code or (product.code if product else "SERVICE"),
-                name=item.name or (product.name if product else "Customer PO Service"),
-                batch_no=assigned_batch,
-                quantity=quantity,
-                price=unit_price,
-                hsn_code=item.hsn_code or (product.hsn_code if product else None),
-                gst_rate=gst_rate,
-                tax_amount=tax_calc["tax_amount"],
-                total_amount=tax_calc["total_amount"],
-                taxable_value=tax_calc["taxable_value"],
-                cgst_amount=tax_calc["cgst_amount"],
-                sgst_amount=tax_calc["sgst_amount"],
-                igst_amount=tax_calc["igst_amount"],
-                mrp=item.mrp or (product.mrp if product else unit_price) or unit_price,
-                disc_pct=disc_pct,
-                line_no=item.line_no or idx,
-                customer_po_line_id=getattr(item, "customer_po_line_id", None),
-                source_line_type=getattr(item, "source_line_type", None),
-                source_line_id=getattr(item, "source_line_id", None),
-                is_tax_inclusive=is_inclusive,
-            )
-            invoice_items.append(db_item)
-
-        if customer_discount_policy:
-            validate_customer_discount_policy(
-                customer_discount_policy,
-                calculated_discount_total,
-                calculated_gross_total,
-            )
-
-        # 2. Concurrency-Safe Customer Row Lock & Authoritative Credit Check (Blockers 2 & 3)
-        if is_credit_mode:
-            final_paid_amount = Decimal("0.00")
-            final_balance_amount = calculated_grand_total
-        elif invoice_in.payment_mode and str(invoice_in.payment_mode).strip().upper() in ["CASH", "CARD", "UPI", "ONLINE"]:
-            final_paid_amount = getattr(invoice_in, "paid_amount", None) or calculated_grand_total
-            final_balance_amount = max(Decimal("0.00"), calculated_grand_total - final_paid_amount)
-        else:
-            final_paid_amount = getattr(invoice_in, "paid_amount", None) or Decimal("0.00")
-            final_balance_amount = max(Decimal("0.00"), calculated_grand_total - final_paid_amount)
-
-        previous_outstanding = Decimal("0.00")
-        credit_days_configured = 30
-        credit_limit_configured = Decimal("0.00")
-
-        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN":
-            if not cust_db_record and is_credit_mode:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Customer '{resolved_customer_id}' not found for credit billing."
-                )
-
-            if cust_db_record:
-                previous_outstanding = Decimal(str(cust_db_record.outstanding or "0.00"))
-                if cust_db_record.customer_group_id:
-                    cg_stmt = select(CustomerGroup).where(
-                        CustomerGroup.id == cust_db_record.customer_group_id,
-                        CustomerGroup.is_deleted == False
-                    )
-                    cg_rec = (await self.db.execute(cg_stmt)).scalars().first()
-                    if cg_rec:
-                        credit_days_configured = cg_rec.credit_days or 30
-                        credit_limit_configured = Decimal(str(cg_rec.credit_limit or "0.00"))
-
-        is_explicit_payment_mode = (
-            getattr(invoice_in, "model_fields_set", None) is not None
-            and "payment_mode" in invoice_in.model_fields_set
+        effective_idemp_key = idempotency_key or (
+            invoice_in.invoice_no if invoice_in.invoice_no and invoice_in.invoice_no.upper() not in ["AUTO", "D1DS13-1"] else f"TX-SALES-{uuid.uuid4().hex[:16]}"
         )
+        client_inv_no = invoice_in.invoice_no if invoice_in.invoice_no and invoice_in.invoice_no.upper() not in ["AUTO", "D1DS13-1"] else None
 
-        if resolved_customer_id and resolved_customer_id != "CUST-WALKIN" and is_settled_status:
-            credit_check_amount = calculated_grand_total if (is_credit_mode or not is_explicit_payment_mode) else final_balance_amount
-            if is_credit_mode or not is_explicit_payment_mode or credit_check_amount > Decimal("0.00"):
-                # Credit control must strictly FAIL CLOSED — do NOT swallow unexpected errors
-                await self.crm_service.check_credit_limit(resolved_customer_id, float(credit_check_amount))
-
-        # 3. Save Sales Invoice & items
-        db_customer_id = resolved_customer_id if (resolved_customer_id and resolved_customer_id != "CUST-WALKIN") else None
-        
-        # Coerce date to python datetime.date for PostgreSQL Date column
-        from datetime import date as py_date, timedelta
-        inv_date = invoice_in.date
-        if isinstance(inv_date, str):
-            try:
-                inv_date = py_date.fromisoformat(inv_date.split("T")[0])
-            except Exception:
-                inv_date = py_date.today()
-        elif isinstance(inv_date, datetime):
-            inv_date = inv_date.date()
-        elif not inv_date:
-            inv_date = py_date.today()
-
-        # Calculate due date from configured credit_days
-        due_date = inv_date + timedelta(days=credit_days_configured)
-
-        snapshots = dict(getattr(invoice_in, "rule_snapshots", None) or {})
-        psv_party_id = getattr(invoice_in, "psv_party_id", None)
-        psv_store_id = getattr(invoice_in, "psv_store_id", None)
-        if psv_party_id:
-            snapshots["psv_mapping"] = {
-                "psv_party_id": psv_party_id,
-                "psv_store_id": psv_store_id,
-                "delivery_store_code": snapshot_del_store_code,
-                "billing_store_code": snapshot_billing_store_code,
-            }
-        if is_credit_mode:
-            snapshots["transaction_type"] = "Credit"
-            snapshots["credit_terms"] = {
-                "transaction_type": "Credit",
-                "credit_days": credit_days_configured,
-                "due_date": due_date.isoformat(),
-                "previous_outstanding": float(previous_outstanding),
-                "projected_outstanding": float(previous_outstanding + calculated_grand_total),
-                "credit_limit": float(credit_limit_configured)
-            }
-
-        # Resolve branch_id safely against tenant database
-        from ..models.tenant import Branch
-        actual_branch_id = self.tenant_ctx.branch_id
-        if actual_branch_id:
-            try:
-                res_br = await self.db.execute(
-                    select(Branch.id).where(
-                        (Branch.id == actual_branch_id) | (Branch.code == actual_branch_id)
-                    )
-                )
-                br_found = res_br.scalars().first()
-                actual_branch_id = br_found if br_found else None
-            except Exception:
-                actual_branch_id = None
-
-        db_invoice = SalesInvoice(
-            id=invoice_id,
-            identity_code=identity_code,
-            invoice_no=invoice_no,
-            date=inv_date,
-            customer_id=db_customer_id,
-            customer_name=customer_name,
-            customer_gstin=customer_gstin,
-            pos_state=pos_state_name,
-            warehouse_id=warehouse_id,
-            taxable_value=calculated_taxable_total,
-            tax_total=calculated_tax_total,
-            grand_total=calculated_grand_total,
-            is_interstate=is_interstate,
-            payment_mode="CREDIT" if is_credit_mode else (invoice_in.payment_mode or "CASH"),
-            billing_address=snapshot_billing_address,
-            shipping_address=invoice_in.shipping_address or (
-                ", ".join(p for p in [delivery_loc_record.address_line1, delivery_loc_record.address_line2, delivery_loc_record.city, f"{delivery_loc_record.state} - {delivery_loc_record.pincode}"] if p)
-                if delivery_loc_record else None
-            ),
-            rounding_amount=invoice_in.rounding_amount or Decimal("0.00"),
-            eway_bill_no=invoice_in.eway_bill_no,
-            status=invoice_in.status,
-            items=invoice_items,
+        ctx = CanonicalPostingContext(
             company_id=self.tenant_ctx.company_id,
-            branch_id=actual_branch_id,
-            # v1373 -- Sprint 14/15 optional fields (getattr for backward compat)
-            salesperson_id=getattr(invoice_in, "salesperson_id", None),
-            salesperson_name=getattr(invoice_in, "salesperson_name", None),
+            branch_id=self.tenant_ctx.branch_id or "MAIN",
+            warehouse_id=invoice_in.warehouse_id,
+            dispatch_from_location_id=invoice_in.dispatch_from_location_id,
+            shift_id=getattr(invoice_in, "shift_id", None),
+            cashier_id=getattr(self.tenant_ctx, "user_id", None) or getattr(invoice_in, "salesperson_id", None),
             terminal_id=getattr(invoice_in, "terminal_id", None),
             counter_id=getattr(invoice_in, "counter_id", None),
-            paid_amount=final_paid_amount,
-            balance_amount=final_balance_amount,
-            discount_amount=calculated_discount_total,
-            net_amount=calculated_grand_total,
-            rule_snapshots=snapshots,
-            import_validation_notes=getattr(invoice_in, "remarks", None),
-            # Phase 2C Corporate B2B Fields & Immutable Snapshots
-            billed_party_gstin_id=invoice_in.billed_party_gstin_id,
-            billing_location_id=getattr(invoice_in, "billing_location_id", None),
-            billing_store_code=snapshot_billing_store_code,
-            delivery_location_id=invoice_in.delivery_location_id,
-            delivery_store_code=snapshot_del_store_code,
-            delivery_gstin=snapshot_del_gstin,
-            delivery_location_snapshot=snapshot_del_loc,
-            place_of_supply_code=pos_state_code,
-            po_reference=getattr(invoice_in, "po_reference", None),
-            customer_po_id=getattr(invoice_in, "customer_po_id", None),
-            customer_po_number_snapshot=getattr(invoice_in, "customer_po_number_snapshot", None),
-            customer_po_date_snapshot=getattr(invoice_in, "customer_po_date_snapshot", None),
-            source_document_type=getattr(invoice_in, "source_document_type", None) or "DIRECT",
-            source_document_id=getattr(invoice_in, "source_document_id", None),
-            source_document_line_id=getattr(invoice_in, "source_document_line_id", None),
-            # Legacy compatibility: sis_code mirrors delivery_store_code
-            sis_code=snapshot_del_store_code or getattr(invoice_in, "sis_code", None),
+            idempotency_key=effective_idemp_key,
+            client_invoice_no=client_inv_no,
+            source_channel=getattr(invoice_in, "source_document_type", None) or ("CUSTOMER_PO" if getattr(invoice_in, "customer_po_id", None) else "B2B_WHOLESALE"),
+            allow_negative_stock=False,
+            supervisor_override_code=getattr(invoice_in, "supervisor_override_code", None),
         )
-        self.db.add(db_invoice)
 
-        # Synchronously and atomically increment customer outstanding for settled credit sales (Phase 3)
-        if is_credit_mode and is_settled_status and cust_db_record:
-            cust_db_record.outstanding = previous_outstanding + calculated_grand_total
-            cust_db_record.modified_at = datetime.now(timezone.utc)
-            self.db.add(cust_db_record)
-            from ..models.crm import CustomerCreditLedgerEntry
-            self.db.add(CustomerCreditLedgerEntry(
-                id=f"ccle-{uuid.uuid4().hex[:12]}",
-                customer_id=cust_db_record.id,
-                entry_date=datetime.now(timezone.utc),
-                entry_type="DEBIT",
-                amount=calculated_grand_total,
-                balance_after=cust_db_record.outstanding,
-                reference_type="SALES_INVOICE",
-                reference_id=db_invoice.id,
-                due_date=due_date,
-                notes="Credit sale posted",
-                company_id=self.tenant_ctx.company_id,
-                branch_id=actual_branch_id,
-            ))
-
-        try:
-            await self.db.flush()
-        except IntegrityError as ef:
-            await self.db.rollback()
-            raise HTTPException(status_code=409, detail=_integrity_error_detail(ef))
-        except Exception as ef:
-            print(f"[SalesService Error at flush db_invoice]: {ef}")
-            raise
-
-        if promotion_result:
-            for applied in promotion_result.applied_promotions:
-                await PromotionsEngine.record_redemption(
-                    session=self.db,
-                    company_id=self.tenant_ctx.company_id,
-                    req=PromotionRedemptionRequest(
-                        campaign_id=applied.campaign_id,
-                        coupon_id=applied.coupon_id,
-                        customer_id=resolved_customer_id,
-                        reference_invoice_id=db_invoice.id,
-                        discount_applied=applied.discount_amount,
-                        items=[PromotionCartItem(
-                            item_id=item.item_id or item.product_id or item.code,
-                            product_name=item.name,
-                            category=item.category,
-                            brand=item.brand,
-                            unit_price=float(item.price),
-                            quantity=float(item.quantity),
-                        ) for item in invoice_in.items],
-                        customer_group_id=getattr(cust_db_record, "customer_group_id", None),
-                        branch_id=self.tenant_ctx.branch_id,
-                        store_id=self.tenant_ctx.branch_id,
-                        channel="POS" if invoice_in.payment_mode else "B2B",
-                    ),
+        canonical_items = []
+        for it in invoice_in.items:
+            canonical_items.append(
+                CanonicalPostingLineItem(
+                    code=it.code,
+                    quantity=it.quantity,
+                    unit_price=it.price,
+                    name=it.name,
+                    variant_id=it.variant_id,
+                    product_id=it.product_id,
+                    item_id=it.item_id,
+                    batch_no=it.batch_no,
+                    gst_rate=it.gst_rate,
+                    hsn_code=it.hsn_code,
+                    disc_pct=it.disc_pct or Decimal("0.00"),
+                    disc_amt=Decimal("0.00"),
+                    is_tax_inclusive=it.is_tax_inclusive,
+                    mrp=it.mrp,
+                    customer_po_line_id=it.customer_po_line_id,
+                    source_line_type=it.source_line_type,
+                    source_line_id=it.source_line_id,
+                    category=it.category,
+                    brand=it.brand,
+                    salesperson_id=getattr(it, "salesperson_id", None),
+                    salesperson_name=getattr(it, "salesperson_name", None),
                 )
+            )
 
-        # 4. Deduct stock from WMS batch stocks atomically (only for completed/settled sales)
-        if (invoice_in.status or "Draft").upper() not in ["DRAFT", "SUSPENDED", "HOLD", "CANCELLED"]:
-            for ded in batch_deductions:
-                await wms_service.atomic_mutate_batch_stock(
-                    product_id=ded["product"].id,
-                    warehouse_id=warehouse_id,
-                    batch_no=ded["batch_no"],
-                    qty_delta=-ded["quantity"],
-                    movement_type="OUTWARD_SALE",
-                    reference_doc_type="Sales Invoice",
-                    reference_doc_id=db_invoice.id,
-                    remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
+        tenders = []
+        if getattr(invoice_in, "paid_amount", None) and invoice_in.paid_amount > Decimal("0.00"):
+            tenders.append(
+                CanonicalTenderItem(
+                    tender_type=(invoice_in.payment_mode or "CASH").upper(),
+                    amount=invoice_in.paid_amount,
                 )
-
-        # Record Transactional Outbox event atomically within same DB transaction
-        try:
-            from .outbox_service import OutboxService
-            await OutboxService.record_event(
-                session=self.db,
-                target_channel="PSV_QUEUE",
-                payload={
-                    "action": "SALES_INVOICE_CREATED",
-                    "invoice_no": db_invoice.invoice_no,
-                    "source_document_id": db_invoice.id,
-                    "grand_total": str(db_invoice.grand_total),
-                    "customer_id": db_invoice.customer_id,
-                    "company_code": self.tenant_ctx.company_id,
-                    "source_database": "smriti001",
-                    "psv_party_id": psv_party_id,
-                    "psv_store_id": psv_store_id,
-                    "destination_id": snapshot_del_store_code or snapshot_billing_store_code,
-                    "items": [
-                        {
-                            "line_no": index,
-                            "sku": item.code,
-                            "quantity": str(item.quantity),
-                            "movement_type": "GST_BILLED",
-                        }
-                        for index, item in enumerate(invoice_in.items, start=1)
-                    ],
-                },
-                causation_id=db_invoice.invoice_no
             )
-        except Exception as eo:
-            print(f"[SalesService Error at record_event]: {eo}")
-            raise
-        # -- Sprint 14: Sales line-item + Loyalty earn hooks (atomic, pre-commit) --
-        from .sales_hook import write_invoice_lines, write_loyalty_earn
-        _creator = getattr(self.tenant_ctx, "user_id", None) or "system"
-        await write_invoice_lines(
-            db=self.db,
-            invoice_id=db_invoice.id,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=actual_branch_id,
-            creator=_creator,
-            items=invoice_in.items,
-            warehouse_id=warehouse_id,
-        )
-        await write_loyalty_earn(
-            db=self.db,
-            invoice_id=db_invoice.id,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=actual_branch_id,
-            customer_id=db_invoice.customer_id,
-            grand_total=calculated_grand_total,
-            creator=_creator,
-        )
-        if idempotency_key:
-            rec_id = f"tx_idemp_{uuid.uuid4().hex[:16]}"
-            self.db.add(TransactionIdempotencyRecord(
-                id=rec_id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=actual_branch_id,
-                entity_type="SALES_INVOICE",
-                idempotency_key=idempotency_key,
-                request_hash=compute_payload_hash(invoice_in),
-                status="COMMITTED",
-                document_id=db_invoice.id,
-                document_no=db_invoice.invoice_no,
-                response_payload={"id": db_invoice.id, "invoice_no": db_invoice.invoice_no, "grand_total": str(db_invoice.grand_total)},
-                completed_at=datetime.now(timezone.utc),
-                created_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
-            ))
 
-        try:
-            if commit:
-                await self.db.commit()
-            else:
-                await self.db.flush()
-        except IntegrityError as e:
-            await self.db.rollback()
-            import traceback
-            traceback.print_exc()
-            raise HTTPException(
-                status_code=409,
-                detail=_integrity_error_detail(e)
-            )
-        except Exception as e:
-            await self.db.rollback()
-            import traceback
-            traceback.print_exc()
-            raise HTTPException(status_code=400, detail=f"Commit error: {str(e)}")
-        # Re-fetch with eager items to avoid MissingGreenlet during response serialization
+        req = CanonicalPostingRequest(
+            context=ctx,
+            items=canonical_items,
+            tenders=tenders,
+            customer_id=invoice_in.customer_id,
+            customer_name=invoice_in.customer_name or "Walk-in Customer",
+            customer_phone=getattr(invoice_in, "customer_phone", None),
+            customer_gstin=invoice_in.customer_gstin,
+            billing_address=invoice_in.billing_address,
+            shipping_address=invoice_in.shipping_address,
+            place_of_supply=invoice_in.place_of_supply_code or invoice_in.pos_state,
+            reverse_charge=False,
+            notes=getattr(invoice_in, "remarks", None),
+            po_reference_no=invoice_in.po_reference,
+            customer_po_id=invoice_in.customer_po_id,
+            payment_mode=invoice_in.payment_mode,
+            promotion_campaign_id=getattr(invoice_in, "promotion_campaign_id", None),
+            promotion_coupon_code=getattr(invoice_in, "promotion_coupon_code", None),
+            promotion_coupon_id=getattr(invoice_in, "promotion_coupon_id", None),
+        )
+
+        result = await CanonicalSalesPostingWriter.post_sales_transaction(
+            session=self.db,
+            req=req,
+            idempotency_key=effective_idemp_key,
+            commit=commit,
+        )
+
+        # Re-fetch with eager items to avoid MissingGreenlet during serialization
         res = await self.db.execute(
             select(SalesInvoice)
             .options(selectinload(SalesInvoice.items))
-            .where(SalesInvoice.id == db_invoice.id)
+            .where(
+                SalesInvoice.id == result.invoice_id,
+                SalesInvoice.company_id == self.tenant_ctx.company_id,
+            )
         )
         return res.scalars().first()
+
 
     async def post_pos_transaction(
         self,
@@ -2481,11 +1662,66 @@ class SalesService:
             try:
                 cust = await self.crm_service.get_customer(invoice.customer_id)
                 if cust and invoice.grand_total:
-                    cust.outstanding = max(Decimal("0.00"), cust.outstanding - invoice.grand_total)
+                    cust.outstanding = max(Decimal("0.00"), Decimal(str(cust.outstanding or "0.00")) - Decimal(str(invoice.grand_total)))
                     cust.modified_at = datetime.now(timezone.utc)
                     self.db.add(cust)
-            except Exception:
-                pass
+
+                    credit_entry = CustomerCreditLedgerEntry(
+                        id=f"ccle-{uuid.uuid4().hex[:12]}",
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id,
+                        customer_id=cust.id,
+                        entry_date=datetime.now(timezone.utc),
+                        entry_type="CREDIT",
+                        amount=Decimal(str(invoice.grand_total)),
+                        balance_after=cust.outstanding,
+                        reference_type="SALES_INVOICE_CANCEL",
+                        reference_id=invoice.id,
+                        notes=f"Reversal for cancelled sales invoice {invoice.invoice_no}",
+                    )
+                    self.db.add(credit_entry)
+            except Exception as e:
+                logger.warning("Error reverting customer outstanding on invoice cancellation: %s", e)
+
+        # Authoritative GL Reversal Posting (Phase 1 Canonical Integrity)
+        from .unified_ledger import UnifiedAccountingLedgerService
+        try:
+            await UnifiedAccountingLedgerService.post_sales_cancellation_to_gl(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                invoice_id=invoice.id,
+                branch_id=self.tenant_ctx.branch_id,
+                reason="Sales invoice cancellation",
+                cancelled_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
+            )
+        except Exception as e:
+            logger.warning("Notice during GL cancellation posting: %s", e)
+
+        # Stage Transactional Outbox Event
+        try:
+            from .outbox_service import OutboxService
+            await OutboxService.record_event(
+                session=self.db,
+                target_channel="SALES_POSTING",
+                payload={
+                    "event_type": "SalesInvoiceCancelledEvent",
+                    "invoice_id": invoice.id,
+                    "invoice_no": invoice.invoice_no,
+                    "company_id": self.tenant_ctx.company_id,
+                    "branch_id": self.tenant_ctx.branch_id,
+                    "grand_total": str(invoice.grand_total),
+                    "customer_id": invoice.customer_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+                correlation_id=f"cancel_{invoice.id}",
+                event_type="SALES_INVOICE_CANCELLED",
+                aggregate_type="SALES_INVOICE",
+                aggregate_id=invoice.id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            )
+        except Exception as e:
+            logger.warning("Notice recording cancellation outbox event: %s", e)
 
         invoice.status      = "Cancelled"
         invoice.is_deleted  = True

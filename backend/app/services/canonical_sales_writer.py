@@ -77,6 +77,7 @@ class CanonicalSalesPostingWriter:
         cls,
         session: AsyncSession,
         req: CanonicalPostingRequest,
+        idempotency_key: Optional[str] = None,
         commit: bool = False,
     ) -> CanonicalPostingResult:
         """
@@ -86,7 +87,7 @@ class CanonicalSalesPostingWriter:
         branch_id = req.context.branch_id
         warehouse_id = req.context.warehouse_id
         shift_id = req.context.shift_id
-        idempotency_key = req.context.idempotency_key
+        idempotency_key = idempotency_key or req.context.idempotency_key
 
         # 0. Authoritative Input Validations
         if not req.items:
@@ -147,7 +148,87 @@ class CanonicalSalesPostingWriter:
         except Exception as e:
             logger.warning("Warehouse resolution fallback: %s", e)
 
-        # 2. Idempotency Check & Replay Protection
+        # 2. Idempotency Check & Replay Protection (STIE Integration)
+        from .transaction_integrity_engine import TransactionIntegrityEngine, compute_payload_hash
+        from ..models.transaction_integrity import TransactionIdempotencyRecord
+
+        req_hash = compute_payload_hash(req)
+        lock_key = idempotency_key or req.context.client_invoice_no
+        if lock_key:
+            acquired = await TransactionIntegrityEngine.try_acquire_advisory_lock(
+                session=session,
+                company_id=company_id,
+                entity_type="SALES_INVOICE",
+                lock_identifier=lock_key,
+            )
+            if not acquired:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"SMRITI-CONC-001: Concurrent execution locked for SALES_INVOICE '{lock_key}'. Another transaction is actively in progress.",
+                )
+
+        idemp_record: Optional[TransactionIdempotencyRecord] = None
+        if idempotency_key:
+            stmt_rec = select(TransactionIdempotencyRecord).where(
+                TransactionIdempotencyRecord.company_id == company_id,
+                TransactionIdempotencyRecord.entity_type == "SALES_INVOICE",
+                TransactionIdempotencyRecord.idempotency_key == idempotency_key,
+            )
+            existing_rec = (await session.execute(stmt_rec)).scalars().first()
+            if existing_rec:
+                if existing_rec.status == "COMMITTED":
+                    if existing_rec.request_hash == req_hash:
+                        logger.info("STIE Idempotent Replay for invoice %s (key %s)", existing_rec.document_no or existing_rec.document_id, idempotency_key)
+                        q_rep = select(SalesInvoice).options(selectinload(SalesInvoice.items)).where(
+                            SalesInvoice.id == existing_rec.document_id,
+                            SalesInvoice.company_id == company_id,
+                            SalesInvoice.is_deleted == False,
+                        )
+                        replayed_inv = (await session.execute(q_rep)).scalars().first()
+                        if replayed_inv:
+                            return cls._build_replayed_result(replayed_inv)
+                    else:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"SMRITI-IDEMP-001: Idempotency key collision. Key '{idempotency_key}' was previously committed with a different request fingerprint.",
+                        )
+                elif existing_rec.status == "IN_FLIGHT":
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"SMRITI-IDEMP-002: Concurrent transaction in progress for idempotency key '{idempotency_key}'. Please wait or retry.",
+                    )
+                elif existing_rec.status == "FAILED":
+                    logger.info("STIE Clean retry on previously failed idempotency key '%s'", idempotency_key)
+                    existing_rec.status = "IN_FLIGHT"
+                    existing_rec.request_hash = req_hash
+                    existing_rec.error_detail = None
+                    existing_rec.completed_at = None
+                    existing_rec.created_at = datetime.now(timezone.utc)
+                    idemp_record = existing_rec
+
+            if not idemp_record:
+                # Insert in-flight record
+                record_id = f"tx_idemp_{uuid.uuid4().hex[:16]}"
+                idemp_record = TransactionIdempotencyRecord(
+                    id=record_id,
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    entity_type="SALES_INVOICE",
+                    idempotency_key=idempotency_key,
+                    request_hash=req_hash,
+                    status="IN_FLIGHT",
+                    created_by=req.context.cashier_id or "SYSTEM",
+                )
+                session.add(idemp_record)
+                try:
+                    await session.flush()
+                except IntegrityError as exc:
+                    await session.rollback()
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"SMRITI-CONC-002: Concurrent transaction collision on idempotency key '{idempotency_key}'.",
+                    )
+
         # Check rule_snapshots JSONB for idempotency_key or direct invoice_no
         q_idem = select(SalesInvoice).options(selectinload(SalesInvoice.items)).where(
             SalesInvoice.company_id == company_id,
@@ -160,55 +241,14 @@ class CanonicalSalesPostingWriter:
         res_idem = await session.execute(q_idem)
         existing_inv = res_idem.scalars().first()
         if existing_inv:
-            logger.info("Idempotent replay detected for invoice %s (key %s)", existing_inv.invoice_no, idempotency_key)
-            replayed_lines = [
-                CanonicalPostingLineResult(
-                    line_no=item.line_no or idx + 1,
-                    variant_id=item.variant_id,
-                    item_id=item.item_id,
-                    product_id=item.product_id,
-                    code=item.code,
-                    name=item.name,
-                    quantity=Decimal(str(item.quantity)),
-                    unit_price=Decimal(str(item.price)),
-                    discount_amount=Decimal(str((item.disc_pct or Decimal("0.00")) * item.price * item.quantity / Decimal("100.00"))),
-                    taxable_value=Decimal(str(item.taxable_value or "0.00")),
-                    gst_rate=Decimal(str(item.gst_rate or "0.00")),
-                    cgst_amount=Decimal(str(item.cgst_amount or "0.00")),
-                    sgst_amount=Decimal(str(item.sgst_amount or "0.00")),
-                    igst_amount=Decimal(str(item.igst_amount or "0.00")),
-                    tax_amount=Decimal(str(item.tax_amount or "0.00")),
-                    total_amount=Decimal(str(item.total_amount or "0.00")),
-                    batch_no=item.batch_no,
-                    hsn_code=item.hsn_code,
-                    mrp=Decimal(str(item.mrp)) if item.mrp else None,
+            stored_hash = (existing_inv.rule_snapshots or {}).get("request_hash")
+            if stored_hash and stored_hash != req_hash:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"SMRITI-IDEMP-001: Idempotency key collision. Key '{idempotency_key}' was previously committed with a different request fingerprint.",
                 )
-                for idx, item in enumerate(existing_inv.items)
-            ]
-            return CanonicalPostingResult(
-                success=True,
-                invoice_id=existing_inv.id,
-                invoice_no=existing_inv.invoice_no,
-                invoice_date=existing_inv.date,
-                gross_amount=Decimal(str(existing_inv.grand_total)),
-                discount_amount=Decimal(str(existing_inv.discount_amount or "0.00")),
-                taxable_amount=Decimal(str(existing_inv.taxable_value or "0.00")),
-                cgst_amount=sum(l.cgst_amount for l in replayed_lines),
-                sgst_amount=sum(l.sgst_amount for l in replayed_lines),
-                igst_amount=sum(l.igst_amount for l in replayed_lines),
-                tax_total=Decimal(str(existing_inv.tax_total or "0.00")),
-                round_off=Decimal(str(existing_inv.rounding_amount or "0.00")),
-                net_amount=Decimal(str(existing_inv.net_amount or existing_inv.grand_total)),
-                paid_amount=Decimal(str(existing_inv.paid_amount or "0.00")),
-                balance_amount=Decimal(str(existing_inv.balance_amount or "0.00")),
-                change_amount=Decimal("0.00"),
-                is_replayed=True,
-                items_count=len(replayed_lines),
-                shift_id=existing_inv.shift_id,
-                customer_id=existing_inv.customer_id,
-                customer_name=existing_inv.customer_name,
-                lines=replayed_lines,
-            )
+            logger.info("Idempotent replay detected for invoice %s (key %s)", existing_inv.invoice_no, idempotency_key)
+            return cls._build_replayed_result(existing_inv)
 
         # 3. Customer & Credit Validation
         db_customer: Optional[Customer] = None
@@ -216,6 +256,10 @@ class CanonicalSalesPostingWriter:
         for t in req.tenders:
             if t.tender_type.upper() == "CREDIT":
                 credit_tender_amount += Decimal(str(t.amount))
+
+        cart_est_credit = credit_tender_amount
+        if (req.payment_mode or "").upper() == "CREDIT" and credit_tender_amount == Decimal("0.00"):
+            cart_est_credit = sum(Decimal(str(i.quantity)) * Decimal(str(i.unit_price)) for i in req.items)
 
         if req.customer_id:
             q_cust = select(Customer).where(
@@ -267,8 +311,8 @@ class CanonicalSalesPostingWriter:
             if not promotion_result.applied_promotions:
                 raise HTTPException(status_code=400, detail="Requested promotion is not eligible for this transaction.")
 
-        if credit_tender_amount > 0:
-            if not db_customer:
+        if credit_tender_amount > 0 or cart_est_credit > 0 or (req.payment_mode or "").upper() == "CREDIT":
+            if not db_customer or db_customer.id == "CUST-WALKIN":
                 raise HTTPException(
                     status_code=400,
                     detail="SMRITI-CREDIT-001: Credit tender cannot be used for unregistered Walk-in customers.",
@@ -276,31 +320,36 @@ class CanonicalSalesPostingWriter:
             current_outstanding = Decimal(str(db_customer.outstanding or "0.00"))
             credit_limit = Decimal("0.00")
             if db_customer.customer_group_id:
-                from ..models.crm import CustomerGroup
                 q_cg = select(CustomerGroup).where(
                     CustomerGroup.id == db_customer.customer_group_id,
                     CustomerGroup.is_deleted == False,
                 )
                 res_cg = await session.execute(q_cg)
                 cg_rec = res_cg.scalars().first()
-                if cg_rec and cg_rec.credit_limit:
-                    credit_limit = Decimal(str(cg_rec.credit_limit))
-
-            if credit_limit > 0 and (current_outstanding + credit_tender_amount) > credit_limit:
-                if not req.context.supervisor_override_code:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"SMRITI-CREDIT-002: Customer credit limit exceeded! "
-                            f"Limit: {credit_limit}, Current: {current_outstanding}, "
-                            f"Bill Credit: {credit_tender_amount}. Supervisor override required."
-                        ),
-                    )
-                logger.warning(
-                    "Credit limit override authorized by code %s for customer %s",
-                    req.context.supervisor_override_code,
-                    db_customer.id,
-                )
+                if cg_rec:
+                    if getattr(cg_rec, "credit_hold", False):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="SMRITI-CREDIT-002: Customer account is on Credit Hold. Sales blocked.",
+                        )
+                    if cg_rec.credit_limit:
+                        credit_limit = Decimal(str(cg_rec.credit_limit))
+                        eff_exposure = credit_tender_amount if credit_tender_amount > 0 else cart_est_credit
+                        if credit_limit > 0 and (current_outstanding + eff_exposure) > credit_limit:
+                            if not req.context.supervisor_override_code:
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail=(
+                                        f"SMRITI-CREDIT-003: Customer credit limit exceeded! "
+                                        f"Limit: ₹{credit_limit:,.2f}, Current: ₹{current_outstanding:,.2f}, "
+                                        f"Bill Credit: ₹{eff_exposure:,.2f}. Supervisor override required."
+                                    ),
+                                )
+                            logger.warning(
+                                "Credit limit override authorized by code %s for customer %s",
+                                req.context.supervisor_override_code,
+                                db_customer.id,
+                            )
 
         # 4. Resolve Interstate / Tax Jurisdiction
         from ..models.tenant import Company
@@ -710,6 +759,7 @@ class CanonicalSalesPostingWriter:
             source_document_id=req.customer_po_id or req.so_reference_no,
             rule_snapshots={
                 "idempotency_key": idempotency_key,
+                "request_hash": req_hash,
                 "source_channel": req.context.source_channel,
                 "supervisor_override": req.context.supervisor_override_code,
                 "calculated_at": datetime.now(timezone.utc).isoformat(),
@@ -780,9 +830,13 @@ class CanonicalSalesPostingWriter:
                 )
 
         # 10. Update Customer Outstanding if Credit Tender
-        if credit_tender_amount > 0 and db_customer:
+        effective_credit_amount = credit_tender_amount
+        if (req.payment_mode or "").upper() == "CREDIT" and effective_credit_amount == Decimal("0.00"):
+            effective_credit_amount = net_rounded
+
+        if effective_credit_amount > 0 and db_customer:
             prev_outstanding = Decimal(str(db_customer.outstanding or "0.00"))
-            db_customer.outstanding = prev_outstanding + credit_tender_amount
+            db_customer.outstanding = prev_outstanding + effective_credit_amount
             db_customer.modified_at = datetime.now(timezone.utc)
             session.add(db_customer)
 
@@ -793,7 +847,7 @@ class CanonicalSalesPostingWriter:
                 customer_id=db_customer.id,
                 entry_date=datetime.now(timezone.utc),
                 entry_type="DEBIT",
-                amount=credit_tender_amount,
+                amount=effective_credit_amount,
                 balance_after=db_customer.outstanding,
                 reference_type="SALES_INVOICE",
                 reference_id=db_invoice.id,
@@ -909,6 +963,19 @@ class CanonicalSalesPostingWriter:
             branch_id=branch_id,
         )
 
+        if idemp_record:
+            idemp_record.status = "COMMITTED"
+            idemp_record.document_id = db_invoice.id
+            idemp_record.document_no = db_invoice.invoice_no
+            idemp_record.completed_at = datetime.now(timezone.utc)
+            idemp_record.response_payload = {
+                "invoice_id": db_invoice.id,
+                "invoice_no": db_invoice.invoice_no,
+                "grand_total": str(db_invoice.grand_total),
+                "net_amount": str(db_invoice.net_amount or db_invoice.grand_total),
+            }
+            session.add(idemp_record)
+
         if commit:
             await session.commit()
         else:
@@ -963,4 +1030,56 @@ class CanonicalSalesPostingWriter:
             customer_id=db_invoice.customer_id,
             customer_name=db_invoice.customer_name,
             lines=result_lines,
+        )
+
+    @classmethod
+    def _build_replayed_result(cls, existing_inv: SalesInvoice) -> CanonicalPostingResult:
+        """Constructs an authoritative CanonicalPostingResult from a previously committed SalesInvoice."""
+        replayed_lines = [
+            CanonicalPostingLineResult(
+                line_no=item.line_no or idx + 1,
+                variant_id=item.variant_id,
+                item_id=item.item_id,
+                product_id=item.product_id,
+                code=item.code,
+                name=item.name,
+                quantity=Decimal(str(item.quantity)),
+                unit_price=Decimal(str(item.price)),
+                discount_amount=Decimal(str(getattr(item, "discount_amount", None) or ((item.disc_pct or Decimal("0.00")) * item.price * item.quantity / Decimal("100.00")))),
+                taxable_value=Decimal(str(item.taxable_value or "0.00")),
+                gst_rate=Decimal(str(item.gst_rate or "0.00")),
+                cgst_amount=Decimal(str(item.cgst_amount or "0.00")),
+                sgst_amount=Decimal(str(item.sgst_amount or "0.00")),
+                igst_amount=Decimal(str(item.igst_amount or "0.00")),
+                tax_amount=Decimal(str(item.tax_amount or "0.00")),
+                total_amount=Decimal(str(item.total_amount or "0.00")),
+                batch_no=item.batch_no,
+                hsn_code=item.hsn_code,
+                mrp=Decimal(str(item.mrp)) if item.mrp else None,
+            )
+            for idx, item in enumerate(existing_inv.items)
+        ]
+        return CanonicalPostingResult(
+            success=True,
+            invoice_id=existing_inv.id,
+            invoice_no=existing_inv.invoice_no,
+            invoice_date=existing_inv.date,
+            gross_amount=Decimal(str(existing_inv.grand_total)),
+            discount_amount=Decimal(str(existing_inv.discount_amount or "0.00")),
+            taxable_amount=Decimal(str(existing_inv.taxable_value or "0.00")),
+            cgst_amount=sum(l.cgst_amount for l in replayed_lines),
+            sgst_amount=sum(l.sgst_amount for l in replayed_lines),
+            igst_amount=sum(l.igst_amount for l in replayed_lines),
+            tax_total=Decimal(str(existing_inv.tax_total or "0.00")),
+            round_off=Decimal(str(existing_inv.rounding_amount or "0.00")),
+            net_amount=Decimal(str(existing_inv.net_amount or existing_inv.grand_total)),
+            paid_amount=Decimal(str(existing_inv.paid_amount or "0.00")),
+            balance_amount=Decimal(str(existing_inv.balance_amount or "0.00")),
+            change_amount=Decimal("0.00"),
+            is_replayed=True,
+            items_count=len(replayed_lines),
+            shift_id=existing_inv.shift_id,
+            customer_id=existing_inv.customer_id,
+            customer_name=existing_inv.customer_name,
+            lines=replayed_lines,
         )

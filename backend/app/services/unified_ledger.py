@@ -579,6 +579,162 @@ class UnifiedAccountingLedgerService:
         )
 
     @classmethod
+    async def post_sales_cancellation_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        invoice_id: str,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a cancelled Sales Invoice into an authoritative reversing GL voucher:
+        Reverses the original sales entry:
+        Debit: Sales Revenue (4010) = Subtotal (Gross before tax)
+        Debit: Output CGST (2021) = CGST Total
+        Debit: Output SGST (2022) = SGST Total
+        Debit: Output IGST (2023) = IGST Total
+        Debit/Credit: Roundoff Account (5030) = Roundoff difference
+        Credit: Accounts Receivable (1030) or Cash (1010) = Grand Total
+        """
+        stmt = select(SalesInvoice).where(
+            SalesInvoice.id == invoice_id,
+            SalesInvoice.company_id == company_id,
+        ).options(selectinload(SalesInvoice.items))
+        inv = (await session.execute(stmt)).scalar_one_or_none()
+        if not inv:
+            raise HTTPException(status_code=404, detail=f"Sales invoice {invoice_id} not found.")
+
+        # Idempotency guard: return existing cancellation voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SALES_INVOICE_CANCEL",
+            JournalVoucher.reference_doc_id == invoice_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        # Ensure COA is present
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+        acc_sales = await cls.get_account_by_code(session, company_id, "4010")
+        acc_cgst = await cls.get_account_by_code(session, company_id, "2021")
+        acc_sgst = await cls.get_account_by_code(session, company_id, "2022")
+        acc_igst = await cls.get_account_by_code(session, company_id, "2023")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        grand_total = Decimal(str(inv.grand_total or 0.00)).quantize(Decimal("0.01"))
+        tax_total = Decimal(str(inv.tax_total or 0.00)).quantize(Decimal("0.01"))
+        subtotal = Decimal(str(getattr(inv, "taxable_value", None) or getattr(inv, "subtotal", None) or (grand_total - tax_total))).quantize(Decimal("0.01"))
+
+        cgst_sum = Decimal("0.00")
+        sgst_sum = Decimal("0.00")
+        igst_sum = Decimal("0.00")
+
+        for item in (inv.items or []):
+            cgst_sum += Decimal(str(getattr(item, "cgst_amount", 0.00) or 0.00))
+            sgst_sum += Decimal(str(getattr(item, "sgst_amount", 0.00) or 0.00))
+            igst_sum += Decimal(str(getattr(item, "igst_amount", 0.00) or 0.00))
+
+        if (cgst_sum + sgst_sum + igst_sum) == 0 and tax_total > 0:
+            if getattr(inv, "is_interstate", False):
+                igst_sum = tax_total
+            else:
+                cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
+                sgst_sum = tax_total - cgst_sum
+
+        lines = []
+
+        # 1. Debit Sales Revenue (reversing original revenue credit)
+        lines.append({
+            "account_id": acc_sales.id,
+            "debit_amount": subtotal,
+            "credit_amount": Decimal("0.00"),
+            "remarks": f"Reversal of Revenue for Cancelled Invoice {inv.invoice_no}"
+        })
+
+        # 2. Debit Output Tax Ledgers (reversing original tax credit)
+        if cgst_sum > 0:
+            lines.append({
+                "account_id": acc_cgst.id,
+                "debit_amount": cgst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of Output CGST on Cancelled Invoice {inv.invoice_no}"
+            })
+        if sgst_sum > 0:
+            lines.append({
+                "account_id": acc_sgst.id,
+                "debit_amount": sgst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of Output SGST on Cancelled Invoice {inv.invoice_no}"
+            })
+        if igst_sum > 0:
+            lines.append({
+                "account_id": acc_igst.id,
+                "debit_amount": igst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of Output IGST on Cancelled Invoice {inv.invoice_no}"
+            })
+
+        # 3. Handle Roundoff reversal
+        total_debit_calc = subtotal + cgst_sum + sgst_sum + igst_sum
+        diff = grand_total - total_debit_calc
+        if abs(diff) > Decimal("0.00"):
+            if diff > 0:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": diff,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": "Reversal of Roundoff Adjustment"
+                })
+            else:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": abs(diff),
+                    "remarks": "Reversal of Roundoff Adjustment"
+                })
+
+        # 4. Credit Customer / Debtors for Grand Total (reversing original debit)
+        lines.append({
+            "account_id": acc_debtors.id,
+            "party_id": inv.customer_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": grand_total,
+            "remarks": f"Reversal of Sales Invoice {inv.invoice_no} to {inv.customer_name}"
+        })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or inv.branch_id,
+            voucher_type="SALES_CANCEL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SALES_INVOICE_CANCEL",
+            reference_doc_id=inv.id,
+            reference_doc_no=inv.invoice_no,
+            narration=f"Automated GL reversal voucher for Cancelled Sales Invoice {inv.invoice_no}. Reason: {reason or 'Customer cancellation'}",
+            created_by=cancelled_by or inv.updated_by or "SYSTEM"
+        )
+
+        try:
+            snapshots = dict(inv.rule_snapshots or {})
+            snapshots["cancellation_gl_voucher_id"] = voucher.id
+            snapshots["cancellation_gl_voucher_no"] = voucher.voucher_no
+            snapshots["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+            inv.rule_snapshots = snapshots
+            session.add(inv)
+        except Exception as e:
+            logger.warning("Could not stamp cancellation GL voucher on invoice rule_snapshots: %s", e)
+
+        return voucher
+
+    @classmethod
     async def post_purchase_receipt_to_gl(
         cls,
         session: AsyncSession,

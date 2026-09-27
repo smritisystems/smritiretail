@@ -250,29 +250,42 @@ class TransactionIntegrityEngine:
                         status_code=status.HTTP_409_CONFLICT,
                         detail=f"SMRITI-IDEMP-002: Concurrent transaction in progress for idempotency key '{clean_idemp_key}'. Please wait or retry.",
                     )
+                elif existing.status == "FAILED":
+                    logger.info(
+                        "STIE Clean Retry on Failed Transaction: %s key '%s'",
+                        entity_type,
+                        clean_idemp_key,
+                    )
+                    existing.status = "IN_FLIGHT"
+                    existing.request_hash = req_hash
+                    existing.error_detail = None
+                    existing.completed_at = None
+                    existing.created_at = datetime.now(timezone.utc)
+                    idemp_record = existing
 
-            # Insert in-flight record
-            record_id = f"tx_idemp_{uuid.uuid4().hex[:16]}"
-            idemp_record = TransactionIdempotencyRecord(
-                id=record_id,
-                company_id=company_id,
-                branch_id=branch_id,
-                entity_type=entity_type,
-                idempotency_key=clean_idemp_key,
-                request_hash=req_hash,
-                status="IN_FLIGHT",
-                created_by=user_id,
-            )
-            session.add(idemp_record)
-            try:
-                await session.flush()
-            except IntegrityError as exc:
-                await session.rollback()
-                logger.warning("STIE In-flight insertion collision: %s", exc)
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"SMRITI-CONC-002: Concurrent transaction collision on idempotency key '{clean_idemp_key}'.",
+            if not idemp_record:
+                # Insert in-flight record
+                record_id = f"tx_idemp_{uuid.uuid4().hex[:16]}"
+                idemp_record = TransactionIdempotencyRecord(
+                    id=record_id,
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    entity_type=entity_type,
+                    idempotency_key=clean_idemp_key,
+                    request_hash=req_hash,
+                    status="IN_FLIGHT",
+                    created_by=user_id,
                 )
+                session.add(idemp_record)
+                try:
+                    await session.flush()
+                except IntegrityError as exc:
+                    await session.rollback()
+                    logger.warning("STIE In-flight insertion collision: %s", exc)
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"SMRITI-CONC-002: Concurrent transaction collision on idempotency key '{clean_idemp_key}'.",
+                    )
 
         guard_obj = IntegrityGuard(
             session=session,

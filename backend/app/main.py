@@ -47,6 +47,7 @@ from .api.v1 import (
     assignments,
     barcode,
     barcode_registry,
+    billing,
     billing_csv,
     barcodes,
     boundaries,
@@ -350,6 +351,7 @@ _ROUTER_REGISTRY = [
 
     # --- Barcode & Labels ---
     (barcode,               "/barcode",              ["Barcode Studio"]),
+    (billing,               "/billing",              ["Unified Billing Engine"]),
     (billing_csv,           "/billing",              ["Barcode Billing CSV Import"]),
     (barcode_registry,      "/barcode-registry",     ["Barcode Management"]),
     (barcodes,              "/barcodes",             ["Barcode & Labels Engine"]),

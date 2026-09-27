@@ -192,8 +192,9 @@ class CrmService:
             import uuid
             grp_dict["id"] = f"cg-{uuid.uuid4().hex[:8]}"
         
+        valid_grp_data = {k: v for k, v in grp_dict.items() if hasattr(CustomerGroup, k)}
         db_group = CustomerGroup(
-            **grp_dict,
+            **valid_grp_data,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id
         )
