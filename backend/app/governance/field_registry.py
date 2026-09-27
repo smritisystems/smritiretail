@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.44.0
+Version      : 3.46.0
 Created      : 2026-09-23
-Modified     : 2026-09-23
+Modified     : 2026-09-27 (Registered canonical fields: vendor_code, style_code, color, size under item)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Architecture Governance — Canonical Field Registry SSOT
@@ -313,6 +313,26 @@ CANONICAL_FIELDS: Dict[str, CanonicalFieldDef] = {
     "item.is_active": CanonicalFieldDef(
         field_id="item.is_active", entity_id="item", db_table="items", db_column="is_active",
         data_type="BOOLEAN", field_type="BOOLEAN", label="Active", aliases=("isActive", "active")
+    ),
+    "item.vendor_code": CanonicalFieldDef(
+        field_id="item.vendor_code", entity_id="item", db_table="items", db_column="vendor_code",
+        data_type="STRING", field_type="TEXT", label="Vendor Code", max_length=100,
+        aliases=("vendorCode", "vendor_id", "supplier_code", "supplierCode", "vendor")
+    ),
+    "item.style_code": CanonicalFieldDef(
+        field_id="item.style_code", entity_id="item", db_table="items", db_column="style_code",
+        data_type="STRING", field_type="TEXT", label="Style Code / Article", max_length=100,
+        aliases=("article", "styleCode", "articleNo", "model_no", "article_no", "style")
+    ),
+    "item.color": CanonicalFieldDef(
+        field_id="item.color", entity_id="item", db_table="items", db_column="color",
+        data_type="STRING", field_type="TEXT", label="Color", max_length=50,
+        aliases=("colour", "shade", "itemColor")
+    ),
+    "item.size": CanonicalFieldDef(
+        field_id="item.size", entity_id="item", db_table="items", db_column="size",
+        data_type="STRING", field_type="TEXT", label="Size", max_length=50,
+        aliases=("size_label", "sizeLabel", "itemSize")
     ),
 
     # ── PHYSICAL SKU PRODUCT (products) ─────────────────────────────────────
