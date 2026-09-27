@@ -30,6 +30,22 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.45.9] - 2026-09-27 — Inventory: Item Master Standard v2.2 Audit & Formula Remediation
+
+> **Branch:** `smritiNX` | **Area:** Item Master Standard Template, Forensic Formula Audit & Validation Rules
+
+### Fixed
+- **Excel `COUNTA` Empty-String Trap (Col AI)** (`assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx` & `v2.2.xlsx`) — Corrected `VALIDATION_STATUS` formula from `IF(COUNTA(A5:AG5)=0, ...)` to `IF(AND(A5="",C5=""),"EMPTY", ...)`. In Microsoft Excel, `COUNTA` evaluates formula-generated empty strings `""` as non-blank; because Col B contained `=IF(C5="","",...)`, all 492 unused template rows previously displayed false `ERROR` indicators.
+- **Excel `COUNTIF` Blank-String Collision Bug (Col AJ)** — Guarded `COUNTIF($B$5:$B$500, B5) > 1` with `AND(B5<>"", ...)`. Previously, entering a barcode in Col A counted all 492 blank cells in Col B, immediately throwing false positive `Duplicate SKU_PREVIEW` errors on valid new row entry.
+- **Status vs. Message Contradiction** — Synchronized Col AJ (`VALIDATION_MESSAGE`) to explicitly report `Missing Mandatory Attributes` when required catalog attributes (Style, Brand, Color, Size, MRP) are unpopulated, eliminating cases where Col AI showed `ERROR` but Col AJ reported `OK`.
+- **Validation Dropdown Lockouts** (`Validation Lists` sheet) — Expanded defined name ranges (`List_BRAND_NAME`, `List_COLOR`, `List_SIZE`, `List_PRODUCT_TYPE`, `List_UPPER_MATERIAL`, `List_OUTSOLE_MATERIAL`) from hardcoded 1–2 item cells to 10–100 item enterprise ranges with comprehensive retail values. Softened Data Validation alert styles to `warning`/`information` so operators are guided rather than hard-blocked by modal dialogs when introducing unlisted dimensions.
+- **PriceBookEntry Routing & Price Mode Enforcement** (`backend/app/api/v1/universal_import.py`) — Conditioned `PriceBookEntry` generation on `price_mode in ("CREATE_AS_DRAFT", "CREATE_LIVE_RETAIL")`, correctly producing 0 PBEs on `DO_NOT_CREATE`. Scoped PBEs cleanly to child variants when variants are present, eliminating unnecessary duplicate parent records.
+
+### Added
+- **Canonical Item Master Creation Standard v2.2** (`assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx`) — Next-generation ratified ingestion template incorporating formula bug fixes, soft data validation dropdowns, and Rule `IM-013`.
+- **Statutory GST 2.0 Ingestion Rule `IM-013`** (`Validation Rules` sheet) — Added formal governance rule flagging footwear lines with selling price exceeding Rs. 2,500 and GST rate <= 5% for tax compliance review.
+- **Workbook Remediation Script** (`scripts/remediate_item_master_standard.py`) — Automated script for upgrading and validating workbook ASTs.
+
 ---
 
 ## [6.45.8] - 2026-09-27 — Catalog: Item Master Schema, Governance Registry & Import Pipeline Hardening
