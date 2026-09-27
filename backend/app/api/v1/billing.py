@@ -21,10 +21,49 @@ from ...models.auth import User
 from ...schemas.canonical_posting import (
     CanonicalPostingRequest,
     CanonicalPostingResult,
+    BillingCalculationResult,
 )
 from ...services.canonical_sales_writer import CanonicalSalesPostingWriter
+from ...services.headless_billing import HeadlessBillingCore
 
 router = APIRouter()
+
+
+@router.post(
+    "/preview",
+    response_model=BillingCalculationResult,
+    status_code=status.HTTP_200_OK,
+    summary="Statutory Headless Billing Calculation Preview",
+    description=(
+        "Pure read-only computation endpoint for the Unified Billing Engine. "
+        "Executes dual-key resolution, commercial discount policies, 5-tier tax-inclusivity hierarchy, "
+        "and statutory GST with commercial ROUND_HALF_UP arithmetic. "
+        "Guarantees 100% calculation parity with /checkout. "
+        "Creates NO invoices, mutates NO stock, and writes NO ledger or financial records."
+    ),
+    tags=["Unified Billing Engine"],
+)
+async def preview(
+    req: CanonicalPostingRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> BillingCalculationResult:
+    """
+    POST /api/v1/billing/preview (Read-Only Statutory Calculation Preview)
+    """
+    # 1. Enforce Strict Tenant Isolation
+    if req.context.company_id != tenant.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SMRITI-TENANT-001: Cross-tenant transaction access forbidden. Company ID mismatch.",
+        )
+
+    # 2. Execute Headless Billing Core Calculation
+    return await HeadlessBillingCore.calculate_billing(
+        session=db,
+        req=req,
+    )
 
 
 @router.post(

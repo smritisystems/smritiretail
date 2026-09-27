@@ -32,7 +32,7 @@ class CanonicalPostingContext(BaseModel):
     cashier_id: Optional[str] = Field(None, description="Operating Cashier / Operator User ID")
     terminal_id: Optional[str] = Field(None, description="Physical Counter / Terminal Identifier")
     counter_id: Optional[str] = Field(None, description="Counter register identifier")
-    idempotency_key: str = Field(..., min_length=1, max_length=128, description="Mandatory idempotency key")
+    idempotency_key: Optional[str] = Field(None, min_length=1, max_length=128, description="Mandatory idempotency key for transactions; optional for previews")
     client_invoice_no: Optional[str] = Field(None, description="Offline or client-generated invoice number")
     source_channel: str = Field("POS_RETAIL", description="POS_RETAIL, B2B_WHOLESALE, CUSTOMER_PO, SALES_ORDER, ECOMMERCE")
     allow_negative_stock: bool = Field(False, description="Governed override allowing negative stock if permitted by store policy")
@@ -46,8 +46,8 @@ class CanonicalPostingLineItem(BaseModel):
     model_config = ConfigDict(frozen=True, from_attributes=True)
 
     code: str = Field(..., description="Barcode, SKU, or legacy product code")
-    quantity: Decimal = Field(..., gt=Decimal("0.0000"), description="Quantity to bill")
-    unit_price: Decimal = Field(..., ge=Decimal("0.00"), description="Gross selling price or base rate")
+    quantity: Decimal = Field(..., description="Quantity to bill")
+    unit_price: Decimal = Field(..., description="Gross selling price or base rate")
     name: Optional[str] = Field(None, description="Item / Variant display name")
     variant_id: Optional[str] = Field(None, description="Canonical item_variants.id")
     product_id: Optional[str] = Field(None, description="Legacy products.id")
@@ -172,3 +172,66 @@ class CanonicalPostingResult(BaseModel):
     customer_id: Optional[str] = None
     customer_name: Optional[str] = None
     lines: List[CanonicalPostingLineResult] = Field(default_factory=list)
+
+
+class BillingCalculatedLine(BaseModel):
+    """
+    Computed line item result from Headless Billing Core.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    line_no: int
+    variant_id: Optional[str] = None
+    item_id: Optional[str] = None
+    product_id: Optional[str] = None
+    code: str
+    name: str
+    quantity: Decimal
+    unit_price: Decimal
+    disc_pct: Decimal = Decimal("0.00")
+    discount_amount: Decimal = Decimal("0.00")
+    taxable_value: Decimal
+    gst_rate: Decimal
+    cgst_amount: Decimal
+    sgst_amount: Decimal
+    igst_amount: Decimal
+    tax_amount: Decimal
+    total_amount: Decimal
+    is_tax_inclusive: bool
+    batch_no: Optional[str] = None
+    hsn_code: Optional[str] = None
+    mrp: Optional[Decimal] = None
+    customer_po_line_id: Optional[str] = None
+    source_line_type: Optional[str] = None
+    source_line_id: Optional[str] = None
+    salesperson_id: Optional[str] = None
+    salesperson_name: Optional[str] = None
+
+
+class BillingCalculationResult(BaseModel):
+    """
+    Statutory financial calculation result produced by Headless Billing Core.
+    Guarantees 100% calculation parity between read-only Preview and final Checkout.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    gross_amount: Decimal = Field(..., description="Sum of line gross totals (price * quantity)")
+    discount_amount: Decimal = Field(..., description="Sum of line discounts")
+    discounted_base: Decimal = Field(..., description="Gross amount minus discount amount")
+    taxable_amount: Decimal = Field(..., description="Sum of line taxable values")
+    cgst_amount: Decimal = Field(..., description="Sum of Central GST")
+    sgst_amount: Decimal = Field(..., description="Sum of State GST")
+    igst_amount: Decimal = Field(..., description="Sum of Integrated GST")
+    tax_total: Decimal = Field(..., description="Sum of all GST taxes")
+    subtotal: Decimal = Field(..., description="Unrounded invoice total (taxable + tax_total)")
+    round_off: Decimal = Field(Decimal("0.00"), description="Commercial ROUND_HALF_UP round-off delta")
+    net_amount: Decimal = Field(..., description="Final net payable amount after round-off")
+    items_count: int = Field(..., description="Total line items count")
+    total_quantity: Decimal = Field(..., description="Total units across all lines")
+    is_interstate: bool = Field(False, description="Whether transaction is inter-state (IGST applies)")
+    place_of_supply: Optional[str] = Field(None, description="2-digit Indian GST state code")
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    lines: List[BillingCalculatedLine] = Field(default_factory=list)
+    batch_deductions: List[Dict[str, Any]] = Field(default_factory=list, description="Batch stock reservation list for physical lines")
+
