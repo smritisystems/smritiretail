@@ -15,6 +15,7 @@ Classification: Regression Test Suite — Item Master & Pricing Import Pipeline
 import uuid
 import pytest
 from decimal import Decimal
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
@@ -24,6 +25,7 @@ from app.api.deps import TenantContext
 from app.api.v1.universal_import import commit_universal_import, ImportCommitRequest
 from app.models.item_master import Item, ItemVariant
 from app.models.pricing import PriceBook, PriceBookEntry
+from app.models.purchase import Supplier
 
 
 @pytest.fixture(scope="function")
@@ -106,3 +108,119 @@ async def test_import_item_pricing_routes_to_authoritative_price_book_entry(sess
         assert matched_entry.selling_price == Decimal("1899.00")
         assert matched_entry.mrp == Decimal("1899.00")
         assert matched_entry.cost_price == Decimal("950.00")
+
+
+@pytest.mark.asyncio
+async def test_import_item_vendor_code_linkage_success(session_factory):
+    """
+    PART 3 Regression Test:
+    When a valid registered Supplier exists with a code (e.g. 'A' or 'VEND-01'),
+    importing an Item with that vendor_code succeeds and populates Item.vendor_code
+    directly from Supplier.code.
+    """
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-vendor"}
+
+    token = uuid.uuid4().hex[:6].upper()
+    supplier_code = f"V{token}"
+    barcode = f"BC{token}456"
+    sku = f"SKU-{token}"
+    style_code = f"STY-{token}"
+
+    async with session_factory() as session:
+        # 1. Create a Supplier with code
+        supplier = Supplier(
+            id=f"sup_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=None,
+            code=supplier_code,
+            name=f"Alpha Supplier {token}",
+            outstanding=Decimal("0.00"),
+        )
+        session.add(supplier)
+        await session.commit()
+
+        # 2. Import an Item referencing this vendor_code
+        sample_row = {
+            "barcode": barcode,
+            "sku": sku,
+            "style_code": style_code,
+            "item_name": f"Test Vendor Item {token}",
+            "vendor_code": supplier_code.lower(),  # test case-insensitive lookup
+            "category": "Footwear",
+            "department": "Footwear",
+            "brand": "SMRITI",
+            "mrp": 1200,
+            "sellingPrice": 1200,
+        }
+
+        commit_req = ImportCommitRequest(
+            target="ITEM_MASTER",
+            rows=[sample_row],
+            idempotency_key=f"idemp-{uuid.uuid4().hex}",
+        )
+
+        res = await commit_universal_import(
+            request=commit_req,
+            db=session,
+            current_user=user,
+            tenant=tenant,
+        )
+        assert res["success"] is True
+        created_item_id = res["results"][0]["item_id"]
+
+        # 3. Assert Item.vendor_code was populated from the real Supplier.code
+        item = (await session.execute(select(Item).where(Item.id == created_item_id))).scalar_one_or_none()
+        assert item is not None
+        assert item.vendor_code == supplier_code.upper()
+
+
+@pytest.mark.asyncio
+async def test_import_item_vendor_code_linkage_unregistered_supplier_rejected(session_factory):
+    """
+    PART 3 Regression Test:
+    When an Item row references a vendor_code that does NOT exist in Supplier,
+    the service/import layer rejects it with a validation error (HTTP 422).
+    """
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-vendor-fail"}
+
+    token = uuid.uuid4().hex[:6].upper()
+    barcode = f"BC{token}789"
+    sku = f"SKU-{token}"
+    style_code = f"STY-{token}"
+
+    sample_row = {
+        "barcode": barcode,
+        "sku": sku,
+        "style_code": style_code,
+        "item_name": f"Invalid Vendor Item {token}",
+        "vendor_code": f"NONEXISTENT_{token}",
+        "category": "Footwear",
+        "department": "Footwear",
+        "mrp": 1500,
+        "sellingPrice": 1500,
+    }
+
+    commit_req = ImportCommitRequest(
+        target="ITEM_MASTER",
+        rows=[sample_row],
+        idempotency_key=f"idemp-{uuid.uuid4().hex}",
+    )
+
+    async with session_factory() as session:
+        with pytest.raises(HTTPException) as exc_info:
+            await commit_universal_import(
+                request=commit_req,
+                db=session,
+                current_user=user,
+                tenant=tenant,
+            )
+
+        assert exc_info.value.status_code == 422
+        assert "does not match any registered Supplier" in str(exc_info.value.detail)
+

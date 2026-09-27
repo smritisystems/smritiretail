@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 import openpyxl
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -32,6 +32,7 @@ from ...api.deps import get_company_db, get_current_user, get_tenant_context, Te
 from ...models.audit import ComplianceImmutableAuditLog
 from ...models.item_master import Item, ItemVariant, ItemBarcode, ItemWarehouseLocation
 from ...models.pricing import PriceBook, PriceBookEntry
+from ...models.purchase import Supplier
 from ...models.inventory import Product, Warehouse
 from ...schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
 from ...schemas.stock_acct import StockMovementRecordRequest
@@ -177,6 +178,7 @@ async def preview_universal_import(
             style = _text(row, "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE", "item_code")
             color = _text(row, "color", "colour", "Color", "Colour", "COLOR")
             size = _text(row, "size", "Size", "SIZE")
+            vendor_code = _text(row, "vendor_code", "vendorCode", "VENDOR_CODE", "supplier_code", "supplierCode", "vendor")
             mrp_val = float(row.get("mrp", row.get("MRP", 0)) or 0)
             selling_val = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))) or 0)
             warehouse_code = _text(row, "warehouse_code", "WAREHOUSE_CODE", "warehouse_id")
@@ -184,6 +186,19 @@ async def preview_universal_import(
             errors = []
             duplicate_in_file = False
             pricing_conflict = False
+
+            # Supplier / Vendor Code Linkage Validation
+            supplier_match = None
+            if vendor_code:
+                clean_vcode = vendor_code.strip().upper()
+                sup_stmt = select(Supplier).where(
+                    (Supplier.company_id == company_id) | (Supplier.company_id.is_(None)),
+                    (func.upper(Supplier.code) == clean_vcode) | (Supplier.id == vendor_code.strip()),
+                    Supplier.is_deleted == False
+                )
+                supplier_match = (await db.execute(sup_stmt)).scalars().first()
+                if not supplier_match:
+                    errors.append(f"Vendor code '{vendor_code}' does not match any registered Supplier in company {company_id}.")
 
             if not barcode:
                 errors.append("Missing BARCODE_NO")
@@ -307,6 +322,7 @@ async def preview_universal_import(
                 "errors": errors,
                 "color": color,
                 "size": size,
+                "vendor_code": supplier_match.code.upper() if supplier_match else (vendor_code or None),
                 "mrp": mrp_val,
                 "selling_price": selling_val,
                 "warehouse_code": warehouse_code or "WH-MAIN",
@@ -431,6 +447,23 @@ async def commit_universal_import(
                     if existing_sku:
                         raise HTTPException(status_code=409, detail={"row_number": row.get("rowNumber", index), "message": f"SKU '{sku}' already exists in database."})
 
+            vendor_code = _text(row, "vendor_code", "vendorCode", "VENDOR_CODE", "supplier_code", "supplierCode", "vendor")
+            resolved_vendor_code = None
+            if vendor_code:
+                clean_vcode = vendor_code.strip().upper()
+                sup_stmt = select(Supplier).where(
+                    (Supplier.company_id == company_id) | (Supplier.company_id.is_(None)),
+                    (func.upper(Supplier.code) == clean_vcode) | (Supplier.id == vendor_code.strip()),
+                    Supplier.is_deleted == False
+                )
+                supplier_match = (await db.execute(sup_stmt)).scalars().first()
+                if not supplier_match:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={"row_number": row.get("rowNumber", index), "message": f"Vendor code '{vendor_code}' does not match any registered Supplier in company {company_id}."}
+                    )
+                resolved_vendor_code = supplier_match.code.upper()
+
             resolved_rows.append({
                 "row": row,
                 "item_name": item_name,
@@ -438,6 +471,7 @@ async def commit_universal_import(
                 "style_code": style_code or sku or barcode,
                 "barcode": barcode,
                 "sku": sku,
+                "vendor_code": resolved_vendor_code,
             })
             continue
 
@@ -541,6 +575,8 @@ async def commit_universal_import(
                     existing_item = (await db.execute(item_stmt)).scalars().first()
                     if existing_item:
                         item = existing_item
+                        if resolved.get("vendor_code"):
+                            item.vendor_code = resolved["vendor_code"]
                     else:
                         cat_raw = _text(row, "category", "Category", "MERCHANDISE_CATEGORY") or "Footwear"
                         dept_raw = _text(row, "department", "Department", "MERCHANDISE_DEPARTMENT")
@@ -564,6 +600,7 @@ async def commit_universal_import(
                             department=dept,
                             brand=brand,
                             style_code=style_code,
+                            vendor_code=resolved.get("vendor_code"),
                             tax_rate=tax_rate,
                             mrp=mrp,
                             selling_price=selling_price,
@@ -574,6 +611,8 @@ async def commit_universal_import(
                             branch_id=getattr(current_user, "branch_id", None) or "BR-001",
                             commit=False,
                         )
+                        if resolved.get("vendor_code"):
+                            item.vendor_code = resolved["vendor_code"]
                     created_styles_map[style_code] = item
 
                 # 2. Create ItemVariant
