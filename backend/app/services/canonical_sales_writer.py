@@ -378,236 +378,29 @@ class CanonicalSalesPostingWriter:
 
         is_interstate = (customer_state_code != branch_state_code)
 
-        # 5. Dual-Key Item Resolution & Statutory Tax Calculation
-        calculated_lines: List[Dict[str, Any]] = []
-        batch_deductions: List[Dict[str, Any]] = []
-
-        total_gross = Decimal("0.00")
-        total_discount = Decimal("0.00")
-        total_taxable = Decimal("0.00")
-        total_cgst = Decimal("0.00")
-        total_sgst = Decimal("0.00")
-        total_igst = Decimal("0.00")
-        total_tax = Decimal("0.00")
-        cart_gross_total = sum(
-            Decimal(str(item.quantity)) * Decimal(str(item.unit_price))
-            for item in req.items
+        # 5. Dual-Key Item Resolution & Statutory Tax Calculation via HeadlessBillingCore
+        from .headless_billing import HeadlessBillingCore
+        calc_result = await HeadlessBillingCore.calculate_billing(
+            session=session,
+            req=req,
+            db_customer=db_customer,
+            customer_discount_policy=customer_discount_policy,
+            is_interstate=is_interstate,
+            promotion_result=promotion_result,
         )
 
-        for idx, item in enumerate(req.items):
-            line_no = idx + 1
-            if Decimal(str(item.quantity)) <= Decimal("0.00"):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"SMRITI-VAL-002: Line item '{item.code}' has non-positive quantity ({item.quantity}). Quantity must be greater than zero.",
-                )
-            if Decimal(str(item.unit_price)) < Decimal("0.00"):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"SMRITI-VAL-003: Line item '{item.code}' has negative unit price ({item.unit_price}). Unit price cannot be negative.",
-                )
-            if item.mrp and Decimal(str(item.mrp)) > Decimal("0.00") and Decimal(str(item.unit_price)) > Decimal(str(item.mrp)):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"SMRITI-PRICE-001: Selling price (₹{Decimal(str(item.unit_price)):,.2f}) cannot exceed statutory MRP (₹{Decimal(str(item.mrp)):,.2f}) for item '{item.name or item.code}'.",
-                )
-
-            # Dual-Key Resolution
-            identity = await CanonicalTransactionWriter.resolve_dual_key_for_line(
-                session=session,
-                company_id=company_id,
-                variant_id=item.variant_id,
-                item_id=item.item_id,
-                product_id=item.product_id,
-                code_or_barcode=item.code,
-                is_fee_line=item.is_fee_line,
-            )
-
-            if not identity.is_valid and not item.is_fee_line:
-                # Direct product table fallback for unmapped legacy products
-                q_prod = select(Product).where(
-                    Product.company_id == company_id,
-                    Product.is_deleted == False,
-                    (
-                        (Product.id == (item.product_id or item.code))
-                        | (Product.code == item.code)
-                        | (Product.barcode == item.code)
-                    ),
-                )
-                res_prod = await session.execute(q_prod)
-                direct_prod = res_prod.scalars().first()
-                if direct_prod:
-                    from .canonical_transaction_writer import DualKeyWriteIdentity
-                    identity = DualKeyWriteIdentity(
-                        canonical_variant_id=None,
-                        canonical_item_id=None,
-                        legacy_product_id=direct_prod.id,
-                        sku=direct_prod.sku or direct_prod.code,
-                        name=direct_prod.name,
-                        line_type="PHYSICAL_INVENTORY",
-                        is_valid=True,
-                        is_quarantined=False,
-                        is_consistent=False,
-                    )
-
-            if not identity.is_valid:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Line {line_no}: {identity.error_message or 'Item identity resolution failed.'}",
-                )
-
-            # Determine tax inclusive/exclusive mode via 3-tier hierarchy:
-            # 1. Line Item Override
-            # 2. Barcode level (actual sellable unit)
-            # 3. Customer level (customer-specific commercial contract)
-            # 4. Price Group level (group pricing/tax policy)
-            # 5. Channel default (POS_RETAIL -> True, other -> False)
-            if item.is_tax_inclusive is not None:
-                tax_inc = item.is_tax_inclusive
-            else:
-                # 1. Barcode check
-                barcode_tax_inc = None
-                code_to_check = str(item.code or "").strip()
-                if code_to_check:
-                    bc_tax = await session.scalar(
-                        select(ItemBarcode.is_tax_inclusive).where(
-                            ItemBarcode.company_id == company_id,
-                            ItemBarcode.barcode == code_to_check,
-                            ItemBarcode.is_deleted == False,
-                        ).limit(1)
-                    )
-                    if bc_tax is not None:
-                        barcode_tax_inc = bc_tax
-
-                if barcode_tax_inc is None and identity.canonical_variant_id:
-                    bc_tax = await session.scalar(
-                        select(ItemBarcode.is_tax_inclusive).where(
-                            ItemBarcode.variant_id == identity.canonical_variant_id,
-                            ItemBarcode.is_tax_inclusive.is_not(None),
-                            ItemBarcode.is_deleted == False,
-                        ).limit(1)
-                    )
-                    if bc_tax is not None:
-                        barcode_tax_inc = bc_tax
-
-                # 2. Customer check
-                customer_tax_inc = getattr(db_customer, "is_tax_inclusive", None) if db_customer else None
-
-                # 3. Price Group check
-                price_group_tax_inc = None
-                if db_customer:
-                    if getattr(db_customer, "customer_group_id", None):
-                        cg_tax = await session.scalar(
-                            select(CustomerGroup.is_tax_inclusive).where(
-                                CustomerGroup.id == db_customer.customer_group_id,
-                                CustomerGroup.is_deleted == False,
-                            )
-                        )
-                        if cg_tax is not None:
-                            price_group_tax_inc = cg_tax
-                    elif getattr(db_customer, "price_tier_id", None):
-                        cpt_tax = await session.scalar(
-                            select(CustomerPriceTier.is_tax_inclusive).where(
-                                CustomerPriceTier.id == db_customer.price_tier_id,
-                                CustomerPriceTier.is_deleted == False,
-                            )
-                        )
-                        if cpt_tax is not None:
-                            price_group_tax_inc = cpt_tax
-
-                if barcode_tax_inc is not None:
-                    tax_inc = barcode_tax_inc
-                elif customer_tax_inc is not None:
-                    tax_inc = customer_tax_inc
-                elif price_group_tax_inc is not None:
-                    tax_inc = price_group_tax_inc
-                elif req.context.source_channel == "POS_RETAIL":
-                    tax_inc = True  # Retail MRP inclusive by default
-                else:
-                    tax_inc = False  # Wholesale base exclusive by default
-
-            # Resolve GST rate
-            gst_rate = item.gst_rate
-            if gst_rate is None:
-                gst_rate = Decimal("18.00")  # Default statutory slab if unspecified
-
-            # Calculate line discount
-            qty = Decimal(str(item.quantity))
-            rate = Decimal(str(item.unit_price))
-            gross_base = qty * rate
-
-            disc_amount = Decimal("0.00")
-            if promotion_result:
-                promo_total = Decimal(str(promotion_result.total_promotional_discount))
-                disc_amount = round_currency(promo_total * gross_base / cart_gross_total) if cart_gross_total > 0 else Decimal("0.00")
-            else:
-                if item.disc_pct and item.disc_pct > 0:
-                    disc_amount += round_currency(gross_base * Decimal(str(item.disc_pct)) / Decimal("100.00"))
-                if item.disc_amt and item.disc_amt > 0:
-                    disc_amount += Decimal(str(item.disc_amt))
-            disc_amount = min(disc_amount, gross_base)
-
-            # Execute canonical GST math
-            tax_dict = calculate_line_item_tax(
-                unit_price=rate,
-                quantity=qty,
-                discount_amount=disc_amount,
-                gst_rate=Decimal(str(gst_rate)),
-                is_tax_inclusive=tax_inc,
-                is_interstate=is_interstate,
-            )
-
-            total_gross += gross_base
-            total_discount += disc_amount
-            total_taxable += tax_dict["taxable_value"]
-            total_cgst += tax_dict["cgst_amount"]
-            total_sgst += tax_dict["sgst_amount"]
-            total_igst += tax_dict["igst_amount"]
-            total_tax += tax_dict["tax_amount"]
-
-            line_data = {
-                "line_no": line_no,
-                "variant_id": identity.canonical_variant_id,
-                "item_id": identity.canonical_item_id,
-                "product_id": identity.legacy_product_id,
-                "code": item.code,
-                "name": item.name or identity.name or "Item",
-                "quantity": qty,
-                "price": rate,
-                "mrp": Decimal(str(item.mrp)) if item.mrp else None,
-                "disc_pct": (disc_amount / gross_base * Decimal("100.00")) if gross_base > 0 else Decimal("0.00"),
-                "discount_amount": disc_amount,
-                "taxable_value": tax_dict["taxable_value"],
-                "gst_rate": gst_rate,
-                "cgst_amount": tax_dict["cgst_amount"],
-                "sgst_amount": tax_dict["sgst_amount"],
-                "igst_amount": tax_dict["igst_amount"],
-                "tax_amount": tax_dict["tax_amount"],
-                "total_amount": tax_dict["total_amount"],
-                "hsn_code": item.hsn_code or "9999",
-                "batch_no": item.batch_no or "DEFAULT",
-                "customer_po_line_id": item.customer_po_line_id,
-                "source_line_type": item.source_line_type or ("CUSTOMER_PO" if item.customer_po_line_id else "DIRECT"),
-                "source_line_id": item.source_line_id,
-                "is_tax_inclusive": tax_inc,
-                "salesperson_id": getattr(item, "salesperson_id", None) or getattr(req, "salesperson_id", None) or getattr(req.context, "cashier_id", None),
-                "salesperson_name": getattr(item, "salesperson_name", None) or getattr(req, "salesperson_name", None),
-            }
-            calculated_lines.append(line_data)
-
-            if not item.is_fee_line and identity.legacy_product_id:
-                batch_deductions.append({
-                    "product_id": identity.legacy_product_id,
-                    "batch_no": item.batch_no or "DEFAULT",
-                    "quantity": qty,
-                    "line_no": line_no,
-                })
-
-        # 6. Invoice Grand Total & Rounding
-        raw_net = sum(l["total_amount"] for l in calculated_lines)
-        net_rounded = round_currency(raw_net)
-        round_off = net_rounded - raw_net
-        validate_customer_discount_policy(customer_discount_policy, total_discount, total_gross)
+        total_gross = calc_result.gross_amount
+        total_discount = calc_result.discount_amount
+        total_taxable = calc_result.taxable_amount
+        total_cgst = calc_result.cgst_amount
+        total_sgst = calc_result.sgst_amount
+        total_igst = calc_result.igst_amount
+        total_tax = calc_result.tax_total
+        raw_net = calc_result.subtotal
+        net_rounded = calc_result.net_amount
+        round_off = calc_result.round_off
+        calculated_lines = calc_result.lines
+        batch_deductions = calc_result.batch_deductions
 
         # 7. Invoice Numbering Allocation
         invoice_no = req.context.client_invoice_no
@@ -772,31 +565,31 @@ class CanonicalSalesPostingWriter:
         for l in calculated_lines:
             db_item = SalesInvoiceItem(
                 invoice_id=db_invoice.id,
-                product_id=l["product_id"],
-                item_id=l["item_id"],
-                variant_id=l["variant_id"],
-                code=l["code"],
-                name=l["name"],
-                quantity=l["quantity"],
-                price=l["price"],
-                mrp=l["mrp"],
-                disc_pct=l["disc_pct"],
-                taxable_value=l["taxable_value"],
-                hsn_code=l["hsn_code"],
-                gst_rate=l["gst_rate"],
-                cgst_amount=l["cgst_amount"],
-                sgst_amount=l["sgst_amount"],
-                igst_amount=l["igst_amount"],
-                tax_amount=l["tax_amount"],
-                total_amount=l["total_amount"],
-                batch_no=l["batch_no"],
-                line_no=l["line_no"],
-                customer_po_line_id=l["customer_po_line_id"],
-                source_line_type=l["source_line_type"],
-                source_line_id=l["source_line_id"],
-                is_tax_inclusive=l["is_tax_inclusive"],
-                salesperson_id=l.get("salesperson_id"),
-                salesperson_name=l.get("salesperson_name"),
+                product_id=l.product_id,
+                item_id=l.item_id,
+                variant_id=l.variant_id,
+                code=l.code,
+                name=l.name,
+                quantity=l.quantity,
+                price=l.unit_price,
+                mrp=l.mrp,
+                disc_pct=l.disc_pct,
+                taxable_value=l.taxable_value,
+                hsn_code=l.hsn_code,
+                gst_rate=l.gst_rate,
+                cgst_amount=l.cgst_amount,
+                sgst_amount=l.sgst_amount,
+                igst_amount=l.igst_amount,
+                tax_amount=l.tax_amount,
+                total_amount=l.total_amount,
+                batch_no=l.batch_no,
+                line_no=l.line_no,
+                customer_po_line_id=l.customer_po_line_id,
+                source_line_type=l.source_line_type,
+                source_line_id=l.source_line_id,
+                is_tax_inclusive=l.is_tax_inclusive,
+                salesperson_id=l.salesperson_id,
+                salesperson_name=l.salesperson_name,
             )
             session.add(db_item)
 
@@ -983,25 +776,25 @@ class CanonicalSalesPostingWriter:
 
         result_lines = [
             CanonicalPostingLineResult(
-                line_no=l["line_no"],
-                variant_id=l["variant_id"],
-                item_id=l["item_id"],
-                product_id=l["product_id"],
-                code=l["code"],
-                name=l["name"],
-                quantity=l["quantity"],
-                unit_price=l["price"],
-                discount_amount=l["discount_amount"],
-                taxable_value=l["taxable_value"],
-                gst_rate=l["gst_rate"],
-                cgst_amount=l["cgst_amount"],
-                sgst_amount=l["sgst_amount"],
-                igst_amount=l["igst_amount"],
-                tax_amount=l["tax_amount"],
-                total_amount=l["total_amount"],
-                batch_no=l["batch_no"],
-                hsn_code=l["hsn_code"],
-                mrp=l["mrp"],
+                line_no=l.line_no,
+                variant_id=l.variant_id,
+                item_id=l.item_id,
+                product_id=l.product_id,
+                code=l.code,
+                name=l.name,
+                quantity=l.quantity,
+                unit_price=l.unit_price,
+                discount_amount=l.discount_amount,
+                taxable_value=l.taxable_value,
+                gst_rate=l.gst_rate,
+                cgst_amount=l.cgst_amount,
+                sgst_amount=l.sgst_amount,
+                igst_amount=l.igst_amount,
+                tax_amount=l.tax_amount,
+                total_amount=l.total_amount,
+                batch_no=l.batch_no,
+                hsn_code=l.hsn_code,
+                mrp=l.mrp,
             )
             for l in calculated_lines
         ]
