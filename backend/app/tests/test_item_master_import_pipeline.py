@@ -22,10 +22,17 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.api.deps import TenantContext
-from app.api.v1.universal_import import commit_universal_import, ImportCommitRequest
+from app.api.v1.universal_import import (
+    commit_universal_import,
+    preview_universal_import,
+    ImportCommitRequest,
+    ImportPreviewRequest,
+)
+from app.services.catalog_validation import CatalogConsistencyValidator
 from app.models.item_master import Item, ItemVariant
 from app.models.pricing import PriceBook, PriceBookEntry
 from app.models.purchase import Supplier
+from app.models.master_lookup import MasterType, MasterValue
 
 
 @pytest.fixture(scope="function")
@@ -335,5 +342,114 @@ async def test_import_footwear_attributes_routing_to_attributes_json(session_fac
             assert variant.attributes_json.get(k) == v
         assert variant.attributes_json.get("color") == "Black"
         assert variant.attributes_json.get("size") == "9"
+
+
+@pytest.mark.asyncio
+async def test_style_code_consistency_validation_flags_snd_row_bug(session_factory):
+    """
+    PART 5 Regression Test:
+    Simulates the exact SND-row bug pattern found in raw retail CSVs:
+    - 14 rows, each size given an inconsistent style_code, but all sharing the exact same product image.
+    Asserts the service-layer validation warns (does not block) and explicitly flags the SND pattern.
+    """
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-snd"}
+
+    token = uuid.uuid4().hex[:6].upper()
+    supplier_code = f"V{token}"
+    shared_image_url = f"https://cdn.smriti.internal/catalog/snd_sneaker_{token}.jpg"
+
+    # Simulate exact SND-row bug: 14 rows, 14 sizes, each with an inconsistent style_code per size, same image
+    snd_rows = []
+    for i in range(1, 15):
+        snd_rows.append({
+            "barcode": f"BC-SND-{token}-{i}",
+            "sku": f"SKU-SND-{token}-{i}",
+            "style_code": f"SND-{token}-SZ{i}",  # Inconsistent style_code per size!
+            "size": str(5 + i),
+            "color": "BLACK",
+            "IMAGE_LINK": shared_image_url,      # Identical image across all 14 rows
+            "brand": "SND",
+            "category": "Footwear",
+            "department": "Footwear",
+            "mrp": 1999,
+            "sellingPrice": 1999,
+            "vendor_code": supplier_code,
+        })
+
+    # 1. Direct service-layer validator assertion
+    consistency_result = CatalogConsistencyValidator.validate_batch_style_consistency(snd_rows)
+    all_warnings = consistency_result["all_warnings"]
+    assert len(all_warnings) >= 1
+    snd_warning = next((w for w in all_warnings if "SND pattern detected" in w), None)
+    assert snd_warning is not None, f"Expected SND pattern warning not found in: {all_warnings}"
+    assert "14 inconsistent style codes" in snd_warning or "inconsistent style codes" in snd_warning
+    assert shared_image_url in snd_warning
+
+    async with session_factory() as session:
+        # Register brand SND in Master Lookup if not already present
+        brand_type = (await session.execute(select(MasterType).where(MasterType.code == "brand"))).scalar_one_or_none()
+        if brand_type:
+            snd_brand = (await session.execute(
+                select(MasterValue).where(MasterValue.master_type_id == brand_type.id, MasterValue.code == "SND")
+            )).scalar_one_or_none()
+            if not snd_brand:
+                session.add(MasterValue(
+                    id=uuid.uuid4(),
+                    master_type_id=brand_type.id,
+                    code="SND",
+                    name="SND",
+                    data={},
+                    active=True,
+                    is_deleted=False,
+                ))
+                await session.commit()
+
+        # Create registered supplier so foreign key lookup succeeds
+        supplier = Supplier(
+            id=f"sup_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=None,
+            code=supplier_code,
+            name=f"SND Supplier {token}",
+            outstanding=Decimal("0.00"),
+        )
+        session.add(supplier)
+        await session.commit()
+
+        # 2. Preview endpoint assertion: warns (not blocks)
+        preview_req = ImportPreviewRequest(target="ITEM_MASTER", rows=snd_rows)
+        preview_res = await preview_universal_import(
+            request=preview_req,
+            db=session,
+            current_user=user,
+            tenant=tenant,
+        )
+        assert preview_res["summary"]["warning_rows"] == 14
+        assert any("SND pattern detected" in w for w in preview_res["summary"]["warnings"])
+        # Crucial invariant: import is NOT blocked
+        assert preview_res["summary"]["status"] == "READY_FOR_IMPORT"
+
+        # 3. Commit endpoint assertion: warns, imports successfully, reports warnings
+        commit_req = ImportCommitRequest(
+            target="ITEM_MASTER",
+            rows=snd_rows,
+            idempotency_key=f"idemp-{uuid.uuid4().hex}",
+        )
+        commit_res = await commit_universal_import(
+            request=commit_req,
+            db=session,
+            current_user=user,
+            tenant=tenant,
+        )
+        assert commit_res["success"] is True
+        assert len(commit_res["results"]) == 14
+        assert any("SND pattern detected" in w for w in commit_res.get("warnings", []))
+        # Each individual result row carries the warning
+        for res_row in commit_res["results"]:
+            assert any("SND pattern detected" in w for w in res_row.get("warnings", []))
+
 
 

@@ -43,6 +43,7 @@ from ...services.item_master_svc import UniversalItemMasterService
 from ...services.purchase import PurchaseService
 from ...services.stock_acct_svc import StockAccountingBoundaryService
 from ...services.sales import SalesService
+from ...services.catalog_validation import CatalogConsistencyValidator
 
 router = APIRouter()
 
@@ -150,10 +151,13 @@ async def preview_universal_import(
     request: ImportPreviewRequest,
     db: AsyncSession = Depends(get_company_db),
     _current_user: Any = Depends(get_current_user),
+    current_user: Optional[Any] = None,
+    tenant: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Resolve rows without creating products, changing stock, or changing prices."""
+    effective_user = current_user or _current_user
     if request.target.upper().strip() == "ITEM_MASTER":
-        company_id = getattr(_current_user, "company_id", None) or (_current_user.get("company_id") if isinstance(_current_user, dict) else "COMP-001")
+        company_id = getattr(effective_user, "company_id", None) or (effective_user.get("company_id") if isinstance(effective_user, dict) else "COMP-001")
         reconciliation_report: List[Dict[str, Any]] = []
         batch_barcodes = set()
         batch_skus = set()
@@ -169,8 +173,14 @@ async def preview_universal_import(
             "invalid_rows": 0,
             "pricing_conflicts": 0,
             "distinct_styles": 0,
+            "warning_rows": 0,
+            "warnings": [],
             "status": "READY_FOR_IMPORT",
         }
+        consistency_report = CatalogConsistencyValidator.validate_batch_style_consistency(request.rows)
+        row_consistency_warnings = consistency_report["row_warnings"]
+        all_consistency_warnings = consistency_report["all_warnings"]
+
         for index, row in enumerate(request.rows, start=1):
             row_num = row.get("rowNumber", index)
             barcode = _text(row, "barcode", "Barcode", "BARCODE_NO", "ean", "upc")
@@ -320,6 +330,7 @@ async def preview_universal_import(
                 "reconciliation_state": reconciliation_state,
                 "action": action,
                 "errors": errors,
+                "warnings": row_consistency_warnings.get(index - 1, []),
                 "color": color,
                 "size": size,
                 "vendor_code": supplier_match.code.upper() if supplier_match else (vendor_code or None),
@@ -329,6 +340,8 @@ async def preview_universal_import(
             })
 
         summary["distinct_styles"] = len(seen_styles)
+        summary["warnings"] = all_consistency_warnings
+        summary["warning_rows"] = len(row_consistency_warnings)
         if summary["existing_conflict_rows"] == 0 and summary["duplicate_in_file_rows"] == 0 and summary["invalid_rows"] == 0:
             summary["status"] = "READY_FOR_IMPORT"
         else:
@@ -555,6 +568,12 @@ async def commit_universal_import(
     purchase_items: List[PurchaseReceiptItemCreate] = []
     return_items: List[SalesReturnItemCreate] = []
     created_styles_map: Dict[str, Any] = {}
+    commit_row_warnings: Dict[int, List[str]] = {}
+    commit_all_warnings: List[str] = []
+    if target == "ITEM_MASTER":
+        consistency_report = CatalogConsistencyValidator.validate_batch_style_consistency(request.rows)
+        commit_row_warnings = consistency_report["row_warnings"]
+        commit_all_warnings = consistency_report["all_warnings"]
     try:
         for index, resolved in enumerate(resolved_rows, start=1):
             if target == "ITEM_MASTER":
@@ -732,6 +751,7 @@ async def commit_universal_import(
                                 "variant_sku": variant.variant_sku if variant else clean_sku,
                                 "barcode": clean_barcode,
                                 "message": "Updated pricing for existing item match",
+                                "warnings": commit_row_warnings.get(index - 1, []),
                             })
                             continue
                         else:  # SKIP
@@ -742,6 +762,7 @@ async def commit_universal_import(
                                 "variant_id": existing_bc.variant_id,
                                 "barcode": clean_barcode,
                                 "message": "Skipped existing item match",
+                                "warnings": commit_row_warnings.get(index - 1, []),
                             })
                             continue
                     else:
@@ -873,6 +894,7 @@ async def commit_universal_import(
                     "item_code": item.item_code,
                     "variant_sku": variant.variant_sku,
                     "barcode": clean_barcode,
+                    "warnings": commit_row_warnings.get(index - 1, []),
                 })
             elif target == "PRICE_BOOK":
                 entry = await PricingEngine.add_price_book_entry(
@@ -992,7 +1014,13 @@ async def commit_universal_import(
     except Exception as error:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Universal import rolled back: {error}") from error
-    return {"success": True, "idempotent_replay": False, "idempotency_key": request.idempotency_key, "results": results}
+    return {
+        "success": True,
+        "idempotent_replay": False,
+        "idempotency_key": request.idempotency_key,
+        "results": results,
+        "warnings": commit_all_warnings if target == "ITEM_MASTER" else [],
+    }
 
 
 @router.get("/templates/item-master.xlsx", summary="Download dynamic Item Master template pre-populated with live database masters")
