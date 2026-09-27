@@ -4,21 +4,22 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.17.0
+Version      : 6.19.0
 Created      : 2026-08-25
-Modified     : 2026-09-27 (Part 2: Route item pricing to authoritative Pricing Domain PriceBookEntry)
+Modified     : 2026-09-28 (Wire IM-001 Controlled-Field Validation into Universal Import Preview)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import difflib
 import hashlib
 import json
 import uuid
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -146,6 +147,227 @@ async def _resolve_row(db: AsyncSession, row: Dict[str, Any]) -> Dict[str, Any]:
     return {"status": "NOT_FOUND"}
 
 
+class IM001ControlledFieldValidator:
+    """
+    IM-001 Controlled Master Field Governance Engine.
+    Enforces rule IM-001 ('Controlled master fields use System Master Lookup' — Action: BLOCK)
+    defined in SMRITI Item Master Creation Standard v2.1 (Validation Rules).
+
+    Loads allowed values dynamically from 'Validation Lists' in the canonical ratified
+    workbook (assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx), with
+    mtime-based in-memory caching so workbook updates reflect without code changes.
+    
+    Mandatory vs Non-Mandatory classification is dynamically extracted from the workbook's
+    'From System Master Lookup' sheet:
+    - Mandatory fields (e.g. BRAND_NAME, COLOR, SIZE, GENDER, MERCHANDISE_DEPARTMENT,
+      MERCHANDISE_CATEGORY, PRODUCT_TYPE, HEEL_TYPE, UPPER_MATERIAL, UOM):
+      Mismatch tags 'IM-001' and marks row INVALID (Action: BLOCK).
+    - Non-Mandatory fields (e.g. DESIGN_ATTRIBUTE, OUTSOLE_MATERIAL, COLLECTION_TYPE):
+      Mismatch tags 'IM-001 [Advisory]' and records a review warning without blocking the row.
+      
+    Near-match detection:
+    - Case and whitespace differences are normalized automatically.
+    - True value mismatches with high similarity (e.g. WEDGES vs WEDGE, SHOES vs SHOE,
+      SHEET vs SHEET SOLE) are NOT silently coalesced; surfaced explicitly as
+      'near-match, needs architect decision'.
+    """
+
+    _cached_mtime: Optional[float] = None
+    _cached_validation_lists: Dict[str, List[str]] = {}
+    _cached_normalized_lists: Dict[str, Dict[str, str]] = {}
+    _cached_mandatory_map: Dict[str, bool] = {}
+
+    STANDARD_WORKBOOK_RELATIVE_PATHS = [
+        Path("assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
+        Path("../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
+        Path("../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
+        Path("../../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
+        Path("../../../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
+    ]
+
+    FIELD_EXTRACTION_MAP = {
+        "BRAND_NAME": ("brand", "Brand", "BRAND_NAME"),
+        "COLOR": ("color", "colour", "Color", "Colour", "COLOR"),
+        "SIZE": ("size", "Size", "SIZE"),
+        "GENDER": ("gender", "Gender", "GENDER", "Gndr"),
+        "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT"),
+        "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY"),
+        "PRODUCT_TYPE": (
+            "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type"
+        ),
+        "HEEL_TYPE": (
+            "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel", "HEELS"
+        ),
+        "UPPER_MATERIAL": (
+            "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper", "UPPER MATERIAL"
+        ),
+        "UOM": ("uom", "UOM", "unit_of_measure"),
+        "DESIGN_ATTRIBUTE": (
+            "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute",
+            "sub_category", "Sub category", "Sub Category"
+        ),
+        "OUTSOLE_MATERIAL": (
+            "outsole", "outsole_material", "outsoleMaterial", "OUTSOLE_MATERIAL", "OUTSOLE", "sole"
+        ),
+        "COLLECTION_TYPE": (
+            "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type", "ITEM DESCRIPTION"
+        ),
+    }
+
+    @classmethod
+    def _find_standard_workbook(cls) -> Optional[Path]:
+        import os
+        custom_env = os.environ.get("SMRITI_ITEM_MASTER_STANDARD_PATH")
+        if custom_env and Path(custom_env).is_file():
+            return Path(custom_env)
+
+        try:
+            repo_root = Path(__file__).resolve().parents[4]
+            cand = repo_root / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"
+            if cand.is_file():
+                return cand
+        except Exception:
+            pass
+
+        for rel in cls.STANDARD_WORKBOOK_RELATIVE_PATHS:
+            if rel.is_file():
+                return rel.resolve()
+
+        return None
+
+    @classmethod
+    def load_standard_lists(cls) -> Tuple[Dict[str, List[str]], Dict[str, Dict[str, str]], Dict[str, bool]]:
+        wb_path = cls._find_standard_workbook()
+        if not wb_path or not wb_path.is_file():
+            return cls._cached_validation_lists, cls._cached_normalized_lists, cls._cached_mandatory_map
+
+        current_mtime = wb_path.stat().st_mtime
+        if cls._cached_mtime == current_mtime and cls._cached_validation_lists:
+            return cls._cached_validation_lists, cls._cached_normalized_lists, cls._cached_mandatory_map
+
+        import openpyxl
+        wb = openpyxl.load_workbook(wb_path, data_only=True)
+
+        mandatory_map: Dict[str, bool] = {}
+        if "From System Master Lookup" in wb.sheetnames:
+            ws_lookup = wb["From System Master Lookup"]
+            for row in ws_lookup.iter_rows(values_only=True):
+                if row and row[0]:
+                    field_name = str(row[0]).strip().upper()
+                    is_mand = False
+                    for c in row[1:]:
+                        if c is not None and str(c).strip().upper() in ("Y", "N"):
+                            is_mand = (str(c).strip().upper() == "Y")
+                            break
+                    mandatory_map[field_name] = is_mand
+
+        validation_lists: Dict[str, List[str]] = {}
+        normalized_lists: Dict[str, Dict[str, str]] = {}
+        if "Validation Lists" in wb.sheetnames:
+            ws_vl = wb["Validation Lists"]
+            for col in ws_vl.iter_cols(values_only=True):
+                header = str(col[0]).strip() if col[0] is not None else None
+                if header:
+                    header_key = header.strip().upper()
+                    items = [str(c).strip() for c in col[1:] if c is not None and str(c).strip()]
+                    validation_lists[header_key] = items
+                    normalized_lists[header_key] = {item.upper(): item for item in items}
+
+        cls._cached_mtime = current_mtime
+        cls._cached_validation_lists = validation_lists
+        cls._cached_normalized_lists = normalized_lists
+        cls._cached_mandatory_map = mandatory_map
+
+        return validation_lists, normalized_lists, mandatory_map
+
+    @classmethod
+    def find_near_match(cls, val: str, allowed_values: List[str]) -> Optional[str]:
+        val_clean = val.strip().upper()
+        # 1. Singular/Plural equality (e.g. WEDGES == WEDGE + 'S', SHOES == SHOE + 'S')
+        for cand in allowed_values:
+            cand_upper = cand.strip().upper()
+            if cand_upper == val_clean:
+                continue
+            if cand_upper.rstrip("S") == val_clean.rstrip("S"):
+                return cand
+        # 2. Substring / Prefix / Suffix match where val is base of cand (e.g. SHEET in SHEET SOLE)
+        for cand in allowed_values:
+            cand_upper = cand.strip().upper()
+            if cand_upper.startswith(val_clean + " ") or cand_upper.endswith(" " + val_clean):
+                return cand
+            if val_clean.startswith(cand_upper + " ") or val_clean.endswith(" " + cand_upper):
+                return cand
+        # 3. High-confidence fuzzy match (edit distance ratio >= 0.8)
+        matches = difflib.get_close_matches(val_clean, [c.upper() for c in allowed_values], n=1, cutoff=0.8)
+        if matches:
+            for cand in allowed_values:
+                if cand.upper() == matches[0]:
+                    return cand
+        return None
+
+    @classmethod
+    def validate_row_controlled_fields(
+        cls,
+        row: Dict[str, Any],
+        row_num: int,
+    ) -> Dict[str, Any]:
+        val_lists, norm_lists, mand_map = cls.load_standard_lists()
+
+        errors: List[str] = []
+        warnings: List[str] = []
+        field_failures: List[Dict[str, Any]] = []
+
+        for std_field, aliases in cls.FIELD_EXTRACTION_MAP.items():
+            raw_val = _text(row, *aliases)
+            if not raw_val:
+                continue
+
+            allowed_items = val_lists.get(std_field, [])
+            norm_map = norm_lists.get(std_field, {})
+
+            # Case and whitespace auto-normalize:
+            clean_val = raw_val.strip()
+            if clean_val.upper() in norm_map:
+                continue
+
+            # Mismatch detected
+            near_match = cls.find_near_match(clean_val, allowed_items)
+            is_mandatory = mand_map.get(std_field, False)
+
+            failure_info = {
+                "field": std_field,
+                "value": clean_val,
+                "is_mandatory": is_mandatory,
+                "near_match": near_match,
+            }
+            field_failures.append(failure_info)
+
+            if is_mandatory:
+                if near_match:
+                    msg = (
+                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in standard lookup "
+                        f"(near-match to '{near_match}', needs architect decision)."
+                    )
+                else:
+                    msg = f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in standard lookup."
+                errors.append(msg)
+            else:
+                if near_match:
+                    msg = (
+                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' not found in standard lookup "
+                        f"(near-match to '{near_match}', needs architect decision)."
+                    )
+                else:
+                    msg = f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' not found in standard lookup."
+                warnings.append(msg)
+
+        return {
+            "errors": errors,
+            "warnings": warnings,
+            "field_failures": field_failures,
+        }
+
+
 @router.post("/preview", summary="Preview universal import rows")
 async def preview_universal_import(
     request: ImportPreviewRequest,
@@ -228,6 +450,15 @@ async def preview_universal_import(
             if selling_val > mrp_val and mrp_val > 0:
                 pricing_conflict = True
                 errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
+
+            # IM-001: Controlled Master Field Lookup Validation
+            im001_res = IM001ControlledFieldValidator.validate_row_controlled_fields(row, row_num)
+            for err in im001_res["errors"]:
+                errors.append(err)
+            for warn in im001_res["warnings"]:
+                row_consistency_warnings.setdefault(index - 1, []).append(warn)
+                if warn not in all_consistency_warnings:
+                    all_consistency_warnings.append(warn)
 
             # Part 6: HSN / GST Soft Validation (Human Review Flag - Warn, do not block)
             upper_mat = _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper") or ""
