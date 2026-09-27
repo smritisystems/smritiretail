@@ -64,6 +64,12 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const [auxView, setAuxView] = useState<BillingAuxiliaryView>(initialView);
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>(() => new Date().toLocaleTimeString());
+
+  useEffect(() => {
+    if (initialView) {
+      setAuxView(initialView);
+    }
+  }, [initialView]);
   // Active shift determination
   const activeShift = shifts.find((s) => s.status?.toUpperCase() === "OPEN") || shifts[0] || null;
   const registerLabel = activeShift?.profileId || "REG-01";
@@ -133,11 +139,18 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 bg-[#041632] text-white px-3 py-1.5 rounded-lg text-xs font-bold">
-            <Receipt size={14} />
-            <span>Retail POS</span>
-            <kbd className="text-[9px] px-1 py-0.2 bg-white/15 text-current rounded font-mono">Alt+1</kbd>
-          </div>
+          {auxView === "CREDIT_BILLING" ? (
+            <div className="flex items-center gap-2 bg-[#7c3aed] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs">
+              <CreditCard size={14} />
+              <span>Credit Billing</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-[#041632] text-white px-3 py-1.5 rounded-lg text-xs font-bold">
+              <Receipt size={14} />
+              <span>Counter POS</span>
+              <kbd className="text-[9px] px-1 py-0.2 bg-white/15 text-current rounded font-mono">Alt+1</kbd>
+            </div>
+          )}
         </div>
 
         {/* Auxiliary Views & Operational Status HUD */}
@@ -188,13 +201,15 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             <span className="hidden sm:inline">Credit Billing</span>
           </button>
 
-          {/* Shift HUD Badge */}
-          <div className="flex items-center gap-1.5 bg-[#dcfce7] text-[#166534] dark:bg-[#14532d]/40 dark:text-[#86efac] px-2.5 py-1 rounded-lg border border-[#16a34a]/30">
-            <ShieldCheck size={13} />
-            <span className="font-mono">{registerLabel}</span>
-            <span className="opacity-60">•</span>
-            <span>{shiftStatus}</span>
-          </div>
+          {/* Shift HUD Badge - Only visible for Counter POS */}
+          {auxView !== "CREDIT_BILLING" && (
+            <div className="flex items-center gap-1.5 bg-[#dcfce7] text-[#166534] dark:bg-[#14532d]/40 dark:text-[#86efac] px-2.5 py-1 rounded-lg border border-[#16a34a]/30">
+              <ShieldCheck size={13} />
+              <span className="font-mono">{registerLabel}</span>
+              <span className="opacity-60">•</span>
+              <span>{shiftStatus}</span>
+            </div>
+          )}
 
           {/* Real-time Clock */}
           <div className="hidden md:flex items-center gap-1 bg-[#f3f4f5] dark:bg-[#191c1e] px-2.5 py-1 rounded-lg border border-[#c4c5d5] dark:border-[#444653] font-mono text-[11px]">
