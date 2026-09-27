@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.19.0
+Version      : 6.20.0
 Created      : 2026-08-25
-Modified     : 2026-09-28 (Wire IM-001 Controlled-Field Validation into Universal Import Preview)
+Modified     : 2026-09-28 (Wire IM-001 through System Parameters and System Master Lookup)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -44,7 +44,9 @@ from ...services.item_master_svc import UniversalItemMasterService
 from ...services.purchase import PurchaseService
 from ...services.stock_acct_svc import StockAccountingBoundaryService
 from ...services.sales import SalesService
-from ...services.catalog_validation import CatalogConsistencyValidator
+from ...services.catalog_validation import CatalogConsistencyValidator, CatalogDimensionValidator
+from ...services.system_parameter import SystemParameterService
+from ...db.session import async_session
 
 router = APIRouter()
 
@@ -153,18 +155,26 @@ class IM001ControlledFieldValidator:
     Enforces rule IM-001 ('Controlled master fields use System Master Lookup' — Action: BLOCK)
     defined in SMRITI Item Master Creation Standard v2.1 (Validation Rules).
 
-    Loads allowed values dynamically from 'Validation Lists' in the canonical ratified
-    workbook (assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx), with
-    mtime-based in-memory caching so workbook updates reflect without code changes.
-    
-    Mandatory vs Non-Mandatory classification is dynamically extracted from the workbook's
-    'From System Master Lookup' sheet:
-    - Mandatory fields (e.g. BRAND_NAME, COLOR, SIZE, GENDER, MERCHANDISE_DEPARTMENT,
-      MERCHANDISE_CATEGORY, PRODUCT_TYPE, HEEL_TYPE, UPPER_MATERIAL, UOM):
-      Mismatch tags 'IM-001' and marks row INVALID (Action: BLOCK).
-    - Non-Mandatory fields (e.g. DESIGN_ATTRIBUTE, OUTSOLE_MATERIAL, COLLECTION_TYPE):
-      Mismatch tags 'IM-001 [Advisory]' and records a review warning without blocking the row.
-      
+    Resolution order (two-tier):
+    1. PRIMARY — CatalogDimensionValidator.get_approved_values() against master_values in the
+       control plane (smritisys) or tenant DB.  If this returns any values, they govern.
+    2. FALLBACK — Workbook 'Validation Lists' sheet from
+       assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx,
+       mtime-cached so workbook edits take effect without a server restart.
+
+    Enforcement level per field is governed by system parameters (from system_parameters table):
+    - ValidateDataDuringPMImport: global gate (val_text '2' means full validation).
+    - ItemSubClass1HasCat  → enforces ARTICLE_STYLE_CODE lookup as BLOCK.
+    - ItemSubClass2HasCat  → enforces COLOR lookup as BLOCK.
+    - SuperClass1Present   → enforces MERCHANDISE_DEPARTMENT lookup as BLOCK.
+    - ItemSizePresent      → enforces SIZE lookup as BLOCK.
+    When a system parameter gates a field as not-enforced, IM-001 downgrades that
+    field from BLOCK to Advisory (warning only), regardless of the workbook flag.
+
+    Mandatory vs Non-Mandatory base classification is dynamically extracted from the
+    workbook's 'From System Master Lookup' sheet (Y = BLOCK, N = Advisory).
+    System parameter enforcement flags can only downgrade, never upgrade.
+
     Near-match detection:
     - Case and whitespace differences are normalized automatically.
     - True value mismatches with high similarity (e.g. WEDGES vs WEDGE, SHOES vs SHOE,
@@ -212,6 +222,34 @@ class IM001ControlledFieldValidator:
         "COLLECTION_TYPE": (
             "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type", "ITEM DESCRIPTION"
         ),
+    }
+
+    # Maps each standard field name to the CatalogDimensionValidator dimension code
+    # so DB-resident approved values can be fetched as the primary source.
+    FIELD_TO_DIMENSION_MAP: Dict[str, str] = {
+        "BRAND_NAME": "brand",
+        "COLOR": "color",
+        "SIZE": "size",
+        "GENDER": "gender",
+        "MERCHANDISE_DEPARTMENT": "department",
+        "MERCHANDISE_CATEGORY": "category",
+        "PRODUCT_TYPE": "product_type",
+        "HEEL_TYPE": "heel_type",
+        "UPPER_MATERIAL": "upper_material",
+        "UOM": "uom",
+        "DESIGN_ATTRIBUTE": "subcategory",
+        "OUTSOLE_MATERIAL": "outsole_material",
+        "COLLECTION_TYPE": "collection_type",
+    }
+
+    # Maps each standard field to the system parameter that controls whether it is
+    # enforced as a lookup (True = BLOCK, False = downgrade to Advisory).
+    # Fields not in this map use the workbook mandatory flag directly.
+    FIELD_TO_SYSPARAM_MAP: Dict[str, str] = {
+        "ARTICLE_STYLE_CODE": "ItemSubClass1HasCat",
+        "COLOR": "ItemSubClass2HasCat",
+        "MERCHANDISE_DEPARTMENT": "SuperClass1Present",
+        "SIZE": "ItemSizePresent",
     }
 
     @classmethod
@@ -306,12 +344,108 @@ class IM001ControlledFieldValidator:
         return None
 
     @classmethod
-    def validate_row_controlled_fields(
+    async def _load_sysparam_enforcement_flags(
+        cls,
+        company_id: Optional[str],
+    ) -> Dict[str, Any]:
+        """
+        Reads system parameters from the control plane that govern whether each
+        catalog dimension field is enforced as a lookup BLOCK or downgraded to Advisory.
+        
+        Returns a dict with:
+          - 'validate_during_import': bool  (ValidateDataDuringPMImport gate)
+          - 'field_enforcement': Dict[str, bool]  field_name -> True=BLOCK, False=Advisory
+        """
+        param_codes = [
+            "ValidateDataDuringPMImport",
+            "ItemSubClass1HasCat",   # style lookup
+            "ItemSubClass2HasCat",   # color/shade lookup
+            "SuperClass1Present",    # department lookup
+            "ItemSizePresent",       # size lookup
+        ]
+        result: Dict[str, Any] = {}
+        try:
+            async with async_session() as ctrl_db:
+                for code in param_codes:
+                    param = await SystemParameterService.resolve_parameter(
+                        db=ctrl_db,
+                        param_code=code,
+                        company_id=company_id,
+                    )
+                    if param is not None:
+                        result[code] = param.effective_value
+        except Exception:
+            # If control plane is unreachable, fall back to workbook defaults (all mandatory fields enforced)
+            pass
+
+        # ValidateDataDuringPMImport: val_text '2' = full validation, '0' or '1' = limited.
+        # Treat anything that resolves to a truthy text/int (not '0') as validation enabled.
+        raw_validate = result.get("ValidateDataDuringPMImport", None)
+        if raw_validate is None:
+            validate_during_import = True  # default: validate
+        elif isinstance(raw_validate, bool):
+            validate_during_import = raw_validate
+        else:
+            # val_text '2' means validate, '0' means skip validation
+            validate_during_import = str(raw_validate).strip() not in ("0", "false", "False", "")
+
+        # Per-field enforcement flags: if the system parameter is False (disabled), downgrade to Advisory
+        field_enforcement: Dict[str, bool] = {}
+        for std_field, sp_code in cls.FIELD_TO_SYSPARAM_MAP.items():
+            sp_val = result.get(sp_code, None)
+            if sp_val is None:
+                # Parameter not found → treat field as enforced (safe default)
+                field_enforcement[std_field] = True
+            elif isinstance(sp_val, bool):
+                field_enforcement[std_field] = sp_val
+            else:
+                # val_text '1' or '0'
+                field_enforcement[std_field] = str(sp_val).strip() not in ("0", "false", "False", "")
+
+        return {
+            "validate_during_import": validate_during_import,
+            "field_enforcement": field_enforcement,
+            "raw": result,
+        }
+
+    @classmethod
+    async def _get_db_approved_values_for_field(
+        cls,
+        std_field: str,
+    ) -> List[str]:
+        """
+        Queries CatalogDimensionValidator.get_approved_values() from the control plane
+        (and tenant fallback) for the dimension that backs std_field.
+        Returns a list of canonical value strings, or [] if not found / DB empty.
+        """
+        dimension = cls.FIELD_TO_DIMENSION_MAP.get(std_field)
+        if not dimension:
+            return []
+        try:
+            rows = await CatalogDimensionValidator.get_approved_values(dimension)
+            return [r["code"] for r in rows if r.get("code")]
+        except Exception:
+            return []
+
+    @classmethod
+    async def validate_row_controlled_fields(
         cls,
         row: Dict[str, Any],
         row_num: int,
+        company_id: Optional[str] = None,
     ) -> Dict[str, Any]:
+        """
+        Async version.  Resolution order:
+          1. System parameters (control plane) → gate and per-field enforcement level
+          2. CatalogDimensionValidator.get_approved_values() (DB master_values) → primary allowed list
+          3. Workbook Validation Lists → fallback allowed list
+        """
         val_lists, norm_lists, mand_map = cls.load_standard_lists()
+
+        # Tier 1: load system parameter enforcement flags
+        sp_flags = await cls._load_sysparam_enforcement_flags(company_id)
+        validate_enabled = sp_flags["validate_during_import"]
+        field_enforcement = sp_flags["field_enforcement"]
 
         errors: List[str] = []
         warnings: List[str] = []
@@ -322,49 +456,70 @@ class IM001ControlledFieldValidator:
             if not raw_val:
                 continue
 
-            allowed_items = val_lists.get(std_field, [])
-            norm_map = norm_lists.get(std_field, {})
+            # Tier 2: try DB-resident approved values first
+            db_values = await cls._get_db_approved_values_for_field(std_field)
+            if db_values:
+                # Build lookup from DB values; normalize for case-insensitive match
+                db_norm_map: Dict[str, str] = {v.strip().upper(): v.strip() for v in db_values}
+                effective_allowed = db_values
+                effective_norm_map = db_norm_map
+                source_label = "System Master Lookup"
+            else:
+                # Tier 3: fall back to workbook Validation Lists
+                effective_allowed = val_lists.get(std_field, [])
+                effective_norm_map = norm_lists.get(std_field, {})
+                source_label = "Standard Validation List (workbook fallback)"
 
             # Case and whitespace auto-normalize:
             clean_val = raw_val.strip()
-            if clean_val.upper() in norm_map:
-                continue
+            if clean_val.upper() in effective_norm_map:
+                continue  # value matched — no flag
 
-            # Mismatch detected
-            near_match = cls.find_near_match(clean_val, allowed_items)
-            is_mandatory = mand_map.get(std_field, False)
+            # No match. Determine enforcement level.
+            near_match = cls.find_near_match(clean_val, effective_allowed)
+
+            # Base mandatory flag from workbook; system parameters can only downgrade (not upgrade).
+            workbook_mandatory = mand_map.get(std_field, False)
+            # If system parameter explicitly sets field as non-enforced, downgrade to Advisory.
+            sysparam_enforced = field_enforcement.get(std_field, True)  # default: enforce
+            is_mandatory = workbook_mandatory and sysparam_enforced and validate_enabled
 
             failure_info = {
                 "field": std_field,
                 "value": clean_val,
                 "is_mandatory": is_mandatory,
                 "near_match": near_match,
+                "source": source_label,
             }
             field_failures.append(failure_info)
 
             if is_mandatory:
                 if near_match:
                     msg = (
-                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in standard lookup "
+                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in {source_label} "
                         f"(near-match to '{near_match}', needs architect decision)."
                     )
                 else:
-                    msg = f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in standard lookup."
+                    msg = f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in {source_label}."
                 errors.append(msg)
             else:
                 if near_match:
                     msg = (
-                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' not found in standard lookup "
+                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' not found in {source_label} "
                         f"(near-match to '{near_match}', needs architect decision)."
                     )
                 else:
-                    msg = f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' not found in standard lookup."
+                    msg = f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' not found in {source_label}."
                 warnings.append(msg)
 
         return {
             "errors": errors,
             "warnings": warnings,
             "field_failures": field_failures,
+            "sysparam_flags": {
+                "validate_during_import": validate_enabled,
+                "field_enforcement": field_enforcement,
+            },
         }
 
 
@@ -452,7 +607,11 @@ async def preview_universal_import(
                 errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
 
             # IM-001: Controlled Master Field Lookup Validation
-            im001_res = IM001ControlledFieldValidator.validate_row_controlled_fields(row, row_num)
+            # Two-tier: System Master Lookup (DB) primary, Workbook fallback.
+            # Enforcement level gated by system parameters from control plane.
+            im001_res = await IM001ControlledFieldValidator.validate_row_controlled_fields(
+                row, row_num, company_id=company_id
+            )
             for err in im001_res["errors"]:
                 errors.append(err)
             for warn in im001_res["warnings"]:
