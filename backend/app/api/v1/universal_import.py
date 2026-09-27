@@ -229,6 +229,37 @@ async def preview_universal_import(
                 pricing_conflict = True
                 errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
 
+            # Part 6: HSN / GST Soft Validation (Human Review Flag - Warn, do not block)
+            upper_mat = _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper") or ""
+            row_hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN") or ""
+            row_tax = float(row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT", 18))) or 18)
+            synthetic_keywords = ("synthetic", "rubber", "plastic", "pvc", "pu", "faux", "mesh", "textile", "canvas")
+            if any(kw in upper_mat.lower() for kw in synthetic_keywords) and row_hsn.strip().startswith("6403"):
+                hsn_msg = (
+                    f"HSN/Material Mismatch Flag: Upper material '{upper_mat}' indicates synthetic/rubber/plastic "
+                    f"but HSN code '{row_hsn}' belongs to chapter 6403 (leather-upper footwear). Flagged for human/CA sign-off (REQUIRES_REVIEW)."
+                )
+                row_consistency_warnings.setdefault(index - 1, []).append(hsn_msg)
+                if hsn_msg not in all_consistency_warnings:
+                    all_consistency_warnings.append(hsn_msg)
+
+            if selling_val > 2500 and row_tax <= 5:
+                gst_msg = (
+                    f"GST Slab Flag: Selling price ({selling_val}) crosses Rs. 2,500 but GST tax rate is {row_tax}%. "
+                    f"Flagged for human/CA sign-off (REQUIRES_REVIEW)."
+                )
+                row_consistency_warnings.setdefault(index - 1, []).append(gst_msg)
+                if gst_msg not in all_consistency_warnings:
+                    all_consistency_warnings.append(gst_msg)
+            elif 0 < selling_val < 2500 and row_tax >= 18:
+                gst_msg = (
+                    f"GST Slab Flag: Selling price ({selling_val}) is below Rs. 2,500 but GST tax rate is {row_tax}%. "
+                    f"Flagged for human/CA sign-off (REQUIRES_REVIEW)."
+                )
+                row_consistency_warnings.setdefault(index - 1, []).append(gst_msg)
+                if gst_msg not in all_consistency_warnings:
+                    all_consistency_warnings.append(gst_msg)
+
             # Check DB barcode
             db_bc = None
             if barcode:
@@ -619,6 +650,36 @@ async def commit_universal_import(
 
                 footwear_nested_attrs = {k: v for k, v in footwear_nested_attrs.items() if v is not None and str(v).strip()}
 
+                # Part 6: HSN / GST Soft Validation (Human Review Flag)
+                requires_review_reasons = []
+                upper_mat = (footwear_nested_attrs.get("upper_material") or "").strip().lower()
+                synthetic_keywords = ("synthetic", "rubber", "plastic", "pvc", "pu", "faux", "mesh", "textile", "canvas")
+                if any(kw in upper_mat for kw in synthetic_keywords) and hsn.strip().startswith("6403"):
+                    requires_review_reasons.append(
+                        f"HSN/Material Mismatch Flag: Upper material '{upper_mat}' indicates synthetic/rubber/plastic "
+                        f"but HSN code '{hsn}' belongs to chapter 6403 (leather-upper footwear). Flagged for human/CA sign-off (REQUIRES_REVIEW)."
+                    )
+
+                if selling_price > 2500 and tax_rate <= 5:
+                    requires_review_reasons.append(
+                        f"GST Slab Flag: Selling price ({selling_price}) crosses Rs. 2,500 but GST tax rate is {tax_rate}%. "
+                        f"Flagged for human/CA sign-off (REQUIRES_REVIEW)."
+                    )
+                elif 0 < selling_price < 2500 and tax_rate >= 18:
+                    requires_review_reasons.append(
+                        f"GST Slab Flag: Selling price ({selling_price}) is below Rs. 2,500 but GST tax rate is {tax_rate}%. "
+                        f"Flagged for human/CA sign-off (REQUIRES_REVIEW)."
+                    )
+
+                flag_requires_review = len(requires_review_reasons) > 0
+                item_status = "REQUIRES_REVIEW" if flag_requires_review else "ACTIVE"
+
+                if requires_review_reasons:
+                    for reason in requires_review_reasons:
+                        commit_row_warnings.setdefault(index - 1, []).append(reason)
+                        if reason not in commit_all_warnings:
+                            commit_all_warnings.append(reason)
+
                 # 3. Resolve or create parent Item
                 if style_code in created_styles_map:
                     item = created_styles_map[style_code]
@@ -632,6 +693,8 @@ async def commit_universal_import(
                         current_attrs = dict(item.attributes_json or {})
                         current_attrs.update(footwear_nested_attrs)
                         item.attributes_json = current_attrs
+                    if flag_requires_review:
+                        item.status = "REQUIRES_REVIEW"
                 else:
                     item_stmt = select(Item).where(
                         Item.company_id == company_id,
@@ -651,6 +714,8 @@ async def commit_universal_import(
                             current_attrs = dict(item.attributes_json or {})
                             current_attrs.update(footwear_nested_attrs)
                             item.attributes_json = current_attrs
+                        if flag_requires_review:
+                            item.status = "REQUIRES_REVIEW"
                     else:
                         item = await UniversalItemMasterService.create_item(
                             session=db,
@@ -674,8 +739,11 @@ async def commit_universal_import(
                             branch_id=getattr(current_user, "branch_id", None) or "BR-001",
                             attributes_json=footwear_nested_attrs,
                             primary_image_url=image_url,
+                            status=item_status,
                             commit=False,
                         )
+                        if flag_requires_review:
+                            item.status = "REQUIRES_REVIEW"
                         if resolved.get("vendor_code"):
                             item.vendor_code = resolved["vendor_code"]
                     created_styles_map[style_code] = item
@@ -892,6 +960,7 @@ async def commit_universal_import(
                     "status": "CREATED",
                     "item_id": item.id,
                     "item_code": item.item_code,
+                    "item_status": item.status,
                     "variant_sku": variant.variant_sku,
                     "barcode": clean_barcode,
                     "warnings": commit_row_warnings.get(index - 1, []),

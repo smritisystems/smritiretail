@@ -452,4 +452,190 @@ async def test_style_code_consistency_validation_flags_snd_row_bug(session_facto
             assert any("SND pattern detected" in w for w in res_row.get("warnings", []))
 
 
+@pytest.mark.asyncio
+async def test_hsn_material_mismatch_flags_requires_review(session_factory):
+    """
+    PART 6 Regression Test (Rule 1):
+    If upper_material indicates synthetic/rubber/plastic AND hsn_code starts with '6403'
+    (leather-upper chapter), raise a REQUIRES_REVIEW flag on the Item rather than blocking import.
+    Asserts:
+    - Import succeeds (not blocked).
+    - Item.status == 'REQUIRES_REVIEW'.
+    - Item.hsn_code is NOT auto-corrected (kept as 64039990 for human/CA sign-off).
+    - Result contains the mismatch warning advisory.
+    """
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-hsn-flag"}
+
+    token = uuid.uuid4().hex[:6].upper()
+    supplier_code = f"V{token}"
+    barcode = f"BC-SYN-{token}"
+    sku = f"SKU-SYN-{token}"
+    style_code = f"STY-SYN-{token}"
+
+    sample_row = {
+        "barcode": barcode,
+        "sku": sku,
+        "style_code": style_code,
+        "item_name": f"Synthetic Leather Sneaker {token}",
+        "brand": "SMRITI",
+        "category": "Footwear",
+        "department": "Footwear",
+        "color": "BLACK",
+        "size": "9",
+        "vendor_code": supplier_code,
+        "hsn_code": "64039990",  # Chapter 6403 (leather uppers)
+        "tax_rate": 18,
+        "mrp": 2199,
+        "sellingPrice": 2199,
+        "upper_material": "Synthetic PU Leather",  # Synthetic material!
+        "outsole": "Rubber",
+    }
+
+    commit_req = ImportCommitRequest(
+        target="ITEM_MASTER",
+        rows=[sample_row],
+        idempotency_key=f"idemp-{uuid.uuid4().hex}",
+    )
+
+    async with session_factory() as session:
+        supplier = Supplier(
+            id=f"sup_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=None,
+            code=supplier_code,
+            name=f"Supplier {token}",
+            outstanding=Decimal("0.00"),
+        )
+        session.add(supplier)
+        await session.commit()
+
+        res = await commit_universal_import(
+            request=commit_req,
+            db=session,
+            current_user=user,
+            tenant=tenant,
+        )
+
+        assert res["success"] is True
+        created_item_id = res["results"][0]["item_id"]
+
+        # Fetch Item from DB
+        item = (await session.execute(select(Item).where(Item.id == created_item_id))).scalar_one_or_none()
+        assert item is not None
+
+        # 1. Assert REQUIRES_REVIEW flag was raised
+        assert item.status == "REQUIRES_REVIEW"
+        assert res["results"][0]["item_status"] == "REQUIRES_REVIEW"
+
+        # 2. Assert HSN code was NOT auto-corrected (must remain 64039990 for CA review)
+        assert item.hsn_code == "64039990"
+
+        # 3. Assert human-readable advisory warning is attached
+        row_warnings = res["results"][0].get("warnings", [])
+        assert any("HSN/Material Mismatch Flag" in w for w in row_warnings)
+
+
+@pytest.mark.asyncio
+async def test_gst_rate_slab_mismatch_flags_requires_review(session_factory):
+    """
+    PART 6 Regression Test (Rule 2):
+    - If selling_price > Rs. 2,500 and tax_rate is 5%, flag REQUIRES_REVIEW.
+    - If selling_price < Rs. 2,500 and tax_rate is 18%, flag REQUIRES_REVIEW.
+    Asserts:
+    - Import succeeds (not blocked).
+    - Item.status == 'REQUIRES_REVIEW'.
+    - Tax rate is NOT auto-corrected (agent does not decide compliance).
+    - Result contains the GST slab advisory warning.
+    """
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-gst-flag"}
+
+    token = uuid.uuid4().hex[:6].upper()
+    supplier_code = f"V{token}"
+
+    # Row 1: High value (> 2500) with low tax rate (5%)
+    row_high_price_low_gst = {
+        "barcode": f"BC-GST1-{token}",
+        "sku": f"SKU-GST1-{token}",
+        "style_code": f"STY-GST1-{token}",
+        "item_name": f"Luxury Boot {token}",
+        "brand": "SMRITI",
+        "category": "Footwear",
+        "department": "Footwear",
+        "color": "BLACK",
+        "size": "9",
+        "vendor_code": supplier_code,
+        "hsn_code": "64041990",
+        "tax_rate": 5,      # 5% for Rs. 3500 footwear -> Slab violation
+        "mrp": 3500,
+        "sellingPrice": 3500,
+    }
+
+    # Row 2: Low value (< 2500) with high tax rate (18%)
+    row_low_price_high_gst = {
+        "barcode": f"BC-GST2-{token}",
+        "sku": f"SKU-GST2-{token}",
+        "style_code": f"STY-GST2-{token}",
+        "item_name": f"Budget Sandal {token}",
+        "brand": "SMRITI",
+        "category": "Footwear",
+        "department": "Footwear",
+        "color": "BLACK",
+        "size": "8",
+        "vendor_code": supplier_code,
+        "hsn_code": "64041990",
+        "tax_rate": 18,     # 18% for Rs. 999 footwear -> Slab violation
+        "mrp": 999,
+        "sellingPrice": 999,
+    }
+
+    commit_req = ImportCommitRequest(
+        target="ITEM_MASTER",
+        rows=[row_high_price_low_gst, row_low_price_high_gst],
+        idempotency_key=f"idemp-{uuid.uuid4().hex}",
+    )
+
+    async with session_factory() as session:
+        supplier = Supplier(
+            id=f"sup_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=None,
+            code=supplier_code,
+            name=f"Supplier {token}",
+            outstanding=Decimal("0.00"),
+        )
+        session.add(supplier)
+        await session.commit()
+
+        res = await commit_universal_import(
+            request=commit_req,
+            db=session,
+            current_user=user,
+            tenant=tenant,
+        )
+
+        assert res["success"] is True
+        assert len(res["results"]) == 2
+
+        # 1. Assert Row 1 (>2500, 5%)
+        r1_item_id = res["results"][0]["item_id"]
+        item1 = (await session.execute(select(Item).where(Item.id == r1_item_id))).scalar_one_or_none()
+        assert item1.status == "REQUIRES_REVIEW"
+        assert item1.tax_rate == Decimal("5.00")  # Not auto-corrected
+        assert any("GST Slab Flag" in w for w in res["results"][0].get("warnings", []))
+
+        # 2. Assert Row 2 (<2500, 18%)
+        r2_item_id = res["results"][1]["item_id"]
+        item2 = (await session.execute(select(Item).where(Item.id == r2_item_id))).scalar_one_or_none()
+        assert item2.status == "REQUIRES_REVIEW"
+        assert item2.tax_rate == Decimal("18.00")  # Not auto-corrected
+        assert any("GST Slab Flag" in w for w in res["results"][1].get("warnings", []))
+
+
+
 
