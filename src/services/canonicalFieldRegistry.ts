@@ -19,8 +19,8 @@
  */
 
 export const CFOC_REGISTRY_VERSION = "3.46.0";
-export const CFOC_REGISTRY_FIELDS = 133;
-export const CFOC_REGISTRY_FINGERPRINT = "4f7d88370a5d4be43c7a913cf3211364e34f873003484623f2cf4f4d982858cd";
+export const CFOC_REGISTRY_FIELDS = 137;
+export const CFOC_REGISTRY_FINGERPRINT = "3a0cc10a49a52a367f8cae0c6e2cf7c35bb188719aef404b96cde30b6d8a10d0";
 
 export type FieldLifecycle = "DRAFT" | "ACTIVE" | "DEPRECATED" | "RETIRED" | "LEGACY";
 
@@ -67,6 +67,7 @@ export type CanonicalFieldId =
   | "item.brand"
   | "item.buying_price"
   | "item.category"
+  | "item.color"
   | "item.cost_price"
   | "item.department"
   | "item.hsn_code"
@@ -76,8 +77,11 @@ export type CanonicalFieldId =
   | "item.item_name"
   | "item.mrp"
   | "item.selling_price"
+  | "item.size"
   | "item.status"
+  | "item.style_code"
   | "item.tax_rate"
+  | "item.vendor_code"
   | "master_value.active"
   | "master_value.code"
   | "master_value.id"
@@ -1408,6 +1412,35 @@ export const CANONICAL_FIELDS: Readonly<Record<string, CanonicalFieldDef>> = Obj
     apiKey: undefined,
     apiEndpoint: undefined,
   },
+  "item.color": {
+    fieldId: "item.color",
+    entityId: "item",
+    dbTable: "items",
+    dbColumn: "color",
+    dataType: "STRING",
+    fieldType: "TEXT",
+    label: "Color",
+    helpText: undefined,
+    placeholder: undefined,
+    required: false,
+    editable: true,
+    searchable: true,
+    filterable: true,
+    sortable: true,
+    readonly: false,
+    maxLength: 50,
+    minValue: undefined,
+    maxValue: undefined,
+    validationRule: undefined,
+    optionSource: undefined,
+    status: "ACTIVE",
+    lifecycle: "ACTIVE",
+    ownership: "TENANT",
+    version: 1,
+    aliases: ["colour", "shade", "itemColor"],
+    apiKey: undefined,
+    apiEndpoint: undefined,
+  },
   "item.cost_price": {
     fieldId: "item.cost_price",
     entityId: "item",
@@ -1669,6 +1702,35 @@ export const CANONICAL_FIELDS: Readonly<Record<string, CanonicalFieldDef>> = Obj
     apiKey: undefined,
     apiEndpoint: undefined,
   },
+  "item.size": {
+    fieldId: "item.size",
+    entityId: "item",
+    dbTable: "items",
+    dbColumn: "size",
+    dataType: "STRING",
+    fieldType: "TEXT",
+    label: "Size",
+    helpText: undefined,
+    placeholder: undefined,
+    required: false,
+    editable: true,
+    searchable: true,
+    filterable: true,
+    sortable: true,
+    readonly: false,
+    maxLength: 50,
+    minValue: undefined,
+    maxValue: undefined,
+    validationRule: undefined,
+    optionSource: undefined,
+    status: "ACTIVE",
+    lifecycle: "ACTIVE",
+    ownership: "TENANT",
+    version: 1,
+    aliases: ["size_label", "sizeLabel", "itemSize"],
+    apiKey: undefined,
+    apiEndpoint: undefined,
+  },
   "item.status": {
     fieldId: "item.status",
     entityId: "item",
@@ -1698,6 +1760,35 @@ export const CANONICAL_FIELDS: Readonly<Record<string, CanonicalFieldDef>> = Obj
     apiKey: undefined,
     apiEndpoint: undefined,
   },
+  "item.style_code": {
+    fieldId: "item.style_code",
+    entityId: "item",
+    dbTable: "items",
+    dbColumn: "style_code",
+    dataType: "STRING",
+    fieldType: "TEXT",
+    label: "Style Code / Article",
+    helpText: undefined,
+    placeholder: undefined,
+    required: false,
+    editable: true,
+    searchable: true,
+    filterable: true,
+    sortable: true,
+    readonly: false,
+    maxLength: 100,
+    minValue: undefined,
+    maxValue: undefined,
+    validationRule: undefined,
+    optionSource: undefined,
+    status: "ACTIVE",
+    lifecycle: "ACTIVE",
+    ownership: "TENANT",
+    version: 1,
+    aliases: ["article", "styleCode", "articleNo", "model_no", "article_no", "style"],
+    apiKey: undefined,
+    apiEndpoint: undefined,
+  },
   "item.tax_rate": {
     fieldId: "item.tax_rate",
     entityId: "item",
@@ -1724,6 +1815,35 @@ export const CANONICAL_FIELDS: Readonly<Record<string, CanonicalFieldDef>> = Obj
     ownership: "TENANT",
     version: 1,
     aliases: ["taxRate", "gst_rate", "gstRate", "gst_percentage"],
+    apiKey: undefined,
+    apiEndpoint: undefined,
+  },
+  "item.vendor_code": {
+    fieldId: "item.vendor_code",
+    entityId: "item",
+    dbTable: "items",
+    dbColumn: "vendor_code",
+    dataType: "STRING",
+    fieldType: "TEXT",
+    label: "Vendor Code",
+    helpText: undefined,
+    placeholder: undefined,
+    required: false,
+    editable: true,
+    searchable: true,
+    filterable: true,
+    sortable: true,
+    readonly: false,
+    maxLength: 100,
+    minValue: undefined,
+    maxValue: undefined,
+    validationRule: undefined,
+    optionSource: undefined,
+    status: "ACTIVE",
+    lifecycle: "ACTIVE",
+    ownership: "TENANT",
+    version: 1,
+    aliases: ["vendorCode", "vendor_id", "supplier_code", "supplierCode", "vendor"],
     apiKey: undefined,
     apiEndpoint: undefined,
   },
