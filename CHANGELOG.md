@@ -32,6 +32,22 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ---
 
+## [6.45.8] - 2026-09-27 — Catalog: Item Master Schema, Governance Registry & Import Pipeline Hardening
+
+> **Branch:** `smritiNX` | **Area:** Canonical Catalog Governance, Pricing Domain & Universal Import
+
+### Added
+- **Canonical Item Field Registration** (`backend/app/governance/field_registry.py` & `src/services/canonicalFieldRegistry.ts`) — Registered `vendor_code`, `style_code`, `color`, and `size` as canonical 1st-class business fields under entity `item` / table `items` with comprehensive aliases (`article`, `styleCode`, `articleNo`, `model_no`, `supplier_code`, `shade`). Synchronized TypeScript registry with 0 drift and 0 orphan fields.
+- **Authoritative Pricing Domain Routing** (`backend/app/api/v1/universal_import.py`) — Routed bulk item import pricing (MRP, Selling Price, Cost Price) to authoritative `PriceBookEntry` (item and variant level) linked to the default company `PriceBook`, while preserving `items.mrp`, `items.selling_price`, and `items.cost_price` as documented legacy baseline fallbacks.
+- **Supplier Code Foreign-Key Linkage** (`backend/app/api/v1/universal_import.py`) — Implemented strict foreign-key-style service-layer validation linking `Item.vendor_code` to `Supplier.code`. Import preview and commit reject unregistered supplier codes with human-readable validation errors.
+- **Footwear Attribute Segregation** (`backend/app/api/v1/universal_import.py` & `backend/app/services/item_master_svc.py`) — Explicitly separated flat columns (`style_code`, `color`, `size`, `vendor_code`, `hsn_code`, `tax_rate`, `department`, `category`, `brand`) from nested `attributes_json` specifications (`gender`, `heel_type`, `upper_material`, `outsole`, `design_attribute`, `collection_type`).
+- **Style Code & Image Consistency Validator** (`backend/app/services/catalog_validation.py`) — Engineered `validate_batch_style_consistency` to detect image discrepancies across matching style codes, cross-dimension inconsistency, and the SND-row bug pattern (14 sizes with disparate style codes sharing an identical image).
+- **Statutory HSN/GST Soft Flagging** (`backend/app/api/v1/universal_import.py`) — Non-blocking compliance checks flagging `item.status = "REQUIRES_REVIEW"` with advisory warnings for synthetic upper materials with leather HSN `6403` and selling prices conflicting with GST rate slabs (> Rs. 2,500 with tax <= 5%, or < Rs. 2,500 with tax >= 18%) for human/CA sign-off.
+- **Automated Regression Suite** (`backend/app/tests/test_item_master_import_pipeline.py`) — 7 automated tests certifying end-to-end import pipeline correctness (100% green).
+- **Governance Walkthrough** (`docs/walkthrough/catalog/Catalog_Item_Master_Schema_Governance_And_Import_Pipeline_v1.0.0.md`) — Comprehensive 13-section walkthrough covering architecture decisions, empirical verification, and known human sign-off boundaries.
+
+---
+
 ## [6.45.7] - 2026-09-27 — UI & Architecture: SMRITI Frosted Glass Boutique Login Window & Modular Architecture
 
 > **Branch:** `smritiNX` | **Area:** Frontend Authentication & Responsive Design System
