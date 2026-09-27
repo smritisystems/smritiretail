@@ -387,10 +387,10 @@ class UniversalItemMasterService:
         normalized_brand = await CatalogDimensionValidator.validate_and_normalize_dimension("brand", raw_brand, strict=True) if raw_brand else None
         normalized_cat = await CatalogDimensionValidator.validate_and_normalize_dimension("category", raw_cat, strict=True) if raw_cat else (category or "Footwear")
         normalized_dept = await CatalogDimensionValidator.validate_and_normalize_dimension("department", raw_dept, strict=True) if raw_dept else None
-        normalized_style = await CatalogDimensionValidator.validate_and_normalize_dimension("style_code", raw_style, strict=True) if raw_style else None
-        normalized_color = await CatalogDimensionValidator.validate_and_normalize_dimension("color", raw_color, strict=True) if raw_color else None
-        normalized_size = await CatalogDimensionValidator.validate_and_normalize_dimension("size", raw_size, strict=True) if raw_size else None
-        normalized_vendor = await CatalogDimensionValidator.validate_and_normalize_dimension("vendor_code", raw_vendor, strict=True) if raw_vendor else None
+        normalized_style = await CatalogDimensionValidator.validate_and_normalize_dimension("style_code", raw_style, strict=False) if raw_style else None
+        normalized_color = await CatalogDimensionValidator.validate_and_normalize_dimension("color", raw_color, strict=False) if raw_color else None
+        normalized_size = await CatalogDimensionValidator.validate_and_normalize_dimension("size", raw_size, strict=False) if raw_size else None
+        normalized_vendor = await CatalogDimensionValidator.validate_and_normalize_dimension("vendor_code", raw_vendor, strict=False) if raw_vendor else None
 
         effective_company_id = company_id or "COMP-001"
         tech_id, item_identity_code = await IdentityEngine.allocate_internal(
@@ -423,7 +423,9 @@ class UniversalItemMasterService:
             buying_price=Decimal(str(buying_price)) if buying_price is not None else None,
             cost_price=Decimal(str(cost_price)),
             is_batch_tracked=is_batch_tracked,
-            status="ACTIVE",
+            attributes_json=kwargs.get("attributes_json") or {},
+            primary_image_url=kwargs.get("primary_image_url"),
+            status=kwargs.get("status") or "ACTIVE",
             is_active=True,
             is_deleted=False,
         )

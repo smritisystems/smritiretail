@@ -563,9 +563,56 @@ async def commit_universal_import(
                 clean_barcode = (resolved.get("barcode") or "").strip().upper()
                 clean_sku = (resolved.get("sku") or "").strip().upper()
 
-                # 1. Resolve or create parent Item
+                # Explicit separation:
+                # 1. Flat Item columns: item_code, style_code, color, size, vendor_code, hsn_code, tax_rate, department, category, brand
+                color = _text(row, "color", "colour", "COLOR", "Color")
+                size = _text(row, "size", "SIZE", "Size")
+                cat_raw = _text(row, "category", "Category", "MERCHANDISE_CATEGORY") or "Footwear"
+                dept_raw = _text(row, "department", "Department", "MERCHANDISE_DEPARTMENT")
+                cat = "Footwear" if "footwear" in (cat_raw + " " + (dept_raw or "")).lower() else cat_raw
+                dept = dept_raw or ("Footwear" if cat == "Footwear" else None)
+                brand = _text(row, "brand", "Brand", "BRAND_NAME")
+                hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN") or "64041990"
+                uom = _text(row, "uom", "UOM") or "PRS"
+                tax_rate = float(row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT", 18))) or 18)
+                buying_price = float(row.get("buyingPrice", row.get("buying_price", row.get("BUYING_PRICE", 0))) or 0)
+                cost_price = float(row.get("costPrice", row.get("cost_price", row.get("LANDED_COST_PRICE", 0))) or 0)
+                mrp = float(row.get("mrp", row.get("MRP", 0)) or 0)
+                selling_price = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))) or 0)
+                image_url = _text(row, "primary_image_url", "image_url", "IMAGE_LINK", "image_link", "image")
+
+                # 2. Footwear-specific attributes routed into attributes_json:
+                # (gender, heel_type, upper_material, outsole, design_attribute, collection_type)
+                footwear_nested_attrs = {
+                    "gender": _text(row, "gender", "Gender", "GENDER", "Gndr"),
+                    "heel_type": _text(row, "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel"),
+                    "upper_material": _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper"),
+                    "outsole": _text(row, "outsole", "outsole_material", "outsoleMaterial", "OUTSOLE", "OUTSOLE_MATERIAL", "sole"),
+                    "design_attribute": _text(row, "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute"),
+                    "collection_type": _text(row, "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type"),
+                }
+                row_attrs_json = row.get("attributes_json")
+                if isinstance(row_attrs_json, dict):
+                    for ak, av in row_attrs_json.items():
+                        target_k = "outsole" if ak in ("outsole_material", "outsoleMaterial") else ak
+                        if target_k not in footwear_nested_attrs and av is not None:
+                            footwear_nested_attrs[target_k] = str(av).strip()
+
+                footwear_nested_attrs = {k: v for k, v in footwear_nested_attrs.items() if v is not None and str(v).strip()}
+
+                # 3. Resolve or create parent Item
                 if style_code in created_styles_map:
                     item = created_styles_map[style_code]
+                    if resolved.get("vendor_code") and not item.vendor_code:
+                        item.vendor_code = resolved["vendor_code"]
+                    if color and not item.color:
+                        item.color = color
+                    if size and not item.size:
+                        item.size = size
+                    if footwear_nested_attrs:
+                        current_attrs = dict(item.attributes_json or {})
+                        current_attrs.update(footwear_nested_attrs)
+                        item.attributes_json = current_attrs
                 else:
                     item_stmt = select(Item).where(
                         Item.company_id == company_id,
@@ -575,22 +622,17 @@ async def commit_universal_import(
                     existing_item = (await db.execute(item_stmt)).scalars().first()
                     if existing_item:
                         item = existing_item
-                        if resolved.get("vendor_code"):
+                        if resolved.get("vendor_code") and not item.vendor_code:
                             item.vendor_code = resolved["vendor_code"]
+                        if color and not item.color:
+                            item.color = color
+                        if size and not item.size:
+                            item.size = size
+                        if footwear_nested_attrs:
+                            current_attrs = dict(item.attributes_json or {})
+                            current_attrs.update(footwear_nested_attrs)
+                            item.attributes_json = current_attrs
                     else:
-                        cat_raw = _text(row, "category", "Category", "MERCHANDISE_CATEGORY") or "Footwear"
-                        dept_raw = _text(row, "department", "Department", "MERCHANDISE_DEPARTMENT")
-                        cat = "Footwear" if "footwear" in (cat_raw + " " + (dept_raw or "")).lower() else cat_raw
-                        dept = dept_raw or ("Footwear" if cat == "Footwear" else None)
-                        brand = _text(row, "brand", "Brand", "BRAND_NAME")
-                        hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN") or "64041990"
-                        uom = _text(row, "uom", "UOM") or "PRS"
-                        tax_rate = float(row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT", 18))) or 18)
-                        buying_price = float(row.get("buyingPrice", row.get("buying_price", row.get("BUYING_PRICE", 0))) or 0)
-                        cost_price = float(row.get("costPrice", row.get("cost_price", row.get("LANDED_COST_PRICE", 0))) or 0)
-                        mrp = float(row.get("mrp", row.get("MRP", 0)) or 0)
-                        selling_price = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))) or 0)
-
                         item = await UniversalItemMasterService.create_item(
                             session=db,
                             company_id=company_id,
@@ -600,6 +642,8 @@ async def commit_universal_import(
                             department=dept,
                             brand=brand,
                             style_code=style_code,
+                            color=color,
+                            size=size,
                             vendor_code=resolved.get("vendor_code"),
                             tax_rate=tax_rate,
                             mrp=mrp,
@@ -609,30 +653,29 @@ async def commit_universal_import(
                             primary_uom=uom,
                             hsn_code=hsn,
                             branch_id=getattr(current_user, "branch_id", None) or "BR-001",
+                            attributes_json=footwear_nested_attrs,
+                            primary_image_url=image_url,
                             commit=False,
                         )
                         if resolved.get("vendor_code"):
                             item.vendor_code = resolved["vendor_code"]
                     created_styles_map[style_code] = item
 
-                # 2. Create ItemVariant
-                color = _text(row, "color", "colour", "COLOR")
-                size = _text(row, "size", "SIZE")
+                # 4. Create ItemVariant
                 if not clean_sku:
                     clean_sku = f"{style_code}-{color}-{size}".upper() if (color and size) else f"{style_code}-VAR-{index}"
 
                 attrs = {
-                    "color": color,
-                    "size": size,
-                    "collection_type": _text(row, "collection_type", "COLLECTION_TYPE"),
-                    "gender": _text(row, "gender", "GENDER"),
-                    "product_type": _text(row, "product_type", "PRODUCT_TYPE"),
-                    "design_attribute": _text(row, "design_attribute", "DESIGN_ATTRIBUTE"),
-                    "heel_type": _text(row, "heel_type", "HEEL_TYPE"),
-                    "upper_material": _text(row, "upper_material", "UPPER_MATERIAL"),
-                    "outsole_material": _text(row, "outsole_material", "OUTSOLE_MATERIAL"),
-                    "purchase_class": _text(row, "purchase_class", "PURCHASE_CLASS"),
+                    **footwear_nested_attrs,
                 }
+                if color:
+                    attrs["color"] = color
+                if size:
+                    attrs["size"] = size
+                for extra_k in ("product_type", "purchase_class"):
+                    extra_val = _text(row, extra_k, extra_k.upper())
+                    if extra_val:
+                        attrs[extra_k] = extra_val
                 attrs = {k: v for k, v in attrs.items() if v}
 
                 row_mrp = float(row.get("mrp", row.get("MRP", item.mrp)) or item.mrp or 0)

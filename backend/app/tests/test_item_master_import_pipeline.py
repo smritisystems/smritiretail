@@ -224,3 +224,116 @@ async def test_import_item_vendor_code_linkage_unregistered_supplier_rejected(se
         assert exc_info.value.status_code == 422
         assert "does not match any registered Supplier" in str(exc_info.value.detail)
 
+
+@pytest.mark.asyncio
+async def test_import_footwear_attributes_routing_to_attributes_json(session_factory):
+    """
+    PART 4 Regression Test:
+    Confirm the import mapping explicitly separates:
+    - flat Item columns: item_code, style_code, color, size, vendor_code, hsn_code,
+      tax_rate, department, category, brand
+    - attributes_json nested fields: gender, heel_type, upper_material, outsole,
+      design_attribute, collection_type
+    Assert the JSON blob contains exactly the expected nested keys with correct values.
+    """
+    company_id = "COMP-001"
+    branch_id = "BR-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-attrs"}
+
+    token = uuid.uuid4().hex[:6].upper()
+    supplier_code = f"V{token}"
+    barcode = f"BC{token}999"
+    sku = f"SKU-{token}"
+    style_code = f"STY-{token}"
+
+    async with session_factory() as session:
+        # Create registered supplier
+        supplier = Supplier(
+            id=f"sup_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=None,
+            code=supplier_code,
+            name=f"Supplier {token}",
+            outstanding=Decimal("0.00"),
+        )
+        session.add(supplier)
+        await session.commit()
+
+        sample_row = {
+            "barcode": barcode,
+            "sku": sku,
+            "style_code": style_code,
+            "item_name": f"Sneaker Master {token}",
+            "brand": "SMRITI",
+            "category": "Footwear",
+            "department": "Footwear",
+            "color": "Black",
+            "size": "9",
+            "vendor_code": supplier_code,
+            "hsn_code": "64041990",
+            "tax_rate": 18,
+            "mrp": 2499,
+            "sellingPrice": 2499,
+            "costPrice": 1200,
+            # Footwear-specific attributes for attributes_json:
+            "gender": "Men",
+            "heel_type": "Flat",
+            "upper_material": "Mesh",
+            "outsole": "Phylon",
+            "design_attribute": "Lace-Up",
+            "collection_type": "Running",
+        }
+
+        commit_req = ImportCommitRequest(
+            target="ITEM_MASTER",
+            rows=[sample_row],
+            idempotency_key=f"idemp-{uuid.uuid4().hex}",
+        )
+
+        res = await commit_universal_import(
+            request=commit_req,
+            db=session,
+            current_user=user,
+            tenant=tenant,
+        )
+        assert res["success"] is True
+        created_item_id = res["results"][0]["item_id"]
+
+        # Fetch Item from DB
+        item = (await session.execute(select(Item).where(Item.id == created_item_id))).scalar_one_or_none()
+        assert item is not None
+
+        # 1. Assert flat columns on Item
+        assert item.item_code == style_code
+        assert item.style_code == style_code
+        assert item.color == "BLACK"
+        assert item.size == "9"
+        assert item.vendor_code == supplier_code.upper()
+        assert item.hsn_code == "64041990"
+        assert item.tax_rate == Decimal("18.00")
+        assert item.category == "Footwear"
+        assert item.department == "Footwear"
+        assert item.brand == "SMRITI"
+
+        # 2. Assert attributes_json nested fields on Item
+        expected_nested = {
+            "gender": "Men",
+            "heel_type": "Flat",
+            "upper_material": "Mesh",
+            "outsole": "Phylon",
+            "design_attribute": "Lace-Up",
+            "collection_type": "Running",
+        }
+        for k, v in expected_nested.items():
+            assert item.attributes_json.get(k) == v, f"Item.attributes_json[{k}] expected {v}, got {item.attributes_json.get(k)}"
+
+        # 3. Assert ItemVariant attributes_json contains nested attributes
+        variant = (await session.execute(select(ItemVariant).where(ItemVariant.item_id == item.id))).scalars().first()
+        assert variant is not None
+        for k, v in expected_nested.items():
+            assert variant.attributes_json.get(k) == v
+        assert variant.attributes_json.get("color") == "Black"
+        assert variant.attributes_json.get("size") == "9"
+
+
