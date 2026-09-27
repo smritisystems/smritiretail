@@ -12,8 +12,9 @@ License      : Proprietary Commercial Software
 Classification: Canonical Billing API & Transaction Router (Phase 1)
 """
 
-from typing import Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from decimal import Decimal
+from typing import Optional, List
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_tenant_context, get_current_user, TenantContext
@@ -23,10 +24,113 @@ from ...schemas.canonical_posting import (
     CanonicalPostingResult,
     BillingCalculationResult,
 )
+from ...schemas.billing_catalog import (
+    BillingCatalogResponse,
+    BillingProductItem,
+    BillingCustomerListResponse,
+    BillingCustomerItem,
+)
 from ...services.canonical_sales_writer import CanonicalSalesPostingWriter
 from ...services.headless_billing import HeadlessBillingCore
+from ...services.billing_catalog_service import BillingCatalogService
 
 router = APIRouter()
+
+
+@router.get(
+    "/products",
+    response_model=BillingCatalogResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Billing Catalog & Product Facet Explorer (Phase 3)",
+    description="Faceted product explorer with category counts, stock status filters, and multi-attribute search.",
+    tags=["Unified Billing Engine"],
+)
+async def list_billing_products(
+    q: Optional[str] = Query(None, description="Search by Code, Name, Barcode, Brand, SKU"),
+    category: Optional[str] = Query(None, description="Category filter"),
+    brand: Optional[str] = Query(None, description="Brand filter"),
+    stock_status: Optional[str] = Query(None, description="IN_STOCK, OUT_OF_STOCK, LOW_STOCK"),
+    min_price: Optional[Decimal] = Query(None, description="Min price"),
+    max_price: Optional[Decimal] = Query(None, description="Max price"),
+    is_active: Optional[bool] = Query(None, description="Only active products"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=500),
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> BillingCatalogResponse:
+    """
+    GET /api/v1/billing/products
+    """
+    return await BillingCatalogService.get_products(
+        session=db,
+        company_id=tenant.company_id,
+        q=q,
+        category=category,
+        brand=brand,
+        stock_status=stock_status,
+        min_price=min_price,
+        max_price=max_price,
+        is_active=is_active,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get(
+    "/scan/{barcode}",
+    response_model=BillingProductItem,
+    status_code=status.HTTP_200_OK,
+    summary="Fast Barcode Lookup for Scanner Guns (Phase 3)",
+    description="Resolves barcode, code, or SKU into a billing-ready product line item.",
+    tags=["Unified Billing Engine"],
+)
+async def scan_barcode(
+    barcode: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> BillingProductItem:
+    """
+    GET /api/v1/billing/scan/{barcode}
+    """
+    item = await BillingCatalogService.scan_barcode(
+        session=db,
+        company_id=tenant.company_id,
+        barcode=barcode,
+    )
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"SMRITI-BC-001: Item with barcode or code '{barcode}' not found.",
+        )
+    return item
+
+
+@router.get(
+    "/customers",
+    response_model=BillingCustomerListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Billing Customer Directory & Real-time Credit Exposure (Phase 4)",
+    description="Customer search with credit limits, current outstanding balance, and available exposure.",
+    tags=["Unified Billing Engine"],
+)
+async def list_billing_customers(
+    q: Optional[str] = Query(None, description="Search by Code, Name, Phone, GSTIN"),
+    status_tab: Optional[str] = Query("All", description="All, Active, Inactive"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> BillingCustomerListResponse:
+    """
+    GET /api/v1/billing/customers
+    """
+    return await BillingCatalogService.get_customers(
+        session=db,
+        company_id=tenant.company_id,
+        q=q,
+        status_tab=status_tab,
+    )
 
 
 @router.post(
