@@ -348,3 +348,140 @@ class CatalogDimensionValidator:
         control_db: Optional[AsyncSession] = None
     ) -> List[Dict[str, str]]:
         return await cls.get_approved_values("brand", control_db)
+
+
+class CatalogConsistencyValidator:
+    """
+    Service-layer consistency validator for catalog import and data-entry pipelines (Part 5).
+    Enforces soft consistency rules across items and variants without hard DB blocks:
+    1. Differing IMAGE_LINK across rows sharing the same style_code.
+    2. Inconsistent category, department, or brand across rows sharing the same style_code.
+    3. SND-row bug pattern: Inconsistent style_code per size sharing the identical product image.
+    """
+
+    @staticmethod
+    def _extract_text(row: Dict[str, Any], *keys: str) -> Optional[str]:
+        for k in keys:
+            if k in row and row[k] is not None:
+                v = str(row[k]).strip()
+                if v:
+                    return v
+        return None
+
+    @classmethod
+    def validate_batch_style_consistency(
+        cls,
+        rows: List[Dict[str, Any]],
+        existing_items_by_code: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Validates catalog consistency across a batch of import rows (Part 5):
+        - Warns if IMAGE_LINK differs across rows sharing the same style_code.
+        - Warns if category/department/brand are inconsistent for the same style_code.
+        - Warns if the SND-row bug pattern is present (multiple inconsistent style codes
+          per size sharing the identical product image).
+        """
+        from collections import defaultdict
+
+        row_warnings: Dict[int, List[str]] = defaultdict(list)
+        all_warnings: List[str] = []
+
+        style_to_indices: Dict[str, List[int]] = defaultdict(list)
+        image_to_indices: Dict[str, List[int]] = defaultdict(list)
+
+        for idx, row in enumerate(rows):
+            style = cls._extract_text(
+                row, "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE", "item_code"
+            )
+            image = cls._extract_text(
+                row, "primary_image_url", "image_url", "IMAGE_LINK", "image_link", "image", "IMAGE"
+            )
+
+            if style:
+                style_to_indices[style.strip().upper()].append(idx)
+            if image:
+                image_to_indices[image.strip()].append(idx)
+
+        # 1. Validate consistency for rows sharing the same style_code
+        for style_code, indices in style_to_indices.items():
+            if len(indices) <= 1:
+                continue
+
+            images = set()
+            brands = set()
+            categories = set()
+            departments = set()
+
+            for idx in indices:
+                row = rows[idx]
+                img = cls._extract_text(
+                    row, "primary_image_url", "image_url", "IMAGE_LINK", "image_link", "image", "IMAGE"
+                )
+                br = cls._extract_text(row, "brand", "Brand", "BRAND_NAME")
+                cat = cls._extract_text(row, "category", "Category", "MERCHANDISE_CATEGORY")
+                dept = cls._extract_text(row, "department", "Department", "MERCHANDISE_DEPARTMENT")
+
+                if img:
+                    images.add(img)
+                if br:
+                    brands.add(br.strip().upper())
+                if cat:
+                    categories.add(cat.strip().upper())
+                if dept:
+                    departments.add(dept.strip().upper())
+
+            if len(images) > 1:
+                warn_msg = f"Style '{style_code}' has differing IMAGE_LINK values across rows: {sorted(list(images))}"
+                all_warnings.append(warn_msg)
+                for idx in indices:
+                    row_warnings[idx].append(warn_msg)
+
+            inconsistent_dims = []
+            if len(brands) > 1:
+                inconsistent_dims.append(f"brands={sorted(list(brands))}")
+            if len(categories) > 1:
+                inconsistent_dims.append(f"categories={sorted(list(categories))}")
+            if len(departments) > 1:
+                inconsistent_dims.append(f"departments={sorted(list(departments))}")
+
+            if inconsistent_dims:
+                warn_msg = f"Style '{style_code}' has inconsistent {', '.join(inconsistent_dims)} across rows"
+                all_warnings.append(warn_msg)
+                for idx in indices:
+                    row_warnings[idx].append(warn_msg)
+
+        # 2. Validate SND-row bug pattern: inconsistent style_code per size sharing the same image
+        for image_url, indices in image_to_indices.items():
+            if len(indices) <= 1:
+                continue
+
+            styles_for_image = set()
+            sizes_for_image = set()
+            for idx in indices:
+                row = rows[idx]
+                st = cls._extract_text(
+                    row, "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE", "item_code"
+                )
+                sz = cls._extract_text(row, "size", "Size", "SIZE")
+                if st:
+                    styles_for_image.add(st.strip().upper())
+                if sz:
+                    sizes_for_image.add(sz.strip())
+
+            if len(styles_for_image) > 1:
+                sample_styles = sorted(list(styles_for_image))[:5]
+                warn_msg = (
+                    f"SND pattern detected: Same image link '{image_url}' is mapped to {len(styles_for_image)} "
+                    f"inconsistent style codes ({sample_styles}{'...' if len(styles_for_image) > 5 else ''}) "
+                    f"across {len(indices)} rows sharing sizes {sorted(list(sizes_for_image))}. "
+                    f"Expected a unified style_code across size variants."
+                )
+                all_warnings.append(warn_msg)
+                for idx in indices:
+                    row_warnings[idx].append(warn_msg)
+
+        return {
+            "row_warnings": dict(row_warnings),
+            "all_warnings": list(dict.fromkeys(all_warnings)),
+        }
+
