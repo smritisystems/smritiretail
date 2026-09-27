@@ -30,6 +30,36 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.46.0] - 2026-09-28 — Catalog: IM-001 Two-Tier Controlled-Field Validation — System Parameters & System Master Lookup
+
+> **Branch:** `smritiNX` | **Commit:** `a64f0a35` | **Area:** Universal Import Pipeline, IM-001 Enforcement
+
+### Changed
+- **`IM001ControlledFieldValidator.validate_row_controlled_fields()` promoted to async** (`backend/app/api/v1/universal_import.py`) — Method is now `async` and accepts `company_id` to scope system parameter resolution to the correct tenant.
+
+### Added
+- **Two-Tier Allowed-Value Resolution:** DB master_values (`CatalogDimensionValidator.get_approved_values()` via control-plane `smritisys`) is now the **primary** source for allowed values per controlled field. The workbook `Validation Lists` sheet (`SMRITI_Item_Master_Creation_Standard_v2.1.xlsx`) is the **fallback** when the DB has no values for a dimension. Each field failure now carries a `"source"` label: `"System Master Lookup"` or `"Standard Validation List (workbook fallback)"`.
+- **System Parameter Enforcement Gate** (`_load_sysparam_enforcement_flags(company_id)`) — Reads 5 system parameters from `system_parameters` via `SystemParameterService.resolve_parameter()` with full 4-tier hierarchy (Terminal > Branch > Company > Global):
+  - `ValidateDataDuringPMImport` — global gate (`val_text='2'` = validate, `'0'` = bypass)
+  - `ItemSubClass1HasCat` → enforces `ARTICLE_STYLE_CODE` as BLOCK
+  - `ItemSubClass2HasCat` → enforces `COLOR` as BLOCK
+  - `SuperClass1Present` → enforces `MERCHANDISE_DEPARTMENT` as BLOCK
+  - `ItemSizePresent` → enforces `SIZE` as BLOCK
+  - System parameters can only **downgrade** enforcement from BLOCK to Advisory, never upgrade.
+  - Control-plane unreachable → defaults to enforce-all (safe fallback).
+- **`FIELD_TO_DIMENSION_MAP`** (class-level) — maps each standard field to `CatalogDimensionValidator` type code for DB lookup.
+- **`FIELD_TO_SYSPARAM_MAP`** (class-level) — maps each standard field to its governing system parameter code.
+- **`sysparam_flags`** added to `validate_row_controlled_fields()` return dict for diagnostics (includes `validate_during_import` bool and `field_enforcement` dict).
+- **Imports:** `CatalogDimensionValidator`, `SystemParameterService`, `async_session` added to `universal_import.py`.
+
+### Verification
+- Syntax: PASSED (`ast.parse`)
+- System param resolution (COMP-001): `ItemSubClass1HasCat=True`, `ItemSubClass2HasCat=True`, `SuperClass1Present=True`, `ItemSizePresent=True`, `ValidateDataDuringPMImport=2`
+- Tattly 615-row preview: 546 affected / 615 total — sanity check stable
+- All 6 failing fields route through workbook fallback (DB not yet seeded for those dimensions)
+
+---
+
 ## [6.45.9] - 2026-09-27 — Inventory: Item Master Standard v2.2 Audit & Formula Remediation
 
 > **Branch:** `smritiNX` | **Area:** Item Master Standard Template, Forensic Formula Audit & Validation Rules
