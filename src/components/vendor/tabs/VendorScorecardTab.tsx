@@ -12,9 +12,10 @@
  * Classification: Internal
  */
 
-import React, { useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Award, Clock, CheckCircle2, AlertTriangle, TrendingUp, Percent } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
+import { apiFetchV1 } from "../../../lib/apiFetchV1";
 import { withCapability } from "../../../types/architecture";
 import SupplierScorecardEngine, {
   SupplierProfile as ScorecardProfile,
@@ -34,52 +35,89 @@ const SLA_STYLES: Record<SupplierSLAStatus, { bg: string; border: string; text: 
 };
 
 const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) => {
-  const scorecard = useMemo(() => {
+  const [orders, setOrders] = useState<PurchaseOrderRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchScoreData = async () => {
+      setLoading(true);
+      try {
+        // Fetch closed (RECEIVED) POs for SLA analysis — server-side filtered
+        let raw: any[] = [];
+        try {
+          const res = await apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(vendor.id)}`);
+          raw = Array.isArray(res) ? res : res?.items || [];
+          if (raw.length === 0) {
+            const legacyId = `sup-${vendor.code.toLowerCase()}`;
+            const res2 = await apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(legacyId)}`);
+            raw = Array.isArray(res2) ? res2 : res2?.items || [];
+          }
+        } catch { raw = []; }
+
+        const contractedLeadDays = vendor.commercial?.paymentTermsDays ?? 7;
+        const mapped: PurchaseOrderRecord[] = raw.map((po: any) => {
+          const orderedQty = (po.items || []).reduce((s: number, i: any) => s + Number(i.quantity || i.ordered_qty || 0), 0);
+          const receivedQty = (po.items || []).reduce((s: number, i: any) => s + Number(i.received_qty || i.quantity || 0), 0);
+          const due = new Date(po.created_at || Date.now());
+          due.setDate(due.getDate() + contractedLeadDays);
+          return {
+            poNumber: po.order_no || po.id,
+            supplierId: vendor.id,
+            orderedQty: orderedQty || 1,
+            orderedValue: Number(po.grand_total || 0),
+            poDate: po.created_at || new Date().toISOString(),
+            expectedDeliveryDate: due.toISOString(),
+            actualDeliveryDate: po.updated_at || due.toISOString(),
+            receivedQty: receivedQty || orderedQty || 1,
+            acceptedQty: receivedQty || orderedQty || 1,
+            rejectedQty: 0,
+            qualityVerdict: (po.status || "PENDING").toUpperCase() === "RECEIVED" ? "ACCEPTED" : "PENDING",
+          };
+        });
+        setOrders(mapped);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchScoreData();
+  }, [vendor.id, vendor.code, vendor.commercial?.paymentTermsDays]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const scorecard = (() => {
+    if (orders.length === 0) return null;
     const profile: ScorecardProfile = {
       supplierId: vendor.id,
       supplierName: vendor.legalName,
       gstIn: vendor.gstin,
-      category: vendor.commercial?.supplierType || "Apparel",
+      category: vendor.commercial?.supplierType || "General",
       contractedLeadTimeDays: 7,
       contractedFillRatePct: 95,
       penaltyPerDayDelay: 500,
     };
-
-    // Sample mock PO history to feed scorecard calculation
-    const orders: PurchaseOrderRecord[] = [
-      {
-        poNumber: "PO-2026-001",
-        supplierId: vendor.id,
-        orderedQty: 200,
-        orderedValue: 160000,
-        poDate: "2026-07-01T00:00:00.000Z",
-        expectedDeliveryDate: "2026-07-08T00:00:00.000Z",
-        actualDeliveryDate: "2026-07-08T00:00:00.000Z",
-        receivedQty: 198,
-        acceptedQty: 198,
-        rejectedQty: 0,
-        qualityVerdict: "ACCEPTED",
-      },
-      {
-        poNumber: "PO-2026-002",
-        supplierId: vendor.id,
-        orderedQty: 150,
-        orderedValue: 120000,
-        poDate: "2026-07-15T00:00:00.000Z",
-        expectedDeliveryDate: "2026-07-22T00:00:00.000Z",
-        actualDeliveryDate: "2026-07-23T00:00:00.000Z",
-        receivedQty: 148,
-        acceptedQty: 146,
-        rejectedQty: 2,
-        qualityVerdict: "PARTIAL_REJECTION",
-      }
-    ];
-
     const report = SupplierScorecardEngine.generateReport([profile], orders);
-    return report.entries[0];
-  }, [vendor]);
+    return report.entries[0] ?? null;
+  })();
 
   const style = SLA_STYLES[scorecard?.slaStatus || "GREEN"];
+
+  if (loading) {
+    return (
+      <div className="py-16 text-center text-xs text-slate-400 dark:text-slate-500">
+        Loading SLA & quality scorecard from purchase history...
+      </div>
+    );
+  }
+
+  if (!scorecard) {
+    return (
+      <div className="py-16 text-center space-y-2">
+        <Award size={30} className="mx-auto text-slate-300 dark:text-slate-600" />
+        <div className="text-sm font-semibold text-slate-600 dark:text-slate-400">No Purchase History Available</div>
+        <p className="text-xs text-slate-400 dark:text-slate-500 max-w-xs mx-auto">
+          SLA scorecard requires at least one purchase order. Create and receive a PO to generate quality metrics.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -96,7 +134,7 @@ const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) =
         </div>
         <div className="text-right">
           <div className="text-xs text-slate-500 dark:text-slate-400">Scorecard Rating</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">{scorecard?.scorecard || 92} / 100</div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">{scorecard.scorecard} / 100</div>
         </div>
       </div>
 
@@ -105,7 +143,7 @@ const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) =
         <div className="p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">On-Time Delivery</div>
           <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-1">
-            {scorecard?.onTimeDeliveryPct.toFixed(1) || 95.0}%
+            {scorecard.onTimeDeliveryPct.toFixed(1)}%
           </div>
           <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Contracted Lead Time: 7 Days</div>
         </div>
@@ -113,7 +151,7 @@ const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) =
         <div className="p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Order Fill Rate</div>
           <div className="text-xl font-black text-indigo-700 dark:text-indigo-400 font-mono mt-1">
-            {scorecard?.fillRatePct.toFixed(1) || 98.3}%
+            {scorecard.fillRatePct.toFixed(1)}%
           </div>
           <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Target: 95.0%</div>
         </div>
@@ -121,7 +159,7 @@ const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) =
         <div className="p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Quality Rejection</div>
           <div className="text-xl font-black text-amber-700 dark:text-amber-400 font-mono mt-1">
-            {scorecard?.qualityRejectionPct.toFixed(2) || 0.58}%
+            {scorecard.qualityRejectionPct.toFixed(2)}%
           </div>
           <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Defect / RMA Rate</div>
         </div>
@@ -129,7 +167,7 @@ const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) =
         <div className="p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Accrued Delay Penalties</div>
           <div className="text-xl font-black text-slate-800 dark:text-slate-300 font-mono mt-1">
-            ₹{(scorecard?.totalPenaltyAccrued || 500).toLocaleString("en-IN")}
+            ₹{scorecard.totalPenaltyAccrued.toLocaleString("en-IN")}
           </div>
           <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">₹500 / Overdue Day</div>
         </div>
