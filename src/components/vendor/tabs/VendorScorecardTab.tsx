@@ -71,7 +71,7 @@ const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) =
             receivedQty: receivedQty || orderedQty || 1,
             acceptedQty: receivedQty || orderedQty || 1,
             rejectedQty: 0,
-            qualityVerdict: (po.status || "PENDING").toUpperCase() === "RECEIVED" ? "ACCEPTED" : "PENDING",
+            qualityVerdict: (po.status || "").toUpperCase() === "RECEIVED" ? "ACCEPTED" : undefined,
           };
         });
         setOrders(mapped);
