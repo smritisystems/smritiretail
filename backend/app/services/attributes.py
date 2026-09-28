@@ -73,9 +73,27 @@ class AttributesService:
                     allowed = json.loads(definition.valid_values or "[]")
                 except json.JSONDecodeError:
                     allowed = []
+                if not allowed:
+                    continue
                 allowed_values = {str(value).strip().casefold() for value in allowed}
                 submitted = raw_value if isinstance(raw_value, list) else [raw_value]
                 invalid = [str(value) for value in submitted if str(value).strip().casefold() not in allowed_values]
+                if invalid and definition.name in {"size", "color", "brand", "category"}:
+                    from .catalog_validation import CatalogDimensionValidator
+                    dim_field = definition.name
+                    valid_via_master = True
+                    for val in invalid:
+                        try:
+                            await CatalogDimensionValidator.validate_and_normalize_dimension(
+                                dimension_field=dim_field,
+                                value=val,
+                                strict=True,
+                            )
+                        except Exception:
+                            valid_via_master = False
+                            break
+                    if valid_via_master:
+                        invalid = []
                 if invalid:
                     errors.append(f"{definition.label} contains invalid value(s): {', '.join(invalid)}")
 

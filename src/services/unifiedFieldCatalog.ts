@@ -242,14 +242,160 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     width: "90px"
   },
   {
+    // IM-004: ARTICLE_STYLE_CODE is mandatory — never derived from SKU code.
     id: "style",
     key: "style_code",
-    label: "Style Code",
+    label: "Style / Article Code",
     datatype: "text",
-    required: false,
-    aliases: ["style", "style code", "design no", "model", "article/style /model no.", "article/style/model no.", "article", "article no", "article/style"],
+    required: true,
+    aliases: [
+      "style", "style code", "article", "article no", "article/style",
+      "article/style/model no.", "design no", "model",
+      "ARTICLE_STYLE_CODE", "article style code"
+    ],
     active: true,
     displayOrder: 15,
+    source: "core",
+    width: "120px"
+  },
+  {
+    id: "vendorCode",
+    key: "vendor_code",
+    label: "Vendor Code",
+    datatype: "text",
+    required: false,
+    aliases: ["vendor code", "vendor", "vendor id", "supplier code", "VENDOR_CODE", "supplier"],
+    active: true,
+    displayOrder: 16,
+    source: "core",
+    width: "120px"
+  },
+  {
+    id: "department",
+    key: "department",
+    label: "Merchandise Department",
+    datatype: "text",
+    required: false,
+    aliases: ["department", "dept", "division", "merchandise department", "MERCHANDISE_DEPARTMENT"],
+    active: true,
+    displayOrder: 17,
+    source: "core",
+    width: "140px"
+  },
+  {
+    // v2.2 Field Notes: "MERCHANDISE CATEGORY" column values are PRODUCT_TYPE (CHAPPAL, SANDAL).
+    // The backend routes this field to product_type on the Item row.
+    id: "merchandiseCategory",
+    key: "MERCHANDISE_CATEGORY",
+    label: "Merchandise Category",
+    datatype: "text",
+    required: false,
+    aliases: ["merchandise category", "MERCHANDISE CATEGORY", "MERCHANDISE_CATEGORY", "mc category"],
+    active: true,
+    displayOrder: 18,
+    source: "core",
+    width: "150px"
+  },
+  {
+    // v2.2: First-class footwear attribute — mandatory per hardening directive
+    id: "gender",
+    key: "gender",
+    label: "Gender",
+    datatype: "text",
+    required: true,
+    aliases: ["gender", "target gender", "section", "GENDER", "Gndr"],
+    active: true,
+    displayOrder: 19,
+    source: "core",
+    width: "100px"
+  },
+  {
+    // v2.2: First-class footwear attribute — mandatory per hardening directive
+    id: "productType",
+    key: "product_type",
+    label: "Product Type",
+    datatype: "text",
+    required: true,
+    aliases: ["product type", "product_type", "PRODUCT_TYPE", "Product_Type"],
+    active: true,
+    displayOrder: 20,
+    source: "core",
+    width: "120px"
+  },
+  {
+    // v2.2: First-class footwear attribute — mandatory per hardening directive
+    id: "heelType",
+    key: "heel_type",
+    label: "Heel Type",
+    datatype: "text",
+    required: true,
+    aliases: ["heel type", "heel_type", "HEEL_TYPE", "Heel_Type", "heels", "heel", "HEELS"],
+    active: true,
+    displayOrder: 21,
+    source: "core",
+    width: "110px"
+  },
+  {
+    // v2.2: First-class footwear attribute — mandatory per hardening directive
+    id: "upperMaterial",
+    key: "upper_material",
+    label: "Upper Material",
+    datatype: "text",
+    required: true,
+    aliases: ["upper material", "upper_material", "UPPER_MATERIAL", "Upper_Material", "shoe upper", "upper"],
+    active: true,
+    displayOrder: 22,
+    source: "core",
+    width: "130px"
+  },
+  {
+    // v2.2: First-class footwear attribute — advisory
+    id: "outsoleMaterial",
+    key: "outsole_material",
+    label: "Outsole Material",
+    datatype: "text",
+    required: false,
+    aliases: ["outsole", "outsole material", "OUTSOLE_MATERIAL", "OUTSOLE", "sole", "sole material"],
+    active: true,
+    displayOrder: 23,
+    source: "core",
+    width: "130px"
+  },
+  {
+    // v2.2: First-class footwear attribute — advisory
+    id: "designAttribute",
+    key: "design_attribute",
+    label: "Design Attribute",
+    datatype: "text",
+    required: false,
+    aliases: ["design attribute", "design_attribute", "DESIGN_ATTRIBUTE", "sub category", "sub-category"],
+    active: true,
+    displayOrder: 24,
+    source: "core",
+    width: "130px"
+  },
+  {
+    // v2.2: First-class footwear attribute — advisory
+    id: "collectionType",
+    key: "collection_type",
+    label: "Collection Type",
+    datatype: "text",
+    required: false,
+    aliases: ["collection type", "collection_type", "COLLECTION_TYPE", "item description", "ITEM DESCRIPTION"],
+    active: true,
+    displayOrder: 25,
+    source: "core",
+    width: "130px"
+  },
+  {
+    id: "purchaseClass",
+    key: "purchase_class",
+    label: "Purchase Class",
+    datatype: "text",
+    required: false,
+    aliases: ["purchase class", "PURCHASE_CLASS", "purchase classification"],
+    active: true,
+    displayOrder: 26,
     source: "core",
     width: "120px"
   },
@@ -261,20 +407,14 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     required: false,
     aliases: ["item description", "description", "details"],
     active: true,
-    displayOrder: 16,
+    displayOrder: 27,
     source: "core",
     width: "200px"
   },
-  // Generic Dynamic Attribute Slots (A1..A9) configurable via Attribute Management
-  { id: "attr_a1", key: "a1", label: "Attribute 1 (A1)", datatype: "text", required: false, aliases: ["a1", "attr 1", "attribute 1", "attribute1", "heels", "heel type"], active: true, displayOrder: 17, source: "core", width: "120px" },
-  { id: "attr_a2", key: "a2", label: "Attribute 2 (A2)", datatype: "text", required: false, aliases: ["a2", "attr 2", "attribute 2", "attribute2", "upper", "upper material", "shoe upper"], active: true, displayOrder: 18, source: "core", width: "120px" },
-  { id: "attr_a3", key: "a3", label: "Attribute 3 (A3)", datatype: "text", required: false, aliases: ["a3", "attr 3", "attribute 3", "attribute3", "outsole", "sole", "sole material"], active: true, displayOrder: 19, source: "core", width: "120px" },
-  { id: "attr_a4", key: "a4", label: "Attribute 4 (A4)", datatype: "text", required: false, aliases: ["a4", "attr 4", "attribute 4", "attribute4", "gender", "target gender", "section"], active: true, displayOrder: 20, source: "core", width: "120px" },
-  { id: "attr_a5", key: "a5", label: "Attribute 5 (A5)", datatype: "text", required: false, aliases: ["a5", "attr 5", "attribute 5", "attribute5", "vendor code", "vendor id", "supplier code"], active: true, displayOrder: 21, source: "core", width: "120px" },
-  { id: "attr_a6", key: "a6", label: "Attribute 6 (A6)", datatype: "text", required: false, aliases: ["a6", "attr 6", "attribute 6", "attribute6", "purchase class", "purchase classification"], active: true, displayOrder: 22, source: "core", width: "120px" },
-  { id: "attr_a7", key: "a7", label: "Attribute 7 (A7)", datatype: "text", required: false, aliases: ["a7", "attr 7", "attribute 7", "attribute7", "department", "dept", "division"], active: true, displayOrder: 23, source: "core", width: "120px" },
-  { id: "attr_a8", key: "a8", label: "Attribute 8 (A8)", datatype: "text", required: false, aliases: ["a8", "attr 8", "attribute 8", "attribute8", "merchandise category", "merchandise cat", "mc category"], active: true, displayOrder: 24, source: "core", width: "120px" },
-  { id: "attr_a9", key: "a9", label: "Attribute 9 (A9)", datatype: "text", required: false, aliases: ["a9", "attr 9", "attribute 9", "attribute9", "season", "fit", "pattern", "occasion"], active: true, displayOrder: 25, source: "core", width: "120px" }
+  // Generic fallback slots for non-standard columns that don't map to any first-class field
+  { id: "attr_a1", key: "a1", label: "Attribute 1 (A1)", datatype: "text", required: false, aliases: ["a1", "attr 1", "attribute 1", "attribute1"], active: true, displayOrder: 28, source: "core", width: "120px" },
+  { id: "attr_a2", key: "a2", label: "Attribute 2 (A2)", datatype: "text", required: false, aliases: ["a2", "attr 2", "attribute 2", "attribute2"], active: true, displayOrder: 29, source: "core", width: "120px" },
+  { id: "attr_a3", key: "a3", label: "Attribute 3 (A3)", datatype: "text", required: false, aliases: ["a3", "attr 3", "attribute 3", "attribute3"], active: true, displayOrder: 30, source: "core", width: "120px" }
 ];
 
 /**

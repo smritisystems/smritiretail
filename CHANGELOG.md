@@ -45,6 +45,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ### Fixed
 - **Canonical Field Registry Test Parity (`src/tests/canonicalFieldRegistry.test.ts`):** Updated assertions from 133 to 137 fields (`vendor_code`, `style_code`, `color`, `size`) and updated SHA-256 fingerprint matching commit `cee1703b`.
 - **Numbering Unit Test (`src/tests/numbering.test.ts`):** Mocked `global.fetch` to validate HTTP series resolution and sequence allocation.
+- **Catalog Dimension Validation In Attributes Service (`backend/app/services/attributes.py`):** Added fallback delegation to `CatalogDimensionValidator` for core dimensions (`size`, `color`, `brand`, `category`) when dynamic attributes fail local schema validation.
+
+### Changed
+- **Item Master Mandatory Field Hardening (`backend/app/api/v1/universal_import.py`):** Promoted `GENDER`, `PRODUCT_TYPE`, `HEEL_TYPE`, and `UPPER_MATERIAL` to mandatory (`True`) in `FIELD_MANDATORY_MAP`.
+- **Style/Article Mandatory Enforcement:** Enforced `ARTICLE_STYLE_CODE required` in both preview and commit paths; blocked derivation of style from SKU code or barcode.
+- **IM-001 Commit-Time Enforcement Gate:** Added active `IM001ControlledFieldValidator.validate_row_controlled_fields` enforcement directly in `commit_universal_import` to prevent commit-time validation bypass.
+- **Category & Product Type Extraction Parity:** Removed default `"Footwear"` fallback; mapped `"MERCHANDISE CATEGORY"` directly to `v22_product_type` column per Field Notes.
+- **ItemMasterStudio Consolidation (`src/components/itemMaster/ItemMasterStudio.tsx`):** Decommissioned legacy `/products/` endpoint. Routed import pipeline through canonical `/api/v1/universal-import/preview` and `/commit`. Added "Validate Preview" button, dynamic IM-001 status banner, and Human/CA Sign-Off Flag (`REQUIRES_REVIEW`) banner.
+- **Unified Field Catalog Dimensions (`src/services/unifiedFieldCatalog.ts`):** Promoted footwear dimensions (`gender`, `product_type`, `heel_type`, `upper_material`, `outsole_material`, `design_attribute`, `collection_type`, `vendor_code`, `department`, `merchandise_category`) to first-class fields, retiring attribute key sprawl (`a1`–`a9`). Required `style` mapped to `ARTICLE_STYLE_CODE`.
 
 ## [6.46.0] - 2026-09-28 — Catalog: IM-001 Two-Tier Controlled-Field Validation — System Parameters & System Master Lookup
 
