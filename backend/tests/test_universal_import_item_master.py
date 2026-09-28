@@ -630,3 +630,125 @@ async def test_dynamic_template_generation_endpoint():
         vl_ws = wb["Validation Lists"]
         wh_values = [vl_ws.cell(row=r, column=19).value for r in range(2, 10)]
         assert "WH-MAIN" in wh_values
+
+
+@pytest.mark.asyncio
+async def test_article_style_code_missing_rejection_never_derive_from_sku():
+    """Verify that omitting ARTICLE_STYLE_CODE blocks the row and never derives style from SKU code."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        user_ctx = {"id": "usr-test", "company_id": "COMP-001", "branch_id": "BR-001"}
+
+        class MockTenant:
+            id = "smriti001"
+            code = "smriti001"
+
+        # Row with barcode and SKU but NO style column
+        invalid_row = [
+            {
+                "rowNumber": 1,
+                "BARCODE_NO": "8901234567890",
+                "SKU_CODE": "SKU-AUTO-STYLE-99",
+                "COLOR": "BLACK",
+                "SIZE": "36",
+                "MRP": 1299,
+                "SELLING_PRICE": 1299,
+            }
+        ]
+
+        # 1. Preview must reject with ARTICLE_STYLE_CODE required error
+        preview = await preview_universal_import(
+            request=ImportPreviewRequest(target="ITEM_MASTER", rows=invalid_row),
+            db=session,
+            _current_user=user_ctx,
+        )
+        assert preview["summary"]["status"] == "VALIDATION_ISSUES_FOUND"
+        assert len(preview["rows"][0]["errors"]) > 0
+        assert any("ARTICLE_STYLE_CODE required" in err for err in preview["rows"][0]["errors"])
+
+        # 2. Commit must reject with 422 ARTICLE_STYLE_CODE required
+        with pytest.raises(HTTPException) as exc_info:
+            await commit_universal_import(
+                request=ImportCommitRequest(
+                    target="ITEM_MASTER",
+                    idempotency_key=f"idem-{uuid.uuid4().hex[:12]}",
+                    rows=invalid_row,
+                ),
+                db=session,
+                current_user=user_ctx,
+                tenant=MockTenant(),
+            )
+        assert exc_info.value.status_code == 422
+        assert "ARTICLE_STYLE_CODE required" in str(exc_info.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_hsn_6403_synthetic_upper_review_flag():
+    """Verify HSN 6403 + synthetic upper generates human/CA review flag warning."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        user_ctx = {"id": "usr-test", "company_id": "COMP-001", "branch_id": "BR-001"}
+
+        flag_row = [
+            {
+                "rowNumber": 1,
+                "BARCODE_NO": f"890{uuid.uuid4().int % 10000000000:010d}",
+                "ARTICLE_STYLE_CODE": "CH-FLAG-01",
+                "COLOR": "BLACK",
+                "SIZE": "38",
+                "MRP": 1899,
+                "SELLING_PRICE": 1899,
+                "HSN_CODE": "64032012",
+                "UPPER_MATERIAL": "SYNTHETIC",
+            }
+        ]
+
+        preview = await preview_universal_import(
+            request=ImportPreviewRequest(target="ITEM_MASTER", rows=flag_row),
+            db=session,
+            _current_user=user_ctx,
+        )
+        warnings = preview["summary"]["warnings"]
+        assert any("HSN/Material Mismatch Flag" in w and "6403" in w for w in warnings)
+        assert any("REQUIRES_REVIEW" in w for w in warnings)
+
+
+
+@pytest.mark.asyncio
+async def test_im001_commit_enforcement_rejects_unapproved_values():
+    """Verify universal-import/commit enforces IM-001 on controlled fields."""
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as session:
+        user_ctx = {"id": "usr-test", "company_id": "COMP-001", "branch_id": "BR-001"}
+
+        class MockTenant:
+            id = "smriti001"
+            code = "smriti001"
+
+        bad_color_row = [
+            {
+                "rowNumber": 1,
+                "BARCODE_NO": f"890{uuid.uuid4().int % 10000000000:010d}",
+                "ARTICLE_STYLE_CODE": "CH-TEST-02",
+                "COLOR": "UNAPPROVED_NEON_RAINBOW_COLOR_999",
+                "SIZE": "38",
+                "MRP": 1899,
+                "SELLING_PRICE": 1899,
+                "HSN_CODE": "64041990",
+            }
+        ]
+
+        with pytest.raises(HTTPException) as exc_info:
+            await commit_universal_import(
+                request=ImportCommitRequest(
+                    target="ITEM_MASTER",
+                    idempotency_key=f"idem-{uuid.uuid4().hex[:12]}",
+                    rows=bad_color_row,
+                ),
+                db=session,
+                current_user=user_ctx,
+                tenant=MockTenant(),
+            )
+        assert exc_info.value.status_code == 422
+        assert "IM-001 Validation Error" in str(exc_info.value.detail)
+

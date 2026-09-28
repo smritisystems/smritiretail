@@ -53,7 +53,7 @@ def get_frontend_version() -> str:
 def get_changelog_version() -> str:
     with open(CHANGELOG_PATH, "r", encoding="utf-8") as f:
         content = f.read()
-    m = re.search(r'###\s*\[([0-9]+\.[0-9]+\.[0-9]+[^\]]*)\]', content)
+    m = re.search(r'#{2,3}\s*\[([0-9]+\.[0-9]+\.[0-9]+[^\]]*)\]', content)
     if m:
         return m.group(1)
     return ""

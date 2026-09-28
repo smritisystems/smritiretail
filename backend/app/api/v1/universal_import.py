@@ -193,12 +193,18 @@ class IM001ControlledFieldValidator:
         "BRAND_NAME": True,
         "COLOR": True,
         "SIZE": True,
-        "GENDER": False,
+        # v2.2 Hardening: GENDER is a first-class column on Item — mandatory per standard.
+        "GENDER": True,
         "MERCHANDISE_DEPARTMENT": True,
+        # v2.2 Hardening: MERCHANDISE_CATEGORY values (CHAPPAL, SANDAL) map to PRODUCT_TYPE
+        # per Field Notes. Kept advisory here; PRODUCT_TYPE carries the BLOCK.
         "MERCHANDISE_CATEGORY": False,
-        "PRODUCT_TYPE": False,
-        "HEEL_TYPE": False,
-        "UPPER_MATERIAL": False,
+        # v2.2 Hardening: PRODUCT_TYPE promoted to mandatory (was advisory).
+        "PRODUCT_TYPE": True,
+        # v2.2 Hardening: HEEL_TYPE promoted to mandatory (was advisory).
+        "HEEL_TYPE": True,
+        # v2.2 Hardening: UPPER_MATERIAL promoted to mandatory (was advisory).
+        "UPPER_MATERIAL": True,
         "UOM": True,
         "DESIGN_ATTRIBUTE": False,
         "OUTSOLE_MATERIAL": False,
@@ -212,9 +218,14 @@ class IM001ControlledFieldValidator:
         "SIZE": ("size", "Size", "SIZE"),
         "GENDER": ("gender", "Gender", "GENDER", "Gndr"),
         "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT"),
-        "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY"),
+        # Field Notes (v2.2): "MERCHANDISE CATEGORY" column values (CHAPPAL, SANDAL) are
+        # product types, NOT categories. Extraction aliases kept for round-trip data capture;
+        # the Item commit path maps this to product_type (see v22_product_type extraction).
+        "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY", "merchandiseCategory"),
         "PRODUCT_TYPE": (
-            "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type"
+            "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type",
+            # v2.2 Field Notes: "MERCHANDISE CATEGORY" column contains product type values
+            "MERCHANDISE CATEGORY",
         ),
         "HEEL_TYPE": (
             "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel", "HEELS"
@@ -556,6 +567,11 @@ async def preview_universal_import(
                 duplicate_in_file = True
                 errors.append(f"Duplicate barcode within file: {barcode}")
 
+            # IM-004: ARTICLE_STYLE_CODE is mandatory — never derive from SKU code.
+            # If style is missing, BLOCK the row with an explicit error.
+            if not style:
+                errors.append("ARTICLE_STYLE_CODE required — style/article column is missing or empty. Cannot derive style from SKU code.")
+
             if not sku:
                 if style and color and size:
                     sku = f"{style}-{color}-{size}".upper()
@@ -568,6 +584,7 @@ async def preview_universal_import(
             if selling_val > mrp_val and mrp_val > 0:
                 pricing_conflict = True
                 errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
+
 
             # IM-001: Controlled Master Field Lookup Validation
             # DB-only: master_values is the sole source. No Excel/workbook fallback.
@@ -823,10 +840,30 @@ async def commit_universal_import(
             barcode = _text(row, "barcode", "Barcode", "BARCODE_NO", "ean", "upc")
             sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW")
             style_code = _text(row, "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE", "item_code")
-            item_name = _text(row, "item_name", "itemName", "name", "ITEM_DESCRIPTION", "product_name") or style_code or sku or barcode
+            item_name = _text(row, "item_name", "itemName", "name", "ITEM_DESCRIPTION", "product_name") or style_code
 
-            if not (barcode or sku or style_code):
-                raise HTTPException(status_code=422, detail={"row_number": row.get("rowNumber", index), "message": "At least one identifier (Barcode, SKU, or Style Code) is required."})
+            # IM-004: ARTICLE_STYLE_CODE is mandatory — never derive from SKU or barcode.
+            if not style_code:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "row_number": row.get("rowNumber", index),
+                        "message": "ARTICLE_STYLE_CODE required — style/article column is missing or empty. Cannot derive style from SKU code."
+                    }
+                )
+
+            # IM-001: Run controlled master field validation in commit path
+            im001_res = await IM001ControlledFieldValidator.validate_row_controlled_fields(
+                row, row.get("rowNumber", index), company_id=company_id
+            )
+            if im001_res.get("errors"):
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "row_number": row.get("rowNumber", index),
+                        "message": f"IM-001 Validation Error: {im001_res['errors'][0]}"
+                    }
+                )
 
             match_mode = (request.existing_match_mode or "SKIP").upper().strip()
             if match_mode == "FAIL_ON_EXISTING":
@@ -864,8 +901,8 @@ async def commit_universal_import(
             resolved_rows.append({
                 "row": row,
                 "item_name": item_name,
-                "item_code": style_code or sku or barcode,
-                "style_code": style_code or sku or barcode,
+                "item_code": style_code,
+                "style_code": style_code,
                 "barcode": barcode,
                 "sku": sku,
                 "vendor_code": resolved_vendor_code,
@@ -970,10 +1007,13 @@ async def commit_universal_import(
                 # 1. Flat Item columns: item_code, style_code, color, size, vendor_code, hsn_code, tax_rate, department, category, brand
                 color = _text(row, "color", "colour", "COLOR", "Color")
                 size = _text(row, "size", "SIZE", "Size")
-                cat_raw = _text(row, "category", "Category", "MERCHANDISE_CATEGORY") or "Footwear"
+                # Category: read directly from category column — do NOT fall back to department.
+                # Field Notes (v2.2): "MERCHANDISE CATEGORY" values (CHAPPAL, SANDAL) are product types;
+                # they are handled via v22_product_type below.
+                cat_raw = _text(row, "category", "Category")
+                cat = cat_raw or None
                 dept_raw = _text(row, "department", "Department", "MERCHANDISE_DEPARTMENT")
-                cat = "Footwear" if "footwear" in (cat_raw + " " + (dept_raw or "")).lower() else cat_raw
-                dept = dept_raw or ("Footwear" if cat == "Footwear" else None)
+                dept = dept_raw or None
                 brand = _text(row, "brand", "Brand", "BRAND_NAME")
                 hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN") or "64041990"
                 uom = _text(row, "uom", "UOM") or "PRS"
@@ -988,7 +1028,9 @@ async def commit_universal_import(
                 # Each field gets its own SQL column on Item — queryable, reportable, IM-001 controlled.
                 v22_gender          = _text(row, "gender", "Gender", "GENDER", "Gndr")
                 v22_purchase_class  = _text(row, "purchase_class", "purchaseClass", "PURCHASE_CLASS")
-                v22_product_type    = _text(row, "product_type", "productType", "PRODUCT_TYPE", "Product_Type")
+                # Field Notes (v2.2): "MERCHANDISE CATEGORY" column values are product types;
+                # extract them as product_type. product_type first, then MERCHANDISE CATEGORY as alias.
+                v22_product_type    = _text(row, "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "MERCHANDISE CATEGORY", "MERCHANDISE_CATEGORY")
                 v22_design_attr     = _text(row, "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute")
                 v22_heel_type       = _text(row, "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel")
                 v22_upper_material  = _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper")

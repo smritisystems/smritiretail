@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.2.0
+ * Version      : 6.46.1
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-28
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -72,6 +72,11 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   const [skippedRowIndices, setSkippedRowIndices] = useState<Set<number>>(new Set());
   const [activeConflictRow, setActiveConflictRow] = useState<number | null>(null);
   const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
+  // Backend-driven preview results — validity banner and error counts derived from IM-001 backend
+  const [previewResult, setPreviewResult] = useState<Record<string, any> | null>(null);
+  const [previewErrors, setPreviewErrors] = useState<string[]>([]);
+  const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
 
   // Listen to global visibility changes
   useEffect(() => {
@@ -230,6 +235,23 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
 
   const errorCount = useMemo(() => parsedRows.filter(r => r.hasError && !r.isSkipped).length, [parsedRows]);
 
+  // Derived mandatory columns check — prevents 'All Rows Valid' when required footwear dimensions are dropped
+  const missingMandatoryColumns = useMemo(() => {
+    if (headerDetection.dataRows.length === 0) return [];
+    const mapped = new Set(Array.from(effectiveMapping.values()).map(k => k.toLowerCase()));
+    const requiredFields = [
+      { key: "style_code", label: "Style Code", aliases: ["style", "style_code", "article", "article_style_code"] },
+      { key: "brand", label: "Brand", aliases: ["brand", "brand_name"] },
+      { key: "gender", label: "Gender", aliases: ["gender"] },
+      { key: "product_type", label: "Product Type", aliases: ["product_type", "merchandise_category", "producttype"] },
+      { key: "heel_type", label: "Heel Type", aliases: ["heel_type", "heeltype"] },
+      { key: "upper_material", label: "Upper Material", aliases: ["upper_material", "uppermaterial"] },
+      { key: "color", label: "Color", aliases: ["color", "colour"] },
+      { key: "size", label: "Size", aliases: ["size"] },
+    ];
+    return requiredFields.filter(f => !f.aliases.some(a => mapped.has(a)));
+  }, [effectiveMapping, headerDetection.dataRows.length]);
+
   const filteredRows = useMemo(() => {
     return parsedRows.filter(r => {
       if (showOnlyErrors && !r.hasError) return false;
@@ -288,127 +310,163 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     }
   }, [headerDetection, matrix, effectiveMapping]);
 
-  // ── 8. Commit & Persist Using Canonical serializeProductAttributes ─────────
-  const handleResolveAndImport = async () => {
-    const activeRows = parsedRows.filter(r => !r.isSkipped);
-    if (activeRows.length === 0) {
+  // ── 8. Two-Phase Universal Import: Preview then Commit via IM-001 governed route ─────────
+  // CRITICAL: This component MUST route through /api/v1/universal-import/preview and
+  // /api/v1/universal-import/commit. The legacy /products/ endpoint is decommissioned.
+  // Style/article MUST come from the mapped field — never derived from SKU code.
+
+  const buildImportRows = useCallback(() => {
+    return parsedRows
+      .filter(r => !r.isSkipped)
+      .map((row, idx) => {
+        const obj: Record<string, any> = { rowNumber: idx + 1 };
+        row.tokens.forEach((val, colIdx) => {
+          const fieldKey = effectiveMapping.get(colIdx);
+          // Skip unmapped columns and blank values entirely — no fabricated defaults
+          if (!fieldKey || !val.trim()) return;
+          obj[fieldKey] = val.trim();
+        });
+        return obj;
+      });
+  }, [parsedRows, effectiveMapping]);
+
+  const handlePreviewAndImport = async () => {
+    const rows = buildImportRows();
+    if (rows.length === 0) {
       onNotification?.("No Data", "Please paste valid rows before importing.", "error");
       return;
     }
 
     setIsProcessing(true);
-    let successCount = 0;
-    let failCount = 0;
-    const errorDetails: string[] = [];
+    setPreviewResult(null);
+    setPreviewErrors([]);
 
     try {
-      const lookupErrors = await validateItemMasterLookupOptions(activeRows.map((row) => {
-        const values: Record<string, unknown> = {};
-        row.tokens.forEach((value, colIdx) => {
-          const fieldKey = effectiveMapping.get(colIdx);
-          if (fieldKey) values[fieldKey] = value.trim();
-        });
-        return values;
-      }), "warn");
-      if (lookupErrors.length > 0) {
-        console.warn("[ItemMasterStudio] Lookup advisory warnings:", lookupErrors);
-      }
+      // PHASE 1: Preview — backend validates against IM-001 mandatory fields, lookup master, duplicates
+      const previewResp = await apiFetchV1("/universal-import/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          target: "ITEM_MASTER",
+          rows
+        })
+      });
 
-      for (const row of activeRows) {
-        const rawRowObj: Record<string, any> = {};
+      setPreviewResult(previewResp);
 
-        row.tokens.forEach((val, colIdx) => {
-          const fieldKey = effectiveMapping.get(colIdx);
-          if (!fieldKey || !val.trim()) return;
-          rawRowObj[fieldKey] = val.trim();
-        });
-
-        // Use canonical serializeProductAttributes to construct PostgreSQL attributes JSONB
-        const attributesPayload = serializeProductAttributes(rawRowObj, dynamicDefinitions);
-        const resolvedStyleVal = rawRowObj.style || rawRowObj.style_code || rawRowObj.style_no || rawRowObj.code || "";
-        const resolvedArticleVal = rawRowObj.article || rawRowObj.article_no || rawRowObj.style || rawRowObj.style_code || rawRowObj.code || "";
-        if (resolvedStyleVal) {
-          attributesPayload.style_no = resolvedStyleVal;
-          attributesPayload.style = resolvedStyleVal;
-          attributesPayload.Style = resolvedStyleVal;
-        }
-        if (resolvedArticleVal) {
-          attributesPayload.article_no = resolvedArticleVal;
-          attributesPayload.article = resolvedArticleVal;
-          attributesPayload["Article No"] = resolvedArticleVal;
-        }
-
-        // Standard relational product payload
-        const productPayload = {
-          code: rawRowObj.code || rawRowObj.stockNo || generateSkuCode({
-            brand: rawRowObj.brand || "SMRITI",
-            styleCode: resolvedStyleVal || "STYLE",
-            colour: rawRowObj.colour || rawRowObj.shade || "STD",
-            size: rawRowObj.size || "M"
-          }, { mode: "AUTO", prefix: "SKU", sequenceStart: 1001 }, row.rowIndex),
-          name: rawRowObj.name || rawRowObj.product || rawRowObj.itemDescription || `Item ${rawRowObj.code || row.rowIndex}`,
-          barcode: rawRowObj.barcode || rawRowObj.code || `BAR-${Date.now()}-${row.rowIndex}`,
-          brand: rawRowObj.brand || "SMRITI",
-          vendor_code: rawRowObj.vendorCode || rawRowObj.vendor_code || "",
-          category: rawRowObj.category || (rawRowObj.merchandiseCategory ? String(rawRowObj.merchandiseCategory).trim() : "Footwear"),
-          cost_price: parseFloat(String(rawRowObj.costPrice || rawRowObj.cost_price || "0").replace(/,/g, "")) || 0,
-          price: parseFloat(String(rawRowObj.price || rawRowObj.sellingPrice || "0").replace(/,/g, "")) || 0,
-          mrp: parseFloat(String(rawRowObj.mrp || rawRowObj.price || "0").replace(/,/g, "")) || 0,
-          gst_percentage: parseFloat(String(rawRowObj.gstPercentage || rawRowObj.productTax || "18").replace(/[^0-9.]/g, "")) || 18.00,
-          hsn_code: rawRowObj.hsnCode || rawRowObj.hsn_code || "61091000",
-          style_code: resolvedStyleVal || "",
-          color: rawRowObj.colour || rawRowObj.color || rawRowObj.shade || "",
-          size: rawRowObj.size || "",
-          attributes: attributesPayload
-        };
-
-        try {
-          await apiFetchV1("/products/", {
-            method: "POST",
-            body: JSON.stringify(productPayload)
-          });
-          successCount++;
-        } catch (err: any) {
-          failCount++;
-          const rawMsg = err?.message || "Validation Error";
-          let friendlyMsg = rawMsg;
-          try {
-            const parsed = JSON.parse(rawMsg);
-            if (parsed?.message) friendlyMsg = parsed.message;
-          } catch {}
-          if (rawMsg.includes("code already exists") || (rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("code"))) {
-            friendlyMsg = `Stock No "${productPayload.code}" already exists in the database.`;
-          } else if (rawMsg.includes("barcode already exists") || (rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("barcode"))) {
-            friendlyMsg = `Barcode "${productPayload.barcode}" is already registered in the database for another item.`;
-          } else if (rawMsg.includes("401") || rawMsg.includes("Token") || rawMsg.includes("Unauthorized")) {
-            friendlyMsg = "Your session has expired. Please log in again.";
+      // Collect all blocking errors from preview row results
+      const blockingErrors: string[] = [];
+      if (Array.isArray(previewResp?.row_results)) {
+        previewResp.row_results.forEach((rr: any) => {
+          if (Array.isArray(rr?.errors) && rr.errors.length > 0) {
+            rr.errors.forEach((e: string) => blockingErrors.push(`Row ${rr.row_number}: ${e}`));
           }
-          errorDetails.push(`Row #${row.rowIndex} [${productPayload.code}]: ${friendlyMsg}`);
-        }
+        });
       }
 
-      if (successCount > 0) {
+      // Collect warnings (including HSN/synthetic mismatch review flags)
+      const warnings: string[] = [];
+      if (Array.isArray(previewResp?.all_warnings)) {
+        previewResp.all_warnings.forEach((w: string) => warnings.push(w));
+      } else if (Array.isArray(previewResp?.warnings)) {
+        previewResp.warnings.forEach((w: string) => warnings.push(w));
+      }
+      setPreviewWarnings(warnings);
+
+      if (blockingErrors.length > 0) {
+        setPreviewErrors(blockingErrors);
+        onNotification?.(
+          "Preview: Validation Errors Detected",
+          `${blockingErrors.length} blocking error(s) found. Fix issues before committing. First error: ${blockingErrors[0]}`,
+          "error"
+        );
+        return; // Do not proceed to commit
+      }
+
+      // PHASE 2: Commit — all rows passed preview validation
+      const commitResp = await apiFetchV1("/universal-import/commit", {
+        method: "POST",
+        body: JSON.stringify({
+          target: "ITEM_MASTER",
+          rows
+        })
+      });
+
+      const saved = commitResp?.saved ?? commitResp?.created ?? 0;
+      const skipped = commitResp?.skipped ?? 0;
+      const failed = commitResp?.failed ?? commitResp?.errors ?? 0;
+
+      if (saved > 0) {
         onNotification?.(
           "Import Complete",
-          `Successfully saved ${successCount} products into database.${failCount > 0 ? ` (${failCount} skipped due to duplicates: ${errorDetails.slice(0, 2).join(", ")})` : ""}`,
+          `IM-001 committed: ${saved} items saved${skipped > 0 ? `, ${skipped} skipped (existing)` : ""}.${failed > 0 ? ` ${failed} failed.` : ""}`,
           "success"
         );
         await onRefreshProducts?.();
         setRawText("");
+        setPreviewResult(null);
+        setPreviewWarnings([]);
       } else {
-        const sampleErrors = errorDetails.slice(0, 3).join(" | ");
         onNotification?.(
-          "Import Failed — Validation Conflict", 
-          `Unable to save ${failCount} items to database. Reasons: ${sampleErrors || "Items with matching Stock No or Barcode already exist in the database."}`, 
+          "Import Failed",
+          `No items were saved. ${failed > 0 ? `${failed} row(s) failed validation or conflict.` : "All rows may already exist."}`,
           "error"
         );
       }
     } catch (err: any) {
-      onNotification?.("Import Exception", err.message || "An unexpected error occurred during database commit.", "error");
+      const msg = err?.message || "Unexpected error during import";
+      onNotification?.("Import Exception", msg, "error");
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const handleRunPreviewOnly = async () => {
+    const rows = buildImportRows();
+    if (rows.length === 0) return;
+    setIsValidating(true);
+    setPreviewResult(null);
+    setPreviewErrors([]);
+    setPreviewWarnings([]);
+    try {
+      const previewResp = await apiFetchV1("/universal-import/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          target: "ITEM_MASTER",
+          rows
+        })
+      });
+      setPreviewResult(previewResp);
+      const blockingErrors: string[] = [];
+      if (Array.isArray(previewResp?.row_results)) {
+        previewResp.row_results.forEach((rr: any) => {
+          if (Array.isArray(rr?.errors) && rr.errors.length > 0) {
+            rr.errors.forEach((e: string) => blockingErrors.push(`Row ${rr.row_number}: ${e}`));
+          }
+        });
+      }
+      setPreviewErrors(blockingErrors);
+      const warnings: string[] = [];
+      if (Array.isArray(previewResp?.all_warnings)) {
+        previewResp.all_warnings.forEach((w: string) => warnings.push(w));
+      } else if (Array.isArray(previewResp?.warnings)) {
+        previewResp.warnings.forEach((w: string) => warnings.push(w));
+      }
+      setPreviewWarnings(warnings);
+      if (blockingErrors.length === 0) {
+        onNotification?.("Preview Succeeded", `${previewResp?.new_rows ?? rows.length} row(s) validated against IM-001 master. Ready to import.`, "success");
+      } else {
+        onNotification?.("Preview Validation Failed", `${blockingErrors.length} blocking error(s) found.`, "error");
+      }
+    } catch (err: any) {
+      setPreviewErrors([err?.message || "Failed to execute preview validation."]);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  // Legacy stub kept to satisfy existing JSX button ref — delegates to new handler
+  const handleResolveAndImport = handlePreviewAndImport;
+
 
   const handleSkipActiveConflict = () => {
     if (activeConflictRow !== null) {
@@ -447,8 +505,26 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           </button>
           <button
             type="button"
+            onClick={handleRunPreviewOnly}
+            disabled={isProcessing || isValidating || matrix.length === 0 || headerDetection.dataRows.length === 0}
+            className="px-3.5 py-2 border border-[#515f74] dark:border-[#bec6e0] text-[#191c1e] dark:text-[#eff1f3] bg-white dark:bg-[#2d3133] hover:bg-[#eceef0] rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs disabled:opacity-40"
+          >
+            {isValidating ? (
+              <>
+                <RefreshCw size={13} className="animate-spin" />
+                Validating...
+              </>
+            ) : (
+              <>
+                <CheckCircle size={13} />
+                Validate Preview
+              </>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={handleResolveAndImport}
-            disabled={isProcessing || matrix.length === 0}
+            disabled={isProcessing || isValidating || matrix.length === 0}
             className="px-5 py-2 bg-[#000000] dark:bg-[#dae2fd] text-white dark:text-[#131b2e] hover:bg-[#2d3133] dark:hover:bg-white rounded text-xs font-bold transition flex items-center gap-2 shadow-xs disabled:opacity-40"
           >
             {isProcessing ? (
@@ -529,15 +605,31 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
             </h3>
 
             <div className="flex items-center gap-3">
-              {errorCount > 0 ? (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#ffdad6] text-[#93000a] rounded text-[11px] font-bold">
+              {headerDetection.dataRows.length === 0 ? null : missingMandatoryColumns.length > 0 ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#ffdad6] text-[#93000a] rounded text-[11px] font-bold border border-[#ba1a1a]/30" title={`Missing required columns: ${missingMandatoryColumns.map(f => f.label).join(", ")}`}>
                   <span className="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
-                  {errorCount} Mapping Error{errorCount > 1 ? "s" : ""}
+                  Missing Mandatory: {missingMandatoryColumns.map(f => f.label).join(", ")}
+                </div>
+              ) : previewErrors.length > 0 ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#ffdad6] text-[#93000a] rounded text-[11px] font-bold border border-[#ba1a1a]/30" title={previewErrors.slice(0, 3).join("\n")}>
+                  <span className="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
+                  {previewErrors.length} IM-001 Validation Error{previewErrors.length > 1 ? "s" : ""}
+                </div>
+              ) : previewResult && previewResult.status === "READY_FOR_IMPORT" ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#d1fae5] text-[#065f46] rounded text-[11px] font-bold border border-[#10b981]/30">
+                  <CheckCircle size={12} className="text-[#059669]" />
+                  IM-001 Validated ({previewResult.new_rows || 0} New Rows Ready)
                 </div>
               ) : (
-                <div className="flex items-center gap-1 text-[#0c9488] text-[11px] font-bold">
-                  <CheckCircle size={12} />
-                  All Rows Valid
+                <div className="flex items-center gap-1 text-[#515f74] dark:text-[#bec6e0] text-[11px] font-semibold bg-[#e0e3e5] dark:bg-[#45464d] px-2.5 py-1 rounded">
+                  <span>Pending IM-001 Validation</span>
+                </div>
+              )}
+
+              {previewWarnings.length > 0 && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-[#fef08a] text-[#854d0e] rounded text-[11px] font-bold border border-[#eab308]/40" title={previewWarnings.slice(0, 3).join("\n")}>
+                  <span className="material-symbols-outlined text-[14px]">flag</span>
+                  {previewWarnings.length} Review Flag{previewWarnings.length > 1 ? "s" : ""}
                 </div>
               )}
 
@@ -556,6 +648,20 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
               </button>
             </div>
           </div>
+
+          {/* Human / CA Sign-Off Review Flag Banner (e.g. HSN 6403 with Synthetic Upper) */}
+          {previewWarnings.length > 0 && (
+            <div className="bg-[#fef9c3] dark:bg-[#713f12]/40 border-b border-[#facc15] px-4 py-2 flex items-center justify-between text-xs text-[#854d0e] dark:text-[#fef08a] shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-base text-[#ca8a04]">warning</span>
+                <span className="font-bold">Human / CA Sign-Off Flag (REQUIRES_REVIEW):</span>
+                <span>{previewWarnings[0]}</span>
+                {previewWarnings.length > 1 && (
+                  <span className="text-[11px] opacity-80">(+{previewWarnings.length - 1} more flag{previewWarnings.length > 2 ? "s" : ""})</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Table Container with Sticky Column Header Selectors */}
           <div className="flex-1 overflow-auto bg-white dark:bg-[#191c1e]">
