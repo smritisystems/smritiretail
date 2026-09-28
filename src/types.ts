@@ -70,6 +70,8 @@ export interface Product {
   serialNumbers?: string[]; // Used for Serial tracking
   primaryImageUrl?: string; // SPIF Primary Product Image
   galleryImages?: string[]; // SPIF Gallery Images URLs list
+  buyingPrice?: number; // Dealer / buying price (mapped from buying_price)
+  isActive?: boolean; // Product active status (mapped from is_active)
 }
 
 export interface AttributeDefinition {

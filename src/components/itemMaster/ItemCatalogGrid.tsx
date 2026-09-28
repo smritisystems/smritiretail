@@ -300,11 +300,11 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                   const size = p.size || getAttr(p, "size") || "";
                   const hsnCode = (p as any).hsn_code || p.hsnCode || "";
                   const retailPrice = p.mrp || p.price;
-                  const dealerPrice = (p as any).buying_price;
-                  const costPrice = (p as any).cost_price || p.costPrice;
+                  const dealerPrice = p.buyingPrice;                          // Issue 4 fix: typed
+                  const costPrice = p.costPrice;
                   const lastPurchasePrice = getAttr(p, "last_purchase_price");
-                  const gstPct = (p as any).gst_percentage ?? p.gstPercentage;
-                  const isActive = (p as any).is_active !== false;
+                  const gstPct = p.gstPercentage;
+                  const isActive = p.isActive !== false;                      // Issue 4 fix: typed
 
                   return (
                     <tr
