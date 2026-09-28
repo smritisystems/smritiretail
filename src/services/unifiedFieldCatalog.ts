@@ -410,7 +410,7 @@ export function serializeProductAttributes(
     const cleanKey = def.name.toLowerCase().replace(/[^a-z0-9_]/g, "_");
     const dynId = `dyn_attr_${cleanKey}`;
 
-    const rawVal = 
+    let rawVal = 
       itemData[cleanKey] ?? 
       itemData[dynId] ?? 
       itemData[def.name] ?? 
@@ -420,12 +420,29 @@ export function serializeProductAttributes(
       itemData.attributes?.[cleanKey] ??
       itemData.attributes?.[def.name];
 
+    if ((rawVal === undefined || rawVal === null || String(rawVal).trim() === "") && (cleanKey === "style_no" || cleanKey === "style")) {
+      rawVal = itemData.style ?? itemData.style_code ?? itemData.style_no ?? itemData.code;
+    }
+    if ((rawVal === undefined || rawVal === null || String(rawVal).trim() === "") && (cleanKey === "article_no" || cleanKey === "article")) {
+      rawVal = itemData.article ?? itemData.article_no ?? itemData.style ?? itemData.style_code ?? itemData.code;
+    }
+
     if (rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== "") {
       attributesPayload[cleanKey] = String(rawVal).trim();
     }
   });
 
   // Standard inherited attributes
+  const resolvedStyle = itemData.style || itemData.style_code || itemData.style_no || itemData.code;
+  if (resolvedStyle) {
+    attributesPayload.style = String(resolvedStyle).trim();
+    attributesPayload.style_no = String(resolvedStyle).trim();
+  }
+  const resolvedArticle = itemData.article || itemData.article_no || itemData.style || itemData.style_code || itemData.code;
+  if (resolvedArticle) {
+    attributesPayload.article = String(resolvedArticle).trim();
+    attributesPayload.article_no = String(resolvedArticle).trim();
+  }
   if (itemData.brand) attributesPayload.brand = String(itemData.brand).trim();
   if (itemData.category) attributesPayload.category = String(itemData.category).trim();
   if (itemData.subCategory) attributesPayload.subCategory = String(itemData.subCategory).trim();
