@@ -396,7 +396,12 @@ const AppContent: React.FC = () => {
             pricingMode: p.pricing_mode,
             trackingMode: p.tracking_mode,
             variantTemplateId: p.variant_template_id,
-            weightGrams: p.weight_grams ? parseFloat(p.weight_grams) : 0
+            weightGrams: p.weight_grams ? parseFloat(p.weight_grams) : 0,
+            // ── Issue 3 fix: map primary_image_url ──
+            primaryImageUrl: p.primary_image_url || undefined,
+            // ── Issue 4 fix: map buying_price and is_active ──
+            buyingPrice: p.buying_price ? parseFloat(p.buying_price) : undefined,
+            isActive: p.is_active !== false,
           };
         });
 

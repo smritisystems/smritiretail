@@ -641,23 +641,22 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       };
       Object.keys(attrs).forEach((k) => { if (attrs[k] === null) delete attrs[k]; });
 
-      await apiFetchV1("/products", {
+      await apiFetchV1("/inventory/", {
         method: "POST",
         body: JSON.stringify({
           code: form.sku.trim(),
           name: form.name.trim(),
           barcode: form.barcode.trim(),
           brand: form.brand || null,
-          category: form.category || "General",
-          price: parseFloat(form.retailPrice) || 0,
+          category: form.category || "Footwear",
+          // price = dealer/selling price; mrp = retail price (MRP)
+          price: parseFloat(form.dealerPrice) || parseFloat(form.retailPrice) || 0,
           mrp: parseFloat(form.retailPrice) || 0,
           buying_price: parseFloat(form.dealerPrice) || null,
           cost_price: parseFloat(form.costPrice) || null,
           stock: parseFloat(form.openingStock) || 0,
           gst_percentage: parseFloat(form.gstPercentage) || 12,
           hsn_code: form.hsnCode || null,
-          is_tax_inclusive: form.isTaxInclusive,
-          is_active: form.status === "Active",
           attributes: attrs,
         }),
       });
