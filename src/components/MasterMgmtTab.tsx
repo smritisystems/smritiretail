@@ -14,7 +14,7 @@
  * Target UI    : System Master Management (Global Master Screen Refactor)
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { History } from "lucide-react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
 import { mapLookupResponse, masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.confi.tsx";
@@ -81,6 +81,26 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     return () => { isMounted = false; };
   }, [selectedType]);
 
+  const responseTransform = useCallback(
+    (items: any) => mapLookupResponse(items, selectedType),
+    [selectedType]
+  );
+
+  const extraHeaderActions = useCallback(
+    () => (
+      <button
+        type="button"
+        onClick={() => setShowTypeAudit(true)}
+        className="px-3 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-primary font-bold text-xs border border-theme-divider transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+        title={`View ${selectedType} Compliance Audit Trail`}
+      >
+        <History size={14} className="text-blue-400" />
+        <span>Audit Trail</span>
+      </button>
+    ),
+    [selectedType]
+  );
+
   const dynamicConfig = useMemo(() => {
     const typeOptions = lookupTypes.length > 0
       ? lookupTypes.map((t) => ({ label: t.label, value: t.code }))
@@ -126,7 +146,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     return {
       ...masterLookupConfig,
       apiEndpoint: `/masters/lookup/${selectedType}/values`,
-      responseTransform: (items: any) => mapLookupResponse(items, selectedType),
+      responseTransform,
       payloadTransform: (formData: any) => {
         const payload: Record<string, any> = {
           code: String(formData.code || "").trim(),
@@ -152,24 +172,14 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
       filters: [], // Subtabs already select the type; eliminate hardcoded 5-type filter that blocked other types
       slots: {
         ...masterLookupConfig.slots,
-        extraHeaderActions: () => (
-          <button
-            type="button"
-            onClick={() => setShowTypeAudit(true)}
-            className="px-3 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-primary font-bold text-xs border border-theme-divider transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
-            title={`View ${selectedType} Compliance Audit Trail`}
-          >
-            <History size={14} className="text-blue-400" />
-            <span>Audit Trail</span>
-          </button>
-        ),
+        extraHeaderActions,
       },
       subTabs: lookupTypes.length > 0 ? lookupTypes.map((t) => ({
         id: t.code,
         label: t.code === "size_group" ? "Size Management" : t.code === "color_group" ? "Color Management" : t.label
       })) : undefined
     };
-  }, [selectedType, lookupTypes, availableVendorCodes]);
+  }, [selectedType, lookupTypes, availableVendorCodes, responseTransform, extraHeaderActions]);
 
   const registryConfig: any = useMemo(() => {
     if (selectedType === "size_group") {
@@ -184,24 +194,38 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     return dynamicConfig;
   }, [selectedType, dynamicConfig]);
 
+  const handleNotification = useCallback(
+    (t: string, m: string, type?: "success" | "error" | "info" | "warning") => {
+      if (onNotification) onNotification(t, m, type === "error" ? "error" : "success");
+    },
+    [onNotification]
+  );
+
+  const handleSubTabChange = useCallback((newType: string) => {
+    setSelectedType(newType);
+  }, []);
+
+  const renderDetailDrawer = useCallback(
+    (item: any, onClose: () => void, refetch: () => void) => (
+      <MasterLookupDetailDrawer
+        item={item}
+        typeCode={selectedType}
+        onClose={onClose}
+        onRefetch={refetch}
+      />
+    ),
+    [selectedType]
+  );
+
   return (
     <>
       <MasterListScreen<any>
         config={registryConfig}
         currentUser={currentUser}
         initialSubTab={selectedType}
-        onSubTabChange={setSelectedType}
-        detailDrawer={(item, onClose, refetch) => (
-          <MasterLookupDetailDrawer
-            item={item}
-            typeCode={selectedType}
-            onClose={onClose}
-            onRefetch={refetch}
-          />
-        )}
-        onNotification={(t, m, type) => {
-          if (onNotification) onNotification(t, m, type === "warning" || type === "info" ? "success" : type);
-        }}
+        onSubTabChange={handleSubTabChange}
+        detailDrawer={renderDetailDrawer}
+        onNotification={handleNotification}
       />
       {showTypeAudit && (
         <MasterLookupDetailDrawer
