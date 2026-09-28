@@ -155,12 +155,17 @@ class IM001ControlledFieldValidator:
     Enforces rule IM-001 ('Controlled master fields use System Master Lookup' — Action: BLOCK)
     defined in SMRITI Item Master Creation Standard v2.2 (Validation Rules).
 
-    Resolution order (two-tier):
-    1. PRIMARY — CatalogDimensionValidator.get_approved_values() against master_values in the
-       control plane (smritisys) or tenant DB.  If this returns any values, they govern.
-    2. FALLBACK — Workbook 'Validation Lists' sheet from
-       assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx,
-       mtime-cached so workbook edits take effect without a server restart.
+    VALIDATION SOURCE POLICY (DB-ONLY — permanent):
+    All controlled-field validation uses EXCLUSIVELY the master_values table in the
+    SMRITI control plane (smritisys) or tenant DB.
+    Excel / workbook files are NEVER read for validation at runtime.
+    Excel is an operator data-entry tool only (upload → import pipeline).
+
+    Resolution order (DB-only, two-tier):
+    1. System parameters (control plane) → gate and per-field enforcement level.
+    2. CatalogDimensionValidator.get_approved_values() (DB master_values) → sole allowed list.
+       If DB returns 0 values for a dimension, that field is SKIPPED with an explicit
+       advisory (IM-001-UNSEEDED) — never silently passed, never falls back to any file.
 
     Enforcement level per field is governed by system parameters (from system_parameters table):
     - ValidateDataDuringPMImport: global gate (val_text '2' means full validation).
@@ -169,11 +174,10 @@ class IM001ControlledFieldValidator:
     - SuperClass1Present   → enforces MERCHANDISE_DEPARTMENT lookup as BLOCK.
     - ItemSizePresent      → enforces SIZE lookup as BLOCK.
     When a system parameter gates a field as not-enforced, IM-001 downgrades that
-    field from BLOCK to Advisory (warning only), regardless of the workbook flag.
+    field from BLOCK to Advisory (warning only).
 
-    Mandatory vs Non-Mandatory base classification is dynamically extracted from the
-    workbook's 'From System Master Lookup' sheet (Y = BLOCK, N = Advisory).
-    System parameter enforcement flags can only downgrade, never upgrade.
+    Mandatory vs Non-Mandatory base classification is defined in FIELD_MANDATORY_MAP
+    (DB-resident, no file dependency). System parameters can only downgrade, never upgrade.
 
     Near-match detection:
     - Case and whitespace differences are normalized automatically.
@@ -182,18 +186,25 @@ class IM001ControlledFieldValidator:
       'near-match, needs architect decision'.
     """
 
-    _cached_mtime: Optional[float] = None
-    _cached_validation_lists: Dict[str, List[str]] = {}
-    _cached_normalized_lists: Dict[str, Dict[str, str]] = {}
-    _cached_mandatory_map: Dict[str, bool] = {}
-
-    STANDARD_WORKBOOK_RELATIVE_PATHS = [
-        Path("assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
-        Path("../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
-        Path("../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
-        Path("../../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
-        Path("../../../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
-    ]
+    # DB-only mandatory field classification.
+    # Y = BLOCK on mismatch, N = Advisory warning only.
+    # Governed exclusively by master_values; no file dependency.
+    FIELD_MANDATORY_MAP: Dict[str, bool] = {
+        "BRAND_NAME": True,
+        "COLOR": True,
+        "SIZE": True,
+        "GENDER": False,
+        "MERCHANDISE_DEPARTMENT": True,
+        "MERCHANDISE_CATEGORY": False,
+        "PRODUCT_TYPE": False,
+        "HEEL_TYPE": False,
+        "UPPER_MATERIAL": False,
+        "UOM": True,
+        "DESIGN_ATTRIBUTE": False,
+        "OUTSOLE_MATERIAL": False,
+        "COLLECTION_TYPE": False,
+        "GST_RATE_PERCENT": True,
+    }
 
     FIELD_EXTRACTION_MAP = {
         "BRAND_NAME": ("brand", "Brand", "BRAND_NAME"),
@@ -251,7 +262,7 @@ class IM001ControlledFieldValidator:
 
     # Maps each standard field to the system parameter that controls whether it is
     # enforced as a lookup (True = BLOCK, False = downgrade to Advisory).
-    # Fields not in this map use the workbook mandatory flag directly.
+    # System parameters can only downgrade a BLOCK to Advisory, never upgrade.
     FIELD_TO_SYSPARAM_MAP: Dict[str, str] = {
         "ARTICLE_STYLE_CODE": "ItemSubClass1HasCat",
         "COLOR": "ItemSubClass2HasCat",
@@ -259,71 +270,9 @@ class IM001ControlledFieldValidator:
         "SIZE": "ItemSizePresent",
     }
 
-    @classmethod
-    def _find_standard_workbook(cls) -> Optional[Path]:
-        import os
-        custom_env = os.environ.get("SMRITI_ITEM_MASTER_STANDARD_PATH")
-        if custom_env and Path(custom_env).is_file():
-            return Path(custom_env)
-
-        try:
-            repo_root = Path(__file__).resolve().parents[4]
-            cand = repo_root / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"
-            if cand.is_file():
-                return cand
-        except Exception:
-            pass
-
-        for rel in cls.STANDARD_WORKBOOK_RELATIVE_PATHS:
-            if rel.is_file():
-                return rel.resolve()
-
-        return None
-
-    @classmethod
-    def load_standard_lists(cls) -> Tuple[Dict[str, List[str]], Dict[str, Dict[str, str]], Dict[str, bool]]:
-        wb_path = cls._find_standard_workbook()
-        if not wb_path or not wb_path.is_file():
-            return cls._cached_validation_lists, cls._cached_normalized_lists, cls._cached_mandatory_map
-
-        current_mtime = wb_path.stat().st_mtime
-        if cls._cached_mtime == current_mtime and cls._cached_validation_lists:
-            return cls._cached_validation_lists, cls._cached_normalized_lists, cls._cached_mandatory_map
-
-        import openpyxl
-        wb = openpyxl.load_workbook(wb_path, data_only=True)
-
-        mandatory_map: Dict[str, bool] = {}
-        if "From System Master Lookup" in wb.sheetnames:
-            ws_lookup = wb["From System Master Lookup"]
-            for row in ws_lookup.iter_rows(values_only=True):
-                if row and row[0]:
-                    field_name = str(row[0]).strip().upper()
-                    is_mand = False
-                    for c in row[1:]:
-                        if c is not None and str(c).strip().upper() in ("Y", "N"):
-                            is_mand = (str(c).strip().upper() == "Y")
-                            break
-                    mandatory_map[field_name] = is_mand
-
-        validation_lists: Dict[str, List[str]] = {}
-        normalized_lists: Dict[str, Dict[str, str]] = {}
-        if "Validation Lists" in wb.sheetnames:
-            ws_vl = wb["Validation Lists"]
-            for col in ws_vl.iter_cols(values_only=True):
-                header = str(col[0]).strip() if col[0] is not None else None
-                if header:
-                    header_key = header.strip().upper()
-                    items = [str(c).strip() for c in col[1:] if c is not None and str(c).strip()]
-                    validation_lists[header_key] = items
-                    normalized_lists[header_key] = {item.upper(): item for item in items}
-
-        cls._cached_mtime = current_mtime
-        cls._cached_validation_lists = validation_lists
-        cls._cached_normalized_lists = normalized_lists
-        cls._cached_mandatory_map = mandatory_map
-
-        return validation_lists, normalized_lists, mandatory_map
+    # load_standard_lists() and _find_standard_workbook() have been removed.
+    # Rationale: DB (master_values) is the sole validation source per SMRITI
+    # Backend System-of-Record Policy. Excel is an operator data-entry tool only.
 
     @classmethod
     def find_near_match(cls, val: str, allowed_values: List[str]) -> Optional[str]:
@@ -442,14 +391,13 @@ class IM001ControlledFieldValidator:
         company_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Async version.  Resolution order:
-          1. System parameters (control plane) → gate and per-field enforcement level
-          2. CatalogDimensionValidator.get_approved_values() (DB master_values) → primary allowed list
-          3. Workbook Validation Lists → fallback allowed list
+        DB-only validation. Resolution order:
+          1. System parameters (control plane) — gate and per-field enforcement level.
+          2. CatalogDimensionValidator.get_approved_values() (master_values table) — sole allowed list.
+             If DB returns 0 values for a dimension, the field is SKIPPED with IM-001-UNSEEDED
+             advisory. No Excel / workbook fallback. Ever.
         """
-        val_lists, norm_lists, mand_map = cls.load_standard_lists()
-
-        # Tier 1: load system parameter enforcement flags
+        # Tier 1: load system parameter enforcement flags from DB
         sp_flags = await cls._load_sysparam_enforcement_flags(company_id)
         validate_enabled = sp_flags["validate_during_import"]
         field_enforcement = sp_flags["field_enforcement"]
@@ -463,60 +411,68 @@ class IM001ControlledFieldValidator:
             if not raw_val:
                 continue
 
-            # Tier 2: try DB-resident approved values first
+            # Tier 2: DB master_values — sole source of truth
             db_values = await cls._get_db_approved_values_for_field(std_field)
-            if db_values:
-                # Build lookup from DB values; normalize for case-insensitive match
-                db_norm_map: Dict[str, str] = {v.strip().upper(): v.strip() for v in db_values}
-                effective_allowed = db_values
-                effective_norm_map = db_norm_map
-                source_label = "System Master Lookup"
-            else:
-                # Tier 3: fall back to workbook Validation Lists
-                effective_allowed = val_lists.get(std_field, [])
-                effective_norm_map = norm_lists.get(std_field, {})
-                source_label = "Standard Validation List (workbook fallback)"
+
+            if not db_values:
+                # Dimension not seeded in DB — skip silently with advisory, never fall back to Excel
+                warnings.append(
+                    f"IM-001-UNSEEDED [Advisory]: Field '{std_field}' has no approved values "
+                    f"in master_values (type='{cls.FIELD_TO_DIMENSION_MAP.get(std_field, '?')}'). "
+                    f"Seed the dimension to enable BLOCK enforcement."
+                )
+                continue
+
+            db_norm_map: Dict[str, str] = {v.strip().upper(): v.strip() for v in db_values}
+            clean_val = raw_val.strip()
 
             # Case and whitespace auto-normalize:
-            clean_val = raw_val.strip()
-            if clean_val.upper() in effective_norm_map:
-                continue  # value matched — no flag
+            if clean_val.upper() in db_norm_map:
+                continue  # exact DB match — pass
 
-            # No match. Determine enforcement level.
-            near_match = cls.find_near_match(clean_val, effective_allowed)
+            # No DB match — determine enforcement level
+            near_match = cls.find_near_match(clean_val, db_values)
 
-            # Base mandatory flag from workbook; system parameters can only downgrade (not upgrade).
-            workbook_mandatory = mand_map.get(std_field, False)
-            # If system parameter explicitly sets field as non-enforced, downgrade to Advisory.
-            sysparam_enforced = field_enforcement.get(std_field, True)  # default: enforce
-            is_mandatory = workbook_mandatory and sysparam_enforced and validate_enabled
+            # Mandatory classification from FIELD_MANDATORY_MAP (DB-resident constant).
+            # System parameters can only downgrade BLOCK → Advisory, never upgrade.
+            base_mandatory = cls.FIELD_MANDATORY_MAP.get(std_field, False)
+            sysparam_enforced = field_enforcement.get(std_field, True)
+            is_mandatory = base_mandatory and sysparam_enforced and validate_enabled
 
             failure_info = {
                 "field": std_field,
                 "value": clean_val,
                 "is_mandatory": is_mandatory,
                 "near_match": near_match,
-                "source": source_label,
+                "source": "System Master Lookup (DB)",
             }
             field_failures.append(failure_info)
 
             if is_mandatory:
                 if near_match:
                     msg = (
-                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in {source_label} "
+                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in "
+                        f"System Master Lookup (DB) "
                         f"(near-match to '{near_match}', needs architect decision)."
                     )
                 else:
-                    msg = f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in {source_label}."
+                    msg = (
+                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' "
+                        f"not found in System Master Lookup (DB)."
+                    )
                 errors.append(msg)
             else:
                 if near_match:
                     msg = (
-                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' not found in {source_label} "
+                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' "
+                        f"not found in System Master Lookup (DB) "
                         f"(near-match to '{near_match}', needs architect decision)."
                     )
                 else:
-                    msg = f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' not found in {source_label}."
+                    msg = (
+                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' "
+                        f"not found in System Master Lookup (DB)."
+                    )
                 warnings.append(msg)
 
         return {
@@ -614,7 +570,7 @@ async def preview_universal_import(
                 errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
 
             # IM-001: Controlled Master Field Lookup Validation
-            # Two-tier: System Master Lookup (DB) primary, Workbook fallback.
+            # DB-only: master_values is the sole source. No Excel/workbook fallback.
             # Enforcement level gated by system parameters from control plane.
             im001_res = await IM001ControlledFieldValidator.validate_row_controlled_fields(
                 row, row_num, company_id=company_id
