@@ -108,7 +108,7 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
           {vendor.bankAccounts.map((bank, idx) => (
             <div
               key={bank.id || idx}
-              className={`p-4 rounded-xl border transition shadow-xs ${
+              className={`group p-4 rounded-xl border transition shadow-xs ${
                 bank.isPrimary
                   ? "bg-white dark:bg-slate-900/90 border-teal-300 dark:border-teal-500/40 shadow-teal-500/5"
                   : "bg-white dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
@@ -132,14 +132,14 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
                       <span>Primary Payout</span>
                     </span>
                   )}
-                  {isEditing && (
-                    <button
-                      onClick={() => handleDelete(idx)}
-                      className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                  {/* Delete always visible on hover — no edit mode required */}
+                  <button
+                    onClick={() => handleDelete(idx)}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-opacity"
+                    title="Remove bank account"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
 
@@ -169,10 +169,10 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
                 </div>
               </div>
 
-              {isEditing && !bank.isPrimary && (
+              {!bank.isPrimary && (
                 <button
                   onClick={() => handleSetPrimary(idx)}
-                  className="mt-3 text-xs text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 font-semibold block"
+                  className="mt-3 text-xs text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 font-semibold block opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   Set as Primary Payout Account
                 </button>

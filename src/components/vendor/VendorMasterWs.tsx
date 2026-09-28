@@ -5,9 +5,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.2
+ * Version      : 6.16.3
  * Created      : 2026-09-11
- * Modified     : 2026-09-14
+ * Modified     : 2026-09-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Vendor 360 Workspace (Universal Party System of Record)
@@ -36,7 +36,11 @@ import {
   Printer,
   FileText,
   FileSpreadsheet,
-  ChevronDown
+  ChevronDown,
+  Archive,
+  ArchiveRestore,
+  Ban,
+  AlertTriangle
 } from "lucide-react";
 import { 
   VendorSummary, 
@@ -378,6 +382,8 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   const [saving, setSaving] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<"ARCHIVED" | "BLOCKED" | "ACTIVE" | null>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printWithData, setPrintWithData] = useState(true);
   const [showPrintDropdown, setShowPrintDropdown] = useState(false);
@@ -536,6 +542,29 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   };
 
   // Save Updates
+  // ── Vendor Status Change (Archive / Block / Restore) ──────────────────────
+  const handleStatusChange = async (newStatus: "ARCHIVED" | "BLOCKED" | "ACTIVE") => {
+    if (!selectedVendor) return;
+    setSaving(true);
+    try {
+      const updated = await apiFetchV1(`/purchase/vendors/${selectedVendor.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const norm = normalizeVendorDetail(updated);
+      setSelectedVendor(norm);
+      loadVendors();
+      const labelMap = { ARCHIVED: "Archived", BLOCKED: "Blocked", ACTIVE: "Restored to Active" };
+      notify("Status Updated", `${norm.legalName} has been ${labelMap[newStatus]}.`, "success");
+    } catch (err: any) {
+      notify("Status Change Failed", err?.message || "Could not update vendor status.", "error");
+    } finally {
+      setSaving(false);
+      setShowStatusModal(false);
+      setPendingStatus(null);
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedVendor) return;
     setSaving(true);
@@ -868,6 +897,38 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   )}
                 </div>
 
+                {/* Archive / Block / Restore Actions */}
+                {selectedVendor.status === "ACTIVE" && (
+                  <>
+                    <button
+                      onClick={() => { setPendingStatus("ARCHIVED"); setShowStatusModal(true); }}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
+                      title="Archive this vendor — hides from active lookups"
+                    >
+                      <Archive size={13} />
+                      <span>Archive</span>
+                    </button>
+                    <button
+                      onClick={() => { setPendingStatus("BLOCKED"); setShowStatusModal(true); }}
+                      className="px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-700/50 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
+                      title="Block this vendor — prevents all procurement"
+                    >
+                      <Ban size={13} />
+                      <span>Block</span>
+                    </button>
+                  </>
+                )}
+                {(selectedVendor.status === "ARCHIVED" || selectedVendor.status === "BLOCKED") && (
+                  <button
+                    onClick={() => { setPendingStatus("ACTIVE"); setShowStatusModal(true); }}
+                    className="px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
+                    title="Restore vendor to active status"
+                  >
+                    <ArchiveRestore size={13} />
+                    <span>Restore</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => setShowMergeModal(true)}
                   className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition shadow-xs"
@@ -1027,8 +1088,74 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
         )}
       </div>
 
+      {/* Archive / Block / Restore Confirmation Modal */}
+      {showStatusModal && selectedVendor && pendingStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md mx-4 p-6 space-y-5">
+            <div className="flex items-start space-x-4">
+              <div className={`p-2.5 rounded-xl shrink-0 ${
+                pendingStatus === "BLOCKED" ? "bg-red-100 dark:bg-red-950/40" :
+                pendingStatus === "ARCHIVED" ? "bg-slate-100 dark:bg-slate-800" :
+                "bg-emerald-100 dark:bg-emerald-950/40"
+              }`}>
+                {pendingStatus === "BLOCKED" && <Ban size={20} className="text-red-600 dark:text-red-400" />}
+                {pendingStatus === "ARCHIVED" && <Archive size={20} className="text-slate-600 dark:text-slate-400" />}
+                {pendingStatus === "ACTIVE" && <ArchiveRestore size={20} className="text-emerald-600 dark:text-emerald-400" />}
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {pendingStatus === "BLOCKED" && "Block this Vendor?"}
+                  {pendingStatus === "ARCHIVED" && "Archive this Vendor?"}
+                  {pendingStatus === "ACTIVE" && "Restore this Vendor?"}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {pendingStatus === "BLOCKED" && `Blocking ${selectedVendor.legalName} will prevent any new purchase orders from being raised against this vendor. Existing POs and payments are unaffected.`}
+                  {pendingStatus === "ARCHIVED" && `Archiving ${selectedVendor.legalName} will hide them from active procurement lookups. The vendor record and all historical data will be preserved and can be restored at any time.`}
+                  {pendingStatus === "ACTIVE" && `Restoring ${selectedVendor.legalName} will re-activate them in all procurement workflows and active vendor lookups.`}
+                </p>
+              </div>
+            </div>
+            {pendingStatus !== "ACTIVE" && (
+              <div className="flex items-start space-x-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700/40 text-xs text-amber-800 dark:text-amber-300">
+                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                <span>This action will be logged in the vendor audit trail and can be reviewed at any time.</span>
+              </div>
+            )}
+            <div className="flex items-center justify-end space-x-3 pt-1">
+              <button
+                onClick={() => { setShowStatusModal(false); setPendingStatus(null); }}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleStatusChange(pendingStatus)}
+                disabled={saving}
+                className={`px-4 py-2 rounded-lg text-white text-xs font-semibold shadow disabled:opacity-50 flex items-center space-x-1.5 ${
+                  pendingStatus === "BLOCKED" ? "bg-red-600 hover:bg-red-500" :
+                  pendingStatus === "ARCHIVED" ? "bg-slate-600 hover:bg-slate-500" :
+                  "bg-emerald-600 hover:bg-emerald-500"
+                }`}
+              >
+                {saving ? (
+                  <span>Updating...</span>
+                ) : (
+                  <>
+                    {pendingStatus === "BLOCKED" && <><Ban size={13} /><span>Yes, Block Vendor</span></>}
+                    {pendingStatus === "ARCHIVED" && <><Archive size={13} /><span>Yes, Archive Vendor</span></>}
+                    {pendingStatus === "ACTIVE" && <><ArchiveRestore size={13} /><span>Yes, Restore Vendor</span></>}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Merge Modal */}
       {showMergeModal && selectedVendor && (
+
         <VendorMergeModal
           currentVendorId={selectedVendor.id}
           vendorsList={vendors}
