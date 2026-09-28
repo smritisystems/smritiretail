@@ -27,7 +27,10 @@ import { ItemDetailsGridTab } from "./tabs/ItemDetailsGridTab.tsx";
 import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
 import { ItemSaveWarnDlg } from "./modals/ItemSaveWarnDlg.tsx";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
-import { validateItemMasterLookupOptions } from "../../services/itemMasterLookupGate.ts";
+import {
+  validateItemMasterLookupOptionsDetailed,
+  invalidateGovernedLookupCache,
+} from "../../services/itemMasterLookupGate.ts";
 import { Product, AttributeDefinition } from "../../types.ts";
 
 const STORAGE_KEY_SELECTED_FIELDS = "smriti_item_master_selected_fields_v1";
@@ -158,7 +161,11 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
     const errors: string[] = [];
 
     try {
-      const lookupErrors = await validateItemMasterLookupOptions(itemsToSave);
+      const { errors: lookupErrors, warnings: lookupWarnings } =
+        await validateItemMasterLookupOptionsDetailed(itemsToSave);
+      if (lookupWarnings.length > 0) {
+        onNotification?.("Lookup Advisory", lookupWarnings.slice(0, 3).join(" "), "error");
+      }
       if (lookupErrors.length > 0) {
         setIsSaving(false);
         onNotification?.("System Lookup Required", lookupErrors.slice(0, 5).join(" "), "error");

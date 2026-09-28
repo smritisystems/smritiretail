@@ -461,7 +461,7 @@ export function saveGlobalFieldVisibility(visibleKeys: string[]): void {
 /** Hydrate the cached global ItemMaster order from the authenticated user's server preferences. */
 export async function hydrateGlobalFieldVisibility(): Promise<string[] | null> {
   try {
-    const response = await apiFetchV1<{ itemMaster?: { visibleFields?: unknown } }>('/system/layout/preferences');
+    const response = await apiFetchV1<{ itemMaster?: { visibleFields?: unknown } }>('/layout/preferences');
     const fields = response?.itemMaster?.visibleFields;
     if (!Array.isArray(fields) || !fields.every(value => typeof value === 'string')) return getGlobalFieldVisibility();
     const visibleKeys = Array.from(new Set(fields));
@@ -477,7 +477,7 @@ export async function hydrateGlobalFieldVisibility(): Promise<string[] | null> {
 /** Hydrate the shared company/role ItemMaster profile before the user profile/cache. */
 export async function hydrateRoleGlobalFieldVisibility(role?: string | null): Promise<string[] | null> {
   try {
-    const response = await apiFetchV1<{ visibleFields?: unknown }>("/system/layout/item-master-profile");
+    const response = await apiFetchV1<{ visibleFields?: unknown }>("/layout/item-master-profile");
     const fields = response?.visibleFields;
     if (!Array.isArray(fields) || !fields.every(value => typeof value === "string") || fields.length === 0) {
       return hydrateGlobalFieldVisibility();
@@ -495,7 +495,7 @@ export async function hydrateRoleGlobalFieldVisibility(role?: string | null): Pr
 /** Persist global ItemMaster order/visibility for the authenticated user. */
 export async function persistGlobalFieldVisibility(visibleKeys: string[]): Promise<void> {
   try {
-    await apiFetchV1('/system/layout/preferences', {
+    await apiFetchV1('/layout/preferences', {
       method: 'POST',
       body: JSON.stringify({
         itemMaster: {
@@ -512,7 +512,7 @@ export async function persistGlobalFieldVisibility(visibleKeys: string[]): Promi
 /** Persist the active company/role ItemMaster profile when the operator is authorized. */
 export async function persistRoleGlobalFieldVisibility(visibleKeys: string[], role?: string | null): Promise<void> {
   try {
-    await apiFetchV1("/system/layout/item-master-profile", {
+    await apiFetchV1("/layout/item-master-profile", {
       method: "POST",
       body: JSON.stringify({ visibleFields: Array.from(new Set(visibleKeys)), role: role || undefined }),
     });
