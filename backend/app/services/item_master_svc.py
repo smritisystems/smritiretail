@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.17.0
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-09-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -249,6 +249,19 @@ class UniversalItemMasterService:
                 primary_image_url=req.primary_image_url,
                 tags=req.tags,
                 attributes_json=req.attributes_json,
+                # ── v2.2 Promoted Attribute Columns ──────────────────────────────
+                gender=getattr(req, "gender", None),
+                purchase_class=getattr(req, "purchase_class", None),
+                product_type=getattr(req, "product_type", None),
+                design_attribute=getattr(req, "design_attribute", None),
+                heel_type=getattr(req, "heel_type", None),
+                upper_material=getattr(req, "upper_material", None),
+                outsole_material=getattr(req, "outsole_material", None),
+                collection_type=getattr(req, "collection_type", None),
+                # ── v2.2 Business Logic Flags ───────────────────────────────────────
+                is_inventory_yn=getattr(req, "is_inventory_yn", True),
+                is_billable_yn=getattr(req, "is_billable_yn", True),
+                is_service_yn=getattr(req, "is_service_yn", False),
                 status="ACTIVE",
             )
             session.add(item)
@@ -428,6 +441,19 @@ class UniversalItemMasterService:
             status=kwargs.get("status") or "ACTIVE",
             is_active=True,
             is_deleted=False,
+            # ── v2.2 Promoted Attribute Columns ──────────────────────────────
+            gender=kwargs.get("gender"),
+            purchase_class=kwargs.get("purchase_class"),
+            product_type=kwargs.get("product_type"),
+            design_attribute=kwargs.get("design_attribute"),
+            heel_type=kwargs.get("heel_type"),
+            upper_material=kwargs.get("upper_material"),
+            outsole_material=kwargs.get("outsole_material"),
+            collection_type=kwargs.get("collection_type"),
+            # ── v2.2 Business Logic Flags ───────────────────────────────────────
+            is_inventory_yn=kwargs.get("is_inventory_yn", True),
+            is_billable_yn=kwargs.get("is_billable_yn", True),
+            is_service_yn=kwargs.get("is_service_yn", False),
         )
         session.add(item)
         await session.flush()

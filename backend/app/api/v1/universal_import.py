@@ -153,13 +153,13 @@ class IM001ControlledFieldValidator:
     """
     IM-001 Controlled Master Field Governance Engine.
     Enforces rule IM-001 ('Controlled master fields use System Master Lookup' — Action: BLOCK)
-    defined in SMRITI Item Master Creation Standard v2.1 (Validation Rules).
+    defined in SMRITI Item Master Creation Standard v2.2 (Validation Rules).
 
     Resolution order (two-tier):
     1. PRIMARY — CatalogDimensionValidator.get_approved_values() against master_values in the
        control plane (smritisys) or tenant DB.  If this returns any values, they govern.
     2. FALLBACK — Workbook 'Validation Lists' sheet from
-       assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx,
+       assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx,
        mtime-cached so workbook edits take effect without a server restart.
 
     Enforcement level per field is governed by system parameters (from system_parameters table):
@@ -188,11 +188,11 @@ class IM001ControlledFieldValidator:
     _cached_mandatory_map: Dict[str, bool] = {}
 
     STANDARD_WORKBOOK_RELATIVE_PATHS = [
-        Path("assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
-        Path("../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
-        Path("../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
-        Path("../../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
-        Path("../../../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"),
+        Path("assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
+        Path("../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
+        Path("../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
+        Path("../../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
+        Path("../../../../assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"),
     ]
 
     FIELD_EXTRACTION_MAP = {
@@ -261,7 +261,7 @@ class IM001ControlledFieldValidator:
 
         try:
             repo_root = Path(__file__).resolve().parents[4]
-            cand = repo_root / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"
+            cand = repo_root / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"
             if cand.is_file():
                 return cand
         except Exception:
@@ -1021,24 +1021,43 @@ async def commit_universal_import(
                 selling_price = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))) or 0)
                 image_url = _text(row, "primary_image_url", "image_url", "IMAGE_LINK", "image_link", "image")
 
-                # 2. Footwear-specific attributes routed into attributes_json:
-                # (gender, heel_type, upper_material, outsole, design_attribute, collection_type)
-                footwear_nested_attrs = {
-                    "gender": _text(row, "gender", "Gender", "GENDER", "Gndr"),
-                    "heel_type": _text(row, "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel"),
-                    "upper_material": _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper"),
-                    "outsole": _text(row, "outsole", "outsole_material", "outsoleMaterial", "OUTSOLE", "OUTSOLE_MATERIAL", "sole"),
-                    "design_attribute": _text(row, "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute"),
-                    "collection_type": _text(row, "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type"),
-                }
-                row_attrs_json = row.get("attributes_json")
-                if isinstance(row_attrs_json, dict):
-                    for ak, av in row_attrs_json.items():
-                        target_k = "outsole" if ak in ("outsole_material", "outsoleMaterial") else ak
-                        if target_k not in footwear_nested_attrs and av is not None:
-                            footwear_nested_attrs[target_k] = str(av).strip()
+                # 2. v2.2: First-class attribute extraction (promoted from attributes_json blob)
+                # Each field gets its own SQL column on Item — queryable, reportable, IM-001 controlled.
+                v22_gender          = _text(row, "gender", "Gender", "GENDER", "Gndr")
+                v22_purchase_class  = _text(row, "purchase_class", "purchaseClass", "PURCHASE_CLASS")
+                v22_product_type    = _text(row, "product_type", "productType", "PRODUCT_TYPE", "Product_Type")
+                v22_design_attr     = _text(row, "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute")
+                v22_heel_type       = _text(row, "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel")
+                v22_upper_material  = _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper")
+                v22_outsole         = _text(row, "outsole_material", "outsole", "outsoleMaterial", "OUTSOLE_MATERIAL", "OUTSOLE", "sole")
+                v22_collection_type = _text(row, "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type")
 
-                footwear_nested_attrs = {k: v for k, v in footwear_nested_attrs.items() if v is not None and str(v).strip()}
+                # IM-008: IS_INVENTORY_YN / IS_BILLABLE_YN / IS_SERVICE_YN — only Y/N accepted (BLOCK if invalid)
+                def _yn_field(row: dict, *keys: str, default: bool = True) -> bool:
+                    """Parse a Y/N cell; raises ValueError on invalid input (IM-008 BLOCK)."""
+                    raw = _text(row, *keys)
+                    if raw is None or raw.strip() == "":
+                        return default
+                    val = raw.strip().upper()
+                    if val == "Y":
+                        return True
+                    if val == "N":
+                        return False
+                    raise ValueError(f"IM-008: Field {keys[0]} must be Y or N, got '{raw}'")
+
+                try:
+                    v22_is_inventory = _yn_field(row, "IS_INVENTORY_YN", "is_inventory_yn", default=True)
+                    v22_is_billable  = _yn_field(row, "IS_BILLABLE_YN",  "is_billable_yn",  default=True)
+                    v22_is_service   = _yn_field(row, "IS_SERVICE_YN",   "is_service_yn",   default=False)
+                except ValueError as im008_err:
+                    raise HTTPException(status_code=422, detail={"row_number": row.get("rowNumber", index), "message": str(im008_err)})
+
+                # IM-009: Service items cannot be inventory items
+                if v22_is_service:
+                    v22_is_inventory = False
+
+                # Keep attributes_json for any remaining non-standard pass-through keys only
+                footwear_nested_attrs = {k: v for k, v in (row.get("attributes_json") or {}).items() if v is not None and str(v).strip()}
 
                 # Part 6: HSN / GST Soft Validation (Human Review Flag)
                 requires_review_reasons = []
@@ -1079,10 +1098,23 @@ async def commit_universal_import(
                         item.color = color
                     if size and not item.size:
                         item.size = size
+                    # v2.2: Write first-class columns; also keep attrs_json for pass-through extras
                     if footwear_nested_attrs:
                         current_attrs = dict(item.attributes_json or {})
                         current_attrs.update(footwear_nested_attrs)
                         item.attributes_json = current_attrs
+                    if v22_gender and not item.gender:                   item.gender = v22_gender
+                    if v22_purchase_class and not item.purchase_class:   item.purchase_class = v22_purchase_class
+                    if v22_product_type and not item.product_type:       item.product_type = v22_product_type
+                    if v22_design_attr and not item.design_attribute:    item.design_attribute = v22_design_attr
+                    if v22_heel_type and not item.heel_type:             item.heel_type = v22_heel_type
+                    if v22_upper_material and not item.upper_material:   item.upper_material = v22_upper_material
+                    if v22_outsole and not item.outsole_material:        item.outsole_material = v22_outsole
+                    if v22_collection_type and not item.collection_type: item.collection_type = v22_collection_type
+                    # IM-008/009 flags (always set — last import row wins on update)
+                    item.is_inventory_yn = v22_is_inventory
+                    item.is_billable_yn  = v22_is_billable
+                    item.is_service_yn   = v22_is_service
                     if flag_requires_review:
                         item.status = "REQUIRES_REVIEW"
                 else:
@@ -1100,10 +1132,22 @@ async def commit_universal_import(
                             item.color = color
                         if size and not item.size:
                             item.size = size
+                        # v2.2: Write first-class columns; keep attrs_json for pass-through extras
                         if footwear_nested_attrs:
                             current_attrs = dict(item.attributes_json or {})
                             current_attrs.update(footwear_nested_attrs)
                             item.attributes_json = current_attrs
+                        if v22_gender and not item.gender:                   item.gender = v22_gender
+                        if v22_purchase_class and not item.purchase_class:   item.purchase_class = v22_purchase_class
+                        if v22_product_type and not item.product_type:       item.product_type = v22_product_type
+                        if v22_design_attr and not item.design_attribute:    item.design_attribute = v22_design_attr
+                        if v22_heel_type and not item.heel_type:             item.heel_type = v22_heel_type
+                        if v22_upper_material and not item.upper_material:   item.upper_material = v22_upper_material
+                        if v22_outsole and not item.outsole_material:        item.outsole_material = v22_outsole
+                        if v22_collection_type and not item.collection_type: item.collection_type = v22_collection_type
+                        item.is_inventory_yn = v22_is_inventory
+                        item.is_billable_yn  = v22_is_billable
+                        item.is_service_yn   = v22_is_service
                         if flag_requires_review:
                             item.status = "REQUIRES_REVIEW"
                     else:
@@ -1130,6 +1174,18 @@ async def commit_universal_import(
                             attributes_json=footwear_nested_attrs,
                             primary_image_url=image_url,
                             status=item_status,
+                            # ── v2.2 first-class fields ──────────────────────────────────────
+                            gender=v22_gender,
+                            purchase_class=v22_purchase_class,
+                            product_type=v22_product_type,
+                            design_attribute=v22_design_attr,
+                            heel_type=v22_heel_type,
+                            upper_material=v22_upper_material,
+                            outsole_material=v22_outsole,
+                            collection_type=v22_collection_type,
+                            is_inventory_yn=v22_is_inventory,
+                            is_billable_yn=v22_is_billable,
+                            is_service_yn=v22_is_service,
                             commit=False,
                         )
                         if flag_requires_review:
@@ -1149,10 +1205,7 @@ async def commit_universal_import(
                     attrs["color"] = color
                 if size:
                     attrs["size"] = size
-                for extra_k in ("product_type", "purchase_class"):
-                    extra_val = _text(row, extra_k, extra_k.upper())
-                    if extra_val:
-                        attrs[extra_k] = extra_val
+                # product_type & purchase_class are now first-class Item columns (v2.2)— not in variant attrs_json
                 attrs = {k: v for k, v in attrs.items() if v}
 
                 row_mrp = float(row.get("mrp", row.get("MRP", item.mrp)) or item.mrp or 0)
@@ -1492,7 +1545,7 @@ async def download_item_master_template(
     _current_user: Any = Depends(get_current_user),
 ):
     """
-    Generate and stream an authoritative SMRITI Item Master Standard v2.1 Excel workbook,
+    Generate and stream an authoritative SMRITI Item Master Standard v2.2 Excel workbook,
     dynamically pre-populating lookup dropdown lists (Warehouses, Brands, Departments, Categories)
     from live database records for the specified company.
     """
@@ -1530,11 +1583,11 @@ async def download_item_master_template(
     cat_names = [r[0] for r in (await db.execute(cat_stmt)).all() if r[0]]
 
     # Load canonical template base
-    template_path = Path("assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx")
+    template_path = Path("assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx")
     if not template_path.exists():
-        template_path = Path(__file__).resolve().parents[4] / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"
+        template_path = Path(__file__).resolve().parents[4] / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"
     if not template_path.exists():
-        template_path = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.1.xlsx"
+        template_path = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.2.xlsx"
 
     wb = openpyxl.load_workbook(template_path)
     if "Validation Lists" in wb.sheetnames:
@@ -1576,7 +1629,7 @@ async def download_item_master_template(
     wb.save(buffer)
     buffer.seek(0)
 
-    filename = f"SMRITI_Item_Master_Standard_v2.1_{effective_company}.xlsx"
+    filename = f"SMRITI_Item_Master_Standard_v2.2_{effective_company}.xlsx"
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
