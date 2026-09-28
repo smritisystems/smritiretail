@@ -517,7 +517,7 @@ class VendorService:
         return await self.get_vendor_by_id(party.id)
 
     async def update_vendor(self, vendor_id: str, req: VendorUpdateRequest) -> VendorDetail:
-        """Partially updates vendor profile, statutory attributes, and syncs legacy table."""
+        """Partially updates vendor profile, statutory attributes, sub-entities, and syncs legacy table."""
         stmt = (
             select(Party)
             .options(
@@ -581,6 +581,106 @@ class VendorService:
                 sp.tax_treatment = c.tax_treatment
             if c.outstanding_liability is not None:
                 sp.outstanding_liability = Decimal(str(c.outstanding_liability))
+
+        company_id = getattr(self.tenant, "company_id", None)
+        branch_id = getattr(self.tenant, "branch_id", None)
+
+        # ── Contacts: upsert-by-id + soft-delete removed entries ──────────────
+        if req.contacts is not None:
+            incoming_ids = {c.id for c in req.contacts if c.id}
+            for existing in (party.contacts or []):
+                if not existing.is_deleted and existing.id not in incoming_ids:
+                    existing.is_deleted = True
+            for c_dto in req.contacts:
+                matched = next((c for c in (party.contacts or []) if c.id and c.id == c_dto.id), None) if c_dto.id else None
+                if matched:
+                    matched.contact_name = c_dto.contact_name
+                    matched.contact_category = c_dto.contact_category or "GENERAL"
+                    matched.designation = c_dto.designation
+                    matched.department = c_dto.department
+                    matched.phone = c_dto.phone
+                    matched.mobile = c_dto.mobile
+                    matched.email = c_dto.email
+                    matched.is_primary = c_dto.is_primary
+                    matched.is_deleted = False
+                else:
+                    self.db.add(PartyContact(
+                        id=f"pc_{uuid.uuid4().hex[:12]}",
+                        company_id=company_id, branch_id=branch_id,
+                        party_id=party.id,
+                        contact_name=c_dto.contact_name,
+                        contact_category=c_dto.contact_category or "GENERAL",
+                        designation=c_dto.designation, department=c_dto.department,
+                        phone=c_dto.phone, mobile=c_dto.mobile, email=c_dto.email,
+                        is_primary=c_dto.is_primary,
+                    ))
+
+        # ── Addresses: upsert-by-id + soft-delete removed entries ─────────────
+        if req.addresses is not None:
+            incoming_addr_ids = {a.id for a in req.addresses if a.id}
+            for existing in (party.addresses or []):
+                if not existing.is_deleted and existing.id not in incoming_addr_ids:
+                    existing.is_deleted = True
+            for a_dto in req.addresses:
+                matched = next((a for a in (party.addresses or []) if a.id and a.id == a_dto.id), None) if a_dto.id else None
+                if matched:
+                    matched.address_type = a_dto.address_type
+                    matched.address_title = a_dto.address_title
+                    matched.address_line1 = a_dto.address_line1
+                    matched.address_line2 = a_dto.address_line2
+                    matched.city = a_dto.city
+                    matched.state = a_dto.state
+                    matched.state_code = a_dto.state_code
+                    matched.pincode = a_dto.pincode
+                    matched.country = a_dto.country or "India"
+                    matched.gstin = a_dto.gstin
+                    matched.is_primary = a_dto.is_primary
+                    matched.is_deleted = False
+                else:
+                    self.db.add(PartyAddress(
+                        id=f"pa_{uuid.uuid4().hex[:12]}",
+                        company_id=company_id, branch_id=branch_id,
+                        party_id=party.id,
+                        address_type=a_dto.address_type, address_title=a_dto.address_title,
+                        address_line1=a_dto.address_line1, address_line2=a_dto.address_line2,
+                        city=a_dto.city, state=a_dto.state, state_code=a_dto.state_code,
+                        pincode=a_dto.pincode, country=a_dto.country or "India",
+                        gstin=a_dto.gstin, is_primary=a_dto.is_primary,
+                    ))
+
+        # ── Bank Accounts: upsert-by-id + soft-delete removed entries ─────────
+        if req.bank_accounts is not None:
+            incoming_bank_ids = {b.id for b in req.bank_accounts if b.id}
+            for existing in (party.bank_accounts or []):
+                if not existing.is_deleted and existing.id not in incoming_bank_ids:
+                    existing.is_deleted = True
+            for b_dto in req.bank_accounts:
+                matched = next((b for b in (party.bank_accounts or []) if b.id and b.id == b_dto.id), None) if b_dto.id else None
+                if matched:
+                    matched.bank_name = b_dto.bank_name
+                    matched.account_holder_name = b_dto.account_holder_name
+                    matched.account_number = b_dto.account_number
+                    matched.ifsc = b_dto.ifsc.strip().upper()
+                    matched.branch = b_dto.branch
+                    matched.account_type = b_dto.account_type or "CURRENT"
+                    matched.is_primary = b_dto.is_primary
+                    matched.verification_status = b_dto.verification_status or "PENDING"
+                    matched.verified_at = b_dto.verified_at
+                    matched.is_deleted = False
+                else:
+                    self.db.add(SupplierBankAccount(
+                        id=f"pba_{uuid.uuid4().hex[:12]}",
+                        company_id=company_id, branch_id=branch_id,
+                        party_id=party.id,
+                        bank_name=b_dto.bank_name,
+                        account_holder_name=b_dto.account_holder_name,
+                        account_number=b_dto.account_number,
+                        ifsc=b_dto.ifsc.strip().upper(), branch=b_dto.branch,
+                        account_type=b_dto.account_type or "CURRENT",
+                        is_primary=b_dto.is_primary,
+                        verification_status=b_dto.verification_status or "PENDING",
+                        verified_at=b_dto.verified_at,
+                    ))
 
         # Dual-write sync to legacy suppliers table
         leg_stmt = select(Supplier).where(

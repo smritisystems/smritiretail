@@ -99,19 +99,23 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
     });
 
   useEffect(() => {
-    // Attempt fetch of POs filtered by supplier ID
+    // Fetch POs filtered server-side by the Universal Party ID.
+    // The backend /purchase/orders/?supplier_id= accepts both party UUID and legacy supplier ID.
     const fetchPOs = async () => {
       setLoading(true);
       try {
-        const res = await apiFetchV1("/purchase/orders");
-        const list = Array.isArray(res) ? res : res?.items || [];
-        // Match either universal party id or code
-        const filtered = list.filter((po: any) => 
-          po.supplier_id === vendor.id || 
-          po.party_id === vendor.id || 
-          po.supplier_id === `sup-${vendor.code.toLowerCase()}`
-        );
-        setOrders(filtered);
+        // Primary lookup: Universal Party UUID
+        const res = await apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(vendor.id)}`);
+        let list = Array.isArray(res) ? res : res?.items || [];
+
+        // Fallback: if no POs found by UUID, try the legacy ID format used before Universal Party migration
+        if (list.length === 0) {
+          const legacyId = `sup-${vendor.code.toLowerCase()}`;
+          const res2 = await apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(legacyId)}`);
+          list = Array.isArray(res2) ? res2 : res2?.items || [];
+        }
+
+        setOrders(list);
       } catch (err) {
         setOrders([]);
       } finally {
