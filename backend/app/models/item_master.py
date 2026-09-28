@@ -4,16 +4,16 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.17.0
 Created      : 2026-08-23
-Modified     : 2026-08-25
+Modified     : 2026-09-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
 from decimal import Decimal
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey, Text, text, Date, UniqueConstraint
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey, Text, text, Date, UniqueConstraint, Enum as SAEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
@@ -58,7 +58,31 @@ class Item(BaseEntity):
     is_serial_tracked = Column(Boolean, nullable=False, default=False)
     is_favorite = Column(Boolean, nullable=False, default=False)
     status = Column(String(30), nullable=False, default="ACTIVE")  # ACTIVE, INACTIVE, DISCONTINUED, REQUIRES_REVIEW
-    
+
+    # ── v2.2 Promoted Attribute Columns ────────────────────────────────────────
+    # These were previously buried in attributes_json. Promoted to first-class
+    # SQL columns for queryability, reporting, and IM-001 controlled-field validation.
+    gender           = Column(String(30),  nullable=True, index=True)   # GENDER (Col O) — System Master Lookup
+    purchase_class   = Column(String(100), nullable=True)                # PURCHASE_CLASS (Col P)
+    product_type     = Column(String(100), nullable=True, index=True)    # PRODUCT_TYPE (Col T) — System Master Lookup
+    design_attribute = Column(String(100), nullable=True)                # DESIGN_ATTRIBUTE (Col U) — System Master Lookup
+    heel_type        = Column(String(100), nullable=True)                # HEEL_TYPE (Col V) — System Master Lookup
+    upper_material   = Column(String(100), nullable=True)                # UPPER_MATERIAL (Col W) — System Master Lookup
+    outsole_material = Column(String(100), nullable=True)                # OUTSOLE_MATERIAL (Col X)
+    collection_type  = Column(String(100), nullable=True)                # COLLECTION_TYPE (Col D)
+
+    # ── v2.2 Business Logic Flags (IM-008 / IM-009) ───────────────────────────
+    # IM-008: Only Y/N accepted on import; stored as Boolean here.
+    # IM-009: is_service_yn=True forces is_inventory_yn=False.
+    is_inventory_yn  = Column(Boolean, nullable=False, default=True,  server_default=text("true"))   # IS_INVENTORY_YN (Col AE)
+    is_billable_yn   = Column(Boolean, nullable=False, default=True,  server_default=text("true"))   # IS_BILLABLE_YN  (Col AF)
+    is_service_yn    = Column(Boolean, nullable=False, default=False, server_default=text("false"))  # IS_SERVICE_YN   (Col AG)
+
+    # ── v2.2 Workflow Validation Columns ──────────────────────────────────────
+    # Persisted per item so import results are queryable post-import.
+    validation_status  = Column(String(30), nullable=True)   # VALIDATION_STATUS  (Col AI): PASS/FAIL/ADVISORY
+    validation_message = Column(Text,       nullable=True)   # VALIDATION_MESSAGE (Col AJ)
+
     # Extended attributes & assets
     attributes_json = Column(JSONB, server_default=text("'{}'"), default=dict)
     primary_image_url = Column(String(512), nullable=True)
