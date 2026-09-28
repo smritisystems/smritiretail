@@ -325,12 +325,24 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
 
         // Use canonical serializeProductAttributes to construct PostgreSQL attributes JSONB
         const attributesPayload = serializeProductAttributes(rawRowObj, dynamicDefinitions);
+        const resolvedStyleVal = rawRowObj.style || rawRowObj.style_code || rawRowObj.style_no || rawRowObj.code || "";
+        const resolvedArticleVal = rawRowObj.article || rawRowObj.article_no || rawRowObj.style || rawRowObj.style_code || rawRowObj.code || "";
+        if (resolvedStyleVal) {
+          attributesPayload.style_no = resolvedStyleVal;
+          attributesPayload.style = resolvedStyleVal;
+          attributesPayload.Style = resolvedStyleVal;
+        }
+        if (resolvedArticleVal) {
+          attributesPayload.article_no = resolvedArticleVal;
+          attributesPayload.article = resolvedArticleVal;
+          attributesPayload["Article No"] = resolvedArticleVal;
+        }
 
         // Standard relational product payload
         const productPayload = {
           code: rawRowObj.code || rawRowObj.stockNo || generateSkuCode({
             brand: rawRowObj.brand || "SMRITI",
-            styleCode: rawRowObj.style || rawRowObj.style_code || "STYLE",
+            styleCode: resolvedStyleVal || "STYLE",
             colour: rawRowObj.colour || rawRowObj.shade || "STD",
             size: rawRowObj.size || "M"
           }, { mode: "AUTO", prefix: "SKU", sequenceStart: 1001 }, row.rowIndex),
@@ -338,13 +350,13 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           barcode: rawRowObj.barcode || rawRowObj.code || `BAR-${Date.now()}-${row.rowIndex}`,
           brand: rawRowObj.brand || "SMRITI",
           vendor_code: rawRowObj.vendorCode || rawRowObj.vendor_code || "",
-          category: rawRowObj.category || "Footwear",
+          category: rawRowObj.category || (rawRowObj.merchandiseCategory ? String(rawRowObj.merchandiseCategory).trim() : "Footwear"),
           cost_price: parseFloat(String(rawRowObj.costPrice || rawRowObj.cost_price || "0").replace(/,/g, "")) || 0,
           price: parseFloat(String(rawRowObj.price || rawRowObj.sellingPrice || "0").replace(/,/g, "")) || 0,
           mrp: parseFloat(String(rawRowObj.mrp || rawRowObj.price || "0").replace(/,/g, "")) || 0,
           gst_percentage: parseFloat(String(rawRowObj.gstPercentage || rawRowObj.productTax || "18").replace(/[^0-9.]/g, "")) || 18.00,
           hsn_code: rawRowObj.hsnCode || rawRowObj.hsn_code || "61091000",
-          style_code: rawRowObj.style || rawRowObj.style_code || rawRowObj.code || "",
+          style_code: resolvedStyleVal || "",
           color: rawRowObj.colour || rawRowObj.color || rawRowObj.shade || "",
           size: rawRowObj.size || "",
           attributes: attributesPayload
