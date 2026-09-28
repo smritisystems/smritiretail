@@ -75,6 +75,13 @@ export function MasterListScreen<T extends Record<string, any>>({
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeSubTab, setActiveSubTab] = useState<string>(initialSubTab || config.subTabs?.[0]?.id || "list");
+
+  // Keep activeSubTab synced with initialSubTab prop updates
+  useEffect(() => {
+    if (initialSubTab && initialSubTab !== activeSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   
   // Filter States
   const [filterValues, setFilterValues] = useState<Record<string, any>>(() => {
@@ -206,7 +213,7 @@ export function MasterListScreen<T extends Record<string, any>>({
         setLoading(false);
       }
     }
-  }, [config, isServerPagination, page, pageSize, debouncedSearch, filterValues, sortState, onNotification]);
+  }, [config.apiEndpoint, config.entityName, config.entityNamePlural, config.responseTransform, isServerPagination, page, pageSize, debouncedSearch, filterValues, sortState.key, sortState.direction, onNotification]);
 
   useEffect(() => {
     fetchItems();

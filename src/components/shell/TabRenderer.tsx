@@ -397,7 +397,7 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "barcode-management":
       return <BarcodeManagementTab />;
     case "masters":
-      return <MasterManagementTab onNotification={addNotification} />;
+      return <MasterManagementTab onNotification={addNotification} currentUser={currentUser} />;
     case "document-series":
       return <DocumentSeriesTab />;
     case "approval-matrix":

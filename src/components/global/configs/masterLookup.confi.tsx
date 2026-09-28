@@ -132,7 +132,24 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
         { label: "Bank Account", value: "bank" },
         { label: "Payment Mode", value: "payment_mode" },
         { label: "Expense Category", value: "expense_category" },
-        { label: "Currency", value: "currency" }
+        { label: "Currency", value: "currency" },
+        { label: "Style / Article", value: "style_article" },
+        { label: "Vendor Code", value: "vendor_code" },
+        { label: "Brand", value: "brand" },
+        { label: "Category", value: "category" },
+        { label: "Subcategory", value: "subcategory" },
+        { label: "Product Type", value: "product_type" },
+        { label: "Size", value: "size" },
+        { label: "Color", value: "color" },
+        { label: "GST Rate (%)", value: "gst_rate" },
+        { label: "Unit of Measure (UOM)", value: "uom" },
+        { label: "Gender", value: "gender" },
+        { label: "Collection Type", value: "collection_type" },
+        { label: "Heel Type", value: "heel_type" },
+        { label: "Upper Material", value: "upper_material" },
+        { label: "Outsole Material", value: "outsole_material" },
+        { label: "Size Group", value: "size_group" },
+        { label: "Color Group", value: "color_group" }
       ],
       defaultValue: "department",
       colSpan: 1
@@ -149,23 +166,20 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
       name: "description",
       label: "Description",
       type: "textarea",
-      placeholder: "Optional description or account details...",
+      placeholder: "Optional description or details...",
       colSpan: 2
     }
   ],
 
   filters: [
     {
-      id: "type_filter",
-      label: "Master Type",
-      field: "type_code",
+      id: "status_filter",
+      label: "Status",
+      field: "is_active",
       type: "select",
       options: [
-        { label: "Department", value: "department" },
-        { label: "Designation", value: "designation" },
-        { label: "Bank Account", value: "bank" },
-        { label: "Payment Mode", value: "payment_mode" },
-        { label: "Expense Category", value: "expense_category" }
+        { label: "Active", value: true },
+        { label: "Inactive", value: false }
       ]
     }
   ],
