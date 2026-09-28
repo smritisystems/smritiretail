@@ -52,11 +52,14 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **`sysparam_flags`** added to `validate_row_controlled_fields()` return dict for diagnostics (includes `validate_during_import` bool and `field_enforcement` dict).
 - **Imports:** `CatalogDimensionValidator`, `SystemParameterService`, `async_session` added to `universal_import.py`.
 
+- **Master Registry Seeding Script:** Added `scripts/seed_master_values_from_standard.py` to idempotently seed all 13 canonical catalog dimensions (`brand`, `color`, `size`, `gender`, `department`, `category`, `product_type`, `subcategory`, `heel_type`, `upper_material`, `outsole_material`, `uom`, `collection_type`) into `master_values` in the control plane (`smritisys`) directly from `assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx`.
+
 ### Verification
 - Syntax: PASSED (`ast.parse`)
-- System param resolution (COMP-001): `ItemSubClass1HasCat=True`, `ItemSubClass2HasCat=True`, `SuperClass1Present=True`, `ItemSizePresent=True`, `ValidateDataDuringPMImport=2`
-- Tattly 615-row preview: 546 affected / 615 total — sanity check stable
-- All 6 failing fields route through workbook fallback (DB not yet seeded for those dimensions)
+- Master Values Seeding: 13/13 dimensions populated in control plane (`brand`: 8, `color`: 17, `size`: 25, `gender`: 4, `department`: 6, `category`: 6, `product_type`: 12, `subcategory`: 11, `heel_type`: 9, `upper_material`: 11, `outsole_material`: 9, `uom`: 5, `collection_type`: 8)
+- Test Suite 1 (`backend/tests/test_universal_import_item_master.py`): 8/8 PASSED in 20.51s
+- Test Suite 2 (`backend/app/tests/test_item_master_import_pipeline.py`): 7/7 PASSED in 55.80s
+- Total Test Coverage: 15/15 tests green (100%)
 
 ---
 

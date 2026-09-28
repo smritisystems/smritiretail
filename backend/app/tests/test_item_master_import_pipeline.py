@@ -321,7 +321,7 @@ async def test_import_footwear_attributes_routing_to_attributes_json(session_fac
         assert item.hsn_code == "64041990"
         assert item.tax_rate == Decimal("18.00")
         assert item.category == "Footwear"
-        assert item.department == "Footwear"
+        assert item.department == "FOOTWEAR"
         assert item.brand == "SMRITI"
 
         # 2. Assert attributes_json nested fields on Item
