@@ -309,10 +309,9 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           if (fieldKey) values[fieldKey] = value.trim();
         });
         return values;
-      }));
+      }), "warn");
       if (lookupErrors.length > 0) {
-        onNotification?.("System Lookup Required", lookupErrors.slice(0, 5).join(" "), "error");
-        return;
+        console.warn("[ItemMasterStudio] Lookup advisory warnings:", lookupErrors);
       }
 
       for (const row of activeRows) {
@@ -335,7 +334,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
             colour: rawRowObj.colour || rawRowObj.shade || "STD",
             size: rawRowObj.size || "M"
           }, { mode: "AUTO", prefix: "SKU", sequenceStart: 1001 }, row.rowIndex),
-          name: rawRowObj.name || rawRowObj.product || `Item ${rawRowObj.code || row.rowIndex}`,
+          name: rawRowObj.name || rawRowObj.product || rawRowObj.itemDescription || `Item ${rawRowObj.code || row.rowIndex}`,
           barcode: rawRowObj.barcode || rawRowObj.code || `BAR-${Date.now()}-${row.rowIndex}`,
           brand: rawRowObj.brand || "SMRITI",
           vendor_code: rawRowObj.vendorCode || rawRowObj.vendor_code || "",

@@ -14,7 +14,7 @@
  * Target UI    : System Master Management (Global Master Screen Refactor)
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { History } from "lucide-react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
 import { mapLookupResponse, masterLookupConfig, MasterLookupItem } from "./global/configs/masterLookup.confi.tsx";
@@ -60,65 +60,129 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     loadTypes();
   }, []);
 
-  const dynamicConfig = {
-    ...masterLookupConfig,
-    apiEndpoint: `/masters/lookup/${selectedType}/values`,
-    responseTransform: (items: any) => mapLookupResponse(items, selectedType),
-    payloadTransform: (formData: any) => ({
-      code: String(formData.code || "").trim(),
-      name: String(formData.name || "").trim(),
-      active: formData.is_active !== false,
-      data: {
-        description: String(formData.description || "").trim(),
-        ...(selectedType === "color_group" ? {
-          dimension: "color",
-          values: String(formData.values || "")
-            .split(",")
-            .map((value) => value.trim().toUpperCase())
-            .filter(Boolean),
-        } : {}),
-      },
-    }),
-    fields: masterLookupConfig.fields.map((field) =>
-      field.name === "type_code"
-        ? { ...field, defaultValue: selectedType, disabled: true }
-        : field
-    ).concat(selectedType === "color_group" ? [{
-      name: "values",
-      label: "Ordered Color Values",
-      type: "textarea",
-      required: true,
-      placeholder: "BLACK, WHITE, RED, BLUE",
-      description: "These values will be used to generate Color variants.",
-      colSpan: 2,
-    }] : []),
-    slots: {
-      ...masterLookupConfig.slots,
-      extraHeaderActions: () => (
-        <button
-          type="button"
-          onClick={() => setShowTypeAudit(true)}
-          className="px-3 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-primary font-bold text-xs border border-theme-divider transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
-          title={`View ${selectedType} Compliance Audit Trail`}
-        >
-          <History size={14} className="text-blue-400" />
-          <span>Audit Trail</span>
-        </button>
-      ),
-    },
-    subTabs: lookupTypes.length > 0 ? lookupTypes.map((t) => ({
-      id: t.code,
-      label: t.code === "size_group" ? "Size Management" : t.code === "color_group" ? "Color Management" : t.label
-    })) : undefined
-  };
+  const [availableVendorCodes, setAvailableVendorCodes] = useState<{ code: string; name: string }[]>([]);
 
-  const registryConfig: any = selectedType === "size_group"
-    ? getMasterRegistryTypeConfig("size_group", "select")
-    : selectedType === "size_group_registry"
-      ? getMasterRegistryTypeConfig("size_group_registry", "manage")
-      : selectedType === "color_group"
-        ? getColorManagementTypeConfig()
-    : dynamicConfig;
+  // Fetch active vendor codes when in style_article so the form can optionally link to an active vendor
+  useEffect(() => {
+    let isMounted = true;
+    const loadVendors = async () => {
+      try {
+        const vendors = await apiFetchV1("/masters/lookup/vendor_code/values?activeOnly=true");
+        if (isMounted && Array.isArray(vendors)) {
+          setAvailableVendorCodes(vendors.map((v: any) => ({ code: String(v.code), name: String(v.name) })));
+        }
+      } catch {
+        // Vendors optional
+      }
+    };
+    if (selectedType === "style_article") {
+      loadVendors();
+    }
+    return () => { isMounted = false; };
+  }, [selectedType]);
+
+  const dynamicConfig = useMemo(() => {
+    const typeOptions = lookupTypes.length > 0
+      ? lookupTypes.map((t) => ({ label: t.label, value: t.code }))
+      : masterLookupConfig.fields.find((f) => f.name === "type_code")?.options || [];
+
+    const baseFields = masterLookupConfig.fields.map((field) =>
+      field.name === "type_code"
+        ? {
+            ...field,
+            defaultValue: selectedType,
+            options: typeOptions,
+            disabled: true
+          }
+        : field
+    );
+
+    const extraFields: any[] = [];
+    if (selectedType === "color_group") {
+      extraFields.push({
+        name: "values",
+        label: "Ordered Color Values",
+        type: "textarea",
+        required: true,
+        placeholder: "BLACK, WHITE, RED, BLUE",
+        description: "These values will be used to generate Color variants.",
+        colSpan: 2,
+      });
+    } else if (selectedType === "style_article") {
+      extraFields.push({
+        name: "vendorCode",
+        label: "Owning Vendor Code (Optional)",
+        type: "select",
+        required: false,
+        options: [
+          { label: "-- Global / Unassigned --", value: "" },
+          ...availableVendorCodes.map((v) => ({ label: `${v.code} - ${v.name}`, value: v.code })),
+        ],
+        description: "Assign this style / article to an active vendor code or leave unassigned.",
+        colSpan: 1,
+      });
+    }
+
+    return {
+      ...masterLookupConfig,
+      apiEndpoint: `/masters/lookup/${selectedType}/values`,
+      responseTransform: (items: any) => mapLookupResponse(items, selectedType),
+      payloadTransform: (formData: any) => {
+        const payload: Record<string, any> = {
+          code: String(formData.code || "").trim(),
+          name: String(formData.name || "").trim(),
+          active: formData.is_active !== false,
+          data: {
+            description: String(formData.description || "").trim(),
+            ...(selectedType === "color_group" ? {
+              dimension: "color",
+              values: String(formData.values || "")
+                .split(",")
+                .map((value) => value.trim().toUpperCase())
+                .filter(Boolean),
+            } : {}),
+          },
+        };
+        if (selectedType === "style_article" && formData.vendorCode && String(formData.vendorCode).trim()) {
+          payload.vendorCode = String(formData.vendorCode).trim().toUpperCase();
+        }
+        return payload;
+      },
+      fields: baseFields.concat(extraFields),
+      filters: [], // Subtabs already select the type; eliminate hardcoded 5-type filter that blocked other types
+      slots: {
+        ...masterLookupConfig.slots,
+        extraHeaderActions: () => (
+          <button
+            type="button"
+            onClick={() => setShowTypeAudit(true)}
+            className="px-3 py-2 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-primary font-bold text-xs border border-theme-divider transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+            title={`View ${selectedType} Compliance Audit Trail`}
+          >
+            <History size={14} className="text-blue-400" />
+            <span>Audit Trail</span>
+          </button>
+        ),
+      },
+      subTabs: lookupTypes.length > 0 ? lookupTypes.map((t) => ({
+        id: t.code,
+        label: t.code === "size_group" ? "Size Management" : t.code === "color_group" ? "Color Management" : t.label
+      })) : undefined
+    };
+  }, [selectedType, lookupTypes, availableVendorCodes]);
+
+  const registryConfig: any = useMemo(() => {
+    if (selectedType === "size_group") {
+      return getMasterRegistryTypeConfig("size_group", "select");
+    }
+    if (selectedType === "size_group_registry") {
+      return getMasterRegistryTypeConfig("size_group_registry", "manage");
+    }
+    if (selectedType === "color_group") {
+      return getColorManagementTypeConfig();
+    }
+    return dynamicConfig;
+  }, [selectedType, dynamicConfig]);
 
   return (
     <>
