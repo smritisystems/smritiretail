@@ -77,13 +77,26 @@ class GlobalReferenceService:
         return list(result.scalars().all())
 
     async def get_postal_code(self, postal_code: str, country_code: str = "IN") -> Optional[PostalCodeRef]:
-        stmt = select(PostalCodeRef).where(
-            PostalCodeRef.country_code == country_code.upper(),
-            PostalCodeRef.postal_code == postal_code.strip(),
-            PostalCodeRef.is_active == True,
+        stmt = (
+            select(PostalCodeRef, StateRef.name.label("state_name"), StateRef.gst_state_code)
+            .outerjoin(
+                StateRef,
+                (StateRef.state_code == PostalCodeRef.state_code)
+                & (StateRef.country_code == PostalCodeRef.country_code),
+            )
+            .where(
+                PostalCodeRef.country_code == country_code.upper(),
+                PostalCodeRef.postal_code == postal_code.strip(),
+                PostalCodeRef.is_active == True,
+            )
         )
-        result = await self.db.execute(stmt)
-        return result.scalars().first()
+        row = (await self.db.execute(stmt)).first()
+        if not row:
+            return None
+        pin_ref, state_name, gst_state_code = row
+        pin_ref.state_name = state_name
+        pin_ref.gst_state_code = gst_state_code
+        return pin_ref
 
     async def search_postal_codes(
         self,
@@ -93,9 +106,17 @@ class GlobalReferenceService:
         country_code: str = "IN",
         limit: int = 25,
     ) -> List[PostalCodeRef]:
-        stmt = select(PostalCodeRef).where(
-            PostalCodeRef.country_code == country_code.upper(),
-            PostalCodeRef.is_active == True,
+        stmt = (
+            select(PostalCodeRef, StateRef.name.label("state_name"), StateRef.gst_state_code)
+            .outerjoin(
+                StateRef,
+                (StateRef.state_code == PostalCodeRef.state_code)
+                & (StateRef.country_code == PostalCodeRef.country_code),
+            )
+            .where(
+                PostalCodeRef.country_code == country_code.upper(),
+                PostalCodeRef.is_active == True,
+            )
         )
         if state_code:
             stmt = stmt.where(PostalCodeRef.state_code == state_code.strip().upper())
@@ -114,7 +135,12 @@ class GlobalReferenceService:
         result = await self.db.execute(
             stmt.order_by(PostalCodeRef.city, PostalCodeRef.postal_code).limit(limit)
         )
-        return list(result.scalars().all())
+        items = []
+        for pin_ref, s_name, gst_code in result.all():
+            pin_ref.state_name = s_name
+            pin_ref.gst_state_code = gst_code
+            items.append(pin_ref)
+        return items
 
     async def validate_postal_location(
         self,

@@ -40,7 +40,8 @@ import {
   Archive,
   ArchiveRestore,
   Ban,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
 import { 
   VendorSummary, 
@@ -421,9 +422,45 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
     email: "",
     city: "",
     state: "",
+    pincode: "",
     supplierType: "DISTRIBUTOR",
     paymentTermsDays: 30,
   });
+
+  const [resolvingNewVendorPin, setResolvingNewVendorPin] = useState(false);
+  const [newVendorPinFeedback, setNewVendorPinFeedback] = useState<string | null>(null);
+
+  const handleNewVendorPincodeChange = async (pinValue: string) => {
+    const clean = pinValue.replace(/\D/g, "").slice(0, 6);
+    setNewForm((prev) => ({ ...prev, pincode: clean }));
+
+    if (clean.length < 6) {
+      setNewVendorPinFeedback(null);
+      return;
+    }
+
+    setResolvingNewVendorPin(true);
+    setNewVendorPinFeedback(null);
+    try {
+      const res = await apiFetchV1<any>(`/control/reference/postal-codes/${clean}`);
+      if (res && res.city) {
+        setNewForm((prev) => ({
+          ...prev,
+          city: res.city,
+          state: res.state_name || res.state_code || prev.state,
+        }));
+        setNewVendorPinFeedback(
+          `✓ ${res.city}, ${res.state_name || res.state_code}${res.gst_state_code ? ` (GST: ${res.gst_state_code})` : ""}${res.locality ? ` • ${res.locality}` : ""}`
+        );
+      } else {
+        setNewVendorPinFeedback("PIN not found in postal registry");
+      }
+    } catch {
+      setNewVendorPinFeedback(null);
+    } finally {
+      setResolvingNewVendorPin(false);
+    }
+  };
 
   const availableVendorCodeOptions = useMemo(() => {
     const assignedCodes = new Set(vendors.map((vendor) => vendor.code.trim().toUpperCase()).filter(Boolean));
@@ -626,6 +663,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
           email: newForm.email || null,
           city: newForm.city || null,
           state: newForm.state || null,
+          pincode: newForm.pincode || null,
           commercial: {
             supplier_type: newForm.supplierType,
             payment_terms_days: Number(newForm.paymentTermsDays) || 30,
@@ -636,6 +674,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       const normCreated = normalizeVendorDetail(created);
       notify("Vendor Created", `Added ${normCreated.legalName} to Universal Party Master.`, "success");
       setShowNewModal(false);
+      setNewVendorPinFeedback(null);
       setNewForm({
         code: "",
         legalName: "",
@@ -646,6 +685,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
         email: "",
         city: "",
         state: "",
+        pincode: "",
         supplierType: "DISTRIBUTOR",
         paymentTermsDays: 30,
       });
@@ -1271,7 +1311,23 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-400 mb-1">Postal PIN</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="e.g. 400001"
+                      value={newForm.pincode}
+                      onChange={(e) => handleNewVendorPincodeChange(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 pr-8 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
+                    />
+                    {resolvingNewVendorPin && (
+                      <Loader2 size={14} className="absolute right-2.5 top-2.5 animate-spin text-indigo-500" />
+                    )}
+                  </div>
+                </div>
                 <div>
                   <label className="block text-slate-700 dark:text-slate-400 mb-1">City</label>
                   <input
@@ -1283,14 +1339,30 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 dark:text-slate-400 mb-1">Payment Terms (Days)</label>
+                  <label className="block text-slate-700 dark:text-slate-400 mb-1">State</label>
                   <input
-                    type="number"
-                    value={newForm.paymentTermsDays}
-                    onChange={(e) => setNewForm({ ...newForm, paymentTermsDays: parseInt(e.target.value) || 30 })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
+                    type="text"
+                    placeholder="e.g. Maharashtra"
+                    value={newForm.state}
+                    onChange={(e) => setNewForm({ ...newForm, state: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                   />
                 </div>
+              </div>
+              {newVendorPinFeedback && (
+                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  {newVendorPinFeedback}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-400 mb-1">Payment Terms (Days)</label>
+                <input
+                  type="number"
+                  value={newForm.paymentTermsDays}
+                  onChange={(e) => setNewForm({ ...newForm, paymentTermsDays: parseInt(e.target.value) || 30 })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
+                />
               </div>
             </div>
 

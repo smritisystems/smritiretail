@@ -237,3 +237,19 @@ async def test_platform_reference_constants():
         assert "CASH" in codes
         assert "UPI" in codes
         assert "CARD" in codes
+
+
+@pytest.mark.asyncio
+async def test_postal_code_lookup_with_state_and_gst():
+    """Verify PIN code resolution returns state_name and gst_state_code."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/control/reference/postal-codes/400001", headers=_get_auth_headers())
+        assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+        data = res.json()
+        assert data["postal_code"] == "400001"
+        assert data["city"] == "MUMBAI"
+        assert data["state_code"] == "MH"
+        assert data["state_name"] == "Maharashtra"
+        assert data["gst_state_code"] == "27"
+
