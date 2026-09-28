@@ -111,6 +111,7 @@ from .api.v1 import (
     ui_control_plane,
     universal_master,
     universal_import,
+    item_domain,
     users,
     vendor,
     wms,
@@ -375,6 +376,7 @@ _ROUTER_REGISTRY = [
     (governed_logic,        "/governed-logic",       ["Governed Logic & Reproducibility"]),
     (universal_master,      "/universal",            ["Universal Party & Item Master"]),
     (universal_master,      "",                      ["Universal Items & Parties"]),
+    (item_domain,           "",                      ["Item Master Domain (v2.2)"]),
 
     # --- Intelligence & Distribution ---
     (distribution,          "/distribution",         ["Distribution Core"]),
