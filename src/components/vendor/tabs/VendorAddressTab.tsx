@@ -100,7 +100,7 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
         {vendor.addresses.map((addr, idx) => (
           <div
             key={addr.id || idx}
-            className={`p-4 rounded-xl border transition shadow-xs ${
+            className={`group p-4 rounded-xl border transition shadow-xs ${
               addr.isPrimary 
                 ? "bg-white dark:bg-slate-900/90 border-indigo-300 dark:border-indigo-500/40 shadow-indigo-500/5" 
                 : "bg-white dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
@@ -119,26 +119,25 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
                   </span>
                 )}
               </div>
-              {isEditing && (
-                <div className="flex items-center space-x-1">
-                  {!addr.isPrimary && (
-                    <button
-                      onClick={() => handleSetPrimary(idx)}
-                      title="Set as primary"
-                      className="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      <Star size={14} />
-                    </button>
-                  )}
+              {/* Inline actions — always accessible on hover, no global edit mode required */}
+              <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!addr.isPrimary && (
                   <button
-                    onClick={() => handleDeleteAddress(idx)}
-                    title="Delete location"
-                    className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => handleSetPrimary(idx)}
+                    title="Set as primary address"
+                    className="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/20"
                   >
-                    <Trash2 size={14} />
+                    <Star size={14} />
                   </button>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => handleDeleteAddress(idx)}
+                  title="Remove address"
+                  className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
 
             <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">

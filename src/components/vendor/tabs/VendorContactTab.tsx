@@ -102,7 +102,7 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
           return (
             <div
               key={c.id || idx}
-              className={`p-4 rounded-xl border transition shadow-xs ${
+              className={`group p-4 rounded-xl border transition shadow-xs ${
                 c.isPrimary ? "bg-white dark:bg-slate-900/90 border-indigo-300 dark:border-indigo-500/40" : "bg-white dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
               }`}
             >
@@ -125,14 +125,14 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
                     {badge.icon}
                     <span>{c.contactCategory}</span>
                   </span>
-                  {isEditing && (
-                    <button
-                      onClick={() => handleDelete(idx)}
-                      className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
+                  {/* Delete always visible on hover — no global edit mode required */}
+                  <button
+                    onClick={() => handleDelete(idx)}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-opacity"
+                    title="Remove contact"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
 
@@ -151,10 +151,10 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
                 )}
               </div>
 
-              {isEditing && !c.isPrimary && (
+              {!c.isPrimary && (
                 <button
                   onClick={() => handleSetPrimary(idx)}
-                  className="mt-3 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold block"
+                  className="mt-3 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold block opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   Set as Primary Contact
                 </button>
