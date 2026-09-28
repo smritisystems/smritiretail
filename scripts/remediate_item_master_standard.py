@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.18.0
 Created      : 2026-09-27
-Modified     : 2026-09-27 (Remediate Item Master Standard v2.1 formulas, dropdown ranges, and GST 2.0 rules)
+Modified     : 2026-09-28 (v2.2 remediation + GST_RATE_PERCENT TAX dropdown col added)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -48,6 +48,8 @@ catalog_data = {
     17: ("YN", ["Y", "N"], 3, "List_YN", "$Q$2:$Q$3"),
     18: ("CREATION_STATUS", ["DRAFT", "READY", "APPROVED", "BLOCKED"], 5, "List_CREATION_STATUS", "$R$2:$R$5"),
     19: ("WAREHOUSE_CODE", ["WH-MAIN", "WH-STORE-01", "CENTRAL-WH", "RETAIL-STORE", "WH-NORTH", "WH-SOUTH"], 20, "List_WAREHOUSE_CODE", "$S$2:$S$20"),
+    # Col T: GST_RATE_PERCENT — four statutory GST slabs (IM-001 controlled, BLOCK on invalid entry)
+    20: ("GST_RATE_PERCENT", ["0", "5", "12", "18"], 6, "List_GST_RATE_PERCENT", "$T$2:$T$6"),
 }
 
 for col_idx, (header, values, max_len, dn_name, dn_range) in catalog_data.items():
@@ -89,6 +91,24 @@ if hasattr(tmpl_ws, 'data_validations') and tmpl_ws.data_validations:
             dv.errorTitle = 'Dimension Notice'
             dv.error = 'Value is not in standard list. SMRITI will validate or onboard this master dimension during import.'
             dv.showErrorMessage = True
+
+# 3b. Add/enforce GST_RATE_PERCENT data validation on col AA (col 27) — BLOCK on invalid slab
+print("Adding GST_RATE_PERCENT dropdown validation (col AA) ...")
+gst_dv = DataValidation(
+    type="list",
+    formula1="'Validation Lists'!$T$2:$T$6",
+    allow_blank=True,
+    showDropDown=False,
+    errorStyle="stop",
+    errorTitle="Invalid GST Rate",
+    error="Only statutory GST slabs are permitted: 0%, 5%, 12%, or 18%.",
+    promptTitle="GST Rate (%)",
+    prompt="Select 0, 5, 12 or 18",
+    showErrorMessage=True,
+    showInputMessage=True,
+)
+gst_dv.sqref = "AA5:AA500"
+tmpl_ws.add_data_validation(gst_dv)
 
 # 4. Update Validation Rules Sheet
 print("Appending IM-013 to 'Validation Rules' sheet...")

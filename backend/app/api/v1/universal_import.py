@@ -222,6 +222,11 @@ class IM001ControlledFieldValidator:
         "COLLECTION_TYPE": (
             "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type", "ITEM DESCRIPTION"
         ),
+        # v2.2: Statutory GST slab — IM-001 BLOCK on any value outside approved list
+        "GST_RATE_PERCENT": (
+            "GST_RATE_PERCENT", "gst_rate_percent", "tax_rate", "gst", "GST", "TAX_RATE", "tax",
+            "GstRatePercent", "taxRate"
+        ),
     }
 
     # Maps each standard field name to the CatalogDimensionValidator dimension code
@@ -240,6 +245,8 @@ class IM001ControlledFieldValidator:
         "DESIGN_ATTRIBUTE": "subcategory",
         "OUTSOLE_MATERIAL": "outsole_material",
         "COLLECTION_TYPE": "collection_type",
+        # v2.2: Statutory GST slabs governed by master_values dimension 'gst_rate'
+        "GST_RATE_PERCENT": "gst_rate",
     }
 
     # Maps each standard field to the system parameter that controls whether it is

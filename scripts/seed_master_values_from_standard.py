@@ -52,6 +52,8 @@ WORKBOOK_HEADER_TO_TYPE_CODE: Dict[str, Tuple[str, str]] = {
     "OUTSOLE_MATERIAL": ("outsole_material", "Outsole Material"),
     "UOM": ("uom", "Unit of Measure (UOM)"),
     "COLLECTION_TYPE": ("collection_type", "Collection Type"),
+    # v2.2: Statutory GST slabs — IM-001 BLOCK on any value outside 0/5/12/18
+    "GST_RATE_PERCENT": ("gst_rate", "GST Rate (%)"),
 }
 
 
