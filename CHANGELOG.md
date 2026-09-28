@@ -30,6 +30,37 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.47.0] - 2026-09-28 — ItemMaster UX Refactor: 5-Tab AddProductDrawer & Rich Catalog Grid
+
+> **Branch:** `smritiNX` | **Commits:** `0d986acb`, `41069e77` | **Area:** Item Master / Catalog
+> **Walkthrough:** `docs/walkthrough/catalog/ItemMaster_UX_Refactor_AddProductDrawer_CatalogGrid_v1.0.0.md`
+
+### Added
+- **`AddProductDrawer.tsx` (787 lines, new):** Full-screen 5-tab Add Product wizard modal.
+  - Tab 1 Basic Information: 4-column layout — product image upload with base64 preview, SKU/Barcode/Name/Brand/Category/Gender/Product Type, Design & Variant (Article/Color/Size/Material/Upper/Sole/Season/Collection), HSN/Description/Tags, Product Options checkboxes (Regular Item, Billable, Inventory Item, Service Item, Tax Inclusive), Product Status.
+  - Tab 2 Pricing: Retail Price (MRP), Dealer Price, Cost Price, Last Purchase Price with INR (₹) prefix.
+  - Tab 3 Tax & Inventory: GST % selector, Tax Inclusive toggle, Opening Stock, Reorder Level.
+  - Tab 4 Attributes: Closure Type, Toe Style, Heel Type, Insole Material, Occasion, Width.
+  - Tab 5 Additional Info: Vendor Code, Country of Origin, UOM, Weight (g), Warranty.
+  - POSTs to `POST /api/v1/inventory/` via `apiFetchV1`. Validates SKU, Product Name, Barcode as required.
+  - Previous/Next tab navigation with visual active-tab highlighting. Save Product button on final tab.
+
+### Changed
+- **`ItemCatalogGrid.tsx` (complete refactor, v5.0.0):**
+  - Header: shoe emoji icon, "Footwear Products" title, subtitle, **Add Product / Copy From Excel / Export / ⋮** action buttons.
+  - Filter bar: full-text search + 5 `FilterSelect` dropdowns (Category, Brand, Gender, Product Type, Status) + More Filters / Columns / Refresh buttons.
+  - 20-column table: checkbox, image thumbnail, SKU (mono bold blue link-style), Barcode, Product Name, Brand, Category, Gender, Product Type, Article (mono), Color, Size (centered mono bold), HSN (mono), Retail Price ₹, Dealer Price ₹, Cost Price ₹, Last Purchase Price ₹, GST %, Status badge (Active=green dot / Inactive=red dot), Actions ⋮ menu.
+  - Pagination: 10/25/50/100 per page selector, smart page number buttons, record count label. Page resets on any filter change.
+  - Empty state: Package icon + descriptive prompt.
+  - Add Product button opens `AddProductDrawer` with `productCategory` prop.
+- **`ItemMasterWs.tsx`:** Bumped version 5.0.0 → 5.1.0, updated Modified date.
+
+### Fixed
+- **Wire Issue 1 (CRITICAL):** `AddProductDrawer` was POSTing to `/products` (no such route → 404). Changed to `/inventory/`.
+- **Wire Issue 2:** `price` and `mrp` were both set to `retailPrice`. Now `price = dealerPrice || retailPrice` (selling price), `mrp = retailPrice` (maximum retail price), matching backend `mrp ≥ price` constraint.
+- **Wire Issue 3:** `primary_image_url` from backend not mapped in `App.tsx fetchSystemState`. Added `primaryImageUrl: p.primary_image_url || undefined` — product thumbnails now populate from backend data.
+- **Wire Issue 4:** `buying_price` and `is_active` not mapped in `App.tsx`. Added `buyingPrice` and `isActive` mappings. Added `buyingPrice?: number` and `isActive?: boolean` to `Product` interface in `types.ts`. `ItemCatalogGrid` now reads typed `p.buyingPrice` and `p.isActive` (no `any` casts).
+
 ## [6.46.1] - 2026-09-28 — Security: Dependabot Audit Remediation & Backend Node Decoupling
 
 > **Branch:** `smritiNX` | **Area:** Dependency Security, Packaging & System-of-Record Decoupling
