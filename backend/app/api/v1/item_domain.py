@@ -1,0 +1,328 @@
+"""
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 6.46.1
+Created      : 2026-09-28
+Modified     : 2026-09-28
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Domain API Gateway
+"""
+
+from typing import Dict, Any, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...api.deps import get_company_db, get_db, get_current_user
+from ...services.item_domain_svc import ItemDomainService, BusinessLogicError
+from ...schemas.item_master import (
+    ItemStyleCreateRequest,
+    ItemStyleUpdateRequest,
+    ItemStyleResponse,
+    ItemVariantCreateRequest,
+    ItemVariantResponse,
+    ItemBarcodeCreateRequest,
+    ItemBarcodeResponse,
+    ItemLookupsResponse,
+)
+
+router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# 1. ItemStyle Domain Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/item-styles", response_model=List[ItemStyleResponse], summary="List Item Styles")
+async def list_item_styles(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    brand: Optional[str] = Query(None, description="Filter by brand"),
+    query: Optional[str] = Query(None, description="Search across style code, name, brand"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Lists parent ItemStyles with variant and barcode count telemetry."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    styles = await ItemDomainService.list_styles(
+        session=db,
+        category=category,
+        brand=brand,
+        query=query,
+        limit=limit,
+        offset=offset,
+        company_id=company_id,
+    )
+    return styles
+
+
+@router.post(
+    "/item-styles",
+    response_model=ItemStyleResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Item Style",
+)
+async def create_item_style(
+    req: ItemStyleCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Atomically creates a new parent ItemStyle catalog record."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    branch_id = getattr(current_user, "branch_id", None)
+    try:
+        style = await ItemDomainService.create_style(
+            session=db,
+            req=req,
+            company_id=company_id,
+            branch_id=branch_id,
+        )
+        return ItemStyleResponse(
+            id=style.id,
+            style_code=style.item_code,
+            style_name=style.item_name,
+            item_type=style.item_type,
+            category=style.category,
+            department=style.department,
+            brand=style.brand,
+            vendor_code=style.vendor_code,
+            hsn_code=style.hsn_code,
+            tax_rate=float(style.tax_rate or 18.0),
+            primary_uom=style.primary_uom,
+            gender=style.gender,
+            product_type=style.product_type,
+            heel_type=style.heel_type,
+            upper_material=style.upper_material,
+            outsole_material=style.outsole_material,
+            collection_type=style.collection_type,
+            status=style.status or "ACTIVE",
+            is_inventory_yn=style.is_inventory_yn,
+            is_billable_yn=style.is_billable_yn,
+            is_service_yn=style.is_service_yn,
+            variant_count=0,
+            barcode_count=0,
+        )
+    except BusinessLogicError as ble:
+        raise HTTPException(status_code=409, detail=ble.message)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/item-styles/{style_id}", response_model=ItemStyleResponse, summary="Get Item Style by ID or Code")
+async def get_item_style_details(
+    style_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Fetches ItemStyle by surrogate ID or style_code."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    style = await ItemDomainService.get_style(db, style_id, company_id=company_id)
+    if not style:
+        raise HTTPException(status_code=404, detail=f"Item style '{style_id}' not found.")
+    
+    v_count = len([v for v in style.variants if not v.is_deleted])
+    b_count = sum(len([b for b in v.barcodes if not b.is_deleted]) for v in style.variants)
+
+    return ItemStyleResponse(
+        id=style.id,
+        style_code=style.item_code,
+        style_name=style.item_name,
+        item_type=style.item_type,
+        category=style.category,
+        department=style.department,
+        brand=style.brand,
+        vendor_code=style.vendor_code,
+        hsn_code=style.hsn_code,
+        tax_rate=float(style.tax_rate or 18.0),
+        primary_uom=style.primary_uom,
+        gender=style.gender,
+        product_type=style.product_type,
+        heel_type=style.heel_type,
+        upper_material=style.upper_material,
+        outsole_material=style.outsole_material,
+        collection_type=style.collection_type,
+        status=style.status or "ACTIVE",
+        is_inventory_yn=style.is_inventory_yn,
+        is_billable_yn=style.is_billable_yn,
+        is_service_yn=style.is_service_yn,
+        variant_count=v_count,
+        barcode_count=b_count,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 2. ItemVariant Domain Endpoints (Physical Variant Identity)
+# ---------------------------------------------------------------------------
+
+@router.get("/item-variants", response_model=List[ItemVariantResponse], summary="List Item Variants")
+async def list_item_variants(
+    style_id: Optional[str] = Query(None, description="Filter by parent style ID"),
+    color: Optional[str] = Query(None, description="Filter by color"),
+    size: Optional[str] = Query(None, description="Filter by size"),
+    query: Optional[str] = Query(None, description="Search by variant SKU or name"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Lists physical variants strictly governed by Style + Color + Size."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    variants = await ItemDomainService.list_variants(
+        session=db,
+        style_id=style_id,
+        color=color,
+        size=size,
+        query=query,
+        limit=limit,
+        offset=offset,
+        company_id=company_id,
+    )
+    return variants
+
+
+@router.post(
+    "/item-variants",
+    response_model=ItemVariantResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Physical Item Variant",
+)
+async def create_item_variant(
+    req: ItemVariantCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Creates or resolves physical ItemVariant strictly governed by Style + Color + Size.
+    MRP does NOT participate in variant identity. Pricing is recorded in the Pricing Domain.
+    """
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    branch_id = getattr(current_user, "branch_id", None)
+    try:
+        variant, pbe, barcode = await ItemDomainService.create_variant(
+            session=db,
+            req=req,
+            company_id=company_id,
+            branch_id=branch_id,
+        )
+        return ItemVariantResponse(
+            id=variant.id,
+            style_id=variant.item_id,
+            variant_sku=variant.variant_sku,
+            variant_name=variant.variant_name,
+            color=variant.color,
+            size=variant.size,
+            hsn_code=variant.hsn_code,
+            tax_rate=float(variant.tax_rate) if variant.tax_rate is not None else None,
+            is_active=variant.is_active,
+            attributes_json=variant.attributes_json or {},
+            barcodes=[
+                ItemBarcodeResponse(
+                    id=b.id,
+                    style_id=b.item_id,
+                    variant_id=b.variant_id,
+                    barcode=b.barcode,
+                    barcode_type=b.barcode_type or "EAN13",
+                    barcode_purpose=b.barcode_purpose or "RETAIL",
+                    is_primary=b.is_primary or False,
+                    is_tax_inclusive=b.is_tax_inclusive,
+                    least_saleable_qty=float(b.least_saleable_qty or 1.0),
+                    price_book_entry_id=b.price_book_entry_id,
+                    status=b.status or "ASSIGNED",
+                )
+                for b in variant.barcodes
+                if not b.is_deleted
+            ],
+        )
+    except BusinessLogicError as ble:
+        raise HTTPException(status_code=400, detail=ble.message)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# 3. ItemBarcode Domain Endpoints (Physical Optical Identity)
+# ---------------------------------------------------------------------------
+
+@router.get("/item-barcodes", response_model=List[ItemBarcodeResponse], summary="List Item Barcodes")
+async def list_item_barcodes(
+    variant_id: Optional[str] = Query(None, description="Filter by physical variant ID"),
+    barcode: Optional[str] = Query(None, description="Filter by exact barcode"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Lists registered barcodes with multi-MRP price linkages."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    barcodes = await ItemDomainService.list_barcodes(
+        session=db,
+        variant_id=variant_id,
+        barcode=barcode,
+        limit=limit,
+        offset=offset,
+        company_id=company_id,
+    )
+    return barcodes
+
+
+@router.post(
+    "/item-barcodes",
+    response_model=ItemBarcodeResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Item Barcode",
+)
+async def create_item_barcode(
+    req: ItemBarcodeCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Registers a physical barcode linked to a specific physical variant and price point."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    branch_id = getattr(current_user, "branch_id", None)
+    try:
+        b_obj = await ItemDomainService.create_barcode(
+            session=db,
+            req=req,
+            company_id=company_id,
+            branch_id=branch_id,
+        )
+        return ItemBarcodeResponse(
+            id=b_obj.id,
+            style_id=b_obj.item_id,
+            variant_id=b_obj.variant_id,
+            barcode=b_obj.barcode,
+            barcode_type=b_obj.barcode_type,
+            barcode_purpose=b_obj.barcode_purpose,
+            is_primary=b_obj.is_primary,
+            is_tax_inclusive=b_obj.is_tax_inclusive,
+            least_saleable_qty=float(b_obj.least_saleable_qty or 1.0),
+            price_book_entry_id=b_obj.price_book_entry_id,
+            status=b_obj.status or "ASSIGNED",
+        )
+    except BusinessLogicError as ble:
+        raise HTTPException(status_code=409, detail=ble.message)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# 4. Governed Master Lookups Domain Endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/item-domain/lookups", response_model=ItemLookupsResponse, summary="Get Governed Catalog Lookups")
+async def get_item_governed_lookups(
+    control_db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Fetches approved lookup values across all 14 governed dimensions from the System Master
+    (master_values) for Brand, Color, Size, Gender, Department, Category, Product Type,
+    Heel Type, Upper Material, Outsole Material, Collection, Subcategory, UOM, and GST Rates.
+    """
+    company_id = getattr(current_user, "company_id", None)
+    lookups = await ItemDomainService.get_governed_lookups(control_db, company_id=company_id)
+    return ItemLookupsResponse(dimensions=lookups)

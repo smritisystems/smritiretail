@@ -109,16 +109,26 @@ class ItemVariant(BaseEntity):
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
     variant_sku = Column(String(100), nullable=False, index=True)
     variant_name = Column(String(255), nullable=False)
+    
+    # First-class physical variant dimensions (Standard v2.2)
+    color = Column(String(50), nullable=True, index=True)
+    size = Column(String(50), nullable=True, index=True)
     attributes_json = Column(JSONB, server_default=text("'{}'"), default=dict)  # {"size": "XL", "color": "Navy"}
     
     # Explicit Statutory / Compliance Overrides (First-Class Schema Columns)
     hsn_code = Column(String(15), nullable=True)
     tax_rate = Column(Numeric(5, 2), nullable=True)
     
+    # Decoupled Commercial Pricing (Pricing Domain is authoritative system-of-record)
     mrp = Column(Numeric(15, 2), nullable=True, default=0.00)
     selling_price = Column(Numeric(15, 2), nullable=True, default=0.00)
     cost_price = Column(Numeric(15, 2), nullable=True, default=0.00)
     is_active = Column(Boolean, nullable=False, default=True)
+
+    @property
+    def style_id(self) -> str:
+        """Domain alias: item_id is style_id."""
+        return self.item_id
 
     # Relationships
     item = relationship("Item", back_populates="variants")
@@ -138,6 +148,7 @@ class ItemBarcode(BaseEntity):
 
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=True, index=True)
     variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), nullable=True, index=True)
+    price_book_entry_id = Column(String(50), ForeignKey("price_book_entries.id", ondelete="SET NULL"), nullable=True, index=True)
     barcode = Column(String(100), nullable=False, index=True)
     barcode_normalized = Column(String(100), nullable=True, index=True)
     barcode_type = Column(String(30), nullable=False, default="EAN13")  # EAN13, CODE128, UPC, QR, CUSTOM
@@ -158,6 +169,11 @@ class ItemBarcode(BaseEntity):
     item = relationship("Item", back_populates="barcodes")
     variant = relationship("ItemVariant", back_populates="barcodes")
     audit_events = relationship("BarcodeRegistryAudit", back_populates="barcode_record", cascade="all, delete-orphan")
+
+
+# ── Canonical Domain Aliases ──────────────────────────────────────────────────
+# ItemStyle represents product/style identity. ItemVariant represents physical variant.
+ItemStyle = Item
 
 
 class BarcodeRegistryAudit(BaseEntity):

@@ -59,10 +59,17 @@ def _get_tenant_key(request: Request) -> str:
 # ---------------------------------------------------------------------------
 # Singleton limiter instance — attach to FastAPI app via SlowAPIMiddleware
 # ---------------------------------------------------------------------------
+from pathlib import Path
+
+_rate_limit_env = Path(__file__).parent.parent / "rate_limit.env"
+if not _rate_limit_env.exists():
+    _rate_limit_env.write_text("", encoding="utf-8")
+
 limiter = Limiter(
     key_func=_get_tenant_key,
     default_limits=["300/minute"],   # Default ceiling for all unlisted endpoints
     headers_enabled=True,            # Expose X-RateLimit-* headers to clients
+    config_filename=str(_rate_limit_env),
 )
 
 # ---------------------------------------------------------------------------

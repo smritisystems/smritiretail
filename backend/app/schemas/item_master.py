@@ -319,3 +319,145 @@ class LegacyProductAdapterResponse(BaseModel):
     mrp: float
     uom: str
     is_active: bool
+
+
+# ── SMRITI Item Master Domain-Driven Schemas (Standard v2.2) ──────────────────
+
+class ItemStyleCreateRequest(BaseModel):
+    style_code: str
+    style_name: str
+    item_type: str = "FINISHED_GOOD"
+    category: str = "GENERAL"
+    category_code: Optional[str] = None
+    department: Optional[str] = None
+    brand: Optional[str] = None
+    vendor_code: Optional[str] = None
+    hsn_code: Optional[str] = "64041990"
+    tax_rate: float = 18.0
+    primary_uom: str = "PRS"
+    least_saleable_qty: float = 1.0
+    gender: Optional[str] = None
+    product_type: Optional[str] = None
+    design_attribute: Optional[str] = None
+    heel_type: Optional[str] = None
+    upper_material: Optional[str] = None
+    outsole_material: Optional[str] = None
+    collection_type: Optional[str] = None
+    is_inventory_yn: bool = True
+    is_billable_yn: bool = True
+    is_service_yn: bool = False
+    attributes_json: Dict[str, Any] = Field(default_factory=dict)
+    tags: List[str] = Field(default_factory=list)
+
+
+class ItemStyleUpdateRequest(BaseModel):
+    style_name: Optional[str] = None
+    category: Optional[str] = None
+    department: Optional[str] = None
+    brand: Optional[str] = None
+    vendor_code: Optional[str] = None
+    hsn_code: Optional[str] = None
+    tax_rate: Optional[float] = None
+    primary_uom: Optional[str] = None
+    gender: Optional[str] = None
+    product_type: Optional[str] = None
+    heel_type: Optional[str] = None
+    upper_material: Optional[str] = None
+    outsole_material: Optional[str] = None
+    collection_type: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ItemStyleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: str
+    style_code: str = Field(alias="item_code")
+    style_name: str = Field(alias="item_name")
+    item_type: str = "FINISHED_GOOD"
+    category: Optional[str] = None
+    department: Optional[str] = None
+    brand: Optional[str] = None
+    vendor_code: Optional[str] = None
+    hsn_code: Optional[str] = None
+    tax_rate: float = 18.0
+    primary_uom: Optional[str] = "PRS"
+    gender: Optional[str] = None
+    product_type: Optional[str] = None
+    heel_type: Optional[str] = None
+    upper_material: Optional[str] = None
+    outsole_material: Optional[str] = None
+    collection_type: Optional[str] = None
+    status: str = "ACTIVE"
+    is_inventory_yn: bool = True
+    is_billable_yn: bool = True
+    is_service_yn: bool = False
+    variant_count: Optional[int] = 0
+    barcode_count: Optional[int] = 0
+
+
+class ItemVariantCreateRequest(BaseModel):
+    style_id: str
+    color: str
+    size: str
+    variant_sku: Optional[str] = None  # Auto-generated if omitted: {style_code}-{color}-{size}
+    variant_name: Optional[str] = None
+    hsn_code: Optional[str] = None
+    tax_rate: Optional[float] = None
+    attributes_json: Dict[str, Any] = Field(default_factory=dict)
+    # Optional commercial price point to register in Pricing Domain
+    mrp: Optional[float] = None
+    selling_price: Optional[float] = None
+    cost_price: Optional[float] = None
+    primary_barcode: Optional[str] = None
+
+
+class ItemVariantResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: str
+    style_id: str = Field(alias="item_id")
+    variant_sku: str
+    variant_name: str
+    color: Optional[str] = None
+    size: Optional[str] = None
+    hsn_code: Optional[str] = None
+    tax_rate: Optional[float] = None
+    is_active: bool = True
+    attributes_json: Dict[str, Any] = Field(default_factory=dict)
+    barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
+
+
+class ItemBarcodeCreateRequest(BaseModel):
+    variant_id: str
+    barcode: str
+    barcode_type: str = "EAN13"
+    barcode_purpose: str = "RETAIL"
+    is_primary: bool = False
+    is_tax_inclusive: Optional[bool] = True
+    least_saleable_qty: float = 1.0
+    price_book_entry_id: Optional[str] = None
+    # Optional commercial price points
+    mrp: Optional[float] = None
+    selling_price: Optional[float] = None
+
+
+class ItemBarcodeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: str
+    style_id: Optional[str] = Field(None, alias="item_id")
+    variant_id: Optional[str] = None
+    barcode: str
+    barcode_type: str = "EAN13"
+    barcode_purpose: str = "RETAIL"
+    is_primary: bool = False
+    is_tax_inclusive: Optional[bool] = None
+    least_saleable_qty: Optional[float] = 1.0
+    price_book_entry_id: Optional[str] = None
+    status: str = "ASSIGNED"
+
+
+class ItemLookupsResponse(BaseModel):
+    dimensions: Dict[str, List[Dict[str, Any]]]
+
