@@ -40,7 +40,13 @@ import {
 } from "lucide-react";
 import { Product, AttributeDefinition } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
-import { validateItemMasterLookupOptions, fetchGovernedLookupOptions, LookupOption } from "../../services/itemMasterLookupGate.ts";
+import {
+  validateItemMasterLookupOptionsDetailed,
+  fetchGovernedLookupOptions,
+  validateHsnCode,
+  invalidateGovernedLookupCache,
+  LookupOption,
+} from "../../services/itemMasterLookupGate.ts";
 import { getUnifiedItemMasterFields, getGloballyVisibleFields, getGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 import { getCustomFieldLabels } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
 import { resolveProductImageUrl, getImagePathConfig } from "../../services/imagePathConfig.ts";
@@ -290,6 +296,8 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   const [warehouseOptions, setWarehouseOptions] = useState<{ id: string; code: string; name: string }[]>([]);
   const [locationOptions, setLocationOptions] = useState<{ id: string; warehouseId: string; code: string; name: string }[]>([]);
   const [governedLookups, setGovernedLookups] = useState<Record<string, LookupOption[]>>({});
+  /** Per-record HSN validation advisory { [stockNo|rowKey]: { valid, gstPct, description } } */
+  const [hsnValidation, setHsnValidation] = useState<Record<string, { valid: boolean; gstPct?: number; description?: string }>>({});
 
   useF2Screen({
     screenId: "ItemDetailsGrid",
@@ -1062,7 +1070,13 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     }
 
     try {
-      const lookupErrors = await validateItemMasterLookupOptions(gridRows as unknown as Record<string, unknown>[]);
+      const { errors: lookupErrors, warnings: lookupWarnings } =
+        await validateItemMasterLookupOptionsDetailed(gridRows as unknown as Record<string, unknown>[]);
+      // Warnings: surface but do not block save
+      if (lookupWarnings.length > 0) {
+        onNotification?.("Lookup Advisory", lookupWarnings.slice(0, 3).join(" "), "error");
+      }
+      // Hard errors: block save
       if (lookupErrors.length > 0) {
         onNotification?.("System Lookup Required", lookupErrors.slice(0, 5).join(" "), "error");
         return;
@@ -1795,6 +1809,13 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                     data-field-key="hsn_code"
                     value={currentClassicRecord.hsn_code || ""}
                     onChange={(e) => handleCellChange(currentClassicSourceIndex, "hsn_code", e.target.value)}
+                    onBlur={async (e) => {
+                      const hsn = e.target.value.trim();
+                      if (!hsn) return;
+                      const rowKey = currentClassicRecord.stockNo || currentClassicRecord.code || String(currentClassicSourceIndex);
+                      const result = await validateHsnCode(hsn);
+                      setHsnValidation(prev => ({ ...prev, [rowKey]: result }));
+                    }}
                     className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
                       !currentClassicRecord.hsn_code?.toString().trim()
                         ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
@@ -1806,6 +1827,21 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                       HSN Code is required and cannot be blank.
                     </span>
                   )}
+                  {currentClassicRecord.hsn_code?.toString().trim() && (() => {
+                    const rowKey = currentClassicRecord.stockNo || currentClassicRecord.code || String(currentClassicSourceIndex);
+                    const hsn = hsnValidation[rowKey];
+                    if (!hsn) return null;
+                    if (hsn.valid) return (
+                      <span className="text-emerald-600 dark:text-emerald-400 text-[10px] block mt-1">
+                        ✓ {hsn.description ? `${hsn.description} — ` : ""}GST {hsn.gstPct}%
+                      </span>
+                    );
+                    return (
+                      <span className="text-amber-600 dark:text-amber-400 text-[10px] font-semibold block mt-1">
+                        ⚠ HSN not found in standard list — verify before filing.
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">Image Filename (Optional)</label>

@@ -406,8 +406,8 @@ export const DockedProductList: React.FC<DockedProductListProps> = ({
               <tbody className="divide-y divide-slate-100">
                 {products.map((p) => {
                   const isChecked = selectedIds.has(p.id);
-                  const isLow = p.stock > 0 && p.stock <= 5;
-                  const isOut = p.stock <= 0;
+                  const isLow = (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5;
+                  const isOut = (p.stock ?? 0) <= 0;
 
                   return (
                     <tr
@@ -427,7 +427,7 @@ export const DockedProductList: React.FC<DockedProductListProps> = ({
                           className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer"
                         />
                       </td>
-                      <td className="py-1 px-3">{renderProductThumbnail(p.category, p.code)}</td>
+                      <td className="py-1 px-3">{renderProductThumbnail(p.category ?? '', p.code ?? '')}</td>
                       <td className="py-2 px-3 font-mono text-[11px] text-blue-600 font-medium hover:underline">
                         {p.code}
                       </td>
@@ -444,7 +444,7 @@ export const DockedProductList: React.FC<DockedProductListProps> = ({
                               ? "text-red-500"
                               : isLow
                               ? "text-red-600"
-                              : p.stock <= 20
+                              : (p.stock ?? 0) <= 20
                               ? "text-amber-600"
                               : "text-emerald-600"
                           }`}
