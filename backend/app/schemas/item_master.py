@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.17.0
 Created      : 2026-08-25
-Modified     : 2026-09-18
+Modified     : 2026-09-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -85,12 +85,32 @@ class ItemCreateRequest(BaseModel):
     selling_price: float = 0.0
     cost_price: float = 0.0
     buying_price: Optional[float] = None
+    # v2.2: LANDED_COST_PRICE is the canonical business name for cost_price
+    landed_cost_price: Optional[float] = None
+    # v2.2: first-class field (was least_saleable_qty in model; v2.2 spells it "salable")
+    least_salable_qty: float = 1.0
     is_batch_tracked: bool = False
     is_serial_tracked: bool = False
     is_favorite: bool = False
     primary_image_url: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     attributes_json: Dict[str, Any] = Field(default_factory=dict)
+
+    # ── v2.2 Promoted Attribute Fields ─────────────────────────────────────────
+    gender: Optional[str] = None                # GENDER          (Col O) — System Master Lookup
+    purchase_class: Optional[str] = None        # PURCHASE_CLASS  (Col P)
+    product_type: Optional[str] = None          # PRODUCT_TYPE    (Col T) — System Master Lookup
+    design_attribute: Optional[str] = None      # DESIGN_ATTRIBUTE(Col U) — System Master Lookup
+    heel_type: Optional[str] = None             # HEEL_TYPE       (Col V) — System Master Lookup
+    upper_material: Optional[str] = None        # UPPER_MATERIAL  (Col W) — System Master Lookup
+    outsole_material: Optional[str] = None      # OUTSOLE_MATERIAL(Col X)
+    collection_type: Optional[str] = None       # COLLECTION_TYPE (Col D)
+
+    # ── v2.2 Business Logic Flags (IM-008 / IM-009) ────────────────────────────
+    is_inventory_yn: bool = True                # IS_INVENTORY_YN (Col AE)
+    is_billable_yn: bool = True                 # IS_BILLABLE_YN  (Col AF)
+    is_service_yn: bool = False                 # IS_SERVICE_YN   (Col AG)
+
     variants: List[ItemVariantItem] = Field(default_factory=list)
     barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
     batches: List[ItemBatchItem] = Field(default_factory=list)
@@ -98,12 +118,12 @@ class ItemCreateRequest(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def resolve_style_article_aliases(cls, data: Any) -> Any:
+    def resolve_aliases_and_rules(cls, data: Any) -> Any:
         if isinstance(data, dict):
+            # ARTICLE_STYLE_CODE alias resolution
             if not data.get("style_code"):
                 alias_val = (
-                    data.get("style_code")
-                    or data.get("styleCode")
+                    data.get("styleCode")
                     or data.get("style")
                     or data.get("stylecode")
                     or data.get("article")
@@ -112,6 +132,14 @@ class ItemCreateRequest(BaseModel):
                 )
                 if alias_val is not None:
                     data["style_code"] = alias_val
+
+            # LANDED_COST_PRICE alias: populate cost_price if not already set
+            if data.get("landed_cost_price") and not data.get("cost_price"):
+                data["cost_price"] = data["landed_cost_price"]
+
+            # IM-009: Service items cannot be inventory-tracked
+            if data.get("is_service_yn") is True:
+                data["is_inventory_yn"] = False
         return data
 
 
@@ -130,19 +158,34 @@ class ItemUpdateRequest(BaseModel):
     mrp: Optional[float] = None
     selling_price: Optional[float] = None
     cost_price: Optional[float] = None
+    landed_cost_price: Optional[float] = None   # v2.2 alias for cost_price
     status: Optional[str] = None
     is_favorite: Optional[bool] = None
     tags: Optional[List[str]] = None
     attributes_json: Optional[Dict[str, Any]] = None
 
+    # ── v2.2 Promoted Attribute Fields ─────────────────────────────────────────
+    gender: Optional[str] = None
+    purchase_class: Optional[str] = None
+    product_type: Optional[str] = None
+    design_attribute: Optional[str] = None
+    heel_type: Optional[str] = None
+    upper_material: Optional[str] = None
+    outsole_material: Optional[str] = None
+    collection_type: Optional[str] = None
+
+    # ── v2.2 Business Logic Flags ──────────────────────────────────────────────
+    is_inventory_yn: Optional[bool] = None
+    is_billable_yn: Optional[bool] = None
+    is_service_yn: Optional[bool] = None
+
     @model_validator(mode="before")
     @classmethod
-    def resolve_style_article_aliases(cls, data: Any) -> Any:
+    def resolve_aliases_and_rules(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if not data.get("style_code"):
                 alias_val = (
-                    data.get("style_code")
-                    or data.get("styleCode")
+                    data.get("styleCode")
                     or data.get("style")
                     or data.get("stylecode")
                     or data.get("article")
@@ -151,6 +194,11 @@ class ItemUpdateRequest(BaseModel):
                 )
                 if alias_val is not None:
                     data["style_code"] = alias_val
+            if data.get("landed_cost_price") and not data.get("cost_price"):
+                data["cost_price"] = data["landed_cost_price"]
+            # IM-009: Service items cannot be inventory-tracked
+            if data.get("is_service_yn") is True:
+                data["is_inventory_yn"] = False
         return data
 
 
@@ -176,9 +224,30 @@ class ItemResponse(BaseModel):
     mrp: Optional[float] = 0.0
     selling_price: Optional[float] = 0.0
     cost_price: Optional[float] = 0.0
+    least_saleable_qty: Optional[float] = 1.0
     is_batch_tracked: bool = False
     is_serial_tracked: bool = False
     status: str = "ACTIVE"
+
+    # ── v2.2 Promoted Attribute Fields ─────────────────────────────────────────
+    gender: Optional[str] = None
+    purchase_class: Optional[str] = None
+    product_type: Optional[str] = None
+    design_attribute: Optional[str] = None
+    heel_type: Optional[str] = None
+    upper_material: Optional[str] = None
+    outsole_material: Optional[str] = None
+    collection_type: Optional[str] = None
+
+    # ── v2.2 Business Logic Flags ──────────────────────────────────────────────
+    is_inventory_yn: bool = True
+    is_billable_yn: bool = True
+    is_service_yn: bool = False
+
+    # ── v2.2 Workflow Validation ───────────────────────────────────────────────
+    validation_status: Optional[str] = None
+    validation_message: Optional[str] = None
+
     variants: List[ItemVariantItem] = Field(default_factory=list)
     barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
     batches: List[ItemBatchItem] = Field(default_factory=list)
