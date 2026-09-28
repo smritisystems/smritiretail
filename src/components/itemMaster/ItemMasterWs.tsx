@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.0.0
+ * Version      : 5.1.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-28
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -257,6 +257,8 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               onNavigateToItemViewConfig={() => setActiveNav("view_config")}
             />
           )}
+
+          {/* ItemCatalogGrid: accessible via the Catalog view shortcut or external nav */}
 
           {activeNav === "view_config" && (
             <ItemViewConfig

@@ -4,337 +4,485 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.6.0
+ * Version      : 5.0.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-28
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useMemo, useEffect } from "react";
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Plus, 
-  CheckCircle, 
-  ClipboardPaste, 
-  Layers, 
+import {
+  Search,
+  Plus,
+  SlidersHorizontal,
+  Columns3,
+  MoreVertical,
+  FileSpreadsheet,
   RefreshCw,
-  Tag,
-  Package
+  Upload,
+  Package,
 } from "lucide-react";
 import { Product } from "../../types.ts";
-import { isFieldGloballyVisible } from "../../services/unifiedFieldCatalog.ts";
+import { AddProductDrawer } from "./AddProductDrawer.tsx";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SmritiItemCatalogGridProps {
   products: Product[];
   onRefreshProducts?: () => Promise<void>;
   onNotification?: (title: string, message: string, type?: "success" | "error") => void;
   onNavigateToPaste?: () => void;
+  currentUser?: { role: string; name: string } | null;
+  productCategory?: string; // e.g. "Footwear"
 }
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getAttr(p: Product, key: string): string {
+  return String((p.attributes as any)?.[key] ?? (p as any)[key] ?? "");
+}
+
+function formatINR(val: number | undefined | null): string {
+  if (val === null || val === undefined || isNaN(Number(val))) return "—";
+  return Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   products = [],
   onRefreshProducts,
   onNotification,
-  onNavigateToPaste
+  onNavigateToPaste,
+  currentUser,
+  productCategory = "Footwear",
 }) => {
-  const [searchQuery, setSearchQuery] = useState<string>("" );
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [selectedStatus, setSelectedStatus] = useState<string>("All");
-  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
-  const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState("All");
+  const [filterBrand, setFilterBrand] = useState("All");
+  const [filterGender, setFilterGender] = useState("All");
+  const [filterProductType, setFilterProductType] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Listen to global visibility changes
-  useEffect(() => {
-    const handleVisChange = () => setVisibilityVersion(v => v + 1);
-    window.addEventListener("smriti_field_visibility_updated", handleVisChange);
-    return () => window.removeEventListener("smriti_field_visibility_updated", handleVisChange);
-  }, []);
+  // Reset page when filters change
+  useEffect(() => { setPageIndex(0); }, [searchQuery, filterCategory, filterBrand, filterGender, filterProductType, filterStatus]);
 
-  // Extract unique categories
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach(p => { if (p.category) set.add(p.category); });
-    return Array.from(set);
-  }, [products]);
+  // Unique filter values
+  const categories = useMemo(() => [...new Set(products.map(p => p.category).filter(Boolean))], [products]);
+  const brands = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))], [products]);
+  const genders = useMemo(() => [...new Set(products.map(p => getAttr(p, "gender")).filter(Boolean))], [products]);
+  const productTypes = useMemo(() => [...new Set(products.map(p => getAttr(p, "product_type")).filter(Boolean))], [products]);
 
-  // Filter products
-  const filteredProducts = useMemo(() => {
+  // Filtered products
+  const filtered = useMemo(() => {
     return products.filter(p => {
-      if (selectedCategory !== "All" && p.category !== selectedCategory) return false;
-      if (selectedStatus === "Stable" && ((p as any).is_favorite === false || p.isFavorite === false)) return true;
+      if (filterCategory !== "All" && p.category !== filterCategory) return false;
+      if (filterBrand !== "All" && p.brand !== filterBrand) return false;
+      if (filterGender !== "All" && getAttr(p, "gender") !== filterGender) return false;
+      if (filterProductType !== "All" && getAttr(p, "product_type") !== filterProductType) return false;
+      if (filterStatus !== "All") {
+        const active = (p as any).is_active !== false;
+        if (filterStatus === "Active" && !active) return false;
+        if (filterStatus === "Inactive" && active) return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const inCode = (p.code || "").toLowerCase().includes(q);
-        const inName = (p.name || "").toLowerCase().includes(q);
-        const inBarcode = (p.barcode || "").toLowerCase().includes(q);
-        const inBrand = (p.brand || "").toLowerCase().includes(q);
-        const inAttr = Object.entries(p.attributes || {}).some(
-          ([k, v]) => String(k).toLowerCase().includes(q) || String(v).toLowerCase().includes(q)
+        return (
+          (p.code || "").toLowerCase().includes(q) ||
+          (p.name || "").toLowerCase().includes(q) ||
+          (p.barcode || "").toLowerCase().includes(q) ||
+          (p.brand || "").toLowerCase().includes(q) ||
+          Object.values(p.attributes || {}).some(v => String(v).toLowerCase().includes(q))
         );
-        return inCode || inName || inBarcode || inBrand || inAttr;
       }
       return true;
     });
-  }, [products, selectedCategory, selectedStatus, searchQuery]);
+  }, [products, filterCategory, filterBrand, filterGender, filterProductType, filterStatus, searchQuery]);
 
-  const handleToggleSelectAll = () => {
-    if (selectedProductIds.size === filteredProducts.length) {
-      setSelectedProductIds(new Set());
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginated = filtered.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
+
+  const allSelected = paginated.length > 0 && paginated.every(p => selectedIds.has(p.id || p.code));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(prev => { const next = new Set(prev); paginated.forEach(p => next.delete(p.id || p.code)); return next; });
     } else {
-      setSelectedProductIds(new Set(filteredProducts.map(p => p.id || p.code)));
+      setSelectedIds(prev => { const next = new Set(prev); paginated.forEach(p => next.add(p.id || p.code)); return next; });
     }
   };
 
-  const handleToggleProduct = (id: string) => {
-    setSelectedProductIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggleRow = (id: string) => {
+    setSelectedIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
 
-  const handleExportCsv = () => {
-    if (filteredProducts.length === 0) {
-      onNotification?.("No Data", "No products available to export.", "error");
-      return;
-    }
-
-    const headers = ["SKU / Code", "Product Name", "Category", "Brand", "MRP", "Price", "Tax %", "Barcode", "Attributes"];
-    const rows = filteredProducts.map(p => [
-      p.code || "",
-      `"${(p.name || "").replace(/"/g, '""')}"`,
-      p.category || "",
-      p.brand || "",
-      p.mrp || 0,
-      p.price || 0,
-      (p as any).gst_percentage ?? p.gstPercentage ?? 18,
-      p.barcode || "",
-      `"${Object.entries(p.attributes || {}).map(([k, v]) => `${k}:${v}`).join("; ")}"`
+  const handleExport = () => {
+    if (filtered.length === 0) { onNotification?.("No Data", "No products to export.", "error"); return; }
+    const headers = ["SKU", "Barcode", "Name", "Brand", "Category", "Gender", "Product Type", "Article", "Color", "Size", "HSN", "Retail Price", "Dealer Price", "Cost Price", "GST%", "Status"];
+    const rows = filtered.map(p => [
+      p.code, p.barcode, `"${p.name}"`, p.brand, p.category,
+      getAttr(p, "gender"), getAttr(p, "product_type"), getAttr(p, "article"),
+      p.color || getAttr(p, "color"), p.size || getAttr(p, "size"),
+      (p as any).hsn_code || p.hsnCode,
+      p.mrp, (p as any).buying_price, (p as any).cost_price,
+      (p as any).gst_percentage ?? p.gstPercentage,
+      (p as any).is_active !== false ? "Active" : "Inactive"
     ]);
-
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `SMRITI_ItemMaster_Catalog_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    onNotification?.("Export Ready", `Exported ${filteredProducts.length} items to CSV.`, "success");
+    const a = document.createElement("a");
+    a.href = url; a.download = `SMRITI_Products_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    onNotification?.("Export Ready", `${filtered.length} products exported.`, "success");
+  };
+
+  const handleRefresh = async () => {
+    if (!onRefreshProducts) return;
+    setIsRefreshing(true);
+    try { await onRefreshProducts(); } finally { setIsRefreshing(false); }
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#f7f9fb] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] font-sans p-4 overflow-hidden space-y-4">
-      
-      {/* Header & Stats Cards */}
-      <div className="flex flex-col gap-3 shrink-0">
-        <div className="flex justify-between items-end">
-          <div>
-            <h1 className="text-xl font-bold text-[#191c1e] dark:text-white">Item Master Catalog</h1>
-            <p className="text-xs text-[#515f74] dark:text-[#bec6e0] mt-0.5">Central transactional repository for all items, variants, and dynamic business attributes.</p>
+    <div className="h-full flex flex-col bg-[#f7f9fb] dark:bg-[#191c1e] font-sans overflow-hidden">
+
+      {/* ── Top Header ──────────────────────────────────────────────────── */}
+      <div className="shrink-0 px-5 pt-5 pb-3">
+        <div className="flex items-start justify-between gap-4">
+          {/* Title Area */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#eff6ff] dark:bg-[#1d3054] flex items-center justify-center shrink-0">
+              <span className="text-2xl">👟</span>
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-[#0f172a] dark:text-white truncate">
+                {productCategory} Products
+              </h1>
+              <p className="text-xs text-[#64748b] dark:text-[#94a3b8] mt-0.5 truncate">
+                Manage your {productCategory.toLowerCase()} product master, pricing, tax and inventory information.
+              </p>
+            </div>
           </div>
 
-          <div className="flex gap-2">
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={handleExportCsv}
-              className="px-3 py-1.5 border border-[#76777d] text-[#191c1e] dark:text-[#eff1f3] bg-white dark:bg-[#2d3133] hover:bg-[#eceef0] rounded text-xs font-semibold flex items-center gap-1.5 shadow-xs transition"
+              onClick={() => setIsDrawerOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition shadow-sm"
             >
-              <Download size={14} />
-              Export CSV
+              <Plus size={14} />
+              Add Product
             </button>
             <button
               type="button"
               onClick={onNavigateToPaste}
-              className="px-4 py-1.5 bg-[#000000] dark:bg-[#dae2fd] text-white dark:text-[#131b2e] hover:bg-[#2d3133] rounded text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border-2 border-[#16a34a] text-[#16a34a] dark:text-[#4ade80] bg-white dark:bg-[#2d3133] hover:bg-[#f0fdf4] dark:hover:bg-[#1a2e1a] text-xs font-bold transition"
             >
-              <ClipboardPaste size={14} />
-              Bulk Paste / Import
+              <FileSpreadsheet size={14} />
+              Copy From Excel
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] text-[#374151] dark:text-[#e2e8f0] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] text-xs font-semibold transition"
+            >
+              <Upload size={14} />
+              Export
+            </button>
+            <button
+              type="button"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition text-[#64748b]"
+            >
+              <MoreVertical size={15} />
             </button>
           </div>
         </div>
+      </div>
 
-        {/* 3 Stats Widgets */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg p-3 shadow-xs">
-            <p className="text-[11px] text-[#515f74] dark:text-[#bec6e0] uppercase font-bold tracking-wider">Total Active Items</p>
-            <p className="text-lg font-bold font-mono text-[#191c1e] dark:text-white mt-0.5">{products.length.toLocaleString()}</p>
+      {/* ── Filter Bar ──────────────────────────────────────────────────── */}
+      <div className="shrink-0 px-5 pb-3">
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[260px]">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by SKU, product name, brand, article, design, model, size, color, HSN..."
+              className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#2d3133] border border-[#e2e8f0] dark:border-[#45464d] rounded-lg text-xs text-[#0f172a] dark:text-[#e2e8f0] outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition placeholder:text-[#94a3b8]"
+            />
           </div>
 
-          <div className="bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg p-3 shadow-xs">
-            <p className="text-[11px] text-[#515f74] dark:text-[#bec6e0] uppercase font-bold tracking-wider">Categories Defined</p>
-            <p className="text-lg font-bold font-mono text-[#191c1e] dark:text-white mt-0.5">{categories.length}</p>
-          </div>
+          {/* Category */}
+          <FilterSelect label="Category" value={filterCategory} onChange={setFilterCategory} options={["All", ...categories as string[]]} />
+          {/* Brand */}
+          <FilterSelect label="Brand" value={filterBrand} onChange={setFilterBrand} options={["All", ...brands as string[]]} />
+          {/* Gender */}
+          <FilterSelect label="Gender" value={filterGender} onChange={setFilterGender} options={["All", ...genders]} />
+          {/* Product Type */}
+          <FilterSelect label="Product Type" value={filterProductType} onChange={setFilterProductType} options={["All", ...productTypes]} />
+          {/* Status */}
+          <FilterSelect label="Status" value={filterStatus} onChange={setFilterStatus} options={["All", "Active", "Inactive"]} />
 
-          <div className="bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg p-3 shadow-xs">
-            <p className="text-[11px] text-[#515f74] dark:text-[#bec6e0] uppercase font-bold tracking-wider">Import Health</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-lg font-bold font-mono text-[#0c9488]">100% Valid</p>
-              <CheckCircle size={16} className="text-[#0c9488]" />
+          {/* More Filters & Columns */}
+          <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-xs font-semibold text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition">
+            <SlidersHorizontal size={13} />
+            More Filters
+          </button>
+          <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-xs font-semibold text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition">
+            <Columns3 size={13} />
+            Columns
+          </button>
+          <button type="button" onClick={handleRefresh} className={`w-8 h-8 flex items-center justify-center rounded-lg border border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition text-[#64748b] ${isRefreshing ? "animate-spin" : ""}`}>
+            <RefreshCw size={13} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Table ───────────────────────────────────────────────────────── */}
+      <div className="flex-1 min-h-0 px-5 pb-0 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-auto bg-white dark:bg-[#2d3133] border border-[#e2e8f0] dark:border-[#45464d] rounded-xl shadow-sm">
+          <table className="w-full text-left border-collapse min-w-[1400px]">
+            <thead className="sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#131b2e] border-b border-[#e2e8f0] dark:border-[#45464d]">
+              <tr>
+                <Th className="w-10 text-center">
+                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded accent-[#2563eb]" />
+                </Th>
+                <Th>Image</Th>
+                <Th>SKU / Item Code</Th>
+                <Th>Barcode</Th>
+                <Th>Product Name</Th>
+                <Th>Brand</Th>
+                <Th>Category</Th>
+                <Th>Gender</Th>
+                <Th>Product Type</Th>
+                <Th>Article / Design / Style / Model</Th>
+                <Th>Color / Shade</Th>
+                <Th className="text-center">Size (UK/EU/US/CM)</Th>
+                <Th>HSN Code</Th>
+                <Th className="text-right">Retail Price (₹)</Th>
+                <Th className="text-right">Dealer Price (₹)</Th>
+                <Th className="text-right">Cost Price (₹)</Th>
+                <Th className="text-right">Last Purchase Price (₹)</Th>
+                <Th className="text-center">GST (%)</Th>
+                <Th>Status</Th>
+                <Th className="text-center">Actions</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f1f5f9] dark:divide-[#2d3133]">
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={20} className="text-center py-16 text-[#94a3b8]">
+                    <Package size={40} className="mx-auto mb-3 opacity-20" />
+                    <p className="text-sm font-semibold">No products found</p>
+                    <p className="text-xs mt-1">Try adjusting your filters or add a new product.</p>
+                  </td>
+                </tr>
+              ) : (
+                paginated.map((p, idx) => {
+                  const isSelected = selectedIds.has(p.id || p.code);
+                  const gender = getAttr(p, "gender");
+                  const productType = getAttr(p, "product_type");
+                  const article = getAttr(p, "article") || (p as any).style_code || p.styleCode || "";
+                  const color = p.color || getAttr(p, "color") || getAttr(p, "shade") || "";
+                  const size = p.size || getAttr(p, "size") || "";
+                  const hsnCode = (p as any).hsn_code || p.hsnCode || "";
+                  const retailPrice = p.mrp || p.price;
+                  const dealerPrice = (p as any).buying_price;
+                  const costPrice = (p as any).cost_price || p.costPrice;
+                  const lastPurchasePrice = getAttr(p, "last_purchase_price");
+                  const gstPct = (p as any).gst_percentage ?? p.gstPercentage;
+                  const isActive = (p as any).is_active !== false;
+
+                  return (
+                    <tr
+                      key={p.id || `prod-${idx}`}
+                      className={`text-xs transition-colors ${isSelected ? "bg-[#eff6ff] dark:bg-[#1d3054]/30" : "hover:bg-[#f8fafc] dark:hover:bg-[#1c1f26]"}`}
+                    >
+                      <Td className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleRow(p.id || p.code)} className="rounded accent-[#2563eb]" />
+                      </Td>
+                      {/* Image */}
+                      <Td>
+                        <div className="w-9 h-9 rounded-lg bg-[#f1f5f9] dark:bg-[#2d3133] border border-[#e2e8f0] dark:border-[#45464d] flex items-center justify-center overflow-hidden">
+                          {p.primaryImageUrl ? (
+                            <img src={p.primaryImageUrl} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package size={14} className="text-[#94a3b8]" />
+                          )}
+                        </div>
+                      </Td>
+                      <Td><span className="font-mono font-bold text-[#2563eb] dark:text-[#93c5fd] text-[11px]">{p.code}</span></Td>
+                      <Td><span className="font-mono text-[11px] text-[#64748b]">{p.barcode || "—"}</span></Td>
+                      <Td><span className="font-semibold text-[#0f172a] dark:text-white">{p.name}</span></Td>
+                      <Td>{p.brand || "—"}</Td>
+                      <Td>{p.category || "—"}</Td>
+                      <Td>{gender || "—"}</Td>
+                      <Td>{productType || "—"}</Td>
+                      <Td><span className="font-mono font-semibold">{article || "—"}</span></Td>
+                      <Td>{color || "—"}</Td>
+                      <Td className="text-center"><span className="font-mono font-bold">{size || "—"}</span></Td>
+                      <Td><span className="font-mono text-[#64748b]">{hsnCode || "—"}</span></Td>
+                      <Td className="text-right font-mono font-semibold text-[#0f172a] dark:text-[#e2e8f0]">{formatINR(retailPrice)}</Td>
+                      <Td className="text-right font-mono text-[#64748b]">{formatINR(dealerPrice)}</Td>
+                      <Td className="text-right font-mono text-[#64748b]">{formatINR(costPrice)}</Td>
+                      <Td className="text-right font-mono text-[#64748b]">{lastPurchasePrice ? formatINR(parseFloat(lastPurchasePrice)) : "—"}</Td>
+                      <Td className="text-center">{gstPct != null ? `${gstPct}%` : "—"}</Td>
+                      <Td>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                          isActive
+                            ? "bg-[#dcfce7] text-[#15803d] dark:bg-[#14532d]/40 dark:text-[#4ade80]"
+                            : "bg-[#fef2f2] text-[#dc2626] dark:bg-[#450a0a]/40 dark:text-[#f87171]"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-[#16a34a]" : "bg-[#dc2626]"}`} />
+                          {isActive ? "Active" : "Inactive"}
+                        </span>
+                      </Td>
+                      <Td className="text-center">
+                        <button type="button" className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#f1f5f9] dark:hover:bg-[#2d3133] transition text-[#64748b] mx-auto">
+                          <MoreVertical size={14} />
+                        </button>
+                      </Td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Pagination Bar ────────────────────────────────────────────── */}
+        <div className="shrink-0 py-3 flex items-center justify-between text-xs text-[#64748b] dark:text-[#94a3b8]">
+          <span>
+            Showing {filtered.length === 0 ? 0 : pageIndex * pageSize + 1} to{" "}
+            {Math.min((pageIndex + 1) * pageSize, filtered.length)} of {filtered.length} products
+          </span>
+          <div className="flex items-center gap-2">
+            {/* Page size */}
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setPageIndex(0); }}
+              className="px-2 py-1 rounded border border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-xs outline-none"
+            >
+              {PAGE_SIZE_OPTIONS.map(s => <option key={s} value={s}>{s} / page</option>)}
+            </select>
+
+            {/* Page buttons */}
+            <div className="flex items-center gap-1">
+              <PageBtn onClick={() => setPageIndex(0)} disabled={pageIndex === 0} label="«" />
+              <PageBtn onClick={() => setPageIndex(i => Math.max(0, i - 1))} disabled={pageIndex === 0} label="‹" />
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let page = i;
+                if (totalPages > 5) {
+                  const mid = Math.min(Math.max(pageIndex, 2), totalPages - 3);
+                  page = mid - 2 + i;
+                }
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setPageIndex(page)}
+                    className={`w-7 h-7 rounded flex items-center justify-center text-[11px] font-semibold transition ${
+                      page === pageIndex
+                        ? "bg-[#2563eb] text-white"
+                        : "bg-white dark:bg-[#2d3133] border border-[#e2e8f0] dark:border-[#45464d] text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9]"
+                    }`}
+                  >
+                    {page + 1}
+                  </button>
+                );
+              })}
+              {totalPages > 5 && <span className="px-1">...</span>}
+              {totalPages > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setPageIndex(totalPages - 1)}
+                  className={`w-7 h-7 rounded flex items-center justify-center text-[11px] font-semibold transition ${
+                    pageIndex === totalPages - 1
+                      ? "bg-[#2563eb] text-white"
+                      : "bg-white dark:bg-[#2d3133] border border-[#e2e8f0] dark:border-[#45464d] text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9]"
+                  }`}
+                >
+                  {totalPages}
+                </button>
+              )}
+              <PageBtn onClick={() => setPageIndex(i => Math.min(totalPages - 1, i + 1))} disabled={pageIndex >= totalPages - 1} label="›" />
+              <PageBtn onClick={() => setPageIndex(totalPages - 1)} disabled={pageIndex >= totalPages - 1} label="»" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg p-2.5 flex flex-wrap gap-3 items-center shrink-0 shadow-xs">
-        <div className="flex-1 min-w-[280px] relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#76777d]" />
-          <input
-            type="text"
-            value={searchQuery}
-            data-field-key="product_name"
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search products, SKUs, barcodes, brands, or attribute tags..."
-            className="w-full pl-9 pr-3 py-1.5 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs text-[#191c1e] dark:text-white outline-none focus:ring-1 focus:ring-[#000000]"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value)}
-            className="px-3 py-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs font-semibold outline-none"
-          >
-            <option value="All">Category: All</option>
-            {categories.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-
-          <select
-            value={selectedStatus}
-            onChange={e => setSelectedStatus(e.target.value)}
-            className="px-3 py-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs font-semibold outline-none"
-          >
-            <option value="All">Status: All</option>
-            <option value="Stable">Stable</option>
-            <option value="Draft">Draft</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Main Table */}
-      <div className="flex-1 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg overflow-auto shadow-xs">
-        <table className="w-full text-left border-collapse text-xs min-w-[900px]">
-          <thead className="sticky top-0 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] z-10">
-            <tr>
-              <th className="p-3 w-10 text-center">
-                <input
-                  type="checkbox"
-                  checked={selectedProductIds.size > 0 && selectedProductIds.size === filteredProducts.length}
-                  onChange={handleToggleSelectAll}
-                  className="rounded"
-                />
-              </th>
-              {isFieldGloballyVisible("code") && <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Stock No / SKU</th>}
-              {isFieldGloballyVisible("barcode") && <th className="p-3 font-mono font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Barcode</th>}
-              {isFieldGloballyVisible("name") && <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Product Name</th>}
-              {isFieldGloballyVisible("category") && <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Category</th>}
-              <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] min-w-[280px]">Business Labels (Attributes)</th>
-              {isFieldGloballyVisible("mrp") && <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] text-right">MRP</th>}
-              {isFieldGloballyVisible("price") && <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] text-right">Price</th>}
-              <th className="p-3 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
-            {filteredProducts.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center py-12 text-[#76777d]">
-                  <Package size={36} className="mx-auto mb-2 opacity-30" />
-                  <p className="font-semibold text-xs">No matching products found.</p>
-                  <p className="text-[11px] mt-0.5">Try clearing your filters or paste items via Bulk Paste.</p>
-                </td>
-              </tr>
-            ) : (
-              filteredProducts.map((p, idx) => {
-                const isSelected = selectedProductIds.has(p.id || p.code);
-                const attrEntries = Object.entries(p.attributes || {}).filter(([k, v]) => Boolean(v));
-
-                return (
-                  <tr
-                    key={p.id || `prod-${idx}`}
-                    onClick={() => handleToggleProduct(p.id || p.code)}
-                    className={`cursor-pointer transition ${
-                      isSelected
-                        ? "bg-[#d5e3fd]/40"
-                        : "hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133]"
-                    }`}
-                  >
-                    <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleProduct(p.id || p.code)}
-                        className="rounded"
-                      />
-                    </td>
-                    {isFieldGloballyVisible("code") && (
-                      <td className="p-3 font-mono font-bold text-[#191c1e] dark:text-[#dae2fd]">
-                        {p.code}
-                      </td>
-                    )}
-                    {isFieldGloballyVisible("barcode") && (
-                      <td className="p-3 font-mono text-[11px] text-[#515f74] dark:text-[#bec6e0]">
-                        {p.barcode || "—"}
-                      </td>
-                    )}
-                    {isFieldGloballyVisible("name") && (
-                      <td className="p-3 font-semibold text-[#191c1e] dark:text-white">
-                        {p.name}
-                      </td>
-                    )}
-                    {isFieldGloballyVisible("category") && (
-                      <td className="p-3 text-[#515f74] dark:text-[#bec6e0]">
-                        {p.category || "Footwear"}
-                      </td>
-                    )}
-                    <td className="p-3">
-                      <div className="flex flex-wrap gap-1">
-                        {p.brand && isFieldGloballyVisible("brand") && (
-                          <span className="px-2 py-0.5 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] rounded text-[10px]">
-                            Brand: <span className="font-bold">{p.brand}</span>
-                          </span>
-                        )}
-                        {attrEntries.filter(([k]) => isFieldGloballyVisible(k)).slice(0, 3).map(([k, v], aIdx) => (
-                          <span key={aIdx} className="px-2 py-0.5 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] rounded text-[10px]">
-                            {k}: <span className="font-bold">{String(v)}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    {isFieldGloballyVisible("mrp") && (
-                      <td className="p-3 text-right font-mono font-semibold">
-                        {Number(p.mrp || p.price || 0).toFixed(2)}
-                      </td>
-                    )}
-                    {isFieldGloballyVisible("price") && (
-                      <td className="p-3 text-right font-mono font-bold text-[#0c9488]">
-                        {Number(p.price || 0).toFixed(2)}
-                      </td>
-                    )}
-                    <td className="p-3">
-                      <span className="flex items-center gap-1.5 text-[11px] text-[#0c9488] font-semibold">
-                        <span className="w-2 h-2 rounded-full bg-[#0c9488]"></span>
-                        Stable
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
+      {/* ── Add Product Drawer ───────────────────────────────────────────── */}
+      <AddProductDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        onSaved={() => { onRefreshProducts?.(); }}
+        onNotification={onNotification}
+        productType={productCategory}
+      />
     </div>
   );
 };
 
+// ── Sub-Components ─────────────────────────────────────────────────────────────
+
+const Th: React.FC<{ children?: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
+  <th className={`px-3 py-2.5 text-[10px] font-bold text-[#64748b] dark:text-[#94a3b8] uppercase tracking-wider whitespace-nowrap ${className}`}>
+    {children}
+  </th>
+);
+
+const Td: React.FC<{ children?: React.ReactNode; className?: string; onClick?: (e: React.MouseEvent) => void }> = ({ children, className = "", onClick }) => (
+  <td className={`px-3 py-2.5 text-xs text-[#374151] dark:text-[#cbd5e1] whitespace-nowrap ${className}`} onClick={onClick}>
+    {children}
+  </td>
+);
+
+const FilterSelect: React.FC<{
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}> = ({ label, value, onChange, options }) => (
+  <div className="relative">
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="appearance-none pl-3 pr-7 py-2 rounded-lg border border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-xs font-semibold text-[#374151] dark:text-[#e2e8f0] outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition cursor-pointer"
+    >
+      {options.map((opt) => (
+        <option key={opt} value={opt}>
+          {opt === "All" ? `${label}: All` : opt}
+        </option>
+      ))}
+    </select>
+    <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#94a3b8]">▾</span>
+  </div>
+);
+
+const PageBtn: React.FC<{ onClick: () => void; disabled: boolean; label: string }> = ({ onClick, disabled, label }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className="w-7 h-7 rounded flex items-center justify-center text-[11px] font-bold bg-white dark:bg-[#2d3133] border border-[#e2e8f0] dark:border-[#45464d] text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9] disabled:opacity-30 disabled:cursor-not-allowed transition"
+  >
+    {label}
+  </button>
+);
+
 export default ItemCatalogGrid;
+
