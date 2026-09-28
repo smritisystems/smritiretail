@@ -10,14 +10,13 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-07-12
- * Modified     : 2026-07-12
+ * Modified     : 2026-09-28
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
 import crypto from "crypto";
 import { roles, auditLogs, stockLedger } from "../state/store.js";
-import { pool } from "../db/pool.js";
 import { apiFetchV1 } from "./apiFetchV1.js";
 
 // ==========================================
@@ -148,28 +147,26 @@ export function buildSafeFallback(input: string | null | undefined): SafeFallbac
 
 export async function allocateVoucherNumber(docType: string, context?: { branch?: string; fy?: string; user?: string; date?: string; authHeader?: string }): Promise<string> {
   try {
-    const dbRes = await pool.query(
-      `SELECT id FROM document_series 
-       WHERE document_type = $1 AND is_deleted = false AND is_active = true 
-       LIMIT 1`,
-      [docType]
-    );
+    const seriesList = await apiFetchV1<Array<{ id: string; documentType: string }>>("/numbering/series", {
+      headers: {
+        ...(context?.authHeader ? { "Authorization": context.authHeader } : {}),
+      }
+    });
 
-    if (dbRes.rows.length === 0) {
+    const matched = seriesList?.find(s => s.documentType === docType);
+    if (!matched) {
       return docType.substring(0, 3).toUpperCase() + "-" + Date.now();
     }
-    const seriesId = dbRes.rows[0].id;
 
     const payload = {
       branch: context?.branch || "HQ",
       fy: context?.fy || "26-27"
     };
 
-    const data = await apiFetchV1(`/numbering/series/${seriesId}/allocate`, {
+    const data = await apiFetchV1<{ documentNo: string }>(`/numbering/series/${matched.id}/allocate`, {
       method: "POST",
       body: JSON.stringify(payload),
       headers: {
-        "X-Internal-Service-Key": (typeof process !== "undefined" && process.env?.INTERNAL_SERVICE_KEY) || "",
         ...(context?.authHeader ? { "Authorization": context.authHeader } : {}),
       }
     });

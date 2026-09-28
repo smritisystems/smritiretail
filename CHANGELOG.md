@@ -30,6 +30,22 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.46.1] - 2026-09-28 — Security: Dependabot Audit Remediation & Backend Node Decoupling
+
+> **Branch:** `smritiNX` | **Area:** Dependency Security, Packaging & System-of-Record Decoupling
+
+### Security
+- **Patched 9 Security Vulnerabilities:** Resolved 4 High and 5 Moderate CVE/GHSA advisories across transitive dependencies (`fast-uri` to 3.1.8, `browserslist` to 4.29.1, `nanoid` to 3.3.19, `postcss` to 8.5.28, `dompurify` to 3.4.16, `baseline-browser-mapping` to 2.11.26).
+- **Vitest Path Traversal Remediation:** Upgraded `vitest` and `@vitest/coverage-v8` to `4.1.11` in `package.json` to resolve `GHSA-82fw-gwwq-j7x9` (`@vitest/mocker`).
+
+### Refactored
+- **FastAPI Sole System of Record Decoupling (`src/lib/helpers.ts`):** Removed legacy `import { pool } from "../db/pool.js"`; re-engineered `allocateVoucherNumber` to query `/api/v1/numbering/series` and call `/api/v1/numbering/series/{id}/allocate` via `apiFetchV1`.
+- **Compiler Boundary Hardening (`tsconfig.json`):** Excluded legacy `src/db/**/*` and `src/bootstrap/**/*` from client TypeScript compilation.
+
+### Fixed
+- **Canonical Field Registry Test Parity (`src/tests/canonicalFieldRegistry.test.ts`):** Updated assertions from 133 to 137 fields (`vendor_code`, `style_code`, `color`, `size`) and updated SHA-256 fingerprint matching commit `cee1703b`.
+- **Numbering Unit Test (`src/tests/numbering.test.ts`):** Mocked `global.fetch` to validate HTTP series resolution and sequence allocation.
+
 ## [6.46.0] - 2026-09-28 — Catalog: IM-001 Two-Tier Controlled-Field Validation — System Parameters & System Master Lookup
 
 > **Branch:** `smritiNX` | **Commit:** `a64f0a35` | **Area:** Universal Import Pipeline, IM-001 Enforcement
