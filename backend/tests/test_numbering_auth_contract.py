@@ -114,22 +114,19 @@ class TestAllocateEndpointAuth:
 
     def test_allocate_no_auth_even_with_empty_bearer_returns_401(self, client):
         """
-        Bearer with no actual token → must NOT return 200.
-        NOTE: The actual response is 500 (JWT decode throws unhandled exception
-        on malformed 'Bearer ' with trailing whitespace). This is a security-neutral
-        finding — 500 is not authenticated access — but the endpoint should ideally
-        return 401 instead of 500. Recorded here as a known finding for hardening.
-        Accepted: 401, 422, 500. Rejected: 200, 201.
+        Bearer with no actual token → must return 401 (not 500).
+        SMRITI-SEC-2026-001: Fixed in numbering.py — token is now stripped and
+        validated before calling get_current_user, ensuring 401 for malformed
+        'Bearer ' headers instead of an unhandled exception (HTTP 500).
         """
         resp = client.post(
             "/numbering/series/SRS-001/allocate",
             json={"branch": "HQ", "fy": "26-27"},
             headers={"Authorization": "Bearer "},
         )
-        # 500 = unhandled JWT decode error (security-neutral: not authenticated)
-        # Should be hardened to 401. Tracked as a known finding.
-        assert resp.status_code not in (200, 201), (
-            f"Empty Bearer token should NOT grant access. Got {resp.status_code}."
+        assert resp.status_code in (401, 422), (
+            f"Empty Bearer token must return 401 after SMRITI-SEC-2026-001 fix. "
+            f"Got {resp.status_code}. Check the token-strip guard in numbering.py."
         )
 
     def test_allocate_helper_in_frontend_uses_jwt_not_internal_key(self):
