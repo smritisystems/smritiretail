@@ -1,4 +1,4 @@
-﻿"""Add dispatch_batches and dispatch_batch_invoices tables.
+"""Add dispatch_batches and dispatch_batch_invoices tables.
 
 Replaces the in-memory _AUDIT_CACHE and _BATCH_CACHE dicts in
 dispatch_invoicing.py with PostgreSQL-backed persistent tables.

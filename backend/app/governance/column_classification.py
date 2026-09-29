@@ -55,6 +55,8 @@ STANDARD_FRAMEWORK_COLUMNS: Set[str] = {
     "workflow_status", "mode", "tracking_type", "is_tax_inclusive",
     # v4.0.0 additions: barcode and line-level framework flags
     "is_primary", "barcode_type",
+    # v4.1.0 additions: item master workflow validation state columns (v1495)
+    "validation_status", "validation_message",
 }
 
 STANDARD_TECHNICAL_FK_COLUMNS: Set[str] = {
