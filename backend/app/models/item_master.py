@@ -43,9 +43,19 @@ class Item(BaseEntity):
     size = Column(String(50), nullable=True, index=True)
     vendor_code = Column(String(100), nullable=True, index=True)
     hsn_code = Column(String(15), nullable=True)
+    # hsn_sac_code: Added by v1469 (cross-DB parity). Coexists with hsn_code for
+    # the GST HSN (goods) vs SAC (services) distinction. is_service_yn=True → use
+    # hsn_sac_code as the SAC code. is_service_yn=False → hsn_code is authoritative.
+    # Listed as alias of item.hsn_code in field_registry.py and in STANDARD_MIGRATION_COLUMNS.
+    hsn_sac_code = Column(String(50), nullable=True)
     tax_rate = Column(Numeric(5, 2), nullable=False, default=Decimal("18.00"), server_default=text("'18.00'"))
     primary_uom = Column(String(20), nullable=True)
+    # uom: Added by v1469 (cross-DB column parity with smritisys). Secondary alias for
+    # primary_uom. No API reads this column directly; primary_uom is the authoritative field.
+    # Listed in STANDARD_MIGRATION_COLUMNS. Do not remove — column exists in live DB.
+    uom = Column(String(50), nullable=True)
     least_saleable_qty = Column(Numeric(10, 4), nullable=False, default=Decimal("1.0000"), server_default=text("'1.0000'"))
+
     
     # Non-authoritative legacy baseline fields (Pricing Domain is sole system-of-record)
     mrp = Column(Numeric(15, 2), nullable=True, default=0.00)
@@ -85,8 +95,16 @@ class Item(BaseEntity):
 
     # Extended attributes & assets
     attributes_json = Column(JSONB, server_default=text("'{}'"), default=dict)
+    # metadata_json: Added by v1469 (cross-DB parity). Generic extensible metadata bag.
+    # Listed in STANDARD_MIGRATION_COLUMNS. Distinct from attributes_json (which holds
+    # controlled product attributes). metadata_json holds import/integration metadata.
+    metadata_json = Column(JSONB, server_default=text("'{}'"), default=dict)
     primary_image_url = Column(String(512), nullable=True)
     tags = Column(ARRAY(String), server_default="{}")
+    # tracking_type: Added by v1469 (cross-DB parity). Specifies item tracking mode
+    # (e.g. 'BATCH', 'SERIAL', 'SIMPLE'). Listed in STANDARD_MIGRATION_COLUMNS.
+    tracking_type = Column(String(50), nullable=True)
+
 
     # Relationships
     variants = relationship("ItemVariant", back_populates="item", cascade="all, delete-orphan")
