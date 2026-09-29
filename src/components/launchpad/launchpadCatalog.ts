@@ -113,8 +113,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   // 2. Master Data & Stock
   {
     id: "item-master",
-    title: "Item Master & Catalog",
-    subtitle: "Dynamic product catalogue, server pagination, HSN codes & GST tax slabs",
+    title: "Article / Design Master",
+    subtitle: "Canonical Article & Design catalogue, variant matrix, HSN codes & GST tax slabs",
     icon: "inventory_2",
     tag: "Catalog",
     badgeType: "primary",
