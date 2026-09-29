@@ -59,7 +59,8 @@ class Product(BaseEntity):
     document_number = Column(String(80))
     size_scale_id = Column(String(50))
     sourcing_mode_override = Column(String(30))
-    tenant_id = Column(String(50))
+    # tenant_id RETIRED — v1497 (2026-09-29): was 0/1899 populated, no write paths.
+    # company_id (BaseEntity) is the canonical tenant discriminator for this table.
     workflow_status = Column(String(30), default="Approved")
 
     __table_args__ = (

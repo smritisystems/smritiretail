@@ -143,6 +143,8 @@ class POSShiftDenominationCount(Base):
     __tablename__ = "pos_shift_denomination_counts"
 
     id                 = Column(String(50), primary_key=True)
+    # Group B — stores company_id value (legacy column naming). No FK to companies.
+    # Written by services/pos.py as getattr(tenant, "tenant_id") or tenant.company_id.
     tenant_id          = Column(String(50), nullable=False)
     company_id         = Column(String(50), nullable=False)
     shift_id           = Column(String(50), ForeignKey("shifts.id", ondelete="CASCADE"), nullable=False, index=True)
