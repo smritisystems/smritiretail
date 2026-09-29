@@ -202,7 +202,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     },
     {
       id: "item-master",
-      label: "Item Master",
+      label: "Article / Design Master",
       icon: "inventory_2",
       category: "Inventory & Sourcing",
     },
