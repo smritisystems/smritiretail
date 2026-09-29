@@ -52,7 +52,9 @@ WORKBOOK_HEADER_TO_TYPE_CODE: Dict[str, Tuple[str, str]] = {
     "OUTSOLE_MATERIAL": ("outsole_material", "Outsole Material"),
     "UOM": ("uom", "Unit of Measure (UOM)"),
     "COLLECTION_TYPE": ("collection_type", "Collection Type"),
-    # v2.2: Statutory GST slabs — IM-001 BLOCK on any value outside 0/5/12/18
+    # GST 2.0 Statutory slabs (effective 22-Sep-2025):
+    # VALID: 0%, 5%, 18%, 40%  |  REMOVED: 12% slab abolished per GST 2.0
+    # IM-001 BLOCK on any value outside {0, 5, 18, 40}
     "GST_RATE_PERCENT": ("gst_rate", "GST Rate (%)"),
 }
 
