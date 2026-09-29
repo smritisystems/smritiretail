@@ -30,6 +30,33 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.47.3] - 2026-09-30 — Article / Design Master UX Refactor & Adaptive Polish (Waves 1–3)
+
+> **Branch:** `smritiNX` | **Area:** Inventory / Article Master
+> **Walkthrough:** `docs/walkthrough/inventory/Inventory_Article_Master_Wave3_Adaptive_UX_And_Responsive_Polish_v6.47.2.md`
+> **Implementation Plan:** `docs/implementation/inventory/SMRITI_ARTICLE_DESIGN_MASTER_UX_REFACTOR_PLAN.md`
+
+### Added
+- **Responsive Navigation Drawer (`ItemMasterWs.tsx`):** Converted the fixed 256px sidebar into a slide-over overlay drawer on screens `< 1024px` with a frosted backdrop (`fixed inset-0 bg-black/50 z-30 lg:hidden`) and hamburger trigger button, resolving mobile dual-sidebar collision (`VIS-MOB-01`) and tablet squeeze (`VIS-TAB-02`).
+- **3-Tier Adaptive Modes (`SIMPLE`, `HYBRID`, `ADVANCED`):** Segmented control in `ItemMasterWs.tsx` header with `localStorage` persistence (`smriti_article_mode`). Supported single-screen `Quick Save (Simple Mode)` in `AddProductDrawer.tsx` Step 1 for kirana and express retail alongside full Cartesian matrix generation for footwear/apparel.
+- **2D Size × Color Matrix Builder (`AddProductDrawer.tsx`):** Interactive Cartesian matrix variant generator directly linked to `POST /api/v1/universal/items/{id}/variants/matrix` with inline SKU, barcode, and price overrides.
+- **Multi-Barcode Management:** Secondary barcode chip manager supporting 1:N barcodes per variant (`item_barcodes` table) for manufacturer UPC/EAN scanning.
+- **Live Document Series Preview:** Automatic preview badge in `AddProductDrawer.tsx` fetching `GET /api/v1/numbering/series` for `ARTICLE` series (e.g. `ART/0001/26-27/`) without consuming sequence counters.
+- **Spreadsheet Payload Adapter (`spreadsheetAdapter.ts`):** Strips immutable keys (`code`, `sku`, `barcode`) on `PUT /api/v1/inventory/{id}`, preventing HTTP 409 Conflict rejections while maintaining backward compatibility for `ItemDetailsGrid.tsx`.
+
+### Changed
+- **SMRITI 7-Action Budget Toolbar (`ItemCatalogGrid.tsx`):** Enforced strict 7-action budget governance on the primary action bar (`Add Article`, `Copy From Excel`, `Export`, `More Options (...)`). Collapsed tertiary actions into an accessible popover dropdown menu (`MoreVertical`) and secondary filters into an accordion toggle (`More Filters`).
+- **Universal Canvas Sizing:** Replaced arbitrary Tailwind classes on `AddProductDrawer.tsx` with mathematical `min(940px, calc(100vw - 16px))` responsive width.
+- **Cross-Origin Vendor Endpoint Normalization:** Appended trailing slash to `/purchase/vendors/` in `AddProductDrawer.tsx`, eliminating HTTP 307 redirects across origins that stripped authentication headers.
+
+### Verified
+- **Consolidation Battery Suite:** 14/14 battery tests passing (`scripts/test_article_consolidation_battery.py`).
+- **Database Schema & Entity Parity:** 11/11 read-only integrity checks green (0 duplicate item codes, 0 orphan variants, 0 orphan barcodes, 0 schema drift).
+- **Vitest Unit Test Suite:** 5/5 unit tests passing (`src/tests/spreadsheetAdapter.test.ts`).
+- **TypeScript Compiler:** Clean exit code 0 (`npx tsc --noEmit`).
+- **CI UX Field Governance Guard:** 147 canonical fields verified, 0 critical violations (`scripts/ci_ux_field_governance_guard.py`).
+- **4-Viewport Playwright Audit:** 21 screenshots captured across Desktop (1920×1080), Laptop (1366×768), Tablet (768×1024), and Mobile (390×844) viewports.
+
 ## [6.47.2] - 2026-09-29 — Article / Design Master Consolidation & Existing-Flow Refactor
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Item Master
