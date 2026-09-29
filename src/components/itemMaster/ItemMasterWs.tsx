@@ -24,6 +24,8 @@ import {
   FileSpreadsheet
 } from "lucide-react";
 import { Product } from "../../types.ts";
+import { ItemCatalogGrid } from "./ItemCatalogGrid.tsx";
+import { AddProductDrawer } from "./AddProductDrawer.tsx";
 import { ItemDetailsGrid } from "./ItemDetailsGrid.tsx";
 import { ItemViewConfig, ItemViewConfigState } from "./ItemViewConfig.tsx";
 import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
@@ -41,7 +43,7 @@ interface SmritiItemMasterWorkspaceProps {
   onClose?: () => void;
 }
 
-type WorkspaceNavTab = "item_details" | "view_config" | "imports" | "attributes" | "image_config" | "variants";
+type WorkspaceNavTab = "catalog" | "spreadsheet" | "view_config" | "imports" | "attributes" | "image_config" | "variants";
 
 export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   products = [],
@@ -51,7 +53,13 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   initialSubTab,
   onClose
 }) => {
-  const [activeNav, setActiveNav] = useState<WorkspaceNavTab>("item_details");
+  const [activeNav, setActiveNav] = useState<WorkspaceNavTab>(() => {
+    if (initialSubTab === "excel-grid" || initialSubTab === "spreadsheet") {
+      return "spreadsheet";
+    }
+    return "catalog";
+  });
+  const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
 
   const [viewConfig, setItemViewConfig] = useState<ItemViewConfigState>({
     viewMode: "grid",
@@ -75,20 +83,23 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "1") {
         e.preventDefault();
-        setActiveNav("view_config");
+        setActiveNav("catalog");
       } else if (e.altKey && e.key === "2") {
         e.preventDefault();
-        setActiveNav("item_details");
+        setActiveNav("spreadsheet");
       } else if (e.altKey && e.key === "3") {
         e.preventDefault();
-        setActiveNav("imports");
+        setActiveNav("view_config");
       } else if (e.altKey && e.key === "4") {
         e.preventDefault();
-        setActiveNav("attributes");
+        setActiveNav("imports");
       } else if (e.altKey && e.key === "5") {
         e.preventDefault();
-        setActiveNav("image_config");
+        setActiveNav("attributes");
       } else if (e.altKey && e.key === "6") {
+        e.preventDefault();
+        setActiveNav("image_config");
+      } else if (e.altKey && e.key === "7") {
         e.preventDefault();
         setActiveNav("variants");
       }
@@ -117,15 +128,28 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
         <div className="flex-1 space-y-1">
           <button
             type="button"
-            onClick={() => setActiveNav("item_details")}
+            onClick={() => setActiveNav("catalog")}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeNav === "item_details"
+              activeNav === "catalog"
                 ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
                 : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
             }`}
           >
             <Package size={17} />
-            <span>Article / Design Details</span>
+            <span>Article / Design Catalog</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveNav("spreadsheet")}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeNav === "spreadsheet"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
+            }`}
+          >
+            <FileSpreadsheet size={17} />
+            <span>Classic Spreadsheet View</span>
           </button>
 
           <button
@@ -248,7 +272,19 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
 
         {/* Dynamic Workspace Canvas */}
         <main className="flex-1 overflow-hidden min-h-0 bg-[#faf9ff] dark:bg-[#191c1e]">
-          {activeNav === "item_details" && (
+          {activeNav === "catalog" && (
+            <ItemCatalogGrid
+              products={products}
+              onRefreshProducts={handleRefresh}
+              onNotification={handleNotify}
+              onNavigateToPaste={() => setActiveNav("imports")}
+              currentUser={currentUser}
+              productCategory="Footwear"
+              onAddNew={() => setIsAddDrawerOpen(true)}
+            />
+          )}
+
+          {activeNav === "spreadsheet" && (
             <ItemDetailsGrid
               products={products}
               viewConfig={viewConfig}
@@ -258,15 +294,13 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
             />
           )}
 
-          {/* ItemCatalogGrid: accessible via the Catalog view shortcut or external nav */}
-
           {activeNav === "view_config" && (
             <ItemViewConfig
               currentConfig={viewConfig}
               userRole={currentUser?.role}
               onSaveConfig={(cfg) => {
                 setItemViewConfig(cfg);
-                setActiveNav("item_details");
+                setActiveNav("spreadsheet");
               }}
               onNotification={handleNotify}
             />
@@ -277,7 +311,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               onRefreshProducts={handleRefresh}
               onNotification={handleNotify}
               currentUser={currentUser}
-              onCancel={() => setActiveNav("item_details")}
+              onCancel={() => setActiveNav("catalog")}
             />
           )}
 
@@ -305,6 +339,14 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
         </main>
       </div>
 
+      {/* ── Add Product Drawer ── */}
+      <AddProductDrawer
+        isOpen={isAddDrawerOpen}
+        onClose={() => setIsAddDrawerOpen(false)}
+        onSaved={handleRefresh}
+        onNotification={handleNotify}
+        productType="Footwear"
+      />
     </div>
   );
 };

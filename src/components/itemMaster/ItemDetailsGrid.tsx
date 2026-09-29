@@ -59,6 +59,7 @@ import { ItemViewConfigState } from "./ItemViewConfig.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
 import { useF2Screen, useF2Dispatcher, type LookupResult } from "../../context/F2DispatcherContext.tsx";
+import { sanitizeSpreadsheetPutPayload } from "./adapters/spreadsheetAdapter.ts";
 
 export type MasterEntryMode = "add" | "edit" | "delete";
 export type SortDirection = "asc" | "desc";
@@ -1138,9 +1139,10 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         try {
           if (isExisting || (activeMode === "edit" && matchedProduct?.id)) {
             const targetId = matchedProduct?.id || row._id;
+            const { payload: sanitizedPayload } = sanitizeSpreadsheetPutPayload(prodPayload, matchedProduct);
             await apiFetchV1(`/products/${targetId}`, {
               method: "PUT",
-              body: JSON.stringify(prodPayload)
+              body: JSON.stringify(sanitizedPayload)
             });
           } else {
             await apiFetchV1("/products/", {

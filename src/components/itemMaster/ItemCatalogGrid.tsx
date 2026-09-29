@@ -36,6 +36,7 @@ interface SmritiItemCatalogGridProps {
   onNavigateToPaste?: () => void;
   currentUser?: { role: string; name: string } | null;
   productCategory?: string; // e.g. "Footwear"
+  onAddNew?: () => void;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -60,6 +61,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   onNavigateToPaste,
   currentUser,
   productCategory = "Footwear",
+  onAddNew,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
@@ -178,7 +180,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setIsDrawerOpen(true)}
+              onClick={onAddNew || (() => setIsDrawerOpen(true))}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition shadow-sm"
             >
               <Plus size={14} />
