@@ -384,6 +384,10 @@ class IM001ControlledFieldValidator:
         Queries CatalogDimensionValidator.get_approved_values() from the control plane
         (and tenant fallback) for the dimension that backs std_field.
         Returns a list of canonical value strings, or [] if not found / DB empty.
+
+        NOTE: This is the per-field single-query path. For batch imports with many rows,
+        use _load_all_dimension_master_values() + validate_batch_controlled_fields()
+        to avoid N+1 queries.
         """
         dimension = cls.FIELD_TO_DIMENSION_MAP.get(std_field)
         if not dimension:
@@ -395,6 +399,133 @@ class IM001ControlledFieldValidator:
             return []
 
     @classmethod
+    async def _load_all_dimension_master_values(
+        cls,
+        company_id: Optional[str] = None,
+    ) -> Dict[str, List[str]]:
+        """
+        Batch-loads approved master_values for ALL controlled dimensions in a single
+        round-trip per dimension (14 dimensions total), rather than per-row per-field.
+
+        Returns: Dict[std_field_name -> List[canonical_code_str]]
+        Empty list means dimension is unseeded — caller must issue IM-001-UNSEEDED advisory.
+
+        Performance: reduces O(N × 14) DB queries → O(14) total, regardless of row count.
+        This is the fix for the N+1 query pattern identified in the IM-001 audit.
+        """
+        result: Dict[str, List[str]] = {}
+        for std_field, dimension in cls.FIELD_TO_DIMENSION_MAP.items():
+            try:
+                rows = await CatalogDimensionValidator.get_approved_values(dimension)
+                result[std_field] = [r["code"] for r in rows if r.get("code")]
+            except Exception:
+                result[std_field] = []
+        return result
+
+    @classmethod
+    async def validate_batch_controlled_fields(
+        cls,
+        rows: List[Dict[str, Any]],
+        company_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Validates a batch of rows against IM-001 controlled field rules.
+
+        Performance fix: master_values for ALL dimensions are loaded ONCE before the
+        loop (O(14) queries), then each row is validated in-memory against the
+        pre-loaded maps. This eliminates the N×14 DB query pattern of the original
+        per-row validate_row_controlled_fields() call.
+
+        Returns: List[row_result_dict] — one entry per input row, same schema as
+        validate_row_controlled_fields() but calculated against shared dimension cache.
+        """
+        # Phase 1: Load system parameters once (2 round-trips total)
+        sp_flags = await cls._load_sysparam_enforcement_flags(company_id)
+        validate_enabled = sp_flags["validate_during_import"]
+        field_enforcement = sp_flags["field_enforcement"]
+
+        # Phase 2: Batch-load ALL dimension master_values ONCE (14 queries, not N×14)
+        master_cache: Dict[str, List[str]] = await cls._load_all_dimension_master_values(company_id)
+
+        # Pre-compute normalised lookup maps (upper-case canonical → original value)
+        norm_maps: Dict[str, Dict[str, str]] = {
+            std_field: {v.strip().upper(): v.strip() for v in values}
+            for std_field, values in master_cache.items()
+        }
+
+        # Phase 3: Validate each row in-memory — zero additional DB queries
+        results: List[Dict[str, Any]] = []
+        for row_idx, row in enumerate(rows):
+            row_num = row.get("rowNumber", row_idx + 1)
+            errors: List[str] = []
+            warnings: List[str] = []
+            field_failures: List[Dict[str, Any]] = []
+
+            for std_field, aliases in cls.FIELD_EXTRACTION_MAP.items():
+                raw_val = _text(row, *aliases)
+                if not raw_val:
+                    continue
+
+                db_values = master_cache.get(std_field, [])
+
+                if not db_values:
+                    warnings.append(
+                        f"IM-001-UNSEEDED [Advisory]: Field '{std_field}' has no approved values "
+                        f"in master_values (type='{cls.FIELD_TO_DIMENSION_MAP.get(std_field, '?')}'). "
+                        f"Seed the dimension to enable BLOCK enforcement."
+                    )
+                    continue
+
+                clean_val = raw_val.strip()
+                db_norm_map = norm_maps.get(std_field, {})
+
+                if clean_val.upper() in db_norm_map:
+                    continue  # exact DB match — pass
+
+                # Near-match is still computed in-memory against the cached value list
+                near_match = cls.find_near_match(clean_val, db_values)
+
+                base_mandatory = cls.FIELD_MANDATORY_MAP.get(std_field, False)
+                sysparam_enforced = field_enforcement.get(std_field, True)
+                is_mandatory = base_mandatory and sysparam_enforced and validate_enabled
+
+                field_failures.append({
+                    "field": std_field,
+                    "value": clean_val,
+                    "is_mandatory": is_mandatory,
+                    "near_match": near_match,
+                    "source": "System Master Lookup (DB)",
+                })
+
+                if is_mandatory:
+                    msg = (
+                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in "
+                        f"System Master Lookup (DB)"
+                        + (f" (near-match to '{near_match}', needs architect decision)." if near_match else ".")
+                    )
+                    errors.append(msg)
+                else:
+                    msg = (
+                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' "
+                        f"not found in System Master Lookup (DB)"
+                        + (f" (near-match to '{near_match}', needs architect decision)." if near_match else ".")
+                    )
+                    warnings.append(msg)
+
+            results.append({
+                "row_num": row_num,
+                "errors": errors,
+                "warnings": warnings,
+                "field_failures": field_failures,
+                "sysparam_flags": {
+                    "validate_during_import": validate_enabled,
+                    "field_enforcement": field_enforcement,
+                },
+            })
+
+        return results
+
+    @classmethod
     async def validate_row_controlled_fields(
         cls,
         row: Dict[str, Any],
@@ -402,98 +533,22 @@ class IM001ControlledFieldValidator:
         company_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        DB-only validation. Resolution order:
-          1. System parameters (control plane) — gate and per-field enforcement level.
-          2. CatalogDimensionValidator.get_approved_values() (master_values table) — sole allowed list.
-             If DB returns 0 values for a dimension, the field is SKIPPED with IM-001-UNSEEDED
-             advisory. No Excel / workbook fallback. Ever.
+        Single-row validation wrapper. Delegates to validate_batch_controlled_fields
+        internally. Kept for backward-compatibility with call sites that process one row.
+
+        NOTE: When validating multiple rows in a loop, prefer calling
+        validate_batch_controlled_fields(rows) once on the full batch to avoid N+1 queries.
         """
-        # Tier 1: load system parameter enforcement flags from DB
-        sp_flags = await cls._load_sysparam_enforcement_flags(company_id)
-        validate_enabled = sp_flags["validate_during_import"]
-        field_enforcement = sp_flags["field_enforcement"]
-
-        errors: List[str] = []
-        warnings: List[str] = []
-        field_failures: List[Dict[str, Any]] = []
-
-        for std_field, aliases in cls.FIELD_EXTRACTION_MAP.items():
-            raw_val = _text(row, *aliases)
-            if not raw_val:
-                continue
-
-            # Tier 2: DB master_values — sole source of truth
-            db_values = await cls._get_db_approved_values_for_field(std_field)
-
-            if not db_values:
-                # Dimension not seeded in DB — skip silently with advisory, never fall back to Excel
-                warnings.append(
-                    f"IM-001-UNSEEDED [Advisory]: Field '{std_field}' has no approved values "
-                    f"in master_values (type='{cls.FIELD_TO_DIMENSION_MAP.get(std_field, '?')}'). "
-                    f"Seed the dimension to enable BLOCK enforcement."
-                )
-                continue
-
-            db_norm_map: Dict[str, str] = {v.strip().upper(): v.strip() for v in db_values}
-            clean_val = raw_val.strip()
-
-            # Case and whitespace auto-normalize:
-            if clean_val.upper() in db_norm_map:
-                continue  # exact DB match — pass
-
-            # No DB match — determine enforcement level
-            near_match = cls.find_near_match(clean_val, db_values)
-
-            # Mandatory classification from FIELD_MANDATORY_MAP (DB-resident constant).
-            # System parameters can only downgrade BLOCK → Advisory, never upgrade.
-            base_mandatory = cls.FIELD_MANDATORY_MAP.get(std_field, False)
-            sysparam_enforced = field_enforcement.get(std_field, True)
-            is_mandatory = base_mandatory and sysparam_enforced and validate_enabled
-
-            failure_info = {
-                "field": std_field,
-                "value": clean_val,
-                "is_mandatory": is_mandatory,
-                "near_match": near_match,
-                "source": "System Master Lookup (DB)",
-            }
-            field_failures.append(failure_info)
-
-            if is_mandatory:
-                if near_match:
-                    msg = (
-                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in "
-                        f"System Master Lookup (DB) "
-                        f"(near-match to '{near_match}', needs architect decision)."
-                    )
-                else:
-                    msg = (
-                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' "
-                        f"not found in System Master Lookup (DB)."
-                    )
-                errors.append(msg)
-            else:
-                if near_match:
-                    msg = (
-                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' "
-                        f"not found in System Master Lookup (DB) "
-                        f"(near-match to '{near_match}', needs architect decision)."
-                    )
-                else:
-                    msg = (
-                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' "
-                        f"not found in System Master Lookup (DB)."
-                    )
-                warnings.append(msg)
-
+        batch_results = await cls.validate_batch_controlled_fields(
+            rows=[{**row, "rowNumber": row_num}],
+            company_id=company_id,
+        )
+        result = batch_results[0] if batch_results else {}
         return {
-            "errors": errors,
-            "warnings": warnings,
-            "field_failures": field_failures,
-            "sysparam_flags": {
-                "validate_during_import": validate_enabled,
-                "field_enforcement": field_enforcement,
-            },
+            "errors": result.get("errors", []),
+            "warnings": result.get("warnings", []),
+            "field_failures": result.get("field_failures", []),
+            "sysparam_flags": result.get("sysparam_flags", {}),
         }
 
 
@@ -531,6 +586,12 @@ async def preview_universal_import(
         consistency_report = CatalogConsistencyValidator.validate_batch_style_consistency(request.rows)
         row_consistency_warnings = consistency_report["row_warnings"]
         all_consistency_warnings = consistency_report["all_warnings"]
+
+        # IM-001 N+1 FIX: batch-load ALL dimension master_values ONCE (O(14) queries),
+        # then validate every row in-memory (zero additional DB queries per row).
+        im001_batch = await IM001ControlledFieldValidator.validate_batch_controlled_fields(
+            rows=request.rows, company_id=company_id
+        )
 
         for index, row in enumerate(request.rows, start=1):
             row_num = row.get("rowNumber", index)
@@ -586,15 +647,11 @@ async def preview_universal_import(
                 errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
 
 
-            # IM-001: Controlled Master Field Lookup Validation
-            # DB-only: master_values is the sole source. No Excel/workbook fallback.
-            # Enforcement level gated by system parameters from control plane.
-            im001_res = await IM001ControlledFieldValidator.validate_row_controlled_fields(
-                row, row_num, company_id=company_id
-            )
-            for err in im001_res["errors"]:
+            # IM-001: Controlled Master Field Lookup Validation (batch mode — no per-row DB queries)
+            im001_res = im001_batch[index - 1] if im001_batch else {}
+            for err in im001_res.get("errors", []):
                 errors.append(err)
-            for warn in im001_res["warnings"]:
+            for warn in im001_res.get("warnings", []):
                 row_consistency_warnings.setdefault(index - 1, []).append(warn)
                 if warn not in all_consistency_warnings:
                     all_consistency_warnings.append(warn)
