@@ -28,6 +28,7 @@ from app.services.inventory_wms import InventoryWmsService
 from app.models.inventory import Product, ProductBatchStock
 from app.models.purchase import Supplier
 from app.models.crm import Customer, CustomerGroup
+from conftest import utmih_delete_stock_movements
 from app.schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.db.session import get_company_sessionmaker
@@ -117,7 +118,7 @@ async def test_grn_inward_batch_stock_creation():
         finally:
             await session.execute(text("DELETE FROM purchase_receipt_items WHERE receipt_id = :rid"), {"rid": receipt_id})
             await session.execute(text("DELETE FROM purchase_receipts WHERE id = :rid"), {"rid": receipt_id})
-            await session.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id})
+            await utmih_delete_stock_movements(session, "product_id = :pid", {"pid": prod_id})
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
             await session.commit()
@@ -240,7 +241,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
         finally:
             await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": created_invoice_id})
             await session.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": created_invoice_id})
-            await session.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id})
+            await utmih_delete_stock_movements(session, "product_id = :pid", {"pid": prod_id})
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
             await session.commit()

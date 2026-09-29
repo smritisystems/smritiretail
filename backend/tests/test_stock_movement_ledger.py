@@ -30,6 +30,7 @@ from app.services.sales import SalesService
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate, SalesReturnCreate, SalesReturnItemCreate
 from app.api.deps import TenantContext
 from scripts.reconcile_historical_stock import run_historical_stock_reconciliation, REQUIRED_CONFIRMATION_TEXT
+from conftest import utmih_delete_stock_movements
 
 
 def _get_auth_headers(company_id="COMP-001", branch_id="BR-MAIN-001"):
@@ -186,7 +187,7 @@ async def test_completed_invoice_creates_outward_sale_movement():
             assert movement.branch_id == "MAIN"
         finally:
             if db_inv:
-                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :inv_id OR reference_doc_id = :inv_no"), {"inv_id": db_inv.id, "inv_no": test_inv_no})
+                await utmih_delete_stock_movements(session, "reference_doc_id = :inv_id OR reference_doc_id = :inv_no", {"inv_id": db_inv.id, "inv_no": test_inv_no})
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv.id})
                 await session.commit()
@@ -348,7 +349,7 @@ async def test_sales_return_creates_return_inward_movement():
             assert movement.branch_id == "MAIN"
         finally:
             if db_ret:
-                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :ret_id"), {"ret_id": db_ret.id})
+                await utmih_delete_stock_movements(session, "reference_doc_id = :ret_id", {"ret_id": db_ret.id})
                 await session.execute(text("DELETE FROM sales_return_items WHERE return_id = :ret_id"), {"ret_id": db_ret.id})
                 await session.execute(text("DELETE FROM sales_returns WHERE id = :ret_id"), {"ret_id": db_ret.id})
                 await session.commit()
@@ -572,7 +573,7 @@ async def test_repeated_processing_does_not_create_duplicates():
             assert len(movements) == 1
         finally:
             if db_inv1:
-                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :inv_id OR reference_doc_id = :inv_no"), {"inv_id": db_inv1.id, "inv_no": test_inv_no})
+                await utmih_delete_stock_movements(session, "reference_doc_id = :inv_id OR reference_doc_id = :inv_no", {"inv_id": db_inv1.id, "inv_no": test_inv_no})
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv1.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv1.id})
                 await session.commit()
@@ -651,7 +652,7 @@ async def test_stock_movement_ledger_live_api_runtime_response():
                 assert row["branch_id"] in ["BR-MAIN-001", "MAIN"]
         finally:
             if db_inv:
-                await session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id = :inv_id OR reference_doc_id = :inv_no"), {"inv_id": db_inv.id, "inv_no": test_inv_no})
+                await utmih_delete_stock_movements(session, "reference_doc_id = :inv_id OR reference_doc_id = :inv_no", {"inv_id": db_inv.id, "inv_no": test_inv_no})
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv.id})
                 await session.commit()
