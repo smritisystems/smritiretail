@@ -404,10 +404,10 @@ Execution must follow this strict sequence:
 - [ ] **Step 1.5:** Implement Live Numbering Series Preview badge in `AddProductDrawer`.
 
 ### Wave 2: P1 Governance & Matrix Bridges
-- [ ] **Step 2.1:** Wire `fetchGovernedLookupOptions()` into `AddProductDrawer` (Brand, Category, Gender, Size, Color, HSN, Supplier).
-- [ ] **Step 2.2:** Add visual Immutability Locks to persisted `item_code`, `sku`, and `primary_barcode`.
-- [ ] **Step 2.3:** Integrate Size × Color Matrix generator in drawer, calling canonical `POST /api/v1/universal/items/{id}/variants/matrix`.
-- [ ] **Step 2.4:** Wire multi-barcode secondary chip list to `POST /api/v1/item-barcodes/`.
+- [x] **Step 2.1:** Wire `fetchGovernedLookupOptions()` into `AddProductDrawer` (Brand, Category, Gender, Size, Color, HSN, Supplier).
+- [x] **Step 2.2:** Add visual Immutability Locks to persisted `item_code`, `sku`, and `primary_barcode`.
+- [x] **Step 2.3:** Integrate Size × Color Matrix generator in drawer, calling canonical `POST /api/v1/universal/items/{id}/variants/matrix`.
+- [x] **Step 2.4:** Wire multi-barcode secondary chip list to `POST /api/v1/item-barcodes/`.
 
 ### Wave 3: P2 Adaptive UX & Responsive Polish
 - [ ] **Step 3.1:** Implement Mobile Drawer/Sidebar Collapse (collapsible drawer on `<1024px` viewports to fix VIS-MOB-01).

@@ -1329,6 +1329,14 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         </div>
       )}
 
+      {/* Panel 5 Banner: Notice for legacy power users */}
+      <div className="bg-[#eff6ff] dark:bg-[#1e293b] border-b border-[#bfdbfe] dark:border-[#334155] px-6 py-2 flex items-center justify-between text-xs text-[#1e40af] dark:text-[#93c5fd]">
+        <div className="flex items-center gap-2">
+          <Info size={14} className="shrink-0" />
+          <span>Legacy spreadsheet view for power users. Saves are routed to canonical API.</span>
+        </div>
+      </div>
+
       {/* Main Workspace Canvas */}
       <div className="flex-1 p-4 overflow-hidden min-h-0">
         
@@ -2197,6 +2205,12 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
           <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
         ))}
       </datalist>
+      {/* Panel 5 Bottom Note: Immutability Warning */}
+      <div className="bg-[#fffbeb] dark:bg-[#2d2415] border-t border-[#fef3c7] dark:border-[#45371c] px-6 py-2 flex items-center gap-2 text-xs text-[#92400e] dark:text-[#fcd34d]">
+        <Info size={14} className="shrink-0" />
+        <span>Note: Article Code, SKU and Barcode are system controlled and cannot be modified.</span>
+      </div>
+
       <datalist id="grid-lookup-category-list">
         {(governedLookups.category || []).map(opt => (
           <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
