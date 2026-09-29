@@ -12,7 +12,7 @@
  * Classification: Internal
  */
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   X,
   Upload,
@@ -170,6 +170,8 @@ interface BasicInfoTabProps extends TabProps {
   setTagInput: (v: string) => void;
   onAddTag: () => void;
   onRemoveTag: (t: string) => void;
+  seriesPreview?: string | null;
+  isLoadingPreview?: boolean;
 }
 
 const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
@@ -177,6 +179,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
   imagePreview,
   fileInputRef, onImageUpload, onFileInputClick,
   tagInput, setTagInput, onAddTag, onRemoveTag,
+  seriesPreview, isLoadingPreview,
 }) => (
   <div className="p-5 grid grid-cols-12 gap-5">
     {/* Column 1: Product Image */}
@@ -250,8 +253,11 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
             </div>
           </div>
           {form.autoGenerateArticleNumber ? (
-            <div className="w-full px-3 py-1.5 rounded-lg border border-dashed border-[#2563eb] bg-[#eff6ff]/50 dark:bg-[#1d3054]/20 text-xs font-mono text-[#2563eb] dark:text-[#93c5fd]">
-              [Auto-Allocated from Active Series]
+            <div className="w-full px-3 py-1.5 rounded-lg border border-dashed border-[#2563eb] bg-[#eff6ff]/50 dark:bg-[#1d3054]/20 text-xs font-mono text-[#2563eb] dark:text-[#93c5fd] flex items-center justify-between">
+              <span>{isLoadingPreview ? "Fetching preview..." : (seriesPreview ? `Preview: ${seriesPreview}` : "Preview unavailable")}</span>
+              <span className="text-[9px] uppercase font-sans font-bold px-1.5 py-0.5 bg-[#2563eb]/10 dark:bg-[#2563eb]/30 rounded text-[#2563eb] dark:text-[#93c5fd]">
+                Read-Only
+              </span>
             </div>
           ) : (
             <input
@@ -702,7 +708,55 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [seriesPreview, setSeriesPreview] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    const fetchSeriesPreview = async () => {
+      setIsLoadingPreview(true);
+      try {
+        const data = await apiFetchV1<any[]>("/numbering/series");
+        if (!isMounted) return;
+        const articleSeries = Array.isArray(data)
+          ? data.find(
+              (s: any) =>
+                (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") &&
+                (s.isActive !== false && s.is_active !== false)
+            )
+          : null;
+
+        if (articleSeries) {
+          const nextNum = (articleSeries.currentNumber ?? articleSeries.current_number ?? 0) + 1;
+          const len = articleSeries.runningLength ?? articleSeries.running_length ?? 4;
+          const padded = String(nextNum).padStart(len, "0");
+          const prefix = articleSeries.prefix ?? "ART/";
+          const rawFy = articleSeries.financialYear ?? articleSeries.financial_year ?? "26-27";
+          const fy =
+            rawFy.includes("-") && rawFy.length === 9
+              ? `${rawFy.slice(2, 4)}-${rawFy.slice(7, 9)}`
+              : rawFy;
+          const suffix = articleSeries.suffix ?? "";
+          const formatted = `${prefix}${padded}/${fy}/${suffix}`.replace(/\/+/g, "/");
+          setSeriesPreview(formatted);
+        } else {
+          setSeriesPreview("Preview unavailable");
+        }
+      } catch {
+        if (isMounted) {
+          setSeriesPreview("Preview unavailable");
+        }
+      } finally {
+        if (isMounted) setIsLoadingPreview(false);
+      }
+    };
+    void fetchSeriesPreview();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   const update = useCallback(<K extends keyof ProductForm>(key: K, value: ProductForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -867,6 +921,8 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               setTagInput={setTagInput}
               onAddTag={handleAddTag}
               onRemoveTag={handleRemoveTag}
+              seriesPreview={seriesPreview}
+              isLoadingPreview={isLoadingPreview}
             />
           )}
           {activeTab === "pricing" && <PricingTab form={form} update={update} />}
