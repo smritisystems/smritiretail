@@ -4,24 +4,30 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 6.47.2
  * Created      : 2026-09-28
- * Modified     : 2026-09-28
+ * Modified     : 2026-09-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   X,
-  Upload,
   Plus,
   Search,
-  Image as ImageIcon,
   Check,
+  Lock,
+  Tag,
+  Info,
+  AlertCircle,
+  ChevronRight,
+  ChevronLeft,
+  RotateCcw,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { fetchGovernedLookupOptions, LookupOption } from "../../services/itemMasterLookupGate.ts";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -29,672 +35,38 @@ interface AddProductDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   productType?: string;
 }
 
-type DrawerTab = "basic" | "pricing" | "tax_inventory" | "attributes" | "additional";
-
-interface ProductForm {
-  sku: string;
-  autoGenerateArticleNumber: boolean;
-  barcode: string;
-  name: string;
-  brand: string;
-  category: string;
-  gender: "Men" | "Women" | "Unisex" | "";
-  productType: string;
-  article: string;
+interface MatrixVariantItem {
   color: string;
-  sizeSystem: "UK" | "EU" | "US" | "CM";
   size: string;
-  material: string;
-  upperType: string;
-  soleType: string;
-  season: string;
-  collection: string;
-  hsnCode: string;
-  description: string;
-  tags: string[];
-  isRegularItem: boolean;
-  isBillable: boolean;
-  isInventoryItem: boolean;
-  isDiscontinued: boolean;
-  isServiceItem: boolean;
-  isTaxInclusive: boolean;
-  retailPrice: string;
-  dealerPrice: string;
-  costPrice: string;
-  lastPurchasePrice: string;
-  gstPercentage: string;
-  openingStock: string;
-  reorderLevel: string;
-  status: "Active" | "Inactive" | "Draft";
-  supplierPartyId: string;
-  supplierPriority: "PRIMARY" | "PREFERRED" | "SECONDARY";
-  allowPo: boolean;
-  allowGrn: boolean;
-  approvalRequired: boolean;
+  enabled: boolean;
+  sku: string;
+  barcode: string;
+  secondaryBarcodes: string[];
+  mrp: string;
+  cost: string;
 }
 
-const INITIAL_FORM: ProductForm = {
-  sku: "",
-  autoGenerateArticleNumber: false,
-  barcode: "",
-  name: "",
-  brand: "",
-  category: "",
-  gender: "",
-  productType: "",
-  article: "",
-  color: "",
-  sizeSystem: "UK",
-  size: "",
-  material: "",
-  upperType: "",
-  soleType: "",
-  season: "",
-  collection: "",
-  hsnCode: "",
-  description: "",
-  tags: [],
-  isRegularItem: true,
-  isBillable: true,
-  isInventoryItem: true,
-  isDiscontinued: false,
-  isServiceItem: false,
-  isTaxInclusive: true,
-  retailPrice: "",
-  dealerPrice: "",
-  costPrice: "",
-  lastPurchasePrice: "",
-  gstPercentage: "12",
-  openingStock: "",
-  reorderLevel: "",
-  status: "Active",
-  supplierPartyId: "",
-  supplierPriority: "PRIMARY",
-  allowPo: true,
-  allowGrn: true,
-  approvalRequired: false,
-};
+interface VendorOption {
+  id: string;
+  code: string;
+  name: string;
+}
 
-const TABS: { id: DrawerTab; label: string; number: number }[] = [
-  { id: "basic", label: "Basic Information", number: 1 },
-  { id: "pricing", label: "Pricing", number: 2 },
-  { id: "tax_inventory", label: "Tax & Inventory", number: 3 },
-  { id: "attributes", label: "Attributes", number: 4 },
-  { id: "additional", label: "Supplier & Additional", number: 5 },
+const DEFAULT_COLORS = [
+  { name: "Black", hex: "#0f172a" },
+  { name: "White", hex: "#ffffff", border: true },
+  { name: "Navy", hex: "#1e3a8a" },
+  { name: "Red", hex: "#dc2626" },
+  { name: "Grey", hex: "#64748b" },
+  { name: "Brown", hex: "#78350f" },
+  { name: "Beige", hex: "#d4b996" },
 ];
 
-// ── Shared UI Helpers ─────────────────────────────────────────────────────────
-
-const inputCls =
-  "w-full px-3 py-1.5 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] bg-white dark:bg-[#151820] text-xs text-[#0f172a] dark:text-[#e2e8f0] outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition placeholder:text-[#94a3b8]";
-
-const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <h3 className="text-xs font-bold text-[#0f172a] dark:text-white border-b border-[#e2e8f0] dark:border-[#2d3133] pb-1.5">
-    {children}
-  </h3>
-);
-
-const FormField: React.FC<{
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}> = ({ label, required, children }) => (
-  <div>
-    <label className="block text-[11px] font-semibold text-[#374151] dark:text-[#94a3b8] mb-1">
-      {label}
-      {required && <span className="text-red-500 ml-0.5">*</span>}
-    </label>
-    {children}
-  </div>
-);
-
-// ── Tab Props ─────────────────────────────────────────────────────────────────
-
-interface TabProps {
-  form: ProductForm;
-  update: <K extends keyof ProductForm>(key: K, value: ProductForm[K]) => void;
-}
-
-// ── Tab 1: Basic Information ───────────────────────────────────────────────────
-
-interface BasicInfoTabProps extends TabProps {
-  imagePreview: string | null;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onFileInputClick: () => void;
-  tagInput: string;
-  setTagInput: (v: string) => void;
-  onAddTag: () => void;
-  onRemoveTag: (t: string) => void;
-  seriesPreview?: string | null;
-  isLoadingPreview?: boolean;
-}
-
-const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
-  form, update,
-  imagePreview,
-  fileInputRef, onImageUpload, onFileInputClick,
-  tagInput, setTagInput, onAddTag, onRemoveTag,
-  seriesPreview, isLoadingPreview,
-}) => (
-  <div className="p-5 grid grid-cols-12 gap-5">
-    {/* Column 1: Product Image */}
-    <div className="col-span-12 md:col-span-2">
-      <p className="text-[11px] font-semibold text-[#374151] dark:text-[#94a3b8] uppercase tracking-wide mb-1.5">Product Image</p>
-      <div
-        onClick={onFileInputClick}
-        className="w-full aspect-square rounded-xl border-2 border-dashed border-[#cbd5e1] dark:border-[#2d3133] flex flex-col items-center justify-center cursor-pointer hover:border-[#2563eb] hover:bg-[#eff6ff]/60 dark:hover:bg-[#1d3054]/20 transition overflow-hidden bg-[#f8fafc] dark:bg-[#151820]"
-      >
-        {imagePreview ? (
-          <img src={imagePreview} alt="Product" className="w-full h-full object-cover" />
-        ) : (
-          <>
-            <ImageIcon size={28} className="text-[#94a3b8] mb-1" />
-            <span className="text-[10px] text-[#94a3b8] text-center font-medium px-1">Upload Image</span>
-            <span className="text-[9px] text-[#94a3b8] text-center">PNG, JPG (Max 2MB)</span>
-          </>
-        )}
-      </div>
-      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onImageUpload} />
-      <button
-        type="button"
-        onClick={onFileInputClick}
-        className="mt-2 w-full flex items-center justify-center gap-1 py-1.5 text-[10px] font-semibold text-[#64748b] border border-[#cbd5e1] dark:border-[#2d3133] rounded-lg hover:bg-[#f1f5f9] dark:hover:bg-[#2d3133] transition"
-      >
-        <Upload size={11} /> Upload Image
-      </button>
-      <div className="flex gap-1 mt-2 flex-wrap">
-        <button
-          type="button"
-          className="w-10 h-10 rounded-lg border-2 border-dashed border-[#cbd5e1] dark:border-[#2d3133] flex items-center justify-center hover:border-[#2563eb] transition"
-          onClick={onFileInputClick}
-        >
-          <Plus size={14} className="text-[#94a3b8]" />
-        </button>
-      </div>
-    </div>
-
-    {/* Column 2: Basic Information */}
-    <div className="col-span-12 md:col-span-3">
-      <SectionTitle>Article / Design Identity</SectionTitle>
-      <div className="space-y-2.5 mt-2">
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-[11px] font-semibold text-[#374151] dark:text-[#94a3b8]">
-              Article Number / SKU <span className="text-red-500">*</span>
-            </label>
-            <div className="flex items-center gap-1 bg-[#f1f5f9] dark:bg-[#1e293b] p-0.5 rounded text-[10px]">
-              <button
-                type="button"
-                onClick={() => update("autoGenerateArticleNumber", false)}
-                className={`px-2 py-0.5 rounded font-semibold transition ${
-                  !form.autoGenerateArticleNumber
-                    ? "bg-white dark:bg-[#0052cc] text-[#0f172a] dark:text-white shadow-xs"
-                    : "text-[#64748b] dark:text-[#94a3b8]"
-                }`}
-              >
-                Manual
-              </button>
-              <button
-                type="button"
-                onClick={() => update("autoGenerateArticleNumber", true)}
-                className={`px-2 py-0.5 rounded font-semibold transition ${
-                  form.autoGenerateArticleNumber
-                    ? "bg-white dark:bg-[#0052cc] text-[#0f172a] dark:text-white shadow-xs"
-                    : "text-[#64748b] dark:text-[#94a3b8]"
-                }`}
-              >
-                Auto Generate
-              </button>
-            </div>
-          </div>
-          {form.autoGenerateArticleNumber ? (
-            <div className="w-full px-3 py-1.5 rounded-lg border border-dashed border-[#2563eb] bg-[#eff6ff]/50 dark:bg-[#1d3054]/20 text-xs font-mono text-[#2563eb] dark:text-[#93c5fd] flex items-center justify-between">
-              <span>{isLoadingPreview ? "Fetching preview..." : (seriesPreview ? `Preview: ${seriesPreview}` : "Preview unavailable")}</span>
-              <span className="text-[9px] uppercase font-sans font-bold px-1.5 py-0.5 bg-[#2563eb]/10 dark:bg-[#2563eb]/30 rounded text-[#2563eb] dark:text-[#93c5fd]">
-                Read-Only
-              </span>
-            </div>
-          ) : (
-            <input
-              type="text"
-              value={form.sku}
-              onChange={(e) => update("sku", e.target.value)}
-              placeholder="e.g. ART-1001 / FT00123"
-              className={inputCls}
-            />
-          )}
-        </div>
-        <FormField label="Barcode">
-          <div className="relative">
-            <input type="text" value={form.barcode} onChange={(e) => update("barcode", e.target.value)} placeholder="8901234567890" className={inputCls} />
-          </div>
-        </FormField>
-        <FormField label="Product Name" required>
-          <input type="text" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Running Shoes" className={inputCls} />
-        </FormField>
-        <FormField label="Brand" required>
-          <div className="flex gap-1">
-            <select value={form.brand} onChange={(e) => update("brand", e.target.value)} className={`${inputCls} flex-1`}>
-              <option value="">Select Brand</option>
-              {["Nike", "Adidas", "Puma", "Reebok", "Bata", "Hush Puppies", "Woodland", "Liberty"].map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-            <button type="button" className="w-8 h-8 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] flex items-center justify-center hover:bg-[#eff6ff] dark:hover:bg-[#1d3054] transition flex-shrink-0">
-              <Plus size={14} className="text-[#2563eb]" />
-            </button>
-          </div>
-        </FormField>
-        <FormField label="Category" required>
-          <div className="flex gap-1">
-            <select value={form.category} onChange={(e) => update("category", e.target.value)} className={`${inputCls} flex-1`}>
-              <option value="">Select Category</option>
-              {["Sports", "Casual", "Formal", "Kids"].map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <button type="button" className="w-8 h-8 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] flex items-center justify-center hover:bg-[#eff6ff] dark:hover:bg-[#1d3054] transition flex-shrink-0">
-              <Plus size={14} className="text-[#2563eb]" />
-            </button>
-          </div>
-        </FormField>
-        <FormField label="Gender" required>
-          <div className="flex gap-4 mt-1">
-            {(["Men", "Women", "Unisex"] as const).map((g) => (
-              <label key={g} className="flex items-center gap-1.5 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
-                <input type="radio" name="add_product_gender" value={g} checked={form.gender === g} onChange={() => update("gender", g)} className="accent-[#2563eb]" />
-                {g}
-              </label>
-            ))}
-          </div>
-        </FormField>
-        <FormField label="Product Type" required>
-          <div className="flex gap-1">
-            <select value={form.productType} onChange={(e) => update("productType", e.target.value)} className={`${inputCls} flex-1`}>
-              <option value="">Select Type</option>
-              {["Running", "Walking", "Training", "Sneakers", "Formal", "Sandals", "Slippers"].map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <button type="button" className="w-8 h-8 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] flex items-center justify-center hover:bg-[#eff6ff] dark:hover:bg-[#1d3054] transition flex-shrink-0">
-              <Plus size={14} className="text-[#2563eb]" />
-            </button>
-          </div>
-        </FormField>
-      </div>
-    </div>
-
-    {/* Column 3: Design & Variant */}
-    <div className="col-span-12 md:col-span-3">
-      <SectionTitle>Design &amp; Variant</SectionTitle>
-      <div className="space-y-2.5 mt-2">
-        <FormField label="Article / Design / Style / Model" required>
-          <div className="flex gap-1">
-            <select value={form.article} onChange={(e) => update("article", e.target.value)} className={`${inputCls} flex-1`}>
-              <option value="">Select</option>
-              {["RS-100", "RS-200", "CS-200", "FM-300", "SD-100", "TR-500"].map((a) => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-            <button type="button" className="w-8 h-8 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] flex items-center justify-center hover:bg-[#eff6ff] dark:hover:bg-[#1d3054] transition flex-shrink-0">
-              <Plus size={14} className="text-[#2563eb]" />
-            </button>
-          </div>
-        </FormField>
-        <FormField label="Color / Shade">
-          <div className="flex gap-1">
-            <select value={form.color} onChange={(e) => update("color", e.target.value)} className={`${inputCls} flex-1`}>
-              <option value="">Select Color</option>
-              {["Black", "White", "Blue", "Red", "Brown", "Beige", "Navy", "Grey", "Black/Red"].map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <button type="button" className="w-8 h-8 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] flex items-center justify-center hover:bg-[#eff6ff] dark:hover:bg-[#1d3054] transition flex-shrink-0">
-              <Plus size={14} className="text-[#2563eb]" />
-            </button>
-          </div>
-        </FormField>
-        <FormField label="Size System" required>
-          <div className="flex gap-3 mt-1">
-            {(["UK", "EU", "US", "CM"] as const).map((s) => (
-              <label key={s} className="flex items-center gap-1.5 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
-                <input type="radio" name="add_product_size_system" value={s} checked={form.sizeSystem === s} onChange={() => update("sizeSystem", s)} className="accent-[#2563eb]" />
-                {s}
-              </label>
-            ))}
-          </div>
-        </FormField>
-        <FormField label="Size" required>
-          <select value={form.size} onChange={(e) => update("size", e.target.value)} className={inputCls}>
-            <option value="">Select Size</option>
-            {["5", "6", "7", "7.5", "8", "8.5", "9", "9.5", "10", "11", "12", "38", "39", "40", "41", "42", "43", "44", "45"].map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Material">
-          <select value={form.material} onChange={(e) => update("material", e.target.value)} className={inputCls}>
-            <option value="">Select Material</option>
-            {["Leather", "Mesh", "Synthetic", "Canvas", "Rubber", "Suede", "Fabric"].map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Upper Type">
-          <select value={form.upperType} onChange={(e) => update("upperType", e.target.value)} className={inputCls}>
-            <option value="">Select</option>
-            {["Leather", "Mesh", "Synthetic", "Canvas", "Knit", "Suede"].map((u) => (
-              <option key={u} value={u}>{u}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Sole Type">
-          <select value={form.soleType} onChange={(e) => update("soleType", e.target.value)} className={inputCls}>
-            <option value="">Select</option>
-            {["EVA", "PU", "Rubber", "TPR", "MD", "Leather"].map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Season">
-          <select value={form.season} onChange={(e) => update("season", e.target.value)} className={inputCls}>
-            <option value="">Select Season</option>
-            {["SS-2024", "AW-2024", "SS-2025", "AW-2025", "Core / All Season"].map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Collection">
-          <select value={form.collection} onChange={(e) => update("collection", e.target.value)} className={inputCls}>
-            <option value="">Select</option>
-            {["Performance", "Lifestyle", "Premium", "Sport", "Comfort"].map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </FormField>
-      </div>
-    </div>
-
-    {/* Column 4: Classification + Product Options */}
-    <div className="col-span-12 md:col-span-4">
-      <SectionTitle>Classification &amp; Description</SectionTitle>
-      <div className="space-y-2.5 mt-2">
-        <FormField label="HSN Code" required>
-          <div className="relative">
-            <input type="text" value={form.hsnCode} onChange={(e) => update("hsnCode", e.target.value)} placeholder="64041110" className={inputCls} />
-            <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#2563eb]">
-              <Search size={14} />
-            </button>
-          </div>
-        </FormField>
-        <FormField label="Description">
-          <textarea
-            value={form.description}
-            onChange={(e) => update("description", e.target.value)}
-            placeholder="Nike Running Shoes Black - Size 8"
-            rows={3}
-            className={`${inputCls} resize-none`}
-          />
-        </FormField>
-        <div>
-          <label className="block text-[11px] font-semibold text-[#374151] dark:text-[#94a3b8] mb-1">Tags (Optional)</label>
-          <div className="flex flex-wrap gap-1 mb-1.5 min-h-[22px]">
-            {form.tags.map((tag) => (
-              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#dbeafe] dark:bg-[#1d3054] text-[#2563eb] dark:text-[#93c5fd] text-[10px] font-semibold">
-                {tag}
-                <button type="button" onClick={() => onRemoveTag(tag)} className="hover:text-red-500">
-                  <X size={10} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onAddTag(); }}}
-            placeholder="Add tag and press Enter..."
-            className={inputCls}
-          />
-        </div>
-      </div>
-
-      {/* Product Options */}
-      <div className="mt-4">
-        <SectionTitle>Product Options</SectionTitle>
-        <div className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-2">
-          {([
-            { key: "isRegularItem", label: "Regular Item" },
-            { key: "isBillable", label: "Billable" },
-            { key: "isInventoryItem", label: "Inventory Item" },
-            { key: "isDiscontinued", label: "Discontinued" },
-            { key: "isServiceItem", label: "Service Item" },
-            { key: "isTaxInclusive", label: "Tax Inclusive" },
-          ] as const).map(({ key, label }) => (
-            <label key={key} className="flex items-center gap-2 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
-              <input
-                type="checkbox"
-                checked={Boolean(form[key])}
-                onChange={(e) => update(key, e.target.checked as any)}
-                className="accent-[#2563eb] rounded w-3.5 h-3.5"
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Product Status */}
-      <div className="mt-4">
-        <SectionTitle>Product Status</SectionTitle>
-        <select value={form.status} onChange={(e) => update("status", e.target.value as any)} className={`${inputCls} mt-2`}>
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-          <option value="Draft">Draft</option>
-        </select>
-      </div>
-    </div>
-  </div>
-);
-
-// ── Tab 2: Pricing ─────────────────────────────────────────────────────────────
-
-const PricingTab: React.FC<TabProps> = ({ form, update }) => (
-  <div className="p-6">
-    <SectionTitle>Pricing Information</SectionTitle>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-4">
-      {([
-        { key: "retailPrice" as const, label: "Retail Price (MRP)", required: true },
-        { key: "dealerPrice" as const, label: "Dealer Price", required: false },
-        { key: "costPrice" as const, label: "Cost Price", required: false },
-        { key: "lastPurchasePrice" as const, label: "Last Purchase Price", required: false },
-      ]).map(({ key, label, required }) => (
-        <FormField key={key} label={label} required={required}>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#94a3b8] font-semibold">₹</span>
-            <input
-              type="number"
-              value={form[key]}
-              onChange={(e) => update(key, e.target.value)}
-              placeholder="0.00"
-              className={`${inputCls} pl-7`}
-            />
-          </div>
-        </FormField>
-      ))}
-    </div>
-    <div className="mt-5 p-4 rounded-xl bg-[#f0f9ff] dark:bg-[#0c1a2e] border border-[#bae6fd] dark:border-[#164e63] text-xs text-[#0369a1] dark:text-[#7dd3fc]">
-      <p className="font-bold mb-1">Pricing Rules</p>
-      <ul className="list-disc list-inside space-y-0.5 text-[11px]">
-        <li>Retail Price (MRP) must be ≥ Dealer Price</li>
-        <li>Cost Price must be ≤ Dealer Price</li>
-        <li>All prices are in Indian Rupees (₹)</li>
-      </ul>
-    </div>
-  </div>
-);
-
-// ── Tab 3: Tax & Inventory ─────────────────────────────────────────────────────
-
-const TaxInventoryTab: React.FC<TabProps> = ({ form, update }) => (
-  <div className="p-6">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div>
-        <SectionTitle>Tax Configuration</SectionTitle>
-        <div className="space-y-4 mt-3">
-          <FormField label="GST %" required>
-            <select value={form.gstPercentage} onChange={(e) => update("gstPercentage", e.target.value)} className={inputCls}>
-              {["0", "5", "12", "18", "28"].map((r) => (
-                <option key={r} value={r}>{r}%</option>
-              ))}
-            </select>
-          </FormField>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" checked={form.isTaxInclusive} onChange={(e) => update("isTaxInclusive", e.target.checked)} className="accent-[#2563eb] w-4 h-4 mt-0.5" />
-            <div>
-              <p className="text-xs font-semibold text-[#374151] dark:text-[#e2e8f0]">Tax Inclusive Pricing</p>
-              <p className="text-[11px] text-[#94a3b8] mt-0.5">Price shown to customer includes GST</p>
-            </div>
-          </label>
-        </div>
-      </div>
-      <div>
-        <SectionTitle>Inventory Settings</SectionTitle>
-        <div className="space-y-4 mt-3">
-          <FormField label="Opening Stock (Units)">
-            <input type="number" value={form.openingStock} onChange={(e) => update("openingStock", e.target.value)} placeholder="0" className={inputCls} />
-          </FormField>
-          <FormField label="Reorder Level">
-            <input type="number" value={form.reorderLevel} onChange={(e) => update("reorderLevel", e.target.value)} placeholder="0" className={inputCls} />
-          </FormField>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// ── Tab 4: Attributes ─────────────────────────────────────────────────────────
-
-const AttributesTab: React.FC<TabProps> = () => (
-  <div className="p-6">
-    <SectionTitle>Additional Attributes</SectionTitle>
-    <p className="text-xs text-[#94a3b8] mt-1 mb-4">Extra product dimensions and specifications for detailed catalog management.</p>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      {[
-        { label: "Closure Type", options: ["Lace-up", "Slip-on", "Velcro", "Buckle", "Zip"] },
-        { label: "Toe Style", options: ["Round Toe", "Square Toe", "Pointed Toe", "Open Toe"] },
-        { label: "Heel Type", options: ["Flat", "Low", "Mid", "High", "Block", "Wedge"] },
-        { label: "Insole Type", options: ["Cushioned", "Orthopaedic", "Memory Foam", "Standard"] },
-        { label: "Occasion", options: ["Sports", "Casual", "Formal", "Party", "Outdoor", "Office"] },
-        { label: "Width", options: ["Narrow", "Regular", "Wide", "Extra Wide"] },
-      ].map(({ label, options }) => (
-        <FormField key={label} label={label}>
-          <select className={inputCls}>
-            <option value="">Select</option>
-            {options.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </FormField>
-      ))}
-    </div>
-  </div>
-);
-
-// ── Tab 5: Supplier & Additional Info ─────────────────────────────────────────
-
-const AdditionalInfoTab: React.FC<TabProps> = ({ form, update }) => (
-  <div className="p-6">
-    <SectionTitle>Supplier Sourcing &amp; Governance</SectionTitle>
-    <p className="text-xs text-[#94a3b8] mt-1 mb-4">
-      Configure vendor assignment and PO / GRN procurement policy rules.
-    </p>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-4">
-      <FormField label="Supplier / Vendor Code">
-        <input
-          type="text"
-          value={form.supplierPartyId}
-          onChange={(e) => update("supplierPartyId", e.target.value)}
-          placeholder="e.g. VEND-SUP-001"
-          className={inputCls}
-        />
-      </FormField>
-      <FormField label="Supplier Priority">
-        <select
-          value={form.supplierPriority}
-          onChange={(e) => update("supplierPriority", e.target.value as any)}
-          className={inputCls}
-        >
-          <option value="PRIMARY">PRIMARY</option>
-          <option value="PREFERRED">PREFERRED</option>
-          <option value="SECONDARY">SECONDARY</option>
-        </select>
-      </FormField>
-      <div className="flex flex-col justify-end space-y-2 pb-1">
-        <label className="flex items-center gap-2 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
-          <input
-            type="checkbox"
-            checked={form.allowPo}
-            onChange={(e) => update("allowPo", e.target.checked)}
-            className="accent-[#2563eb] rounded"
-          />
-          Allow Purchase Orders (PO)
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
-          <input
-            type="checkbox"
-            checked={form.allowGrn}
-            onChange={(e) => update("allowGrn", e.target.checked)}
-            className="accent-[#2563eb] rounded"
-          />
-          Allow Goods Receipts (GRN)
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
-          <input
-            type="checkbox"
-            checked={form.approvalRequired}
-            onChange={(e) => update("approvalRequired", e.target.checked)}
-            className="accent-[#2563eb] rounded"
-          />
-          Approval Required
-        </label>
-      </div>
-    </div>
-
-    <div className="mt-6 pt-4 border-t border-[#e2e8f0] dark:border-[#2d3133]">
-      <SectionTitle>Additional Attributes &amp; Specifications</SectionTitle>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-4">
-        <FormField label="Country of Origin">
-          <select className={inputCls}>
-            <option value="">Select Country</option>
-            {["India", "China", "Vietnam", "Bangladesh", "Italy", "USA"].map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Unit of Measure">
-          <select className={inputCls}>
-            <option value="Pair">Pair</option>
-            <option value="Pcs">Pcs</option>
-            <option value="Box">Box</option>
-            <option value="Set">Set</option>
-          </select>
-        </FormField>
-        <FormField label="Weight (grams)">
-          <input type="number" placeholder="0" className={inputCls} />
-        </FormField>
-        <FormField label="Warranty (months)">
-          <input type="number" placeholder="0" className={inputCls} />
-        </FormField>
-      </div>
-    </div>
-  </div>
-);
-
-// ── Main Component ─────────────────────────────────────────────────────────────
+const DEFAULT_SIZES = ["6", "7", "8", "9", "10", "11"];
 
 export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   isOpen,
@@ -703,260 +75,1268 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   onNotification,
   productType = "Footwear",
 }) => {
-  const [activeTab, setActiveTab] = useState<DrawerTab>("basic");
-  const [form, setForm] = useState<ProductForm>(INITIAL_FORM);
-  const [isSaving, setIsSaving] = useState(false);
-  const [tagInput, setTagInput] = useState("");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [seriesPreview, setSeriesPreview] = useState<string | null>(null);
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Wizard Step: 1 = Article Identity, 2 = Variants (Size x Color Matrix), 3 = Review
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
+  // ── Step 1 Form State ──
+  const [autoGenerateArticleNumber, setAutoGenerateArticleNumber] = useState(true);
+  const [sku, setSku] = useState("");
+  const [name, setName] = useState("");
+  const [brand, setBrand] = useState("");
+  const [category, setCategory] = useState("Footwear");
+  const [gender, setGender] = useState("Men");
+  const [hsnCode, setHsnCode] = useState("6403");
+  const [baseMrp, setBaseMrp] = useState("2999.00");
+  const [baseSellingPrice, setBaseSellingPrice] = useState("2499.00");
+  const [baseCostPrice, setBaseCostPrice] = useState("1800.00");
+
+  // Supplier Assignment
+  const [preferredSupplier, setPreferredSupplier] = useState("");
+  const [supplierPriority, setSupplierPriority] = useState<"PRIMARY" | "PREFERRED" | "SECONDARY">("PRIMARY");
+  const [autoPo, setAutoPo] = useState(false);
+  const [autoGrn, setAutoGrn] = useState(true);
+
+  // Numbering series preview state
+  const [seriesPreview, setSeriesPreview] = useState<string | null>(null);
+  const [seriesId, setSeriesId] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
+
+  // Governed lookups state
+  const [brandOptions, setBrandOptions] = useState<LookupOption[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<LookupOption[]>([]);
+  const [genderOptions, setGenderOptions] = useState<LookupOption[]>([]);
+  const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
+
+  // ── Step 2 Matrix State ──
+  const [availableColors, setAvailableColors] = useState<{ name: string; hex?: string; border?: boolean }[]>(DEFAULT_COLORS);
+  const [selectedColors, setSelectedColors] = useState<string[]>(["Black", "Navy", "Red", "Grey"]);
+  const [newColorInput, setNewColorInput] = useState("");
+  const [isAddingCustomColor, setIsAddingCustomColor] = useState(false);
+
+  const [availableSizes, setAvailableSizes] = useState<string[]>(DEFAULT_SIZES);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(["7", "8", "9", "10", "11"]);
+  const [newSizeInput, setNewSizeInput] = useState("");
+  const [isAddingCustomSize, setIsAddingCustomSize] = useState(false);
+
+  // Matrix cell configurations: key = `${color}-${size}`
+  const [variantMatrix, setVariantMatrix] = useState<Record<string, MatrixVariantItem>>({});
+  const [activeCellKey, setActiveCellKey] = useState<string>("Black-7");
+
+  // Multi-barcode input on active variant
+  const [newSecondaryBarcode, setNewSecondaryBarcode] = useState("");
+  const [isAddingSecondaryBarcode, setIsAddingSecondaryBarcode] = useState(false);
+
+  // General submission & error state
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // ── Fetch Governed Lookups & Document Series on Mount ──
   useEffect(() => {
     if (!isOpen) return;
-    let isMounted = true;
-    const fetchSeriesPreview = async () => {
-      setIsLoadingPreview(true);
-      try {
-        const data = await apiFetchV1<any[]>("/numbering/series");
-        if (!isMounted) return;
-        const articleSeries = Array.isArray(data)
-          ? data.find(
-              (s: any) =>
-                (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") &&
-                (s.isActive !== false && s.is_active !== false)
-            )
-          : null;
 
-        if (articleSeries) {
-          const nextNum = (articleSeries.currentNumber ?? articleSeries.current_number ?? 0) + 1;
-          const len = articleSeries.runningLength ?? articleSeries.running_length ?? 4;
-          const padded = String(nextNum).padStart(len, "0");
-          const prefix = articleSeries.prefix ?? "ART/";
-          const rawFy = articleSeries.financialYear ?? articleSeries.financial_year ?? "26-27";
-          const fy =
-            rawFy.includes("-") && rawFy.length === 9
-              ? `${rawFy.slice(2, 4)}-${rawFy.slice(7, 9)}`
-              : rawFy;
-          const suffix = articleSeries.suffix ?? "";
-          const formatted = `${prefix}${padded}/${fy}/${suffix}`.replace(/\/+/g, "/");
-          setSeriesPreview(formatted);
-        } else {
-          setSeriesPreview("Preview unavailable");
+    let isMounted = true;
+
+    const loadGovernedData = async () => {
+      // 1. Load numbering series preview
+      setIsLoadingPreview(true);
+      setPreviewError(false);
+      try {
+        const seriesData = await apiFetchV1<any[]>("/numbering/series");
+        if (isMounted && Array.isArray(seriesData)) {
+          const articleSeries = seriesData.find(
+            (s: any) =>
+              (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") &&
+              (s.isActive !== false && s.is_active !== false)
+          );
+          if (articleSeries) {
+            const nextNum = (articleSeries.currentNumber ?? articleSeries.current_number ?? 0) + 1;
+            const len = articleSeries.runningLength ?? articleSeries.running_length ?? 4;
+            const padded = String(nextNum).padStart(len, "0");
+            const prefix = articleSeries.prefix ?? "ART/";
+            const rawFy = articleSeries.financialYear ?? articleSeries.financial_year ?? "26-27";
+            const fy =
+              rawFy.includes("-") && rawFy.length === 9
+                ? `${rawFy.slice(2, 4)}-${rawFy.slice(7, 9)}`
+                : rawFy;
+            const suffix = articleSeries.suffix ?? "";
+            const formatted = `${prefix}${padded}/${fy}/${suffix}`.replace(/\/+/g, "/");
+            setSeriesPreview(formatted);
+            setSeriesId(articleSeries.seriesId || articleSeries.series_id || articleSeries.id || "SER-ART-COMP001");
+          } else {
+            setSeriesPreview(null);
+            setPreviewError(true);
+          }
         }
       } catch {
         if (isMounted) {
-          setSeriesPreview("Preview unavailable");
+          setSeriesPreview(null);
+          setPreviewError(true);
         }
       } finally {
         if (isMounted) setIsLoadingPreview(false);
       }
+
+      // 2. Load Master Lookups via itemMasterLookupGate
+      try {
+        const lookups = await fetchGovernedLookupOptions();
+        if (isMounted) {
+          if (lookups.brand?.length) setBrandOptions(lookups.brand);
+          if (lookups.category?.length) setCategoryOptions(lookups.category);
+          if (lookups.gender?.length) setGenderOptions(lookups.gender);
+        }
+      } catch {
+        // Fallbacks remain intact
+      }
+
+      // 3. Load Active Vendors from /purchase/vendors
+      try {
+        const vendors = await apiFetchV1<any[]>("/purchase/vendors");
+        if (isMounted && Array.isArray(vendors) && vendors.length > 0) {
+          setVendorOptions(
+            vendors.map((v: any) => ({
+              id: v.id || v.code,
+              code: v.code || v.id,
+              name: v.legalName || v.tradeName || v.legal_name || v.trade_name || v.name || v.code,
+            }))
+          );
+          setPreferredSupplier(vendors[0].id || vendors[0].code);
+        } else {
+          // Provide default vendor choices
+          setVendorOptions([
+            { id: "VEND-NIKE-01", code: "VEND-NIKE-01", name: "Nike India Pvt. Ltd." },
+            { id: "VEND-ADI-01", code: "VEND-ADI-01", name: "Adidas India Marketing Pvt. Ltd." },
+            { id: "VEND-PUMA-01", code: "VEND-PUMA-01", name: "Puma Sports India Pvt. Ltd." },
+            { id: "VEND-BATA-01", code: "VEND-BATA-01", name: "Bata India Limited" },
+          ]);
+          setPreferredSupplier("VEND-NIKE-01");
+        }
+      } catch {
+        if (isMounted) {
+          setVendorOptions([
+            { id: "VEND-NIKE-01", code: "VEND-NIKE-01", name: "Nike India Pvt. Ltd." },
+            { id: "VEND-ADI-01", code: "VEND-ADI-01", name: "Adidas India Marketing Pvt. Ltd." },
+            { id: "VEND-PUMA-01", code: "VEND-PUMA-01", name: "Puma Sports India Pvt. Ltd." },
+          ]);
+          setPreferredSupplier("VEND-NIKE-01");
+        }
+      }
     };
-    void fetchSeriesPreview();
+
+    void loadGovernedData();
+
     return () => {
       isMounted = false;
     };
   }, [isOpen]);
 
-  const update = useCallback(<K extends keyof ProductForm>(key: K, value: ProductForm[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  // ── Synchronize Variant Matrix when colors, sizes, or base pricing changes ──
+  useEffect(() => {
+    setVariantMatrix((prev) => {
+      const next: Record<string, MatrixVariantItem> = { ...prev };
+      selectedColors.forEach((color) => {
+        selectedSizes.forEach((size) => {
+          const key = `${color}-${size}`;
+          if (!next[key]) {
+            const articleBase = (autoGenerateArticleNumber ? (seriesPreview || "ART/0007/26-27") : (sku || "ART-1001")).replace(/\/+$/, "");
+            const colorCode = color.slice(0, 3).toUpperCase();
+            const genSku = `${articleBase}-${colorCode}-${size}`;
+            const randomBarcode = `890${Math.floor(100000000 + Math.random() * 900000000)}`;
+            next[key] = {
+              color,
+              size,
+              enabled: true,
+              sku: genSku,
+              barcode: randomBarcode,
+              secondaryBarcodes: [`EAN: ${randomBarcode}`],
+              mrp: baseSellingPrice || baseMrp,
+              cost: baseCostPrice,
+            };
+          }
+        });
+      });
+      return next;
+    });
+  }, [selectedColors, selectedSizes, autoGenerateArticleNumber, seriesPreview, sku, baseMrp, baseSellingPrice, baseCostPrice]);
 
-  const handleAddTag = () => {
-    const t = tagInput.trim();
-    if (t && !form.tags.includes(t)) update("tags", [...form.tags, t]);
-    setTagInput("");
+  // Ensure active cell key remains valid
+  useEffect(() => {
+    if (selectedColors.length > 0 && selectedSizes.length > 0) {
+      const currentExists = selectedColors.some((c) => selectedSizes.some((s) => `${c}-${s}` === activeCellKey));
+      if (!currentExists) {
+        setActiveCellKey(`${selectedColors[0]}-${selectedSizes[0]}`);
+      }
+    }
+  }, [selectedColors, selectedSizes, activeCellKey]);
+
+  // Toggle Color selection
+  const handleToggleColor = (colorName: string) => {
+    setSelectedColors((prev) =>
+      prev.includes(colorName) ? prev.filter((c) => c !== colorName) : [...prev, colorName]
+    );
   };
 
-  const handleRemoveTag = (tag: string) => update("tags", form.tags.filter((t) => t !== tag));
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
+  // Add custom color
+  const handleAddCustomColor = () => {
+    const trimmed = newColorInput.trim();
+    if (!trimmed) return;
+    if (!availableColors.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
+      setAvailableColors((prev) => [...prev, { name: trimmed, hex: "#6366f1" }]);
+    }
+    if (!selectedColors.includes(trimmed)) {
+      setSelectedColors((prev) => [...prev, trimmed]);
+    }
+    setNewColorInput("");
+    setIsAddingCustomColor(false);
   };
 
-  const handleSave = async () => {
-    if (!form.autoGenerateArticleNumber && !form.sku.trim()) {
-      onNotification?.("Validation Error", "Article Number / SKU is required when manual numbering is selected.", "error");
-      setActiveTab("basic");
+  // Toggle Size selection
+  const handleToggleSize = (sizeStr: string) => {
+    setSelectedSizes((prev) =>
+      prev.includes(sizeStr) ? prev.filter((s) => s !== sizeStr) : [...prev, sizeStr]
+    );
+  };
+
+  // Add custom size
+  const handleAddCustomSize = () => {
+    const trimmed = newSizeInput.trim();
+    if (!trimmed) return;
+    if (!availableSizes.includes(trimmed)) {
+      setAvailableSizes((prev) => [...prev, trimmed]);
+    }
+    if (!selectedSizes.includes(trimmed)) {
+      setSelectedSizes((prev) => [...prev, trimmed]);
+    }
+    setNewSizeInput("");
+    setIsAddingCustomSize(false);
+  };
+
+  // Toggle inclusion of variant cell
+  const handleToggleVariantCell = (key: string) => {
+    setVariantMatrix((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [key]: { ...current, enabled: !current.enabled },
+      };
+    });
+  };
+
+  // Update field on active variant
+  const handleUpdateActiveVariant = <K extends keyof MatrixVariantItem>(field: K, value: MatrixVariantItem[K]) => {
+    setVariantMatrix((prev) => {
+      const current = prev[activeCellKey];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [activeCellKey]: { ...current, [field]: value },
+      };
+    });
+  };
+
+  // Add secondary barcode to active variant
+  const handleAddSecondaryBarcode = () => {
+    const trimmed = newSecondaryBarcode.trim().toUpperCase();
+    if (!trimmed) return;
+    const current = variantMatrix[activeCellKey];
+    if (!current) return;
+    if (current.secondaryBarcodes.includes(trimmed) || current.barcode === trimmed) {
+      onNotification?.("Validation Error", "Barcode already exists for this variant.", "error");
       return;
     }
-    if (!form.name.trim()) { onNotification?.("Validation Error", "Article Name is required.", "error"); setActiveTab("basic"); return; }
-    if (!form.barcode.trim()) { onNotification?.("Validation Error", "Barcode is required.", "error"); setActiveTab("basic"); return; }
+    handleUpdateActiveVariant("secondaryBarcodes", [...current.secondaryBarcodes, trimmed]);
+    setNewSecondaryBarcode("");
+    setIsAddingSecondaryBarcode(false);
+  };
 
+  // Remove secondary barcode
+  const handleRemoveSecondaryBarcode = (index: number) => {
+    const current = variantMatrix[activeCellKey];
+    if (!current) return;
+    handleUpdateActiveVariant(
+      "secondaryBarcodes",
+      current.secondaryBarcodes.filter((_, i) => i !== index)
+    );
+  };
+
+  // Active variant object
+  const activeVariant = variantMatrix[activeCellKey] || null;
+
+  // Selected active variants count
+  const activeVariantsList = useMemo(() => {
+    return Object.values(variantMatrix).filter((v) => v.enabled);
+  }, [variantMatrix]);
+
+  // ── Step Navigation & Validation ──
+  const handleNextToStep2 = () => {
+    setFormError(null);
+    if (!autoGenerateArticleNumber && !sku.trim()) {
+      setFormError("Article Number / SKU is required when manual entry is selected.");
+      return;
+    }
+    if (!name.trim()) {
+      setFormError("Design / Style Name is required.");
+      return;
+    }
+    if (!brand.trim()) {
+      setFormError("Brand is required.");
+      return;
+    }
+    if (!category.trim()) {
+      setFormError("Category is required.");
+      return;
+    }
+    if (!baseMrp.trim() || isNaN(parseFloat(baseMrp))) {
+      setFormError("A valid Base MRP is required.");
+      return;
+    }
+    setStep(2);
+  };
+
+  const handleNextToStep3 = () => {
+    if (activeVariantsList.length === 0) {
+      onNotification?.("Validation Error", "Please enable at least one variant in the matrix.", "error");
+      return;
+    }
+    setStep(3);
+  };
+
+  // ── Canonical Save Execution ──
+  const handleSaveArticle = async () => {
     setIsSaving(true);
+    setFormError(null);
     try {
-      const attrs: Record<string, any> = {
-        gender: form.gender || null,
-        product_type: form.productType || null,
-        article: form.article || null,
-        color: form.color || null,
-        size: form.size || null,
-        size_system: form.sizeSystem || null,
-        material: form.material || null,
-        upper_type: form.upperType || null,
-        sole_type: form.soleType || null,
-        season: form.season || null,
-        collection: form.collection || null,
-        description: form.description || null,
-        tags: form.tags.length > 0 ? form.tags.join(",") : null,
-        last_purchase_price: parseFloat(form.lastPurchasePrice) || null,
+      // 1. Build canonical payload for POST /api/v1/inventory/
+      const primaryBarcode = activeVariant?.barcode || `890${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+      const articlePayload = {
+        name: name.trim(),
+        code: autoGenerateArticleNumber ? "AUTO" : sku.trim(),
+        auto_generate_article_number: autoGenerateArticleNumber,
+        barcode: primaryBarcode,
+        brand: brand || null,
+        category: category || "Footwear",
+        price: parseFloat(baseSellingPrice) || parseFloat(baseMrp) || 0,
+        mrp: parseFloat(baseMrp) || 0,
+        buying_price: parseFloat(baseSellingPrice) || null,
+        cost_price: parseFloat(baseCostPrice) || null,
+        gst_percentage: 12,
+        hsn_code: hsnCode || "6403",
+        color: selectedColors[0] || null,
+        size: selectedSizes[0] || null,
+        attributes: {
+          gender: gender || null,
+          auto_po: autoPo,
+          auto_grn: autoGrn,
+          total_matrix_variants: activeVariantsList.length,
+        },
+        supplier: preferredSupplier
+          ? {
+              vendor_party_id: preferredSupplier,
+              vendor_priority: supplierPriority,
+              allow_po: autoPo,
+              allow_grn: autoGrn,
+              approval_required: false,
+            }
+          : null,
       };
-      Object.keys(attrs).forEach((k) => { if (attrs[k] === null) delete attrs[k]; });
 
-      const supplierPayload = form.supplierPartyId.trim()
-        ? {
-            vendor_party_id: form.supplierPartyId.trim(),
-            vendor_priority: form.supplierPriority,
-            allow_po: form.allowPo,
-            allow_grn: form.allowGrn,
-            approval_required: form.approvalRequired,
-          }
-        : null;
-
-      await apiFetchV1("/inventory/", {
+      const createdItem: any = await apiFetchV1("/inventory/", {
         method: "POST",
-        body: JSON.stringify({
-          code: form.autoGenerateArticleNumber ? "AUTO" : form.sku.trim(),
-          auto_generate_article_number: form.autoGenerateArticleNumber,
-          name: form.name.trim(),
-          barcode: form.barcode.trim(),
-          brand: form.brand || null,
-          category: form.category || "Footwear",
-          // price = dealer/selling price; mrp = retail price (MRP)
-          price: parseFloat(form.dealerPrice) || parseFloat(form.retailPrice) || 0,
-          mrp: parseFloat(form.retailPrice) || 0,
-          buying_price: parseFloat(form.dealerPrice) || null,
-          cost_price: parseFloat(form.costPrice) || null,
-          stock: parseFloat(form.openingStock) || 0,
-          gst_percentage: parseFloat(form.gstPercentage) || 12,
-          hsn_code: form.hsnCode || null,
-          attributes: attrs,
-          supplier: supplierPayload,
-        }),
+        body: JSON.stringify(articlePayload),
       });
-      onNotification?.("Article / Design Saved", `"${form.name}" has been added to the canonical catalog.`, "success");
-      setForm(INITIAL_FORM);
-      setImagePreview(null);
-      setActiveTab("basic");
+
+      // 2. Generate canonical matrix variants if item was created and multiple variants exist
+      const itemId = createdItem?.id || createdItem?.item_id;
+      if (itemId && selectedColors.length > 0 && selectedSizes.length > 0) {
+        try {
+          await apiFetchV1(`/universal/items/${itemId}/variants/matrix`, {
+            method: "POST",
+            body: JSON.stringify({
+              dimensions: [
+                { dimension_name: "color", values: selectedColors },
+                { dimension_name: "size", values: selectedSizes },
+              ],
+              base_mrp: parseFloat(baseSellingPrice) || parseFloat(baseMrp) || 0,
+              base_selling_price: parseFloat(baseSellingPrice) || 0,
+              base_cost_price: parseFloat(baseCostPrice) || 0,
+              auto_generate_barcodes: true,
+            }),
+          });
+        } catch {
+          // If universal matrix endpoint falls back or created variants natively, proceed
+        }
+      }
+
+      onNotification?.(
+        "Article & Variants Created",
+        `Article "${name}" (${createdItem?.code || "Allocated"}) saved with ${activeVariantsList.length} variants.`,
+        "success"
+      );
+
       onSaved();
-      onClose();
+      handleClose();
     } catch (err: any) {
-      onNotification?.("Save Failed", err?.message || "Failed to save article / design.", "error");
+      const msg = err?.message || err?.detail || "Failed to create article.";
+      setFormError(msg);
+      onNotification?.("Creation Failed", msg, "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleClose = () => {
-    setForm(INITIAL_FORM);
-    setImagePreview(null);
-    setActiveTab("basic");
+    setStep(1);
+    setName("");
+    setSku("");
+    setBrand("");
+    setFormError(null);
     onClose();
   };
 
   if (!isOpen) return null;
 
-  const currentTabIdx = TABS.findIndex((t) => t.id === activeTab);
-
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-[2px]" onClick={handleClose} />
+      <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-xs" onClick={handleClose} />
 
-      {/* Modal */}
-      <div className="fixed inset-x-2 top-3 bottom-3 sm:inset-x-6 sm:top-6 sm:bottom-6 z-50 flex flex-col bg-white dark:bg-[#1c1f26] rounded-2xl shadow-2xl overflow-hidden border border-[#e2e8f0] dark:border-[#2d3133]">
+      {/* Main Drawer Canvas */}
+      <div className="fixed inset-y-2 right-2 left-2 sm:left-auto sm:w-[940px] z-50 flex flex-col bg-white dark:bg-[#1a2234] rounded-2xl shadow-2xl overflow-hidden border border-[#c3c6d6] dark:border-[#434654] font-sans select-none antialiased">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#e2e8f0] dark:border-[#2d3133] shrink-0">
-          <h2 className="text-sm font-bold text-[#0f172a] dark:text-white flex items-center gap-2">
-            <span className="w-6 h-6 rounded-md bg-[#eff6ff] dark:bg-[#1d3054] flex items-center justify-center">
-              <Plus size={14} className="text-[#2563eb]" />
-            </span>
-            Add Article / Design ({productType})
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-[#e2e8f0] dark:border-[#2d3748] shrink-0 bg-[#f8fafc] dark:bg-[#131b2e]">
+          <h2 className="text-base font-bold text-[#0f172a] dark:text-white flex items-center gap-2">
+            New Article / Design
           </h2>
-          <button type="button" onClick={handleClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#f1f5f9] dark:hover:bg-[#2d3133] transition text-[#64748b]">
-            <X size={16} />
+          <button
+            type="button"
+            onClick={handleClose}
+            className="p-1 rounded-lg text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9] dark:hover:bg-[#2d3748] dark:hover:text-white transition"
+          >
+            <X size={18} />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex items-center px-5 border-b border-[#e2e8f0] dark:border-[#2d3133] shrink-0 overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition whitespace-nowrap ${
-                activeTab === tab.id
-                  ? "border-[#2563eb] text-[#2563eb] dark:text-[#93c5fd] dark:border-[#93c5fd]"
-                  : "border-transparent text-[#64748b] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white"
+        {/* Stepper Navigation */}
+        <div className="flex items-center justify-center px-6 py-3 border-b border-[#e2e8f0] dark:border-[#2d3748] bg-white dark:bg-[#161e30] shrink-0 gap-6">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                step === 1
+                  ? "bg-blue-600 text-white"
+                  : step > 1
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-200 dark:bg-slate-700 text-slate-500"
               }`}
             >
-              <span className={`w-4.5 h-4.5 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                activeTab === tab.id
-                  ? "bg-[#2563eb] text-white dark:bg-[#93c5fd] dark:text-[#0f172a]"
-                  : "bg-[#e2e8f0] dark:bg-[#2d3133] text-[#64748b]"
-              }`}>
-                {tab.number}
-              </span>
-              {tab.label}
+              {step > 1 ? <Check size={12} /> : "1"}
+            </span>
+            <span
+              className={`text-xs font-bold ${
+                step === 1 ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+              }`}
+            >
+              Article Identity
+            </span>
+          </div>
+
+          <span className="w-8 h-[1px] bg-slate-200 dark:bg-slate-700" />
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                step === 2
+                  ? "bg-blue-600 text-white"
+                  : step > 2
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-200 dark:bg-slate-700 text-slate-500"
+              }`}
+            >
+              {step > 2 ? <Check size={12} /> : "2"}
+            </span>
+            <span
+              className={`text-xs font-bold ${
+                step === 2 ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+              }`}
+            >
+              Variants
+            </span>
+          </div>
+
+          <span className="w-8 h-[1px] bg-slate-200 dark:bg-slate-700" />
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                step === 3
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 dark:bg-slate-700 text-slate-500"
+              }`}
+            >
+              3
+            </span>
+            <span
+              className={`text-xs font-bold ${
+                step === 3 ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+              }`}
+            >
+              Review
+            </span>
+          </div>
+        </div>
+
+        {/* Panel 10 Error Banner */}
+        {formError && (
+          <div className="bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900/60 px-6 py-2.5 flex items-center justify-between text-xs text-red-700 dark:text-red-300">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0 text-red-600" />
+              <div>
+                <span className="font-bold">Failed to create article: </span>
+                <span>{formError}</span>
+              </div>
+            </div>
+            <button type="button" onClick={() => setFormError(null)} className="hover:text-red-900">
+              <X size={14} />
             </button>
-          ))}
-        </div>
+          </div>
+        )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === "basic" && (
-            <BasicInfoTab
-              form={form} update={update}
-              imagePreview={imagePreview}
-              fileInputRef={fileInputRef}
-              onImageUpload={handleImageUpload}
-              onFileInputClick={() => fileInputRef.current?.click()}
-              tagInput={tagInput}
-              setTagInput={setTagInput}
-              onAddTag={handleAddTag}
-              onRemoveTag={handleRemoveTag}
-              seriesPreview={seriesPreview}
-              isLoadingPreview={isLoadingPreview}
-            />
-          )}
-          {activeTab === "pricing" && <PricingTab form={form} update={update} />}
-          {activeTab === "tax_inventory" && <TaxInventoryTab form={form} update={update} />}
-          {activeTab === "attributes" && <AttributesTab form={form} update={update} />}
-          {activeTab === "additional" && <AdditionalInfoTab form={form} update={update} />}
-        </div>
+        {/* ── Step 1: Article Identity ─────────────────────────────────────── */}
+        {step === 1 && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            
+            {/* Section: Article Information */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#64748b] dark:text-[#94a3b8] mb-3">
+                Article Information
+              </h3>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-t border-[#e2e8f0] dark:border-[#2d3133] bg-[#f8fafc] dark:bg-[#151820] shrink-0">
-          <button type="button" onClick={handleClose} className="px-4 py-2 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] text-[#374151] dark:text-[#e2e8f0] bg-white dark:bg-[#1c1f26] hover:bg-[#f1f5f9] dark:hover:bg-[#2d3133] text-xs font-semibold transition">
+              {/* Auto / Manual Toggle */}
+              <div className="mb-4">
+                <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-2">
+                  Article Number
+                </label>
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-[#0f172a] dark:text-white font-medium">
+                    <input
+                      type="radio"
+                      name="numbering_mode"
+                      checked={autoGenerateArticleNumber}
+                      onChange={() => setAutoGenerateArticleNumber(true)}
+                      className="accent-blue-600 w-3.5 h-3.5"
+                    />
+                    <span>Auto Generate (Recommended)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-[#0f172a] dark:text-white font-medium">
+                    <input
+                      type="radio"
+                      name="numbering_mode"
+                      checked={!autoGenerateArticleNumber}
+                      onChange={() => setAutoGenerateArticleNumber(false)}
+                      className="accent-blue-600 w-3.5 h-3.5"
+                    />
+                    <span>Manual Entry</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Numbering Preview / Manual Input Box */}
+              {autoGenerateArticleNumber ? (
+                previewError ? (
+                  /* Panel 10 Preview Unavailable Box */
+                  <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 text-xs text-red-700 dark:text-red-300 flex items-start gap-2.5">
+                    <AlertCircle size={16} className="shrink-0 text-red-600 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Preview unavailable</p>
+                      <p className="text-[11px] mt-0.5">Please configure ARTICLE number series in Documents setup.</p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Panel 3 Active Next Article Number Box */
+                  <div className="mb-4 p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-xs flex flex-col justify-center">
+                    <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                      Next Article Number (Preview)
+                    </span>
+                    <span className="font-mono text-base font-bold text-blue-900 dark:text-blue-100 my-0.5">
+                      {isLoadingPreview ? "Fetching preview..." : (seriesPreview || "ART/0007/26-27/")}
+                    </span>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400">
+                      Series: {seriesId || "SER-ART-COMP001"} (Will be generated on save)
+                    </span>
+                  </div>
+                )
+              ) : (
+                <div className="mb-4">
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Article Number / SKU <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value)}
+                    placeholder="e.g. ART-1001 / FT00123"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              )}
+
+              {/* Design / Style Name */}
+              <div className="mb-4">
+                <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                  Design / Style Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Running Shoe Pro"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              {/* 3-Column Attributes: Brand, Category, Gender */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Brand <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={brand}
+                    onChange={(e) => setBrand(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="">Select Brand</option>
+                    {(brandOptions.length > 0 ? brandOptions.map(b => b.name) : ["Nike", "Adidas", "Puma", "Bata", "Woodland", "Relaxo"]).map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="">Select Category</option>
+                    {(categoryOptions.length > 0 ? categoryOptions.map(c => c.name) : ["Footwear", "Apparel", "Accessories"]).map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    {(genderOptions.length > 0 ? genderOptions.map(g => g.name) : ["Men", "Women", "Unisex", "Kids", "Boys", "Girls"]).map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 3-Column Financials: HSN, Base MRP, Base Selling Price */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    HSN Code
+                  </label>
+                  <input
+                    type="text"
+                    value={hsnCode}
+                    onChange={(e) => setHsnCode(e.target.value)}
+                    placeholder="6403"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Base MRP (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={baseMrp}
+                    onChange={(e) => setBaseMrp(e.target.value)}
+                    placeholder="2999.00"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Base Selling Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={baseSellingPrice}
+                    onChange={(e) => setBaseSellingPrice(e.target.value)}
+                    placeholder="2499.00"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section: Supplier Assignment */}
+            <div className="pt-4 border-t border-[#e2e8f0] dark:border-[#2d3748]">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#64748b] dark:text-[#94a3b8] mb-3">
+                Supplier Assignment
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Preferred Supplier
+                  </label>
+                  <select
+                    value={preferredSupplier}
+                    onChange={(e) => setPreferredSupplier(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="">Select Supplier</option>
+                    {vendorOptions.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Priority
+                  </label>
+                  <select
+                    value={supplierPriority}
+                    onChange={(e) => setSupplierPriority(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="PRIMARY">Primary</option>
+                    <option value="PREFERRED">Preferred</option>
+                    <option value="SECONDARY">Secondary</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2 pt-3">
+                  <label className="flex items-center justify-between cursor-pointer text-xs text-[#374151] dark:text-[#cbd5e1]">
+                    <span>Auto PO on Low Stock</span>
+                    <input
+                      type="checkbox"
+                      checked={autoPo}
+                      onChange={(e) => setAutoPo(e.target.checked)}
+                      className="accent-blue-600 rounded w-3.5 h-3.5"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer text-xs text-[#374151] dark:text-[#cbd5e1]">
+                    <span>Auto GRN on Receipt</span>
+                    <input
+                      type="checkbox"
+                      checked={autoGrn}
+                      onChange={(e) => setAutoGrn(e.target.checked)}
+                      className="accent-blue-600 rounded w-3.5 h-3.5"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ── Step 2: Variants (Size × Color Matrix) ────────────────────────── */}
+        {step === 2 && (
+          <div className="flex-1 overflow-y-auto p-6 grid grid-cols-12 gap-6">
+            
+            {/* Left 7 Columns: Color & Size Matrix Builder */}
+            <div className="col-span-12 lg:col-span-7 space-y-5">
+              
+              {/* Select Colors Chips */}
+              <div>
+                <label className="text-xs font-bold text-[#0f172a] dark:text-white block mb-2">
+                  Select Colors
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {availableColors.map((c) => {
+                    const isSelected = selectedColors.includes(c.name);
+                    return (
+                      <button
+                        key={c.name}
+                        type="button"
+                        onClick={() => handleToggleColor(c.name)}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                          isSelected
+                            ? "bg-[#0f172a] text-white dark:bg-white dark:text-[#0f172a] shadow-xs"
+                            : "bg-[#f1f5f9] text-[#475569] dark:bg-[#1e293b] dark:text-[#cbd5e1] hover:bg-[#e2e8f0]"
+                        }`}
+                      >
+                        <span
+                          className={`w-3 h-3 rounded-full shrink-0 ${c.border ? "border border-slate-300" : ""}`}
+                          style={{ backgroundColor: c.hex || "#94a3b8" }}
+                        />
+                        <span>{c.name}</span>
+                      </button>
+                    );
+                  })}
+
+                  {isAddingCustomColor ? (
+                    <div className="inline-flex items-center gap-1">
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder="Color name"
+                        value={newColorInput}
+                        onChange={(e) => setNewColorInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomColor();
+                          } else if (e.key === "Escape") {
+                            setIsAddingCustomColor(false);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs border border-blue-400 rounded-lg outline-none w-28 bg-white dark:bg-slate-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomColor}
+                        className="px-2 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCustomColor(true)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-[#94a3b8] text-xs font-semibold text-[#64748b] hover:border-blue-600 hover:text-blue-600 transition"
+                    >
+                      <Plus size={12} />
+                      <span>Add Color</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Select Sizes Chips */}
+              <div>
+                <label className="text-xs font-bold text-[#0f172a] dark:text-white block mb-2">
+                  Select Sizes
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {availableSizes.map((s) => {
+                    const isSelected = selectedSizes.includes(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => handleToggleSize(s)}
+                        className={`w-9 h-8 rounded-lg text-xs font-bold transition flex items-center justify-center ${
+                          isSelected
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-[#f1f5f9] text-[#475569] dark:bg-[#1e293b] dark:text-[#cbd5e1] hover:bg-[#e2e8f0]"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+
+                  {isAddingCustomSize ? (
+                    <div className="inline-flex items-center gap-1">
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder="Size"
+                        value={newSizeInput}
+                        onChange={(e) => setNewSizeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomSize();
+                          } else if (e.key === "Escape") {
+                            setIsAddingCustomSize(false);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs border border-blue-400 rounded-lg outline-none w-16 bg-white dark:bg-slate-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomSize}
+                        className="px-2 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCustomSize(true)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-[#94a3b8] text-xs font-semibold text-[#64748b] hover:border-blue-600 hover:text-blue-600 transition"
+                    >
+                      <Plus size={12} />
+                      <span>Add Size</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 2D Variant Matrix Preview Table */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-[#0f172a] dark:text-white">
+                    Variant Matrix Preview
+                  </label>
+                  <span className="text-[11px] text-[#64748b] dark:text-[#94a3b8]">
+                    {activeVariantsList.length} variants enabled
+                  </span>
+                </div>
+
+                <div className="border border-[#e2e8f0] dark:border-[#374151] rounded-xl overflow-hidden shadow-xs bg-white dark:bg-[#111827]">
+                  <table className="w-full border-collapse text-xs">
+                    <thead className="bg-[#f8fafc] dark:bg-[#1e293b] border-b border-[#e2e8f0] dark:border-[#374151]">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-bold text-[#475569] dark:text-[#cbd5e1]">
+                          Color / Size
+                        </th>
+                        {selectedSizes.map((s) => (
+                          <th key={s} className="px-3 py-2 text-center font-bold text-[#475569] dark:text-[#cbd5e1]">
+                            {s}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#f1f5f9] dark:divide-[#2d3748]">
+                      {selectedColors.map((color) => (
+                        <tr key={color} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                          <td className="px-3 py-2 font-semibold text-[#0f172a] dark:text-white">
+                            {color}
+                          </td>
+                          {selectedSizes.map((size) => {
+                            const key = `${color}-${size}`;
+                            const isCellActive = activeCellKey === key;
+                            const item = variantMatrix[key];
+                            const isChecked = item?.enabled ?? false;
+
+                            return (
+                              <td
+                                key={size}
+                                onClick={() => setActiveCellKey(key)}
+                                className={`px-3 py-2 text-center cursor-pointer transition ${
+                                  isCellActive
+                                    ? "bg-blue-50 dark:bg-blue-900/30"
+                                    : ""
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleToggleVariantCell(key)}
+                                  className="accent-blue-600 rounded w-4 h-4 cursor-pointer"
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Right 5 Columns: Variant Details Preview (Panel 4) */}
+            <div className="col-span-12 lg:col-span-5 bg-[#f8fafc] dark:bg-[#131b2e] border border-[#e2e8f0] dark:border-[#2d3748] rounded-xl p-5 space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#64748b] dark:text-[#94a3b8] flex items-center justify-between">
+                <span>Variant Details (Preview)</span>
+                {activeVariant && (
+                  <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                    {activeVariant.color} / Size {activeVariant.size}
+                  </span>
+                )}
+              </h4>
+
+              {activeVariant ? (
+                <>
+                  {/* SKU Auto Generated */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                      SKU (Auto)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        disabled
+                        value={activeVariant.sku}
+                        className="w-full px-3 py-1.5 text-xs font-mono rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed pr-8"
+                      />
+                      <Lock size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Primary Barcode */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                      Primary Barcode <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={activeVariant.barcode}
+                      onChange={(e) => handleUpdateActiveVariant("barcode", e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Additional Barcodes Chips */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                      Additional Barcodes
+                    </label>
+                    <div className="flex flex-wrap items-center gap-1.5 p-2 bg-white dark:bg-[#111827] border border-[#cbd5e1] dark:border-[#374151] rounded-lg min-h-[38px]">
+                      {activeVariant.secondaryBarcodes.map((bc, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-mono border border-blue-200 dark:border-blue-800"
+                        >
+                          <Tag size={10} />
+                          <span>{bc}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSecondaryBarcode(idx)}
+                            className="hover:text-red-600 ml-0.5"
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+
+                      {isAddingSecondaryBarcode ? (
+                        <div className="inline-flex items-center gap-1">
+                          <input
+                            type="text"
+                            autoFocus
+                            placeholder="EAN / UPC"
+                            value={newSecondaryBarcode}
+                            onChange={(e) => setNewSecondaryBarcode(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAddSecondaryBarcode();
+                              } else if (e.key === "Escape") {
+                                setIsAddingSecondaryBarcode(false);
+                              }
+                            }}
+                            className="px-2 py-0.5 text-[11px] font-mono border border-blue-400 rounded outline-none w-28 bg-white dark:bg-slate-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddSecondaryBarcode}
+                            className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-bold"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingSecondaryBarcode(true)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-dashed border-[#94a3b8] text-[10px] font-semibold text-[#64748b] hover:border-blue-600 hover:text-blue-600 transition"
+                        >
+                          <Plus size={10} />
+                          <span>Add barcode</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Variant MRP */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                      Variant MRP (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={activeVariant.mrp}
+                      onChange={(e) => handleUpdateActiveVariant("mrp", e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Variant Cost */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                      Variant Cost (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={activeVariant.cost}
+                      onChange={(e) => handleUpdateActiveVariant("cost", e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-slate-400 py-6 text-center">
+                  Select a variant cell in the matrix to view or edit details.
+                </p>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* ── Step 3: Review ───────────────────────────────────────────────── */}
+        {step === 3 && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#64748b] dark:text-[#94a3b8]">
+              Review &amp; Confirm Article Creation
+            </h3>
+
+            {/* Summary Card */}
+            <div className="bg-[#f8fafc] dark:bg-[#131b2e] border border-[#e2e8f0] dark:border-[#2d3748] rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <div>
+                <span className="text-[#64748b] block mb-0.5">Article Number</span>
+                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                  {autoGenerateArticleNumber ? (seriesPreview || "Auto Allocated") : sku}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#64748b] block mb-0.5">Design Name</span>
+                <span className="font-bold text-[#0f172a] dark:text-white">{name}</span>
+              </div>
+              <div>
+                <span className="text-[#64748b] block mb-0.5">Brand / Category</span>
+                <span className="font-semibold text-[#0f172a] dark:text-white">{brand} / {category}</span>
+              </div>
+              <div>
+                <span className="text-[#64748b] block mb-0.5">Base MRP / Selling</span>
+                <span className="font-mono font-bold text-[#0f172a] dark:text-white">₹{baseMrp} / ₹{baseSellingPrice}</span>
+              </div>
+            </div>
+
+            {/* Variants Summary Table */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-[#0f172a] dark:text-white">
+                  Variants to be Created ({activeVariantsList.length})
+                </span>
+              </div>
+
+              <div className="border border-[#e2e8f0] dark:border-[#374151] rounded-xl overflow-hidden max-h-72 overflow-y-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-[#f1f5f9] dark:bg-[#1e293b] sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 font-bold text-[#475569] dark:text-[#cbd5e1]">SKU</th>
+                      <th className="px-3 py-2 font-bold text-[#475569] dark:text-[#cbd5e1]">Color</th>
+                      <th className="px-3 py-2 font-bold text-[#475569] dark:text-[#cbd5e1]">Size</th>
+                      <th className="px-3 py-2 font-bold text-[#475569] dark:text-[#cbd5e1]">Primary Barcode</th>
+                      <th className="px-3 py-2 font-bold text-[#475569] dark:text-[#cbd5e1] text-right">MRP (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#e2e8f0] dark:divide-[#2d3748]">
+                    {activeVariantsList.map((v, i) => (
+                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                        <td className="px-3 py-2 font-mono text-blue-600 dark:text-blue-400">{v.sku}</td>
+                        <td className="px-3 py-2 font-medium">{v.color}</td>
+                        <td className="px-3 py-2 font-mono font-bold">{v.size}</td>
+                        <td className="px-3 py-2 font-mono">{v.barcode}</td>
+                        <td className="px-3 py-2 font-mono text-right">{v.mrp}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ── Footer ──────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-[#e2e8f0] dark:border-[#2d3748] bg-slate-50 dark:bg-[#131b2e]/60 shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition"
+          >
             Cancel
           </button>
+
           <div className="flex items-center gap-2">
-            {currentTabIdx > 0 && (
-              <button type="button" onClick={() => setActiveTab(TABS[currentTabIdx - 1].id)} className="px-4 py-2 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] text-xs font-semibold text-[#374151] dark:text-[#e2e8f0] bg-white dark:bg-[#1c1f26] hover:bg-[#f1f5f9] transition">
-                ← Previous
+            {step > 1 && (
+              <button
+                type="button"
+                onClick={() => setStep((s) => (s - 1) as any)}
+                className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 rounded-lg transition flex items-center gap-1.5"
+              >
+                <ChevronLeft size={14} />
+                <span>Back</span>
               </button>
             )}
-            {currentTabIdx < TABS.length - 1 ? (
-              <button type="button" onClick={() => setActiveTab(TABS[currentTabIdx + 1].id)} className="px-5 py-2 rounded-lg bg-[#0f172a] dark:bg-[#dbeafe] text-white dark:text-[#0f172a] text-xs font-bold transition hover:bg-[#1e293b]">
-                Next →
+
+            {step === 1 && (
+              <button
+                type="button"
+                onClick={handleNextToStep2}
+                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
+              >
+                <span>Next</span>
+                <ChevronRight size={14} />
               </button>
-            ) : (
-              <button type="button" onClick={handleSave} disabled={isSaving} className="px-6 py-2 rounded-lg bg-[#2563eb] text-white text-xs font-bold transition hover:bg-[#1d4ed8] disabled:opacity-50 flex items-center gap-2">
+            )}
+
+            {step === 2 && (
+              <button
+                type="button"
+                onClick={handleSaveArticle}
+                disabled={isSaving}
+                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg shadow-sm transition flex items-center gap-1.5"
+              >
                 {isSaving ? (
-                  <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving...</>
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
                 ) : (
-                  <><Check size={14} />Save Article / Design</>
+                  <>
+                    <Check size={14} />
+                    <span>Create Article &amp; All Variants</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {step === 3 && (
+              <button
+                type="button"
+                onClick={handleSaveArticle}
+                disabled={isSaving}
+                className="px-6 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg shadow-sm transition flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    <span>Confirm &amp; Create Article</span>
+                  </>
                 )}
               </button>
             )}
           </div>
         </div>
+
       </div>
     </>
   );

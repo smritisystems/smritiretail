@@ -26,13 +26,14 @@ import {
 } from "lucide-react";
 import { Product } from "../../types.ts";
 import { AddProductDrawer } from "./AddProductDrawer.tsx";
+import { VariantEditModal } from "./modals/VariantEditModal.tsx";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SmritiItemCatalogGridProps {
   products: Product[];
   onRefreshProducts?: () => Promise<void>;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   onNavigateToPaste?: () => void;
   currentUser?: { role: string; name: string } | null;
   productCategory?: string; // e.g. "Footwear"
@@ -74,6 +75,8 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   const [pageSize, setPageSize] = useState(25);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedVariantForEdit, setSelectedVariantForEdit] = useState<Product | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Reset page when filters change
   useEffect(() => { setPageIndex(0); }, [searchQuery, filterCategory, filterBrand, filterGender, filterProductType, filterStatus]);
@@ -326,7 +329,15 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                           )}
                         </div>
                       </Td>
-                      <Td><span className="font-mono font-bold text-[#2563eb] dark:text-[#93c5fd] text-[11px]">{p.code}</span></Td>
+                      <Td>
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedVariantForEdit(p); setIsEditModalOpen(true); }}
+                          className="font-mono font-bold text-[#2563eb] dark:text-[#93c5fd] text-[11px] hover:underline cursor-pointer"
+                        >
+                          {p.code}
+                        </button>
+                      </Td>
                       <Td><span className="font-mono text-[11px] text-[#64748b]">{p.barcode || "—"}</span></Td>
                       <Td><span className="font-semibold text-[#0f172a] dark:text-white">{p.name}</span></Td>
                       <Td>{p.brand || "—"}</Td>
@@ -353,7 +364,12 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                         </span>
                       </Td>
                       <Td className="text-center">
-                        <button type="button" className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#f1f5f9] dark:hover:bg-[#2d3133] transition text-[#64748b] mx-auto">
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedVariantForEdit(p); setIsEditModalOpen(true); }}
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#f1f5f9] dark:hover:bg-[#2d3133] transition text-[#64748b] mx-auto cursor-pointer"
+                          title="Edit Variant (Commercial & Barcodes)"
+                        >
                           <MoreVertical size={14} />
                         </button>
                       </Td>
@@ -431,9 +447,18 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
       <AddProductDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        onSaved={() => { onRefreshProducts?.(); }}
+        onSaved={() => { void onRefreshProducts?.(); }}
         onNotification={onNotification}
         productType={productCategory}
+      />
+
+      {/* ── Variant Detail / Edit Modal (Panel 6) ────────────────────────── */}
+      <VariantEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => { setIsEditModalOpen(false); setSelectedVariantForEdit(null); }}
+        product={selectedVariantForEdit}
+        onUpdated={() => { void onRefreshProducts?.(); }}
+        onNotification={onNotification}
       />
     </div>
   );
