@@ -33,6 +33,47 @@ import asyncio
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
+
+# ============================================================
+# UTMIH Test-Teardown Bypass Helper
+# ============================================================
+# The trg_stock_movement_immutable trigger (SMRITI-LEDGER-001) blocks
+# DELETE on stock_movements in production — correct behaviour.
+# In test teardown, we legitimately need to clean up rows created
+# during the test. Using SET LOCAL session_replication_role = 'replica'
+# disables row-level triggers for the current transaction ONLY and
+# reverts automatically at COMMIT/ROLLBACK. This is a standard
+# PostgreSQL pattern for test isolation and carries zero production risk.
+#
+# Usage in async test teardown:
+#   await utmih_delete_stock_movements(session, "reference_doc_id = :id", {"id": inv_id})
+async def utmih_delete_stock_movements(session, where_clause: str, params: dict = None):
+    """
+    Delete stock_movements rows in test teardown, bypassing the UTMIH immutability
+    trigger (trg_stock_movement_immutable) via session_replication_role = 'replica'.
+    The bypass is scoped to this transaction only and reverts at commit/rollback.
+
+    Args:
+        session: SQLAlchemy AsyncSession
+        where_clause: SQL WHERE clause string (without 'WHERE' keyword)
+        params: dict of bind parameters
+
+    Example:
+        await utmih_delete_stock_movements(
+            session,
+            "reference_doc_id = :inv_id OR reference_doc_id = :inv_no",
+            {"inv_id": inv.id, "inv_no": inv_no}
+        )
+    """
+    from sqlalchemy import text as sa_text
+    await session.execute(sa_text("SET LOCAL session_replication_role = 'replica'"))
+    await session.execute(
+        sa_text(f"DELETE FROM stock_movements WHERE {where_clause}"),
+        params or {}
+    )
+    # session_replication_role reverts to default at commit/rollback — no explicit reset needed
+
+
 # ============================================================
 # Architecture-Compliant Connection URLs
 # ============================================================

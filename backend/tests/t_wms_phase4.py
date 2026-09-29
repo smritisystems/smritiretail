@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -25,6 +25,7 @@ from app.models.inventory import (
 )
 from app.services.stock_audit_service import StockAuditService
 from app.api.deps import TenantContext
+from conftest import utmih_delete_stock_movements
 
 import os
 from urllib.parse import urlparse
@@ -359,7 +360,7 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
         if created_audit_id:
             await async_db.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
-        await async_db.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id})
+        await utmih_delete_stock_movements(async_db, "product_id = :pid", {"pid": prod_id})
         await async_db.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
         await async_db.commit()
@@ -462,7 +463,7 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
         if created_audit_id:
             await async_db.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
-        await async_db.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id})
+        await utmih_delete_stock_movements(async_db, "product_id = :pid", {"pid": prod_id})
         await async_db.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
         await async_db.commit()
@@ -560,7 +561,7 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
         if created_audit_id:
             await async_db_002.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db_002.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
-        await async_db_002.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id})
+        await utmih_delete_stock_movements(async_db_002, "product_id = :pid", {"pid": prod_id})
         await async_db_002.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db_002.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
         await async_db_002.commit()
@@ -667,7 +668,7 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
         if created_audit_id:
             await async_db.execute(text("DELETE FROM stock_audit_items WHERE audit_id = :aid"), {"aid": created_audit_id})
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
-        await async_db.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id})
+        await utmih_delete_stock_movements(async_db, "product_id = :pid", {"pid": prod_id})
         await async_db.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
         await async_db.commit()

@@ -30,6 +30,7 @@ from app.platform.events import (
     EventSerializer,
     get_platform_event_service,
 )
+from conftest import utmih_delete_stock_movements
 
 
 @pytest.fixture
@@ -41,7 +42,8 @@ def session_factory():
 async def cleanup_test_data(session_factory):
     """Clean up test invoices and outbox records, and ensure test customer/product exist."""
     async with session_factory() as session:
-        await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%INV-S52-%")))
+        # Use UTMIH bypass: ORM delete() also fires trg_stock_movement_immutable
+        await utmih_delete_stock_movements(session, "remarks LIKE '%INV-S52-%'")
         await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-S52-%")))
         await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.source_event_id.like("evt-s52-%")))
 
