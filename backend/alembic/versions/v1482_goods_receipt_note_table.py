@@ -1,4 +1,4 @@
-﻿"""Add goods_receipt_notes and goods_receipt_lines tables.
+"""Add goods_receipt_notes and goods_receipt_lines tables.
 
 This migration creates the canonical GRN persistence layer that was previously
 managed only in-memory / embedded inside the purchase_orders record.

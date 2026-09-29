@@ -335,6 +335,78 @@ CANONICAL_FIELDS: Dict[str, CanonicalFieldDef] = {
         aliases=("size_label", "sizeLabel", "itemSize")
     ),
 
+    # ── ITEM MASTER v2.2 DOMAIN FIELDS (items — added by v1495) ─────────────
+    # Registered per CFOC v3.46.0 — all fields are CANONICAL_BUSINESS (IM-001).
+    "item.purchase_class": CanonicalFieldDef(
+        field_id="item.purchase_class", entity_id="item", db_table="items", db_column="purchase_class",
+        data_type="STRING", field_type="SELECT", label="Purchase Class", max_length=100,
+        help_text="Procurement category classification (e.g. IMPORT, DOMESTIC, INTERCOMPANY)",
+        option_source="PURCHASE_CLASS_OPTIONS",
+        aliases=("purchaseClass", "procurement_class")
+    ),
+    "item.product_type": CanonicalFieldDef(
+        field_id="item.product_type", entity_id="item", db_table="items", db_column="product_type",
+        data_type="STRING", field_type="SELECT", label="Product Type", max_length=100,
+        help_text="General merchandise classification (e.g. FOOTWEAR, APPAREL, ACCESSORY)",
+        option_source="PRODUCT_TYPE_OPTIONS",
+        aliases=("productType", "merchandise_type", "itemType")
+    ),
+    "item.design_attribute": CanonicalFieldDef(
+        field_id="item.design_attribute", entity_id="item", db_table="items", db_column="design_attribute",
+        data_type="STRING", field_type="TEXT", label="Design Attribute", max_length=100,
+        help_text="Style / design descriptor (e.g. LACE-UP, SLIP-ON, SANDAL)",
+        aliases=("designAttribute", "design", "design_type")
+    ),
+    "item.heel_type": CanonicalFieldDef(
+        field_id="item.heel_type", entity_id="item", db_table="items", db_column="heel_type",
+        data_type="STRING", field_type="SELECT", label="Heel Type", max_length=100,
+        help_text="Footwear heel classification (e.g. FLAT, BLOCK, STILETTO, WEDGE)",
+        option_source="HEEL_TYPE_OPTIONS",
+        aliases=("heelType",)
+    ),
+    "item.upper_material": CanonicalFieldDef(
+        field_id="item.upper_material", entity_id="item", db_table="items", db_column="upper_material",
+        data_type="STRING", field_type="SELECT", label="Upper Material", max_length=100,
+        help_text="Footwear upper material (e.g. LEATHER, SYNTHETIC, CANVAS, MESH)",
+        option_source="MATERIAL_OPTIONS",
+        aliases=("upperMaterial", "upper_mat")
+    ),
+    "item.outsole_material": CanonicalFieldDef(
+        field_id="item.outsole_material", entity_id="item", db_table="items", db_column="outsole_material",
+        data_type="STRING", field_type="SELECT", label="Outsole Material", max_length=100,
+        help_text="Footwear outsole material (e.g. RUBBER, PVC, TPU, EVA)",
+        option_source="MATERIAL_OPTIONS",
+        aliases=("outsoleMaterial", "outsole", "outsole_mat")
+    ),
+    "item.collection_type": CanonicalFieldDef(
+        field_id="item.collection_type", entity_id="item", db_table="items", db_column="collection_type",
+        data_type="STRING", field_type="SELECT", label="Collection Type", max_length=100,
+        help_text="Merchandising collection (e.g. SUMMER_2026, FESTIVE, CORE, BASIC)",
+        option_source="COLLECTION_TYPE_OPTIONS",
+        aliases=("collectionType", "collection", "season")
+    ),
+    "item.is_inventory_yn": CanonicalFieldDef(
+        field_id="item.is_inventory_yn", entity_id="item", db_table="items", db_column="is_inventory_yn",
+        data_type="BOOLEAN", field_type="BOOLEAN", label="Track Inventory",
+        help_text="Whether this item participates in stock ledger movements (IM-008)",
+        required=True,
+        aliases=("isInventoryYn", "track_inventory", "inventory_tracked")
+    ),
+    "item.is_billable_yn": CanonicalFieldDef(
+        field_id="item.is_billable_yn", entity_id="item", db_table="items", db_column="is_billable_yn",
+        data_type="BOOLEAN", field_type="BOOLEAN", label="Billable",
+        help_text="Whether this item can appear on sales invoices / bills (IM-009)",
+        required=True,
+        aliases=("isBillableYn", "billable", "is_billable")
+    ),
+    "item.is_service_yn": CanonicalFieldDef(
+        field_id="item.is_service_yn", entity_id="item", db_table="items", db_column="is_service_yn",
+        data_type="BOOLEAN", field_type="BOOLEAN", label="Service Item",
+        help_text="TRUE for service items (SAC code applies); FALSE for physical goods (HSN code applies)",
+        required=True,
+        aliases=("isServiceYn", "is_service", "service_item")
+    ),
+
     # ── PHYSICAL SKU PRODUCT (products) ─────────────────────────────────────
     "product.id": CanonicalFieldDef(
         field_id="product.id", entity_id="product", db_table="products", db_column="id",
