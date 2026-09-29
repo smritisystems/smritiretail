@@ -62,54 +62,20 @@ async def list_item_styles(
 
 @router.post(
     "/item-styles",
-    response_model=ItemStyleResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create Item Style",
+    deprecated=True,
+    status_code=status.HTTP_410_GONE,
+    summary="Create Item Style (Deprecated)",
 )
 async def create_item_style(
-    req: ItemStyleCreateRequest,
+    req: Optional[ItemStyleCreateRequest] = None,
     db: AsyncSession = Depends(get_company_db),
     current_user: dict = Depends(get_current_user),
 ):
-    """Atomically creates a new parent ItemStyle catalog record."""
-    company_id = getattr(current_user, "company_id", "COMP-001")
-    branch_id = getattr(current_user, "branch_id", None)
-    try:
-        style = await ItemDomainService.create_style(
-            session=db,
-            req=req,
-            company_id=company_id,
-            branch_id=branch_id,
-        )
-        return ItemStyleResponse(
-            id=style.id,
-            style_code=style.item_code,
-            style_name=style.item_name,
-            item_type=style.item_type,
-            category=style.category,
-            department=style.department,
-            brand=style.brand,
-            vendor_code=style.vendor_code,
-            hsn_code=style.hsn_code,
-            tax_rate=float(style.tax_rate or 18.0),
-            primary_uom=style.primary_uom,
-            gender=style.gender,
-            product_type=style.product_type,
-            heel_type=style.heel_type,
-            upper_material=style.upper_material,
-            outsole_material=style.outsole_material,
-            collection_type=style.collection_type,
-            status=style.status or "ACTIVE",
-            is_inventory_yn=style.is_inventory_yn,
-            is_billable_yn=style.is_billable_yn,
-            is_service_yn=style.is_service_yn,
-            variant_count=0,
-            barcode_count=0,
-        )
-    except BusinessLogicError as ble:
-        raise HTTPException(status_code=409, detail=ble.message)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    """Deprecated endpoint. Returns HTTP 410 Gone."""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="This endpoint is deprecated. Use POST /api/v1/inventory/ or POST /api/v1/universal/items.",
+    )
 
 
 @router.get("/item-styles/{style_id}", response_model=ItemStyleResponse, summary="Get Item Style by ID or Code")
