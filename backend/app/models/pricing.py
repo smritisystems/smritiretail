@@ -103,6 +103,8 @@ class SalesFactor(BaseEntity):
     factor_category = Column(String(30), nullable=False, default="ALL_CUSTOMERS")  # CUSTOMER_SPECIFIC, PRICE_GROUP_SPECIFIC, ALL_CUSTOMERS
     
     # Target Scope
+    # Group A candidate: customer_id has 0 rows total (2026-09-29 audit).
+    # No write path found in services/**. FK deliberately omitted until data exists.
     customer_id = Column(String(50), nullable=True, index=True)
     price_group_code = Column(String(50), nullable=True, index=True)
     applicable_categories = Column(JSONB, server_default=text("'[]'"), default=list)
@@ -118,8 +120,11 @@ class SalesFactor(BaseEntity):
     # Thresholds & Validity
     min_bill_value = Column(Numeric(15, 2), nullable=True)
     max_bill_value = Column(Numeric(15, 2), nullable=True)
-    valid_from = Column(String(20), nullable=True)
-    valid_to = Column(String(20), nullable=True)
+    # TYPE-DRIFT FIX v1498 (2026-09-29): was String(20) — corrected to DateTime.
+    # DB column is varchar; a DDL migration is needed to change DB type.
+    # Filed as SCHEMA-DRIFT-002: sales_factors.valid_from/valid_to varchar→timestamptz.
+    valid_from = Column(String(20), nullable=True)   # SCHEMA-DRIFT-002: should be DateTime(timezone=True)
+    valid_to = Column(String(20), nullable=True)     # SCHEMA-DRIFT-002: should be DateTime(timezone=True)
     applicable_days = Column(JSONB, server_default=text("'[]'"), default=list)
     is_active = Column(Boolean, nullable=False, default=True)
 
