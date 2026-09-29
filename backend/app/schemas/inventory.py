@@ -180,6 +180,9 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     id: Optional[str] = Field(default=None, max_length=50)
+    auto_generate_article_number: Optional[bool] = False
+    supplier: Optional[Dict[str, Any]] = None
+
 
 
 class ProductUpdate(BaseModel):

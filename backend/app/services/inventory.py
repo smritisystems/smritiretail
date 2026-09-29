@@ -14,6 +14,7 @@ License      : Proprietary Commercial Software
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func, and_, or_
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 import uuid
@@ -88,12 +89,14 @@ class InventoryService:
         if not self.tenant_ctx or not self.tenant_ctx.company_id:
             raise HTTPException(status_code=400, detail="Multi-tenant security violation: company_id is required")
 
+        cid = self.tenant_ctx.company_id
+        bid = self.tenant_ctx.branch_id or "BR-001"
+
         await AttributesService(self.db).validate_product_attributes(
             product_in.attributes,
-            self.tenant_ctx.company_id,
+            cid,
         )
 
-        # Validate catalog dimensions against Master Lookup in control plane
         from .catalog_validation import CatalogDimensionValidator
         dim_map = {
             "brand": product_in.brand,
@@ -112,203 +115,119 @@ class InventoryService:
                 )
                 setattr(product_in, field_name, normalized)
 
-        # Check for duplicate code
-        existing_code = await self.db.execute(
-            select(Product).filter(
-                Product.code == product_in.code,
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
-            )
-        )
-        if existing_code.scalars().first():
-            raise HTTPException(status_code=400, detail="Product with this code already exists")
+        auto_gen = bool(getattr(product_in, "auto_generate_article_number", False))
+        prod_code = (product_in.code or "").strip().upper()
+        if not prod_code and not auto_gen:
+            raise HTTPException(status_code=400, detail="Product code / SKU is required")
 
-        # Check for duplicate barcode (only if barcode is non-empty)
-        if product_in.barcode and str(product_in.barcode).strip():
-            clean_barcode = str(product_in.barcode).strip()
-            existing_barcode = await self.db.execute(
+        if prod_code and prod_code != "AUTO":
+            # Check for duplicate code within company/branch
+            existing_code = await self.db.execute(
                 select(Product).filter(
-                    Product.barcode == clean_barcode,
+                    Product.code == prod_code,
                     Product.is_deleted == False,
-                    Product.company_id == self.tenant_ctx.company_id,
-                    Product.branch_id == self.tenant_ctx.branch_id
+                    Product.company_id == cid,
+                    Product.branch_id == bid
                 )
             )
-            if existing_barcode.scalars().first():
-                raise HTTPException(status_code=400, detail="Product with this barcode already exists")
+            if existing_code.scalars().first():
+                raise HTTPException(status_code=400, detail="Product with this code already exists")
 
-        cid = self.tenant_ctx.company_id
-        bid = self.tenant_ctx.branch_id
+        # Determine canonical Article / Style Code
+        style = (product_in.style_code or "").strip().upper()
+        article_code = style if style else (None if auto_gen else prod_code)
 
-        prod_data = product_in.model_dump()
-        historical_invoice_qty = prod_data.pop("historical_invoice_qty", None)
-        if historical_invoice_qty is not None:
-            attributes = dict(prod_data.get("attributes") or {})
-            attributes["historical_invoice_qty"] = float(historical_invoice_qty)
-            prod_data["attributes"] = attributes
-        if not prod_data.get("id"):
-            prod_data["id"] = f"PROD-{uuid.uuid4().hex[:8]}"
+        # Build canonical ItemCreateRequest delegating to UniversalItemMasterService (Requirement 3)
+        from ..schemas.item_master import ItemCreateRequest, ItemVariantItem, ItemBarcodeItem
+        from .item_master_svc import UniversalItemMasterService
 
-        db_product = Product(
-            **prod_data,
-            company_id=cid,
-            branch_id=bid
-        )
-        # Dual-Write Canonical Staging (Gate 5 Dual-Read/Write Compatibility)
-        # Deterministic Parent Style Identity (Blocker 4)
-        style = (db_product.style_code or "").strip()
-        if style:
-            item_code = style
-            item_status = "ACTIVE"
-        else:
-            item_code = f"ITM-UNASSIGNED-{db_product.id}"
-            item_status = "REQUIRES_REVIEW"
-
-        # Check or create parent Item without inventing business defaults (Blockers 2 & 3)
-        existing_item_res = await self.db.execute(
-            select(Item).filter(
-                Item.company_id == cid,
-                Item.item_code == item_code,
-                Item.is_deleted == False
-            )
-        )
-        canonical_item = existing_item_res.scalars().first()
-        if not canonical_item:
-            canonical_item = Item(
-                id=f"itm_{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                company_id=cid,
-                branch_id=bid,
-                item_code=item_code,
-                item_name=db_product.name,
-                item_type="FINISHED_GOOD",
-                category=db_product.category or None,
-                category_code=db_product.category_code or None,
-                brand=db_product.brand or None,
-                hsn_code=db_product.hsn_code or None,
-                tax_rate=db_product.gst_percentage or None,
-                primary_uom=None,
-                status=item_status,
-                is_active=True,
-                is_deleted=False
-            )
-            self.db.add(canonical_item)
-            await self.db.flush()
-
-        # Create Canonical Variant (Physical identity only — Blocker 1)
-        var_id = f"var_{uuid.uuid4().hex[:12]}"
-        var_uuid = str(uuid.uuid4())
-        canonical_variant = ItemVariant(
-            id=var_id,
-            uuid=var_uuid,
-            company_id=cid,
-            branch_id=bid,
-            item_id=canonical_item.id,
-            variant_sku=db_product.code,
-            variant_name=db_product.name,
-            attributes_json={"color": db_product.color, "size": db_product.size} if (db_product.color or db_product.size) else {},
-            is_active=True,
-            is_deleted=False
-        )
-        self.db.add(canonical_variant)
-        await self.db.flush()
-
-        # Keep the legacy product directly linked to its canonical ItemMaster records.
-        db_product.item_id = canonical_item.id
-        db_product.item_variant_id = canonical_variant.id
-        self.db.add(db_product)
-
-        # Authoritative Pricing Domain: Insert PriceBookEntry (Blocker 1)
-        res_pb = await self.db.execute(
-            select(PriceBook).filter(
-                PriceBook.company_id == cid,
-                PriceBook.is_default == True,
-                PriceBook.is_deleted == False
-            )
-        )
-        default_pb = res_pb.scalars().first()
-        if not default_pb:
-            default_pb = PriceBook(
-                id=f"pb_{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                company_id=cid,
-                branch_id=bid,
-                name=f"Standard Retail Price List ({cid})",
-                code=f"DEFAULT-{cid}",
-                currency="INR",
-                is_default=True,
-                status="ACTIVE",
-                is_active=True,
-                is_deleted=False
-            )
-            self.db.add(default_pb)
-
-        price_entry = PriceBookEntry(
-            id=f"pbe_{uuid.uuid4().hex[:12]}",
-            uuid=str(uuid.uuid4()),
-            company_id=cid,
-            branch_id=bid,
-            price_book_id=default_pb.id,
-            item_id=canonical_item.id,
-            variant_id=canonical_variant.id,
-            min_quantity=1.0000,
-            selling_price=db_product.price or 0.00,
-            mrp=db_product.mrp or 0.00,
-            cost_price=db_product.cost_price or 0.00,
-            is_active=True,
-            is_deleted=False
-        )
-        self.db.add(price_entry)
-
-        # Create Canonical Barcode if provided
-        if db_product.barcode and str(db_product.barcode).strip():
-            clean_bc = str(db_product.barcode).strip()
+        barcodes = []
+        if product_in.barcode and str(product_in.barcode).strip():
+            clean_bc = str(product_in.barcode).strip().upper()
             bc_type = "EAN13" if len(clean_bc) == 13 and clean_bc.isdigit() else "CODE128_INTERNAL"
-            canonical_barcode = ItemBarcode(
-                id=f"bc_{uuid.uuid4().hex[:12]}",
-                uuid=str(uuid.uuid4()),
-                company_id=cid,
-                branch_id=bid,
-                item_id=canonical_item.id,
-                variant_id=canonical_variant.id,
-                barcode=clean_bc,
-                barcode_type=bc_type,
-                is_primary=True,
-                is_active=True,
-                is_deleted=False
-            )
-            self.db.add(canonical_barcode)
+            barcodes.append(ItemBarcodeItem(barcode=clean_bc, barcode_type=bc_type, is_primary=True))
 
-        # Record Permanent Lineage Mapping
-        mapping = LegacyIdMapping(
-            id=f"map_{uuid.uuid4().hex[:12]}",
-            uuid=str(uuid.uuid4()),
+        variant_item = ItemVariantItem(
+            variant_sku=prod_code,
+            variant_name=product_in.name,
+            size=product_in.size,
+            color=product_in.color,
+            mrp=float(product_in.mrp or 0.0),
+            selling_price=float(product_in.price or 0.0),
+            cost_price=float(product_in.cost_price or 0.0),
+            is_active=True,
+            barcodes=barcodes,
+            attributes_json=product_in.attributes or {}
+        )
+
+        auto_gen = bool(getattr(product_in, "auto_generate_article_number", False))
+        sup_payload = getattr(product_in, "supplier", None) or (product_in.attributes.get("supplier") if product_in.attributes else None)
+
+        item_req = ItemCreateRequest(
+            item_code=None if auto_gen else article_code,
+            item_name=product_in.name,
+            category=getattr(product_in, "category", None) or "Footwear",
+            category_code=getattr(product_in, "category_code", None),
+            brand=getattr(product_in, "brand", None),
+            style_code=style or (None if auto_gen else article_code),
+            color=getattr(product_in, "color", None),
+            size=getattr(product_in, "size", None),
+            vendor_code=getattr(product_in, "vendor_code", None),
+            hsn_code=getattr(product_in, "hsn_code", None) or "64041990",
+            tax_rate=float(getattr(product_in, "gst_percentage", None) or 18.0),
+            primary_uom=getattr(product_in, "uom", None) or "PCS",
+            mrp=float(getattr(product_in, "mrp", None) or 0.0),
+            selling_price=float(getattr(product_in, "price", None) or 0.0),
+            cost_price=float(getattr(product_in, "cost_price", None) or 0.0),
+            buying_price=float(product_in.buying_price) if getattr(product_in, "buying_price", None) is not None else None,
+            is_batch_tracked=bool(getattr(product_in, "is_batch_tracked", False)),
+            is_serial_tracked=bool(getattr(product_in, "is_serial_tracked", False)),
+            attributes_json=getattr(product_in, "attributes", None) or {},
+            variants=[variant_item],
+            auto_generate_article_number=auto_gen,
+            supplier=sup_payload
+        )
+
+        canonical_item = await UniversalItemMasterService.create_item(
+            session=self.db,
+            req=item_req,
             company_id=cid,
             branch_id=bid,
-            migration_run_id="live_sync",
-            legacy_table="products",
-            legacy_id=db_product.id,
-            legacy_uuid=db_product.uuid,
-            canonical_table="item_variants",
-            canonical_id=canonical_variant.id,
-            canonical_uuid=canonical_variant.uuid,
-            disposition="MIGRATED",
-            is_active=True,
-            is_deleted=False
+            commit=True
         )
-        self.db.add(mapping)
 
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="Product with this code or barcode already exists"
+        # Retrieve the synchronized Product record representing this variant
+        prod_stmt = select(Product).where(
+            Product.company_id == cid,
+            Product.code == prod_code,
+            Product.is_deleted == False
+        )
+        prod = (await self.db.execute(prod_stmt)).scalars().first()
+        if not prod:
+            fallback_conditions = [Product.sku == prod_code]
+            if product_in.color and product_in.size:
+                fallback_conditions.append(
+                    and_(
+                        Product.item_id == canonical_item.id,
+                        func.lower(Product.color) == str(product_in.color).strip().lower(),
+                        func.lower(Product.size) == str(product_in.size).strip().lower(),
+                    )
+                )
+            prod_stmt = select(Product).where(
+                Product.company_id == cid,
+                Product.is_deleted == False,
+                or_(*fallback_conditions)
             )
-        await self.db.refresh(db_product)
-        return db_product
+            prod = (await self.db.execute(prod_stmt)).scalars().first()
+        if not prod:
+            prod_stmt = select(Product).where(
+                Product.company_id == cid,
+                Product.item_id == canonical_item.id,
+                Product.is_deleted == False
+            ).order_by(Product.created_at.desc())
+            prod = (await self.db.execute(prod_stmt)).scalars().first()
+
+        return prod
 
     async def check_stock_availability(self, product_id: str, quantity: float) -> bool:
         stmt = select(Product).filter(

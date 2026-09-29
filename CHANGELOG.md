@@ -30,6 +30,29 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.47.2] - 2026-09-29 — Article / Design Master Consolidation & Existing-Flow Refactor
+
+> **Branch:** `smritiNX` | **Area:** Catalog / Item Master
+> **Walkthrough:** `docs/walkthrough/catalog/Catalog_Article_Design_Master_Consolidation_And_Existing_Flow_Refactor_v6.47.0.md`
+
+### Added
+- **Canonical Article / Design Master Workflow:** `UniversalItemMasterService.create_item()` consolidated as the single canonical creation pipeline across SMRITI Retail OS for catalog identities (`items`), variant matrices (`item_variants`), and barcodes (`item_barcodes`).
+- **Article Numbering Decoupling & Guard:** Supported manual Article Numbers and optional automatic Article Numbering via `document_series` (`document_type = 'ARTICLE'`) and `DocumentsEngine.allocate_next_number_in_transaction()`. Added strict HTTP 400 guard (`"Article numbering series is not configured for this company/branch."`) when no series is configured.
+- **Variant Matrix Standardization:** Standardized Size × Color variant matrix SKU formatting to `{item_code}-{COLOR}-{SIZE}` for new variants while strictly preserving historical SKUs.
+- **Product Execution Synchronization:** Automatic synchronization linking newly activated variants into `products` (`item_id`, `item_variant_id`, `sku`, `code`), default `PriceBookEntry`, and permanent `LegacyIdMapping`.
+- **Supplier Governance Integration:** Article-level supplier assignments attached directly to `vendor_product_assignments` with policy flags (`allow_po`, `allow_grn`, `approval_required`) honoring `POProductPolicyEngine`.
+- **Read-Only Legacy Products Audit:** Generated dry-run candidate matching report for 1,405 legacy products with `NULL item_id` (`legacy_products_dry_run_report.json`) without executing any database modifications.
+
+### Changed
+- **Compatibility Adapter Layer (`InventoryService.create_product`):** Refactored `InventoryService.create_product()` from an independent creator into a backward-compatible adapter delegating directly to `UniversalItemMasterService.create_item()` and returning the synchronized `Product`.
+- **Frontend Master Terminology (`ItemMasterWs.tsx`, `AddProductDrawer.tsx`, `ItemCatalogGrid.tsx`):** Standardized user-facing catalog terminology to "Article / Design", "Variant Matrix", and "Add Article / Design". Added toggle for `[ Manual Article Number ]` vs `[ Auto Generate ]` and integrated Supplier Governance input controls.
+
+### Verified
+- **Consolidation Battery Suite:** 20/20 battery test cases green across 13 test suites in `scripts/test_article_consolidation_battery.py`.
+- **Dimension Governance Suite:** 4/4 test cases green in `backend/tests/test_catalog_dimension_validation.py`.
+- **Database Safety Check:** 0 duplicate item codes, 0 duplicate variant SKUs, 0 duplicate barcodes, 0 orphan variants, 0 orphan products, and 0 conflicting links in `scripts/db_safety_check.py`.
+- **Frontend Production Build:** 3,622 modules transformed cleanly with 0 errors via `npm run build`.
+
 ## [6.47.1] - 2026-09-29 — Staff Photo Upload, SPIF WebP Optimization & Identity Badge Integration
 
 > **Branch:** `smritiNX` | **Area:** Human Resources / Staff 360 Workspace

@@ -37,6 +37,7 @@ type DrawerTab = "basic" | "pricing" | "tax_inventory" | "attributes" | "additio
 
 interface ProductForm {
   sku: string;
+  autoGenerateArticleNumber: boolean;
   barcode: string;
   name: string;
   brand: string;
@@ -69,10 +70,16 @@ interface ProductForm {
   openingStock: string;
   reorderLevel: string;
   status: "Active" | "Inactive" | "Draft";
+  supplierPartyId: string;
+  supplierPriority: "PRIMARY" | "PREFERRED" | "SECONDARY";
+  allowPo: boolean;
+  allowGrn: boolean;
+  approvalRequired: boolean;
 }
 
 const INITIAL_FORM: ProductForm = {
   sku: "",
+  autoGenerateArticleNumber: false,
   barcode: "",
   name: "",
   brand: "",
@@ -105,6 +112,11 @@ const INITIAL_FORM: ProductForm = {
   openingStock: "",
   reorderLevel: "",
   status: "Active",
+  supplierPartyId: "",
+  supplierPriority: "PRIMARY",
+  allowPo: true,
+  allowGrn: true,
+  approvalRequired: false,
 };
 
 const TABS: { id: DrawerTab; label: string; number: number }[] = [
@@ -112,7 +124,7 @@ const TABS: { id: DrawerTab; label: string; number: number }[] = [
   { id: "pricing", label: "Pricing", number: 2 },
   { id: "tax_inventory", label: "Tax & Inventory", number: 3 },
   { id: "attributes", label: "Attributes", number: 4 },
-  { id: "additional", label: "Additional Info", number: 5 },
+  { id: "additional", label: "Supplier & Additional", number: 5 },
 ];
 
 // ── Shared UI Helpers ─────────────────────────────────────────────────────────
@@ -205,11 +217,52 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
 
     {/* Column 2: Basic Information */}
     <div className="col-span-12 md:col-span-3">
-      <SectionTitle>Basic Information</SectionTitle>
+      <SectionTitle>Article / Design Identity</SectionTitle>
       <div className="space-y-2.5 mt-2">
-        <FormField label="SKU / Item Code" required>
-          <input type="text" value={form.sku} onChange={(e) => update("sku", e.target.value)} placeholder="FT00123BLK08" className={inputCls} />
-        </FormField>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[11px] font-semibold text-[#374151] dark:text-[#94a3b8]">
+              Article Number / SKU <span className="text-red-500">*</span>
+            </label>
+            <div className="flex items-center gap-1 bg-[#f1f5f9] dark:bg-[#1e293b] p-0.5 rounded text-[10px]">
+              <button
+                type="button"
+                onClick={() => update("autoGenerateArticleNumber", false)}
+                className={`px-2 py-0.5 rounded font-semibold transition ${
+                  !form.autoGenerateArticleNumber
+                    ? "bg-white dark:bg-[#0052cc] text-[#0f172a] dark:text-white shadow-xs"
+                    : "text-[#64748b] dark:text-[#94a3b8]"
+                }`}
+              >
+                Manual
+              </button>
+              <button
+                type="button"
+                onClick={() => update("autoGenerateArticleNumber", true)}
+                className={`px-2 py-0.5 rounded font-semibold transition ${
+                  form.autoGenerateArticleNumber
+                    ? "bg-white dark:bg-[#0052cc] text-[#0f172a] dark:text-white shadow-xs"
+                    : "text-[#64748b] dark:text-[#94a3b8]"
+                }`}
+              >
+                Auto Generate
+              </button>
+            </div>
+          </div>
+          {form.autoGenerateArticleNumber ? (
+            <div className="w-full px-3 py-1.5 rounded-lg border border-dashed border-[#2563eb] bg-[#eff6ff]/50 dark:bg-[#1d3054]/20 text-xs font-mono text-[#2563eb] dark:text-[#93c5fd]">
+              [Auto-Allocated from Active Series]
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={form.sku}
+              onChange={(e) => update("sku", e.target.value)}
+              placeholder="e.g. ART-1001 / FT00123"
+              className={inputCls}
+            />
+          )}
+        </div>
         <FormField label="Barcode">
           <div className="relative">
             <input type="text" value={form.barcode} onChange={(e) => update("barcode", e.target.value)} placeholder="8901234567890" className={inputCls} />
@@ -545,37 +598,92 @@ const AttributesTab: React.FC<TabProps> = () => (
   </div>
 );
 
-// ── Tab 5: Additional Info ────────────────────────────────────────────────────
+// ── Tab 5: Supplier & Additional Info ─────────────────────────────────────────
 
-const AdditionalInfoTab: React.FC<TabProps> = () => (
+const AdditionalInfoTab: React.FC<TabProps> = ({ form, update }) => (
   <div className="p-6">
-    <SectionTitle>Supplier &amp; Tracking</SectionTitle>
+    <SectionTitle>Supplier Sourcing &amp; Governance</SectionTitle>
+    <p className="text-xs text-[#94a3b8] mt-1 mb-4">
+      Configure vendor assignment and PO / GRN procurement policy rules.
+    </p>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-4">
-      <FormField label="Vendor Code">
-        <input type="text" placeholder="e.g. VENDOR-001" className={inputCls} />
+      <FormField label="Supplier / Vendor Code">
+        <input
+          type="text"
+          value={form.supplierPartyId}
+          onChange={(e) => update("supplierPartyId", e.target.value)}
+          placeholder="e.g. VEND-SUP-001"
+          className={inputCls}
+        />
       </FormField>
-      <FormField label="Country of Origin">
-        <select className={inputCls}>
-          <option value="">Select Country</option>
-          {["India", "China", "Vietnam", "Bangladesh", "Italy", "USA"].map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
+      <FormField label="Supplier Priority">
+        <select
+          value={form.supplierPriority}
+          onChange={(e) => update("supplierPriority", e.target.value as any)}
+          className={inputCls}
+        >
+          <option value="PRIMARY">PRIMARY</option>
+          <option value="PREFERRED">PREFERRED</option>
+          <option value="SECONDARY">SECONDARY</option>
         </select>
       </FormField>
-      <FormField label="Unit of Measure">
-        <select className={inputCls}>
-          <option value="Pair">Pair</option>
-          <option value="Pcs">Pcs</option>
-          <option value="Box">Box</option>
-          <option value="Set">Set</option>
-        </select>
-      </FormField>
-      <FormField label="Weight (grams)">
-        <input type="number" placeholder="0" className={inputCls} />
-      </FormField>
-      <FormField label="Warranty (months)">
-        <input type="number" placeholder="0" className={inputCls} />
-      </FormField>
+      <div className="flex flex-col justify-end space-y-2 pb-1">
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
+          <input
+            type="checkbox"
+            checked={form.allowPo}
+            onChange={(e) => update("allowPo", e.target.checked)}
+            className="accent-[#2563eb] rounded"
+          />
+          Allow Purchase Orders (PO)
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
+          <input
+            type="checkbox"
+            checked={form.allowGrn}
+            onChange={(e) => update("allowGrn", e.target.checked)}
+            className="accent-[#2563eb] rounded"
+          />
+          Allow Goods Receipts (GRN)
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer text-xs text-[#374151] dark:text-[#e2e8f0]">
+          <input
+            type="checkbox"
+            checked={form.approvalRequired}
+            onChange={(e) => update("approvalRequired", e.target.checked)}
+            className="accent-[#2563eb] rounded"
+          />
+          Approval Required
+        </label>
+      </div>
+    </div>
+
+    <div className="mt-6 pt-4 border-t border-[#e2e8f0] dark:border-[#2d3133]">
+      <SectionTitle>Additional Attributes &amp; Specifications</SectionTitle>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-4">
+        <FormField label="Country of Origin">
+          <select className={inputCls}>
+            <option value="">Select Country</option>
+            {["India", "China", "Vietnam", "Bangladesh", "Italy", "USA"].map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Unit of Measure">
+          <select className={inputCls}>
+            <option value="Pair">Pair</option>
+            <option value="Pcs">Pcs</option>
+            <option value="Box">Box</option>
+            <option value="Set">Set</option>
+          </select>
+        </FormField>
+        <FormField label="Weight (grams)">
+          <input type="number" placeholder="0" className={inputCls} />
+        </FormField>
+        <FormField label="Warranty (months)">
+          <input type="number" placeholder="0" className={inputCls} />
+        </FormField>
+      </div>
     </div>
   </div>
 );
@@ -617,8 +725,12 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   };
 
   const handleSave = async () => {
-    if (!form.sku.trim()) { onNotification?.("Validation Error", "SKU / Item Code is required.", "error"); setActiveTab("basic"); return; }
-    if (!form.name.trim()) { onNotification?.("Validation Error", "Product Name is required.", "error"); setActiveTab("basic"); return; }
+    if (!form.autoGenerateArticleNumber && !form.sku.trim()) {
+      onNotification?.("Validation Error", "Article Number / SKU is required when manual numbering is selected.", "error");
+      setActiveTab("basic");
+      return;
+    }
+    if (!form.name.trim()) { onNotification?.("Validation Error", "Article Name is required.", "error"); setActiveTab("basic"); return; }
     if (!form.barcode.trim()) { onNotification?.("Validation Error", "Barcode is required.", "error"); setActiveTab("basic"); return; }
 
     setIsSaving(true);
@@ -641,10 +753,21 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       };
       Object.keys(attrs).forEach((k) => { if (attrs[k] === null) delete attrs[k]; });
 
+      const supplierPayload = form.supplierPartyId.trim()
+        ? {
+            vendor_party_id: form.supplierPartyId.trim(),
+            vendor_priority: form.supplierPriority,
+            allow_po: form.allowPo,
+            allow_grn: form.allowGrn,
+            approval_required: form.approvalRequired,
+          }
+        : null;
+
       await apiFetchV1("/inventory/", {
         method: "POST",
         body: JSON.stringify({
-          code: form.sku.trim(),
+          code: form.autoGenerateArticleNumber ? "AUTO" : form.sku.trim(),
+          auto_generate_article_number: form.autoGenerateArticleNumber,
           name: form.name.trim(),
           barcode: form.barcode.trim(),
           brand: form.brand || null,
@@ -658,16 +781,17 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
           gst_percentage: parseFloat(form.gstPercentage) || 12,
           hsn_code: form.hsnCode || null,
           attributes: attrs,
+          supplier: supplierPayload,
         }),
       });
-      onNotification?.("Product Saved", `"${form.name}" has been added to the catalog.`, "success");
+      onNotification?.("Article / Design Saved", `"${form.name}" has been added to the canonical catalog.`, "success");
       setForm(INITIAL_FORM);
       setImagePreview(null);
       setActiveTab("basic");
       onSaved();
       onClose();
     } catch (err: any) {
-      onNotification?.("Save Failed", err?.message || "Failed to save product.", "error");
+      onNotification?.("Save Failed", err?.message || "Failed to save article / design.", "error");
     } finally {
       setIsSaving(false);
     }
@@ -698,7 +822,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
             <span className="w-6 h-6 rounded-md bg-[#eff6ff] dark:bg-[#1d3054] flex items-center justify-center">
               <Plus size={14} className="text-[#2563eb]" />
             </span>
-            Add Product ({productType})
+            Add Article / Design ({productType})
           </h2>
           <button type="button" onClick={handleClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#f1f5f9] dark:hover:bg-[#2d3133] transition text-[#64748b]">
             <X size={16} />
@@ -771,7 +895,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                 {isSaving ? (
                   <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving...</>
                 ) : (
-                  <><Check size={14} />Save Product</>
+                  <><Check size={14} />Save Article / Design</>
                 )}
               </button>
             )}

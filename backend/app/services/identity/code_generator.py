@@ -158,6 +158,13 @@ class IdentityCodeGenerator:
                 else:
                     allocated_seq = 1
         else:
+            max_seq_stmt = select(func.max(SmritiNumberingRegistry.sequence_value)).where(
+                SmritiNumberingRegistry.entity_type == entity_type_upper,
+                SmritiNumberingRegistry.prefix == actual_prefix,
+            )
+            max_existing_seq = (await session.execute(max_seq_stmt)).scalar() or 0
+            if numbering_record.sequence_value < max_existing_seq:
+                numbering_record.sequence_value = max_existing_seq
             numbering_record.sequence_value += 1
             allocated_seq = numbering_record.sequence_value
             padding = numbering_record.padding or padding
