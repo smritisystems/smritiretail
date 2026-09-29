@@ -22,10 +22,12 @@ Incentive Definition backed by commission_rules + commission_programs.
 """
 
 import json
+import os
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,12 +45,16 @@ from ...models.staff_profile import StaffProfile
 from ...models.staff_profile_history import StaffProfileHistory
 from ...schemas.user import StaffUserUpdate
 from ...services.user import to_staff_response
+from ...services.spif import SpifService
 
 router = APIRouter(prefix="/staff")
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
 # ---------------------------------------------------------------------------
+
+class StaffPhotoPayload(BaseModel):
+    photo_data: str
 
 class PersonnelOut(BaseModel):
     id: str
@@ -554,6 +560,118 @@ async def update_staff_directory_profile(
     await company_db.commit()
     await company_db.refresh(profile)
     return _merge_staff_profile(user, profile)
+
+
+@router.post("/directory/{user_id}/photo")
+async def upload_staff_photo(
+    user_id: str,
+    payload: StaffPhotoPayload,
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    company_db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload, optimize to WebP via SPIF, and attach staff headshot photo."""
+    _require_manager(current_user)
+    user = (await control_db.execute(select(User).where(
+        User.id == user_id,
+        User.company_id == tenant.company_id,
+        User.is_deleted == False,
+    ))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Staff identity was not found in the active company.")
+
+    profile = (await company_db.execute(select(StaffProfile).where(
+        StaffProfile.company_id == tenant.company_id,
+        StaffProfile.user_id == user_id,
+        StaffProfile.is_deleted == False,
+    ))).scalar_one_or_none()
+    local_user = None
+    if not profile:
+        local_user = (await company_db.execute(select(User).where(
+            User.username == user.username,
+            User.is_deleted == False,
+        ))).scalar_one_or_none()
+        if local_user:
+            profile = (await company_db.execute(select(StaffProfile).where(
+                StaffProfile.company_id == tenant.company_id,
+                StaffProfile.user_id == local_user.id,
+                StaffProfile.is_deleted == False,
+            ))).scalar_one_or_none()
+    if not profile:
+        profile_user_id = local_user.id if local_user else user_id
+        profile = StaffProfile(
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
+            user_id=profile_user_id,
+            created_by=current_user.id,
+        )
+        company_db.add(profile)
+        await company_db.flush()
+
+    # Delete previous local photo if present
+    if profile.photo and "/photos/" in profile.photo:
+        old_filename = profile.photo.split("/photos/")[-1]
+        SpifService.delete_image_file(old_filename)
+
+    try:
+        filename = SpifService.process_and_save_base64_image(payload.photo_data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to process staff photo: {str(e)}")
+
+    relative_url = f"/api/v1/staff/photos/{filename}"
+    profile.photo = relative_url
+    profile.modified_at = datetime.now(timezone.utc)
+    user.photo = relative_url
+
+    await company_db.commit()
+    await control_db.commit()
+    return {"success": True, "photoUrl": relative_url, "filename": filename}
+
+
+@router.delete("/directory/{user_id}/photo")
+async def delete_staff_photo(
+    user_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    company_db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete staff photo."""
+    _require_manager(current_user)
+    profile = (await company_db.execute(select(StaffProfile).where(
+        StaffProfile.company_id == tenant.company_id,
+        StaffProfile.user_id == user_id,
+        StaffProfile.is_deleted == False,
+    ))).scalar_one_or_none()
+    if profile and profile.photo:
+        if "/photos/" in profile.photo:
+            old_filename = profile.photo.split("/photos/")[-1]
+            SpifService.delete_image_file(old_filename)
+        profile.photo = None
+        profile.modified_at = datetime.now(timezone.utc)
+        await company_db.commit()
+
+    user = (await control_db.execute(select(User).where(
+        User.id == user_id,
+        User.company_id == tenant.company_id,
+        User.is_deleted == False,
+    ))).scalar_one_or_none()
+    if user:
+        user.photo = None
+        await control_db.commit()
+
+    return {"success": True, "message": "Photo removed"}
+
+
+@router.get("/photos/{filename}", include_in_schema=False)
+async def get_staff_photo(filename: str):
+    """Serve staff photo from the local static uploads folder."""
+    clean_filename = os.path.basename(filename)
+    filepath = SpifService.get_image_path(clean_filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return FileResponse(filepath, media_type="image/webp")
 
 
 # ---------------------------------------------------------------------------

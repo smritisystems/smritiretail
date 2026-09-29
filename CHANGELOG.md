@@ -30,6 +30,26 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.47.1] - 2026-09-29 — Staff Photo Upload, SPIF WebP Optimization & Identity Badge Integration
+
+> **Branch:** `smritiNX` | **Area:** Human Resources / Staff 360 Workspace
+> **Walkthrough:** `docs/walkthrough/hr/Staff_Photo_Upload_And_SPIF_Integration_v6.46.2.md`
+> **Implementation Plan:** `docs/implementation/hr/Staff_Photo_Upload_And_SPIF_Integration_Plan_v6.46.2.md`
+
+### Added
+- **Staff Photo Endpoints (`backend/app/api/v1/staff.py`):**
+  - `POST /api/v1/staff/directory/{user_id}/photo`: Receives image payload, performs EXIF auto-orientation, Lanczos downsampling, and WebP compression via `SpifService`, returning a static URL and updating `StaffProfile.photo` and `User.photo`. Purges old local images to prevent orphan disk growth.
+  - `DELETE /api/v1/staff/directory/{user_id}/photo`: Purges local WebP file from disk and clears photo references.
+  - `GET /api/v1/staff/photos/{filename}`: Safe static file streaming endpoint with path sanitization (`os.path.basename`).
+- **Staff Photo UI & Canvas Downsampler (`src/components/staff/StaffMasterWs.tsx`):**
+  - Integrated Photo Upload card in Edit Staff modal (`activeEditSubTab === "general"`).
+  - Client-side `<canvas>` downsampling reducing camera/smartphone files to max 500×500 px WebP prior to network transit (< 35 KB).
+  - URL fallback allowing direct configuration of external CDN, S3, or GCS URLs.
+  - Enhanced **Identity** tab with photo preview, active status badge, and immediate "Update Photo" action.
+  - Direct integration with CR-80 PVC physical badge printing in `StaffPrintModal.tsx`.
+- **Automated Tests (`backend/tests/test_staff_photo_upload.py`):**
+  - 3 unit tests verifying schema payload, SPIF transcoding, disk file creation/deletion, and router endpoint registration.
+
 ## [6.47.0] - 2026-09-28 — ItemMaster UX Refactor: 5-Tab AddProductDrawer & Rich Catalog Grid
 
 > **Branch:** `smritiNX` | **Commits:** `0d986acb`, `41069e77` | **Area:** Item Master / Catalog

@@ -13,12 +13,13 @@
  * Source Module: Staff 360 Workspace & HR User Governance
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   BadgeCheck,
   Building2,
   CalendarDays,
+  Camera,
   CheckCircle2,
   CircleUserRound,
   ClipboardCheck,
@@ -37,6 +38,8 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Trash2,
+  Upload,
   UserRound,
   Users,
   WalletCards,
@@ -139,6 +142,8 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   const [showMaskedAccount, setShowMaskedAccount] = useState(true);
   const [showMaskedAadhaar, setShowMaskedAadhaar] = useState(true);
   const [saving, setSaving] = useState(false);
+  const photoFileInputRef = useRef<HTMLInputElement>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [editDraft, setEditDraft] = useState({
     fullName: "",
     displayName: "",
@@ -147,6 +152,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
     branch: "",
     status: "Active",
     role: "CASHIER",
+    photo: "",
     bankName: "",
     accountNumber: "",
     ifscCode: "",
@@ -217,6 +223,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
           branch: user.branch || "",
           status: user.status || "Active",
           role: user.role || "CASHIER",
+          photo: user.photo || "",
           bankName: p?.bankName || "",
           accountNumber: p?.accountNumber || "",
           ifscCode: p?.ifscCode || "",
@@ -287,7 +294,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   const adminCount = staff.filter((person) => ["SYSADMIN", "ADMIN", "MANAGER"].includes(String(person.role))).length;
   const profileFields = [selected.fullName, selected.employeeId || selected.employeeCode, selected.email, selected.mobile, selected.department, selected.designation, selected.branch, selected.dateOfJoining, selected.reportingManager, selected.photo];
   const profileCompletion = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100);
-  const photoUrl = selected.photo && !selected.photo.startsWith("data:") ? selected.photo : "";
+  const photoUrl = selected.photo || "";
 
   const handleCreate = async () => {
     if (!newStaff.fullName || !newStaff.username || !newStaff.password) {
@@ -317,6 +324,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
         branch: editDraft.branch,
         status: editDraft.status,
         role: editDraft.role,
+        photo: editDraft.photo || null,
         payment: {
           ...selected.payment,
           frequency: selected.payment?.frequency || "Monthly",
@@ -349,6 +357,92 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       onNotification?.("Staff Update Failed", error?.message || "Unable to save staff changes.", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      onNotification?.("Invalid File", "Please select a valid image file (JPG, PNG, WebP).", "error");
+      return;
+    }
+
+    setPhotoUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement("canvas");
+          const MAX_DIM = 500;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/webp", 0.85);
+
+          if (selected?.id) {
+            try {
+              const resp = await apiFetchV1<{ success: boolean; photoUrl: string }>(
+                `/staff/directory/${selected.id}/photo`,
+                {
+                  method: "POST",
+                  body: { photo_data: dataUrl },
+                }
+              );
+              if (resp.photoUrl) {
+                setEditDraft((prev) => ({ ...prev, photo: resp.photoUrl }));
+                setSelected((prev) => ({ ...prev, photo: resp.photoUrl }));
+                onNotification?.("Photo Uploaded", "Staff photo optimized and attached successfully.", "success");
+                await loadStaff();
+                return;
+              }
+            } catch (err: any) {
+              console.warn("Direct photo upload error, falling back to draft state", err);
+            }
+          }
+          setEditDraft((prev) => ({ ...prev, photo: dataUrl }));
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      onNotification?.("Photo Error", error?.message || "Failed to process photo.", "error");
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    setPhotoUploading(true);
+    try {
+      if (selected?.id && editDraft.photo && editDraft.photo.startsWith("/api/v1/staff/photos/")) {
+        await apiFetchV1(`/staff/directory/${selected.id}/photo`, { method: "DELETE" });
+      }
+      setEditDraft((prev) => ({ ...prev, photo: "" }));
+      setSelected((prev) => ({ ...prev, photo: "" }));
+      if (photoFileInputRef.current) photoFileInputRef.current.value = "";
+      onNotification?.("Photo Removed", "Staff photo has been removed.", "info");
+      await loadStaff();
+    } catch (err: any) {
+      onNotification?.("Remove Failed", err?.message || "Failed to remove photo.", "error");
+    } finally {
+      setPhotoUploading(false);
     }
   };
 
@@ -536,7 +630,54 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
           {renderField("Risk flags", "None reported")}
         </div></div>;
       case "identity":
-        return <div className="space-y-4"><div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">{photoUrl ? <img src={photoUrl} alt={`${displayValue(selected.fullName, "Staff")} profile`} className="h-20 w-20 rounded-xl object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-indigo-100 text-2xl font-black text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{displayValue(selected.fullName, "S").charAt(0).toUpperCase()}</div>}<div><div className="text-sm font-bold">Staff photo</div><div className="mt-1 text-xs text-slate-500">{photoUrl ? "Loaded from an approved object-storage URL." : selected.photo ? "Legacy inline image is hidden until migrated to object storage." : "No photo has been added."}</div></div></div><div className="grid gap-3 sm:grid-cols-2">{renderField("Full name", selected.fullName)}{renderField("Display name", selected.displayName)}{renderField("Username", selected.username)}{renderField("Email", selected.email)}{renderField("Mobile", selected.mobile)}{renderField("Date of birth", selected.dateOfBirth)}{renderField("Address", selected.address)}{renderField("Photo", photoUrl ? "Object URL available" : "Not provided")}</div></div>;
+        return (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-4">
+                {photoUrl ? (
+                  <img src={photoUrl} alt={`${displayValue(selected.fullName, "Staff")} profile`} className="h-20 w-20 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm" />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-indigo-100 text-2xl font-black text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                    {displayValue(selected.fullName, "S").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Staff Headshot & Photo</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {photoUrl
+                      ? photoUrl.startsWith("/api/v1/staff/photos/")
+                        ? "Optimized WebP headshot active (ready for ID card printing)."
+                        : photoUrl.startsWith("http")
+                        ? "Loaded from external / CDN URL."
+                        : "Photo attached."
+                      : "No photo has been added yet."}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveEditSubTab("general");
+                  setIsEditing(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+              >
+                <Camera size={13} />
+                {photoUrl ? "Update Photo" : "Add Photo"}
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {renderField("Full name", selected.fullName)}
+              {renderField("Display name", selected.displayName)}
+              {renderField("Username", selected.username)}
+              {renderField("Email", selected.email)}
+              {renderField("Mobile", selected.mobile)}
+              {renderField("Date of birth", selected.dateOfBirth)}
+              {renderField("Address", selected.address)}
+              {renderField("Photo", photoUrl ? "Photo active" : "Not provided")}
+            </div>
+          </div>
+        );
       case "employment":
         return <div className="grid gap-3 sm:grid-cols-2">{renderField("Employee ID", selected.employeeId)}{renderField("Employment type", selected.employmentType)}{renderField("Date of joining", selected.dateOfJoining)}{renderField("Reporting manager", selected.reportingManager)}{renderField("Department", selected.department)}{renderField("Designation", selected.designation)}{renderField("Emergency contact", selected.emergencyContact)}</div>;
       case "attendance":
@@ -822,69 +963,128 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
             </div>
 
             {activeEditSubTab === "general" && (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-500">Full Name</label>
-                  <input
-                    aria-label="Edit full name"
-                    value={editDraft.fullName}
-                    onChange={(e) => setEditDraft({ ...editDraft, fullName: e.target.value })}
-                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="Full name"
-                  />
+              <div className="space-y-4">
+                {/* Photo Upload Card */}
+                <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-3.5">
+                  <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center shadow-xs">
+                    {editDraft.photo ? (
+                      <img src={editDraft.photo} alt="Preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserRound size={32} className="text-slate-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-[240px] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Staff Headshot Photo</span>
+                      {editDraft.photo && (
+                        <button
+                          type="button"
+                          disabled={photoUploading}
+                          onClick={handleRemovePhoto}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-600 hover:text-rose-700"
+                        >
+                          <Trash2 size={11} /> Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        ref={photoFileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/jpg"
+                        onChange={handlePhotoFileUpload}
+                        className="hidden"
+                        id="staff-photo-upload-input"
+                      />
+                      <button
+                        type="button"
+                        disabled={photoUploading}
+                        onClick={() => photoFileInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                      >
+                        <Upload size={12} />
+                        {photoUploading ? "Optimizing..." : "Upload Photo / Camera"}
+                      </button>
+                      <span className="text-[11px] text-slate-400">or URL:</span>
+                      <input
+                        aria-label="Staff Photo URL"
+                        type="url"
+                        value={editDraft.photo && !editDraft.photo.startsWith("data:") ? editDraft.photo : ""}
+                        onChange={(e) => setEditDraft({ ...editDraft, photo: e.target.value })}
+                        placeholder="https://... or /api/v1/staff/photos/..."
+                        className="flex-1 min-w-[160px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                      />
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Supports JPG, PNG, WebP. Automatically converted and compressed for CR-80 ID badge printing.
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-500">Display Name</label>
-                  <input
-                    aria-label="Edit display name"
-                    value={editDraft.displayName}
-                    onChange={(e) => setEditDraft({ ...editDraft, displayName: e.target.value })}
-                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="Display name"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-500">Department</label>
-                  <input
-                    aria-label="Edit department"
-                    value={editDraft.department}
-                    onChange={(e) => setEditDraft({ ...editDraft, department: e.target.value })}
-                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="Department"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-500">Designation</label>
-                  <input
-                    aria-label="Edit designation"
-                    value={editDraft.designation}
-                    onChange={(e) => setEditDraft({ ...editDraft, designation: e.target.value })}
-                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="Designation"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-500">Branch</label>
-                  <input
-                    aria-label="Edit branch"
-                    value={editDraft.branch}
-                    onChange={(e) => setEditDraft({ ...editDraft, branch: e.target.value })}
-                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    placeholder="Branch"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-500">Status</label>
-                  <select
-                    aria-label="Edit status"
-                    value={editDraft.status}
-                    onChange={(e) => setEditDraft({ ...editDraft, status: e.target.value })}
-                    className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                  >
-                    <option>Active</option>
-                    <option>Inactive</option>
-                    <option>Suspended</option>
-                  </select>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Full Name</label>
+                    <input
+                      aria-label="Edit full name"
+                      value={editDraft.fullName}
+                      onChange={(e) => setEditDraft({ ...editDraft, fullName: e.target.value })}
+                      className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                      placeholder="Full name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Display Name</label>
+                    <input
+                      aria-label="Edit display name"
+                      value={editDraft.displayName}
+                      onChange={(e) => setEditDraft({ ...editDraft, displayName: e.target.value })}
+                      className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                      placeholder="Display name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Department</label>
+                    <input
+                      aria-label="Edit department"
+                      value={editDraft.department}
+                      onChange={(e) => setEditDraft({ ...editDraft, department: e.target.value })}
+                      className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                      placeholder="Department"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Designation</label>
+                    <input
+                      aria-label="Edit designation"
+                      value={editDraft.designation}
+                      onChange={(e) => setEditDraft({ ...editDraft, designation: e.target.value })}
+                      className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                      placeholder="Designation"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Branch</label>
+                    <input
+                      aria-label="Edit branch"
+                      value={editDraft.branch}
+                      onChange={(e) => setEditDraft({ ...editDraft, branch: e.target.value })}
+                      className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                      placeholder="Branch"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Status</label>
+                    <select
+                      aria-label="Edit status"
+                      value={editDraft.status}
+                      onChange={(e) => setEditDraft({ ...editDraft, status: e.target.value })}
+                      className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    >
+                      <option>Active</option>
+                      <option>Inactive</option>
+                      <option>Suspended</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
