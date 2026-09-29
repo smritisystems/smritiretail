@@ -6,7 +6,7 @@
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
   Version      : 6.47.2
   Created      : 2026-09-29
-  Modified     : 2026-09-29
+  Modified     : 2026-09-30
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal Implementation Plan
@@ -397,11 +397,11 @@ Execution must follow this strict sequence:
 - [x] Freeze this Implementation Plan Document (`SMRITI_ARTICLE_DESIGN_MASTER_UX_REFACTOR_PLAN.md`).
 
 ### Wave 1: P0 Architecture Bridges
-- [ ] **Step 1.1:** Re-activate `ItemCatalogGrid` as default view in `ItemMasterWs.tsx`.
-- [ ] **Step 1.2:** Mount `ItemDetailsGrid` as secondary `"Classic Spreadsheet View"` sub-tab.
-- [ ] **Step 1.3:** Implement `SpreadsheetPayloadAdapter` to sanitize PUT payloads (strip `code`, `sku`, `barcode`).
-- [ ] **Step 1.4:** Connect `AddProductDrawer` to canonical `POST /api/v1/inventory/` with `auto_generate_article_number: true`.
-- [ ] **Step 1.5:** Implement Live Numbering Series Preview badge in `AddProductDrawer`.
+- [x] **Step 1.1:** Re-activate `ItemCatalogGrid` as default view in `ItemMasterWs.tsx`.
+- [x] **Step 1.2:** Mount `ItemDetailsGrid` as secondary `"Classic Spreadsheet View"` sub-tab.
+- [x] **Step 1.3:** Implement `SpreadsheetPayloadAdapter` to sanitize PUT payloads (strip `code`, `sku`, `barcode`).
+- [x] **Step 1.4:** Connect `AddProductDrawer` to canonical `POST /api/v1/inventory/` with `auto_generate_article_number: true`.
+- [x] **Step 1.5:** Implement Live Numbering Series Preview badge in `AddProductDrawer`.
 
 ### Wave 2: P1 Governance & Matrix Bridges
 - [x] **Step 2.1:** Wire `fetchGovernedLookupOptions()` into `AddProductDrawer` (Brand, Category, Gender, Size, Color, HSN, Supplier).
@@ -410,10 +410,10 @@ Execution must follow this strict sequence:
 - [x] **Step 2.4:** Wire multi-barcode secondary chip list to `POST /api/v1/item-barcodes/`.
 
 ### Wave 3: P2 Adaptive UX & Responsive Polish
-- [ ] **Step 3.1:** Implement Mobile Drawer/Sidebar Collapse (collapsible drawer on `<1024px` viewports to fix VIS-MOB-01).
-- [ ] **Step 3.2:** Enforce 7-Action Budget on top toolbar (collapse secondary tools into `More Options` dropdown).
-- [ ] **Step 3.3:** SMRITI 3-Tier Adaptive Mode selector (SIMPLE, HYBRID, ADVANCED).
-- [ ] **Step 3.4:** Re-run 4-viewport Playwright visual audit for regression verification.
+- [x] **Step 3.1:** Implement Mobile Drawer/Sidebar Collapse (collapsible drawer on `<1024px` viewports to fix VIS-MOB-01).
+- [x] **Step 3.2:** Enforce 7-Action Budget on top toolbar (collapse secondary tools into `More Options` dropdown).
+- [x] **Step 3.3:** SMRITI 3-Tier Adaptive Mode selector (SIMPLE, HYBRID, ADVANCED).
+- [x] **Step 3.4:** Re-run 4-viewport Playwright visual audit for regression verification.
 
 ---
 

@@ -147,6 +147,4 @@ fix-typescript-errors.*
 ~$*.xlsx
 ~$*.docx
 
-
-
-
+.visual-audit-temp/

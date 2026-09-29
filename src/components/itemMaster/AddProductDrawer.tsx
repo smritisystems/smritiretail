@@ -37,6 +37,7 @@ interface AddProductDrawerProps {
   onSaved: () => void;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   productType?: string;
+  mode?: "SIMPLE" | "HYBRID" | "ADVANCED";
 }
 
 interface MatrixVariantItem {
@@ -74,6 +75,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   onSaved,
   onNotification,
   productType = "Footwear",
+  mode = "HYBRID",
 }) => {
   // Wizard Step: 1 = Article Identity, 2 = Variants (Size x Color Matrix), 3 = Review
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -189,9 +191,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
         // Fallbacks remain intact
       }
 
-      // 3. Load Active Vendors from /purchase/vendors
+      // 3. Load Active Vendors from /purchase/vendors/
       try {
-        const vendors = await apiFetchV1<any[]>("/purchase/vendors");
+        const vendors = await apiFetchV1<any[]>("/purchase/vendors/");
         if (isMounted && Array.isArray(vendors) && vendors.length > 0) {
           setVendorOptions(
             vendors.map((v: any) => ({
@@ -503,7 +505,10 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-xs" onClick={handleClose} />
 
       {/* Main Drawer Canvas */}
-      <div className="fixed inset-y-2 right-2 left-2 sm:left-auto sm:w-[940px] z-50 flex flex-col bg-white dark:bg-[#1a2234] rounded-2xl shadow-2xl overflow-hidden border border-[#c3c6d6] dark:border-[#434654] font-sans select-none antialiased">
+      <div
+        style={{ width: "min(940px, calc(100vw - 16px))" }}
+        className="fixed inset-y-2 right-2 z-50 flex flex-col bg-white dark:bg-[#1a2234] rounded-2xl shadow-2xl overflow-hidden border border-[#c3c6d6] dark:border-[#434654] font-sans select-none antialiased"
+      >
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-3.5 border-b border-[#e2e8f0] dark:border-[#2d3748] shrink-0 bg-[#f8fafc] dark:bg-[#131b2e]">
@@ -1282,13 +1287,25 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               </button>
             )}
 
+            {step === 1 && mode === "SIMPLE" && (
+              <button
+                type="button"
+                onClick={handleSaveArticle}
+                disabled={isSaving}
+                className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                title="Single-screen quick entry: save single article without matrix"
+              >
+                {isSaving ? "Saving..." : "Quick Save (Simple Mode)"}
+              </button>
+            )}
+
             {step === 1 && (
               <button
                 type="button"
                 onClick={handleNextToStep2}
                 className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
               >
-                <span>Next</span>
+                <span>{mode === "SIMPLE" ? "Customize Variants" : "Next"}</span>
                 <ChevronRight size={14} />
               </button>
             )}
