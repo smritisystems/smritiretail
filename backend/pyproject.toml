@@ -52,6 +52,17 @@ ignore = ["B008"]
 testpaths = ["tests", "app/tests", "app/compliance/tests"]
 asyncio_mode = "auto"
 python_files = ["test_*.py", "t_*.py"]
+markers = [
+    "integration: marks tests that require a live database connection (deselect with -m 'not integration')",
+    "unit: marks fast unit tests that use mocks and no external dependencies",
+    "compliance: marks statutory compliance tests (GST, HSN, statutory slab validation)",
+    "auth: marks authentication and authorisation contract tests",
+]
+filterwarnings = [
+    "ignore::pytest.PytestUnknownMarkWarning",
+    "ignore::DeprecationWarning:starlette.*:",
+    "ignore::PendingDeprecationWarning:starlette.*:",
+]
 
 [tool.mypy]
 python_version = "3.11"
