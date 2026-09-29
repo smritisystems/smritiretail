@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.1.0
+ * Version      : 6.47.3
  * Created      : 2026-08-21
- * Modified     : 2026-09-28
+ * Modified     : 2026-09-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -186,9 +186,10 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
                 ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
                 : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
             }`}
+            title="Read-only quick-audit table for inventory verification and export"
           >
             <FileSpreadsheet size={17} />
-            <span>Classic Spreadsheet View</span>
+            <span>Quick-Audit Table (Read-Only)</span>
           </button>
 
           <button
@@ -357,6 +358,8 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               onRefreshProducts={handleRefresh}
               onNotification={handleNotify}
               onNavigateToItemViewConfig={() => setActiveNav("view_config")}
+              onNavigateToCatalog={() => setActiveNav("catalog")}
+              onAddNew={() => setIsAddDrawerOpen(true)}
             />
           )}
 

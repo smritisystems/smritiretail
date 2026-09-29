@@ -415,6 +415,14 @@ Execution must follow this strict sequence:
 - [x] **Step 3.3:** SMRITI 3-Tier Adaptive Mode selector (SIMPLE, HYBRID, ADVANCED).
 - [x] **Step 3.4:** Re-run 4-viewport Playwright visual audit for regression verification.
 
+### Wave 4: Phase 3 Legacy Retirement (COMPLETED)
+- [x] **Step 4.1:** Decommission direct spreadsheet writes (`POST` and `PUT` to `/api/v1/products/`) in `ItemDetailsGrid.tsx`.
+- [x] **Step 4.2:** Remove mutating handlers (`handleCellChange`, `handleAddRow`, `handleDuplicateSelected`, `handleDeleteRecords`, `handleGlobalReplace`, `handleSaveGridToDatabase`).
+- [x] **Step 4.3:** Convert all grid cells and classic inspector inputs to read-only presentation with native text selection (`select-text`).
+- [x] **Step 4.4:** Update `ItemMasterWs.tsx` sidebar label to `"Quick-Audit Table (Read-Only)"` with tooltip.
+- [x] **Step 4.5:** Wire top header and footer CTAs to open canonical Article / Design Catalog and Drawer.
+- [x] **Step 4.6:** Verify zero regressions via Playwright visual audit, Vitest, and Python test battery.
+
 ---
 
 ## 15. Explicit Non-Goals

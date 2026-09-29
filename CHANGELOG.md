@@ -30,10 +30,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
-## [6.47.3] - 2026-09-30 — Article / Design Master UX Refactor & Adaptive Polish (Waves 1–3)
+## [6.47.3] - 2026-09-30 — Article / Design Master UX Refactor & Phase 3 Legacy Spreadsheet Retirement
 
 > **Branch:** `smritiNX` | **Area:** Inventory / Article Master
-> **Walkthrough:** `docs/walkthrough/inventory/Inventory_Article_Master_Wave3_Adaptive_UX_And_Responsive_Polish_v6.47.2.md`
+> **Walkthrough:** `docs/walkthrough/inventory/Inventory_Article_Master_Phase3_Legacy_Spreadsheet_Retirement_Quick_Audit_v6.47.3.md`
 > **Implementation Plan:** `docs/implementation/inventory/SMRITI_ARTICLE_DESIGN_MASTER_UX_REFACTOR_PLAN.md`
 
 ### Added
@@ -43,8 +43,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Multi-Barcode Management:** Secondary barcode chip manager supporting 1:N barcodes per variant (`item_barcodes` table) for manufacturer UPC/EAN scanning.
 - **Live Document Series Preview:** Automatic preview badge in `AddProductDrawer.tsx` fetching `GET /api/v1/numbering/series` for `ARTICLE` series (e.g. `ART/0001/26-27/`) without consuming sequence counters.
 - **Spreadsheet Payload Adapter (`spreadsheetAdapter.ts`):** Strips immutable keys (`code`, `sku`, `barcode`) on `PUT /api/v1/inventory/{id}`, preventing HTTP 409 Conflict rejections while maintaining backward compatibility for `ItemDetailsGrid.tsx`.
+- **Read-Only Quick-Audit Table (`ItemDetailsGrid.tsx`):** Dedicated read-only matrix view for rapid inventory audit, verification, filtering, and export with native text selection (`select-text`) for SKUs and barcodes.
 
 ### Changed
+- **Decommissioned Direct Spreadsheet Writes (`ItemDetailsGrid.tsx`):** Retired mutating handlers (`handleCellChange`, `handleCellBlur`, `handleAddRow`, `handleDuplicateSelected`, `handleDeleteRecords`, `handleGlobalReplace`, `handleSaveGridToDatabase`) and removed direct `/api/v1/products/` POST/PUT writes in the secondary spreadsheet view.
+- **Classic Inspector Read-Only Hardening:** Marked all 13 Classic View inspector form inputs with `readOnly={true}`, eliminating in-place spreadsheet mutations.
+- **Catalog Navigation & Action CTAs:** Updated `ItemMasterWs.tsx` sidebar button label to `"Quick-Audit Table (Read-Only)"` with tooltip. Added `Open Article Catalog` and `+ New Article` CTA buttons in top header, notice banner, and footer.
 - **SMRITI 7-Action Budget Toolbar (`ItemCatalogGrid.tsx`):** Enforced strict 7-action budget governance on the primary action bar (`Add Article`, `Copy From Excel`, `Export`, `More Options (...)`). Collapsed tertiary actions into an accessible popover dropdown menu (`MoreVertical`) and secondary filters into an accordion toggle (`More Filters`).
 - **Universal Canvas Sizing:** Replaced arbitrary Tailwind classes on `AddProductDrawer.tsx` with mathematical `min(940px, calc(100vw - 16px))` responsive width.
 - **Cross-Origin Vendor Endpoint Normalization:** Appended trailing slash to `/purchase/vendors/` in `AddProductDrawer.tsx`, eliminating HTTP 307 redirects across origins that stripped authentication headers.
@@ -55,6 +59,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Vitest Unit Test Suite:** 5/5 unit tests passing (`src/tests/spreadsheetAdapter.test.ts`).
 - **TypeScript Compiler:** Clean exit code 0 (`npx tsc --noEmit`).
 - **CI UX Field Governance Guard:** 147 canonical fields verified, 0 critical violations (`scripts/ci_ux_field_governance_guard.py`).
+- **Playwright Headless Browser Audit:** Verified read-only matrix, 0 editable inputs, 13 read-only Classic View inspector inputs, and seamless CTA navigation back to the Article Catalog; 2 visual telemetry screenshots captured (`quick_audit_grid_view.png`, `quick_audit_classic_view.png`).
 - **4-Viewport Playwright Audit:** 21 screenshots captured across Desktop (1920×1080), Laptop (1366×768), Tablet (768×1024), and Mobile (390×844) viewports.
 
 ## [6.47.2] - 2026-09-29 — Article / Design Master Consolidation & Existing-Flow Refactor
