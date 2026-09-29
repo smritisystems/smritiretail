@@ -141,7 +141,14 @@ async def allocate_number(
                 status_code=401,
                 detail="A valid access token or internal service key is required."
             )
-        token = authorization.split(" ")[1]
+        token = authorization.split(" ", 1)[1].strip()
+        # SMRITI-SEC-2026-001: guard against malformed "Bearer " with no token.
+        # Without this, get_current_user raises an unhandled exception → HTTP 500.
+        if not token:
+            raise HTTPException(
+                status_code=401,
+                detail="A valid access token or internal service key is required."
+            )
         # Avoid circular imports
         from ...api.deps import get_current_user
         current_user = await get_current_user(token=token, db=db)
