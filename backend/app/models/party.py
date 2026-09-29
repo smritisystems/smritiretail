@@ -87,13 +87,17 @@ class CustomerProfile(BaseEntity):
     __tablename__ = "customer_profiles"
 
     party_id = Column(String(50), ForeignKey("parties.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    # Group A candidate (2026-09-29 audit): customer_group_id — 0 rows total, no FK in ORM.
+    # FK omitted pending CustomerProfile module activation and data population.
     customer_group_id = Column(String(50), nullable=True, index=True)
     customer_category = Column(String(30), nullable=False, default="RETAIL")  # RETAIL, WHOLESALE, INSTITUTIONAL
     credit_limit = Column(Numeric(15, 2), nullable=False, default=0.00)
     credit_days = Column(Integer, nullable=False, default=0)
     tax_category = Column(String(30), nullable=False, default="B2C")  # B2B, B2C, SEZ, EXPORT
     is_credit_hold = Column(Boolean, nullable=False, default=False)
+    # Group A candidate (2026-09-29 audit): price_tier_id — 0 rows total, no FK in ORM.
     price_tier_id = Column(String(50), nullable=True)
+    # Group A candidate (2026-09-29 audit): loyalty_tier_id — 0 rows total, no FK in ORM.
     loyalty_tier_id = Column(String(50), nullable=True)
     outstanding_balance = Column(Numeric(15, 2), nullable=False, default=0.00)
 
