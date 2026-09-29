@@ -160,6 +160,34 @@ jobs:
           -v --tb=short --timeout=120 -x
         # Includes all unit, compliance, and stock movement ledger tests (self-provisioned)
 
+      - name: Run Retail Transaction Lifecycle E2E Suite (Cross-Workspace Parity)
+        # Executes the full retail transactional lifecycle: Article Creation -> PO -> GRN -> POS Sale -> Stock Ledger
+        run: |
+          playwright install chromium --with-deps || true
+          uvicorn app.main:app --host 127.0.0.1 --port 1981 &
+          UVICORN_PID=$!
+          echo "Waiting for FastAPI backend daemon on port 1981..."
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:1981/version >/dev/null 2>&1 || curl -s http://127.0.0.1:1981/ >/dev/null 2>&1; then
+              echo "FastAPI backend is ready!"
+              break
+            fi
+            sleep 1
+          done
+          DATABASE_URL="postgresql://postgres:postgres@localhost:5432/smriti001" \
+          BACKEND_API_URL="http://127.0.0.1:1981" \
+          FRONTEND_BASE_URL="http://localhost:3000" \
+          python ../scripts/test_retail_lifecycle_e2e.py
+          kill $UVICORN_PID || true
+
+      - name: Upload Visual Parity Telemetry Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-visual-parity-telemetry
+          path: scratch/visual-audit-temp/e2e_parity/
+          if-no-files-found: ignore
+
 # ============================================================
 # Job 3: Security Scan
 # ============================================================
