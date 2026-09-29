@@ -38,6 +38,7 @@ interface SmritiItemCatalogGridProps {
   currentUser?: { role: string; name: string } | null;
   productCategory?: string; // e.g. "Footwear"
   onAddNew?: () => void;
+  mode?: "SIMPLE" | "HYBRID" | "ADVANCED";
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -63,6 +64,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   currentUser,
   productCategory = "Footwear",
   onAddNew,
+  mode = "HYBRID",
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
@@ -77,6 +79,8 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedVariantForEdit, setSelectedVariantForEdit] = useState<Product | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   // Reset page when filters change
   useEffect(() => { setPageIndex(0); }, [searchQuery, filterCategory, filterBrand, filterGender, filterProductType, filterStatus]);
@@ -179,38 +183,75 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Action Buttons (Strict SMRITI 7-Action Budget) */}
+          <div className="flex items-center gap-2 shrink-0 relative">
             <button
               type="button"
               onClick={onAddNew || (() => setIsDrawerOpen(true))}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition shadow-sm cursor-pointer"
             >
               <Plus size={14} />
-              Add Article / Design
+              <span>Add Article / Design</span>
             </button>
             <button
               type="button"
               onClick={onNavigateToPaste}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border-2 border-[#16a34a] text-[#16a34a] dark:text-[#4ade80] bg-white dark:bg-[#2d3133] hover:bg-[#f0fdf4] dark:hover:bg-[#1a2e1a] text-xs font-bold transition"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-lg border-2 border-[#16a34a] text-[#16a34a] dark:text-[#4ade80] bg-white dark:bg-[#2d3133] hover:bg-[#f0fdf4] dark:hover:bg-[#1a2e1a] text-xs font-bold transition cursor-pointer"
             >
               <FileSpreadsheet size={14} />
-              Copy From Excel
+              <span>Copy From Excel</span>
             </button>
             <button
               type="button"
               onClick={handleExport}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] text-[#374151] dark:text-[#e2e8f0] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] text-xs font-semibold transition"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] text-[#374151] dark:text-[#e2e8f0] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] text-xs font-semibold transition cursor-pointer"
             >
               <Upload size={14} />
-              Export
+              <span>Export</span>
             </button>
-            <button
-              type="button"
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition text-[#64748b]"
-            >
-              <MoreVertical size={15} />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#cbd5e1] dark:border-[#2d3133] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition text-[#64748b] cursor-pointer"
+                title="More Options"
+              >
+                <MoreVertical size={15} />
+              </button>
+
+              {/* Overflow Menu */}
+              {isMoreMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-[#1e293b] border border-[#e2e8f0] dark:border-[#334155] rounded-xl shadow-xl py-1.5 z-30 text-xs font-medium"
+                  onClick={() => setIsMoreMenuOpen(false)}
+                >
+                  <button
+                    type="button"
+                    onClick={handleRefresh}
+                    className="w-full text-left px-3.5 py-2 hover:bg-[#f1f5f9] dark:hover:bg-[#334155] flex items-center gap-2 text-[#0f172a] dark:text-white"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Refresh Articles</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onNavigateToPaste}
+                    className="sm:hidden w-full text-left px-3.5 py-2 hover:bg-[#f1f5f9] dark:hover:bg-[#334155] flex items-center gap-2 text-[#16a34a]"
+                  >
+                    <FileSpreadsheet size={13} />
+                    <span>Copy From Excel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExport}
+                    className="sm:hidden w-full text-left px-3.5 py-2 hover:bg-[#f1f5f9] dark:hover:bg-[#334155] flex items-center gap-2 text-[#0f172a] dark:text-white"
+                  >
+                    <Upload size={13} />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -230,25 +271,29 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
             />
           </div>
 
-          {/* Category */}
+          {/* Primary Filters: Category, Brand */}
           <FilterSelect label="Category" value={filterCategory} onChange={setFilterCategory} options={["All", ...categories as string[]]} />
-          {/* Brand */}
           <FilterSelect label="Brand" value={filterBrand} onChange={setFilterBrand} options={["All", ...brands as string[]]} />
-          {/* Gender */}
-          <FilterSelect label="Gender" value={filterGender} onChange={setFilterGender} options={["All", ...genders]} />
-          {/* Product Type */}
-          <FilterSelect label="Product Type" value={filterProductType} onChange={setFilterProductType} options={["All", ...productTypes]} />
-          {/* Status */}
-          <FilterSelect label="Status" value={filterStatus} onChange={setFilterStatus} options={["All", "Active", "Inactive"]} />
 
-          {/* More Filters & Columns */}
-          <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-xs font-semibold text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition">
+          {/* Secondary Filters (Responsive / Toggleable) */}
+          <div className={`${showMoreFilters ? "flex" : "hidden md:flex"} flex-wrap gap-2 items-center`}>
+            <FilterSelect label="Gender" value={filterGender} onChange={setFilterGender} options={["All", ...genders]} />
+            <FilterSelect label="Product Type" value={filterProductType} onChange={setFilterProductType} options={["All", ...productTypes]} />
+            <FilterSelect label="Status" value={filterStatus} onChange={setFilterStatus} options={["All", "Active", "Inactive"]} />
+          </div>
+
+          {/* More Filters Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowMoreFilters(!showMoreFilters)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              showMoreFilters
+                ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
+                : "border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9]"
+            }`}
+          >
             <SlidersHorizontal size={13} />
-            More Filters
-          </button>
-          <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-xs font-semibold text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition">
-            <Columns3 size={13} />
-            Columns
+            <span>More Filters</span>
           </button>
           <button type="button" onClick={handleRefresh} className={`w-8 h-8 flex items-center justify-center rounded-lg border border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition text-[#64748b] ${isRefreshing ? "animate-spin" : ""}`}>
             <RefreshCw size={13} />
@@ -450,6 +495,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
         onSaved={() => { void onRefreshProducts?.(); }}
         onNotification={onNotification}
         productType={productCategory}
+        mode={mode}
       />
 
       {/* ── Variant Detail / Edit Modal (Panel 6) ────────────────────────── */}

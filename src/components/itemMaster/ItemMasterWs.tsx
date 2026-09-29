@@ -21,7 +21,9 @@ import {
   ClipboardPaste, 
   Database,
   Search, 
-  FileSpreadsheet
+  FileSpreadsheet,
+  Menu,
+  X,
 } from "lucide-react";
 import { Product } from "../../types.ts";
 import { ItemCatalogGrid } from "./ItemCatalogGrid.tsx";
@@ -60,6 +62,20 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
     return "catalog";
   });
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [adaptiveMode, setAdaptiveMode] = useState<"SIMPLE" | "HYBRID" | "ADVANCED">(() => {
+    return (localStorage.getItem("smriti_article_mode") as any) || "HYBRID";
+  });
+
+  const handleSelectAdaptiveMode = (mode: "SIMPLE" | "HYBRID" | "ADVANCED") => {
+    setAdaptiveMode(mode);
+    try {
+      localStorage.setItem("smriti_article_mode", mode);
+    } catch {
+      // storage unavailable
+    }
+    handleNotify("Adaptive Mode", `Switched to ${mode} mode.`, "info");
+  };
 
   const [viewConfig, setItemViewConfig] = useState<ItemViewConfigState>({
     viewMode: "grid",
@@ -109,26 +125,49 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   }, []);
 
   return (
-    <div className="bg-[#f7f9fb] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] h-screen w-full overflow-hidden flex font-sans select-none antialiased">
+    <div className="bg-[#f7f9fb] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] h-screen w-full overflow-hidden flex font-sans select-none antialiased relative">
       
+      {/* ── Mobile Sidebar Overlay Backdrop (VIS-MOB-01 / VIS-TAB-02 fix) ── */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-xs transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* ── Left SideNavBar Matching Itemmaster3 ─────────────────────────── */}
-      <nav className="bg-[#f1f3ff] dark:bg-[#131b2e] text-[#051a3e] dark:text-[#eff1f3] w-64 h-screen border-r border-[#c3c6d6] dark:border-[#434654] flex flex-col py-4 px-3 shrink-0 z-20 shadow-xs">
+      <nav
+        className={`bg-[#f1f3ff] dark:bg-[#131b2e] text-[#051a3e] dark:text-[#eff1f3] w-64 h-screen border-r border-[#c3c6d6] dark:border-[#434654] flex flex-col py-4 px-3 shrink-0 z-40 shadow-xs transition-transform duration-200 ${
+          isSidebarOpen
+            ? "fixed inset-y-0 left-0 translate-x-0"
+            : "fixed inset-y-0 left-0 -translate-x-full lg:static lg:translate-x-0"
+        }`}
+      >
         
-        {/* Brand Title */}
-        <div className="mb-6 px-3">
-          <h2 className="text-lg font-bold text-[#003d9b] dark:text-[#b2c5ff] tracking-tight flex items-center gap-2">
-            Article / Design
-          </h2>
-          <p className="text-xs text-[#535f73] dark:text-[#bec6e0] font-medium mt-0.5">
-            Master Management System
-          </p>
+        {/* Brand Title & Close Button for Mobile */}
+        <div className="mb-6 px-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-[#003d9b] dark:text-[#b2c5ff] tracking-tight flex items-center gap-2">
+              Article / Design
+            </h2>
+            <p className="text-xs text-[#535f73] dark:text-[#bec6e0] font-medium mt-0.5">
+              Master Management System
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-1 rounded-lg hover:bg-[#d4e0f8] dark:hover:bg-[#1e293b] lg:hidden text-[#535f73] dark:text-[#bec6e0]"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Primary Navigation Tabs */}
         <div className="flex-1 space-y-1">
           <button
             type="button"
-            onClick={() => setActiveNav("catalog")}
+            onClick={() => { setActiveNav("catalog"); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
               activeNav === "catalog"
                 ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
@@ -141,7 +180,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
 
           <button
             type="button"
-            onClick={() => setActiveNav("spreadsheet")}
+            onClick={() => { setActiveNav("spreadsheet"); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
               activeNav === "spreadsheet"
                 ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
@@ -246,14 +285,41 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
       <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
         
         {/* Top Header Bar */}
-        <header className="bg-white dark:bg-[#131b2e] h-14 border-b border-[#c3c6d6] dark:border-[#434654] flex items-center justify-between px-6 shrink-0 shadow-xs z-10">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-[#051a3e] dark:text-white">
+        <header className="bg-white dark:bg-[#131b2e] h-14 border-b border-[#c3c6d6] dark:border-[#434654] flex items-center justify-between px-4 sm:px-6 shrink-0 shadow-xs z-10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Mobile Hamburger Button */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-1.5 rounded-lg border border-[#c3c6d6] dark:border-[#434654] text-[#535f73] dark:text-[#bec6e0] hover:bg-[#eceef0] dark:hover:bg-[#2d3133] lg:hidden shrink-0"
+              title="Toggle Navigation Menu"
+            >
+              <Menu size={17} />
+            </button>
+            <span className="text-sm font-bold text-[#051a3e] dark:text-white truncate">
               Article / Design Master
             </span>
+
+            {/* SMRITI 3-Tier Adaptive Mode Segmented Pill */}
+            <div className="hidden sm:inline-flex items-center bg-[#f1f3ff] dark:bg-[#1e293b] p-0.5 rounded-lg border border-[#cbd5e1] dark:border-[#334155] text-[11px] ml-2 shrink-0">
+              {(["SIMPLE", "HYBRID", "ADVANCED"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => handleSelectAdaptiveMode(m)}
+                  className={`px-2.5 py-1 rounded-md font-bold transition ${
+                    adaptiveMode === m
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "text-[#64748b] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white"
+                  }`}
+                >
+                  {m.charAt(0) + m.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <span className="px-2.5 py-0.5 bg-[#e9edff] dark:bg-[#1d3054] text-[#003d9b] dark:text-[#b2c5ff] font-mono text-[11px] font-bold rounded">
               {products.length} Articles Live
             </span>
@@ -346,6 +412,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
         onSaved={handleRefresh}
         onNotification={handleNotify}
         productType="Footwear"
+        mode={adaptiveMode}
       />
     </div>
   );
