@@ -106,10 +106,10 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
         {/* Brand Title */}
         <div className="mb-6 px-3">
           <h2 className="text-lg font-bold text-[#003d9b] dark:text-[#b2c5ff] tracking-tight flex items-center gap-2">
-            Item Master
+            Article / Design
           </h2>
           <p className="text-xs text-[#535f73] dark:text-[#bec6e0] font-medium mt-0.5">
-            Management System
+            Master Management System
           </p>
         </div>
 
@@ -125,7 +125,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
             }`}
           >
             <Package size={17} />
-            <span>Item Details</span>
+            <span>Article / Design Details</span>
           </button>
 
           <button
@@ -196,7 +196,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
             }`}
           >
             <Layers size={15} />
-            <span>Article / Style Matrix</span>
+            <span>Variant Matrix</span>
           </button>
         </div>
 
@@ -225,13 +225,13 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
         <header className="bg-white dark:bg-[#131b2e] h-14 border-b border-[#c3c6d6] dark:border-[#434654] flex items-center justify-between px-6 shrink-0 shadow-xs z-10">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-[#051a3e] dark:text-white">
-              Item Master Entry
+              Article / Design Master
             </span>
           </div>
 
           <div className="flex items-center gap-3">
             <span className="px-2.5 py-0.5 bg-[#e9edff] dark:bg-[#1d3054] text-[#003d9b] dark:text-[#b2c5ff] font-mono text-[11px] font-bold rounded">
-              {products.length} Items Live
+              {products.length} Articles Live
             </span>
 
             {onClose && (

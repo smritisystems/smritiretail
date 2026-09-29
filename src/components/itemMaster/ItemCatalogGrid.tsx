@@ -169,7 +169,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                 {productCategory} Products
               </h1>
               <p className="text-xs text-[#64748b] dark:text-[#94a3b8] mt-0.5 truncate">
-                Manage your {productCategory.toLowerCase()} product master, pricing, tax and inventory information.
+                Manage your {productCategory.toLowerCase()} article / design master, pricing, tax and inventory information.
               </p>
             </div>
           </div>
@@ -182,7 +182,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] text-white text-xs font-bold hover:bg-[#1d4ed8] transition shadow-sm"
             >
               <Plus size={14} />
-              Add Product
+              Add Article / Design
             </button>
             <button
               type="button"

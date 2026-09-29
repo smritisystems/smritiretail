@@ -21,7 +21,10 @@ from sqlalchemy import select, or_, and_, text, case, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from fastapi import HTTPException
+
 from .identity.engine import IdentityEngine
+from .documents_engine import DocumentsEngine
 
 from ..models.item_master import (
     Item,
@@ -30,9 +33,13 @@ from ..models.item_master import (
     ItemBatch,
     ItemSerial,
     ItemWarehouseLocation,
+    LegacyIdMapping,
 )
 from ..models.customer_article_mapping import CustomerArticleMapping
 from ..models.inventory import Product, ProductBatchStock
+from ..models.pricing import PriceBook, PriceBookEntry
+from ..models.vendor_product_assignment import VendorProductAssignment
+from ..models.numbering import DocumentSeries
 from ..schemas.item_master import (
     ItemCreateRequest,
     ItemUpdateRequest,
@@ -84,6 +91,7 @@ class UniversalItemMasterService:
         cls,
         session: AsyncSession,
         item_code: str,
+        company_id: Optional[str] = None,
     ) -> Optional[Item]:
         """Fetches an item by unique SKU / item_code with loaded variants and barcodes."""
         stmt = (
@@ -100,6 +108,8 @@ class UniversalItemMasterService:
                 selectinload(Item.locations),
             )
         )
+        if company_id:
+            stmt = stmt.where(Item.company_id == company_id)
         res = await session.execute(stmt)
         return res.scalar_one_or_none()
 
@@ -133,42 +143,43 @@ class UniversalItemMasterService:
         Supports both schema-based (ItemCreateRequest) and direct parameter invocations.
         """
         if req is not None:
-            sku = req.item_code or f"ITM-{uuid.uuid4().hex[:8].upper()}"
-            if await cls.get_item_by_code(session, sku):
-                raise ValueError(
-                    f"Item code '{sku}' already exists; item identity and details are immutable after creation"
-                )
-
             effective_company_id = company_id or getattr(req, "company_id", None) or "COMP-001"
-            item_id, item_identity_code = await IdentityEngine.allocate_internal(
-                session=session,
-                entity_type="ITEM",
-                tenant_id=effective_company_id,
-                company_id=effective_company_id,
-            )
 
-            requested_barcodes = [bc.barcode.strip().upper() for bc in req.barcodes]
-            requested_barcodes.extend(
-                bc.barcode.strip().upper()
-                for variant in req.variants
-                for bc in variant.barcodes
-            )
-            if not req.variants and not requested_barcodes:
-                requested_barcodes.append(sku.strip().upper())
-            for barcode in requested_barcodes:
-                barcode_owner = (
-                    await session.execute(
-                        select(ItemBarcode).where(
-                            ItemBarcode.barcode == barcode,
-                            ItemBarcode.is_deleted == False,
-                        )
+            # 1. Numbering resolution (Requirements 4, 5, 6)
+            if getattr(req, "auto_generate_article_number", False):
+                # Check whether active document_series exists for document_type == 'ARTICLE'
+                series_stmt = select(DocumentSeries).where(
+                    DocumentSeries.company_id == effective_company_id,
+                    DocumentSeries.document_type == "ARTICLE",
+                    DocumentSeries.is_active == True,
+                    DocumentSeries.is_deleted == False
+                )
+                if branch_id:
+                    series_stmt = series_stmt.where(or_(DocumentSeries.branch_id == branch_id, DocumentSeries.branch_id.is_(None)))
+                active_series = (await session.execute(series_stmt)).scalars().first()
+                if not active_series:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Article numbering series is not configured for this company/branch."
                     )
-                ).scalars().first()
-                if barcode_owner:
-                    raise ValueError(
-                        f"Barcode '{barcode}' is already attached to an SKU and cannot be reused"
+                alloc_resp = await DocumentsEngine.allocate_next_number_in_transaction(
+                    session=session,
+                    company_id=effective_company_id,
+                    document_type="ARTICLE",
+                    branch_id=branch_id,
+                    company_code=effective_company_id,
+                )
+                sku = alloc_resp.document_no
+            else:
+                raw_code = (req.item_code or "").strip().upper()
+                if not raw_code:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Article Number (item_code) is required when automatic numbering is not selected."
                     )
+                sku = raw_code
 
+            # Validate and normalize catalog dimensions
             normalized_brand = req.brand
             normalized_category = req.category
             normalized_department = req.department
@@ -220,131 +231,433 @@ class UniversalItemMasterService:
                     strict=True,
                 )
 
-            item = Item(
-                id=item_id,
-                identity_code=item_identity_code,
-                company_id=effective_company_id,
-                branch_id=branch_id,
-                item_code=sku,
-                item_name=req.item_name,
-                item_type=req.item_type,
-                category=normalized_category,
-                category_code=req.category_code,
-                department=normalized_department,
-                brand=normalized_brand,
-                style_code=normalized_style_code,
-                color=normalized_color,
-                size=normalized_size,
-                vendor_code=normalized_vendor_code,
-                hsn_code=req.hsn_code or "0000",
-                tax_rate=Decimal(str(req.tax_rate)),
-                primary_uom=req.primary_uom,
-                mrp=Decimal(str(req.mrp)),
-                selling_price=Decimal(str(req.selling_price)),
-                cost_price=Decimal(str(req.cost_price)),
-                buying_price=Decimal(str(req.buying_price)) if req.buying_price is not None else None,
-                is_batch_tracked=req.is_batch_tracked,
-                is_serial_tracked=req.is_serial_tracked,
-                is_favorite=req.is_favorite,
-                primary_image_url=req.primary_image_url,
-                tags=req.tags,
-                attributes_json=req.attributes_json,
-                # ── v2.2 Promoted Attribute Columns ──────────────────────────────
-                gender=getattr(req, "gender", None),
-                purchase_class=getattr(req, "purchase_class", None),
-                product_type=getattr(req, "product_type", None),
-                design_attribute=getattr(req, "design_attribute", None),
-                heel_type=getattr(req, "heel_type", None),
-                upper_material=getattr(req, "upper_material", None),
-                outsole_material=getattr(req, "outsole_material", None),
-                collection_type=getattr(req, "collection_type", None),
-                # ── v2.2 Business Logic Flags ───────────────────────────────────────
-                is_inventory_yn=getattr(req, "is_inventory_yn", True),
-                is_billable_yn=getattr(req, "is_billable_yn", True),
-                is_service_yn=getattr(req, "is_service_yn", False),
-                status="ACTIVE",
+            requested_barcodes = [bc.barcode.strip().upper() for bc in req.barcodes]
+            requested_barcodes.extend(
+                bc.barcode.strip().upper()
+                for variant in req.variants
+                for bc in variant.barcodes
             )
-            session.add(item)
-            await session.flush()
+            if not req.variants and not requested_barcodes:
+                requested_barcodes.append(sku.strip().upper())
+            for barcode in requested_barcodes:
+                barcode_owner = (
+                    await session.execute(
+                        select(ItemBarcode).where(
+                            ItemBarcode.company_id == effective_company_id,
+                            ItemBarcode.barcode == barcode,
+                            ItemBarcode.is_deleted == False,
+                        )
+                    )
+                ).scalars().first()
+                if barcode_owner:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Barcode '{barcode}' is already attached to an SKU and cannot be reused"
+                    )
 
-            # 1. Custom or Default Variants
+            # Check if parent item already exists by item_code
+            existing_item = await cls.get_item_by_code(session, sku)
+            if existing_item:
+                if req.variants:
+                    item = existing_item
+                    if normalized_brand:
+                        item.brand = normalized_brand
+                    if normalized_category:
+                        item.category = normalized_category
+                else:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Article code '{sku}' already exists; article identity is immutable."
+                    )
+            else:
+                # 2. Allocate internal technical ID and identity code from IdentityEngine
+                item_id, item_identity_code = await IdentityEngine.allocate_internal(
+                    session=session,
+                    entity_type="ITEM",
+                    tenant_id=effective_company_id,
+                    company_id=effective_company_id,
+                )
+
+                item = Item(
+                    id=item_id,
+                    identity_code=item_identity_code,
+                    company_id=effective_company_id,
+                    branch_id=branch_id,
+                    item_code=sku,
+                    item_name=req.item_name,
+                    item_type=req.item_type,
+                    category=normalized_category,
+                    category_code=req.category_code,
+                    department=normalized_department,
+                    brand=normalized_brand,
+                    style_code=normalized_style_code or sku,
+                    color=normalized_color,
+                    size=normalized_size,
+                    vendor_code=normalized_vendor_code,
+                    hsn_code=req.hsn_code or "0000",
+                    tax_rate=Decimal(str(req.tax_rate)),
+                    primary_uom=req.primary_uom or getattr(req, "uom", "PCS"),
+                    uom=getattr(req, "uom", None) or req.primary_uom or "PCS",
+                    mrp=Decimal(str(req.mrp)),
+                    selling_price=Decimal(str(req.selling_price)),
+                    cost_price=Decimal(str(req.cost_price)),
+                    buying_price=Decimal(str(req.buying_price)) if req.buying_price is not None else None,
+                    is_batch_tracked=req.is_batch_tracked,
+                    is_serial_tracked=req.is_serial_tracked,
+                    is_favorite=req.is_favorite,
+                    primary_image_url=req.primary_image_url,
+                    tags=req.tags,
+                    attributes_json=req.attributes_json,
+                    # ── v2.2 Promoted Attribute Columns ──────────────────────────────
+                    gender=getattr(req, "gender", None),
+                    purchase_class=getattr(req, "purchase_class", None),
+                    product_type=getattr(req, "product_type", None),
+                    design_attribute=getattr(req, "design_attribute", None),
+                    heel_type=getattr(req, "heel_type", None),
+                    upper_material=getattr(req, "upper_material", None),
+                    outsole_material=getattr(req, "outsole_material", None),
+                    collection_type=getattr(req, "collection_type", None),
+                    # ── v2.2 Business Logic Flags ───────────────────────────────────────
+                    is_inventory_yn=getattr(req, "is_inventory_yn", True),
+                    is_billable_yn=getattr(req, "is_billable_yn", True),
+                    is_service_yn=getattr(req, "is_service_yn", False),
+                    status="ACTIVE",
+                    tracking_type=getattr(req, "tracking_type", "STANDARD") or "STANDARD",
+                    is_active=True,
+                    is_deleted=False
+                )
+                session.add(item)
+                await session.flush()
+
+            # 3. Process Variants
+            processed_variants: List[Tuple[ItemVariant, Optional[str]]] = []
             if req.variants:
                 for v_data in req.variants:
+                    v_sku = (v_data.variant_sku or "").strip().upper()
+                    if not v_sku or v_sku == "AUTO":
+                        c_part = str(getattr(v_data, "color", None) or (v_data.attributes_json.get("color") if v_data.attributes_json else None) or "STD").strip().upper()
+                        s_part = str(getattr(v_data, "size", None) or (v_data.attributes_json.get("size") if v_data.attributes_json else None) or "STD").strip().upper()
+                        v_sku = f"{item.item_code}-{c_part}-{s_part}"
+                    # Check if variant already exists in company
+                    var_stmt = select(ItemVariant).where(
+                        ItemVariant.company_id == effective_company_id,
+                        ItemVariant.variant_sku == v_sku,
+                        ItemVariant.is_deleted == False
+                    )
+                    existing_variant = (await session.execute(var_stmt)).scalar_one_or_none()
+                    if existing_variant:
+                        if existing_variant.item_id != item.id:
+                            raise HTTPException(
+                                status_code=409,
+                                detail=f"Variant SKU '{v_sku}' is already attached to another article in this company."
+                            )
+                        variant = existing_variant
+                    else:
+                        variant = ItemVariant(
+                            id=f"var_{uuid.uuid4().hex[:12]}",
+                            uuid=str(uuid.uuid4()),
+                            company_id=effective_company_id,
+                            branch_id=branch_id,
+                            item_id=item.id,
+                            variant_sku=v_sku,
+                            variant_name=v_data.variant_name or f"{item.item_name} ({v_sku})",
+                            color=getattr(v_data, "color", None) or (v_data.attributes_json.get("color") if v_data.attributes_json else None),
+                            size=getattr(v_data, "size", None) or (v_data.attributes_json.get("size") if v_data.attributes_json else None),
+                            attributes_json=v_data.attributes_json or {},
+                            mrp=Decimal(str(v_data.mrp or item.mrp)),
+                            selling_price=Decimal(str(v_data.selling_price or item.selling_price)),
+                            cost_price=Decimal(str(v_data.cost_price or item.cost_price)),
+                            is_active=v_data.is_active,
+                            is_deleted=False
+                        )
+                        session.add(variant)
+                        await session.flush()
+
+                    primary_bc = None
+                    for bc in v_data.barcodes:
+                        bc_clean = bc.barcode.strip().upper()
+                        bc_stmt = select(ItemBarcode).where(
+                            ItemBarcode.company_id == effective_company_id,
+                            ItemBarcode.barcode == bc_clean,
+                            ItemBarcode.is_deleted == False
+                        )
+                        bc_obj = (await session.execute(bc_stmt)).scalar_one_or_none()
+                        if not bc_obj:
+                            bc_obj = ItemBarcode(
+                                id=f"bc_{uuid.uuid4().hex[:12]}",
+                                uuid=str(uuid.uuid4()),
+                                company_id=effective_company_id,
+                                branch_id=branch_id,
+                                item_id=item.id,
+                                variant_id=variant.id,
+                                barcode=bc_clean,
+                                barcode_type=bc.barcode_type or "EAN13",
+                                is_primary=bc.is_primary,
+                                is_tax_inclusive=getattr(bc, "is_tax_inclusive", None),
+                                is_active=True,
+                                is_deleted=False
+                            )
+                            session.add(bc_obj)
+                            await session.flush()
+                        if bc.is_primary or primary_bc is None:
+                            primary_bc = bc_clean
+
+                    processed_variants.append((variant, primary_bc))
+            else:
+                def_sku = f"{sku}-STD"
+                var_stmt = select(ItemVariant).where(
+                    ItemVariant.item_id == item.id,
+                    ItemVariant.variant_sku == def_sku,
+                    ItemVariant.is_deleted == False
+                )
+                variant = (await session.execute(var_stmt)).scalar_one_or_none()
+                if not variant:
                     variant = ItemVariant(
                         id=f"var_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
                         item_id=item.id,
-                        variant_sku=v_data.variant_sku,
-                        variant_name=v_data.variant_name,
-                        attributes_json=v_data.attributes_json,
-                        mrp=Decimal(str(v_data.mrp or item.mrp)),
-                        selling_price=Decimal(str(v_data.selling_price or item.selling_price)),
-                        cost_price=Decimal(str(v_data.cost_price or item.cost_price)),
-                        is_active=v_data.is_active,
+                        variant_sku=def_sku,
+                        variant_name=f"{req.item_name} (Standard)",
+                        color=req.color,
+                        size=req.size,
+                        attributes_json=req.attributes_json or {},
+                        mrp=item.mrp,
+                        selling_price=item.selling_price,
+                        cost_price=item.cost_price,
+                        is_active=True,
+                        is_deleted=False
                     )
                     session.add(variant)
                     await session.flush()
 
-                    # Add barcodes tied to variant
-                    for bc in v_data.barcodes:
-                        session.add(
-                            ItemBarcode(
-                                id=f"bc_{uuid.uuid4().hex[:12]}",
-                                item_id=item.id,
-                                variant_id=variant.id,
-                                barcode=bc.barcode,
-                                barcode_type=bc.barcode_type,
-                                is_primary=bc.is_primary,
-                                is_tax_inclusive=getattr(bc, "is_tax_inclusive", None),
-                            )
-                        )
-            else:
-                # Create standard default variant
-                variant = ItemVariant(
-                    id=f"var_{uuid.uuid4().hex[:12]}",
-                    item_id=item.id,
-                    variant_sku=f"{sku}-STD",
-                    variant_name=f"{req.item_name} (Standard)",
-                    mrp=item.mrp,
-                    selling_price=item.selling_price,
-                    cost_price=item.cost_price,
-                    is_active=True,
-                )
-                session.add(variant)
-                await session.flush()
-
-                # Add primary item barcode if supplied or auto-generate EAN-style barcode
+                primary_bc = None
                 if req.barcodes:
                     for bc in req.barcodes:
-                        session.add(
-                            ItemBarcode(
+                        bc_clean = bc.barcode.strip().upper()
+                        bc_stmt = select(ItemBarcode).where(
+                            ItemBarcode.company_id == effective_company_id,
+                            ItemBarcode.barcode == bc_clean,
+                            ItemBarcode.is_deleted == False
+                        )
+                        bc_obj = (await session.execute(bc_stmt)).scalar_one_or_none()
+                        if not bc_obj:
+                            bc_obj = ItemBarcode(
                                 id=f"bc_{uuid.uuid4().hex[:12]}",
+                                uuid=str(uuid.uuid4()),
+                                company_id=effective_company_id,
+                                branch_id=branch_id,
                                 item_id=item.id,
                                 variant_id=variant.id,
-                                barcode=bc.barcode,
-                                barcode_type=bc.barcode_type,
+                                barcode=bc_clean,
+                                barcode_type=bc.barcode_type or "EAN13",
                                 is_primary=bc.is_primary,
                                 is_tax_inclusive=getattr(bc, "is_tax_inclusive", None),
+                                is_active=True,
+                                is_deleted=False
                             )
-                        )
+                            session.add(bc_obj)
+                            await session.flush()
+                        if bc.is_primary or primary_bc is None:
+                            primary_bc = bc_clean
                 else:
+                    placeholder_bc = cls.generate_placeholder_barcode()
                     session.add(
                         ItemBarcode(
                             id=f"bc_{uuid.uuid4().hex[:12]}",
+                            uuid=str(uuid.uuid4()),
+                            company_id=effective_company_id,
+                            branch_id=branch_id,
                             item_id=item.id,
                             variant_id=variant.id,
-                            barcode=cls.generate_placeholder_barcode(),
+                            barcode=placeholder_bc,
                             barcode_type="CUSTOM",
                             is_primary=True,
+                            is_active=True,
+                            is_deleted=False
                         )
                     )
+                    primary_bc = placeholder_bc
 
-            # 2. Batches
+                processed_variants.append((variant, primary_bc))
+
+            # 4. Synchronize each variant to products table (Requirement 8)
+            for var_item, p_bc in processed_variants:
+                conditions = [
+                    and_(Product.item_id == item.id, Product.item_variant_id == var_item.id),
+                    Product.sku == var_item.variant_sku,
+                    Product.code == var_item.variant_sku,
+                ]
+                v_color = var_item.color or getattr(req, "color", None)
+                v_size = var_item.size or getattr(req, "size", None)
+                v_style = normalized_style_code or req.style_code or item.style_code or item.item_code
+                if v_style and v_color and v_size:
+                    conditions.append(
+                        and_(
+                            func.lower(Product.style_code) == v_style.strip().lower(),
+                            func.lower(Product.color) == str(v_color).strip().lower(),
+                            func.lower(Product.size) == str(v_size).strip().lower(),
+                        )
+                    )
+                prod_stmt = select(Product).where(
+                    Product.company_id == effective_company_id,
+                    or_(*conditions),
+                    Product.is_deleted == False
+                )
+                if not p_bc:
+                    eff_bc = cls.generate_placeholder_barcode()
+                    auto_bc_obj = ItemBarcode(
+                        id=f"bc_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
+                        item_id=item.id,
+                        variant_id=var_item.id,
+                        barcode=eff_bc,
+                        barcode_type="CODE128_INTERNAL",
+                        is_primary=True,
+                        is_active=True,
+                        is_deleted=False
+                    )
+                    session.add(auto_bc_obj)
+                    await session.flush()
+                    p_bc = eff_bc
+
+                prod_obj = (await session.execute(prod_stmt)).scalars().first()
+                if not prod_obj:
+                    prod_id = f"prod_{uuid.uuid4().hex[:12]}"
+                    prod_obj = Product(
+                        id=prod_id,
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
+                        code=var_item.variant_sku,
+                        sku=var_item.variant_sku,
+                        name=var_item.variant_name or item.item_name,
+                        style_code=normalized_style_code or req.style_code or item.style_code or item.item_code,
+                        brand=normalized_brand or req.brand or item.brand,
+                        category=normalized_category or req.category or item.category,
+                        category_code=item.category_code,
+                        color=var_item.color or getattr(req, "color", None),
+                        size=var_item.size or getattr(req, "size", None),
+                        vendor_code=normalized_vendor_code or getattr(req, "vendor_code", None) or item.vendor_code,
+                        item_id=item.id,
+                        item_variant_id=var_item.id,
+                        mrp=var_item.mrp or item.mrp,
+                        price=var_item.selling_price or item.selling_price,
+                        cost_price=var_item.cost_price or item.cost_price,
+                        buying_price=item.buying_price,
+                        gst_percentage=item.tax_rate,
+                        hsn_code=var_item.hsn_code or item.hsn_code,
+                        barcode=p_bc,
+                        attributes=var_item.attributes_json or {},
+                        is_active=True,
+                        is_deleted=False
+                    )
+                    session.add(prod_obj)
+                    await session.flush()
+                else:
+                    prod_obj.item_id = item.id
+                    prod_obj.item_variant_id = var_item.id
+                    if var_item.variant_sku:
+                        prod_obj.code = var_item.variant_sku
+                        prod_obj.sku = var_item.variant_sku
+                    if normalized_brand:
+                        prod_obj.brand = normalized_brand
+                    if normalized_category:
+                        prod_obj.category = normalized_category
+                    if normalized_style_code:
+                        prod_obj.style_code = normalized_style_code
+                    if normalized_vendor_code:
+                        prod_obj.vendor_code = normalized_vendor_code
+                    if var_item.color:
+                        prod_obj.color = var_item.color
+                    if var_item.size:
+                        prod_obj.size = var_item.size
+                    if p_bc and not prod_obj.barcode:
+                        prod_obj.barcode = p_bc
+
+                # Ensure default PriceBookEntry exists
+                res_pb = await session.execute(
+                    select(PriceBook).filter(
+                        PriceBook.company_id == effective_company_id,
+                        PriceBook.is_default == True,
+                        PriceBook.is_deleted == False
+                    )
+                )
+                default_pb = res_pb.scalars().first()
+                if not default_pb:
+                    default_pb = PriceBook(
+                        id=f"pb_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
+                        name=f"Standard Retail Price List ({effective_company_id})",
+                        code=f"DEFAULT-{effective_company_id}",
+                        currency="INR",
+                        is_default=True,
+                        status="ACTIVE",
+                        is_active=True,
+                        is_deleted=False
+                    )
+                    session.add(default_pb)
+                    await session.flush()
+
+                pbe_stmt = select(PriceBookEntry).where(
+                    PriceBookEntry.price_book_id == default_pb.id,
+                    PriceBookEntry.variant_id == var_item.id,
+                    PriceBookEntry.is_deleted == False
+                )
+                pbe_obj = (await session.execute(pbe_stmt)).scalars().first()
+                if not pbe_obj:
+                    session.add(PriceBookEntry(
+                        id=f"pbe_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
+                        price_book_id=default_pb.id,
+                        item_id=item.id,
+                        variant_id=var_item.id,
+                        min_quantity=Decimal("1.0000"),
+                        selling_price=var_item.selling_price or Decimal("0.00"),
+                        mrp=var_item.mrp or Decimal("0.00"),
+                        cost_price=var_item.cost_price or Decimal("0.00"),
+                        is_active=True,
+                        is_deleted=False
+                    ))
+
+                # Legacy ID mapping
+                map_stmt = select(LegacyIdMapping).where(
+                    LegacyIdMapping.legacy_table == "products",
+                    LegacyIdMapping.legacy_id == prod_obj.id,
+                )
+                map_obj = (await session.execute(map_stmt)).scalars().first()
+                if not map_obj:
+                    session.add(LegacyIdMapping(
+                        id=f"map_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
+                        migration_run_id="canonical_creation",
+                        legacy_table="products",
+                        legacy_id=prod_obj.id,
+                        legacy_uuid=prod_obj.uuid,
+                        canonical_table="item_variants",
+                        canonical_id=var_item.id,
+                        canonical_uuid=var_item.uuid,
+                        disposition="SYNCED",
+                        is_active=True,
+                        is_deleted=False
+                    ))
+
+            # 5. Batches
             for b_data in req.batches:
                 session.add(
                     ItemBatch(
                         id=f"batch_{uuid.uuid4().hex[:12]}",
                         item_id=item.id,
-                        variant_id=b_data.variant_id or variant.id,
+                        variant_id=b_data.variant_id or processed_variants[0][0].id,
                         batch_number=b_data.batch_number,
                         mrp=Decimal(str(b_data.mrp or item.mrp)),
                         cost_price=Decimal(str(b_data.cost_price or item.cost_price)),
@@ -352,7 +665,7 @@ class UniversalItemMasterService:
                     )
                 )
 
-            # 3. Warehouse Locations
+            # 6. Warehouse Locations
             for loc in req.locations:
                 session.add(
                     ItemWarehouseLocation(
@@ -366,7 +679,46 @@ class UniversalItemMasterService:
                     )
                 )
 
-            await session.commit()
+            # 7. Optional Initial Supplier Assignment (Requirement 10)
+            supplier_payload = getattr(req, "supplier", None)
+            if supplier_payload and isinstance(supplier_payload, dict) and supplier_payload.get("vendor_party_id"):
+                v_party_id = supplier_payload["vendor_party_id"]
+                vpa_stmt = select(VendorProductAssignment).where(
+                    VendorProductAssignment.company_id == effective_company_id,
+                    VendorProductAssignment.vendor_party_id == v_party_id,
+                    VendorProductAssignment.assignment_level == "ARTICLE",
+                    VendorProductAssignment.assignment_target_id == item.id,
+                    VendorProductAssignment.is_deleted == False
+                )
+                vpa_existing = (await session.execute(vpa_stmt)).scalars().first()
+                if not vpa_existing:
+                    session.add(VendorProductAssignment(
+                        id=f"vpa_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
+                        vendor_party_id=v_party_id,
+                        assignment_level="ARTICLE",
+                        assignment_target_id=item.id,
+                        assignment_target_code=item.item_code,
+                        assignment_target_name=item.item_name,
+                        vendor_priority=supplier_payload.get("vendor_priority", "PRIMARY"),
+                        status="ACTIVE",
+                        allow_purchase=supplier_payload.get("allow_purchase", True),
+                        allow_po=supplier_payload.get("allow_po", True),
+                        allow_grn=supplier_payload.get("allow_grn", True),
+                        approval_required=supplier_payload.get("approval_required", False),
+                        effective_from=supplier_payload.get("effective_from") or date.today(),
+                        effective_to=supplier_payload.get("effective_to"),
+                        remarks=supplier_payload.get("remarks"),
+                        is_active=True,
+                        is_deleted=False
+                    ))
+
+            if commit:
+                await session.commit()
+            else:
+                await session.flush()
             return await cls.get_item_by_id(session, item.id)
 
         # Direct parameter workflow
@@ -1285,6 +1637,98 @@ class UniversalItemMasterService:
 
                 created_variants.append(var)
                 item.variants.append(var)
+
+                # Synchronize variant to products table (Requirement 8)
+                prod_stmt = select(Product).where(
+                    Product.company_id == item.company_id,
+                    or_(
+                        and_(Product.item_id == item.id, Product.item_variant_id == var.id),
+                        Product.sku == var.variant_sku,
+                        Product.code == var.variant_sku
+                    ),
+                    Product.is_deleted == False
+                )
+                existing_p = (await session.execute(prod_stmt)).scalars().first()
+                if not existing_p:
+                    new_prod = Product(
+                        id=f"prod_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=item.company_id,
+                        branch_id=item.branch_id,
+                        code=var.variant_sku,
+                        sku=var.variant_sku,
+                        name=var.variant_name or item.item_name,
+                        style_code=item.style_code or item.item_code,
+                        brand=item.brand,
+                        category=item.category,
+                        category_code=item.category_code,
+                        item_id=item.id,
+                        item_variant_id=var.id,
+                        mrp=var.mrp or item.mrp,
+                        price=var.selling_price or item.selling_price,
+                        cost_price=var.cost_price or item.cost_price,
+                        buying_price=item.buying_price,
+                        gst_percentage=item.tax_rate,
+                        hsn_code=var.hsn_code or item.hsn_code,
+                        barcode=bc_val if req.auto_generate_barcodes else None,
+                        attributes=attr_dict,
+                        is_active=True,
+                        is_deleted=False
+                    )
+                    session.add(new_prod)
+                    await session.flush()
+                    session.add(LegacyIdMapping(
+                        id=f"map_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=item.company_id,
+                        branch_id=item.branch_id,
+                        migration_run_id="matrix_gen",
+                        legacy_table="products",
+                        legacy_id=new_prod.id,
+                        legacy_uuid=new_prod.uuid,
+                        canonical_table="item_variants",
+                        canonical_id=var.id,
+                        canonical_uuid=var.uuid,
+                        disposition="SYNCED",
+                        is_active=True,
+                        is_deleted=False
+                    ))
+                else:
+                    existing_p.item_id = item.id
+                    existing_p.item_variant_id = var.id
+
+                # Ensure default PriceBookEntry exists
+                res_pb = await session.execute(
+                    select(PriceBook).filter(
+                        PriceBook.company_id == item.company_id,
+                        PriceBook.is_default == True,
+                        PriceBook.is_deleted == False
+                    )
+                )
+                default_pb = res_pb.scalars().first()
+                if default_pb:
+                    pbe_stmt = select(PriceBookEntry).where(
+                        PriceBookEntry.price_book_id == default_pb.id,
+                        PriceBookEntry.variant_id == var.id,
+                        PriceBookEntry.is_deleted == False
+                    )
+                    pbe_obj = (await session.execute(pbe_stmt)).scalars().first()
+                    if not pbe_obj:
+                        session.add(PriceBookEntry(
+                            id=f"pbe_{uuid.uuid4().hex[:12]}",
+                            uuid=str(uuid.uuid4()),
+                            company_id=item.company_id,
+                            branch_id=item.branch_id,
+                            price_book_id=default_pb.id,
+                            item_id=item.id,
+                            variant_id=var.id,
+                            min_quantity=Decimal("1.0000"),
+                            selling_price=var.selling_price or Decimal("0.00"),
+                            mrp=var.mrp or Decimal("0.00"),
+                            cost_price=var.cost_price or Decimal("0.00"),
+                            is_active=True,
+                            is_deleted=False
+                        ))
 
         await session.commit()
         return created_variants

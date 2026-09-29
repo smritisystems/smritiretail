@@ -29,6 +29,8 @@ class ItemVariantItem(BaseModel):
     id: Optional[str] = None
     variant_sku: str
     variant_name: str
+    color: Optional[str] = None
+    size: Optional[str] = None
     attributes_json: Dict[str, Any] = Field(default_factory=dict)
     mrp: float = 0.0
     selling_price: float = 0.0
@@ -110,6 +112,9 @@ class ItemCreateRequest(BaseModel):
     is_inventory_yn: bool = True                # IS_INVENTORY_YN (Col AE)
     is_billable_yn: bool = True                 # IS_BILLABLE_YN  (Col AF)
     is_service_yn: bool = False                 # IS_SERVICE_YN   (Col AG)
+
+    auto_generate_article_number: bool = False  # Optional auto-numbering via document_series
+    supplier: Optional[Dict[str, Any]] = None   # Optional Article-level vendor_product_assignment
 
     variants: List[ItemVariantItem] = Field(default_factory=list)
     barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
