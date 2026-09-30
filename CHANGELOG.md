@@ -30,6 +30,24 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.49.0] - 2026-09-30 — Document Series Studio: Category-Aware Article Numbering Configuration
+
+> **Branch:** `smritiNX` | **Area:** Inventory / Document Series & Numbering Studio
+> **Walkthrough:** `docs/walkthrough/inventory/Inventory_Document_Series_Studio_Article_Configuration_v6.49.0.md`
+
+### Added
+- **Category-Aware Article Series Studio Configuration:** Enhanced `src/components/global/configs/documentSeries.con.tsx` to support `documentType = "ARTICLE"` with dynamic category binding populated from `/api/v1/masters/lookup/category/values`.
+- **Live Sequence Preview Component (`LiveSeriesPreview`):** Added interactive, real-time read-only sequential preview card displaying the computed next allocated document number (e.g. `SND-10000-A`, `SH-20000-A`), floor-to-ceiling range scope, and remaining capacity badge (emerald/amber/rose).
+- **Advanced Numbering Options Accordion:** Integrated collapsible progressive disclosure within `slots.extraFields` for sequence reset frequency (Financial Year, Calendar Year, Monthly, Never), number segment format, and unified multi-terminal sequence pooling.
+- **Mathematical Interval Overlap Guard:** Enforced `customValidation` algorithm blocking overlapping sequence intervals (`max(s1, s2) <= min(e1, e2)`) for active series within the same uppercase category.
+- **Dedicated Vitest Test Suite (`src/tests/documentSeriesStudio.test.ts`):** 13/13 passing automated unit tests covering API endpoints, dynamic visibility, sequence counter controls, range validations, overlap detection, and payload transforms.
+
+### Changed
+- **Canonical API Route Reconnection:** Reconnected Document Series Studio from deprecated `/api/v1/system/document-series` to canonical live FastAPI router `/api/v1/numbering/series`.
+- **Master Table Range Visibility:** Added "Range (Floor ➔ Ceiling)" and category tag badges directly to the `DocumentSeries` table.
+- **Sequence Counter Immutability:** Set `disabled: (_formState, isEdit) => Boolean(isEdit)` on `currentNumber` to prevent manual operator sequence tampering in edit mode.
+- **TypeScript Interface Extension:** Updated `DocumentSeries` interface in `src/services/numberingEngine.ts` to include `startNumber?`, `endNumber?`, `category?`, and `numberFormat?`.
+
 ## [6.48.1] - 2026-09-30 — Category-Aware Article Numbering Backend Wiring & Zero Hardcoding
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Numbering & Master Lookups
