@@ -91,9 +91,19 @@ def bootstrap_company_database_prerequisites(
             "company_id": "VARCHAR(50)",
             "branch_id": "VARCHAR(50)",
         },
+        "master_values": {
+            "vendor_code": "VARCHAR(100)",
+        },
+        "products": {
+            "vendor_code": "VARCHAR(100)",
+        },
+        "variant_templates": {
+            "vendor_code": "VARCHAR(100)",
+        },
         "sales_orders": {
             "po_number": "VARCHAR(100)",
             "customer_id": "VARCHAR(50)",
+            "vendor_code": "VARCHAR(50)",
             "total_qty": "NUMERIC(15, 4)",
             "billed_qty": "NUMERIC(15, 4)",
             "billed_value": "NUMERIC(15, 2)",
