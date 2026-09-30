@@ -62,6 +62,11 @@ branch_labels = None
 depends_on = None
 
 
+def _is_system_or_control_db(bind) -> bool:
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    return not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1")
+
+
 def _table_exists(bind, table_name: str) -> bool:
     return bool(bind.execute(sa.text(
         "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
@@ -70,6 +75,8 @@ def _table_exists(bind, table_name: str) -> bool:
 
 def upgrade():
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
 
     # 1. Purge test-data orphans from product_cost_valuations (prod-grn-*)
     if _table_exists(bind, "product_cost_valuations") and _table_exists(bind, "products"):
@@ -128,6 +135,8 @@ def upgrade():
 def downgrade():
     # Re-add wrong FK (for rollback symmetry only — do not use in production)
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
     if _table_exists(bind, "po_product_decision_log") and _table_exists(bind, "products"):
         bind.execute(sa.text(
             "ALTER TABLE po_product_decision_log "

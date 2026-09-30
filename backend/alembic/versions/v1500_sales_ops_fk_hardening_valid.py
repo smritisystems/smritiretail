@@ -95,8 +95,15 @@ def _table_exists(bind, table_name: str) -> bool:
     ), {"tbl": table_name}).scalar())
 
 
+def _is_system_or_control_db(bind) -> bool:
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    return not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1")
+
+
 def upgrade():
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
 
     # Helper to ensure column exists
     def _ensure_col(table: str, col: str, col_type: str = "VARCHAR(50)"):
@@ -209,6 +216,8 @@ def upgrade():
 
 def downgrade():
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
     drops = [
         ("purchase_reorder_configs", "fk_prc_product_id"),
         ("distribution_route_stops", "fk_drs_party_id"),

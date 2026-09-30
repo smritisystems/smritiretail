@@ -58,8 +58,15 @@ def _fk_exists(bind, constraint_name: str) -> bool:
     return bool((r.scalar() or 0) > 0)
 
 
+def _is_system_or_control_db(bind) -> bool:
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    return not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1")
+
+
 def upgrade() -> None:
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
 
     # -----------------------------------------------------------------------
     # 1. purchase_orders.party_id → parties.id  (VALID — 0 populated, 0 orphans)
@@ -111,6 +118,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("fk_pri_product_id",  "purchase_receipt_items", type_="foreignkey")
-    op.drop_constraint("fk_poi_product_id",  "purchase_order_items",   type_="foreignkey")
-    op.drop_constraint("fk_po_party_id",     "purchase_orders",        type_="foreignkey")
+    bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
+    if _table_exists(bind, "purchase_receipt_items") and _fk_exists(bind, "fk_pri_product_id"):
+        op.drop_constraint("fk_pri_product_id",  "purchase_receipt_items", type_="foreignkey")
+    if _table_exists(bind, "purchase_order_items") and _fk_exists(bind, "fk_poi_product_id"):
+        op.drop_constraint("fk_poi_product_id",  "purchase_order_items",   type_="foreignkey")
+    if _table_exists(bind, "purchase_orders") and _fk_exists(bind, "fk_po_party_id"):
+        op.drop_constraint("fk_po_party_id",     "purchase_orders",        type_="foreignkey")

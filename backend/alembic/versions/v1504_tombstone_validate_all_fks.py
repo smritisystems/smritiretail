@@ -62,6 +62,11 @@ branch_labels = None
 depends_on = None
 
 
+def _is_system_or_control_db(bind) -> bool:
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    return not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1")
+
+
 def _table_exists(bind, table_name: str) -> bool:
     return bool(bind.execute(sa.text(
         "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
@@ -70,6 +75,8 @@ def _table_exists(bind, table_name: str) -> bool:
 
 def upgrade():
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
 
     # 1. Insert ghost tombstone rows in products for all orphaned product_id values
     if _table_exists(bind, "products"):
@@ -152,6 +159,8 @@ def upgrade():
 def downgrade():
     # Reverse VALIDATE (mark NOT VALID again) -- DDL only, does not remove ghost rows
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
     # PostgreSQL has no direct "un-validate" DDL; constraints remain validated after downgrade.
     # Ghost rows must be removed manually if a full rollback is needed.
     # Document: this downgrade is a no-op for the constraint state.

@@ -59,8 +59,15 @@ def _fk_exists(bind, constraint_name: str) -> bool:
     return bool((r.scalar() or 0) > 0)
 
 
+def _is_system_or_control_db(bind) -> bool:
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    return not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1")
+
+
 def upgrade() -> None:
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
 
     # -----------------------------------------------------------------------
     # 1-3. product_batch_stocks FKs
@@ -148,9 +155,21 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("fk_stock_movements_product_id", "stock_movements", type_="foreignkey")
-    op.drop_constraint("fk_sti_branch_id", "stock_transfer_items", type_="foreignkey")
-    op.drop_constraint("fk_sti_company_id", "stock_transfer_items", type_="foreignkey")
-    op.drop_constraint("fk_pbs_product_id", "product_batch_stocks", type_="foreignkey")
-    op.drop_constraint("fk_pbs_branch_id", "product_batch_stocks", type_="foreignkey")
-    op.drop_constraint("fk_pbs_company_id", "product_batch_stocks", type_="foreignkey")
+    bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
+    if _table_exists(bind, "stock_movements") and _fk_exists(bind, "fk_stock_movements_product_id"):
+        op.drop_constraint("fk_stock_movements_product_id", "stock_movements", type_="foreignkey")
+    if _table_exists(bind, "stock_transfer_items"):
+        if _fk_exists(bind, "fk_sti_branch_id"):
+            op.drop_constraint("fk_sti_branch_id", "stock_transfer_items", type_="foreignkey")
+        if _fk_exists(bind, "fk_sti_company_id"):
+            op.drop_constraint("fk_sti_company_id", "stock_transfer_items", type_="foreignkey")
+    if _table_exists(bind, "product_batch_stocks"):
+        if _fk_exists(bind, "fk_pbs_product_id"):
+            op.drop_constraint("fk_pbs_product_id", "product_batch_stocks", type_="foreignkey")
+        if _fk_exists(bind, "fk_pbs_branch_id"):
+            op.drop_constraint("fk_pbs_branch_id", "product_batch_stocks", type_="foreignkey")
+        if _fk_exists(bind, "fk_pbs_company_id"):
+            op.drop_constraint("fk_pbs_company_id", "product_batch_stocks", type_="foreignkey")
+

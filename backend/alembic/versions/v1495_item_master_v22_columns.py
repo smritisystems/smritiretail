@@ -44,6 +44,11 @@ branch_labels = None
 depends_on = None
 
 
+def _is_system_or_control_db(bind) -> bool:
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    return not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1")
+
+
 def _table_exists(bind, table_name: str) -> bool:
     return bool(bind.execute(sa.text(
         "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
@@ -52,7 +57,7 @@ def _table_exists(bind, table_name: str) -> bool:
 
 def upgrade() -> None:
     bind = op.get_bind()
-    if not _table_exists(bind, "items"):
+    if _is_system_or_control_db(bind) or not _table_exists(bind, "items"):
         return
 
     inspector = sa.inspect(bind)
@@ -102,7 +107,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     bind = op.get_bind()
-    if not _table_exists(bind, "items"):
+    if _is_system_or_control_db(bind) or not _table_exists(bind, "items"):
         return
 
     inspector = sa.inspect(bind)

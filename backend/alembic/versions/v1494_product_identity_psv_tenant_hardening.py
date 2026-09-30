@@ -24,10 +24,21 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _is_system_or_control_db(bind) -> bool:
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    return not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1")
+
+
 def _table_exists(bind, table_name: str) -> bool:
     return bool(bind.execute(sa.text(
         "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
     ), {"tbl": table_name}).scalar())
+
+
+def _column_exists(bind, table_name: str, column_name: str) -> bool:
+    return bool(bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns WHERE table_name = :tbl AND column_name = :col"
+    ), {"tbl": table_name, "col": column_name}).scalar())
 
 
 def _index_exists(bind, index_name: str) -> bool:
@@ -38,6 +49,8 @@ def _index_exists(bind, index_name: str) -> bool:
 
 def upgrade() -> None:
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
 
     # -------------------------------------------------------------------------
     # 1. Remediate duplicate unreferenced test items from 2026-09-12
@@ -90,7 +103,7 @@ def upgrade() -> None:
     # 3. Item Barcodes: Normalized & Primary Fast-Lookup Indexes
     # -------------------------------------------------------------------------
     if _table_exists(bind, "item_barcodes"):
-        if not _index_exists(bind, "ix_item_barcodes_company_normalized"):
+        if _column_exists(bind, "item_barcodes", "barcode_normalized") and not _index_exists(bind, "ix_item_barcodes_company_normalized"):
             op.create_index(
                 "ix_item_barcodes_company_normalized",
                 "item_barcodes",
@@ -98,7 +111,7 @@ def upgrade() -> None:
                 unique=False,
                 postgresql_where=sa.text("barcode_normalized IS NOT NULL AND is_deleted = false"),
             )
-        if not _index_exists(bind, "ix_item_barcodes_company_primary"):
+        if _column_exists(bind, "item_barcodes", "variant_id") and not _index_exists(bind, "ix_item_barcodes_company_primary"):
             op.create_index(
                 "ix_item_barcodes_company_primary",
                 "item_barcodes",
@@ -111,26 +124,30 @@ def upgrade() -> None:
     # 4. Line Items: Variant Lookups for Stock & Billing
     # Note: sales_invoice_items inherits tenant scoping from sales_invoices via invoice_id (ADR-DB-006)
     # -------------------------------------------------------------------------
-    if _table_exists(bind, "sales_invoice_items") and not _index_exists(bind, "ix_sales_invoice_items_variant"):
-        op.create_index(
-            "ix_sales_invoice_items_variant",
-            "sales_invoice_items",
-            ["variant_id"],
-            unique=False,
-            postgresql_where=sa.text("variant_id IS NOT NULL"),
-        )
-    if _table_exists(bind, "purchase_order_items") and not _index_exists(bind, "ix_purchase_order_items_company_variant"):
-        op.create_index(
-            "ix_purchase_order_items_company_variant",
-            "purchase_order_items",
-            ["company_id", "variant_id"],
-            unique=False,
-            postgresql_where=sa.text("variant_id IS NOT NULL"),
-        )
+    if _table_exists(bind, "sales_invoice_items") and _column_exists(bind, "sales_invoice_items", "variant_id"):
+        if not _index_exists(bind, "ix_sales_invoice_items_variant"):
+            op.create_index(
+                "ix_sales_invoice_items_variant",
+                "sales_invoice_items",
+                ["variant_id"],
+                unique=False,
+                postgresql_where=sa.text("variant_id IS NOT NULL"),
+            )
+    if _table_exists(bind, "purchase_order_items") and _column_exists(bind, "purchase_order_items", "variant_id"):
+        if not _index_exists(bind, "ix_purchase_order_items_company_variant"):
+            op.create_index(
+                "ix_purchase_order_items_company_variant",
+                "purchase_order_items",
+                ["company_id", "variant_id"],
+                unique=False,
+                postgresql_where=sa.text("variant_id IS NOT NULL"),
+            )
 
 
 def downgrade() -> None:
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
 
     # Revert line item indexes
     if _table_exists(bind, "purchase_order_items") and _index_exists(bind, "ix_purchase_order_items_company_variant"):
