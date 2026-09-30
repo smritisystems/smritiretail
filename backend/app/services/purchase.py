@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.34.0
+* Version    : 3.35.0
 * Created    : 2026-07-11
-* Modified   : 2026-09-21
+* Modified   : 2026-10-01
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -400,12 +400,23 @@ class PurchaseService:
                 branch_id=eff_branch_id,
             ))
 
+        # ── Normalize and guard status server-side ──────────────────────────
+        # Clients may send DRAFT (or omit). CONFIRMED may only be set via the
+        # /confirm endpoint, never by the create payload directly.
+        _ALLOWED_CREATE_STATUSES = {"DRAFT", "SUBMITTED", "CONFIRMED"}
+        raw_status = str(req.status or "DRAFT").strip().upper()
+        if raw_status not in _ALLOWED_CREATE_STATUSES:
+            raw_status = "DRAFT"
+        # For safety: only MANAGER/SYSADMIN can create as CONFIRMED via payload.
+        # DRAFT is the safe default for all create operations.
+        po_status = raw_status if raw_status == "DRAFT" else "DRAFT"
+
         order = PurchaseOrder(
             id=po_id,
             identity_code=identity_code,
             order_no=req.order_no,
             supplier_id=supplier.id,
-            status="CONFIRMED",
+            status=po_status,
             notes=req.notes,
             subtotal=subtotal.quantize(Decimal("0.01")),
             tax_total=tax_total.quantize(Decimal("0.01")),
@@ -1371,10 +1382,11 @@ class PurchaseService:
 
     # ── Purchase Order CANCEL / AMEND ────────────────────────────────
 
-    async def cancel_purchase_order(self, order_id: str, reason: Optional[str] = None) -> dict:
+    async def cancel_purchase_order(self, order_id: str, reason: Optional[str] = None, cancelled_by: Optional[str] = None) -> dict:
         """
-        Cancel a purchase order: set status=CANCELLED and soft-delete.
-        Only CONFIRMED orders can be cancelled (RECEIVED = stock already taken).
+        Cancel a purchase order: DRAFT or CONFIRMED → CANCELLED.
+        RECEIVED POs cannot be cancelled (stock already ingested).
+        Captures cancellation_reason and cancelled_by/at audit columns.
         """
         order, _ = await self.get_purchase_order(order_id)
 
@@ -1390,11 +1402,16 @@ class PurchaseService:
                        "Please raise a return/debit note instead.",
             )
 
+        now = datetime.now(timezone.utc)
         order.status = "CANCELLED"
         order.is_deleted = True
-        order.deleted_at = datetime.now(timezone.utc)
-        order.modified_at = datetime.now(timezone.utc)
+        order.deleted_at = now
+        order.modified_at = now
+        order.cancelled_by = cancelled_by or self.tenant.user_id if hasattr(self.tenant, "user_id") else cancelled_by
+        order.cancelled_at = now
         if reason:
+            order.cancellation_reason = reason
+            # Also keep notes for backward-compat with existing queries that read notes
             order.notes = f"{order.notes or ''} | Cancelled: {reason}".strip(" |")
         self.db.add(order)
         await self.db.commit()
@@ -1511,13 +1528,13 @@ class PurchaseService:
 
 
 
-    # ─────────────────────────── Phase 4B: Submit PO ────────────────────────────
+    # ─────────────────────── Phase A: Submit PO ─────────────────────────────
 
-    async def submit_purchase_order(self, order_id: str) -> dict:
+    async def submit_purchase_order(self, order_id: str, submitted_by: Optional[str] = None) -> dict:
         """
-        Submit a purchase order: DRAFT → CONFIRMED.
-        Mirrors the workflow action POST /workflow/PurchaseOrder/{id}/submit.
-        Only DRAFT orders can be submitted.
+        Submit a purchase order: DRAFT → SUBMITTED.
+        Only DRAFT orders can be submitted. Records submitted_by and submitted_at.
+        Phase A: SUBMITTED is the new intermediate state before CONFIRMED.
         """
         order, _ = await self.get_purchase_order(order_id)
         if order.status != "DRAFT":
@@ -1525,8 +1542,43 @@ class PurchaseService:
                 status_code=400,
                 detail=f"Only DRAFT orders can be submitted. Current status: {order.status}.",
             )
+        now = datetime.now(timezone.utc)
+        order.status = "SUBMITTED"
+        order.submitted_by = submitted_by
+        order.submitted_at = now
+        order.modified_at = now
+        self.db.add(order)
+        await self.db.commit()
+        return {
+            "success": True,
+            "order_id": order.id,
+            "order_no": order.order_no,
+            "status": "SUBMITTED",
+            "submitted_by": submitted_by,
+            "message": f"Purchase order '{order.order_no}' has been submitted for approval.",
+        }
+
+    # ─────────────────────── Phase A: Confirm PO ────────────────────────────
+
+    async def confirm_purchase_order(self, order_id: str, confirmed_by: Optional[str] = None, notes: Optional[str] = None) -> dict:
+        """
+        Confirm a purchase order: SUBMITTED → CONFIRMED.
+        Only SUBMITTED orders can be confirmed. Records confirmed_by and confirmed_at.
+        MANAGER or SYSADMIN role required (enforced at the API layer).
+        """
+        order, _ = await self.get_purchase_order(order_id)
+        if order.status != "SUBMITTED":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only SUBMITTED orders can be confirmed. Current status: {order.status}.",
+            )
+        now = datetime.now(timezone.utc)
         order.status = "CONFIRMED"
-        order.modified_at = datetime.now(timezone.utc)
+        order.confirmed_by = confirmed_by
+        order.confirmed_at = now
+        order.modified_at = now
+        if notes:
+            order.notes = f"{order.notes or ''} | Confirmed: {notes}".strip(" |")
         self.db.add(order)
         await self.db.commit()
         return {
@@ -1534,7 +1586,8 @@ class PurchaseService:
             "order_id": order.id,
             "order_no": order.order_no,
             "status": "CONFIRMED",
-            "message": f"Purchase order '{order.order_no}' submitted for fulfilment.",
+            "confirmed_by": confirmed_by,
+            "message": f"Purchase order '{order.order_no}' has been confirmed.",
         }
 
     # ─────────────────────────── Phase 4B: Reports ──────────────────────────────

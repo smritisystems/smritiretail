@@ -16,15 +16,15 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.18.0
+* Version    : 3.19.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-14
+* Modified   : 2026-10-01
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
 """
 
-from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Date, text, UniqueConstraint
+from sqlalchemy import Column, String, Numeric, Integer, ForeignKey, Text, Date, DateTime, text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
@@ -54,7 +54,8 @@ class Supplier(BaseEntity):
 class PurchaseOrder(BaseEntity):
     """
     A purchase order sent to a supplier.
-    Status lifecycle: DRAFT → CONFIRMED → RECEIVED → CANCELLED
+    Status lifecycle: DRAFT → SUBMITTED → CONFIRMED → RECEIVED → COMPLETED | CANCELLED
+    Phase A (v1508): added submitted/confirmed/cancelled audit columns and parent_order_id.
     """
     __tablename__ = "purchase_orders"
 
@@ -73,6 +74,17 @@ class PurchaseOrder(BaseEntity):
     subtotal    = Column(Numeric(15, 2), nullable=False, default=0.00)
     tax_total   = Column(Numeric(15, 2), nullable=False, default=0.00)
     grand_total = Column(Numeric(15, 2), nullable=False, default=0.00)
+
+    # ── Lifecycle audit columns (Phase A v1508) ──────────────────────
+    submitted_by        = Column(String(100), nullable=True)
+    submitted_at        = Column(DateTime(timezone=True), nullable=True)
+    confirmed_by        = Column(String(100), nullable=True)
+    confirmed_at        = Column(DateTime(timezone=True), nullable=True)
+    cancelled_by        = Column(String(100), nullable=True)
+    cancelled_at        = Column(DateTime(timezone=True), nullable=True)
+    cancellation_reason = Column(Text, nullable=True)
+    # parent_order_id links an amended PO back to its predecessor (Phase D)
+    parent_order_id     = Column(String(50), ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True)
 
     __table_args__ = (
         # order_no is unique per company (not globally) — supports multi-tenant same numbering
