@@ -28,11 +28,49 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.44.0] - 2026-09-30 — PO Validation Gate Hardening: Size-Pivot Policy Check, Stale-Line Detail & Audit Trail
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Validation Engine
+> **Walkthrough:** `docs/walkthrough/purchase/PO_Validate_Hardening_v6.44.0.md`
+
+### Fixed
+- **Gap 4 (HIGH) — Size-Pivot tab bypassed the policy gate entirely:**
+  Previously, when `itemView === "size_pivot"`, `handleSubmitGate` collected
+  `activeLines = []` and called `handleSavePO()` without consulting the
+  `POProductPolicyEngine`. Blocked products in the Sizewise Matrix could be
+  submitted to `purchase_orders` without a vendor policy check.
+  Now `sizePivotRows` (filtered to rows with `articleNo && totalQty > 0`) are
+  mapped into the `POSubmitValidationRequest.lines[]` payload, ensuring the
+  authoritative backend gate runs for every submission path.
+  **File:** `src/components/purchase/PoGenerateTab.tsx`
+
+- **Gap 3 (MEDIUM) — Stale banner showed count only, no line details:**
+  `POValidationSummary.tsx` previously displayed *"N products changed since you
+  last browsed"* without naming the specific lines or their policy action
+  transition (`previous_action → action`). Buyers had to scroll the full grid to
+  find stale items. The stale banner now renders a per-line monospaced breakdown:
+  `Line N: <product_ref> — was ALLOW, now BLOCK`.
+  **File:** `src/components/purchase/POValidationSummary.tsx`
+
+- **Gap 1 (LOW) — `purchase_order_id` omitted from validate payload:**
+  The `POST /purchase/validate-po-submit` call did not pass `purchase_order_id`,
+  causing submit-time revalidation decision logs to be orphaned (not attached
+  to the PO). `openedOrder?.id` is now forwarded when an existing order is open.
+  **File:** `src/components/purchase/PoGenerateTab.tsx`
+
+### Changed
+- `src/components/purchase/types.ts` — `POSubmitValidationResult.line_results`
+  element type extended with `previous_action?: string` (mirrors backend
+  `POSubmitLineResult.previous_action`). Required by the Gap 3 stale banner.
+
+---
+
 ## [6.52.0] - 2026-09-30 — Purchase Studio Phase 5: Multi-Image Batch Drag-and-Drop with Automatic Filename-to-Article/Color Binding
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Studio & Sizing Engine
 > **Walkthrough:** `docs/walkthrough/purchase/Purchase_Studio_Phase_5_v1.0.0.md`
 > **Implementation Plan:** `docs/implementation/purchase/Purchase_Studio_Phase_5_Plan_v1.0.0.md`
+
 
 ### Added
 - **Multi-Image Batch Ingestion & Dropzone (`PoSizewiseTab.tsx`):**

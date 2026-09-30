@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.43.0
+ * Version      : 6.44.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-21
+ * Modified     : 2026-09-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -35,7 +35,11 @@ export interface POSubmitValidationResult {
   approval_required_count: number;
   blocked_count: number;
   stale_count: number;                                       // lines whose decision is now stale
-  line_results: (POProductDecision & { line_index: number; stale?: boolean })[];
+  line_results: (POProductDecision & {
+    line_index: number;
+    stale?: boolean;
+    previous_action?: string;                                // action at browse-time — set when stale=true
+  })[];
   blocked_lines: number[];
   stale_lines: number[];                                     // indices of stale lines
   policy_version: string;
