@@ -89,8 +89,15 @@ def _fk_exists(bind, constraint_name: str) -> bool:
     return bool((r.scalar() or 0) > 0)
 
 
+def _is_system_or_control_db(bind) -> bool:
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    return not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1")
+
+
 def upgrade():
     bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
 
     # All 6 constraints added as NOT VALID to protect new rows without
     # blocking on historical orphan data. Use VALIDATE CONSTRAINT after
@@ -152,9 +159,17 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_constraint("fk_pcv_product_id",  "product_cost_valuations",          type_="foreignkey")
-    op.drop_constraint("fk_ppdl_product_id", "po_product_decision_log",           type_="foreignkey")
-    op.drop_constraint("fk_di_product_id",   "dispatch_items",                    type_="foreignkey")
-    op.drop_constraint("fk_psi_product_id",  "packing_slip_items",                type_="foreignkey")
-    op.drop_constraint("fk_ccle_customer_id","customer_credit_ledger_entries",     type_="foreignkey")
-    op.drop_constraint("fk_sii_product_id",  "sales_invoice_items",               type_="foreignkey")
+    bind = op.get_bind()
+    if _is_system_or_control_db(bind):
+        return
+    drops = [
+        ("product_cost_valuations", "fk_pcv_product_id"),
+        ("po_product_decision_log", "fk_ppdl_product_id"),
+        ("dispatch_items", "fk_di_product_id"),
+        ("packing_slip_items", "fk_psi_product_id"),
+        ("customer_credit_ledger_entries", "fk_ccle_customer_id"),
+        ("sales_invoice_items", "fk_sii_product_id"),
+    ]
+    for table, con in drops:
+        if _table_exists(bind, table) and _fk_exists(bind, con):
+            op.drop_constraint(con, table, type_="foreignkey")
