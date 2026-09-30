@@ -106,6 +106,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [seriesId, setSeriesId] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewError, setPreviewError] = useState(false);
+  const [availableSeries, setAvailableSeries] = useState<any[]>([]);
 
   // Governed lookups state
   const [brandOptions, setBrandOptions] = useState<LookupOption[]>([]);
@@ -115,6 +116,86 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [heelTypeOptions, setHeelTypeOptions] = useState<LookupOption[]>([]);
   const [upperMaterialOptions, setUpperMaterialOptions] = useState<LookupOption[]>([]);
   const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
+
+  // ── Category-Aware Article Numbering Preview (Read-Only) ──
+  useEffect(() => {
+    if (!availableSeries || availableSeries.length === 0) return;
+
+    const normCat = (category || "").trim().toUpperCase();
+    const activeArticleSeries = availableSeries.filter(
+      (s: any) =>
+        (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") &&
+        (s.isActive !== false && s.is_active !== false)
+    );
+
+    // 1. Exact category match first
+    let matched = normCat
+      ? activeArticleSeries.find((s: any) => (s.category || "").trim().toUpperCase() === normCat)
+      : null;
+
+    // 2. Fallback to category IS NULL if not found
+    if (!matched) {
+      matched = activeArticleSeries.find((s: any) => !s.category || String(s.category).trim() === "");
+    }
+
+    if (matched) {
+      const startNum = matched.startNumber ?? matched.start_number ?? 1;
+      const oldNum = matched.currentNumber ?? matched.current_number;
+      let nextNum: number;
+      if (oldNum === null || oldNum === undefined || oldNum < startNum - 1) {
+        nextNum = startNum;
+      } else {
+        nextNum = oldNum + 1;
+      }
+
+      const endNum = matched.endNumber ?? matched.end_number;
+      if (endNum !== null && endNum !== undefined && nextNum > endNum) {
+        setSeriesPreview(`EXHAUSTED (Range ${startNum}-${endNum})`);
+        setSeriesId(matched.seriesId || matched.series_id || matched.id || "SER-ART-COMP001");
+        setPreviewError(false);
+        return;
+      }
+
+      const len = matched.runningLength ?? matched.running_length ?? 4;
+      const padded = String(nextNum).padStart(len, "0");
+      const prefix = matched.prefix ?? "";
+      const suffix = matched.suffix ?? "";
+      const numFormat = matched.numberFormat || matched.number_format || "PREFIX_NUM_SUFFIX";
+
+      let formatted: string;
+      if (numFormat === "PREFIX_NUM_SUFFIX") {
+        formatted = `${prefix}${padded}${suffix}`;
+      } else if (numFormat === "PREFIX_YEAR_SEP_NUM") {
+        const rawFy = matched.financialYear ?? matched.financial_year ?? "26-27";
+        const fy = rawFy.includes("-") && rawFy.length === 9 ? `${rawFy.slice(2, 4)}-${rawFy.slice(7, 9)}` : rawFy;
+        formatted = `${prefix}${fy}/${padded}`;
+      } else if (numFormat === "PREFIX_SEP_NUM") {
+        formatted = `${prefix}/${padded}`;
+      } else if (numFormat === "NUM_ONLY") {
+        formatted = `${padded}`;
+      } else {
+        formatted = `${prefix}${padded}${suffix}`;
+      }
+
+      setSeriesPreview(formatted);
+      setSeriesId(matched.seriesId || matched.series_id || matched.id || "SER-ART-COMP001");
+      setPreviewError(false);
+    } else {
+      setSeriesPreview(null);
+      setPreviewError(true);
+    }
+  }, [category, availableSeries]);
+
+  // Combined Category Choices (Master lookups + configured series categories)
+  const renderedCategoryOptions = useMemo(() => {
+    const defaultList = categoryOptions.length > 0
+      ? categoryOptions.map((c) => c.name)
+      : ["Footwear", "SANDAL", "SHOES", "Apparel", "Accessories"];
+    const seriesCategories = availableSeries
+      .filter((s: any) => (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") && s.category)
+      .map((s: any) => String(s.category).trim());
+    return Array.from(new Set([...defaultList, ...seriesCategories]));
+  }, [categoryOptions, availableSeries]);
 
   // ── Step 2 Matrix State ──
   const [availableColors, setAvailableColors] = useState<{ name: string; hex?: string; border?: boolean }[]>(DEFAULT_COLORS);
@@ -146,38 +227,17 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
     let isMounted = true;
 
     const loadGovernedData = async () => {
-      // 1. Load numbering series preview
+      // 1. Load numbering series preview (Read-Only)
       setIsLoadingPreview(true);
       setPreviewError(false);
       try {
         const seriesData = await apiFetchV1<any[]>("/numbering/series");
         if (isMounted && Array.isArray(seriesData)) {
-          const articleSeries = seriesData.find(
-            (s: any) =>
-              (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") &&
-              (s.isActive !== false && s.is_active !== false)
-          );
-          if (articleSeries) {
-            const nextNum = (articleSeries.currentNumber ?? articleSeries.current_number ?? 0) + 1;
-            const len = articleSeries.runningLength ?? articleSeries.running_length ?? 4;
-            const padded = String(nextNum).padStart(len, "0");
-            const prefix = articleSeries.prefix ?? "ART/";
-            const rawFy = articleSeries.financialYear ?? articleSeries.financial_year ?? "26-27";
-            const fy =
-              rawFy.includes("-") && rawFy.length === 9
-                ? `${rawFy.slice(2, 4)}-${rawFy.slice(7, 9)}`
-                : rawFy;
-            const suffix = articleSeries.suffix ?? "";
-            const formatted = `${prefix}${padded}/${fy}/${suffix}`.replace(/\/+/g, "/");
-            setSeriesPreview(formatted);
-            setSeriesId(articleSeries.seriesId || articleSeries.series_id || articleSeries.id || "SER-ART-COMP001");
-          } else {
-            setSeriesPreview(null);
-            setPreviewError(true);
-          }
+          setAvailableSeries(seriesData);
         }
       } catch {
         if (isMounted) {
+          setAvailableSeries([]);
           setSeriesPreview(null);
           setPreviewError(true);
         }
@@ -745,7 +805,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
                     <option value="">Select Category</option>
-                    {(categoryOptions.length > 0 ? categoryOptions.map(c => c.name) : ["Footwear", "Apparel", "Accessories"]).map((c) => (
+                    {renderedCategoryOptions.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>

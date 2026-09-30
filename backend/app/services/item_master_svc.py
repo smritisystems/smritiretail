@@ -147,27 +147,13 @@ class UniversalItemMasterService:
 
             # 1. Numbering resolution (Requirements 4, 5, 6)
             if getattr(req, "auto_generate_article_number", False):
-                # Check whether active document_series exists for document_type == 'ARTICLE'
-                series_stmt = select(DocumentSeries).where(
-                    DocumentSeries.company_id == effective_company_id,
-                    DocumentSeries.document_type == "ARTICLE",
-                    DocumentSeries.is_active == True,
-                    DocumentSeries.is_deleted == False
-                )
-                if branch_id:
-                    series_stmt = series_stmt.where(or_(DocumentSeries.branch_id == branch_id, DocumentSeries.branch_id.is_(None)))
-                active_series = (await session.execute(series_stmt)).scalars().first()
-                if not active_series:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Article numbering series is not configured for this company/branch."
-                    )
                 alloc_resp = await DocumentsEngine.allocate_next_number_in_transaction(
                     session=session,
                     company_id=effective_company_id,
                     document_type="ARTICLE",
                     branch_id=branch_id,
                     company_code=effective_company_id,
+                    category=getattr(req, "category", None),
                 )
                 sku = alloc_resp.document_no
             else:

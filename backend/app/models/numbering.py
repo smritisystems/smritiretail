@@ -40,7 +40,9 @@ class DocumentSeries(BaseEntity):
     is_common_across_terminals = Column(Boolean, default=True)
     transaction_group          = Column(String(50), default="SALES")  # SALES, CASH, SLIPS
     start_number               = Column(Integer, default=1)
+    end_number                 = Column(Integer, nullable=True)
     is_void_unified            = Column(Boolean, default=False)
+    category                   = Column(String(100), nullable=True)
 
     # Bill number segment arrangement — controls how prefix/number/suffix are ordered.
     # Allowed values (enforced by DB CHECK constraint from migration v1461):
