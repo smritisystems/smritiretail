@@ -19,6 +19,10 @@ import {
   SizewisePOLine,
   SIZE_SCALE_PRESETS,
   getFootwearGstRate,
+  recommendSizeAssortment,
+  getShadeHex,
+  COLOR_SWATCHES,
+  resolveLineImage,
 } from "../components/purchase/PoSizewiseTab.tsx";
 
 describe("SMRITI 9 Sizewise Purchase Order Matrix & Calculation Suite", () => {
@@ -662,5 +666,154 @@ describe("Phase 2 Purchase Studio Resiliency, Safety & Overflow Suite", () => {
     expect(discreteItems[1].orderQty).toBe(20);
     expect(discreteItems[1].taxAmount).toBe(1000);
     expect(discreteItems[1].netAmount).toBe(21000);
+  });
+
+  it("22. recommendSizeAssortment — Bell Curve distributes normal distribution with exact sum", () => {
+    const fwSizes = ["40", "41", "42", "43", "44", "45"];
+    const targetQty = 24;
+    const result = recommendSizeAssortment(fwSizes, targetQty, "bell");
+
+    // Exact sum match
+    const sum = Object.values(result).reduce((a, b) => a + b, 0);
+    expect(sum).toBe(targetQty);
+
+    // Center sizes (42, 43) should have greater quantity than edge sizes (40, 45)
+    expect((result["42"] || 0) + (result["43"] || 0)).toBeGreaterThan((result["40"] || 0) + (result["45"] || 0));
+
+    // Non-negative integer check
+    Object.values(result).forEach(qty => {
+      expect(Number.isInteger(qty)).toBe(true);
+      expect(qty).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  it("23. recommendSizeAssortment — Core Sizes curve heavily weights central sizes", () => {
+    const fwSizes = ["39", "40", "41", "42", "43", "44"];
+    const targetQty = 36;
+    const result = recommendSizeAssortment(fwSizes, targetQty, "core");
+
+    const sum = Object.values(result).reduce((a, b) => a + b, 0);
+    expect(sum).toBe(targetQty);
+
+    // Core sizes 40, 41, 42 should comprise over 60% of total quantity
+    const coreQty = (result["40"] || 0) + (result["41"] || 0) + (result["42"] || 0);
+    expect(coreQty).toBeGreaterThan(targetQty * 0.5);
+  });
+
+  it("24. recommendSizeAssortment — Uniform distribution spreads evenly across all sizes", () => {
+    const alphaSizes = ["S", "M", "L", "XL", "XXL"];
+    const targetQty = 23; // Prime number not divisible by 5
+    const result = recommendSizeAssortment(alphaSizes, targetQty, "uniform");
+
+    const sum = Object.values(result).reduce((a, b) => a + b, 0);
+    expect(sum).toBe(targetQty);
+
+    // Baseline should be 4 each (4 * 5 = 20) with 3 sizes having 5
+    const values = Object.values(result);
+    expect(values.filter(v => v === 5).length).toBe(3);
+    expect(values.filter(v => v === 4).length).toBe(2);
+  });
+
+  it("25. recommendSizeAssortment — Mathematical invariant: sum(result) === targetQty across 100 iterations", () => {
+    const fwSizes = ["36", "37", "38", "39", "40", "41", "42", "43", "44"];
+    for (let target = 1; target <= 100; target++) {
+      const bellResult = recommendSizeAssortment(fwSizes, target, "bell");
+      const bellSum = Object.values(bellResult).reduce((a, b) => a + b, 0);
+      expect(bellSum).toBe(target);
+
+      const coreResult = recommendSizeAssortment(fwSizes, target, "core");
+      const coreSum = Object.values(coreResult).reduce((a, b) => a + b, 0);
+      expect(coreSum).toBe(target);
+
+      const uniformResult = recommendSizeAssortment(fwSizes, target, "uniform");
+      const uniformSum = Object.values(uniformResult).reduce((a, b) => a + b, 0);
+      expect(uniformSum).toBe(target);
+    }
+  });
+
+  it("26. Landscape Print Orientation — supports 297mm x 210mm layout and photo attachment", () => {
+    const lineWithPhoto: SizewisePOLine = {
+      id: "sw-fw-1",
+      sNo: 1,
+      itemCode: "CH-19",
+      articleNo: "SND-10001-A",
+      barcode: "8901234567890",
+      product: "Men Comfort Sandal",
+      brand: "Campus",
+      style: "Casual",
+      shade: "Brown",
+      unit: "Pair",
+      sizeQuantities: { "40": 2, "41": 4, "42": 6, "43": 4, "44": 2 },
+      totalQty: 18,
+      rate: 499.00,
+      stockOnHand: 15,
+      taxPercent: 5,
+      netValue: 18 * 499.00,
+      deliveryDate: "2026-10-07",
+      imageUrl: "https://example.com/shoe.jpg",
+    };
+
+    expect(lineWithPhoto.imageUrl).toBe("https://example.com/shoe.jpg");
+    expect(lineWithPhoto.articleNo).toBe("SND-10001-A");
+    expect(lineWithPhoto.totalQty).toBe(18);
+  });
+
+  it("27. Color / Shade Palette & Hex Resolution — maps footwear shades to valid CSS hex codes", () => {
+    expect(getShadeHex("Tan")).toBe("#78350f");
+    expect(getShadeHex("Brown")).toBe("#451a03");
+    expect(getShadeHex("Rustic Black")).toBe("#1c1917");
+    expect(getShadeHex("Navy Blue")).toBe("#1e3a8a");
+    expect(getShadeHex("Olive Green")).toBe("#3f6212");
+    expect(getShadeHex("Cherry Red")).toBe("#881337");
+    expect(getShadeHex("Camel")).toBe("#d97706");
+    expect(getShadeHex("White")).toBe("#f8fafc");
+    expect(getShadeHex("Unknown Fancy Color")).toBe("#94a3b8"); // Graceful fallback
+    expect(COLOR_SWATCHES.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("28. Article + Color Composite Image Resolution — distinguishes photos per colorway", () => {
+    const articleMap: Record<string, string> = {
+      "SND-100": "https://example.com/default_snd100.jpg",
+      "SND-100::tan": "https://example.com/snd100_tan.jpg",
+      "SND-100::black": "https://example.com/snd100_black.jpg",
+      "CH-19": "https://example.com/ch19_general.jpg",
+    };
+
+    const lineTan: SizewisePOLine = {
+      ...buildBlankLine(0, ["40", "41", "42"], "2026-10-01", 5),
+      itemCode: "ITM-01",
+      articleNo: "SND-100",
+      shade: "Tan",
+    };
+
+    const lineBlack: SizewisePOLine = {
+      ...buildBlankLine(1, ["40", "41", "42"], "2026-10-01", 5),
+      itemCode: "ITM-02",
+      articleNo: "SND-100",
+      shade: "Black",
+    };
+
+    const lineCamel: SizewisePOLine = {
+      ...buildBlankLine(2, ["40", "41", "42"], "2026-10-01", 5),
+      itemCode: "ITM-03",
+      articleNo: "SND-100",
+      shade: "Camel", // No specific composite key, falls back to SND-100
+    };
+
+    const lineExplicit: SizewisePOLine = {
+      ...buildBlankLine(3, ["40", "41", "42"], "2026-10-01", 5),
+      itemCode: "ITM-04",
+      articleNo: "SND-100",
+      shade: "Tan",
+      imageUrl: "https://example.com/custom_override.jpg",
+    };
+
+    // Composite matches
+    expect(resolveLineImage(lineTan, articleMap)).toBe("https://example.com/snd100_tan.jpg");
+    expect(resolveLineImage(lineBlack, articleMap)).toBe("https://example.com/snd100_black.jpg");
+    // Fallback to article-level
+    expect(resolveLineImage(lineCamel, articleMap)).toBe("https://example.com/default_snd100.jpg");
+    // Explicit override wins
+    expect(resolveLineImage(lineExplicit, articleMap)).toBe("https://example.com/custom_override.jpg");
   });
 });

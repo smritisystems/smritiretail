@@ -720,9 +720,9 @@ export const AboutSmritiTab: React.FC = () => {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="bg-theme-surface-1 border border-theme-divider p-5 rounded-xl shadow-sm">
-                    <h3 className="font-bold text-sm text-white mb-2">Google GenAI Copilot</h3>
+                    <h3 className="font-bold text-sm text-white mb-2">SMRITI AI Copilot</h3>
                     <p className="text-xs text-theme-muted leading-relaxed">
-                      SMRITI integrates Gemini models to provide natural language calculations, explain tax formulas on billing checkouts, and index reference documents in the SMRITI Gyan Kendra.
+                      SMRITI integrates enterprise AI models to provide natural language calculations, explain tax formulas on billing checkouts, and index reference documents in the SMRITI Gyan Kendra.
                     </p>
                   </div>
                   

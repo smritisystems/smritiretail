@@ -1483,7 +1483,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </h4>
             </div>
             <span className="text-[10px] bg-blue-500 bg-opacity-20 text-blue-400 border border-blue-500 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
-              Gemini Inside
+              SMRITI AI
             </span>
           </div>
 

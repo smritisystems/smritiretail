@@ -124,6 +124,7 @@ export interface SizewisePOLine {
   id: string;
   sNo: number;
   itemCode: string;
+  articleNo?: string;
   barcode?: string;
   product: string;
   brand: string;
@@ -138,6 +139,7 @@ export interface SizewisePOLine {
   netValue: number; // totalQty * rate
   deliveryDate: string;
   originalProduct?: Product;
+  imageUrl?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -153,10 +155,17 @@ export const addDaysToDate = (dateStr: string, days: number): string => {
   return `${year}-${month}-${day}`;
 };
 
-export const buildBlankLine = (idx: number, sizes: string[], deliveryDate: string, taxPercent: number): SizewisePOLine => ({
+export const buildBlankLine = (
+  idx: number,
+  sizes: string[],
+  deliveryDate: string,
+  taxPercent: number,
+  imageUrl?: string
+): SizewisePOLine => ({
   id: `sw-line-${idx + 1}`,
   sNo: idx + 1,
   itemCode: "",
+  articleNo: "",
   barcode: "",
   product: "",
   brand: "",
@@ -170,7 +179,149 @@ export const buildBlankLine = (idx: number, sizes: string[], deliveryDate: strin
   taxPercent,
   netValue: 0,
   deliveryDate,
+  imageUrl: imageUrl || "",
 });
+
+export const SHADE_COLOR_MAP: Record<string, string> = {
+  tan: "#78350f",
+  brown: "#451a03",
+  black: "#1c1917",
+  camel: "#d97706",
+  navy: "#1e3a8a",
+  blue: "#2563eb",
+  olive: "#3f6212",
+  green: "#15803d",
+  cherry: "#881337",
+  burgundy: "#701a75",
+  maroon: "#831843",
+  red: "#dc2626",
+  white: "#f8fafc",
+  grey: "#64748b",
+  gray: "#64748b",
+  charcoal: "#334155",
+  beige: "#d4d4d8",
+  khaki: "#a1a1aa",
+  yellow: "#eab308",
+  mustard: "#ca8a04",
+  orange: "#ea580c",
+  pink: "#ec4899",
+  gold: "#eab308",
+  silver: "#94a3b8",
+};
+
+export const COLOR_SWATCHES = [
+  { name: "Tan", hex: "#78350f" },
+  { name: "Brown", hex: "#451a03" },
+  { name: "Black", hex: "#1c1917" },
+  { name: "Camel", hex: "#d97706" },
+  { name: "Navy", hex: "#1e3a8a" },
+  { name: "Olive", hex: "#3f6212" },
+  { name: "Cherry", hex: "#881337" },
+  { name: "White", hex: "#f1f5f9" },
+];
+
+export function getShadeHex(shade?: string): string {
+  if (!shade) return "#94a3b8";
+  const lower = shade.trim().toLowerCase();
+  for (const [key, hex] of Object.entries(SHADE_COLOR_MAP)) {
+    if (lower.includes(key)) return hex;
+  }
+  return "#94a3b8";
+}
+
+/**
+ * resolveLineImage — Resolves the product image URL according to footwear hierarchy:
+ * 1. Line-level explicit imageUrl
+ * 2. Article + Color composite key (`${articleNo}::${color.toLowerCase()}`)
+ * 3. Article-level fallback (`articleNo`)
+ * 4. ItemCode-level fallback (`itemCode`)
+ */
+export function resolveLineImage(
+  line: SizewisePOLine,
+  articleImageMap: Record<string, string>
+): string {
+  if (line.imageUrl) return line.imageUrl;
+  const article = (line.articleNo || "").trim();
+  const shade = (line.shade || "").trim().toLowerCase();
+  if (article && shade && articleImageMap[`${article}::${shade}`]) {
+    return articleImageMap[`${article}::${shade}`];
+  }
+  if (article && articleImageMap[article]) {
+    return articleImageMap[article];
+  }
+  if (line.itemCode && articleImageMap[line.itemCode]) {
+    return articleImageMap[line.itemCode];
+  }
+  return "";
+}
+
+/**
+ * recommendSizeAssortment — Pure mathematical helper for retail size ratio curves.
+ * Guarantees integer distribution where sum(result.values()) === totalTargetQty.
+ * Supports:
+ *  - "bell": Standard Gaussian / normal distribution centered at mid sizes
+ *  - "core": Heavy emphasis on central core sizes (40%-60% of size run)
+ *  - "uniform": Even distribution across all sizes
+ */
+export function recommendSizeAssortment(
+  sizes: string[],
+  totalTargetQty: number,
+  curveType: "bell" | "core" | "uniform" = "bell"
+): Record<string, number> {
+  const safeSizes = Array.isArray(sizes) ? sizes : [];
+  if (safeSizes.length === 0 || !Number.isFinite(totalTargetQty) || totalTargetQty <= 0) {
+    return safeSizes.reduce((acc, s) => ({ ...acc, [s]: 0 }), {});
+  }
+
+  const n = safeSizes.length;
+  let rawWeights: number[] = [];
+
+  if (curveType === "uniform") {
+    rawWeights = safeSizes.map(() => 1);
+  } else if (curveType === "core") {
+    const midStart = Math.floor(n * 0.25);
+    const midEnd = Math.ceil(n * 0.75);
+    rawWeights = safeSizes.map((_, i) => (i >= midStart && i < midEnd ? 3 : 1));
+  } else {
+    // Default: Bell curve (Gaussian)
+    const mean = (n - 1) / 2;
+    const sigma = Math.max(0.8, (n - 1) / 3.5);
+    rawWeights = safeSizes.map((_, i) => {
+      const diff = i - mean;
+      return Math.exp(-(diff * diff) / (2 * sigma * sigma));
+    });
+  }
+
+  const weightSum = rawWeights.reduce((a, b) => a + b, 0);
+  if (weightSum <= 0) {
+    return safeSizes.reduce((acc, s) => ({ ...acc, [s]: 0 }), {});
+  }
+
+  const roundedTarget = Math.round(totalTargetQty);
+  const fractions: { index: number; remainder: number }[] = [];
+  let allocatedSum = 0;
+  const allocations: number[] = new Array(n).fill(0);
+
+  for (let i = 0; i < n; i++) {
+    const exact = (rawWeights[i] / weightSum) * roundedTarget;
+    const floorVal = Math.floor(exact);
+    allocations[i] = floorVal;
+    allocatedSum += floorVal;
+    fractions.push({ index: i, remainder: exact - floorVal });
+  }
+
+  let remainder = roundedTarget - allocatedSum;
+  fractions.sort((a, b) => b.remainder - a.remainder);
+  for (let i = 0; i < remainder; i++) {
+    allocations[fractions[i % n].index] += 1;
+  }
+
+  const result: Record<string, number> = {};
+  safeSizes.forEach((s, i) => {
+    result[s] = allocations[i];
+  });
+  return result;
+}
 
 export interface SizewiseSummaryTotals {
   perSizeTotals: Record<string, number>;
@@ -291,7 +442,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   );
 
   // ── State ───────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"items" | "delivery" | "other">("items");
+  const [activeTab, setActiveTab] = useState<"items" | "visual" | "delivery" | "other">("items");
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [suppliersList, setSuppliersList] = useState<
     { id: string; name: string; code?: string; gstin?: string; city?: string; state?: string }[]
@@ -356,6 +507,36 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     variant: "primary",
     onConfirm: () => {},
   });
+
+  // ── Phase 3 States: Images & Articles Visual Lookbook + Recommendation Engine ──
+  const [visualViewMode, setVisualViewMode] = useState<"card" | "table">("card");
+  const [articleImageMap, setArticleImageMap] = useState<Record<string, string>>({
+    "CH-19": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=500&auto=format&fit=crop&q=60",
+    "SH-22": "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=500&auto=format&fit=crop&q=60",
+    "SN-10": "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=500&auto=format&fit=crop&q=60",
+    "FM-05": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=500&auto=format&fit=crop&q=60",
+  });
+  const [imageModalState, setImageModalState] = useState<{
+    isOpen: boolean;
+    rowIndex: number | null;
+    itemCode: string;
+    articleNo: string;
+    color: string;
+    currentImage: string;
+    scope: "articleColor" | "article" | "itemCode" | "rowOnly";
+  }>({
+    isOpen: false,
+    rowIndex: null,
+    itemCode: "",
+    articleNo: "",
+    color: "",
+    currentImage: "",
+    scope: "articleColor",
+  });
+  const [zoomLightboxUrl, setZoomLightboxUrl] = useState<string | null>(null);
+  const [visualSearch, setVisualSearch] = useState<string>("");
+  const [batchRecommendOpen, setBatchRecommendOpen] = useState(false);
+  const [cardAssortmentOpen, setCardAssortmentOpen] = useState<number | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -536,13 +717,18 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         currentSizes = fwSizes;
       }
 
+      const itemCode = product.code || product.id;
+      const articleNo = (product as any).articleNo || (product as any).article_no || (product as any).article || itemCode;
+      const imageUrl = (product as any).primaryImageUrl || (product as any).imageUrl || articleImageMap[articleNo] || articleImageMap[itemCode] || "";
+
       setLines(prev =>
         prev.map((line, i) => {
           const baseLine =
             i === rowIdx
               ? {
                   ...line,
-                  itemCode: product.code || product.id,
+                  itemCode,
+                  articleNo,
                   barcode: product.barcode || "",
                   product: product.name,
                   brand: product.brand || "",
@@ -553,6 +739,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   taxPercent,
                   stockOnHand: product.stock || 0,
                   originalProduct: product,
+                  imageUrl: imageUrl || line.imageUrl || "",
                 }
               : line;
 
@@ -571,8 +758,115 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         })
       );
     },
-    [sizes, selectedScaleKey, header.commonTaxPercent]
+    [sizes, selectedScaleKey, header.commonTaxPercent, articleImageMap]
   );
+
+  // ── Phase 3 Handlers: Image Binding & Assortment Curves ────────────────────
+  const openImageModal = useCallback((rowIdx: number) => {
+    const line = lines[rowIdx];
+    if (!line) return;
+    const itemCode = line.itemCode || "";
+    const articleNo = line.articleNo || line.itemCode || "";
+    const color = line.shade || "";
+    const currentImage = resolveLineImage(line, articleImageMap);
+    setImageModalState({
+      isOpen: true,
+      rowIndex: rowIdx,
+      itemCode,
+      articleNo,
+      color,
+      currentImage,
+      scope: color ? "articleColor" : "article",
+    });
+  }, [lines, articleImageMap]);
+
+  const handleApplyImage = useCallback((newUrl: string, scope: "articleColor" | "article" | "itemCode" | "rowOnly") => {
+    const { rowIndex, itemCode, articleNo, color } = imageModalState;
+    if (!newUrl.trim()) return;
+
+    const trimmedColor = (color || "").trim().toLowerCase();
+
+    if (scope === "articleColor" && articleNo && trimmedColor) {
+      const compositeKey = `${articleNo}::${trimmedColor}`;
+      setArticleImageMap(prev => ({ ...prev, [compositeKey]: newUrl }));
+      setLines(prev => prev.map(l => {
+        const lArt = (l.articleNo || l.itemCode || "").trim();
+        const lColor = (l.shade || "").trim().toLowerCase();
+        return (lArt === articleNo && lColor === trimmedColor) ? { ...l, imageUrl: newUrl } : l;
+      }));
+    } else if (scope === "article" && articleNo) {
+      setArticleImageMap(prev => ({ ...prev, [articleNo]: newUrl }));
+      setLines(prev => prev.map(l => (l.articleNo === articleNo || l.itemCode === articleNo) ? { ...l, imageUrl: newUrl } : l));
+    } else if (scope === "itemCode" && itemCode) {
+      setArticleImageMap(prev => ({ ...prev, [itemCode]: newUrl }));
+      setLines(prev => prev.map(l => l.itemCode === itemCode ? { ...l, imageUrl: newUrl } : l));
+    } else if (rowIndex !== null) {
+      setLines(prev => prev.map((l, i) => i === rowIndex ? { ...l, imageUrl: newUrl } : l));
+    }
+    setImageModalState(s => ({ ...s, isOpen: false }));
+    onNotification?.(
+      "Image Updated",
+      `Product image attached (${scope === "articleColor" ? `Article: ${articleNo} / Color: ${color}` : scope}).`,
+      "success"
+    );
+  }, [imageModalState, onNotification]);
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) {
+        setImageModalState(s => ({ ...s, currentImage: dataUrl }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleApplyRecommendationToRow = useCallback((rowIdx: number, curve: "bell" | "core" | "uniform") => {
+    const line = lines[rowIdx];
+    if (!line) return;
+    const targetQty = line.totalQty > 0 ? line.totalQty : 12;
+    const newQtys = recommendSizeAssortment(sizes, targetQty, curve);
+    const totalQty = sizes.reduce((s, sz) => s + (newQtys[sz] || 0), 0);
+    const netValue = totalQty * (line.rate || 0);
+
+    setLines(prev => prev.map((l, i) => i === rowIdx ? {
+      ...l,
+      sizeQuantities: newQtys,
+      totalQty,
+      netValue,
+    } : l));
+    setCardAssortmentOpen(null);
+    onNotification?.(
+      "Assortment Curve Applied",
+      `Distributed ${totalQty} units across ${sizes.length} sizes using ${curve.toUpperCase()} curve.`,
+      "info"
+    );
+  }, [lines, sizes, onNotification]);
+
+  const handleApplyBatchRecommendation = useCallback((curve: "bell" | "core" | "uniform") => {
+    setLines(prev => prev.map(line => {
+      if (!line.itemCode) return line;
+      const targetQty = line.totalQty > 0 ? line.totalQty : 12;
+      const newQtys = recommendSizeAssortment(sizes, targetQty, curve);
+      const totalQty = sizes.reduce((s, sz) => s + (newQtys[sz] || 0), 0);
+      const netValue = totalQty * (line.rate || 0);
+      return {
+        ...line,
+        sizeQuantities: newQtys,
+        totalQty,
+        netValue,
+      };
+    }));
+    setBatchRecommendOpen(false);
+    onNotification?.(
+      "Batch Assortment Applied",
+      `Applied ${curve.toUpperCase()} curve across all line items.`,
+      "success"
+    );
+  }, [sizes, onNotification]);
 
   // Barcode/search lookup
   const handleBarcodeSearch = (query: string) => {
@@ -925,7 +1219,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     return lines.filter(l => Boolean(l.itemCode && l.totalQty > 0)).map(l => ({
       id: l.id,
       sNo: l.sNo,
-      articleNo: l.itemCode,
+      articleNo: l.articleNo || l.itemCode,
       product: l.product,
       brand: l.brand,
       style: l.style,
@@ -935,8 +1229,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       gstPercent: l.taxPercent,
       rate: l.rate,
       totalValue: l.netValue,
+      imageUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
+      photoUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
     }));
-  }, [lines]);
+  }, [lines, articleImageMap]);
 
   // ── Import Excel (CSV parse) ───────────────────────────────────────────
   const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1243,13 +1539,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         {/* Sub-tabs */}
         <nav className="flex items-center gap-6 mt-3 pt-2 border-t border-slate-100 text-xs">
           {[
-            { id: "items", label: `1. Items`, icon: "list_alt" },
-            { id: "delivery", label: "2. Delivery & Tax", icon: "local_shipping" },
-            { id: "other", label: "3. Other Details", icon: "description" },
+            { id: "items", label: `1. Items (${lines.filter(l => Boolean(l.itemCode)).length})`, icon: "list_alt" },
+            { id: "visual", label: `2. Images & Articles (${lines.filter(l => Boolean(l.itemCode)).length})`, icon: "photo_library", isNew: true },
+            { id: "delivery", label: "3. Delivery & Tax", icon: "local_shipping" },
+            { id: "other", label: "4. Other Details", icon: "description" },
           ].map(tab => (
             <button
               key={tab.id}
               type="button"
+              id={`sw-subtab-${tab.id}`}
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-1.5 pb-1.5 font-semibold transition-all relative ${
                 activeTab === tab.id
@@ -1259,6 +1557,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             >
               <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
               {tab.label}
+              {tab.isNew && (
+                <span className="ml-1 text-[9px] bg-rose-500 text-white font-extrabold px-1.5 py-0.2 rounded-full uppercase tracking-wider shadow-2xs">
+                  NEW
+                </span>
+              )}
               {activeTab === tab.id && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
               )}
@@ -1539,17 +1842,36 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                         {line.sNo}
                       </td>
 
-                      {/* Item Code */}
+                      {/* Item Code & Photo Thumbnail */}
                       <td className="p-1 border-r border-slate-100">
-                        <input
-                          type="text"
-                          id={`sw-itemcode-${idx}`}
-                          value={line.itemCode}
-                          placeholder="F2 / Scan"
-                          onFocus={() => setActiveRowIndex(idx)}
-                          onChange={e => updateLine(idx, { itemCode: e.target.value })}
-                          className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs outline-none"
-                        />
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            title={line.imageUrl ? "Click to change/preview image" : "Attach image to article"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openImageModal(idx);
+                            }}
+                            className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs"
+                          >
+                            {line.imageUrl ? (
+                              <img src={line.imageUrl} alt={line.itemCode} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover/thumb:text-indigo-600">
+                                add_photo_alternate
+                              </span>
+                            )}
+                          </button>
+                          <input
+                            type="text"
+                            id={`sw-itemcode-${idx}`}
+                            value={line.itemCode}
+                            placeholder="F2 / Scan"
+                            onFocus={() => setActiveRowIndex(idx)}
+                            onChange={e => updateLine(idx, { itemCode: e.target.value })}
+                            className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-7 font-mono font-bold text-xs outline-none"
+                          />
+                        </div>
                       </td>
 
                       {/* Product Description */}
@@ -1563,8 +1885,14 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-6 font-medium text-xs outline-none"
                         />
                         <div className="px-2 text-[10px] text-slate-400 leading-tight truncate flex items-center justify-between">
-                          <span className="truncate">
-                            {[line.brand, line.style, line.shade].filter(Boolean).join(" / ") || <span className="italic">Brand / Style / Shade</span>}
+                          <span className="truncate flex items-center gap-1.5">
+                            {line.shade && (
+                              <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded text-[9px]">
+                                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: getShadeHex(line.shade) }} />
+                                {line.shade}
+                              </span>
+                            )}
+                            {[line.brand, line.style].filter(Boolean).join(" / ") || (!line.shade && <span className="italic">Brand / Style</span>)}
                           </span>
                           {line.unit && (
                             <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded ml-1 shrink-0">
@@ -1833,6 +2161,592 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 {activeLineCount} item{activeLineCount !== 1 ? "s" : ""} · {grandTotalQty} units ·
                 Mode: Sizewise
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 2. IMAGES & ARTICLES TAB (VISUAL LOOKBOOK & RECOMMENDATION) ──── */}
+      {activeTab === "visual" && (
+        <div className="flex flex-col flex-1 min-h-0 bg-slate-50/50">
+          {/* Visual Tab Header & View Toggles */}
+          <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-indigo-600 text-[18px]">photo_library</span>
+                <span>Product Images & Articles</span>
+                <span className="text-[10px] text-slate-400 font-normal normal-case">
+                  Visual lookbook and size-wise assortment of all items in this Purchase Order
+                </span>
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                <button
+                  type="button"
+                  id="sw-visual-view-card-btn"
+                  onClick={() => setVisualViewMode("card")}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-md font-bold transition ${
+                    visualViewMode === "card"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[15px]">grid_view</span>
+                  Card View
+                </button>
+                <button
+                  type="button"
+                  id="sw-visual-view-table-btn"
+                  onClick={() => setVisualViewMode("table")}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-md font-bold transition ${
+                    visualViewMode === "table"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[15px]">table_rows</span>
+                  Table View
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Strip */}
+          <div className="bg-white border-b border-slate-200 px-4 py-2 flex flex-wrap items-center gap-2 shrink-0">
+            {/* Search Bar */}
+            <div className="relative flex items-center min-w-[240px]">
+              <span className="material-symbols-outlined absolute left-2.5 text-slate-400 text-[15px]">search</span>
+              <input
+                type="text"
+                value={visualSearch}
+                onChange={e => setVisualSearch(e.target.value)}
+                placeholder="Search Item (F2) / Scan Barcode"
+                className="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:border-indigo-500 shadow-2xs"
+              />
+              {visualSearch && (
+                <button type="button" onClick={() => setVisualSearch("")} className="absolute right-2 text-slate-400 hover:text-slate-600 text-sm">×</button>
+              )}
+            </div>
+
+            {/* Add Item */}
+            <button
+              type="button"
+              onClick={addBlankRow}
+              className="flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+            >
+              <span className="material-symbols-outlined text-[16px] text-indigo-500">add</span>
+              Add Item
+            </button>
+
+            {/* Import from Excel */}
+            <button
+              type="button"
+              onClick={() => excelInputRef.current?.click()}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+            >
+              <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
+              Import from Excel
+            </button>
+
+            {/* Add / Bind Multiple Images */}
+            <button
+              type="button"
+              onClick={() => {
+                const firstPopulatedIdx = lines.findIndex(l => Boolean(l.itemCode));
+                if (firstPopulatedIdx >= 0) {
+                  openImageModal(firstPopulatedIdx);
+                } else {
+                  onNotification?.("No Items", "Add items to this PO first before binding photos.", "info");
+                }
+              }}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+            >
+              <span className="material-symbols-outlined text-[16px] text-emerald-600">add_photo_alternate</span>
+              Add Multiple Images
+            </button>
+
+            {/* Bulk Recommend Assortment */}
+            <div className="relative">
+              <button
+                type="button"
+                id="sw-bulk-recommend-btn"
+                onClick={() => setBatchRecommendOpen(!batchRecommendOpen)}
+                className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+              >
+                <span className="material-symbols-outlined text-[16px] text-amber-500">auto_fix_high</span>
+                Bulk Recommend
+                <span className="material-symbols-outlined text-[14px]">expand_more</span>
+              </button>
+
+              {batchRecommendOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Select Curve Distribution
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyBatchRecommendation("bell")}
+                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition"
+                  >
+                    <span>🔔 Bell Curve (Standard Retail)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyBatchRecommendation("core")}
+                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition"
+                  >
+                    <span>🎯 Core Sizes (Mid-heavy)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyBatchRecommendation("uniform")}
+                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition"
+                  >
+                    <span>⚖️ Uniform (Equal per size)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Visual Items Area */}
+          <div className="flex-1 overflow-auto p-4">
+            {lines.filter(l => Boolean(l.itemCode)).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 px-6 text-center select-none bg-white rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-4 shadow-sm">
+                  <span className="material-symbols-outlined text-indigo-500 text-[36px]">photo_library</span>
+                </div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">No visual items in this Purchase Order</h3>
+                <p className="text-xs text-slate-400 mb-5 max-w-sm">
+                  Add product items and attach article photos to view them in the visual lookbook and apply size ratios.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={addBlankRow}
+                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    Add Item
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveRowIndex(0);
+                      f2Dispatcher.openLookup("variant", f2Adapter);
+                    }}
+                    className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-indigo-500">manage_search</span>
+                    F2 / Scan
+                  </button>
+                </div>
+              </div>
+            ) : visualViewMode === "card" ? (
+              /* ── Card View ── */
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {lines.map((line, idx) => {
+                  if (!line.itemCode) return null;
+                  if (
+                    visualSearch &&
+                    !line.product.toLowerCase().includes(visualSearch.toLowerCase()) &&
+                    !line.itemCode.toLowerCase().includes(visualSearch.toLowerCase()) &&
+                    !(line.articleNo && line.articleNo.toLowerCase().includes(visualSearch.toLowerCase())) &&
+                    !(line.shade && line.shade.toLowerCase().includes(visualSearch.toLowerCase())) &&
+                    !(line.barcode && line.barcode.toLowerCase().includes(visualSearch.toLowerCase()))
+                  ) {
+                    return null;
+                  }
+
+                  const imgUrl = resolveLineImage(line, articleImageMap);
+
+                  return (
+                    <div
+                      key={line.id || idx}
+                      className="bg-white rounded-xl border border-slate-200 shadow-2xs hover:shadow-md transition overflow-hidden flex flex-col justify-between"
+                    >
+                      {/* Card Content Top */}
+                      <div className="p-4">
+                        {/* Header Specs */}
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div>
+                            <div className="text-[10px] text-slate-400 font-mono">Item Code</div>
+                            <div className="font-mono font-black text-indigo-900 text-sm">{line.itemCode}</div>
+                            <h4 className="font-bold text-slate-800 text-sm mt-0.5 leading-tight">{line.product}</h4>
+                            
+                            {/* Color & Specification Pills */}
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full inline-block border border-amber-400 shadow-2xs shrink-0"
+                                  style={{ backgroundColor: getShadeHex(line.shade) }}
+                                />
+                                <span>Color:</span>
+                                <span className="font-extrabold uppercase">{line.shade || "Standard"}</span>
+                              </span>
+                              {line.brand && (
+                                <span className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-medium">
+                                  Brand: {line.brand}
+                                </span>
+                              )}
+                              {line.style && (
+                                <span className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-medium">
+                                  Style: {line.style}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
+                              {line.unit || "PAIR"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => requestDeleteRow(idx)}
+                              title="Delete Item"
+                              className="text-slate-400 hover:text-rose-600 transition p-1"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Card Body: Image Column (Left) + Size Matrix Column (Right) */}
+                        <div className="flex flex-col md:flex-row gap-4">
+                          {/* Left Column: Image & Article Badge & Color Swatches */}
+                          <div className="w-full md:w-44 shrink-0 flex flex-col items-center">
+                            <div
+                              onClick={() => imgUrl ? setZoomLightboxUrl(imgUrl) : openImageModal(idx)}
+                              className="w-full h-36 rounded-xl border border-slate-200 bg-slate-50 relative group cursor-pointer overflow-hidden flex items-center justify-center shadow-inner"
+                            >
+                              {imgUrl ? (
+                                <img
+                                  src={imgUrl}
+                                  alt={line.product}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                                />
+                              ) : (
+                                <div className="text-center p-3">
+                                  <span className="material-symbols-outlined text-slate-300 text-[36px]">add_a_photo</span>
+                                  <p className="text-[10px] text-slate-400 mt-1 font-medium">Add Article Image</p>
+                                </div>
+                              )}
+
+                              {/* Hover Overlay */}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openImageModal(idx);
+                                  }}
+                                  className="bg-white/90 hover:bg-white text-slate-900 rounded-lg p-1.5 shadow-sm text-[11px] font-bold flex items-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">photo_camera</span>
+                                  Change
+                                </button>
+                                {imgUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setZoomLightboxUrl(imgUrl);
+                                    }}
+                                    className="bg-white/90 hover:bg-white text-slate-900 rounded-lg p-1.5 shadow-sm text-[11px] font-bold"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">zoom_in</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Article & Color Badges */}
+                            <div className="mt-2 w-full flex flex-col gap-1.5 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <span className="py-0.5 px-1.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono font-bold text-slate-700 truncate max-w-[90px]" title={line.articleNo || line.itemCode}>
+                                  Art: {line.articleNo || line.itemCode}
+                                </span>
+                                <span className="py-0.5 px-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] font-bold text-amber-900 truncate flex items-center gap-1 max-w-[90px]" title={line.shade || "Standard"}>
+                                  <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: getShadeHex(line.shade) }} />
+                                  {line.shade || "Std"}
+                                </span>
+                              </div>
+
+                              {/* Quick Color Input / Selector */}
+                              <div className="flex items-center gap-1 px-0.5">
+                                <span className="text-[9px] text-slate-400 font-bold uppercase shrink-0">Color:</span>
+                                <input
+                                  type="text"
+                                  value={line.shade || ""}
+                                  placeholder="e.g. Tan, Black"
+                                  onChange={e => updateLine(idx, { shade: e.target.value })}
+                                  className="w-full py-0.5 px-1.5 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-800 outline-none focus:border-indigo-500 text-center"
+                                  title="Directly edit Color / Shade"
+                                />
+                              </div>
+
+                              {/* Swatches Row */}
+                              <div className="flex items-center justify-center gap-1 pt-0.5">
+                                {COLOR_SWATCHES.map((sw, swIdx) => (
+                                  <button
+                                    key={swIdx}
+                                    type="button"
+                                    title={`Set Color to ${sw.name}`}
+                                    onClick={() => updateLine(idx, { shade: sw.name })}
+                                    className={`w-3.5 h-3.5 rounded-full border border-slate-300 shadow-2xs hover:scale-125 transition ${
+                                      (line.shade || "").toLowerCase() === sw.name.toLowerCase() ? "ring-2 ring-indigo-600 ring-offset-1 scale-110" : ""
+                                    }`}
+                                    style={{ backgroundColor: sw.hex }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Column: Size Matrix Table & Financials */}
+                          <div className="flex-1 flex flex-col justify-between min-w-0">
+                            {/* Embedded Size Matrix Table */}
+                            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                              <table className="w-full text-xs text-center border-collapse">
+                                <thead>
+                                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[10px]">
+                                    <th className="py-1 px-1.5 text-left border-r border-slate-200 w-12">Size</th>
+                                    {sizes.map(sz => (
+                                      <th key={sz} className="py-1 px-1 border-r border-slate-200 font-mono text-indigo-900">
+                                        {sz}
+                                      </th>
+                                    ))}
+                                    <th className="py-1 px-1.5 font-bold text-slate-700 bg-indigo-50/50">Total</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr>
+                                    <td className="py-1 px-1.5 text-left font-bold text-slate-600 border-r border-slate-200 text-[10px]">
+                                      Qty
+                                    </td>
+                                    {sizes.map(sz => (
+                                      <td key={sz} className="p-0.5 border-r border-slate-200">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={line.sizeQuantities[sz] ?? 0}
+                                          onChange={e => {
+                                            const v = Math.max(0, parseInt(e.target.value) || 0);
+                                            updateSizeQty(idx, sz, v);
+                                          }}
+                                          className="w-9 h-6 text-center font-mono font-bold bg-white border border-slate-200 rounded text-xs outline-none focus:border-indigo-500 focus:bg-indigo-50/20"
+                                        />
+                                      </td>
+                                    ))}
+                                    <td className="py-1 px-1.5 font-mono font-black text-indigo-700 bg-indigo-50/50">
+                                      {line.totalQty}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* "Or Recommend" Assortment Button & Financials */}
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setCardAssortmentOpen(cardAssortmentOpen === idx ? null : idx)}
+                                  className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 px-2.5 py-1 rounded-lg text-[11px] font-bold transition shadow-2xs"
+                                >
+                                  <span className="material-symbols-outlined text-[14px] text-amber-600">auto_fix_high</span>
+                                  Recommend Ratio
+                                  <span className="material-symbols-outlined text-[13px]">expand_more</span>
+                                </button>
+
+                                {cardAssortmentOpen === idx && (
+                                  <div className="absolute left-0 bottom-full mb-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApplyRecommendationToRow(idx, "bell")}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
+                                    >
+                                      <span>🔔 Bell Curve (Gaussian)</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApplyRecommendationToRow(idx, "core")}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
+                                    >
+                                      <span>🎯 Core Sizes (Mid-heavy)</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApplyRecommendationToRow(idx, "uniform")}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
+                                    >
+                                      <span>⚖️ Uniform (Equal per size)</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="text-right">
+                                <div className="text-[10px] text-slate-400">
+                                  Rate: <span className="font-mono text-slate-700 font-bold">₹{line.rate.toFixed(2)}</span>
+                                </div>
+                                <div className="text-xs font-mono font-black text-indigo-950">
+                                  Net Value: ₹{line.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ── Table View ── */
+              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-[11px]">
+                      <th className="p-2 text-center w-8">#</th>
+                      <th className="p-2 text-center w-12">Photo</th>
+                      <th className="p-2">Item Code</th>
+                      <th className="p-2">Article No</th>
+                      <th className="p-2 w-28">Color / Shade</th>
+                      <th className="p-2">Product Description</th>
+                      {sizes.map(sz => (
+                        <th key={sz} className="p-2 text-center font-mono text-indigo-900 w-12">
+                          {sz}
+                        </th>
+                      ))}
+                      <th className="p-2 text-center font-bold bg-indigo-50/50 w-16">Total Qty</th>
+                      <th className="p-2 text-right w-20">Rate (₹)</th>
+                      <th className="p-2 text-right w-24">Net Value (₹)</th>
+                      <th className="p-2 text-center w-12">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {lines.map((line, idx) => {
+                      if (!line.itemCode) return null;
+                      const imgUrl = resolveLineImage(line, articleImageMap);
+                      return (
+                        <tr key={line.id || idx} className="hover:bg-slate-50/70 transition">
+                          <td className="p-2 text-center text-slate-400 font-mono">{idx + 1}</td>
+                          <td className="p-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => openImageModal(idx)}
+                              className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center mx-auto overflow-hidden hover:border-indigo-500 shadow-2xs"
+                            >
+                              {imgUrl ? (
+                                <img src={imgUrl} alt={line.itemCode} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="material-symbols-outlined text-slate-400 text-[18px]">add_photo_alternate</span>
+                              )}
+                            </button>
+                          </td>
+                          <td className="p-2 font-mono font-bold text-indigo-900">{line.itemCode}</td>
+                          <td className="p-2 font-mono font-semibold text-slate-700">{line.articleNo || line.itemCode}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="w-3 h-3 rounded-full inline-block border border-slate-300 shadow-2xs shrink-0"
+                                style={{ backgroundColor: getShadeHex(line.shade) }}
+                              />
+                              <input
+                                type="text"
+                                value={line.shade || ""}
+                                placeholder="Color"
+                                onChange={e => updateLine(idx, { shade: e.target.value })}
+                                className="w-20 px-1.5 py-0.5 border border-slate-200 rounded text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 bg-white"
+                                title="Edit Color"
+                              />
+                            </div>
+                          </td>
+                          <td className="p-2">
+                            <div className="font-bold text-slate-800">{line.product}</div>
+                            <div className="text-[10px] text-slate-400">{[line.brand, line.style, line.shade].filter(Boolean).join(" / ")}</div>
+                          </td>
+                          {sizes.map(sz => (
+                            <td key={sz} className="p-1 text-center">
+                              <input
+                                type="number"
+                                min="0"
+                                value={line.sizeQuantities[sz] ?? 0}
+                                onChange={e => {
+                                  const v = Math.max(0, parseInt(e.target.value) || 0);
+                                  updateSizeQty(idx, sz, v);
+                                }}
+                                className="w-10 h-6 text-center font-mono font-bold bg-white border border-slate-200 rounded text-xs outline-none focus:border-indigo-500"
+                              />
+                            </td>
+                          ))}
+                          <td className="p-2 text-center font-mono font-black text-indigo-700 bg-indigo-50/50">
+                            {line.totalQty}
+                          </td>
+                          <td className="p-2 text-right font-mono font-bold text-slate-700">
+                            {line.rate.toFixed(2)}
+                          </td>
+                          <td className="p-2 text-right font-mono font-black text-indigo-950">
+                            ₹{line.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => requestDeleteRow(idx)}
+                              className="text-slate-400 hover:text-rose-600 p-1 transition"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Summary Bar for Visual View */}
+          <div className="bg-white border-t border-slate-200 px-4 py-3 shrink-0 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+            <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-600">
+              <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px] text-indigo-600">bar_chart</span>
+                All Items Summary (Images View)
+              </span>
+              <span className="h-4 w-px bg-slate-200" />
+              <span>Total Items: <strong className="text-slate-800">{totalItems}</strong></span>
+              <span>Total Qty: <strong className="text-slate-800 font-mono">{grandTotalQty}</strong></span>
+              <span>Gross: <strong className="text-slate-800 font-mono">₹{grossValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
+              <span>Tax: <strong className="text-slate-800 font-mono">₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
+              <span>Net PO Value: <strong className="text-indigo-700 font-black text-sm font-mono">₹{netOrderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSavePO("draft")}
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition"
+              >
+                Save Draft
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSavePO("confirm")}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition"
+              >
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                Save & Confirm
+              </button>
             </div>
           </div>
         </div>
@@ -2166,6 +3080,211 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 {confirmModal.confirmLabel || "Confirm"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 3: Product Image Binding Modal ── */}
+      {imageModalState.isOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="image-modal-title"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-indigo-600 text-[20px]">add_photo_alternate</span>
+                <h3 id="image-modal-title" className="text-sm font-bold text-slate-800">
+                  Attach Product Image
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImageModalState(s => ({ ...s, isOpen: false }))}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              {/* Product Reference */}
+              <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] text-indigo-400 font-mono">Article No</div>
+                  <div className="font-mono font-black text-indigo-950 text-sm">
+                    {imageModalState.articleNo || imageModalState.itemCode}
+                  </div>
+                </div>
+                {imageModalState.color && (
+                  <div className="text-center">
+                    <div className="text-[10px] text-indigo-400 font-mono">Color / Shade</div>
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100/70 border border-amber-200 text-xs font-bold text-amber-900">
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: getShadeHex(imageModalState.color) }} />
+                      {imageModalState.color}
+                    </div>
+                  </div>
+                )}
+                <div className="text-right">
+                  <div className="text-[10px] text-indigo-400 font-mono">Item Code</div>
+                  <div className="font-mono font-bold text-slate-700">{imageModalState.itemCode}</div>
+                </div>
+              </div>
+
+              {/* Preview Thumbnail */}
+              <div className="flex justify-center">
+                <div className="w-40 h-36 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden relative shadow-inner">
+                  {imageModalState.currentImage ? (
+                    <img
+                      src={imageModalState.currentImage}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-center p-3 text-slate-400">
+                      <span className="material-symbols-outlined text-[32px] text-slate-300">image</span>
+                      <p className="text-[10px] mt-1">No image attached</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Local File or Paste URL */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  Image Source
+                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 py-2 px-3 border border-slate-300 border-dashed rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium transition text-xs">
+                    <span className="material-symbols-outlined text-[16px] text-indigo-600">upload_file</span>
+                    <span>Upload Local File</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {imageModalState.currentImage && (
+                    <button
+                      type="button"
+                      onClick={() => setImageModalState(s => ({ ...s, currentImage: "" }))}
+                      className="px-2.5 py-2 border border-slate-200 hover:bg-rose-50 text-rose-600 rounded-lg transition"
+                      title="Clear photo"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="pt-1">
+                  <span className="text-[10px] text-slate-400 font-medium block mb-1">Or paste remote Image URL:</span>
+                  <input
+                    type="url"
+                    value={imageModalState.currentImage}
+                    onChange={e => setImageModalState(s => ({ ...s, currentImage: e.target.value }))}
+                    placeholder="https://example.com/shoe-photo.jpg"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-xs outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Propagation Scope Options */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                <div className="text-[11px] font-bold text-slate-700">Apply Image Scope:</div>
+                {imageModalState.color && (
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                    <input
+                      type="radio"
+                      name="imageScope"
+                      checked={imageModalState.scope === "articleColor"}
+                      onChange={() => setImageModalState(s => ({ ...s, scope: "articleColor" }))}
+                      className="text-indigo-600"
+                    />
+                    <span>
+                      <strong>Article "{imageModalState.articleNo || imageModalState.itemCode}" + Color "{imageModalState.color}"</strong> (Recommended for footwear colorways)
+                    </span>
+                  </label>
+                )}
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                  <input
+                    type="radio"
+                    name="imageScope"
+                    checked={imageModalState.scope === "article"}
+                    onChange={() => setImageModalState(s => ({ ...s, scope: "article" }))}
+                    className="text-indigo-600"
+                  />
+                  <span>
+                    All items with Article "{imageModalState.articleNo || imageModalState.itemCode}"
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                  <input
+                    type="radio"
+                    name="imageScope"
+                    checked={imageModalState.scope === "itemCode"}
+                    onChange={() => setImageModalState(s => ({ ...s, scope: "itemCode" }))}
+                    className="text-indigo-600"
+                  />
+                  <span>This Item Code only ({imageModalState.itemCode})</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                  <input
+                    type="radio"
+                    name="imageScope"
+                    checked={imageModalState.scope === "rowOnly"}
+                    onChange={() => setImageModalState(s => ({ ...s, scope: "rowOnly" }))}
+                    className="text-indigo-600"
+                  />
+                  <span>This line item only</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setImageModalState(s => ({ ...s, isOpen: false }))}
+                className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold shadow-2xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyImage(imageModalState.currentImage, imageModalState.scope)}
+                className="px-4 py-1.5 rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 text-xs font-bold shadow-xs transition"
+              >
+                Save & Apply Image
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 3: Zoom Lightbox Modal ── */}
+      {zoomLightboxUrl && (
+        <div
+          className="fixed inset-0 z-60 bg-black/85 backdrop-blur-sm flex items-center justify-center p-6 cursor-zoom-out"
+          onClick={() => setZoomLightboxUrl(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative max-w-3xl max-h-[85vh] bg-white/10 rounded-2xl p-2 border border-white/20 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <img
+              src={zoomLightboxUrl}
+              alt="High-Res Zoom"
+              className="max-w-full max-h-[80vh] object-contain rounded-xl mx-auto"
+            />
+            <button
+              type="button"
+              onClick={() => setZoomLightboxUrl(null)}
+              className="absolute top-4 right-4 bg-black/60 hover:bg-black text-white rounded-full p-1.5 transition"
+              title="Close (Esc)"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
           </div>
         </div>
       )}

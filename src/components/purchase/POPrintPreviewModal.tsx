@@ -62,6 +62,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     return "INR";
   });
   const [showPhotos, setShowPhotos] = useState<boolean>(true);
+  const [orientation, setOrientation] = useState<"landscape" | "portrait">("landscape");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
   // Keyboard shortcut listener: ESC to close, F9/Ctrl+P to trigger window.print
@@ -112,6 +113,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
 
         return {
           articleCode: r.articleNo || `FW-ART-${100 + idx}`,
+          photoUrl: r.photoUrl || r.imageUrl || r.originalProduct?.primaryImageUrl,
           modelName: r.product || "Footwear Style Line",
           category: r.brand || "Footwear Collection",
           taricCode: "64035910",
@@ -211,6 +213,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     currencySymbol: currencySymbol,
     sizingScale: sizingScale,
     showPhotos: showPhotos,
+    orientation: orientation,
     items: mappedFootwearItems,
     totalCartons: mappedTotalCartons,
     totalPairs: mappedTotalPairs,
@@ -379,6 +382,35 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
             </>
           )}
 
+          {/* Orientation Selector */}
+          <div className="flex items-center gap-1 bg-indigo-900/60 rounded px-1.5 py-1 border border-indigo-700">
+            <span className="text-[10px] text-indigo-300">Layout:</span>
+            <button
+              type="button"
+              id="po-preview-orientation-landscape"
+              onClick={() => setOrientation("landscape")}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
+                orientation === "landscape"
+                  ? "bg-amber-400 text-slate-950 shadow-xs"
+                  : "text-indigo-200 hover:text-white"
+              }`}
+            >
+              Landscape
+            </button>
+            <button
+              type="button"
+              id="po-preview-orientation-portrait"
+              onClick={() => setOrientation("portrait")}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
+                orientation === "portrait"
+                  ? "bg-amber-400 text-slate-950 shadow-xs"
+                  : "text-indigo-200 hover:text-white"
+              }`}
+            >
+              Portrait
+            </button>
+          </div>
+
           {/* Zoom controls */}
           <div className="flex items-center gap-1 bg-indigo-900/60 rounded px-1.5 py-1 border border-indigo-700 text-[11px]">
             <button
@@ -427,6 +459,14 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
 
       {/* Document Sheet Display Canvas with Scaled Preview */}
       <div className="w-full flex justify-center pb-12 print:p-0 print:m-0">
+        <style>{`
+          @media print {
+            @page {
+              size: ${orientation === "landscape" ? "A4 landscape" : "A4 portrait"};
+              margin: 8mm;
+            }
+          }
+        `}</style>
         <div
           id="po-print-preview-sheet-wrapper"
           className="transition-transform duration-150 origin-top shadow-2xl print:shadow-none print:transform-none"
@@ -440,9 +480,10 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
               rows={sizePivotRows}
               currencySymbol={currencySymbol}
               vendorName={vendor?.name}
+              orientation={orientation}
             />
           ) : (
-            <div className="bg-white p-8 rounded-lg shadow-xl w-[210mm] min-h-[297mm]">
+            <div className={`bg-white p-8 rounded-lg shadow-xl ${orientation === "landscape" ? "w-[297mm] min-h-[210mm]" : "w-[210mm] min-h-[297mm]"}`}>
               <StandardInvoiceA4 data={standardInvoiceData as any} />
             </div>
           )}

@@ -151,6 +151,8 @@ export interface PurchaseOrderSizePivotRow {
   // Vendor policy decision fields (frontend-only)
   vendorDecision?: POProductDecision;
   isReadOnly?: boolean;
+  imageUrl?: string;
+  photoUrl?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
