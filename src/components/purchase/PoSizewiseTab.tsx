@@ -42,9 +42,15 @@ import React, {
 } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
+import { POPrintPreviewModal } from "./POPrintPreviewModal.tsx";
 import { useF2Screen, useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import type { Product } from "../../types.ts";
+import type {
+  PurchaseOrderHeader,
+  PurchaseOrderLineItem,
+  PurchaseOrderSizePivotRow,
+} from "./types.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -177,28 +183,46 @@ export interface SizewiseSummaryTotals {
 }
 
 export function calculateSizewiseSummaryTotals(
-  lines: SizewisePOLine[],
-  sizes: string[],
+  lines: SizewisePOLine[] = [],
+  sizes: string[] = [],
   freightAmount: number = 0,
   otherCharges: number = 0
 ): SizewiseSummaryTotals {
-  const activeLines = lines.filter(l => l.itemCode && l.totalQty > 0);
-  const perSizeTotals = sizes.reduce<Record<string, number>>((acc, sz) => {
-    acc[sz] = activeLines.reduce((s, l) => s + (l.sizeQuantities[sz] || 0), 0);
+  const safeLines = Array.isArray(lines) ? lines : [];
+  const safeSizes = Array.isArray(sizes) ? sizes : [];
+  const safeFreight = Number.isFinite(freightAmount) ? Math.max(0, freightAmount) : 0;
+  const safeOther = Number.isFinite(otherCharges) ? Math.max(0, otherCharges) : 0;
+
+  const activeLines = safeLines.filter(
+    l => Boolean(l && l.itemCode && Number.isFinite(l.totalQty) && l.totalQty > 0)
+  );
+
+  const perSizeTotals = safeSizes.reduce<Record<string, number>>((acc, sz) => {
+    acc[sz] = activeLines.reduce((s, l) => {
+      const q = l.sizeQuantities?.[sz];
+      return s + (Number.isFinite(q) ? Math.max(0, q) : 0);
+    }, 0);
     return acc;
   }, {});
-  const grandTotalQty = activeLines.reduce((s, l) => s + l.totalQty, 0);
-  const grossValue = activeLines.reduce((s, l) => s + l.netValue, 0);
-  const totalTax = activeLines.reduce((s, l) => s + (l.netValue * (l.taxPercent || 0)) / 100, 0);
-  const rawNet = grossValue + totalTax + freightAmount + otherCharges;
-  const netOrderValue = rawNet;
+
+  const grandTotalQty = activeLines.reduce((s, l) => s + (Number.isFinite(l.totalQty) ? l.totalQty : 0), 0);
+  const grossValue = activeLines.reduce((s, l) => s + (Number.isFinite(l.netValue) ? l.netValue : 0), 0);
+  const totalTax = activeLines.reduce((s, l) => {
+    const nv = Number.isFinite(l.netValue) ? l.netValue : 0;
+    const tp = Number.isFinite(l.taxPercent) ? l.taxPercent : 0;
+    return s + (nv * tp) / 100;
+  }, 0);
+
+  const rawNet = grossValue + totalTax + safeFreight + safeOther;
+  const netOrderValue = Number.isFinite(rawNet) ? rawNet : 0;
   const totalItems = activeLines.length;
 
-  const sizePercents = sizes.reduce<Record<string, string>>((acc, sz) => {
+  const sizePercents = safeSizes.reduce<Record<string, string>>((acc, sz) => {
+    const qty = perSizeTotals[sz] || 0;
     acc[sz] =
-      grandTotalQty > 0
-        ? ((perSizeTotals[sz] / grandTotalQty) * 100).toFixed(2) + "%"
-        : "0%";
+      grandTotalQty > 0 && Number.isFinite(qty)
+        ? ((qty / grandTotalQty) * 100).toFixed(2) + "%"
+        : "0.00%";
     return acc;
   }, {});
 
@@ -312,6 +336,41 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   // Phase 1: start with an empty grid — the empty state UI guides the user
   const [lines, setLines] = useState<SizewisePOLine[]>([]);
 
+  // ── Phase 2 States: Print Preview, More Actions Popover, Governed Modal ──
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: "danger" | "warning" | "primary";
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    confirmLabel: "Confirm",
+    variant: "primary",
+    onConfirm: () => {},
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreActions(false);
+      }
+    };
+    if (showMoreActions) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMoreActions]);
+
   // ── Data load ─────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setSuppliersLoading(true);
@@ -383,6 +442,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   }, []);
 
   useEffect(() => { loadData(); }, []);
+
+  const selectedSupplier = useMemo(
+    () => suppliersList.find(s => s.id === header.supplierId) || null,
+    [suppliersList, header.supplierId]
+  );
 
   // ── Line helpers ──────────────────────────────────────────────────────
   const updateLine = useCallback(
@@ -593,21 +657,286 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   // trigger the platform lookup (same path as keyboard F2)
   const f2Dispatcher = useF2Dispatcher();
 
-  // ── Copy Previous PO ──────────────────────────────────────────────────
-  const handleCopyPreviousPO = async () => {
+  // ── Phase 2: Governed Row Deletion ────────────────────────────────────
+  const requestDeleteRow = useCallback((idx: number) => {
+    const line = lines[idx];
+    if (!line) return;
+    if (!line.itemCode && line.totalQty === 0) {
+      deleteRow(idx);
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      title: `Delete Row #${idx + 1}`,
+      message: `Are you sure you want to remove row #${idx + 1} (${line.product || line.itemCode}) with total ${line.totalQty} unit(s)?`,
+      confirmLabel: "Delete Row",
+      variant: "danger",
+      onConfirm: () => deleteRow(idx),
+    });
+  }, [lines, deleteRow]);
+
+  // ── Phase 2: Governed Scale Change Confirmation ───────────────────────
+  const handleScaleSelectChange = useCallback((newScaleKey: string) => {
+    if (newScaleKey === selectedScaleKey) return;
+    const populatedCount = lines.filter(l => Boolean(l.itemCode && l.totalQty > 0)).length;
+    if (populatedCount === 0) {
+      handleScaleChange(newScaleKey);
+      return;
+    }
+    const newPreset = SIZE_SCALE_PRESETS[newScaleKey];
+    setConfirmModal({
+      isOpen: true,
+      title: "Change Size Scale Preset?",
+      message: `You currently have ${populatedCount} active item(s) in this Purchase Order. Switching to "${newPreset?.label || newScaleKey}" will adjust size columns to (${newPreset?.sizes.join(", ")}). Quantities for sizes outside this range will be cleared. Do you wish to proceed?`,
+      confirmLabel: "Switch Scale & Re-map",
+      variant: "warning",
+      onConfirm: () => handleScaleChange(newScaleKey),
+    });
+  }, [selectedScaleKey, lines, handleScaleChange]);
+
+  // ── Phase 2: Governed Clear All Rows ──────────────────────────────────
+  const requestClearAllLines = useCallback(() => {
+    if (lines.length === 0) return;
+    setShowMoreActions(false);
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear All Lines?",
+      message: "This will remove all items and size quantities from the current Purchase Order.",
+      confirmLabel: "Clear All",
+      variant: "danger",
+      onConfirm: () => {
+        setLines([]);
+        setActiveRowIndex(0);
+      },
+    });
+  }, [lines.length]);
+
+  // ── Phase 2: Export Matrix CSV ─────────────────────────────────────────
+  const handleExportMatrixCSV = useCallback(() => {
+    setShowMoreActions(false);
+    if (lines.length === 0) {
+      onNotification?.("No Data", "No line items to export.", "info");
+      return;
+    }
+    const headers = ["#", "Item Code", "Product", "Brand", "Style", "Shade", ...sizes, "Total Qty", "Rate", "Tax %", "Net Value"];
+    const csvRows = [headers.join(",")];
+    lines.forEach((l, i) => {
+      const row = [
+        i + 1,
+        `"${l.itemCode}"`,
+        `"${(l.product || "").replace(/"/g, '""')}"`,
+        `"${l.brand || ""}"`,
+        `"${l.style || ""}"`,
+        `"${l.shade || ""}"`,
+        ...sizes.map(sz => l.sizeQuantities[sz] || 0),
+        l.totalQty,
+        l.rate,
+        l.taxPercent,
+        l.netValue,
+      ];
+      csvRows.push(row.join(","));
+    });
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `PO_${header.prefix}_${header.orderNumber}_matrix.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    onNotification?.("Exported", "Matrix exported to CSV successfully.", "success");
+  }, [lines, sizes, header.prefix, header.orderNumber, onNotification]);
+
+  // ── Phase 2: Real Copy Previous PO ─────────────────────────────────────
+  const executeCopyPreviousPO = useCallback(async () => {
+    setShowMoreActions(false);
     try {
+      setSaving(true);
       const res = await apiFetchV1("/purchase/orders/?page=1&page_size=1&sort=created_at&order=desc");
       const list = Array.isArray(res) ? res : res?.items || [];
-      const po = list[0];
-      if (!po) {
-        onNotification?.("No History", "No previous purchase orders found.", "info");
+      const prevOrderSummary = list[0];
+      if (!prevOrderSummary) {
+        onNotification?.("No History", "No previous purchase orders found to copy.", "info");
         return;
       }
-      onNotification?.("Copied", `Items copied from PO ${po.order_no || "previous"}.`, "info");
-    } catch {
-      onNotification?.("Error", "Failed to load previous PO.", "error");
+      const fullPo = await apiFetchV1(`/purchase/orders/${prevOrderSummary.id || prevOrderSummary.order_no}`);
+      const poItems = fullPo?.items || prevOrderSummary?.items || [];
+      if (!poItems || poItems.length === 0) {
+        onNotification?.("No Items", `Previous PO (${prevOrderSummary.order_no}) has no line items.`, "warning");
+        return;
+      }
+
+      if (!header.supplierId && (fullPo.supplier_id || fullPo.supplier)) {
+        const found = suppliersList.find(
+          s => s.id === fullPo.supplier_id || s.name === fullPo.supplier_name || s.name === fullPo.supplier
+        );
+        if (found) {
+          setHeader(h => ({ ...h, supplierId: found.id, supplierName: found.name }));
+        }
+      }
+
+      const newLines: SizewisePOLine[] = poItems.map((item: any, idx: number) => {
+        const sizeQtys: Record<string, number> = {};
+        sizes.forEach(sz => {
+          sizeQtys[sz] = item.sizeQuantities?.[sz] || item.size_quantities?.[sz] || 0;
+        });
+        let totalQty = sizes.reduce((sum, sz) => sum + (sizeQtys[sz] || 0), 0);
+        const itemQty = Number(item.quantity || item.qty || 0);
+        if (totalQty === 0 && itemQty > 0) {
+          const midSz = sizes[Math.floor(sizes.length / 2)] || sizes[0];
+          sizeQtys[midSz] = itemQty;
+          totalQty = itemQty;
+        }
+        const rate = parseFloat(item.rate || item.unit_price || item.price || 0);
+        return {
+          id: `sw-line-${idx + 1}`,
+          sNo: idx + 1,
+          itemCode: item.item_code || item.itemCode || item.sku || `ITEM-${idx + 1}`,
+          barcode: item.barcode || "",
+          product: item.product_name || item.product || item.item_name || "Purchased Product",
+          brand: item.brand || "",
+          style: item.style || item.style_code || "",
+          shade: item.shade || item.color || "",
+          unit: item.unit || item.uom || "Pair",
+          sizeQuantities: sizeQtys,
+          totalQty,
+          rate,
+          stockOnHand: Number(item.stock || item.stockOnHand || 0),
+          taxPercent: Number(item.tax_percent || item.taxPercent || header.commonTaxPercent),
+          netValue: totalQty * rate,
+          deliveryDate: item.delivery_date || header.deliveryDate,
+        };
+      });
+
+      setLines(newLines);
+      onNotification?.("PO Copied", `Successfully loaded ${newLines.length} item(s) from PO ${prevOrderSummary.order_no || fullPo.order_no}.`, "success");
+    } catch (err: any) {
+      onNotification?.("Error", `Failed to copy previous PO: ${err.message || "Unknown error"}`, "error");
+    } finally {
+      setSaving(false);
     }
-  };
+  }, [sizes, header.supplierId, header.commonTaxPercent, header.deliveryDate, suppliersList, onNotification]);
+
+  const requestCopyPreviousPO = useCallback(() => {
+    setShowMoreActions(false);
+    const populatedCount = lines.filter(l => Boolean(l.itemCode || l.totalQty > 0)).length;
+    if (populatedCount === 0) {
+      executeCopyPreviousPO();
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Copy Previous Purchase Order?",
+      message: `Loading items from the previous Purchase Order will replace the ${populatedCount} item(s) currently in this workspace. Do you wish to continue?`,
+      confirmLabel: "Replace & Copy",
+      variant: "warning",
+      onConfirm: () => executeCopyPreviousPO(),
+    });
+  }, [lines, executeCopyPreviousPO]);
+
+  // ── Phase 2: Statutory Print Data Mapping ──────────────────────────────
+  const printHeader: PurchaseOrderHeader = useMemo(() => ({
+    documentType: (header.documentType as any) || "Purchase Order",
+    prefix: header.prefix,
+    orderNumber: header.orderNumber,
+    orderDate: header.orderDate,
+    supplierId: header.supplierId,
+    supplierName: header.supplierName || selectedSupplier?.name || "Apex Fabrics Ltd",
+    billTo: "Main Store",
+    deliveryDate: header.deliveryDate,
+    leadTimeDays: header.leadTimeDays,
+    deliveryLocation: header.deliveryLocation,
+    commonTaxPercent: header.commonTaxPercent,
+    paymentTerms: header.paymentTerms,
+    freightCharges: header.freightCharges,
+    specialInstructions: header.specialInstructions,
+    supplierReference: header.supplierReference,
+    currency: header.currency,
+    buyer: header.buyer,
+    department: header.department,
+    freightAmount: header.freightAmount,
+    otherCharges: header.otherCharges,
+  }), [header, selectedSupplier]);
+
+  const printLineItems: PurchaseOrderLineItem[] = useMemo(() => {
+    return lines.filter(l => Boolean(l.itemCode && l.totalQty > 0)).flatMap((l, idx) => {
+      const activeSizes = Object.entries(l.sizeQuantities).filter(([_, qty]) => qty > 0);
+      if (activeSizes.length === 0) {
+        return [{
+          id: `${l.id}-1`,
+          sNo: idx + 1,
+          stockNo: l.itemCode,
+          barcode: l.barcode,
+          product: l.product,
+          brand: l.brand,
+          style: l.style,
+          shade: l.shade,
+          size: "",
+          fibre: "",
+          colourBase: l.shade,
+          styling: l.style,
+          rate: l.rate,
+          orderQty: l.totalQty,
+          freeQty: 0,
+          unit: l.unit,
+          discountPercent: 0,
+          discountAmount: 0,
+          value: l.totalQty * l.rate,
+          stockOnHand: l.stockOnHand,
+          taxPercent: l.taxPercent,
+          taxAmount: (l.totalQty * l.rate * l.taxPercent) / 100,
+          addOnPercent: 0,
+          addOnAmount: 0,
+          totalValue: l.netValue + ((l.totalQty * l.rate * l.taxPercent) / 100),
+          deliveryDate: l.deliveryDate,
+        }];
+      }
+      return activeSizes.map(([sz, qty]) => ({
+        id: `${l.id}-${sz}`,
+        sNo: idx + 1,
+        stockNo: l.itemCode,
+        barcode: l.barcode,
+        product: l.product,
+        brand: l.brand,
+        style: l.style,
+        shade: l.shade,
+        size: sz,
+        fibre: "",
+        colourBase: l.shade,
+        styling: l.style,
+        rate: l.rate,
+        orderQty: qty,
+        freeQty: 0,
+        unit: l.unit,
+        discountPercent: 0,
+        discountAmount: 0,
+        value: qty * l.rate,
+        stockOnHand: l.stockOnHand,
+        taxPercent: l.taxPercent,
+        taxAmount: (qty * l.rate * l.taxPercent) / 100,
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: qty * l.rate * (1 + l.taxPercent / 100),
+        deliveryDate: l.deliveryDate,
+      }));
+    });
+  }, [lines]);
+
+  const printSizePivotRows: PurchaseOrderSizePivotRow[] = useMemo(() => {
+    return lines.filter(l => Boolean(l.itemCode && l.totalQty > 0)).map(l => ({
+      id: l.id,
+      sNo: l.sNo,
+      articleNo: l.itemCode,
+      product: l.product,
+      brand: l.brand,
+      style: l.style,
+      color: l.shade,
+      sizeQuantities: l.sizeQuantities,
+      totalQty: l.totalQty,
+      gstPercent: l.taxPercent,
+      rate: l.rate,
+      totalValue: l.netValue,
+    }));
+  }, [lines]);
 
   // ── Import Excel (CSV parse) ───────────────────────────────────────────
   const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -739,7 +1068,6 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     );
 
   const activeLineCount = useMemo(() => lines.filter(l => l.itemCode && l.totalQty > 0).length, [lines]);
-  const selectedSupplier = useMemo(() => suppliersList.find(s => s.id === header.supplierId), [suppliersList, header.supplierId]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────
   useEffect(() => {
@@ -805,7 +1133,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <button type="button" className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
               <span className="material-symbols-outlined text-[16px] text-slate-500">folder_open</span> Open
             </button>
-            <button type="button" onClick={() => window.print()} className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
+            <button type="button" onClick={() => setShowPrintPreview(true)} className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
               <span className="material-symbols-outlined text-[16px] text-slate-500">print</span> Print
             </button>
             <button type="button" className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 px-2 py-1.5 rounded-lg transition text-xs shadow-2xs">
@@ -943,10 +1271,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       {activeTab === "items" && (
         <div className="flex flex-col flex-1 min-h-0">
 
-          {/* ── Toolbar ── */}
+          {/* ── Toolbar (7-Action Budget) ── */}
           <div className="bg-white border-b border-slate-200 px-4 py-2 flex flex-wrap items-center gap-2 shrink-0">
-            {/* Scan / Search */}
-            <div className="relative flex items-center min-w-[260px]">
+            {/* 1. Scan / Search Barcode (F2) */}
+            <div className="relative flex items-center min-w-[240px]">
               <span className="material-symbols-outlined absolute left-2.5 text-slate-400 text-[15px]">barcode_scanner</span>
               <input
                 ref={toolbarSearchRef}
@@ -964,7 +1292,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               )}
             </div>
 
-            {/* Add Item */}
+            {/* 2. Add Item */}
             <button
               type="button"
               onClick={addBlankRow}
@@ -974,7 +1302,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               Add Item
             </button>
 
-            {/* Import from Excel */}
+            {/* 3. Import from Excel */}
             <button
               type="button"
               onClick={() => excelInputRef.current?.click()}
@@ -985,34 +1313,14 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             </button>
             <input ref={excelInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleExcelImport} className="hidden" />
 
-            {/* Copy Previous PO */}
-            <button
-              type="button"
-              onClick={handleCopyPreviousPO}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
-            >
-              <span className="material-symbols-outlined text-[16px] text-blue-500">content_copy</span>
-              Copy Previous PO
-            </button>
-
-            {/* Delete Row */}
-            <button
-              type="button"
-              onClick={() => deleteRow(activeRowIndex)}
-              className="flex items-center gap-1.5 bg-white hover:bg-rose-50 border border-slate-300 hover:border-rose-300 text-slate-700 hover:text-rose-600 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
-            >
-              <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
-              Delete Row
-            </button>
-
-            {/* Size Scale Selector */}
+            {/* 4. Size Scale Selector */}
             <div className="flex items-center gap-1.5 bg-indigo-50/80 border border-indigo-200 px-2.5 py-1 rounded-lg">
               <span className="material-symbols-outlined text-[15px] text-indigo-600">straighten</span>
               <span className="text-slate-600 font-bold text-xs whitespace-nowrap">Size Scale:</span>
               <select
                 id="sw-size-scale-select"
                 value={selectedScaleKey}
-                onChange={e => handleScaleChange(e.target.value)}
+                onChange={e => handleScaleSelectChange(e.target.value)}
                 className="bg-white border border-indigo-200 rounded px-2 py-0.5 text-xs font-bold text-indigo-900 outline-none focus:border-indigo-500 shadow-2xs cursor-pointer"
               >
                 {Object.entries(SIZE_SCALE_PRESETS).map(([key, preset]) => (
@@ -1023,11 +1331,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </select>
             </div>
 
-            <div className="flex-1" />
-
-            {/* Price List */}
+            {/* 5. Price List */}
             <div className="flex items-center gap-2">
-              <span className="text-slate-500 font-medium whitespace-nowrap">Price List</span>
+              <span className="text-slate-500 font-medium whitespace-nowrap text-xs">Price List:</span>
               <select
                 value={header.priceList}
                 onChange={e => setHeader(h => ({ ...h, priceList: e.target.value }))}
@@ -1037,6 +1343,63 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   <option key={pl} value={pl}>{pl}</option>
                 ))}
               </select>
+            </div>
+
+            {/* 6. Delete Row */}
+            <button
+              type="button"
+              disabled={lines.length === 0}
+              onClick={() => requestDeleteRow(activeRowIndex)}
+              className="flex items-center gap-1.5 bg-white hover:bg-rose-50 border border-slate-300 hover:border-rose-300 text-slate-700 hover:text-rose-600 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-700 disabled:hover:border-slate-300"
+            >
+              <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+              Delete Row
+            </button>
+
+            <div className="flex-1" />
+
+            {/* 7. More Actions Popover (Overflow Menu) */}
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                type="button"
+                id="sw-toolbar-more-btn"
+                onClick={() => setShowMoreActions(prev => !prev)}
+                className="flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-2.5 py-1.5 rounded-lg text-xs transition shadow-2xs"
+                title="More Actions"
+              >
+                <span className="material-symbols-outlined text-[16px] text-slate-500">more_vert</span>
+                <span>Actions</span>
+              </button>
+
+              {showMoreActions && (
+                <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <button
+                    type="button"
+                    onClick={requestCopyPreviousPO}
+                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 font-medium transition"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-blue-500">content_copy</span>
+                    Copy Previous PO
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportMatrixCSV}
+                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 font-medium transition"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-emerald-600">download</span>
+                    Export Matrix to CSV
+                  </button>
+                  <div className="my-1 border-t border-slate-100" />
+                  <button
+                    type="button"
+                    onClick={requestClearAllLines}
+                    className="w-full text-left px-3 py-2 text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-medium transition"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-rose-500">clear_all</span>
+                    Clear All Rows
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Item Finder */}
@@ -1298,7 +1661,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                             <button
                               type="button"
                               title="Delete row"
-                              onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+                              onClick={e => { e.stopPropagation(); requestDeleteRow(idx); }}
                               className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
                             >
                               <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -1664,7 +2027,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               {[
                 { icon: "add_circle", label: "Create Another", color: "blue", action: () => { setSavedOrderNo(null); setLines([]); } },
                 { icon: "local_shipping", label: "Receive GRN", color: "emerald", action: () => { setSavedOrderNo(null); onNavigateTab?.("grn-studio"); } },
-                { icon: "print", label: "Print PO", color: "amber", action: () => { setSavedOrderNo(null); window.print(); } },
+                { icon: "print", label: "Print PO", color: "amber", action: () => { setSavedOrderNo(null); setShowPrintPreview(true); } },
               ].map(btn => (
                 <button
                   key={btn.label}
@@ -1731,6 +2094,81 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         vendorId={header.supplierId || undefined}
         transactionDate={header.orderDate || undefined}
       />
+
+      {/* ── Phase 2: Statutory Print Preview Modal ───────────────────────── */}
+      <POPrintPreviewModal
+        isOpen={showPrintPreview}
+        onClose={() => setShowPrintPreview(false)}
+        header={printHeader}
+        lineItems={printLineItems}
+        sizePivotRows={printSizePivotRows}
+        activeTab="pivot"
+        vendor={selectedSupplier}
+      />
+
+      {/* ── Phase 2: In-App Confirmation Modal (Replaces window.confirm) ── */}
+      {confirmModal.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden transform transition-all">
+            <div className="p-6">
+              <div className="flex items-start gap-3.5">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                    confirmModal.variant === "danger"
+                      ? "bg-rose-100 text-rose-600"
+                      : confirmModal.variant === "warning"
+                      ? "bg-amber-100 text-amber-600"
+                      : "bg-indigo-100 text-indigo-600"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[22px]">
+                    {confirmModal.variant === "danger" ? "warning" : confirmModal.variant === "warning" ? "priority_high" : "help"}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 id="confirm-dialog-title" className="text-sm font-bold text-slate-800">
+                    {confirmModal.title}
+                  </h3>
+                  <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                    {confirmModal.message}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-4 py-1.5 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold shadow-2xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const cb = confirmModal.onConfirm;
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                  cb();
+                }}
+                className={`px-4 py-1.5 rounded-lg text-white text-xs font-semibold shadow-xs transition ${
+                  confirmModal.variant === "danger"
+                    ? "bg-rose-600 hover:bg-rose-700"
+                    : confirmModal.variant === "warning"
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : "bg-indigo-600 hover:bg-indigo-700"
+                }`}
+              >
+                {confirmModal.confirmLabel || "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
