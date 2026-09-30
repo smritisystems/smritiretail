@@ -1,0 +1,78 @@
+{
+  "url": "http://localhost:3000/ (Workspace: item-master / Article / Design Master)",
+  "captures": [
+    {
+      "name": "article-numbering-sandal-desktop.png",
+      "viewport": "1920x1080",
+      "category": "SANDAL",
+      "preview": "SND-10000-A",
+      "path": "F:\\SMRITRretailNX\\docs\\ux-audit\\article-numbering\\article-numbering-sandal-desktop.png"
+    },
+    {
+      "name": "article-numbering-shoes-desktop.png",
+      "viewport": "1920x1080",
+      "category": "SHOES",
+      "preview": "SH-20000-A",
+      "path": "F:\\SMRITRretailNX\\docs\\ux-audit\\article-numbering\\article-numbering-shoes-desktop.png"
+    },
+    {
+      "name": "article-numbering-sandal-laptop.png",
+      "viewport": "1366x768",
+      "category": "SANDAL",
+      "preview": "SND-10000-A",
+      "path": "F:\\SMRITRretailNX\\docs\\ux-audit\\article-numbering\\article-numbering-sandal-laptop.png"
+    },
+    {
+      "name": "article-numbering-sandal-tablet.png",
+      "viewport": "768x1024",
+      "category": "SANDAL",
+      "preview": "SND-10000-A",
+      "path": "F:\\SMRITRretailNX\\docs\\ux-audit\\article-numbering\\article-numbering-sandal-tablet.png"
+    },
+    {
+      "name": "article-numbering-sandal-mobile.png",
+      "viewport": "390x844",
+      "category": "SANDAL",
+      "preview": "SND-10000-A",
+      "path": "F:\\SMRITRretailNX\\docs\\ux-audit\\article-numbering\\article-numbering-sandal-mobile.png"
+    }
+  ],
+  "field_labels": {
+    "step1_labels": [
+      "Article Number",
+      "Auto Generate (Recommended)",
+      "Manual Entry",
+      "Design / Style Name *",
+      "Brand *",
+      "Category *",
+      "Gender",
+      "Product Type *",
+      "Heel Type *",
+      "Upper Material *",
+      "HSN Code",
+      "Base MRP (\u20b9) *",
+      "Base Selling Price (\u20b9)",
+      "Preferred Supplier",
+      "Priority",
+      "Auto PO on Low Stock",
+      "Auto GRN on Receipt"
+    ],
+    "step2_labels": [
+      "Select Colors",
+      "Select Sizes",
+      "Variant Matrix Preview",
+      "SKU (Auto)",
+      "Primary Barcode *",
+      "Additional Barcodes",
+      "Variant MRP (\u20b9)",
+      "Variant Cost (\u20b9)"
+    ]
+  },
+  "responsive_layout": {},
+  "variant_details": {
+    "auto_sku": "ART/0007/26-27-BLA-7",
+    "primary_barcode": "",
+    "sku_is_disabled": true,
+    "screenshot": "F:\\SMRITRretailNX\\docs\\ux-audit\\article-numbering\\article-numbering-variants-matrix-desktop.png"
+  }
+}

@@ -29,6 +29,33 @@ router = APIRouter()
 
 
 @router.get(
+    "/preview",
+    summary="Preview Next Sequential Document Number (Read-Only)",
+)
+async def preview_number(
+    document_type: str = Query("ARTICLE", description="Document type, e.g. ARTICLE, SALES_INVOICE"),
+    category: Optional[str] = Query(None, description="Category name, e.g. SANDAL, SHOES"),
+    branch_id: Optional[str] = Query(None, description="Branch ID"),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Authoritative read-only preview of the next document number for the given document_type and category.
+    Performs zero database mutations and consumes no sequence numbers.
+    Follows exact priority: 1) exact category match, 2) category IS NULL fallback.
+    """
+    from ...services.documents_engine import DocumentsEngine
+    company_id = getattr(current_user, "company_id", None) or "COMP-001"
+    return await DocumentsEngine.preview_next_number(
+        session=db,
+        company_id=company_id,
+        document_type=document_type,
+        category=category,
+        branch_id=branch_id,
+    )
+
+
+@router.get(
     "/series",
     response_model=List[DocumentSeriesResponse],
 )

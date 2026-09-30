@@ -30,6 +30,24 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.48.1] - 2026-09-30 — Category-Aware Article Numbering Backend Wiring & Zero Hardcoding
+
+> **Branch:** `smritiNX` | **Area:** Catalog / Numbering & Master Lookups
+> **Walkthrough:** `docs/walkthrough/catalog/Catalog_Article_Numbering_Backend_Wiring_And_Zero_Hardcoding_v6.48.1.md`
+
+### Added
+- **Authoritative Read-Only Numbering Preview (`DocumentsEngine.preview_next_number`):** Implemented non-blocking, non-mutating preview engine in `backend/app/services/documents_engine.py` calculating the next sequential document number according to two-stage hierarchy: (1) exact category match, and (2) fallback to `category IS NULL`.
+- **FastAPI Preview Route (`GET /api/v1/numbering/preview`):** Exposed preview endpoint in `backend/app/api/v1/numbering.py` supporting `document_type` and `category` query parameters, returning formatted sequence strings (`documentNo`, `formattedPreview`, `seriesId`, `isConfigured`, `isExhausted`).
+- **End-to-End Headless Playwright Test Suite (`scratch/test_live_backend_wiring.py`):** Verified live browser rendering, category selection changes, sequence preview updates, and Step 2 Cartesian variant matrix SKU synchronization.
+
+### Changed
+- **`AddProductDrawer.tsx`:** Completely eliminated all client-side mock arrays (`["Nike", "Adidas", ...]`, `["Men", "Women", ...]`, `["CHAPPAL", "SANDAL", ...]`, `["FLAT", "BLOCK", ...]`, `["SYNTHETIC", "LEATHER", ...]`, `["VEND-NIKE-01", ...]`), replacing them with dynamic PostgreSQL lookups via `fetchGovernedLookupOptions()` and `/purchase/vendors/`.
+- **Client Numbering Resolution Decoupled:** Replaced client-side FY parsing, padding, and regex calculations with live asynchronous calls to `/api/v1/numbering/preview`.
+- **Variant Matrix SKU Synchronization:** Dynamically updated matrix cell SKUs (`${articleBase}-${colorCode}-${size}`) to reactively track changes to the Category preview prefix (`SND-10000-A`, `SH-20000-A`, `ART/000126-27/`).
+
+### Fixed
+- **Clean Initial Drawer State:** Fixed initial `"Preview unavailable"` banner caused by un-configured initial category default by dynamically resolving the active category from available series or master lookups upon mount.
+
 ## [6.48.0] - 2026-09-30 — Unified IM-001 Catalog Governance Across All Surfaces
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Master Lookup Governance
