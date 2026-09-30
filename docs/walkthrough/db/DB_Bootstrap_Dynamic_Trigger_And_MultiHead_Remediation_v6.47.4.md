@@ -52,6 +52,7 @@ Document the definitive root-cause diagnosis, architectural remediation, and aut
 ---
 
 ## 4. Files Modified
+- `backend/alembic/versions/v1446_enforce_master_value_reference_guard.py`
 - `backend/alembic/versions/v1497a_retire_products_tenant_id.py`
 - `backend/alembic/versions/v1497b_retire_ctrl_tenant_id_columns.py`
 - `backend/alembic/versions/v1500_sales_ops_fk_hardening_valid.py`

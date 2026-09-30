@@ -54,10 +54,26 @@ def upgrade() -> None:
                 ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS delivery_date DATE;
                 ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS site_code VARCHAR(50);
             END IF;
+
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_orders') THEN
+                ALTER TABLE sales_orders ADD COLUMN IF NOT EXISTS vendor_code VARCHAR(50);
+            END IF;
+
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'master_values') THEN
+                ALTER TABLE master_values ADD COLUMN IF NOT EXISTS vendor_code VARCHAR(100);
+            END IF;
+
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'products') THEN
+                ALTER TABLE products ADD COLUMN IF NOT EXISTS vendor_code VARCHAR(100);
+            END IF;
+
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'variant_templates') THEN
+                ALTER TABLE variant_templates ADD COLUMN IF NOT EXISTS vendor_code VARCHAR(100);
+            END IF;
         END $$;
     """))
 
-    # 2. Recreate prevent_referenced_master_value_retirement trigger function with dynamic queries
+    # 2. Recreate prevent_referenced_master_value_retirement trigger function with 100% dynamic queries
     # to guarantee it never fails static SQL compilation on non-article master deletions (e.g. Department).
     bind.execute(sa.text(f"""
         CREATE OR REPLACE FUNCTION {TRIGGER_FUNCTION}()
@@ -82,31 +98,35 @@ def upgrade() -> None:
 
                 IF lookup_type = 'style_article' THEN
                     IF EXISTS (
-                        SELECT 1 FROM variant_templates
-                        WHERE master_value_id = OLD.id
-                          AND is_deleted IS NOT TRUE
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'variant_templates' AND column_name = 'master_value_id'
                     ) THEN
-                        RAISE EXCEPTION 'Style/article % is referenced by a live variant template', OLD.code
-                            USING ERRCODE = '23514';
+                        EXECUTE 'SELECT EXISTS (SELECT 1 FROM variant_templates WHERE master_value_id = $1 AND is_deleted IS NOT TRUE)'
+                        INTO has_ref USING OLD.id;
+                        IF has_ref THEN
+                            RAISE EXCEPTION 'Style/article % is referenced by a live variant template', OLD.code
+                                USING ERRCODE = '23514';
+                        END IF;
                     END IF;
 
                     IF EXISTS (
-                        SELECT 1 FROM products
-                        WHERE style_code = OLD.code
-                          AND is_deleted IS NOT TRUE
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'products' AND column_name = 'style_code'
                     ) THEN
-                        RAISE EXCEPTION 'Style/article % is referenced by a live product', OLD.code
-                            USING ERRCODE = '23514';
+                        EXECUTE 'SELECT EXISTS (SELECT 1 FROM products WHERE style_code = $1 AND is_deleted IS NOT TRUE)'
+                        INTO has_ref USING OLD.code;
+                        IF has_ref THEN
+                            RAISE EXCEPTION 'Style/article % is referenced by a live product', OLD.code
+                                USING ERRCODE = '23514';
+                        END IF;
                     END IF;
 
                     IF EXISTS (
-                        SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_order_items'
-                    ) AND EXISTS (
-                        SELECT 1 FROM information_schema.columns WHERE table_name = 'sales_order_items' AND column_name = 'article_no'
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'sales_order_items' AND column_name = 'article_no'
                     ) THEN
                         EXECUTE 'SELECT EXISTS (SELECT 1 FROM sales_order_items WHERE (article_no = $1 OR vendor_style = $1))'
-                        INTO has_ref
-                        USING OLD.code;
+                        INTO has_ref USING OLD.code;
                         IF has_ref THEN
                             RAISE EXCEPTION 'Style/article % is referenced by sales history', OLD.code
                                 USING ERRCODE = '23514';
@@ -116,38 +136,47 @@ def upgrade() -> None:
 
                 IF lookup_type = 'vendor_code' THEN
                     IF EXISTS (
-                        SELECT 1 FROM variant_templates
-                        WHERE vendor_code = OLD.code
-                          AND is_deleted IS NOT TRUE
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'variant_templates' AND column_name = 'vendor_code'
                     ) THEN
-                        RAISE EXCEPTION 'Vendor % is referenced by a live variant template', OLD.code
-                            USING ERRCODE = '23514';
+                        EXECUTE 'SELECT EXISTS (SELECT 1 FROM variant_templates WHERE vendor_code = $1 AND is_deleted IS NOT TRUE)'
+                        INTO has_ref USING OLD.code;
+                        IF has_ref THEN
+                            RAISE EXCEPTION 'Vendor % is referenced by a live variant template', OLD.code
+                                USING ERRCODE = '23514';
+                        END IF;
                     END IF;
 
                     IF EXISTS (
-                        SELECT 1 FROM products
-                        WHERE vendor_code = OLD.code
-                          AND is_deleted IS NOT TRUE
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'products' AND column_name = 'vendor_code'
                     ) THEN
-                        RAISE EXCEPTION 'Vendor % is referenced by a live product', OLD.code
-                            USING ERRCODE = '23514';
+                        EXECUTE 'SELECT EXISTS (SELECT 1 FROM products WHERE vendor_code = $1 AND is_deleted IS NOT TRUE)'
+                        INTO has_ref USING OLD.code;
+                        IF has_ref THEN
+                            RAISE EXCEPTION 'Vendor % is referenced by a live product', OLD.code
+                                USING ERRCODE = '23514';
+                        END IF;
                     END IF;
 
                     IF EXISTS (
-                        SELECT 1 FROM master_values
-                        WHERE vendor_code = OLD.code
-                          AND is_deleted IS NOT TRUE
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'master_values' AND column_name = 'vendor_code'
                     ) THEN
-                        RAISE EXCEPTION 'Vendor % owns live style/article values', OLD.code
-                            USING ERRCODE = '23514';
+                        EXECUTE 'SELECT EXISTS (SELECT 1 FROM master_values WHERE vendor_code = $1 AND is_deleted IS NOT TRUE)'
+                        INTO has_ref USING OLD.code;
+                        IF has_ref THEN
+                            RAISE EXCEPTION 'Vendor % owns live style/article values', OLD.code
+                                USING ERRCODE = '23514';
+                        END IF;
                     END IF;
 
                     IF EXISTS (
-                        SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_orders'
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'sales_orders' AND column_name = 'vendor_code'
                     ) THEN
                         EXECUTE 'SELECT EXISTS (SELECT 1 FROM sales_orders WHERE vendor_code = $1)'
-                        INTO has_ref
-                        USING OLD.code;
+                        INTO has_ref USING OLD.code;
                         IF has_ref THEN
                             RAISE EXCEPTION 'Vendor % is referenced by sales history', OLD.code
                                 USING ERRCODE = '23514';
