@@ -377,6 +377,129 @@ class DocumentsEngine:
         return resp
 
     @classmethod
+    async def preview_next_number(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        document_type: str,
+        category: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Authoritative read-only preview of next sequential document number.
+        Zero database mutations, zero counter consumption, zero row locks.
+        Follows exact series resolution hierarchy:
+        1. Exact category match
+        2. Fallback to category IS NULL
+        """
+        doc_type = document_type.upper()
+        normalized_category = category.strip().upper() if category and str(category).strip() else None
+
+        base_filters = [
+            DocumentSeries.company_id == company_id,
+            DocumentSeries.document_type == doc_type,
+            DocumentSeries.is_deleted == False,
+            DocumentSeries.is_active == True,
+        ]
+
+        series = None
+
+        # 1. Exact category match first
+        if normalized_category:
+            cat_filters = list(base_filters)
+            cat_filters.append(func.upper(DocumentSeries.category) == normalized_category)
+            if branch_id is not None:
+                cat_filters.append(or_(DocumentSeries.branch_id == branch_id, DocumentSeries.branch_id.is_(None)))
+            stmt = select(DocumentSeries).where(*cat_filters).order_by(DocumentSeries.created_at.asc(), DocumentSeries.id.asc())
+            candidates = (await session.execute(stmt)).scalars().all()
+            if candidates:
+                series = candidates[0]
+
+        # 2. Fallback to category IS NULL
+        if not series:
+            fallback_filters = list(base_filters)
+            fallback_filters.append(DocumentSeries.category.is_(None))
+            if branch_id is not None:
+                fallback_filters.append(or_(DocumentSeries.branch_id == branch_id, DocumentSeries.branch_id.is_(None)))
+            stmt = select(DocumentSeries).where(*fallback_filters).order_by(DocumentSeries.created_at.asc(), DocumentSeries.id.asc())
+            candidates = (await session.execute(stmt)).scalars().all()
+            if candidates:
+                series = candidates[0]
+
+        if not series:
+            cat_desc = f"category '{normalized_category}'" if normalized_category else "default scope"
+            return {
+                "success": False,
+                "is_configured": False,
+                "isConfigured": False,
+                "series_id": None,
+                "seriesId": None,
+                "series_name": None,
+                "seriesName": None,
+                "document_no": None,
+                "documentNo": None,
+                "formattedPreview": None,
+                "message": f"Article numbering series is not configured for {cat_desc} and no active fallback series exists.",
+            }
+
+        start_num = series.start_number or 1
+        old_num = series.current_number
+
+        if old_num is None or old_num < start_num - 1:
+            new_num = start_num
+        else:
+            new_num = old_num + 1
+
+        is_exhausted = bool(series.end_number is not None and new_num > series.end_number)
+
+        padded = str(new_num).zfill(series.running_length)
+        prefix = series.prefix or ""
+        suffix = series.suffix or ""
+        num_format = getattr(series, "number_format", None) or "PREFIX_NUM_SUFFIX"
+
+        if is_exhausted:
+            formatted = f"EXHAUSTED (Range {start_num}-{series.end_number})"
+        elif num_format == "PREFIX_NUM_SUFFIX":
+            formatted = f"{prefix}{padded}{suffix}"
+        elif num_format == "PREFIX_YEAR_SEP_NUM":
+            raw_fy = series.financial_year or "26-27"
+            fy = f"{raw_fy[2:4]}-{raw_fy[7:9]}" if "-" in raw_fy and len(raw_fy) == 9 else raw_fy
+            formatted = f"{prefix}{fy}/{padded}"
+        elif num_format == "PREFIX_SEP_NUM":
+            formatted = f"{prefix}/{padded}"
+        elif num_format == "NUM_ONLY":
+            formatted = f"{padded}"
+        else:
+            formatted = f"{prefix}{padded}{suffix}"
+
+        return {
+            "success": True,
+            "is_configured": True,
+            "isConfigured": True,
+            "series_id": series.id,
+            "seriesId": series.id,
+            "series_name": series.name,
+            "seriesName": series.name,
+            "category": series.category,
+            "prefix": prefix,
+            "suffix": suffix,
+            "next_number": new_num,
+            "nextNumber": new_num,
+            "document_no": formatted,
+            "documentNo": formatted,
+            "formattedPreview": formatted,
+            "running_length": series.running_length,
+            "runningLength": series.running_length,
+            "start_number": start_num,
+            "startNumber": start_num,
+            "end_number": series.end_number,
+            "endNumber": series.end_number,
+            "is_exhausted": is_exhausted,
+            "isExhausted": is_exhausted,
+            "message": None,
+        }
+
+    @classmethod
     async def create_template(
         cls,
         session: AsyncSession,

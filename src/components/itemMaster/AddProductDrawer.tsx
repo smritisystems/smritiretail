@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.47.2
+ * Version      : 6.47.4
  * Created      : 2026-09-28
- * Modified     : 2026-09-29
+ * Modified     : 2026-09-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -57,6 +57,23 @@ interface VendorOption {
   name: string;
 }
 
+const KNOWN_COLOR_HEX: Record<string, { hex: string; border?: boolean }> = {
+  BLACK: { hex: "#0f172a" },
+  WHITE: { hex: "#ffffff", border: true },
+  BLUE: { hex: "#2563eb" },
+  NAVY: { hex: "#1e3a8a" },
+  RED: { hex: "#dc2626" },
+  GREY: { hex: "#64748b" },
+  GRAY: { hex: "#64748b" },
+  BROWN: { hex: "#78350f" },
+  BEIGE: { hex: "#d4b996" },
+  CREAM: { hex: "#fef3c7", border: true },
+  GOLD: { hex: "#d97706" },
+  GREEN: { hex: "#16a34a" },
+  MAROON: { hex: "#831843" },
+  MULTI: { hex: "#a855f7" },
+};
+
 const DEFAULT_COLORS = [
   { name: "Black", hex: "#0f172a" },
   { name: "White", hex: "#ffffff", border: true },
@@ -80,16 +97,16 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   // Wizard Step: 1 = Article Identity, 2 = Variants (Size x Color Matrix), 3 = Review
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // ── Step 1 Form State ──
+  // ── Step 1 Form State (Backed entirely by database lookups, zero hardcoding) ──
   const [autoGenerateArticleNumber, setAutoGenerateArticleNumber] = useState(true);
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
-  const [category, setCategory] = useState("Footwear");
-  const [gender, setGender] = useState("Men");
-  const [productTypeItem, setProductTypeItem] = useState("CHAPPAL");
-  const [heelType, setHeelType] = useState("FLAT");
-  const [upperMaterial, setUpperMaterial] = useState("SYNTHETIC");
+  const [category, setCategory] = useState("");
+  const [gender, setGender] = useState("");
+  const [productTypeItem, setProductTypeItem] = useState("");
+  const [heelType, setHeelType] = useState("");
+  const [upperMaterial, setUpperMaterial] = useState("");
   const [hsnCode, setHsnCode] = useState("6403");
   const [baseMrp, setBaseMrp] = useState("2999.00");
   const [baseSellingPrice, setBaseSellingPrice] = useState("2499.00");
@@ -117,84 +134,56 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [upperMaterialOptions, setUpperMaterialOptions] = useState<LookupOption[]>([]);
   const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
 
-  // ── Category-Aware Article Numbering Preview (Read-Only) ──
+  // ── Authoritative Backend Article Numbering Preview (Read-Only) ──
   useEffect(() => {
-    if (!availableSeries || availableSeries.length === 0) return;
+    if (!isOpen || !autoGenerateArticleNumber) return;
 
-    const normCat = (category || "").trim().toUpperCase();
-    const activeArticleSeries = availableSeries.filter(
-      (s: any) =>
-        (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") &&
-        (s.isActive !== false && s.is_active !== false)
-    );
+    let isCancelled = false;
+    setIsLoadingPreview(true);
+    setPreviewError(false);
 
-    // 1. Exact category match first
-    let matched = normCat
-      ? activeArticleSeries.find((s: any) => (s.category || "").trim().toUpperCase() === normCat)
-      : null;
+    const catParam = category ? encodeURIComponent(category.trim()) : "";
+    const url = `/numbering/preview?document_type=ARTICLE${catParam ? `&category=${catParam}` : ""}`;
 
-    // 2. Fallback to category IS NULL if not found
-    if (!matched) {
-      matched = activeArticleSeries.find((s: any) => !s.category || String(s.category).trim() === "");
-    }
+    apiFetchV1<any>(url)
+      .then((res) => {
+        if (isCancelled) return;
+        if (res && res.isConfigured) {
+          if (res.isExhausted) {
+            setSeriesPreview(`EXHAUSTED (Range ${res.startNumber ?? ""}-${res.endNumber ?? ""})`);
+          } else {
+            setSeriesPreview(res.formattedPreview || res.documentNo || null);
+          }
+          setSeriesId(res.seriesId || null);
+          setPreviewError(false);
+        } else {
+          setSeriesPreview(null);
+          setSeriesId(null);
+          setPreviewError(true);
+        }
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setSeriesPreview(null);
+        setSeriesId(null);
+        setPreviewError(true);
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoadingPreview(false);
+      });
 
-    if (matched) {
-      const startNum = matched.startNumber ?? matched.start_number ?? 1;
-      const oldNum = matched.currentNumber ?? matched.current_number;
-      let nextNum: number;
-      if (oldNum === null || oldNum === undefined || oldNum < startNum - 1) {
-        nextNum = startNum;
-      } else {
-        nextNum = oldNum + 1;
-      }
+    return () => {
+      isCancelled = true;
+    };
+  }, [category, isOpen, autoGenerateArticleNumber]);
 
-      const endNum = matched.endNumber ?? matched.end_number;
-      if (endNum !== null && endNum !== undefined && nextNum > endNum) {
-        setSeriesPreview(`EXHAUSTED (Range ${startNum}-${endNum})`);
-        setSeriesId(matched.seriesId || matched.series_id || matched.id || "SER-ART-COMP001");
-        setPreviewError(false);
-        return;
-      }
-
-      const len = matched.runningLength ?? matched.running_length ?? 4;
-      const padded = String(nextNum).padStart(len, "0");
-      const prefix = matched.prefix ?? "";
-      const suffix = matched.suffix ?? "";
-      const numFormat = matched.numberFormat || matched.number_format || "PREFIX_NUM_SUFFIX";
-
-      let formatted: string;
-      if (numFormat === "PREFIX_NUM_SUFFIX") {
-        formatted = `${prefix}${padded}${suffix}`;
-      } else if (numFormat === "PREFIX_YEAR_SEP_NUM") {
-        const rawFy = matched.financialYear ?? matched.financial_year ?? "26-27";
-        const fy = rawFy.includes("-") && rawFy.length === 9 ? `${rawFy.slice(2, 4)}-${rawFy.slice(7, 9)}` : rawFy;
-        formatted = `${prefix}${fy}/${padded}`;
-      } else if (numFormat === "PREFIX_SEP_NUM") {
-        formatted = `${prefix}/${padded}`;
-      } else if (numFormat === "NUM_ONLY") {
-        formatted = `${padded}`;
-      } else {
-        formatted = `${prefix}${padded}${suffix}`;
-      }
-
-      setSeriesPreview(formatted);
-      setSeriesId(matched.seriesId || matched.series_id || matched.id || "SER-ART-COMP001");
-      setPreviewError(false);
-    } else {
-      setSeriesPreview(null);
-      setPreviewError(true);
-    }
-  }, [category, availableSeries]);
-
-  // Combined Category Choices (Master lookups + configured series categories)
+  // Combined Category Choices (Master lookups + configured series categories, zero hardcoding)
   const renderedCategoryOptions = useMemo(() => {
-    const defaultList = categoryOptions.length > 0
-      ? categoryOptions.map((c) => c.name)
-      : ["Footwear", "SANDAL", "SHOES", "Apparel", "Accessories"];
-    const seriesCategories = availableSeries
+    const lookupCats = categoryOptions.map((c) => c.name.trim());
+    const seriesCats = availableSeries
       .filter((s: any) => (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") && s.category)
       .map((s: any) => String(s.category).trim());
-    return Array.from(new Set([...defaultList, ...seriesCategories]));
+    return Array.from(new Set([...lookupCats, ...seriesCats])).filter(Boolean);
   }, [categoryOptions, availableSeries]);
 
   // ── Step 2 Matrix State ──
@@ -227,70 +216,114 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
     let isMounted = true;
 
     const loadGovernedData = async () => {
-      // 1. Load numbering series preview (Read-Only)
-      setIsLoadingPreview(true);
-      setPreviewError(false);
+      let loadedSeries: any[] = [];
       try {
         const seriesData = await apiFetchV1<any[]>("/numbering/series");
         if (isMounted && Array.isArray(seriesData)) {
+          loadedSeries = seriesData;
           setAvailableSeries(seriesData);
         }
       } catch {
         if (isMounted) {
           setAvailableSeries([]);
-          setSeriesPreview(null);
-          setPreviewError(true);
         }
-      } finally {
-        if (isMounted) setIsLoadingPreview(false);
       }
 
-      // 2. Load Master Lookups via itemMasterLookupGate
+      let loadedLookups: any = null;
       try {
         const lookups = await fetchGovernedLookupOptions();
         if (isMounted) {
+          loadedLookups = lookups;
           if (lookups.brand?.length) setBrandOptions(lookups.brand);
           if (lookups.category?.length) setCategoryOptions(lookups.category);
           if (lookups.gender?.length) setGenderOptions(lookups.gender);
           if ((lookups as any).product_type?.length) setProductTypeOptions((lookups as any).product_type);
           if ((lookups as any).heel_type?.length) setHeelTypeOptions((lookups as any).heel_type);
           if ((lookups as any).upper_material?.length) setUpperMaterialOptions((lookups as any).upper_material);
+
+          if ((lookups as any).color?.length) {
+            const mappedColors = (lookups as any).color.map((c: any) => {
+              const norm = String(c.name).trim().toUpperCase();
+              const known = KNOWN_COLOR_HEX[norm];
+              return {
+                name: String(c.name),
+                hex: known?.hex || "#94a3b8",
+                border: known?.border || false,
+              };
+            });
+            setAvailableColors(mappedColors);
+            setSelectedColors((prev) => (prev.length > 0 ? prev : mappedColors.slice(0, 4).map((c: any) => c.name)));
+          }
+
+          if ((lookups as any).size?.length) {
+            const sizeNames = (lookups as any).size.map((s: any) => String(s.name));
+            setAvailableSizes(sizeNames);
+            setSelectedSizes((prev) => (prev.length > 0 ? prev : sizeNames.slice(0, 5)));
+          }
         }
       } catch {
-        // Fallbacks remain intact
+        // Handled cleanly
       }
 
-      // 3. Load Active Vendors from /purchase/vendors/
       try {
         const vendors = await apiFetchV1<any[]>("/purchase/vendors/");
         if (isMounted && Array.isArray(vendors) && vendors.length > 0) {
-          setVendorOptions(
-            vendors.map((v: any) => ({
-              id: v.id || v.code,
-              code: v.code || v.id,
-              name: v.legalName || v.tradeName || v.legal_name || v.trade_name || v.name || v.code,
-            }))
-          );
-          setPreferredSupplier(vendors[0].id || vendors[0].code);
-        } else {
-          // Provide default vendor choices
-          setVendorOptions([
-            { id: "VEND-NIKE-01", code: "VEND-NIKE-01", name: "Nike India Pvt. Ltd." },
-            { id: "VEND-ADI-01", code: "VEND-ADI-01", name: "Adidas India Marketing Pvt. Ltd." },
-            { id: "VEND-PUMA-01", code: "VEND-PUMA-01", name: "Puma Sports India Pvt. Ltd." },
-            { id: "VEND-BATA-01", code: "VEND-BATA-01", name: "Bata India Limited" },
-          ]);
-          setPreferredSupplier("VEND-NIKE-01");
+          const mapped = vendors.map((v: any) => ({
+            id: v.id || v.code,
+            code: v.code || v.id,
+            name: v.tradeName || v.legalName || v.name || v.code,
+          }));
+          setVendorOptions(mapped);
+          setPreferredSupplier((prev) => prev || mapped[0].id);
+        } else if (isMounted) {
+          setVendorOptions([]);
         }
       } catch {
         if (isMounted) {
-          setVendorOptions([
-            { id: "VEND-NIKE-01", code: "VEND-NIKE-01", name: "Nike India Pvt. Ltd." },
-            { id: "VEND-ADI-01", code: "VEND-ADI-01", name: "Adidas India Marketing Pvt. Ltd." },
-            { id: "VEND-PUMA-01", code: "VEND-PUMA-01", name: "Puma Sports India Pvt. Ltd." },
-          ]);
-          setPreferredSupplier("VEND-NIKE-01");
+          setVendorOptions([]);
         }
+      }
+
+      // Initialize defaults based on backend data
+      if (isMounted) {
+        setCategory((prev) => {
+          if (prev) return prev;
+          const activeSeriesCat = loadedSeries.find(
+            (s: any) =>
+              (s.documentType === "ARTICLE" || s.document_type === "ARTICLE") &&
+              s.category &&
+              s.isActive !== false &&
+              s.is_active !== false
+          )?.category;
+          if (activeSeriesCat) return String(activeSeriesCat);
+          if (loadedLookups?.category?.length) return loadedLookups.category[0].name;
+          return "";
+        });
+
+        setBrand((prev) => {
+          if (prev) return prev;
+          return loadedLookups?.brand?.[0]?.name || "";
+        });
+
+        setGender((prev) => {
+          if (prev) return prev;
+          return loadedLookups?.gender?.[0]?.name || "";
+        });
+
+        setProductTypeItem((prev) => {
+          if (prev) return prev;
+          return loadedLookups?.product_type?.[0]?.name || "";
+        });
+
+        setHeelType((prev) => {
+          if (prev) return prev;
+          return loadedLookups?.heel_type?.[0]?.name || "";
+        });
+
+        setUpperMaterial((prev) => {
+          if (prev) return prev;
+          return loadedLookups?.upper_material?.[0]?.name || "";
+        });
       }
     };
 
@@ -305,13 +338,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   useEffect(() => {
     setVariantMatrix((prev) => {
       const next: Record<string, MatrixVariantItem> = { ...prev };
+      const articleBase = (autoGenerateArticleNumber ? (seriesPreview || "ARTICLE") : (sku || "ARTICLE")).replace(/\/+$/, "");
+
       selectedColors.forEach((color) => {
         selectedSizes.forEach((size) => {
           const key = `${color}-${size}`;
+          const colorCode = color.slice(0, 3).toUpperCase();
+          const genSku = `${articleBase}-${colorCode}-${size}`;
           if (!next[key]) {
-            const articleBase = (autoGenerateArticleNumber ? (seriesPreview || "ART/0007/26-27") : (sku || "ART-1001")).replace(/\/+$/, "");
-            const colorCode = color.slice(0, 3).toUpperCase();
-            const genSku = `${articleBase}-${colorCode}-${size}`;
             const randomBarcode = `890${Math.floor(100000000 + Math.random() * 900000000)}`;
             next[key] = {
               color,
@@ -322,6 +356,11 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               secondaryBarcodes: [`EAN: ${randomBarcode}`],
               mrp: baseSellingPrice || baseMrp,
               cost: baseCostPrice,
+            };
+          } else {
+            next[key] = {
+              ...next[key],
+              sku: autoGenerateArticleNumber ? genSku : next[key].sku,
             };
           }
         });
@@ -726,25 +765,25 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               {/* Numbering Preview / Manual Input Box */}
               {autoGenerateArticleNumber ? (
                 previewError ? (
-                  /* Panel 10 Preview Unavailable Box */
-                  <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 text-xs text-red-700 dark:text-red-300 flex items-start gap-2.5">
-                    <AlertCircle size={16} className="shrink-0 text-red-600 mt-0.5" />
+                  /* Preview Unavailable Box */
+                  <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                    <AlertCircle size={16} className="shrink-0 text-amber-600 mt-0.5" />
                     <div>
                       <p className="font-bold">Preview unavailable</p>
-                      <p className="text-[11px] mt-0.5">Please configure ARTICLE number series in Documents setup.</p>
+                      <p className="text-[11px] mt-0.5">No active document series configured for category &quot;{category || "None"}&quot;.</p>
                     </div>
                   </div>
                 ) : (
-                  /* Panel 3 Active Next Article Number Box */
+                  /* Active Next Article Number Box */
                   <div className="mb-4 p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-xs flex flex-col justify-center">
                     <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-300">
                       Next Article Number (Preview)
                     </span>
                     <span className="font-mono text-base font-bold text-blue-900 dark:text-blue-100 my-0.5">
-                      {isLoadingPreview ? "Fetching preview..." : (seriesPreview || "ART/0007/26-27/")}
+                      {isLoadingPreview ? "Fetching preview..." : (seriesPreview || "—")}
                     </span>
                     <span className="text-[10px] text-blue-600 dark:text-blue-400">
-                      Series: {seriesId || "SER-ART-COMP001"} (Will be generated on save)
+                      {seriesId ? `Series: ${seriesId} (Allocated on save)` : "Allocated on save"}
                     </span>
                   </div>
                 )
@@ -789,8 +828,8 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
                     <option value="">Select Brand</option>
-                    {(brandOptions.length > 0 ? brandOptions.map(b => b.name) : ["Nike", "Adidas", "Puma", "Bata", "Woodland", "Relaxo"]).map((b) => (
-                      <option key={b} value={b}>{b}</option>
+                    {brandOptions.map((b) => (
+                      <option key={b.code || b.name} value={b.name}>{b.name}</option>
                     ))}
                   </select>
                 </div>
@@ -820,8 +859,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     onChange={(e) => setGender(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
-                    {(genderOptions.length > 0 ? genderOptions.map(g => g.name) : ["Men", "Women", "Unisex", "Kids", "Boys", "Girls"]).map((g) => (
-                      <option key={g} value={g}>{g}</option>
+                    <option value="">Select Gender</option>
+                    {genderOptions.map((g) => (
+                      <option key={g.code || g.name} value={g.name}>{g.name}</option>
                     ))}
                   </select>
                 </div>
@@ -839,8 +879,8 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
                     <option value="">Select Product Type</option>
-                    {(productTypeOptions.length > 0 ? productTypeOptions.map(p => p.name) : ["CHAPPAL", "SANDAL", "SHOE", "BOOT", "SLIPPER", "SNEAKER", "FLAT", "HEEL", "LOAFER", "MULE", "CLOG", "BELLIES", "HALF SHOE"]).map((p) => (
-                      <option key={p} value={p}>{p}</option>
+                    {productTypeOptions.map((p) => (
+                      <option key={p.code || p.name} value={p.name}>{p.name}</option>
                     ))}
                   </select>
                 </div>
@@ -855,8 +895,8 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
                     <option value="">Select Heel Type</option>
-                    {(heelTypeOptions.length > 0 ? heelTypeOptions.map(h => h.name) : ["FLAT", "BLOCK", "BOX HEEL", "CUBE HEEL", "BIG PLATFORM", "SMALL PLATFORM", "WEDGE", "KITTEN", "STILETTO", "CONE", "PLATFORM"]).map((h) => (
-                      <option key={h} value={h}>{h}</option>
+                    {heelTypeOptions.map((h) => (
+                      <option key={h.code || h.name} value={h.name}>{h.name}</option>
                     ))}
                   </select>
                 </div>
@@ -871,8 +911,8 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
                     <option value="">Select Upper Material</option>
-                    {(upperMaterialOptions.length > 0 ? upperMaterialOptions.map(m => m.name) : ["SYNTHETIC", "LEATHER", "CANVAS", "FABRIC", "LYCRA", "MESH", "SUEDE", "PU", "PVC", "TEXTILE", "PATENT LEATHER", "VELVET", "JACQUARD"]).map((m) => (
-                      <option key={m} value={m}>{m}</option>
+                    {upperMaterialOptions.map((m) => (
+                      <option key={m.code || m.name} value={m.name}>{m.name}</option>
                     ))}
                   </select>
                 </div>
