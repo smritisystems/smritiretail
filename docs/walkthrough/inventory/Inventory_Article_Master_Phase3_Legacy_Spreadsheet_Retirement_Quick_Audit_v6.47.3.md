@@ -103,8 +103,8 @@ The purpose of Phase 3 is to decommission legacy direct spreadsheet writes (`POS
 
 ## 9. Verification Results
 - **Visual Telemetry Artifacts:**
-  - `scratch/visual-audit-temp/phase3/quick_audit_grid_view.png` — Verified read-only grid with badge, notice banner, CTA buttons, and monospace columns.
-  - `scratch/visual-audit-temp/phase3/quick_audit_classic_view.png` — Verified single-record inspector in read-only state with Article Catalog button.
+  - `docs/walkthrough/inventory/screenshots/quick_audit_grid_view.png` — Verified read-only grid with badge, notice banner, CTA buttons, and monospace columns.
+  - `docs/walkthrough/inventory/screenshots/quick_audit_classic_view.png` — Verified single-record inspector in read-only state with Article Catalog button.
 - **Verification Status:** **Done** (All requirements from Section 6 of the Implementation Plan satisfied and verified with observable evidence).
 
 ---
