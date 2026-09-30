@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
@@ -27,8 +27,12 @@ class NumberingService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list_series(self) -> list[DocumentSeries]:
+    async def list_series(self, company_id: Optional[str] = None, document_type: Optional[str] = None) -> list[DocumentSeries]:
         q = select(DocumentSeries).where(DocumentSeries.is_deleted == False)
+        if company_id:
+            q = q.where(or_(DocumentSeries.company_id == company_id, DocumentSeries.company_id.is_(None)))
+        if document_type:
+            q = q.where(func.upper(DocumentSeries.document_type) == document_type.strip().upper())
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
@@ -58,6 +62,11 @@ class NumberingService:
 
         company_id_val = getattr(data, "company_id", None) or getattr(data, "companyId", None)
 
+        end_num = getattr(data, "endNumber", None) if getattr(data, "endNumber", None) is not None else getattr(data, "end_number", None)
+        category_val = getattr(data, "category", None)
+        if category_val:
+            category_val = str(category_val).strip().upper()
+
         series = DocumentSeries(
             id=new_id,
             name=data.name,
@@ -77,7 +86,9 @@ class NumberingService:
             is_common_across_terminals=is_common,
             transaction_group=tx_group,
             start_number=start_num,
+            end_number=end_num,
             is_void_unified=is_void,
+            category=category_val,
             created_by=creator,
             updated_by=creator
         )
@@ -124,7 +135,11 @@ class NumberingService:
         if hasattr(data, "isCommonAcrossTerminals") and data.isCommonAcrossTerminals is not None: series.is_common_across_terminals = data.isCommonAcrossTerminals
         if hasattr(data, "transactionGroup") and data.transactionGroup is not None: series.transaction_group = data.transactionGroup
         if hasattr(data, "startNumber") and data.startNumber is not None: series.start_number = data.startNumber
+        if hasattr(data, "endNumber") and data.endNumber is not None: series.end_number = data.endNumber
+        elif hasattr(data, "end_number") and data.end_number is not None: series.end_number = data.end_number
         if hasattr(data, "isVoidUnified") and data.isVoidUnified is not None: series.is_void_unified = data.isVoidUnified
+        if hasattr(data, "category") and data.category is not None:
+            series.category = str(data.category).strip().upper() if data.category else None
         series.updated_by = updater
         series.modified_at = datetime.now(timezone.utc)
 

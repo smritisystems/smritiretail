@@ -42,7 +42,9 @@ class DocumentSeriesCreate(BaseModel):
     isCommonAcrossTerminals: Optional[bool] = Field(True, alias="isCommonAcrossTerminals")
     transactionGroup: Optional[str] = Field("SALES", alias="transactionGroup")
     startNumber: Optional[int] = Field(1, alias="startNumber")
+    endNumber: Optional[int] = Field(None, alias="endNumber")
     isVoidUnified: Optional[bool] = Field(False, alias="isVoidUnified")
+    category: Optional[str] = None
     numberFormat: Optional[NumberFormat] = Field("PREFIX_NUM_SUFFIX", alias="numberFormat")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -65,7 +67,9 @@ class DocumentSeriesUpdate(BaseModel):
     isCommonAcrossTerminals: Optional[bool] = Field(None, alias="isCommonAcrossTerminals")
     transactionGroup: Optional[str] = Field(None, alias="transactionGroup")
     startNumber: Optional[int] = Field(None, alias="startNumber")
+    endNumber: Optional[int] = Field(None, alias="endNumber")
     isVoidUnified: Optional[bool] = Field(None, alias="isVoidUnified")
+    category: Optional[str] = None
     numberFormat: Optional[NumberFormat] = Field(None, alias="numberFormat")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -91,7 +95,9 @@ class DocumentSeriesResponse(BaseModel):
     isCommonAcrossTerminals: bool = Field(True, validation_alias=AliasChoices("is_common_across_terminals", "isCommonAcrossTerminals"), serialization_alias="isCommonAcrossTerminals")
     transactionGroup: Optional[str] = Field("SALES", validation_alias=AliasChoices("transaction_group", "transactionGroup"), serialization_alias="transactionGroup")
     startNumber: int = Field(1, validation_alias=AliasChoices("start_number", "startNumber"), serialization_alias="startNumber")
+    endNumber: Optional[int] = Field(None, validation_alias=AliasChoices("end_number", "endNumber"), serialization_alias="endNumber")
     isVoidUnified: bool = Field(False, validation_alias=AliasChoices("is_void_unified", "isVoidUnified"), serialization_alias="isVoidUnified")
+    category: Optional[str] = None
     numberFormat: str = Field("PREFIX_NUM_SUFFIX", validation_alias=AliasChoices("number_format", "numberFormat"), serialization_alias="numberFormat")
 
     @field_validator("numberFormat", mode="before")

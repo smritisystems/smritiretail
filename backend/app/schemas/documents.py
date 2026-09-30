@@ -33,6 +33,9 @@ class DocumentSeriesCreateRequest(BaseModel):
     company_code: Optional[str] = None
     mode: str = "Auto"
     description: Optional[str] = None
+    start_number: int = Field(1, ge=1)
+    end_number: Optional[int] = None
+    category: Optional[str] = None
 
 
 class DocumentSeriesResponse(BaseModel):
@@ -50,6 +53,9 @@ class DocumentSeriesResponse(BaseModel):
     financial_year: Optional[str] = None
     company_code: Optional[str] = None
     mode: str
+    start_number: int = 1
+    end_number: Optional[int] = None
+    category: Optional[str] = None
 
 
 class SequenceAllocateRequest(BaseModel):
@@ -57,6 +63,7 @@ class SequenceAllocateRequest(BaseModel):
     company_code: Optional[str] = None
     branch_id: Optional[str] = "BR-001"
     financial_year: Optional[str] = None
+    category: Optional[str] = None
 
 
 class SequenceAllocateResponse(BaseModel):

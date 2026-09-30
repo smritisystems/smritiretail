@@ -11,11 +11,11 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_db, get_company_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...schemas.numbering import (
     DocumentSeriesCreate, DocumentSeriesUpdate, DocumentSeriesResponse,
@@ -33,14 +33,16 @@ router = APIRouter()
     response_model=List[DocumentSeriesResponse],
 )
 async def list_series(
-    db: AsyncSession = Depends(get_db),
+    document_type: Optional[str] = Query(None, description="Optional document type filter, e.g. ARTICLE"),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    List all active document series configuration parameters.
+    List all active document series configuration parameters for the authenticated tenant.
     """
+    company_id = getattr(current_user, "company_id", None)
     service = NumberingService(db)
-    return await service.list_series()
+    return await service.list_series(company_id=company_id, document_type=document_type)
 
 
 @router.post(
