@@ -472,3 +472,195 @@ describe("Phase 1 Purchase Studio Architecture & UX Invariant Suite", () => {
     expect(Boolean((undefinedLine as any).itemCode)).toBe(false);
   });
 });
+
+describe("Phase 2 Purchase Studio Resiliency, Safety & Overflow Suite", () => {
+  const sizes = ["S", "M", "L", "XL", "XXL"];
+
+  it("17. should defensively guard calculateSizewiseSummaryTotals against malformed, null, or undefined inputs", () => {
+    // Null / undefined lines array
+    const nullLinesSummary = calculateSizewiseSummaryTotals(null as any, sizes);
+    expect(nullLinesSummary.totalItems).toBe(0);
+    expect(nullLinesSummary.grandTotalQty).toBe(0);
+    expect(nullLinesSummary.grossValue).toBe(0);
+    expect(nullLinesSummary.netOrderValue).toBe(0);
+
+    // Empty sizes array
+    const emptySizesSummary = calculateSizewiseSummaryTotals([], []);
+    expect(emptySizesSummary.grandTotalQty).toBe(0);
+    expect(emptySizesSummary.perSizeTotals).toEqual({});
+    expect(emptySizesSummary.sizePercents).toEqual({});
+
+    // NaN / non-finite rate, taxPercent, or qty
+    const corruptedLine: SizewisePOLine = {
+      id: "sw-corrupt",
+      sNo: 1,
+      itemCode: "CORRUPT-01",
+      product: "Corrupted Item",
+      unit: "Pcs",
+      sizeQuantities: { S: NaN, M: null as any, L: undefined as any, XL: 10, XXL: 0 },
+      totalQty: 10,
+      rate: NaN,
+      stockOnHand: 0,
+      taxPercent: undefined as any,
+      netValue: NaN,
+      deliveryDate: "2026-10-01",
+    };
+
+    const summary = calculateSizewiseSummaryTotals([corruptedLine], sizes, NaN, undefined);
+    expect(Number.isFinite(summary.grossValue)).toBe(true);
+    expect(Number.isFinite(summary.totalTax)).toBe(true);
+    expect(Number.isFinite(summary.netOrderValue)).toBe(true);
+    expect(summary.totalTax).toBe(0);
+    expect(summary.grossValue).toBe(0);
+    expect(summary.netOrderValue).toBe(0);
+  });
+
+  it("18. should handle zero grandTotalQty without NaN in size percentage distributions", () => {
+    const zeroLines: SizewisePOLine[] = [
+      {
+        id: "sw-zero",
+        sNo: 1,
+        itemCode: "ZERO-01",
+        product: "Zero Item",
+        unit: "Pcs",
+        sizeQuantities: { S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+        totalQty: 0,
+        rate: 100,
+        stockOnHand: 10,
+        taxPercent: 18,
+        netValue: 0,
+        deliveryDate: "2026-10-01",
+      },
+    ];
+
+    const summary = calculateSizewiseSummaryTotals(zeroLines, sizes);
+    expect(summary.grandTotalQty).toBe(0);
+    sizes.forEach(sz => {
+      expect(summary.sizePercents[sz]).toBe("0.00%");
+      expect(summary.perSizeTotals[sz]).toBe(0);
+    });
+  });
+
+  it("19. should accurately re-map size quantities when switching between footwear size scales", () => {
+    const fwEuSizes = SIZE_SCALE_PRESETS.FOOTWEAR_EU.sizes; // ["36", "37", "38", "39", "40", "41", "42", "43", "44"]
+    const fwUkSizes = SIZE_SCALE_PRESETS.FOOTWEAR_UK.sizes; // ["6", "7", "8", "9", "10", "11"]
+
+    const euLine: SizewisePOLine = {
+      id: "sw-1",
+      sNo: 1,
+      itemCode: "SHOE-01",
+      product: "Campus Shoe",
+      unit: "Pair",
+      sizeQuantities: { "36": 2, "37": 4, "38": 6, "39": 8, "40": 10, "41": 8, "42": 6, "43": 4, "44": 2 },
+      totalQty: 50,
+      rate: 1000,
+      stockOnHand: 50,
+      taxPercent: 5,
+      netValue: 50000,
+      deliveryDate: "2026-10-01",
+    };
+
+    // Simulate switching to UK sizes
+    const newSizeQuantities: Record<string, number> = {};
+    fwUkSizes.forEach(sz => {
+      newSizeQuantities[sz] = euLine.sizeQuantities[sz] || 0;
+    });
+    const totalQty = fwUkSizes.reduce((s, sz) => s + (newSizeQuantities[sz] || 0), 0);
+    const netValue = totalQty * euLine.rate;
+
+    expect(totalQty).toBe(0); // None of EU numbers 36-44 overlap with UK numbers 6-11
+    expect(netValue).toBe(0);
+    expect(Object.keys(newSizeQuantities)).toEqual(fwUkSizes);
+  });
+
+  it("20. should accurately serialize sizewise matrix to CSV format with escaping", () => {
+    const testLine: SizewisePOLine = {
+      id: "sw-1",
+      sNo: 1,
+      itemCode: 'SHOE,"DELUXE"',
+      product: 'Campus "Runner" Shoes',
+      brand: "Campus",
+      style: "Active",
+      shade: "Navy",
+      unit: "Pair",
+      sizeQuantities: { S: 5, M: 10, L: 15, XL: 0, XXL: 0 },
+      totalQty: 30,
+      rate: 1200,
+      stockOnHand: 25,
+      taxPercent: 5,
+      netValue: 36000,
+      deliveryDate: "2026-10-01",
+    };
+
+    const headers = ["#", "Item Code", "Product", "Brand", "Style", "Shade", ...sizes, "Total Qty", "Rate", "Tax %", "Net Value"];
+    expect(headers).toContain("Total Qty");
+    expect(headers).toContain("Net Value");
+
+    const row = [
+      1,
+      `"${testLine.itemCode}"`,
+      `"${(testLine.product || "").replace(/"/g, '""')}"`,
+      `"${testLine.brand || ""}"`,
+      `"${testLine.style || ""}"`,
+      `"${testLine.shade || ""}"`,
+      ...sizes.map(sz => testLine.sizeQuantities[sz] || 0),
+      testLine.totalQty,
+      testLine.rate,
+      testLine.taxPercent,
+      testLine.netValue,
+    ];
+
+    expect(row[2]).toBe('"Campus ""Runner"" Shoes"');
+    expect(row[6]).toBe(5);  // S
+    expect(row[7]).toBe(10); // M
+    expect(row[8]).toBe(15); // L
+    expect(row[11]).toBe(30); // Total Qty
+    expect(row[14]).toBe(36000); // Net Value
+  });
+
+  it("21. should expand sizewise matrix rows into discrete line items for statutory print engine", () => {
+    const matrixLine: SizewisePOLine = {
+      id: "sw-1",
+      sNo: 1,
+      itemCode: "SHOE-01",
+      barcode: "8901234567890",
+      product: "Running Shoes",
+      brand: "Campus",
+      style: "Runner",
+      shade: "Blue",
+      unit: "Pair",
+      sizeQuantities: { S: 10, M: 20, L: 0, XL: 0, XXL: 0 },
+      totalQty: 30,
+      rate: 1000,
+      stockOnHand: 50,
+      taxPercent: 5,
+      netValue: 30000,
+      deliveryDate: "2026-10-01",
+    };
+
+    // Filter active sizes with qty > 0
+    const activeSizes = Object.entries(matrixLine.sizeQuantities).filter(([_, qty]) => qty > 0);
+    expect(activeSizes.length).toBe(2);
+
+    const discreteItems = activeSizes.map(([sz, qty]) => ({
+      id: `${matrixLine.id}-${sz}`,
+      stockNo: matrixLine.itemCode,
+      size: sz,
+      orderQty: qty,
+      rate: matrixLine.rate,
+      taxPercent: matrixLine.taxPercent,
+      taxAmount: (qty * matrixLine.rate * matrixLine.taxPercent) / 100,
+      netAmount: qty * matrixLine.rate * (1 + matrixLine.taxPercent / 100),
+    }));
+
+    expect(discreteItems[0].size).toBe("S");
+    expect(discreteItems[0].orderQty).toBe(10);
+    expect(discreteItems[0].taxAmount).toBe(500);
+    expect(discreteItems[0].netAmount).toBe(10500);
+
+    expect(discreteItems[1].size).toBe("M");
+    expect(discreteItems[1].orderQty).toBe(20);
+    expect(discreteItems[1].taxAmount).toBe(1000);
+    expect(discreteItems[1].netAmount).toBe(21000);
+  });
+});
