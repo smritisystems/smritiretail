@@ -47,6 +47,15 @@ class ProductBase(BaseModel):
     gallery_images: Optional[List[str]] = Field(default_factory=list)
     historical_invoice_qty: Decimal = Decimal("0")
 
+    # v2.2 Promoted Attribute Fields
+    gender: Optional[str] = Field(None, max_length=50)
+    product_type: Optional[str] = Field(None, max_length=100)
+    heel_type: Optional[str] = Field(None, max_length=100)
+    upper_material: Optional[str] = Field(None, max_length=100)
+    design_attribute: Optional[str] = Field(None, max_length=100)
+    outsole_material: Optional[str] = Field(None, max_length=100)
+    collection_type: Optional[str] = Field(None, max_length=100)
+
     @field_validator("code", "name", "barcode", mode="before")
     @classmethod
     def validate_non_blank_string(cls, v: Any, info: ValidationInfo) -> str:

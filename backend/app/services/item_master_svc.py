@@ -179,6 +179,34 @@ class UniversalItemMasterService:
                     )
                 sku = raw_code
 
+            # IM-001 Unified Catalog Controlled-Field Governance
+            from .catalog_validation import CatalogDimensionValidator, IM001ControlledFieldValidator
+
+            governed_payload = {
+                "brand": req.brand,
+                "category": req.category,
+                "department": req.department,
+                "style_code": req.style_code,
+                "color": req.color,
+                "size": req.size,
+                "vendor_code": req.vendor_code,
+                "uom": getattr(req, "uom", None) or req.primary_uom or "PCS",
+                "hsn_code": req.hsn_code,
+                "gst_rate_percent": float(req.tax_rate) if req.tax_rate is not None else None,
+                "gender": getattr(req, "gender", None),
+                "product_type": getattr(req, "product_type", None),
+                "heel_type": getattr(req, "heel_type", None),
+                "upper_material": getattr(req, "upper_material", None),
+                "design_attribute": getattr(req, "design_attribute", None),
+                "outsole_material": getattr(req, "outsole_material", None),
+                "collection_type": getattr(req, "collection_type", None),
+            }
+            await IM001ControlledFieldValidator.validate_dict(
+                payload=governed_payload,
+                company_id=effective_company_id,
+                strict=True,
+            )
+
             # Validate and normalize catalog dimensions
             normalized_brand = req.brand
             normalized_category = req.category
@@ -187,7 +215,6 @@ class UniversalItemMasterService:
             normalized_color = req.color
             normalized_size = req.size
             normalized_vendor_code = req.vendor_code
-            from .catalog_validation import CatalogDimensionValidator
             if req.brand and str(req.brand).strip():
                 normalized_brand = await CatalogDimensionValidator.validate_and_normalize_dimension(
                     dimension_field="brand",

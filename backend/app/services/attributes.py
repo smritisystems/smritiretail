@@ -47,6 +47,18 @@ class AttributesService:
         errors: list[str] = []
         for definition in definitions:
             raw_value = provided.get(definition.name)
+            if raw_value is None or (isinstance(raw_value, str) and not raw_value.strip()):
+                # Fallback aliases for common dynamic attributes (e.g. style_no <-> style <-> style_code)
+                if definition.name in {"style_no", "style", "style_code"}:
+                    raw_value = provided.get("style_no") or provided.get("style") or provided.get("style_code")
+                elif definition.name in {"article_no", "article_code", "article"}:
+                    raw_value = (
+                        provided.get("article_no")
+                        or provided.get("article_code")
+                        or provided.get("article")
+                        or provided.get("style_code")
+                        or provided.get("style")
+                    )
             is_blank = raw_value is None or (isinstance(raw_value, str) and not raw_value.strip())
             if definition.is_mandatory and is_blank:
                 errors.append(f"{definition.label} is required")

@@ -87,6 +87,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState("Footwear");
   const [gender, setGender] = useState("Men");
+  const [productTypeItem, setProductTypeItem] = useState("CHAPPAL");
+  const [heelType, setHeelType] = useState("FLAT");
+  const [upperMaterial, setUpperMaterial] = useState("SYNTHETIC");
   const [hsnCode, setHsnCode] = useState("6403");
   const [baseMrp, setBaseMrp] = useState("2999.00");
   const [baseSellingPrice, setBaseSellingPrice] = useState("2499.00");
@@ -108,6 +111,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [brandOptions, setBrandOptions] = useState<LookupOption[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<LookupOption[]>([]);
   const [genderOptions, setGenderOptions] = useState<LookupOption[]>([]);
+  const [productTypeOptions, setProductTypeOptions] = useState<LookupOption[]>([]);
+  const [heelTypeOptions, setHeelTypeOptions] = useState<LookupOption[]>([]);
+  const [upperMaterialOptions, setUpperMaterialOptions] = useState<LookupOption[]>([]);
   const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
 
   // ── Step 2 Matrix State ──
@@ -186,6 +192,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
           if (lookups.brand?.length) setBrandOptions(lookups.brand);
           if (lookups.category?.length) setCategoryOptions(lookups.category);
           if (lookups.gender?.length) setGenderOptions(lookups.gender);
+          if ((lookups as any).product_type?.length) setProductTypeOptions((lookups as any).product_type);
+          if ((lookups as any).heel_type?.length) setHeelTypeOptions((lookups as any).heel_type);
+          if ((lookups as any).upper_material?.length) setUpperMaterialOptions((lookups as any).upper_material);
         }
       } catch {
         // Fallbacks remain intact
@@ -419,6 +428,10 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
         barcode: primaryBarcode,
         brand: brand || null,
         category: category || "Footwear",
+        gender: gender || null,
+        product_type: productTypeItem || null,
+        heel_type: heelType || null,
+        upper_material: upperMaterial || null,
         price: parseFloat(baseSellingPrice) || parseFloat(baseMrp) || 0,
         mrp: parseFloat(baseMrp) || 0,
         buying_price: parseFloat(baseSellingPrice) || null,
@@ -429,6 +442,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
         size: selectedSizes[0] || null,
         attributes: {
           gender: gender || null,
+          product_type: productTypeItem || null,
+          heel_type: heelType || null,
+          upper_material: upperMaterial || null,
           auto_po: autoPo,
           auto_grn: autoGrn,
           total_matrix_variants: activeVariantsList.length,
@@ -746,6 +762,57 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   >
                     {(genderOptions.length > 0 ? genderOptions.map(g => g.name) : ["Men", "Women", "Unisex", "Kids", "Boys", "Girls"]).map((g) => (
                       <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 3-Column Footwear Governance: Product Type, Heel Type, Upper Material */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Product Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={productTypeItem}
+                    onChange={(e) => setProductTypeItem(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="">Select Product Type</option>
+                    {(productTypeOptions.length > 0 ? productTypeOptions.map(p => p.name) : ["CHAPPAL", "SANDAL", "SHOE", "BOOT", "SLIPPER", "SNEAKER", "FLAT", "HEEL", "LOAFER", "MULE", "CLOG", "BELLIES", "HALF SHOE"]).map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Heel Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={heelType}
+                    onChange={(e) => setHeelType(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="">Select Heel Type</option>
+                    {(heelTypeOptions.length > 0 ? heelTypeOptions.map(h => h.name) : ["FLAT", "BLOCK", "BOX HEEL", "CUBE HEEL", "BIG PLATFORM", "SMALL PLATFORM", "WEDGE", "KITTEN", "STILETTO", "CONE", "PLATFORM"]).map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#475569] dark:text-[#cbd5e1] block mb-1">
+                    Upper Material <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={upperMaterial}
+                    onChange={(e) => setUpperMaterial(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="">Select Upper Material</option>
+                    {(upperMaterialOptions.length > 0 ? upperMaterialOptions.map(m => m.name) : ["SYNTHETIC", "LEATHER", "CANVAS", "FABRIC", "LYCRA", "MESH", "SUEDE", "PU", "PVC", "TEXTILE", "PATENT LEATHER", "VELVET", "JACQUARD"]).map((m) => (
+                      <option key={m} value={m}>{m}</option>
                     ))}
                   </select>
                 </div>
