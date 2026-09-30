@@ -292,9 +292,9 @@ async def run_purchase_studio_headless_capture():
                 await page.wait_for_timeout(600)
 
         # ---------------------------------------------------------------------
-        # Screenshot 10: Product Image Binding & Upload Modal
+        # Screenshot 10: Product Image Binding & Upload Modal (SPIF Integration)
         # ---------------------------------------------------------------------
-        print("\n[Step 10] Opening Product Image Binding Modal...")
+        print("\n[Step 10] Opening Product Image Binding Modal & Testing SPIF Upload...")
         change_photo_btn = page.locator("button:has-text('Change'), button:has-text('Add Multiple Images')").first
         if await change_photo_btn.count() > 0:
             await change_photo_btn.click()
@@ -302,11 +302,35 @@ async def run_purchase_studio_headless_capture():
             shot10_path = os.path.join(OUTPUT_DIR, "10_po_article_image_modal.png")
             await page.screenshot(path=shot10_path, full_page=True)
             print(f"   [CAPTURE] Step 10: Article Image Modal -> {shot10_path}")
-            # Close image modal
-            modal_cancel = page.locator("div[role='dialog'] button:has-text('Cancel')").first
-            if await modal_cancel.count() > 0:
-                await modal_cancel.click()
-                await page.wait_for_timeout(500)
+
+            # Step 10b: Upload sample image and trigger backend SPIF WebP processing
+            sample_img_path = os.path.join(OUTPUT_DIR, "sample_shoe_upload.png")
+            file_input = page.locator("div[role='dialog'] input[type='file']").first
+            if await file_input.count() > 0 and os.path.exists(sample_img_path):
+                print("   * Uploading sample image to trigger SPIF processing...")
+                await file_input.set_input_files(sample_img_path)
+                await page.wait_for_timeout(2500)
+
+                # Capture modal with server-persisted WebP badge
+                shot10b_path = os.path.join(OUTPUT_DIR, "10b_po_image_uploaded_spif_webp.png")
+                await page.screenshot(path=shot10b_path, full_page=True)
+                print(f"   [CAPTURE] Step 10b: SPIF Server WebP Upload Modal -> {shot10b_path}")
+
+                # Click Save & Apply Image
+                apply_btn = page.locator("div[role='dialog'] button:has-text('Save & Apply Image')").first
+                if await apply_btn.count() > 0:
+                    await apply_btn.click()
+                    await page.wait_for_timeout(1000)
+
+                    shot10c_path = os.path.join(OUTPUT_DIR, "10c_po_image_applied_lookbook.png")
+                    await page.screenshot(path=shot10c_path, full_page=True)
+                    print(f"   [CAPTURE] Step 10c: Lookbook with Applied SPIF Image -> {shot10c_path}")
+            else:
+                modal_cancel = page.locator("div[role='dialog'] button:has-text('Cancel')").first
+                if await modal_cancel.count() > 0:
+                    await modal_cancel.click()
+                    await page.wait_for_timeout(500)
+
 
         # ---------------------------------------------------------------------
         # Screenshot 11: Assortment Curve Recommendation (Bell Curve)

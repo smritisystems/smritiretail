@@ -30,6 +30,29 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.51.0] - 2026-09-30 — Purchase Studio Phase 4: Backend SPIF Image Upload & WebP Persistence
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Purchase Studio & Sizing Engine
+> **Walkthrough:** `docs/walkthrough/purchase/Purchase_Studio_Phase_4_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/purchase/Purchase_Studio_Phase_4_Plan_v1.0.0.md`
+
+### Added
+- **Backend Standalone Image Upload Endpoint (`POST /api/v1/inventory/upload-image`):** Added authenticated endpoint in `backend/app/api/v1/inventory.py` accepting base64 image data and executing Single Point Image Factory (`SpifService`) pipeline.
+- **SPIF WebP Persistence Engine:**
+  - Auto-transposition of EXIF camera orientations and RGB mode conversion.
+  - High-fidelity Lanczos resampling to max 1024×1024 resolution.
+  - Conversion to WebP at 80% compression quality with persistent disk storage (`static/uploads/spif-{uuid}.webp`).
+  - Cross-environment multi-candidate fallback in `SpifService.get_image_path` for Docker container bind mounts and host environments.
+- **Frontend Real-Time Upload State & Badging (`PoSizewiseTab.tsx`):**
+  - Integrated asynchronous `apiFetchV1` upload immediately upon local file selection.
+  - Added animated upload spinner with "Optimizing WebP..." overlay.
+  - Added persistent verified status badge: `✓ Persisted Server WebP`.
+  - Added resilient local dataUrl fallback ensuring offline usability if backend is temporarily unreachable.
+- **Automated Verification & Footprint Testing:**
+  - Added backend integration unit tests in `backend/tests/test_inventory_image_upload.py`.
+  - Added unit tests 29 & 30 in `src/tests/poSizewiseUX.test.ts` proving >99.8% payload size reduction (from ~5MB down to ~60KB per image).
+  - Headless Playwright script (`scripts/capture_purchase_studio_headless.py`) capturing Steps 10b (upload modal) and 10c (applied lookbook card).
+
 ## [6.50.0] - 2026-09-30 — Purchase Studio Phase 3: Article Image Binding, Visual Lookbook, Colorways, Assortment Curve Intelligence & Landscape Printout
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Studio & Sizing Engine
