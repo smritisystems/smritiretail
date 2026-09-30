@@ -19,7 +19,7 @@ import jsonschema  # type: ignore
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 
 from sqlalchemy import or_
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -1023,17 +1023,25 @@ async def delete_lookup_value(
     )
     try:
         await db.commit()
-    except IntegrityError as exc:
+    except (IntegrityError, SQLAlchemyError) as exc:
         await db.rollback()
-        if "master value" in str(exc).lower() or "master_value" in str(exc).lower():
+        exc_str = str(exc)
+        if any(keyword in exc_str.lower() for keyword in ["referenced by", "master value", "master_value", "live child", "sales history", "variant template"]):
+            clean_msg = f"Cannot delete {type_code} '{item.code}': it is linked to live records. Remove or retire those links first."
+            if "referenced by" in exc_str:
+                for line in exc_str.split("\n"):
+                    if "referenced by" in line:
+                        clean_msg = line.strip().split("DETAIL:", 1)[0].replace("ERROR:", "").replace("raise exception", "").strip()
+                        break
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    f"Cannot delete {type_code} '{item.code}': it is linked to live records. "
-                    "Remove or retire those links first."
-                ),
+                detail=clean_msg,
             ) from exc
-        raise
+        logger.error(f"Failed to delete {type_code} lookup value {id}: {exc}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to delete {type_code} '{item.code}' due to a database operation conflict.",
+        ) from exc
     return {"success": True, "deletedId": str(id)}
 
 

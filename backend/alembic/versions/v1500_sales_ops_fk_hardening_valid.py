@@ -1,4 +1,4 @@
-﻿"""v1500: Sales + Ops FK hardening - Part 4a of Full System Audit (VALID FKs only)
+"""v1500: Sales + Ops FK hardening - Part 4a of Full System Audit (VALID FKs only)
 
 Hardens 9 FK columns across sales and operational tables where orphan checks
 returned 0 - all constraints added as fully VALID.
@@ -60,88 +60,139 @@ depends_on = None
 
 
 def _check_orphans(bind, table, col, ref_table, ref_col="id"):
+    tbl_exists = bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
+    ), {"tbl": table}).scalar()
+    if not tbl_exists:
+        return 0
+    col_exists = bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns WHERE table_name = :tbl AND column_name = :col"
+    ), {"tbl": table, "col": col}).scalar()
+    if not col_exists:
+        return 0
+    ref_tbl_exists = bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
+    ), {"tbl": ref_table}).scalar()
+    if not ref_tbl_exists:
+        return 0
     r = bind.execute(sa.text(
         f"SELECT COUNT(*) FROM {table} t "
         f"LEFT JOIN {ref_table} r ON r.{ref_col} = t.{col} "
         f"WHERE r.{ref_col} IS NULL AND t.{col} IS NOT NULL"
     ))
-    return r.scalar()
+    return r.scalar() or 0
+
+
+def _fk_exists(bind, con_name: str) -> bool:
+    return bool(bind.execute(sa.text(
+        "SELECT 1 FROM pg_constraint WHERE conname = :con"
+    ), {"con": con_name}).scalar())
 
 
 def upgrade():
     bind = op.get_bind()
 
+    # Helper to ensure column exists
+    def _ensure_col(table: str, col: str, col_type: str = "VARCHAR(50)"):
+        tbl_exists = bind.execute(sa.text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
+        ), {"tbl": table}).scalar()
+        if tbl_exists:
+            c_exists = bind.execute(sa.text(
+                "SELECT 1 FROM information_schema.columns WHERE table_name = :tbl AND column_name = :col"
+            ), {"tbl": table, "col": col}).scalar()
+            if not c_exists:
+                bind.execute(sa.text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
+
     # 1. sales_order_items.product_id -> products.id
-    orphans = _check_orphans(bind, "sales_order_items", "product_id", "products")
-    assert orphans == 0, f"sales_order_items: {orphans} product_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_soi_product_id", "sales_order_items", "products",
-        ["product_id"], ["id"], ondelete="RESTRICT"
-    )
+    _ensure_col("sales_order_items", "product_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_soi_product_id"):
+        orphans = _check_orphans(bind, "sales_order_items", "product_id", "products")
+        assert orphans == 0, f"sales_order_items: {orphans} product_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_soi_product_id", "sales_order_items", "products",
+            ["product_id"], ["id"], ondelete="RESTRICT"
+        )
 
     # 2. sales_orders.customer_id -> customers.id
-    orphans = _check_orphans(bind, "sales_orders", "customer_id", "customers")
-    assert orphans == 0, f"sales_orders: {orphans} customer_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_so_customer_id", "sales_orders", "customers",
-        ["customer_id"], ["id"], ondelete="SET NULL"
-    )
+    _ensure_col("sales_orders", "customer_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_so_customer_id"):
+        orphans = _check_orphans(bind, "sales_orders", "customer_id", "customers")
+        assert orphans == 0, f"sales_orders: {orphans} customer_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_so_customer_id", "sales_orders", "customers",
+            ["customer_id"], ["id"], ondelete="SET NULL"
+        )
 
     # 3. sales_return_items.product_id -> products.id
-    orphans = _check_orphans(bind, "sales_return_items", "product_id", "products")
-    assert orphans == 0, f"sales_return_items: {orphans} product_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_sri_product_id", "sales_return_items", "products",
-        ["product_id"], ["id"], ondelete="RESTRICT"
-    )
+    _ensure_col("sales_return_items", "product_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_sri_product_id"):
+        orphans = _check_orphans(bind, "sales_return_items", "product_id", "products")
+        assert orphans == 0, f"sales_return_items: {orphans} product_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_sri_product_id", "sales_return_items", "products",
+            ["product_id"], ["id"], ondelete="RESTRICT"
+        )
 
     # 4. sales_returns.customer_id -> customers.id
-    orphans = _check_orphans(bind, "sales_returns", "customer_id", "customers")
-    assert orphans == 0, f"sales_returns: {orphans} customer_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_sr_customer_id", "sales_returns", "customers",
-        ["customer_id"], ["id"], ondelete="SET NULL"
-    )
+    _ensure_col("sales_returns", "customer_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_sr_customer_id"):
+        orphans = _check_orphans(bind, "sales_returns", "customer_id", "customers")
+        assert orphans == 0, f"sales_returns: {orphans} customer_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_sr_customer_id", "sales_returns", "customers",
+            ["customer_id"], ["id"], ondelete="SET NULL"
+        )
 
     # 5. inward_cost_allocations.product_id -> products.id
-    orphans = _check_orphans(bind, "inward_cost_allocations", "product_id", "products")
-    assert orphans == 0, f"inward_cost_allocations: {orphans} product_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_ica_product_id", "inward_cost_allocations", "products",
-        ["product_id"], ["id"], ondelete="RESTRICT"
-    )
+    _ensure_col("inward_cost_allocations", "product_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_ica_product_id"):
+        orphans = _check_orphans(bind, "inward_cost_allocations", "product_id", "products")
+        assert orphans == 0, f"inward_cost_allocations: {orphans} product_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_ica_product_id", "inward_cost_allocations", "products",
+            ["product_id"], ["id"], ondelete="RESTRICT"
+        )
 
     # 6. loading_sheet_items.item_id -> items.id
-    orphans = _check_orphans(bind, "loading_sheet_items", "item_id", "items")
-    assert orphans == 0, f"loading_sheet_items: {orphans} item_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_lsi_item_id", "loading_sheet_items", "items",
-        ["item_id"], ["id"], ondelete="RESTRICT"
-    )
+    _ensure_col("loading_sheet_items", "item_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_lsi_item_id"):
+        orphans = _check_orphans(bind, "loading_sheet_items", "item_id", "items")
+        assert orphans == 0, f"loading_sheet_items: {orphans} item_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_lsi_item_id", "loading_sheet_items", "items",
+            ["item_id"], ["id"], ondelete="RESTRICT"
+        )
 
     # 7. distribution_claims.party_id -> parties.id
-    orphans = _check_orphans(bind, "distribution_claims", "party_id", "parties")
-    assert orphans == 0, f"distribution_claims: {orphans} party_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_dc_party_id", "distribution_claims", "parties",
-        ["party_id"], ["id"], ondelete="SET NULL"
-    )
+    _ensure_col("distribution_claims", "party_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_dc_party_id"):
+        orphans = _check_orphans(bind, "distribution_claims", "party_id", "parties")
+        assert orphans == 0, f"distribution_claims: {orphans} party_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_dc_party_id", "distribution_claims", "parties",
+            ["party_id"], ["id"], ondelete="SET NULL"
+        )
 
     # 8. distribution_route_stops.party_id -> parties.id
-    orphans = _check_orphans(bind, "distribution_route_stops", "party_id", "parties")
-    assert orphans == 0, f"distribution_route_stops: {orphans} party_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_drs_party_id", "distribution_route_stops", "parties",
-        ["party_id"], ["id"], ondelete="SET NULL"
-    )
+    _ensure_col("distribution_route_stops", "party_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_drs_party_id"):
+        orphans = _check_orphans(bind, "distribution_route_stops", "party_id", "parties")
+        assert orphans == 0, f"distribution_route_stops: {orphans} party_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_drs_party_id", "distribution_route_stops", "parties",
+            ["party_id"], ["id"], ondelete="SET NULL"
+        )
 
     # 9. purchase_reorder_configs.product_id -> products.id
-    orphans = _check_orphans(bind, "purchase_reorder_configs", "product_id", "products")
-    assert orphans == 0, f"purchase_reorder_configs: {orphans} product_id orphans -- aborting"
-    op.create_foreign_key(
-        "fk_prc_product_id", "purchase_reorder_configs", "products",
-        ["product_id"], ["id"], ondelete="CASCADE"
-    )
+    _ensure_col("purchase_reorder_configs", "product_id", "VARCHAR(50)")
+    if not _fk_exists(bind, "fk_prc_product_id"):
+        orphans = _check_orphans(bind, "purchase_reorder_configs", "product_id", "products")
+        assert orphans == 0, f"purchase_reorder_configs: {orphans} product_id orphans -- aborting"
+        op.create_foreign_key(
+            "fk_prc_product_id", "purchase_reorder_configs", "products",
+            ["product_id"], ["id"], ondelete="CASCADE"
+        )
 
 
 def downgrade():

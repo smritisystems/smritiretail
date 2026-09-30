@@ -144,11 +144,24 @@ def run_alembic_migration(target: str, db_name: str, revision: str = "head") -> 
             logger.info("Alembic migration completed successfully for %s:%s.", target, db_name)
             return
 
-        if "alembic_version" in proc.stderr or "UniqueViolation" in proc.stderr:
+        if "alembic_version" in proc.stderr or "UniqueViolation" in proc.stderr or "overlaps with other requested revisions" in proc.stderr:
             logger.warning(
-                "Transient Alembic version table race condition detected on %s:%s (attempt %d/3). Retrying in 2s...",
+                "Transient Alembic version table condition detected on %s:%s (attempt %d/3). Pruning redundant entries and retrying in 2s...",
                 target, db_name, attempt
             )
+            try:
+                p_conn = get_raw_connection(db_name)
+                p_conn.autocommit = True
+                with p_conn.cursor() as p_cur:
+                    p_cur.execute("SELECT version_num FROM alembic_version;")
+                    v_rows = [r[0] for r in p_cur.fetchall()]
+                    if len(v_rows) > 1:
+                        for r_del in ["v1499", "v1500", "v1501", "v1502", "v1503"]:
+                            if r_del in v_rows and ("v1504" in v_rows or "v1505" in v_rows):
+                                p_cur.execute("DELETE FROM alembic_version WHERE version_num = %s;", (r_del,))
+                p_conn.close()
+            except Exception as prune_err:
+                logger.warning("Could not prune alembic_version on %s: %s", db_name, prune_err)
             time.sleep(2)
             continue
 
@@ -526,6 +539,140 @@ def apply_tenant_schema_extensions(database_name: str) -> None:
                 );
                 CREATE INDEX IF NOT EXISTS ix_item_serials_item_id ON item_serials(item_id);
                 CREATE INDEX IF NOT EXISTS ix_item_serials_serial_no ON item_serials(serial_number);
+
+                -- 3. Sales Order Items Schema Hardening
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_order_items') THEN
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS article_no VARCHAR(50);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS vendor_style VARCHAR(100);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS ean VARCHAR(50);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS color VARCHAR(50);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS size VARCHAR(50);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS uom VARCHAR(20) DEFAULT 'EA';
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS sr_no INTEGER;
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS mrp NUMERIC(15, 2);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS base_cost NUMERIC(15, 2);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS taxable_value NUMERIC(15, 2);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS igst_amount NUMERIC(15, 2) DEFAULT 0.00;
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS cgst_amount NUMERIC(15, 2) DEFAULT 0.00;
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS sgst_amount NUMERIC(15, 2) DEFAULT 0.00;
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS line_total NUMERIC(15, 2);
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS delivery_date DATE;
+                        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS site_code VARCHAR(50);
+                    END IF;
+                END $$;
+
+                -- 4. Master Lookup Reference Guard Hardening
+                CREATE OR REPLACE FUNCTION prevent_referenced_master_value_retirement()
+                RETURNS trigger AS $fn$
+                DECLARE
+                    lookup_type TEXT;
+                    has_ref BOOLEAN := FALSE;
+                BEGIN
+                    IF NEW.is_deleted IS TRUE AND OLD.is_deleted IS NOT TRUE THEN
+                        SELECT code INTO lookup_type
+                        FROM master_types
+                        WHERE id = NEW.master_type_id;
+
+                        IF EXISTS (
+                            SELECT 1 FROM master_values
+                            WHERE parent_value_id = OLD.id
+                              AND is_deleted IS NOT TRUE
+                        ) THEN
+                            RAISE EXCEPTION 'Master value % is referenced by live child lookup values', OLD.code
+                                USING ERRCODE = '23514';
+                        END IF;
+
+                        IF lookup_type = 'style_article' THEN
+                            IF EXISTS (
+                                SELECT 1 FROM variant_templates
+                                WHERE master_value_id = OLD.id
+                                  AND is_deleted IS NOT TRUE
+                            ) THEN
+                                RAISE EXCEPTION 'Style/article % is referenced by a live variant template', OLD.code
+                                    USING ERRCODE = '23514';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM products
+                                WHERE style_code = OLD.code
+                                  AND is_deleted IS NOT TRUE
+                            ) THEN
+                                RAISE EXCEPTION 'Style/article % is referenced by a live product', OLD.code
+                                    USING ERRCODE = '23514';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_order_items'
+                            ) AND EXISTS (
+                                SELECT 1 FROM information_schema.columns WHERE table_name = 'sales_order_items' AND column_name = 'article_no'
+                            ) THEN
+                                EXECUTE 'SELECT EXISTS (SELECT 1 FROM sales_order_items WHERE (article_no = $1 OR vendor_style = $1))'
+                                INTO has_ref
+                                USING OLD.code;
+                                IF has_ref THEN
+                                    RAISE EXCEPTION 'Style/article % is referenced by sales history', OLD.code
+                                        USING ERRCODE = '23514';
+                                END IF;
+                            END IF;
+                        END IF;
+
+                        IF lookup_type = 'vendor_code' THEN
+                            IF EXISTS (
+                                SELECT 1 FROM variant_templates
+                                WHERE vendor_code = OLD.code
+                                  AND is_deleted IS NOT TRUE
+                            ) THEN
+                                RAISE EXCEPTION 'Vendor % is referenced by a live variant template', OLD.code
+                                    USING ERRCODE = '23514';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM products
+                                WHERE vendor_code = OLD.code
+                                  AND is_deleted IS NOT TRUE
+                            ) THEN
+                                RAISE EXCEPTION 'Vendor % is referenced by a live product', OLD.code
+                                    USING ERRCODE = '23514';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM master_values
+                                WHERE vendor_code = OLD.code
+                                  AND is_deleted IS NOT TRUE
+                            ) THEN
+                                RAISE EXCEPTION 'Vendor % owns live style/article values', OLD.code
+                                    USING ERRCODE = '23514';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_orders'
+                            ) THEN
+                                EXECUTE 'SELECT EXISTS (SELECT 1 FROM sales_orders WHERE vendor_code = $1)'
+                                INTO has_ref
+                                USING OLD.code;
+                                IF has_ref THEN
+                                    RAISE EXCEPTION 'Vendor % is referenced by sales history', OLD.code
+                                        USING ERRCODE = '23514';
+                                END IF;
+                            END IF;
+                        END IF;
+                    END IF;
+
+                    RETURN NEW;
+                END;
+                $fn$ LANGUAGE plpgsql;
+
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'master_values') THEN
+                        DROP TRIGGER IF EXISTS trg_master_value_reference_guard ON master_values;
+                        CREATE TRIGGER trg_master_value_reference_guard
+                        BEFORE UPDATE OF is_deleted ON master_values
+                        FOR EACH ROW EXECUTE FUNCTION prevent_referenced_master_value_retirement();
+                    END IF;
+                END $$;
             """)
     finally:
         conn.close()

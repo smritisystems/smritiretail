@@ -30,6 +30,18 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.47.4] - 2026-09-30 — Database Bootstrap Multi-Head Convergence & Dynamic Trigger Hardening
+
+> **Branch:** `smritiNX` | **Area:** Database / Migrations & Bootstrap
+> **Walkthrough:** `docs/walkthrough/db/DB_Bootstrap_Dynamic_Trigger_And_MultiHead_Remediation_v6.47.4.md`
+
+### Fixed
+- **Dynamic PL/pgSQL Trigger Hardening (`prevent_referenced_master_value_retirement`):** Converted static SQL queries referencing `sales_order_items.article_no` into dynamic SQL (`EXECUTE ...`) guarded by `information_schema.columns` existence checks. Eliminates PostgreSQL PL/pgSQL compilation-time failure `column "article_no" does not exist` when soft-deleting master values (e.g., Department) on new installations.
+- **Alembic Multi-Head Divergence:** Created canonical merge migration `v1505` (`v1505_sales_order_items_article_no_and_trigger_hardening.py`) reconciling control plane `v1497b` and tenant plane `v1504` into a single linear head.
+- **Multi-Tenant Bootstrap Idempotency:** Guarded migrations `v1497a`, `v1497b`, `v1500`, `v1503`, and `v1504` with defensive table/column/constraint existence checks (`_ensure_col`, `_fk_exists`, `to_regclass`), allowing zero-error execution across both control (`smritisys`) and tenant databases (`smriti001`–`smriti004`).
+- **Multi-Tenant CRM Baseline Seeding:** Replaced hardcoded `COMP-001` in `seed_baseline_users.py` with dynamic tenant database company resolution, eliminating `ForeignKeyViolationError` in tenant databases (`smriti002`, `smriti003`).
+- **API Error Handling (`master_lookup.py`):** Wrapped lookup deletion in `(IntegrityError, SQLAlchemyError)` handler, returning clean HREP HTTP 409 responses with reference guidance instead of uncaught HTTP 400 errors.
+
 ## [6.47.3] - 2026-09-30 — Article / Design Master UX Refactor & Phase 3 Legacy Spreadsheet Retirement
 
 > **Branch:** `smritiNX` | **Area:** Inventory / Article Master

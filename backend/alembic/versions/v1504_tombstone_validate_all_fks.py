@@ -1,4 +1,4 @@
-﻿"""v1504: Ghost tombstone insertion + VALIDATE CONSTRAINT for all 4 remaining NOT VALID FKs
+"""v1504: Ghost tombstone insertion + VALIDATE CONSTRAINT for all 4 remaining NOT VALID FKs
 
 Strategy: tombstone/ghost row insertion (NOT orphan deletion or archival).
 Child records (real business data: invoices, credit ledger, packing slips, dispatches)
@@ -100,13 +100,21 @@ def upgrade():
         ON CONFLICT (id) DO NOTHING
     """))
 
-    # 3. Verify: all 4 orphan counts must be 0 before VALIDATE
-    for table, col, ref_table, ref_col in [
-        ("sales_invoice_items",             "product_id",  "products",  "id"),
-        ("customer_credit_ledger_entries",  "customer_id", "customers", "id"),
-        ("packing_slip_items",              "product_id",  "products",  "id"),
-        ("dispatch_items",                  "product_id",  "products",  "id"),
+    def _constraint_exists(tbl: str, con: str) -> bool:
+        return bool(bind.execute(sa.text(
+            "SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid "
+            "WHERE t.relname = :tbl AND c.conname = :con"
+        ), {"tbl": tbl, "con": con}).scalar())
+
+    # 3. Verify and VALIDATE constraints that exist in this database
+    for table, col, ref_table, ref_col, constraint_name in [
+        ("sales_invoice_items",             "product_id",  "products",  "id", "fk_sii_product_id"),
+        ("customer_credit_ledger_entries",  "customer_id", "customers", "id", "fk_ccle_customer_id"),
+        ("packing_slip_items",              "product_id",  "products",  "id", "fk_psi_product_id"),
+        ("dispatch_items",                  "product_id",  "products",  "id", "fk_di_product_id"),
     ]:
+        if not _constraint_exists(table, constraint_name):
+            continue
         extra = " AND t.product_id != ''" if col == "product_id" else ""
         orphans = bind.execute(sa.text(
             f"SELECT COUNT(*) FROM {table} t "
@@ -117,20 +125,9 @@ def upgrade():
             raise RuntimeError(
                 f"v1504: {orphans} orphans remain in {table}.{col} after ghost insertion — aborting"
             )
-
-    # 4. VALIDATE all 4 constraints
-    bind.execute(sa.text(
-        "ALTER TABLE sales_invoice_items VALIDATE CONSTRAINT fk_sii_product_id"
-    ))
-    bind.execute(sa.text(
-        "ALTER TABLE customer_credit_ledger_entries VALIDATE CONSTRAINT fk_ccle_customer_id"
-    ))
-    bind.execute(sa.text(
-        "ALTER TABLE packing_slip_items VALIDATE CONSTRAINT fk_psi_product_id"
-    ))
-    bind.execute(sa.text(
-        "ALTER TABLE dispatch_items VALIDATE CONSTRAINT fk_di_product_id"
-    ))
+        bind.execute(sa.text(
+            f"ALTER TABLE {table} VALIDATE CONSTRAINT {constraint_name}"
+        ))
 
 
 def downgrade():
