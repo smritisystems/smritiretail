@@ -129,6 +129,9 @@ class PurchaseOrderCreate(BaseModel):
     order_no:    Optional[str] = None
     supplier_id: str
     notes:       Optional[str] = None
+    # status is normalized server-side; clients may send DRAFT or omit for default DRAFT.
+    # CONFIRMED is only set server-side via the confirm endpoint.
+    status:      Optional[str] = Field(default="DRAFT", description="Requested status: DRAFT (default). CONFIRMED requires the /confirm endpoint.")
     items:       Optional[List[PurchaseOrderItemCreate]] = None
 
     @model_validator(mode="before")
@@ -155,6 +158,11 @@ class PurchaseOrderCancelRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class PurchaseOrderConfirmRequest(BaseModel):
+    """Confirmation payload: SUBMITTED → CONFIRMED."""
+    notes: Optional[str] = None
+
+
 class PurchaseOrderAmendRequest(BaseModel):
     """
     Amendment: the original (Confirmed) PO is cancelled and a new Confirmed
@@ -178,6 +186,15 @@ class PurchaseOrderResponse(BaseModel):
     items:         List[PurchaseOrderItemResponse] = []
     company_id:    Optional[str] = None
     branch_id:     Optional[str] = None
+    # Phase A lifecycle audit fields
+    submitted_by:        Optional[str] = None
+    submitted_at:        Optional[datetime] = None
+    confirmed_by:        Optional[str] = None
+    confirmed_at:        Optional[datetime] = None
+    cancelled_by:        Optional[str] = None
+    cancelled_at:        Optional[datetime] = None
+    cancellation_reason: Optional[str] = None
+    parent_order_id:     Optional[str] = None
 
     model_config = {"from_attributes": True}
 

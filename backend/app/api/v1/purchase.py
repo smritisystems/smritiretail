@@ -32,14 +32,14 @@ from collections import defaultdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from ...api.deps import get_company_db, get_tenant_context, require_role, TenantContext
+from ...api.deps import get_company_db, get_tenant_context, require_role, TenantContext, get_current_user
 from ...models.auth import UserRole
 from ...models.purchase import PurchaseOrderItem
 from ...models.inward_cost import InwardCostComponentType, InwardCostComponent
 from ...schemas.purchase import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
     PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderItemResponse,
-    PurchaseOrderCancelRequest, PurchaseOrderAmendRequest,
+    PurchaseOrderCancelRequest, PurchaseOrderAmendRequest, PurchaseOrderConfirmRequest,
     PurchaseReceiptCreate, PurchaseReceiptUpdate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
     PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
     PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
@@ -781,21 +781,56 @@ async def convert_reorder_suggestions(
     return {"order": order_data}
 
 
-# ─────────────────────────── Phase 4B: Submit PO ──────────────────────────────
+# ─────────────────────────── Phase A: Submit PO (DRAFT → SUBMITTED) ─────────────────────────────
 
 @router.post(
     "/orders/{order_id}/submit",
     response_model=dict,
-    summary="Submit Purchase Order (DRAFT → CONFIRMED)",
+    summary="Submit Purchase Order (DRAFT → SUBMITTED)",
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def submit_purchase_order(
     order_id: str,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
 ):
-    """Submit a DRAFT purchase order for fulfilment (sets status to CONFIRMED)."""
-    return await PurchaseService(db, tenant_ctx).submit_purchase_order(order_id)
+    """Submit a DRAFT purchase order for approval (sets status to SUBMITTED). MANAGER or SYSADMIN only."""
+    submitted_by = (
+        getattr(current_user, "username", None)
+        or getattr(current_user, "email", None)
+        or str(getattr(current_user, "id", ""))
+    )
+    return await PurchaseService(db, tenant_ctx).submit_purchase_order(order_id, submitted_by=submitted_by)
+
+
+# ─────────────────────────── Phase A: Confirm PO (SUBMITTED → CONFIRMED) ─────────────────────────
+
+@router.post(
+    "/orders/{order_id}/confirm",
+    response_model=dict,
+    summary="Confirm Purchase Order (SUBMITTED → CONFIRMED)",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def confirm_purchase_order(
+    order_id: str,
+    req: PurchaseOrderConfirmRequest = None,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Confirm a SUBMITTED purchase order (sets status to CONFIRMED). MANAGER or SYSADMIN only."""
+    confirmed_by = (
+        getattr(current_user, "username", None)
+        or getattr(current_user, "email", None)
+        or str(getattr(current_user, "id", ""))
+    )
+    notes = req.notes if req else None
+    return await PurchaseService(db, tenant_ctx).confirm_purchase_order(
+        order_id,
+        confirmed_by=confirmed_by,
+        notes=notes,
+    )
 
 
 # ─────────────────────────── Phase 4B: Reports ────────────────────────────────

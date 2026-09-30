@@ -104,6 +104,21 @@ async def _make_manager(db_session, suffix: str, company_id: str, branch_id: str
     return user
 
 
+async def _make_cashier(db_session, suffix: str, company_id: str, branch_id: str) -> User:
+    """Create a CASHIER user (unauthorized for submit/confirm)."""
+    user = User(
+        id=f"cas-pur-{suffix}",
+        username=f"cas_pur_{suffix}",
+        hashed_password=hash_password("Test@1234"),
+        role=UserRole.CASHIER,
+        is_active=True, is_deleted=False,
+        company_id=company_id, branch_id=branch_id,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    return user
+
+
 async def _make_product(db_session, suffix: str, company_id: str, branch_id: str,
                         stock: int = 10) -> Product:
     product = Product(
@@ -256,7 +271,8 @@ async def test_create_purchase_order(db_session):
         )
     assert res.status_code == 201
     data = res.json()
-    assert data["status"] == "CONFIRMED"
+    # Phase A: create PO always persists as DRAFT (server normalises status)
+    assert data["status"] == "DRAFT"
     # subtotal = 5 × 80 = 400, tax = 72, grand = 472
     assert Decimal(data["subtotal"]) == Decimal("400.00")
     assert Decimal(data["tax_total"]) == Decimal("72.00")
@@ -902,7 +918,7 @@ async def test_health_flags_endpoint(db_session):
 # ─────────────────────────── Phase 4B Tests ───────────────────────────
 
 async def test_submit_purchase_order(db_session):
-    """POST /purchase/orders/{id}/submit promotes DRAFT -> CONFIRMED (via DB-seeded DRAFT PO)."""
+    """POST /purchase/orders/{id}/submit promotes DRAFT -> SUBMITTED (Phase A: not CONFIRMED)."""
     import uuid as _u
     from app.models.purchase import PurchaseOrder, PurchaseOrderItem
     from decimal import Decimal
@@ -929,7 +945,8 @@ async def test_submit_purchase_order(db_session):
         )
     assert r.status_code == 200, r.text
     data = r.json()
-    assert data["status"] == "CONFIRMED"
+    # Phase A: submit transitions DRAFT → SUBMITTED (not directly CONFIRMED)
+    assert data["status"] == "SUBMITTED"
     assert data["order_id"] == po.id
 
 
@@ -987,7 +1004,9 @@ async def test_purchase_settings_returns_state(db_session):
 
 
 async def test_workflow_submit_purchase_order(db_session):
-    """POST /workflow/PurchaseOrder/{id}/submit via Core Workflow API."""
+    """POST /workflow/PurchaseOrder/{id}/submit via Core Workflow API.
+    Phase A: submit now returns SUBMITTED (not CONFIRMED directly).
+    """
     import uuid as _u
     from app.models.purchase import PurchaseOrder
     from decimal import Decimal
@@ -1011,7 +1030,9 @@ async def test_workflow_submit_purchase_order(db_session):
             headers=_bearer(mgr, comp.id, br.id),
         )
     assert r.status_code == 200, r.text
-    assert r.json()["status"] == "CONFIRMED"
+    # Phase A: workflow submit transitions DRAFT → SUBMITTED (2-step lifecycle)
+    assert r.json()["status"] == "SUBMITTED"
+
 
 
 async def test_workflow_cancel_purchase_order(db_session):
@@ -1046,3 +1067,530 @@ async def test_workflow_unknown_doctype_returns_400(db_session):
             headers=_bearer(mgr, comp.id, br.id),
         )
     assert r.status_code == 400, r.text
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase A Lifecycle Tests (v1508)
+# Tests 1–20 per the Phase A plan
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def _make_draft_po_via_api(client, mgr, comp_id, br_id, supplier_id, product, suffix) -> dict:
+    """Helper: create a DRAFT PO via API. Returns response JSON."""
+    res = await client.post(
+        "/api/v1/purchase/orders/",
+        json={
+            "order_no": f"PO-DRAFT-{suffix}",
+            "supplier_id": supplier_id,
+            "status": "DRAFT",
+            "items": [{
+                "product_id": product.id,
+                "code": product.code,
+                "name": product.name,
+                "quantity": "3",
+                "cost_price": "100.00",
+                "gst_rate": "18.00",
+            }],
+        },
+        headers=_bearer(mgr, comp_id, br_id),
+    )
+    assert res.status_code == 201, f"Draft PO create failed: {res.text}"
+    return res.json()
+
+
+# ── Test 1: New PO Save Draft → DRAFT ────────────────────────────────────────
+
+async def test_phaseA_01_create_po_saves_as_draft(db_session):
+    """Phase A T1: Create PO without explicit status → persisted as DRAFT."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        data = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+    assert data["status"] == "DRAFT"
+
+
+# ── Test 2: Draft can be opened/read (editable state exists) ─────────────────
+
+async def test_phaseA_02_draft_can_be_retrieved(db_session):
+    """Phase A T2: A DRAFT PO can be retrieved by ID."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        created = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+        get_res = await c.get(
+            f"/api/v1/purchase/orders/{created['id']}",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert get_res.status_code == 200
+    assert get_res.json()["status"] == "DRAFT"
+
+
+# ── Test 3: Draft remains DRAFT after another Save Draft (idempotent) ─────────
+
+async def test_phaseA_03_draft_remains_draft_on_resave(db_session):
+    """Phase A T3: Sending status=DRAFT again does not change status to anything else."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        created = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+    po_id = created["id"]
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po_id)
+    result = await db_session.execute(stmt)
+    po = result.scalars().first()
+    assert po.status == "DRAFT"
+
+
+# ── Test 4: Draft does NOT create a stock movement ───────────────────────────
+
+async def test_phaseA_04_draft_does_not_create_stock_movement(db_session):
+    """Phase A T4: Creating a DRAFT PO must not generate any StockMovement."""
+    from app.models.inventory import StockMovement
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id, stock=0)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        created = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+    po_id = created["id"]
+    mv_res = await db_session.execute(
+        select(StockMovement).where(StockMovement.reference_doc_id == po_id)
+    )
+    movements = mv_res.scalars().all()
+    assert movements == [], f"Unexpected stock movements for DRAFT PO: {movements}"
+    # Stock must be unchanged
+    await db_session.refresh(product)
+    assert product.stock == 0
+
+
+# ── Test 5: Draft does NOT change stock quantity ──────────────────────────────
+
+async def test_phaseA_05_draft_stock_unchanged(db_session):
+    """Phase A T5: Product stock is unchanged after creating a DRAFT PO."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id, stock=42)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+    await db_session.refresh(product)
+    assert product.stock == 42
+
+
+# ── Test 6: DRAFT → SUBMITTED via submit endpoint ────────────────────────────
+
+async def test_phaseA_06_draft_to_submitted(db_session):
+    """Phase A T6: POST /orders/{id}/submit transitions DRAFT → SUBMITTED."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        created = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+        r = await c.post(
+            f"/api/v1/purchase/orders/{created['id']}/submit",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "SUBMITTED"
+    # Verify in DB
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == created["id"])
+    result = await db_session.execute(stmt)
+    po = result.scalars().first()
+    assert po.status == "SUBMITTED"
+
+
+# ── Test 7: submitted_by is populated after submit ────────────────────────────
+
+async def test_phaseA_07_submitted_by_populated(db_session):
+    """Phase A T7: submitted_by is set on the PO row after submit."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        created = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+        await c.post(
+            f"/api/v1/purchase/orders/{created['id']}/submit",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == created["id"])
+    result = await db_session.execute(stmt)
+    po = result.scalars().first()
+    # submitted_by must be non-empty (set from current_user identity)
+    assert po.submitted_by is not None and po.submitted_by != ""
+
+
+# ── Test 8: submitted_at is populated after submit ────────────────────────────
+
+async def test_phaseA_08_submitted_at_populated(db_session):
+    """Phase A T8: submitted_at timestamp is set after submit."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        created = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+        await c.post(
+            f"/api/v1/purchase/orders/{created['id']}/submit",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == created["id"])
+    result = await db_session.execute(stmt)
+    po = result.scalars().first()
+    assert po.submitted_at is not None
+
+
+# ── Test 9: Unauthorized user cannot submit ───────────────────────────────────
+
+async def test_phaseA_09_cashier_cannot_submit(db_session):
+    """Phase A T9: CASHIER (non-manager) cannot submit a PO — must get 403."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    po = PurchaseOrder(
+        id=f"draft-cashier-{s}", order_no=f"DRAFTC-{s}",
+        supplier_id=supplier.id, status="DRAFT",
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po); await db_session.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/submit",
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+    assert r.status_code == 403, f"Expected 403 for cashier submit, got {r.status_code}: {r.text}"
+
+
+# ── Test 10: SUBMITTED → CONFIRMED via confirm endpoint ───────────────────────
+
+async def test_phaseA_10_submitted_to_confirmed(db_session):
+    """Phase A T10: POST /orders/{id}/confirm transitions SUBMITTED → CONFIRMED."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    # Seed a SUBMITTED PO
+    po = PurchaseOrder(
+        id=f"subm-{s}", order_no=f"SUBM-{s}",
+        supplier_id=supplier.id, status="SUBMITTED",
+        subtotal=Decimal("200.00"), tax_total=Decimal("36.00"),
+        grand_total=Decimal("236.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po); await db_session.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/confirm",
+            json={},
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "CONFIRMED"
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
+    result = await db_session.execute(stmt)
+    db_po = result.scalars().first()
+    assert db_po.status == "CONFIRMED"
+
+
+# ── Test 11: confirmed_by is populated after confirm ─────────────────────────
+
+async def test_phaseA_11_confirmed_by_populated(db_session):
+    """Phase A T11: confirmed_by is set on PO row after confirm."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    po = PurchaseOrder(
+        id=f"subm-cb-{s}", order_no=f"SUBM-CB-{s}",
+        supplier_id=supplier.id, status="SUBMITTED",
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po); await db_session.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        await c.post(
+            f"/api/v1/purchase/orders/{po.id}/confirm",
+            json={}, headers=_bearer(mgr, comp.id, br.id),
+        )
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
+    result = await db_session.execute(stmt)
+    db_po = result.scalars().first()
+    assert db_po.confirmed_by is not None and db_po.confirmed_by != ""
+    assert db_po.confirmed_at is not None
+
+
+# ── Test 12: Unauthorized user cannot confirm ─────────────────────────────────
+
+async def test_phaseA_12_cashier_cannot_confirm(db_session):
+    """Phase A T12: CASHIER cannot confirm a PO — must get 403."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    cashier = await _make_cashier(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    po = PurchaseOrder(
+        id=f"subm-cas-{s}", order_no=f"SUBM-CAS-{s}",
+        supplier_id=supplier.id, status="SUBMITTED",
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po); await db_session.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/confirm",
+            json={}, headers=_bearer(cashier, comp.id, br.id),
+        )
+    assert r.status_code == 403, f"Expected 403 for cashier confirm, got {r.status_code}: {r.text}"
+
+
+# ── Test 13: Cannot confirm a DRAFT PO directly ──────────────────────────────
+
+async def test_phaseA_13_cannot_confirm_draft_directly(db_session):
+    """Phase A T13: Confirming a DRAFT (not SUBMITTED) PO returns 400."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    po = PurchaseOrder(
+        id=f"draft-noconf-{s}", order_no=f"DRAFT-NC-{s}",
+        supplier_id=supplier.id, status="DRAFT",
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po); await db_session.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/confirm",
+            json={}, headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 400, f"Expected 400 confirming DRAFT, got {r.status_code}: {r.text}"
+
+
+# ── Test 14: Cannot submit a CONFIRMED PO ────────────────────────────────────
+
+async def test_phaseA_14_cannot_submit_confirmed_po(db_session):
+    """Phase A T14: Submitting an already-CONFIRMED PO returns 400."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    po = await _make_po(db_session, s, comp.id, br.id, product, supplier)  # creates CONFIRMED
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/submit",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 400, f"Expected 400 submitting CONFIRMED, got {r.status_code}: {r.text}"
+
+
+# ── Test 15: Full lifecycle DRAFT → SUBMITTED → CONFIRMED ────────────────────
+
+async def test_phaseA_15_full_lifecycle_draft_submit_confirm(db_session):
+    """Phase A T15: Full DRAFT→SUBMITTED→CONFIRMED lifecycle end-to-end."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        # Step 1: Create DRAFT
+        created = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+        assert created["status"] == "DRAFT"
+        po_id = created["id"]
+        # Step 2: Submit
+        submit_r = await c.post(
+            f"/api/v1/purchase/orders/{po_id}/submit",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+        assert submit_r.status_code == 200, submit_r.text
+        assert submit_r.json()["status"] == "SUBMITTED"
+        # Step 3: Confirm
+        confirm_r = await c.post(
+            f"/api/v1/purchase/orders/{po_id}/confirm",
+            json={}, headers=_bearer(mgr, comp.id, br.id),
+        )
+        assert confirm_r.status_code == 200, confirm_r.text
+        assert confirm_r.json()["status"] == "CONFIRMED"
+    # Verify DB final state
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po_id)
+    result = await db_session.execute(stmt)
+    po = result.scalars().first()
+    assert po.status == "CONFIRMED"
+    assert po.submitted_by is not None
+    assert po.submitted_at is not None
+    assert po.confirmed_by is not None
+    assert po.confirmed_at is not None
+
+
+# ── Test 16: Existing CONFIRMED POs remain unchanged (data safety) ────────────
+
+async def test_phaseA_16_existing_confirmed_po_unchanged(db_session):
+    """Phase A T16: Pre-existing CONFIRMED POs stay CONFIRMED (not modified by Phase A code)."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    po = await _make_po(db_session, s, comp.id, br.id, product, supplier)  # already CONFIRMED
+    _set_tenant(db_session, comp.id, br.id)
+    # Read it back without touching it
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
+    result = await db_session.execute(stmt)
+    db_po = result.scalars().first()
+    assert db_po.status == "CONFIRMED"
+    assert db_po.is_deleted is False
+
+
+# ── Test 17: Existing CANCELLED POs remain unchanged ─────────────────────────
+
+async def test_phaseA_17_existing_cancelled_po_unchanged(db_session):
+    """Phase A T17: Pre-existing CANCELLED POs stay CANCELLED and is_deleted=True."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    po = PurchaseOrder(
+        id=f"cancelled-preex-{s}", order_no=f"CAN-PRE-{s}",
+        supplier_id=supplier.id, status="CANCELLED", is_deleted=True,
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po); await db_session.commit()
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
+    result = await db_session.execute(stmt)
+    db_po = result.scalars().first()
+    assert db_po.status == "CANCELLED"
+    assert db_po.is_deleted is True
+
+
+# ── Test 18: Cancellation stores reason in dedicated column ──────────────────
+
+async def test_phaseA_18_cancel_stores_reason_in_column(db_session):
+    """Phase A T18: Cancellation reason stored in cancellation_reason column, not just notes."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    po = await _make_po(db_session, s, comp.id, br.id, product, supplier)
+    _set_tenant(db_session, comp.id, br.id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/cancel",
+            json={"reason": "Phase A reason test"},
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
+    result = await db_session.execute(stmt)
+    db_po = result.scalars().first()
+    assert db_po.status == "CANCELLED"
+    assert db_po.cancellation_reason == "Phase A reason test"
+    assert db_po.cancelled_at is not None
+
+
+# ── Test 19: DRAFT PO does not create accounting entries ─────────────────────
+
+async def test_phaseA_19_draft_no_accounting_entry(db_session):
+    """Phase A T19: DRAFT PO creation does not create any GL/accounting entries."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    # Check supplier outstanding before
+    outstanding_before = supplier.outstanding
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        created = await _make_draft_po_via_api(c, mgr, comp.id, br.id, supplier.id, product, s)
+    assert created["status"] == "DRAFT"
+    # Supplier outstanding must be unchanged (no liability created)
+    await db_session.refresh(supplier)
+    assert supplier.outstanding == outstanding_before
+
+
+# ── Test 20: Cancellation reason captured on DRAFT PO ────────────────────────
+
+async def test_phaseA_20_cancel_draft_po(db_session):
+    """Phase A T20: A DRAFT PO can be cancelled directly (not just CONFIRMED)."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+    po = PurchaseOrder(
+        id=f"draft-cancel-{s}", order_no=f"DRAFTCAN-{s}",
+        supplier_id=supplier.id, status="DRAFT",
+        subtotal=Decimal("50.00"), tax_total=Decimal("9.00"),
+        grand_total=Decimal("59.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po); await db_session.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/cancel",
+            json={"reason": "Duplicate draft"},
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["success"] is True
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
+    result = await db_session.execute(stmt)
+    db_po = result.scalars().first()
+    assert db_po.status == "CANCELLED"
+    assert db_po.is_deleted is True
