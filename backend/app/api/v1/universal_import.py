@@ -44,7 +44,11 @@ from ...services.item_master_svc import UniversalItemMasterService
 from ...services.purchase import PurchaseService
 from ...services.stock_acct_svc import StockAccountingBoundaryService
 from ...services.sales import SalesService
-from ...services.catalog_validation import CatalogConsistencyValidator, CatalogDimensionValidator
+from ...services.catalog_validation import (
+    CatalogConsistencyValidator,
+    CatalogDimensionValidator,
+    IM001ControlledFieldValidator,
+)
 from ...services.system_parameter import SystemParameterService
 from ...db.session import async_session
 
@@ -149,407 +153,8 @@ async def _resolve_row(db: AsyncSession, row: Dict[str, Any]) -> Dict[str, Any]:
     return {"status": "NOT_FOUND"}
 
 
-class IM001ControlledFieldValidator:
-    """
-    IM-001 Controlled Master Field Governance Engine.
-    Enforces rule IM-001 ('Controlled master fields use System Master Lookup' — Action: BLOCK)
-    defined in SMRITI Item Master Creation Standard v2.2 (Validation Rules).
-
-    VALIDATION SOURCE POLICY (DB-ONLY — permanent):
-    All controlled-field validation uses EXCLUSIVELY the master_values table in the
-    SMRITI control plane (smritisys) or tenant DB.
-    Excel / workbook files are NEVER read for validation at runtime.
-    Excel is an operator data-entry tool only (upload → import pipeline).
-
-    Resolution order (DB-only, two-tier):
-    1. System parameters (control plane) → gate and per-field enforcement level.
-    2. CatalogDimensionValidator.get_approved_values() (DB master_values) → sole allowed list.
-       If DB returns 0 values for a dimension, that field is SKIPPED with an explicit
-       advisory (IM-001-UNSEEDED) — never silently passed, never falls back to any file.
-
-    Enforcement level per field is governed by system parameters (from system_parameters table):
-    - ValidateDataDuringPMImport: global gate (val_text '2' means full validation).
-    - ItemSubClass1HasCat  → enforces ARTICLE_STYLE_CODE lookup as BLOCK.
-    - ItemSubClass2HasCat  → enforces COLOR lookup as BLOCK.
-    - SuperClass1Present   → enforces MERCHANDISE_DEPARTMENT lookup as BLOCK.
-    - ItemSizePresent      → enforces SIZE lookup as BLOCK.
-    When a system parameter gates a field as not-enforced, IM-001 downgrades that
-    field from BLOCK to Advisory (warning only).
-
-    Mandatory vs Non-Mandatory base classification is defined in FIELD_MANDATORY_MAP
-    (DB-resident, no file dependency). System parameters can only downgrade, never upgrade.
-
-    Near-match detection:
-    - Case and whitespace differences are normalized automatically.
-    - True value mismatches with high similarity (e.g. WEDGES vs WEDGE, SHOES vs SHOE,
-      SHEET vs SHEET SOLE) are NOT silently coalesced; surfaced explicitly as
-      'near-match, needs architect decision'.
-    """
-
-    # DB-only mandatory field classification.
-    # Y = BLOCK on mismatch, N = Advisory warning only.
-    # Governed exclusively by master_values; no file dependency.
-    FIELD_MANDATORY_MAP: Dict[str, bool] = {
-        "BRAND_NAME": True,
-        "COLOR": True,
-        "SIZE": True,
-        # v2.2 Hardening: GENDER is a first-class column on Item — mandatory per standard.
-        "GENDER": True,
-        "MERCHANDISE_DEPARTMENT": True,
-        # v2.2 Hardening: MERCHANDISE_CATEGORY values (CHAPPAL, SANDAL) map to PRODUCT_TYPE
-        # per Field Notes. Kept advisory here; PRODUCT_TYPE carries the BLOCK.
-        "MERCHANDISE_CATEGORY": False,
-        # v2.2 Hardening: PRODUCT_TYPE promoted to mandatory (was advisory).
-        "PRODUCT_TYPE": True,
-        # v2.2 Hardening: HEEL_TYPE promoted to mandatory (was advisory).
-        "HEEL_TYPE": True,
-        # v2.2 Hardening: UPPER_MATERIAL promoted to mandatory (was advisory).
-        "UPPER_MATERIAL": True,
-        "UOM": True,
-        "DESIGN_ATTRIBUTE": False,
-        "OUTSOLE_MATERIAL": False,
-        "COLLECTION_TYPE": False,
-        "GST_RATE_PERCENT": True,
-    }
-
-    FIELD_EXTRACTION_MAP = {
-        "BRAND_NAME": ("brand", "Brand", "BRAND_NAME"),
-        "COLOR": ("color", "colour", "Color", "Colour", "COLOR"),
-        "SIZE": ("size", "Size", "SIZE"),
-        "GENDER": ("gender", "Gender", "GENDER", "Gndr"),
-        "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT"),
-        # Field Notes (v2.2): "MERCHANDISE CATEGORY" column values (CHAPPAL, SANDAL) are
-        # product types, NOT categories. Extraction aliases kept for round-trip data capture;
-        # the Item commit path maps this to product_type (see v22_product_type extraction).
-        "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY", "merchandiseCategory"),
-        "PRODUCT_TYPE": (
-            "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type",
-            # v2.2 Field Notes: "MERCHANDISE CATEGORY" column contains product type values
-            "MERCHANDISE CATEGORY",
-        ),
-        "HEEL_TYPE": (
-            "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel", "HEELS"
-        ),
-        "UPPER_MATERIAL": (
-            "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper", "UPPER MATERIAL"
-        ),
-        "UOM": ("uom", "UOM", "unit_of_measure"),
-        "DESIGN_ATTRIBUTE": (
-            "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute",
-            "sub_category", "Sub category", "Sub Category"
-        ),
-        "OUTSOLE_MATERIAL": (
-            "outsole", "outsole_material", "outsoleMaterial", "OUTSOLE_MATERIAL", "OUTSOLE", "sole"
-        ),
-        "COLLECTION_TYPE": (
-            "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type", "ITEM DESCRIPTION"
-        ),
-        # v2.2: Statutory GST slab — IM-001 BLOCK on any value outside approved list
-        "GST_RATE_PERCENT": (
-            "GST_RATE_PERCENT", "gst_rate_percent", "tax_rate", "gst", "GST", "TAX_RATE", "tax",
-            "GstRatePercent", "taxRate"
-        ),
-    }
-
-    # Maps each standard field name to the CatalogDimensionValidator dimension code
-    # so DB-resident approved values can be fetched as the primary source.
-    FIELD_TO_DIMENSION_MAP: Dict[str, str] = {
-        "BRAND_NAME": "brand",
-        "COLOR": "color",
-        "SIZE": "size",
-        "GENDER": "gender",
-        "MERCHANDISE_DEPARTMENT": "department",
-        "MERCHANDISE_CATEGORY": "category",
-        "PRODUCT_TYPE": "product_type",
-        "HEEL_TYPE": "heel_type",
-        "UPPER_MATERIAL": "upper_material",
-        "UOM": "uom",
-        "DESIGN_ATTRIBUTE": "subcategory",
-        "OUTSOLE_MATERIAL": "outsole_material",
-        "COLLECTION_TYPE": "collection_type",
-        # v2.2: Statutory GST slabs governed by master_values dimension 'gst_rate'
-        "GST_RATE_PERCENT": "gst_rate",
-    }
-
-    # Maps each standard field to the system parameter that controls whether it is
-    # enforced as a lookup (True = BLOCK, False = downgrade to Advisory).
-    # System parameters can only downgrade a BLOCK to Advisory, never upgrade.
-    FIELD_TO_SYSPARAM_MAP: Dict[str, str] = {
-        "ARTICLE_STYLE_CODE": "ItemSubClass1HasCat",
-        "COLOR": "ItemSubClass2HasCat",
-        "MERCHANDISE_DEPARTMENT": "SuperClass1Present",
-        "SIZE": "ItemSizePresent",
-    }
-
-    # load_standard_lists() and _find_standard_workbook() have been removed.
-    # Rationale: DB (master_values) is the sole validation source per SMRITI
-    # Backend System-of-Record Policy. Excel is an operator data-entry tool only.
-
-    @classmethod
-    def find_near_match(cls, val: str, allowed_values: List[str]) -> Optional[str]:
-        val_clean = val.strip().upper()
-        # 1. Singular/Plural equality (e.g. WEDGES == WEDGE + 'S', SHOES == SHOE + 'S')
-        for cand in allowed_values:
-            cand_upper = cand.strip().upper()
-            if cand_upper == val_clean:
-                continue
-            if cand_upper.rstrip("S") == val_clean.rstrip("S"):
-                return cand
-        # 2. Substring / Prefix / Suffix match where val is base of cand (e.g. SHEET in SHEET SOLE)
-        for cand in allowed_values:
-            cand_upper = cand.strip().upper()
-            if cand_upper.startswith(val_clean + " ") or cand_upper.endswith(" " + val_clean):
-                return cand
-            if val_clean.startswith(cand_upper + " ") or val_clean.endswith(" " + cand_upper):
-                return cand
-        # 3. High-confidence fuzzy match (edit distance ratio >= 0.8)
-        matches = difflib.get_close_matches(val_clean, [c.upper() for c in allowed_values], n=1, cutoff=0.8)
-        if matches:
-            for cand in allowed_values:
-                if cand.upper() == matches[0]:
-                    return cand
-        return None
-
-    @classmethod
-    async def _load_sysparam_enforcement_flags(
-        cls,
-        company_id: Optional[str],
-    ) -> Dict[str, Any]:
-        """
-        Reads system parameters from the control plane that govern whether each
-        catalog dimension field is enforced as a lookup BLOCK or downgraded to Advisory.
-        
-        Returns a dict with:
-          - 'validate_during_import': bool  (ValidateDataDuringPMImport gate)
-          - 'field_enforcement': Dict[str, bool]  field_name -> True=BLOCK, False=Advisory
-        """
-        param_codes = [
-            "ValidateDataDuringPMImport",
-            "ItemSubClass1HasCat",   # style lookup
-            "ItemSubClass2HasCat",   # color/shade lookup
-            "SuperClass1Present",    # department lookup
-            "ItemSizePresent",       # size lookup
-        ]
-        result: Dict[str, Any] = {}
-        try:
-            async with async_session() as ctrl_db:
-                for code in param_codes:
-                    param = await SystemParameterService.resolve_parameter(
-                        db=ctrl_db,
-                        param_code=code,
-                        company_id=company_id,
-                    )
-                    if param is not None:
-                        result[code] = param.effective_value
-        except Exception:
-            # If control plane is unreachable, fall back to workbook defaults (all mandatory fields enforced)
-            pass
-
-        # ValidateDataDuringPMImport: val_text '2' = full validation, '0' or '1' = limited.
-        # Treat anything that resolves to a truthy text/int (not '0') as validation enabled.
-        raw_validate = result.get("ValidateDataDuringPMImport", None)
-        if raw_validate is None:
-            validate_during_import = True  # default: validate
-        elif isinstance(raw_validate, bool):
-            validate_during_import = raw_validate
-        else:
-            # val_text '2' means validate, '0' means skip validation
-            validate_during_import = str(raw_validate).strip() not in ("0", "false", "False", "")
-
-        # Per-field enforcement flags: if the system parameter is False (disabled), downgrade to Advisory
-        field_enforcement: Dict[str, bool] = {}
-        for std_field, sp_code in cls.FIELD_TO_SYSPARAM_MAP.items():
-            sp_val = result.get(sp_code, None)
-            if sp_val is None:
-                # Parameter not found → treat field as enforced (safe default)
-                field_enforcement[std_field] = True
-            elif isinstance(sp_val, bool):
-                field_enforcement[std_field] = sp_val
-            else:
-                # val_text '1' or '0'
-                field_enforcement[std_field] = str(sp_val).strip() not in ("0", "false", "False", "")
-
-        return {
-            "validate_during_import": validate_during_import,
-            "field_enforcement": field_enforcement,
-            "raw": result,
-        }
-
-    @classmethod
-    async def _get_db_approved_values_for_field(
-        cls,
-        std_field: str,
-    ) -> List[str]:
-        """
-        Queries CatalogDimensionValidator.get_approved_values() from the control plane
-        (and tenant fallback) for the dimension that backs std_field.
-        Returns a list of canonical value strings, or [] if not found / DB empty.
-
-        NOTE: This is the per-field single-query path. For batch imports with many rows,
-        use _load_all_dimension_master_values() + validate_batch_controlled_fields()
-        to avoid N+1 queries.
-        """
-        dimension = cls.FIELD_TO_DIMENSION_MAP.get(std_field)
-        if not dimension:
-            return []
-        try:
-            rows = await CatalogDimensionValidator.get_approved_values(dimension)
-            return [r["code"] for r in rows if r.get("code")]
-        except Exception:
-            return []
-
-    @classmethod
-    async def _load_all_dimension_master_values(
-        cls,
-        company_id: Optional[str] = None,
-    ) -> Dict[str, List[str]]:
-        """
-        Batch-loads approved master_values for ALL controlled dimensions in a single
-        round-trip per dimension (14 dimensions total), rather than per-row per-field.
-
-        Returns: Dict[std_field_name -> List[canonical_code_str]]
-        Empty list means dimension is unseeded — caller must issue IM-001-UNSEEDED advisory.
-
-        Performance: reduces O(N × 14) DB queries → O(14) total, regardless of row count.
-        This is the fix for the N+1 query pattern identified in the IM-001 audit.
-        """
-        result: Dict[str, List[str]] = {}
-        for std_field, dimension in cls.FIELD_TO_DIMENSION_MAP.items():
-            try:
-                rows = await CatalogDimensionValidator.get_approved_values(dimension)
-                result[std_field] = [r["code"] for r in rows if r.get("code")]
-            except Exception:
-                result[std_field] = []
-        return result
-
-    @classmethod
-    async def validate_batch_controlled_fields(
-        cls,
-        rows: List[Dict[str, Any]],
-        company_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Validates a batch of rows against IM-001 controlled field rules.
-
-        Performance fix: master_values for ALL dimensions are loaded ONCE before the
-        loop (O(14) queries), then each row is validated in-memory against the
-        pre-loaded maps. This eliminates the N×14 DB query pattern of the original
-        per-row validate_row_controlled_fields() call.
-
-        Returns: List[row_result_dict] — one entry per input row, same schema as
-        validate_row_controlled_fields() but calculated against shared dimension cache.
-        """
-        # Phase 1: Load system parameters once (2 round-trips total)
-        sp_flags = await cls._load_sysparam_enforcement_flags(company_id)
-        validate_enabled = sp_flags["validate_during_import"]
-        field_enforcement = sp_flags["field_enforcement"]
-
-        # Phase 2: Batch-load ALL dimension master_values ONCE (14 queries, not N×14)
-        master_cache: Dict[str, List[str]] = await cls._load_all_dimension_master_values(company_id)
-
-        # Pre-compute normalised lookup maps (upper-case canonical → original value)
-        norm_maps: Dict[str, Dict[str, str]] = {
-            std_field: {v.strip().upper(): v.strip() for v in values}
-            for std_field, values in master_cache.items()
-        }
-
-        # Phase 3: Validate each row in-memory — zero additional DB queries
-        results: List[Dict[str, Any]] = []
-        for row_idx, row in enumerate(rows):
-            row_num = row.get("rowNumber", row_idx + 1)
-            errors: List[str] = []
-            warnings: List[str] = []
-            field_failures: List[Dict[str, Any]] = []
-
-            for std_field, aliases in cls.FIELD_EXTRACTION_MAP.items():
-                raw_val = _text(row, *aliases)
-                if not raw_val:
-                    continue
-
-                db_values = master_cache.get(std_field, [])
-
-                if not db_values:
-                    warnings.append(
-                        f"IM-001-UNSEEDED [Advisory]: Field '{std_field}' has no approved values "
-                        f"in master_values (type='{cls.FIELD_TO_DIMENSION_MAP.get(std_field, '?')}'). "
-                        f"Seed the dimension to enable BLOCK enforcement."
-                    )
-                    continue
-
-                clean_val = raw_val.strip()
-                db_norm_map = norm_maps.get(std_field, {})
-
-                if clean_val.upper() in db_norm_map:
-                    continue  # exact DB match — pass
-
-                # Near-match is still computed in-memory against the cached value list
-                near_match = cls.find_near_match(clean_val, db_values)
-
-                base_mandatory = cls.FIELD_MANDATORY_MAP.get(std_field, False)
-                sysparam_enforced = field_enforcement.get(std_field, True)
-                is_mandatory = base_mandatory and sysparam_enforced and validate_enabled
-
-                field_failures.append({
-                    "field": std_field,
-                    "value": clean_val,
-                    "is_mandatory": is_mandatory,
-                    "near_match": near_match,
-                    "source": "System Master Lookup (DB)",
-                })
-
-                if is_mandatory:
-                    msg = (
-                        f"IM-001: Controlled field '{std_field}' value '{clean_val}' not found in "
-                        f"System Master Lookup (DB)"
-                        + (f" (near-match to '{near_match}', needs architect decision)." if near_match else ".")
-                    )
-                    errors.append(msg)
-                else:
-                    msg = (
-                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' "
-                        f"not found in System Master Lookup (DB)"
-                        + (f" (near-match to '{near_match}', needs architect decision)." if near_match else ".")
-                    )
-                    warnings.append(msg)
-
-            results.append({
-                "row_num": row_num,
-                "errors": errors,
-                "warnings": warnings,
-                "field_failures": field_failures,
-                "sysparam_flags": {
-                    "validate_during_import": validate_enabled,
-                    "field_enforcement": field_enforcement,
-                },
-            })
-
-        return results
-
-    @classmethod
-    async def validate_row_controlled_fields(
-        cls,
-        row: Dict[str, Any],
-        row_num: int,
-        company_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Single-row validation wrapper. Delegates to validate_batch_controlled_fields
-        internally. Kept for backward-compatibility with call sites that process one row.
-
-        NOTE: When validating multiple rows in a loop, prefer calling
-        validate_batch_controlled_fields(rows) once on the full batch to avoid N+1 queries.
-        """
-        batch_results = await cls.validate_batch_controlled_fields(
-            rows=[{**row, "rowNumber": row_num}],
-            company_id=company_id,
-        )
-        result = batch_results[0] if batch_results else {}
-        return {
-            "errors": result.get("errors", []),
-            "warnings": result.get("warnings", []),
-            "field_failures": result.get("field_failures", []),
-            "sysparam_flags": result.get("sysparam_flags", {}),
-        }
+# Note: IM001ControlledFieldValidator is authoritatively defined in app.services.catalog_validation
+# and imported above for unified governance across all surfaces.
 
 
 @router.post("/preview", summary="Preview universal import rows")
@@ -597,7 +202,11 @@ async def preview_universal_import(
             row_num = row.get("rowNumber", index)
             barcode = _text(row, "barcode", "Barcode", "BARCODE_NO", "ean", "upc")
             sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW")
-            style = _text(row, "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE", "item_code")
+            style = _text(
+                row, "style_code", "styleCode", "styleArticle", "style", "article",
+                "ARTICLE_STYLE_CODE", "item_code", "Article CODE", "Article Code",
+                "ARTICLE CODE", "ARTICLE_CODE", "article_code", "Article No", "article_no"
+            )
             color = _text(row, "color", "colour", "Color", "Colour", "COLOR")
             size = _text(row, "size", "Size", "SIZE")
             vendor_code = _text(row, "vendor_code", "vendorCode", "VENDOR_CODE", "supplier_code", "supplierCode", "vendor")
@@ -615,7 +224,10 @@ async def preview_universal_import(
                 clean_vcode = vendor_code.strip().upper()
                 sup_stmt = select(Supplier).where(
                     (Supplier.company_id == company_id) | (Supplier.company_id.is_(None)),
-                    (func.upper(Supplier.code) == clean_vcode) | (Supplier.id == vendor_code.strip()),
+                    (func.upper(Supplier.code) == clean_vcode)
+                    | (Supplier.id == vendor_code.strip())
+                    | (func.upper(Supplier.code) == f"V-00{clean_vcode}")
+                    | (func.upper(Supplier.code) == f"V-0{clean_vcode}"),
                     Supplier.is_deleted == False
                 )
                 supplier_match = (await db.execute(sup_stmt)).scalars().first()
@@ -896,8 +508,18 @@ async def commit_universal_import(
         if target == "ITEM_MASTER":
             barcode = _text(row, "barcode", "Barcode", "BARCODE_NO", "ean", "upc")
             sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW")
-            style_code = _text(row, "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE", "item_code")
+            style_code = _text(
+                row, "style_code", "styleCode", "styleArticle", "style", "article",
+                "ARTICLE_STYLE_CODE", "item_code", "Article CODE", "Article Code",
+                "ARTICLE CODE", "ARTICLE_CODE", "article_code", "Article No", "article_no"
+            )
             item_name = _text(row, "item_name", "itemName", "name", "ITEM_DESCRIPTION", "product_name") or style_code
+
+            if not sku:
+                color_val = _text(row, "color", "colour", "Color", "Colour", "COLOR")
+                size_val = _text(row, "size", "Size", "SIZE")
+                if style_code and color_val and size_val:
+                    sku = f"{style_code}-{color_val}-{size_val}".upper()
 
             # IM-004: ARTICLE_STYLE_CODE is mandatory — never derive from SKU or barcode.
             if not style_code:
@@ -944,7 +566,10 @@ async def commit_universal_import(
                 clean_vcode = vendor_code.strip().upper()
                 sup_stmt = select(Supplier).where(
                     (Supplier.company_id == company_id) | (Supplier.company_id.is_(None)),
-                    (func.upper(Supplier.code) == clean_vcode) | (Supplier.id == vendor_code.strip()),
+                    (func.upper(Supplier.code) == clean_vcode)
+                    | (Supplier.id == vendor_code.strip())
+                    | (func.upper(Supplier.code) == f"V-00{clean_vcode}")
+                    | (func.upper(Supplier.code) == f"V-0{clean_vcode}"),
                     Supplier.is_deleted == False
                 )
                 supplier_match = (await db.execute(sup_stmt)).scalars().first()

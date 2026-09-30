@@ -30,6 +30,25 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.48.0] - 2026-09-30 — Unified IM-001 Catalog Governance Across All Surfaces
+
+> **Branch:** `smritiNX` | **Area:** Catalog / Master Lookup Governance
+> **Walkthrough:** `docs/walkthrough/catalog/Catalog_Unified_IM001_Governance_Across_All_Surfaces_v6.48.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Unified_IM001_Catalog_Governance_Across_All_Surfaces_v6.48.0.md`
+
+### Added
+- **Alembic Seeding Migration `v1506` (`v1506_seed_v22_item_governance_masters.py`):** Authoritatively seeded `master_types` and active `master_values` for `heel_type` (11 values), `upper_material` (13 values), `product_type` (13 values), `gender` (9 values), `subcategory` (22 values), `color` (24 values), `outsole_material` (10 values), `collection_type` (8 values), `uom` (5 values), and `gst_rate` (5 values). Included client-onboarded dimensions (`BRONZE`, `GUNMETAL`, `MUSTARD`, `PEACH`, `ROSE`, `TOUPE`, `ROSE GOLD`, `CUBE HEEL`, `BIG PLATFORM`, `LYCRA`, `HALF SHOE`, `COMFORT`) while cleanly leaving out unconfirmed values (`MATERIAL`, `CHIKKU`, `SULTAN`, `MUEL`, `REGULAR`) pending explicit client sign-off.
+- **Unified Catalog Validator (`catalog_validation.py`):** Centralized `IM001ControlledFieldValidator` inside `app.services.catalog_validation` as the single shared validator for all creation surfaces: `AddProductDrawer.tsx` (`POST /api/v1/inventory/`), `UniversalItemMasterService.create_item`, `POST /api/v1/universal/preview`, and `POST /api/v1/universal/commit`.
+- **Dynamic Master Lookup Classification Ingestion:** Dynamically loads field mandatory Y/N classification from the `"From System Master Lookup"` sheet in `SMRITI_Item_Master_Creation_Standard_v2.2.xlsx` with strict fail-closed enforcement (`IM-001-UNSEEDED [BLOCK]`) on unseeded mandatory dimensions or DB errors.
+- **Automated Verification Test Suite (`test_unified_im001_governance.py`):** 6-scenario end-to-end pytest test battery verifying negative test block on invalid `heel_type="INVALID_HEEL"` (HTTP 422), negative test block on invalid `upper_material` (HTTP 422), positive test creation with onboarded dimensions (`CUBE HEEL`, `LYCRA`, `HALF SHOE`, `BRONZE`) (HTTP 201), dynamic workbook registry loading, and Tattly `NEW` sheet preview & commit execution.
+
+### Changed
+- **`AddProductDrawer.tsx`:** Added dynamic lookups and select inputs in Step 1 for `product_type`, `heel_type`, and `upper_material`. Included promoted dimensions in product payload.
+- **`InventoryService.create_product` (`inventory.py`):** Reordered validation to execute `IM001ControlledFieldValidator.validate_dict()` first before dynamic attribute validation, and forwarded all promoted footwear dimensions to `ItemCreateRequest`.
+- **`UniversalItemMasterService.create_item` (`item_master_svc.py`):** Hooked `IM001ControlledFieldValidator.validate_dict()` into the canonical item creation flow before allocating internal technical IDs.
+- **Universal Import (`universal_import.py`):** Replaced duplicate inlined validator with import from `catalog_validation`, added aliases for `Article CODE`, and enabled `V-00` supplier prefix matching.
+- **FastAPI Core Router Registry (`main.py`):** Mounted `universal_import` router under `/universal` as well as `/import` for path consistency across frontend and test suites.
+
 ## [6.47.4] - 2026-09-30 — Database Bootstrap Multi-Head Convergence & Dynamic Trigger Hardening
 
 > **Branch:** `smritiNX` | **Area:** Database / Migrations & Bootstrap

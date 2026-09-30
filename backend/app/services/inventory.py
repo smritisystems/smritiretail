@@ -92,12 +92,48 @@ class InventoryService:
         cid = self.tenant_ctx.company_id
         bid = self.tenant_ctx.branch_id or "BR-001"
 
+        from .catalog_validation import CatalogDimensionValidator, IM001ControlledFieldValidator
+
+        attrs = product_in.attributes or {}
+        governed_row = {
+            "brand": product_in.brand,
+            "category": product_in.category,
+            "color": product_in.color,
+            "size": product_in.size,
+            "style_code": product_in.style_code,
+            "vendor_code": product_in.vendor_code,
+            "hsn_code": product_in.hsn_code,
+            "gst_rate_percent": float(product_in.gst_percentage) if product_in.gst_percentage is not None else None,
+            "gender": getattr(product_in, "gender", None) or attrs.get("gender"),
+            "product_type": getattr(product_in, "product_type", None) or attrs.get("product_type") or attrs.get("productType"),
+            "heel_type": getattr(product_in, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels"),
+            "upper_material": getattr(product_in, "upper_material", None) or attrs.get("upper_material") or attrs.get("upperMaterial") or attrs.get("upper"),
+            "design_attribute": getattr(product_in, "design_attribute", None) or attrs.get("design_attribute") or attrs.get("sub_category") or attrs.get("subcategory"),
+            "outsole_material": getattr(product_in, "outsole_material", None) or attrs.get("outsole_material") or attrs.get("outsole"),
+            "collection_type": getattr(product_in, "collection_type", None) or attrs.get("collection_type") or attrs.get("item_description"),
+        }
+
+        # Unified IM-001 Catalog Governance: Fail closed if invalid or unseeded mandatory dimension
+        await IM001ControlledFieldValidator.validate_dict(
+            payload=governed_row,
+            company_id=cid,
+            strict=True,
+        )
+
+        # Ensure mandatory style/article_no attributes default from style_code/code
+        if attrs is not None:
+            if not attrs.get("style") and product_in.style_code:
+                attrs["style"] = product_in.style_code
+            if not attrs.get("style_no") and (product_in.style_code or attrs.get("style")):
+                attrs["style_no"] = product_in.style_code or attrs.get("style")
+            if not attrs.get("article_no") and (product_in.style_code or product_in.code):
+                attrs["article_no"] = product_in.style_code or product_in.code
+
         await AttributesService(self.db).validate_product_attributes(
-            product_in.attributes,
+            attrs,
             cid,
         )
 
-        from .catalog_validation import CatalogDimensionValidator
         dim_map = {
             "brand": product_in.brand,
             "category": product_in.category,
@@ -114,6 +150,29 @@ class InventoryService:
                     strict=True,
                 )
                 setattr(product_in, field_name, normalized)
+
+        # Normalize promoted footwear dimensions
+        promoted_dims = {
+            "gender": getattr(product_in, "gender", None) or attrs.get("gender"),
+            "product_type": getattr(product_in, "product_type", None) or attrs.get("product_type") or attrs.get("productType"),
+            "heel_type": getattr(product_in, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels"),
+            "upper_material": getattr(product_in, "upper_material", None) or attrs.get("upper_material") or attrs.get("upperMaterial") or attrs.get("upper"),
+            "design_attribute": getattr(product_in, "design_attribute", None) or attrs.get("design_attribute") or attrs.get("sub_category") or attrs.get("subcategory"),
+            "outsole_material": getattr(product_in, "outsole_material", None) or attrs.get("outsole_material") or attrs.get("outsole"),
+            "collection_type": getattr(product_in, "collection_type", None) or attrs.get("collection_type") or attrs.get("item_description"),
+        }
+        for p_field, p_val in promoted_dims.items():
+            if p_val and str(p_val).strip():
+                norm_p = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field=p_field,
+                    value=p_val,
+                    strict=True,
+                )
+                if hasattr(product_in, p_field):
+                    setattr(product_in, p_field, norm_p)
+                if attrs is not None:
+                    attrs[p_field] = norm_p
+        product_in.attributes = attrs
 
         auto_gen = bool(getattr(product_in, "auto_generate_article_number", False))
         prod_code = (product_in.code or "").strip().upper()
@@ -185,7 +244,14 @@ class InventoryService:
             attributes_json=getattr(product_in, "attributes", None) or {},
             variants=[variant_item],
             auto_generate_article_number=auto_gen,
-            supplier=sup_payload
+            supplier=sup_payload,
+            gender=getattr(product_in, "gender", None) or (product_in.attributes.get("gender") if product_in.attributes else None),
+            product_type=getattr(product_in, "product_type", None) or (product_in.attributes.get("product_type") if product_in.attributes else None),
+            heel_type=getattr(product_in, "heel_type", None) or (product_in.attributes.get("heel_type") or product_in.attributes.get("heels") if product_in.attributes else None),
+            upper_material=getattr(product_in, "upper_material", None) or (product_in.attributes.get("upper_material") or product_in.attributes.get("upper") if product_in.attributes else None),
+            design_attribute=getattr(product_in, "design_attribute", None) or (product_in.attributes.get("design_attribute") or product_in.attributes.get("sub_category") if product_in.attributes else None),
+            outsole_material=getattr(product_in, "outsole_material", None) or (product_in.attributes.get("outsole_material") or product_in.attributes.get("outsole") if product_in.attributes else None),
+            collection_type=getattr(product_in, "collection_type", None) or (product_in.attributes.get("collection_type") if product_in.attributes else None),
         )
 
         canonical_item = await UniversalItemMasterService.create_item(

@@ -12,13 +12,17 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import Optional, List, Dict, Any
+import difflib
+from pathlib import Path
+from typing import Optional, List, Dict, Any, Tuple
+import openpyxl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
 from ..models.master_lookup import MasterType, MasterValue
 from ..db.session import async_session
+from .system_parameter import SystemParameterService
 
 
 class CatalogDimensionValidator:
@@ -142,6 +146,20 @@ class CatalogDimensionValidator:
             if row_code.strip().casefold() == target_lower or row_name.strip().casefold() == target_lower:
                 return row_code.strip()
 
+        if type_code == "gst_rate":
+            clean_norm = clean_val.rstrip("%").strip()
+            try:
+                f_val = float(clean_norm)
+                if f_val.is_integer():
+                    clean_norm = str(int(f_val))
+            except ValueError:
+                pass
+            for row_code, row_name in direct_rows:
+                rc_norm = row_code.strip().rstrip("%")
+                rn_norm = row_name.strip().rstrip("%")
+                if clean_norm in (rc_norm, rn_norm):
+                    return row_code.strip()
+
         # 2. Scale Group unpacking fallback for hierarchical dimensions (color and size)
         if type_code == "color":
             group_stmt = (
@@ -177,8 +195,13 @@ class CatalogDimensionValidator:
                         if str(v).strip().casefold() == target_lower:
                             return str(v).strip()
 
-        # 3. Dynamic Attribute Framework fallback for secondary dimensions or unseeded master dimensions
-        if not direct_rows and type_code not in {"color", "size", "category", "brand"}:
+        # 3. Dynamic Attribute Framework fallback for secondary/unseeded non-mandatory dimensions
+        mandatory_dimensions = {
+            "color", "size", "category", "brand", "gender",
+            "product_type", "heel_type", "upper_material",
+            "department", "uom", "gst_rate", "style_article", "vendor_code"
+        }
+        if not direct_rows and type_code not in mandatory_dimensions:
             return clean_val
 
         # 4. Unmatched value handling
@@ -484,4 +507,438 @@ class CatalogConsistencyValidator:
             "row_warnings": dict(row_warnings),
             "all_warnings": list(dict.fromkeys(all_warnings)),
         }
+
+
+class IM001ControlledFieldValidator:
+    """
+    Unified IM-001 Catalog Controlled-Field Governance Engine.
+    Authoritative single validator for ALL item creation and import surfaces:
+      1. AddProductDrawer.tsx -> POST /api/v1/inventory/
+      2. Universal Import     -> POST /api/v1/universal/preview & /commit
+      3. Master Item Entry    -> UniversalItemMasterService.create_item
+
+    Governance Rules:
+    - Mandatory Y/N classification is dynamically loaded from the authoritative
+      'From System Master Lookup' registry in the Item Master Standard workbook.
+    - GENDER, MERCHANDISE_CATEGORY (alias for product_type), PRODUCT_TYPE,
+      HEEL_TYPE, UPPER_MATERIAL are strictly BLOCK.
+    - Unseeded mandatory dimensions FAIL CLOSED with an explicit BLOCK error.
+    - Exactly one place in the codebase decides 'is this value governed'.
+    """
+
+    _REGISTRY_CACHE: Optional[Dict[str, bool]] = None
+
+    _CANONICAL_FALLBACK_REGISTRY: Dict[str, bool] = {
+        "ARTICLE_STYLE_CODE": True,
+        "BRAND_NAME": True,
+        "COLOR": True,
+        "SIZE": True,
+        "GENDER": True,
+        "MERCHANDISE_DEPARTMENT": True,
+        "MERCHANDISE_CATEGORY": True,
+        "PRODUCT_TYPE": True,
+        "DESIGN_ATTRIBUTE": False,
+        "HEEL_TYPE": True,
+        "UPPER_MATERIAL": True,
+        "OUTSOLE_MATERIAL": False,
+        "UOM": True,
+        "HSN_CODE": True,
+        "GST_RATE_PERCENT": True,
+        "COLLECTION_TYPE": False,
+    }
+
+    FIELD_EXTRACTION_MAP = {
+        "ARTICLE_STYLE_CODE": (
+            "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE",
+            "item_code", "Article CODE", "Article Code", "ARTICLE CODE", "ARTICLE_CODE", "article_code",
+            "Article No", "ARTICLE_NO", "article_no",
+        ),
+        "BRAND_NAME": ("brand", "Brand", "BRAND_NAME", "brand_name"),
+        "COLOR": ("color", "colour", "Color", "Colour", "COLOR"),
+        "SIZE": ("size", "Size", "SIZE"),
+        "GENDER": ("gender", "Gender", "GENDER", "Gndr"),
+        "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT"),
+        "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY", "merchandiseCategory"),
+        "PRODUCT_TYPE": (
+            "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type",
+            "MERCHANDISE CATEGORY",
+        ),
+        "HEEL_TYPE": (
+            "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel", "HEELS"
+        ),
+        "UPPER_MATERIAL": (
+            "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper", "UPPER MATERIAL"
+        ),
+        "UOM": ("uom", "UOM", "unit_of_measure"),
+        "DESIGN_ATTRIBUTE": (
+            "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute",
+            "sub_category", "Sub category", "Sub Category", "subcategory"
+        ),
+        "OUTSOLE_MATERIAL": (
+            "outsole", "outsole_material", "outsoleMaterial", "OUTSOLE_MATERIAL", "OUTSOLE", "sole"
+        ),
+        "COLLECTION_TYPE": (
+            "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type", "ITEM DESCRIPTION", "item_description"
+        ),
+        "GST_RATE_PERCENT": (
+            "GST_RATE_PERCENT", "gst_rate_percent", "tax_rate", "gst", "GST", "TAX_RATE", "tax",
+            "GstRatePercent", "taxRate", "gst_percentage"
+        ),
+    }
+
+    FIELD_TO_DIMENSION_MAP: Dict[str, str] = {
+        "BRAND_NAME": "brand",
+        "COLOR": "color",
+        "SIZE": "size",
+        "GENDER": "gender",
+        "MERCHANDISE_DEPARTMENT": "department",
+        "MERCHANDISE_CATEGORY": "category",
+        "PRODUCT_TYPE": "product_type",
+        "HEEL_TYPE": "heel_type",
+        "UPPER_MATERIAL": "upper_material",
+        "UOM": "uom",
+        "DESIGN_ATTRIBUTE": "subcategory",
+        "OUTSOLE_MATERIAL": "outsole_material",
+        "COLLECTION_TYPE": "collection_type",
+        "GST_RATE_PERCENT": "gst_rate",
+    }
+
+    FIELD_TO_SYSPARAM_MAP: Dict[str, str] = {
+        "ARTICLE_STYLE_CODE": "ItemSubClass1HasCat",
+        "COLOR": "ItemSubClass2HasCat",
+        "MERCHANDISE_DEPARTMENT": "SuperClass1Present",
+        "SIZE": "ItemSizePresent",
+    }
+
+    @classmethod
+    def extract_field_value(cls, row: Dict[str, Any], std_field: str) -> Optional[str]:
+        aliases = cls.FIELD_EXTRACTION_MAP.get(std_field, (std_field,))
+        for alias in aliases:
+            if alias in row and row[alias] is not None:
+                val = str(row[alias]).strip()
+                if val != "" and val.lower() not in ("nan", "none", "null"):
+                    return val
+        return None
+
+    @classmethod
+    def load_system_master_lookup_registry(cls, workbook_path: Optional[str] = None) -> Dict[str, bool]:
+        """
+        Dynamically loads the mandatory vs non-mandatory classification from the authoritative
+        'From System Master Lookup' sheet in the Item Master Standard workbook.
+        Guarantees: GENDER, MERCHANDISE_CATEGORY, PRODUCT_TYPE, HEEL_TYPE, UPPER_MATERIAL are BLOCK.
+        """
+        if cls._REGISTRY_CACHE is not None:
+            return cls._REGISTRY_CACHE
+
+        registry: Dict[str, bool] = dict(cls._CANONICAL_FALLBACK_REGISTRY)
+
+        candidates = []
+        if workbook_path:
+            candidates.append(Path(workbook_path))
+        base_dir = Path(__file__).resolve().parents[3]
+        candidates.extend([
+            base_dir / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.2.xlsx",
+            base_dir / "assets" / "Itemmasters" / "SMRITI_Item_Master_Creation_Standard_v2.1.xlsx",
+        ])
+
+        for p in candidates:
+            if p.exists():
+                try:
+                    wb = openpyxl.load_workbook(p, data_only=True)
+                    if "From System Master Lookup" in wb.sheetnames:
+                        ws = wb["From System Master Lookup"]
+                        for r in range(1, ws.max_row + 1):
+                            col_a = ws.cell(r, 1).value
+                            col_d = ws.cell(r, 4).value
+                            if col_a and isinstance(col_a, str):
+                                key = col_a.strip().upper()
+                                if col_d is not None and str(col_d).strip().upper() in ("Y", "N"):
+                                    registry[key] = (str(col_d).strip().upper() == "Y")
+                        break
+                except Exception:
+                    pass
+
+        # Guarantee strict BLOCK on mandatory dimensions per Directive
+        for mandatory_key in ("GENDER", "MERCHANDISE_CATEGORY", "PRODUCT_TYPE", "HEEL_TYPE", "UPPER_MATERIAL"):
+            registry[mandatory_key] = True
+
+        cls._REGISTRY_CACHE = registry
+        return registry
+
+    @classmethod
+    def find_near_match(cls, val: str, allowed_values: List[str]) -> Optional[str]:
+        val_clean = val.strip().upper()
+        # 1. Singular/Plural equality (e.g. WEDGES == WEDGE + 'S', SHOES == SHOE + 'S')
+        for cand in allowed_values:
+            cand_upper = cand.strip().upper()
+            if cand_upper == val_clean:
+                continue
+            if cand_upper.rstrip("S") == val_clean.rstrip("S"):
+                return cand
+        # 2. Substring / Prefix / Suffix match where val is base of cand (e.g. SHEET in SHEET SOLE)
+        for cand in allowed_values:
+            cand_upper = cand.strip().upper()
+            if cand_upper.startswith(val_clean + " ") or cand_upper.endswith(" " + val_clean):
+                return cand
+            if val_clean.startswith(cand_upper + " ") or val_clean.endswith(" " + cand_upper):
+                return cand
+        # 3. High-confidence fuzzy match (edit distance ratio >= 0.8)
+        matches = difflib.get_close_matches(val_clean, [c.upper() for c in allowed_values], n=1, cutoff=0.8)
+        if matches:
+            for cand in allowed_values:
+                if cand.upper() == matches[0]:
+                    return cand
+        return None
+
+    @classmethod
+    async def _load_sysparam_enforcement_flags(
+        cls,
+        company_id: Optional[str],
+    ) -> Dict[str, Any]:
+        param_codes = [
+            "ValidateDataDuringPMImport",
+            "ItemSubClass1HasCat",
+            "ItemSubClass2HasCat",
+            "SuperClass1Present",
+            "ItemSizePresent",
+        ]
+        result: Dict[str, Any] = {}
+        try:
+            async with async_session() as ctrl_db:
+                for code in param_codes:
+                    param = await SystemParameterService.resolve_parameter(
+                        db=ctrl_db,
+                        param_code=code,
+                        company_id=company_id,
+                    )
+                    if param is not None:
+                        result[code] = param.effective_value
+        except Exception:
+            pass
+
+        raw_validate = result.get("ValidateDataDuringPMImport", None)
+        if raw_validate is None:
+            validate_during_import = True
+        elif isinstance(raw_validate, bool):
+            validate_during_import = raw_validate
+        else:
+            validate_during_import = str(raw_validate).strip() not in ("0", "false", "False", "")
+
+        field_enforcement: Dict[str, bool] = {}
+        for std_field, sp_code in cls.FIELD_TO_SYSPARAM_MAP.items():
+            sp_val = result.get(sp_code, None)
+            if sp_val is None:
+                field_enforcement[std_field] = True
+            elif isinstance(sp_val, bool):
+                field_enforcement[std_field] = sp_val
+            else:
+                field_enforcement[std_field] = str(sp_val).strip() not in ("0", "false", "False", "")
+
+        return {
+            "validate_during_import": validate_during_import,
+            "field_enforcement": field_enforcement,
+            "raw": result,
+        }
+
+    @classmethod
+    async def _get_db_approved_values_for_field(
+        cls,
+        std_field: str,
+    ) -> List[str]:
+        dimension = cls.FIELD_TO_DIMENSION_MAP.get(std_field)
+        if not dimension:
+            return []
+        try:
+            rows = await CatalogDimensionValidator.get_approved_values(dimension)
+            return [r["code"] for r in rows if r.get("code")]
+        except Exception:
+            return []
+
+    @classmethod
+    async def _load_all_dimension_master_values(
+        cls,
+        company_id: Optional[str] = None,
+    ) -> Dict[str, List[str]]:
+        result: Dict[str, List[str]] = {}
+        for std_field, dimension in cls.FIELD_TO_DIMENSION_MAP.items():
+            try:
+                rows = await CatalogDimensionValidator.get_approved_values(dimension)
+                result[std_field] = [r["code"] for r in rows if r.get("code")]
+            except Exception:
+                result[std_field] = []
+        return result
+
+    @classmethod
+    async def validate_batch_controlled_fields(
+        cls,
+        rows: List[Dict[str, Any]],
+        company_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Validates a batch of rows against IM-001 controlled field rules.
+        Pre-loads system parameters and master values in O(14) queries total.
+        Fails closed on unseeded mandatory dimensions or DB errors.
+        """
+        sp_flags = await cls._load_sysparam_enforcement_flags(company_id)
+        validate_enabled = sp_flags["validate_during_import"]
+        field_enforcement = sp_flags["field_enforcement"]
+
+        mandatory_map = cls.load_system_master_lookup_registry()
+        master_cache: Dict[str, List[str]] = await cls._load_all_dimension_master_values(company_id)
+
+        norm_maps: Dict[str, Dict[str, str]] = {
+            std_field: {v.strip().upper(): v.strip() for v in values}
+            for std_field, values in master_cache.items()
+        }
+
+        results: List[Dict[str, Any]] = []
+        for row_idx, row in enumerate(rows):
+            row_num = row.get("rowNumber", row_idx + 1)
+            errors: List[str] = []
+            warnings: List[str] = []
+            field_failures: List[Dict[str, Any]] = []
+
+            for std_field in cls.FIELD_TO_DIMENSION_MAP.keys():
+                clean_val = cls.extract_field_value(row, std_field)
+                if not clean_val:
+                    continue
+
+                dim_code = cls.FIELD_TO_DIMENSION_MAP.get(std_field, "?")
+                db_values = master_cache.get(std_field, [])
+
+                base_mandatory = mandatory_map.get(std_field, False)
+                sysparam_enforced = field_enforcement.get(std_field, True)
+                is_mandatory = base_mandatory and sysparam_enforced and validate_enabled
+
+                # Fail-closed enforcement on unseeded dimensions
+                if not db_values:
+                    if is_mandatory:
+                        msg = (
+                            f"IM-001-UNSEEDED [BLOCK]: Controlled field '{std_field}' is mandatory but has no "
+                            f"approved values seeded in System Master Lookup (dimension='{dim_code}'). "
+                            f"Status is NOT_READY. Master type must be seeded before import/creation can proceed."
+                        )
+                        errors.append(msg)
+                        field_failures.append({
+                            "field": std_field,
+                            "value": clean_val,
+                            "is_mandatory": True,
+                            "error": "UNSEEDED_FAIL_CLOSED",
+                            "source": "System Master Lookup (DB)",
+                        })
+                    else:
+                        warnings.append(
+                            f"IM-001-UNSEEDED [Advisory]: Field '{std_field}' has no approved values "
+                            f"in master_values (dimension='{dim_code}')."
+                        )
+                    continue
+
+                db_norm_map = norm_maps.get(std_field, {})
+
+                # GST_RATE_PERCENT numeric equivalence (e.g. 12.0 -> 12, 12% -> 12)
+                if std_field == "GST_RATE_PERCENT":
+                    clean_val_norm = clean_val.rstrip("%").strip()
+                    try:
+                        f_val = float(clean_val_norm)
+                        if f_val.is_integer():
+                            clean_val_norm = str(int(f_val))
+                    except ValueError:
+                        pass
+                    if (
+                        clean_val.upper() in db_norm_map
+                        or clean_val_norm in db_norm_map
+                        or f"{clean_val_norm}%" in db_norm_map
+                    ):
+                        continue
+
+                if clean_val.upper() in db_norm_map:
+                    continue  # Exact match — pass
+
+                # Near-match detection
+                near_match = cls.find_near_match(clean_val, db_values)
+                field_failures.append({
+                    "field": std_field,
+                    "value": clean_val,
+                    "is_mandatory": is_mandatory,
+                    "near_match": near_match,
+                    "source": "System Master Lookup (DB)",
+                })
+
+                if is_mandatory:
+                    msg = (
+                        f"IM-001 [BLOCK]: Controlled field '{std_field}' value '{clean_val}' not found in "
+                        f"System Master Lookup (DB)"
+                        + (f" (near-match to '{near_match}', needs architect decision)." if near_match else ".")
+                    )
+                    errors.append(msg)
+                else:
+                    msg = (
+                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' "
+                        f"not found in System Master Lookup (DB)"
+                        + (f" (near-match to '{near_match}', needs architect decision)." if near_match else ".")
+                    )
+                    warnings.append(msg)
+
+            results.append({
+                "row_num": row_num,
+                "errors": errors,
+                "warnings": warnings,
+                "field_failures": field_failures,
+                "sysparam_flags": {
+                    "validate_during_import": validate_enabled,
+                    "field_enforcement": field_enforcement,
+                },
+            })
+
+        return results
+
+    @classmethod
+    async def validate_row_controlled_fields(
+        cls,
+        row: Dict[str, Any],
+        row_num: int = 1,
+        company_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Single-row validation wrapper.
+        """
+        batch_results = await cls.validate_batch_controlled_fields(
+            rows=[{**row, "rowNumber": row_num}],
+            company_id=company_id,
+        )
+        result = batch_results[0] if batch_results else {}
+        return {
+            "errors": result.get("errors", []),
+            "warnings": result.get("warnings", []),
+            "field_failures": result.get("field_failures", []),
+            "sysparam_flags": result.get("sysparam_flags", {}),
+        }
+
+    @classmethod
+    async def validate_dict(
+        cls,
+        payload: Dict[str, Any],
+        company_id: Optional[str] = None,
+        strict: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Validates a single payload dictionary (e.g. from InventoryService.create_product
+        or UniversalItemMasterService.create_item).
+        Returns dict with errors, warnings, field_failures, sysparam_flags.
+        If strict=True and errors exist, raises HTTPException(422).
+        """
+        res = await cls.validate_row_controlled_fields(payload, row_num=1, company_id=company_id)
+        if strict and res.get("errors"):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "SMRITI-VAL-002",
+                    "message": "; ".join(res["errors"]),
+                    "errors": res["errors"],
+                    "field_failures": res.get("field_failures", []),
+                    "suggested_action": "Navigate to System Master Management to register and approve new values before assigning them to catalog items."
+                }
+            )
+        return res
+
 

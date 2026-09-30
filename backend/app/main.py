@@ -392,6 +392,7 @@ _ROUTER_REGISTRY = [
     # --- Integration & Data ---
     (exchange,              "/exchange",             ["Data Exchange Hub"]),
     (universal_import,      "/import",               ["Universal Import"]),
+    (universal_import,      "/universal",            ["Universal Import"]),
     (sync,                  "/sync",                 ["Offline-First Synchronization"]),
     (integration,           "/integration",          ["Integration Hub & Audit"]),
     (ecom,                  "",                      ["eCommerce / Omnichannel Engine"]),
