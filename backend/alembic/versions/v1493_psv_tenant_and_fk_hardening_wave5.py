@@ -26,6 +26,17 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+
+    # 0. Control Plane & DB routing guard (PSV is a tenant-only feature; skip on smritisys)
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    if not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1"):
+        return
+
+    has_balances = bind.execute(sa.text("SELECT 1 FROM information_schema.tables WHERE table_name = 'psv_stock_balances'")).scalar()
+    if not has_balances:
+        return
+
     # -------------------------------------------------------------------------
     # 1. psv_stock_balances — Add company_id and product_id columns
     # -------------------------------------------------------------------------
@@ -187,6 +198,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    current_db = bind.execute(sa.text("SELECT current_database();")).scalar()
+    if not current_db or current_db.lower() in ("smritisys", "postgres", "template0", "template1"):
+        return
+
     # -------------------------------------------------------------------------
     # Revert psv_stock_events
     # -------------------------------------------------------------------------

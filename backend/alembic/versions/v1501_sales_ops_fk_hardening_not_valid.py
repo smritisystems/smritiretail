@@ -1,4 +1,4 @@
-﻿"""v1501: Sales + Ops FK hardening - Part 4b of Full System Audit (NOT VALID FKs)
+"""v1501: Sales + Ops FK hardening - Part 4b of Full System Audit (NOT VALID FKs)
 
 Adds 6 FK constraints with NOT VALID because live orphan data prevents immediate validation.
 Enforces referential integrity for ALL NEW rows immediately.
@@ -73,6 +73,22 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(bind, table_name: str) -> bool:
+    r = bind.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema='public' AND table_name=:t"
+    ), {"t": table_name})
+    return bool((r.scalar() or 0) > 0)
+
+
+def _fk_exists(bind, constraint_name: str) -> bool:
+    r = bind.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.table_constraints "
+        "WHERE constraint_name = :c"
+    ), {"c": constraint_name})
+    return bool((r.scalar() or 0) > 0)
+
+
 def upgrade():
     bind = op.get_bind()
 
@@ -80,47 +96,59 @@ def upgrade():
     # blocking on historical orphan data. Use VALIDATE CONSTRAINT after
     # orphan cleanup to fully enforce.
 
-    # 1. sales_invoice_items.product_id -> products.id (954 orphans)
-    bind.execute(sa.text(
-        "ALTER TABLE sales_invoice_items "
-        "ADD CONSTRAINT fk_sii_product_id FOREIGN KEY (product_id) "
-        "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
-    ))
+    # 1. sales_invoice_items.product_id -> products.id
+    if _table_exists(bind, "sales_invoice_items") and _table_exists(bind, "products"):
+        if not _fk_exists(bind, "fk_sii_product_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE sales_invoice_items "
+                "ADD CONSTRAINT fk_sii_product_id FOREIGN KEY (product_id) "
+                "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
+            ))
 
-    # 2. customer_credit_ledger_entries.customer_id -> customers.id (158 orphans)
-    bind.execute(sa.text(
-        "ALTER TABLE customer_credit_ledger_entries "
-        "ADD CONSTRAINT fk_ccle_customer_id FOREIGN KEY (customer_id) "
-        "REFERENCES customers(id) ON DELETE SET NULL NOT VALID"
-    ))
+    # 2. customer_credit_ledger_entries.customer_id -> customers.id
+    if _table_exists(bind, "customer_credit_ledger_entries") and _table_exists(bind, "customers"):
+        if not _fk_exists(bind, "fk_ccle_customer_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE customer_credit_ledger_entries "
+                "ADD CONSTRAINT fk_ccle_customer_id FOREIGN KEY (customer_id) "
+                "REFERENCES customers(id) ON DELETE SET NULL NOT VALID"
+            ))
 
-    # 3. packing_slip_items.product_id -> products.id (70 orphans)
-    bind.execute(sa.text(
-        "ALTER TABLE packing_slip_items "
-        "ADD CONSTRAINT fk_psi_product_id FOREIGN KEY (product_id) "
-        "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
-    ))
+    # 3. packing_slip_items.product_id -> products.id
+    if _table_exists(bind, "packing_slip_items") and _table_exists(bind, "products"):
+        if not _fk_exists(bind, "fk_psi_product_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE packing_slip_items "
+                "ADD CONSTRAINT fk_psi_product_id FOREIGN KEY (product_id) "
+                "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
+            ))
 
-    # 4. dispatch_items.product_id -> products.id (45 orphans)
-    bind.execute(sa.text(
-        "ALTER TABLE dispatch_items "
-        "ADD CONSTRAINT fk_di_product_id FOREIGN KEY (product_id) "
-        "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
-    ))
+    # 4. dispatch_items.product_id -> products.id
+    if _table_exists(bind, "dispatch_items") and _table_exists(bind, "products"):
+        if not _fk_exists(bind, "fk_di_product_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE dispatch_items "
+                "ADD CONSTRAINT fk_di_product_id FOREIGN KEY (product_id) "
+                "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
+            ))
 
-    # 5. po_product_decision_log.product_id -> products.id (25 orphans)
-    bind.execute(sa.text(
-        "ALTER TABLE po_product_decision_log "
-        "ADD CONSTRAINT fk_ppdl_product_id FOREIGN KEY (product_id) "
-        "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
-    ))
+    # 5. po_product_decision_log.product_id -> products.id
+    if _table_exists(bind, "po_product_decision_log") and _table_exists(bind, "products"):
+        if not _fk_exists(bind, "fk_ppdl_product_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE po_product_decision_log "
+                "ADD CONSTRAINT fk_ppdl_product_id FOREIGN KEY (product_id) "
+                "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
+            ))
 
-    # 6. product_cost_valuations.product_id -> products.id (7 orphans)
-    bind.execute(sa.text(
-        "ALTER TABLE product_cost_valuations "
-        "ADD CONSTRAINT fk_pcv_product_id FOREIGN KEY (product_id) "
-        "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
-    ))
+    # 6. product_cost_valuations.product_id -> products.id
+    if _table_exists(bind, "product_cost_valuations") and _table_exists(bind, "products"):
+        if not _fk_exists(bind, "fk_pcv_product_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE product_cost_valuations "
+                "ADD CONSTRAINT fk_pcv_product_id FOREIGN KEY (product_id) "
+                "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
+            ))
 
 
 def downgrade():

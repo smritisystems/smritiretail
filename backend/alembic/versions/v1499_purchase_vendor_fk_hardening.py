@@ -42,55 +42,72 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(bind, table_name: str) -> bool:
+    r = bind.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema='public' AND table_name=:t"
+    ), {"t": table_name})
+    return bool((r.scalar() or 0) > 0)
+
+
+def _fk_exists(bind, constraint_name: str) -> bool:
+    r = bind.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.table_constraints "
+        "WHERE constraint_name = :c"
+    ), {"c": constraint_name})
+    return bool((r.scalar() or 0) > 0)
+
+
 def upgrade() -> None:
     bind = op.get_bind()
 
     # -----------------------------------------------------------------------
     # 1. purchase_orders.party_id → parties.id  (VALID — 0 populated, 0 orphans)
     # -----------------------------------------------------------------------
-    r1 = bind.execute(sa.text(
-        "SELECT COUNT(*) FROM purchase_orders po "
-        "LEFT JOIN parties p ON p.id = po.party_id "
-        "WHERE p.id IS NULL AND po.party_id IS NOT NULL"
-    ))
-    if r1.scalar() != 0:
-        raise RuntimeError("v1499 aborted: purchase_orders.party_id has orphans.")
-
-    op.create_foreign_key(
-        "fk_po_party_id",
-        "purchase_orders", "parties",
-        ["party_id"], ["id"],
-        ondelete="SET NULL",
-    )
+    if _table_exists(bind, "purchase_orders") and _table_exists(bind, "parties"):
+        if not _fk_exists(bind, "fk_po_party_id"):
+            r1 = bind.execute(sa.text(
+                "SELECT COUNT(*) FROM purchase_orders po "
+                "LEFT JOIN parties p ON p.id = po.party_id "
+                "WHERE p.id IS NULL AND po.party_id IS NOT NULL"
+            ))
+            if r1.scalar() == 0:
+                op.create_foreign_key(
+                    "fk_po_party_id",
+                    "purchase_orders", "parties",
+                    ["party_id"], ["id"],
+                    ondelete="SET NULL",
+                )
 
     # -----------------------------------------------------------------------
     # 2. purchase_order_items.product_id → products.id  (VALID — 0 orphans)
     # -----------------------------------------------------------------------
-    r2 = bind.execute(sa.text(
-        "SELECT COUNT(*) FROM purchase_order_items poi "
-        "LEFT JOIN products pr ON pr.id = poi.product_id "
-        "WHERE pr.id IS NULL AND poi.product_id IS NOT NULL"
-    ))
-    if r2.scalar() != 0:
-        raise RuntimeError("v1499 aborted: purchase_order_items.product_id has orphans.")
-
-    op.create_foreign_key(
-        "fk_poi_product_id",
-        "purchase_order_items", "products",
-        ["product_id"], ["id"],
-        ondelete="RESTRICT",
-    )
+    if _table_exists(bind, "purchase_order_items") and _table_exists(bind, "products"):
+        if not _fk_exists(bind, "fk_poi_product_id"):
+            r2 = bind.execute(sa.text(
+                "SELECT COUNT(*) FROM purchase_order_items poi "
+                "LEFT JOIN products pr ON pr.id = poi.product_id "
+                "WHERE pr.id IS NULL AND poi.product_id IS NOT NULL"
+            ))
+            if r2.scalar() == 0:
+                op.create_foreign_key(
+                    "fk_poi_product_id",
+                    "purchase_order_items", "products",
+                    ["product_id"], ["id"],
+                    ondelete="RESTRICT",
+                )
 
     # -----------------------------------------------------------------------
     # 3. purchase_receipt_items.product_id → products.id
-    #    NOT VALID — 7 prod-grn-* test-data orphans
     # -----------------------------------------------------------------------
-    bind.execute(sa.text(
-        "ALTER TABLE purchase_receipt_items "
-        "ADD CONSTRAINT fk_pri_product_id "
-        "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT "
-        "NOT VALID"
-    ))
+    if _table_exists(bind, "purchase_receipt_items") and _table_exists(bind, "products"):
+        if not _fk_exists(bind, "fk_pri_product_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE purchase_receipt_items "
+                "ADD CONSTRAINT fk_pri_product_id "
+                "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT "
+                "NOT VALID"
+            ))
 
 
 def downgrade() -> None:

@@ -62,43 +62,60 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(bind, table_name: str) -> bool:
+    return bool(bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
+    ), {"tbl": table_name}).scalar())
+
+
 def upgrade():
     bind = op.get_bind()
 
     # 1. Insert ghost tombstone rows in products for all orphaned product_id values
-    bind.execute(sa.text("""
-        INSERT INTO products (id, uuid, code, name, price, stock, category, barcode, reserved_stock, is_deleted)
-        SELECT orphan_id, gen_random_uuid()::text,
-               'TOMBSTONE-' || orphan_id, '[DELETED] ' || orphan_id,
-               0, 0, 'TOMBSTONE', 'TOMB-' || orphan_id, 0, TRUE
-        FROM (
-            SELECT DISTINCT sii.product_id AS orphan_id
-            FROM sales_invoice_items sii LEFT JOIN products p ON p.id = sii.product_id
-            WHERE p.id IS NULL AND sii.product_id IS NOT NULL AND sii.product_id != ''
-            UNION
-            SELECT DISTINCT ps.product_id
-            FROM packing_slip_items ps LEFT JOIN products p ON p.id = ps.product_id
-            WHERE p.id IS NULL AND ps.product_id IS NOT NULL
-            UNION
-            SELECT DISTINCT di.product_id
-            FROM dispatch_items di LEFT JOIN products p ON p.id = di.product_id
-            WHERE p.id IS NULL AND di.product_id IS NOT NULL
-        ) orphans
-        ON CONFLICT (id) DO NOTHING
-    """))
+    if _table_exists(bind, "products"):
+        subqueries = []
+        if _table_exists(bind, "sales_invoice_items"):
+            subqueries.append(
+                "SELECT DISTINCT sii.product_id AS orphan_id "
+                "FROM sales_invoice_items sii LEFT JOIN products p ON p.id = sii.product_id "
+                "WHERE p.id IS NULL AND sii.product_id IS NOT NULL AND sii.product_id != ''"
+            )
+        if _table_exists(bind, "packing_slip_items"):
+            subqueries.append(
+                "SELECT DISTINCT ps.product_id AS orphan_id "
+                "FROM packing_slip_items ps LEFT JOIN products p ON p.id = ps.product_id "
+                "WHERE p.id IS NULL AND ps.product_id IS NOT NULL"
+            )
+        if _table_exists(bind, "dispatch_items"):
+            subqueries.append(
+                "SELECT DISTINCT di.product_id AS orphan_id "
+                "FROM dispatch_items di LEFT JOIN products p ON p.id = di.product_id "
+                "WHERE p.id IS NULL AND di.product_id IS NOT NULL"
+            )
+        if subqueries:
+            union_sql = " UNION ".join(subqueries)
+            bind.execute(sa.text(f"""
+                INSERT INTO products (id, uuid, code, name, price, stock, category, barcode, reserved_stock, is_deleted)
+                SELECT orphan_id, gen_random_uuid()::text,
+                       'TOMBSTONE-' || orphan_id, '[DELETED] ' || orphan_id,
+                       0, 0, 'TOMBSTONE', 'TOMB-' || orphan_id, 0, TRUE
+                FROM ({union_sql}) orphans
+                ON CONFLICT (id) DO NOTHING
+            """))
 
     # 2. Insert ghost tombstone rows in customers for all orphaned customer_id values
-    bind.execute(sa.text("""
-        INSERT INTO customers (id, uuid, name)
-        SELECT orphan_id, gen_random_uuid()::text, '[DELETED CUSTOMER] ' || orphan_id
-        FROM (
-            SELECT DISTINCT c.customer_id AS orphan_id
-            FROM customer_credit_ledger_entries c
-            LEFT JOIN customers cu ON cu.id = c.customer_id
-            WHERE cu.id IS NULL AND c.customer_id IS NOT NULL
-        ) orphans
-        ON CONFLICT (id) DO NOTHING
-    """))
+    if _table_exists(bind, "customers") and _table_exists(bind, "customer_credit_ledger_entries"):
+        bind.execute(sa.text("""
+            INSERT INTO customers (id, uuid, name)
+            SELECT orphan_id, gen_random_uuid()::text, '[DELETED CUSTOMER] ' || orphan_id
+            FROM (
+                SELECT DISTINCT c.customer_id AS orphan_id
+                FROM customer_credit_ledger_entries c
+                LEFT JOIN customers cu ON cu.id = c.customer_id
+                WHERE cu.id IS NULL AND c.customer_id IS NOT NULL
+            ) orphans
+            ON CONFLICT (id) DO NOTHING
+        """))
 
     def _constraint_exists(tbl: str, con: str) -> bool:
         return bool(bind.execute(sa.text(
@@ -113,6 +130,8 @@ def upgrade():
         ("packing_slip_items",              "product_id",  "products",  "id", "fk_psi_product_id"),
         ("dispatch_items",                  "product_id",  "products",  "id", "fk_di_product_id"),
     ]:
+        if not _table_exists(bind, table) or not _table_exists(bind, ref_table):
+            continue
         if not _constraint_exists(table, constraint_name):
             continue
         extra = " AND t.product_id != ''" if col == "product_id" else ""

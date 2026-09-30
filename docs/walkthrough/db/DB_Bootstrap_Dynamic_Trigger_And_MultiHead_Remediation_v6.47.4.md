@@ -53,9 +53,16 @@ Document the definitive root-cause diagnosis, architectural remediation, and aut
 
 ## 4. Files Modified
 - `backend/alembic/versions/v1446_enforce_master_value_reference_guard.py`
+- `backend/alembic/versions/v1493_psv_tenant_and_fk_hardening_wave5.py`
+- `backend/alembic/versions/v1494_product_identity_psv_tenant_hardening.py`
+- `backend/alembic/versions/v1495_item_master_v22_columns.py`
+- `backend/alembic/versions/v1496_item_master_domain_refactor.py`
 - `backend/alembic/versions/v1497a_retire_products_tenant_id.py`
 - `backend/alembic/versions/v1497b_retire_ctrl_tenant_id_columns.py`
+- `backend/alembic/versions/v1498_inventory_fk_hardening.py`
+- `backend/alembic/versions/v1499_purchase_vendor_fk_hardening.py`
 - `backend/alembic/versions/v1500_sales_ops_fk_hardening_valid.py`
+- `backend/alembic/versions/v1501_sales_ops_fk_hardening_not_valid.py`
 - `backend/alembic/versions/v1503_not_valid_fk_cleanup_schema_drift_003.py`
 - `backend/alembic/versions/v1504_tombstone_validate_all_fks.py`
 - `backend/app/api/v1/master_lookup.py`

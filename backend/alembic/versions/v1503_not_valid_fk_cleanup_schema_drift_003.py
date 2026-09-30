@@ -62,50 +62,61 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(bind, table_name: str) -> bool:
+    return bool(bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = :tbl"
+    ), {"tbl": table_name}).scalar())
+
+
 def upgrade():
     bind = op.get_bind()
 
     # 1. Purge test-data orphans from product_cost_valuations (prod-grn-*)
-    r1 = bind.execute(sa.text(
-        "DELETE FROM product_cost_valuations "
-        "WHERE product_id LIKE 'prod-grn-%' "
-        "  AND NOT EXISTS (SELECT 1 FROM products WHERE products.id = product_cost_valuations.product_id)"
-    ))
-
-    # 2. Validate product_cost_valuations FK (0 orphans after purge) if constraint exists
-    has_fk = bind.execute(sa.text(
-        "SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid "
-        "WHERE t.relname = 'product_cost_valuations' AND c.conname = 'fk_pcv_product_id'"
-    )).scalar()
-    if has_fk:
-        orphans = bind.execute(sa.text(
-            "SELECT COUNT(*) FROM product_cost_valuations pcv "
-            "LEFT JOIN products p ON p.id = pcv.product_id "
-            "WHERE p.id IS NULL AND pcv.product_id IS NOT NULL"
-        )).scalar()
-        if orphans != 0:
-            raise RuntimeError(f"v1503: {orphans} orphans remain in product_cost_valuations — cannot validate")
+    if _table_exists(bind, "product_cost_valuations") and _table_exists(bind, "products"):
         bind.execute(sa.text(
-            "ALTER TABLE product_cost_valuations VALIDATE CONSTRAINT fk_pcv_product_id"
+            "DELETE FROM product_cost_valuations "
+            "WHERE product_id LIKE 'prod-grn-%' "
+            "  AND NOT EXISTS (SELECT 1 FROM products WHERE products.id = product_cost_valuations.product_id)"
         ))
 
+    # 2. Validate product_cost_valuations FK (0 orphans after purge) if constraint exists
+    if _table_exists(bind, "product_cost_valuations") and _table_exists(bind, "products"):
+        has_fk = bind.execute(sa.text(
+            "SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid "
+            "WHERE t.relname = 'product_cost_valuations' AND c.conname = 'fk_pcv_product_id'"
+        )).scalar()
+        if has_fk:
+            orphans = bind.execute(sa.text(
+                "SELECT COUNT(*) FROM product_cost_valuations pcv "
+                "LEFT JOIN products p ON p.id = pcv.product_id "
+                "WHERE p.id IS NULL AND pcv.product_id IS NOT NULL"
+            )).scalar()
+            if orphans != 0:
+                raise RuntimeError(f"v1503: {orphans} orphans remain in product_cost_valuations — cannot validate")
+            bind.execute(sa.text(
+                "ALTER TABLE product_cost_valuations VALIDATE CONSTRAINT fk_pcv_product_id"
+            ))
+
     # 3. Purge prod_test rows from packing_slip_items
-    bind.execute(sa.text(
-        "DELETE FROM packing_slip_items WHERE product_id = 'prod_test'"
-    ))
+    if _table_exists(bind, "packing_slip_items"):
+        bind.execute(sa.text(
+            "DELETE FROM packing_slip_items WHERE product_id = 'prod_test'"
+        ))
 
     # 4. Purge prod_test rows from dispatch_items
-    bind.execute(sa.text(
-        "DELETE FROM dispatch_items WHERE product_id = 'prod_test'"
-    ))
+    if _table_exists(bind, "dispatch_items"):
+        bind.execute(sa.text(
+            "DELETE FROM dispatch_items WHERE product_id = 'prod_test'"
+        ))
 
     # 5. Drop wrong FK on po_product_decision_log (was pointing to products, should not exist)
     # Column is polymorphic: items refs + decision codes. No single FK is correct.
     # Safe to drop only if it exists (may already be dropped in live apply).
-    bind.execute(sa.text(
-        "ALTER TABLE po_product_decision_log "
-        "DROP CONSTRAINT IF EXISTS fk_ppdl_product_id"
-    ))
+    if _table_exists(bind, "po_product_decision_log"):
+        bind.execute(sa.text(
+            "ALTER TABLE po_product_decision_log "
+            "DROP CONSTRAINT IF EXISTS fk_ppdl_product_id"
+        ))
 
     # 6. Remaining NOT VALID FKs: fk_sii_product_id, fk_ccle_customer_id,
     #    fk_psi_product_id, fk_di_product_id
@@ -117,10 +128,11 @@ def upgrade():
 def downgrade():
     # Re-add wrong FK (for rollback symmetry only — do not use in production)
     bind = op.get_bind()
-    bind.execute(sa.text(
-        "ALTER TABLE po_product_decision_log "
-        "ADD CONSTRAINT fk_ppdl_product_id FOREIGN KEY (product_id) "
-        "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
-    ))
+    if _table_exists(bind, "po_product_decision_log") and _table_exists(bind, "products"):
+        bind.execute(sa.text(
+            "ALTER TABLE po_product_decision_log "
+            "ADD CONSTRAINT fk_ppdl_product_id FOREIGN KEY (product_id) "
+            "REFERENCES products(id) ON DELETE RESTRICT NOT VALID"
+        ))
     # Note: purged test rows cannot be restored; product_cost_valuations validation
     # cannot be reversed without re-introducing orphan data.
