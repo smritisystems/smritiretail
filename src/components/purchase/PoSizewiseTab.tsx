@@ -524,6 +524,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     color: string;
     currentImage: string;
     scope: "articleColor" | "article" | "itemCode" | "rowOnly";
+    isUploading?: boolean;
+    isOptimized?: boolean;
+    uploadError?: string | null;
   }>({
     isOpen: false,
     rowIndex: null,
@@ -532,6 +535,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     color: "",
     currentImage: "",
     scope: "articleColor",
+    isUploading: false,
+    isOptimized: false,
+    uploadError: null,
   });
   const [zoomLightboxUrl, setZoomLightboxUrl] = useState<string | null>(null);
   const [visualSearch, setVisualSearch] = useState<string>("");
@@ -777,6 +783,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       color,
       currentImage,
       scope: color ? "articleColor" : "article",
+      isUploading: false,
+      isOptimized: Boolean(currentImage && (currentImage.includes("/images/spif-") || currentImage.endsWith(".webp"))),
+      uploadError: null,
     });
   }, [lines, articleImageMap]);
 
@@ -815,10 +824,52 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string;
       if (dataUrl) {
-        setImageModalState(s => ({ ...s, currentImage: dataUrl }));
+        setImageModalState(s => ({
+          ...s,
+          currentImage: dataUrl,
+          isUploading: true,
+          uploadError: null,
+          isOptimized: false,
+        }));
+
+        try {
+          const res = await apiFetchV1("/inventory/upload-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image_data: dataUrl }),
+          });
+
+          if (res && res.url) {
+            setImageModalState(s => ({
+              ...s,
+              currentImage: res.url,
+              isUploading: false,
+              isOptimized: true,
+              uploadError: null,
+            }));
+            onNotification?.(
+              "Image Uploaded & Converted to WebP",
+              `Server optimized into ${res.filename} via SPIF.`,
+              "success"
+            );
+          } else {
+            setImageModalState(s => ({
+              ...s,
+              isUploading: false,
+              isOptimized: false,
+            }));
+          }
+        } catch (err) {
+          console.warn("Server image upload failed, falling back to local data URL:", err);
+          setImageModalState(s => ({
+            ...s,
+            isUploading: false,
+            uploadError: "Saved locally (offline or server upload unavailable)",
+          }));
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -3134,8 +3185,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </div>
 
               {/* Preview Thumbnail */}
-              <div className="flex justify-center">
-                <div className="w-40 h-36 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden relative shadow-inner">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-44 h-36 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden relative shadow-inner">
                   {imageModalState.currentImage ? (
                     <img
                       src={imageModalState.currentImage}
@@ -3148,7 +3199,27 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       <p className="text-[10px] mt-1">No image attached</p>
                     </div>
                   )}
+                  {imageModalState.isUploading && (
+                    <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center text-white backdrop-blur-[1px]">
+                      <span className="material-symbols-outlined animate-spin text-[26px]">progress_activity</span>
+                      <span className="text-[10px] font-bold mt-1 tracking-wide">Optimizing WebP...</span>
+                    </div>
+                  )}
                 </div>
+
+                {/* Status Badges */}
+                {imageModalState.isOptimized && (
+                  <div className="flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md py-0.5 px-2 font-medium">
+                    <span className="material-symbols-outlined text-[13px] text-emerald-600">verified</span>
+                    <span>Persisted Server WebP</span>
+                  </div>
+                )}
+                {imageModalState.uploadError && (
+                  <div className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md py-0.5 px-2 font-medium">
+                    <span className="material-symbols-outlined text-[13px] text-amber-600">info</span>
+                    <span>{imageModalState.uploadError}</span>
+                  </div>
+                )}
               </div>
 
               {/* Upload Local File or Paste URL */}
@@ -3157,22 +3228,24 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   Image Source
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 py-2 px-3 border border-slate-300 border-dashed rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium transition text-xs">
+                  <label className={`flex-1 cursor-pointer flex items-center justify-center gap-1.5 py-2 px-3 border border-slate-300 border-dashed rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium transition text-xs ${imageModalState.isUploading ? "opacity-50 pointer-events-none" : ""}`}>
                     <span className="material-symbols-outlined text-[16px] text-indigo-600">upload_file</span>
-                    <span>Upload Local File</span>
+                    <span>Upload & Optimize Photo</span>
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleImageFileUpload}
                       className="hidden"
+                      disabled={imageModalState.isUploading}
                     />
                   </label>
                   {imageModalState.currentImage && (
                     <button
                       type="button"
-                      onClick={() => setImageModalState(s => ({ ...s, currentImage: "" }))}
+                      onClick={() => setImageModalState(s => ({ ...s, currentImage: "", isOptimized: false }))}
                       className="px-2.5 py-2 border border-slate-200 hover:bg-rose-50 text-rose-600 rounded-lg transition"
                       title="Clear photo"
+                      disabled={imageModalState.isUploading}
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
                     </button>
@@ -3184,9 +3257,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   <input
                     type="url"
                     value={imageModalState.currentImage}
-                    onChange={e => setImageModalState(s => ({ ...s, currentImage: e.target.value }))}
+                    onChange={e => setImageModalState(s => ({ ...s, currentImage: e.target.value, isOptimized: false }))}
                     placeholder="https://example.com/shoe-photo.jpg"
                     className="w-full border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-xs outline-none focus:border-indigo-500 font-mono"
+                    disabled={imageModalState.isUploading}
                   />
                 </div>
               </div>
@@ -3254,9 +3328,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <button
                 type="button"
                 onClick={() => handleApplyImage(imageModalState.currentImage, imageModalState.scope)}
-                className="px-4 py-1.5 rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 text-xs font-bold shadow-xs transition"
+                disabled={imageModalState.isUploading}
+                className={`px-4 py-1.5 rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 text-xs font-bold shadow-xs transition flex items-center gap-1.5 ${imageModalState.isUploading ? "opacity-60 cursor-not-allowed" : ""}`}
               >
-                Save & Apply Image
+                {imageModalState.isUploading ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-[14px]">progress_activity</span>
+                    <span>Optimizing...</span>
+                  </>
+                ) : (
+                  <span>Save & Apply Image</span>
+                )}
               </button>
             </div>
           </div>

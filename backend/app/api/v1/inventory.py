@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.25.0
+Version      : 3.26.0
 Created      : 2026-07-11
-Modified     : 2026-08-20
+Modified     : 2026-09-30
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -654,6 +654,38 @@ async def delete_gallery_image(
     return await repo.update(product, {"gallery_images": current_gallery})
 
 
+@router.post(
+    "/upload-image",
+    dependencies=[Depends(get_current_user)],
+    status_code=200,
+    summary="Upload standalone image",
+    description="Upload a base64 encoded image, process and optimize it via SPIF into WebP format, and return its permanent URL.",
+)
+async def upload_standalone_image(
+    payload: dict = Body(..., example={"image_data": "data:image/png;base64,..."}),
+):
+    """
+    Process and save a standalone base64 image (used by Purchase Studio, PO creation, etc.)
+    Returns the saved WebP filename and accessible URLs.
+    """
+    image_data = payload.get("image_data")
+    if not image_data:
+        raise HTTPException(status_code=400, detail="Base64 image_data is required")
+
+    try:
+        filename = SpifService.process_and_save_base64_image(image_data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to process image: {str(e)}")
+
+    url = f"/api/v1/inventory/images/{filename}"
+    return {
+        "success": True,
+        "filename": filename,
+        "url": url,
+        "relative_url": f"/products/images/{filename}",
+    }
+
+
 @router.get("/images/{filename}", include_in_schema=False)
 async def get_product_image(filename: str):
     """Serve product image from the local SPIF static uploads folder."""
@@ -661,3 +693,4 @@ async def get_product_image(filename: str):
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(filepath, media_type="image/webp")
+

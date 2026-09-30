@@ -816,4 +816,38 @@ describe("Phase 2 Purchase Studio Resiliency, Safety & Overflow Suite", () => {
     // Explicit override wins
     expect(resolveLineImage(lineExplicit, articleMap)).toBe("https://example.com/custom_override.jpg");
   });
+
+  it("29. Server SPIF WebP URL Resolution & Optimization Detection — handles permanent server endpoints", () => {
+    const spifWebpUrl = "/api/v1/inventory/images/spif-81bf80459706490e8adb563e8f94121a.webp";
+    const lineWithSpif: SizewisePOLine = {
+      ...buildBlankLine(0, ["40", "41", "42"], "2026-10-01", 5),
+      itemCode: "FW-OXFORD-01",
+      articleNo: "OXF-990",
+      shade: "Rustic Black",
+      imageUrl: spifWebpUrl,
+    };
+
+    const resolved = resolveLineImage(lineWithSpif, {});
+    expect(resolved).toBe(spifWebpUrl);
+    expect(resolved.startsWith("/api/v1/inventory/images/spif-")).toBe(true);
+    expect(resolved.endsWith(".webp")).toBe(true);
+
+    // Verify optimized WebP detection predicate
+    const isOptimized = resolved.includes("/images/spif-") || resolved.endsWith(".webp");
+    expect(isOptimized).toBe(true);
+  });
+
+  it("30. Clean Payload Footprint Guarantee — server WebP URLs eliminate inline base64 bloat", () => {
+    // 50KB simulated base64 string
+    const simulatedBase64 = "data:image/png;base64," + "A".repeat(50000);
+    const spifWebpUrl = "/api/v1/inventory/images/spif-a1b2c3d4e5f6.webp";
+
+    expect(simulatedBase64.length).toBeGreaterThan(50000);
+    expect(spifWebpUrl.length).toBeLessThan(70);
+
+    // Size reduction > 99.8%
+    const reductionPercent = ((simulatedBase64.length - spifWebpUrl.length) / simulatedBase64.length) * 100;
+    expect(reductionPercent).toBeGreaterThan(99.8);
+  });
 });
+

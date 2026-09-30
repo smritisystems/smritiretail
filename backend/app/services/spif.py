@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 4.0.0
 Created      : 2026-07-13
-Modified     : 2026-07-13
+Modified     : 2026-09-30
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -17,8 +17,14 @@ import uuid
 from io import BytesIO
 from PIL import Image, ImageOps
 
-UPLOAD_DIR = os.path.join(os.getcwd(), "static", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# Prefer persistent workspace static/uploads if running in container with /workspace mounted, otherwise local static/uploads
+if os.path.exists("/workspace/static/uploads"):
+    UPLOAD_DIR = "/workspace/static/uploads"
+elif os.path.exists(os.path.join(os.getcwd(), "static", "uploads")):
+    UPLOAD_DIR = os.path.join(os.getcwd(), "static", "uploads")
+else:
+    UPLOAD_DIR = os.path.join(os.getcwd(), "static", "uploads")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class SpifService:
     @staticmethod
@@ -65,14 +71,27 @@ class SpifService:
     @staticmethod
     def get_image_path(filename: str) -> str:
         """Returns the absolute file path for a given image filename."""
-        return os.path.join(UPLOAD_DIR, filename)
+        primary_path = os.path.join(UPLOAD_DIR, filename)
+        if os.path.exists(primary_path):
+            return primary_path
+        # Check potential alternative locations (e.g. host vs container path mappings)
+        candidates = [
+            os.path.join("/workspace", "static", "uploads", filename),
+            os.path.join("/app", "static", "uploads", filename),
+            os.path.join(os.getcwd(), "backend", "static", "uploads", filename),
+            os.path.join(os.getcwd(), "static", "uploads", filename),
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                return c
+        return primary_path
 
     @staticmethod
     def delete_image_file(filename: str) -> bool:
         """Deletes the image file from local static storage."""
         if not filename:
             return False
-        filepath = os.path.join(UPLOAD_DIR, filename)
+        filepath = SpifService.get_image_path(filename)
         if os.path.exists(filepath):
             try:
                 os.remove(filepath)
