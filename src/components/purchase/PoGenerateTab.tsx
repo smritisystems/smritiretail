@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.43.0
+ * Version      : 6.44.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-21
+ * Modified     : 2026-09-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -876,9 +876,17 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     setShowValidationSummary(true);
     setSubmitValidationResult(null);
 
+    // ── Gap 4 fix: include size_pivot rows in validation (never skip policy gate) ──
     const activeLines = itemView !== "size_pivot"
       ? lineItems.filter(l => l.stockNo && l.orderQty > 0)
-      : [];
+      : sizePivotRows
+          .filter(r => r.articleNo && r.totalQty > 0)
+          .map(r => ({
+            stockNo: r.articleNo,
+            orderQty: r.totalQty,
+            rate: r.rate,
+            vendorDecision: r.vendorDecision,
+          } as Pick<PurchaseOrderLineItem, "stockNo" | "orderQty" | "rate" | "vendorDecision">));
 
     if (!header.supplierId || activeLines.length === 0) {
       handleSavePO();
@@ -892,7 +900,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         method: "POST",
         body: JSON.stringify({
           vendor_id: header.supplierId,
-          transaction_date: header.orderDate,
+          transaction_date: header.orderDate || undefined,
+          // ── Gap 1 fix: include purchase_order_id for audit trail when PO already exists ──
+          purchase_order_id: openedOrder?.id ?? undefined,
           lines: activeLines.map((l, i) => ({
             product_ref: l.stockNo,
             quantity: l.orderQty,

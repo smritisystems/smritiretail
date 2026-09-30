@@ -1,12 +1,18 @@
 /**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
- * Version      : 6.42.0
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 6.44.0
  * Created      : 2026-09-19
- * Modified     : 2026-09-19
+ * Modified     : 2026-09-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Spec         : §18 — Submit validation gate modal.
+ * Changes      : 6.44.0 — Gap 3 fix: stale banner now lists per-line
+ *                previous_action → new action so buyer immediately sees
+ *                which products changed policy (no need to scan entire grid).
  */
 
 import React from "react";
@@ -28,6 +34,9 @@ export const POValidationSummary: React.FC<Props> = ({
   const canSubmit = result?.can_submit ?? false;
   const hasStale = (result?.stale_count ?? 0) > 0;
 
+  // Stale lines with an action change that the buyer must acknowledge
+  const staleLines = result?.line_results.filter(r => r.stale) ?? [];
+
   return (
     <div className="fixed inset-0 z-[9000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
       role="dialog" aria-modal="true" aria-labelledby="po-vs-title">
@@ -35,23 +44,48 @@ export const POValidationSummary: React.FC<Props> = ({
 
         <div className={(canSubmit ? "border-b border-[#c4c6d4] px-5 py-3 bg-white" : "border-b border-red-200 px-5 py-3 bg-red-50")}>
           <h2 id="po-vs-title" className={(canSubmit ? "text-sm font-bold text-[#00296d]" : "text-sm font-bold text-red-700")}>
-            {loading ? "Validating Purchase Order…" : canSubmit ? "Purchase Order Validation" : "Cannot Submit"}
+            {loading ? "Validating Purchase Order\u2026" : canSubmit ? "Purchase Order Validation" : "Cannot Submit"}
           </h2>
         </div>
 
         {loading && (
           <div className="flex flex-col items-center gap-3 py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00296d] border-t-transparent" />
-            <p className="text-xs text-[#737685]">Re-evaluating all product lines…</p>
+            <p className="text-xs text-[#737685]">Re-evaluating all product lines\u2026</p>
           </div>
         )}
 
         {!loading && result && (
           <div className="px-5 py-4 flex flex-col gap-2">
 
+            {/* ── Stale banner — Gap 3 fix: expanded per-line breakdown ── */}
             {hasStale && (
-              <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium flex items-center gap-2">
-                ⚠ {result.stale_count} product{result.stale_count !== 1 ? "s" : ""} changed since you last browsed. Decisions updated.
+              <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex flex-col gap-1.5">
+                <div className="flex items-start gap-2 font-medium">
+                  <span className="mt-0.5">⚠</span>
+                  <span>
+                    {result.stale_count} product{result.stale_count !== 1 ? "s" : ""} changed
+                    since you last browsed — decisions updated.
+                  </span>
+                </div>
+
+                {staleLines.length > 0 && (
+                  <ul className="pl-4 space-y-0.5 font-normal">
+                    {staleLines.map(r => (
+                      <li key={r.line_index} className="font-mono text-[11px] text-amber-900 leading-relaxed">
+                        <span className="font-semibold">Line {r.line_index + 1}:</span>{" "}
+                        {r.product_ref}
+                        {r.previous_action ? (
+                          <span className="text-amber-700">
+                            {" "}&mdash; was <strong>{r.previous_action}</strong>, now <strong>{r.action}</strong>
+                          </span>
+                        ) : (
+                          <span className="text-amber-700"> &mdash; now <strong>{r.action}</strong></span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
@@ -106,7 +140,7 @@ export const POValidationSummary: React.FC<Props> = ({
 
 const CheckRow: React.FC<{ ok: boolean; label: string }> = ({ ok, label }) => (
   <div className={"flex items-center gap-2 text-xs " + (ok ? "text-green-700" : "text-[#737685]")}>
-    <span className="font-bold">{ok ? "✓" : "–"}</span>
+    <span className="font-bold">{ok ? "\u2713" : "\u2013"}</span>
     <span>{label}</span>
   </div>
 );
