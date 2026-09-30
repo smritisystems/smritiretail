@@ -92,6 +92,7 @@ export interface FootwearPurchaseOrderData {
   qualityStandards?: string[];
   authorizedSignatoryBuyer?: string;
   authorizedSignatoryVendor?: string;
+  orientation?: "portrait" | "landscape";
 }
 
 export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderData }> = ({ data = {} as FootwearPurchaseOrderData }) => {
@@ -99,6 +100,7 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
   const currencyCode = data.currency || "EUR";
   const sizingScale = data.sizingScale || "EURO";
   const showPhotos = data.showPhotos !== false;
+  const isLandscape = (data.orientation ?? "landscape") === "landscape";
 
   const items = data.items && data.items.length > 0 ? data.items : [
     {
@@ -176,7 +178,19 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
   const sumEu45 = items.reduce((a, b) => a + (b.eu45 || 0), 0);
 
   return (
-    <div className="w-[210mm] min-h-[297mm] bg-white text-slate-900 p-8 mx-auto box-border text-[11px] font-sans print-only-container shadow-sm leading-normal">
+    <div
+      className={`${
+        isLandscape ? "w-[297mm] min-h-[210mm] p-6" : "w-[210mm] min-h-[297mm] p-8"
+      } bg-white text-slate-900 mx-auto box-border text-[11px] font-sans print-only-container shadow-sm leading-normal`}
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: ${isLandscape ? "A4 landscape" : "A4 portrait"};
+            margin: 8mm;
+          }
+        }
+      `}</style>
       {/* 1. CORPORATE HEADER */}
       <div className="flex justify-between border-b-2 border-indigo-950 pb-3 mb-3">
         <div>
@@ -274,10 +288,14 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
                 {showPhotos && (
                   <td className="p-1 text-center border-r border-slate-300">
                     <div className="w-10 h-10 rounded border border-slate-200 bg-slate-50 flex items-center justify-center mx-auto overflow-hidden">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5">
-                        <path d="M2 18h20c-.5-3-2-6-5-7l-5-2-4 1-4 3c-1 1-1.5 3-2 5z"/>
-                        <path d="M2 18v2c0 .55.45 1 1 1h18c.55 0 1-.45 1-1v-2"/>
-                      </svg>
+                      {item.photoUrl ? (
+                        <img src={item.photoUrl} alt={item.articleCode} className="w-full h-full object-cover" />
+                      ) : (
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5">
+                          <path d="M2 18h20c-.5-3-2-6-5-7l-5-2-4 1-4 3c-1 1-1.5 3-2 5z"/>
+                          <path d="M2 18v2c0 .55.45 1 1 1h18c.55 0 1-.45 1-1v-2"/>
+                        </svg>
+                      )}
                     </div>
                   </td>
                 )}

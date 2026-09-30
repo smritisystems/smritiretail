@@ -30,6 +30,34 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ## [Upcoming Features / Roadmap]
 
+## [6.50.0] - 2026-09-30 — Purchase Studio Phase 3: Article Image Binding, Visual Lookbook, Colorways, Assortment Curve Intelligence & Landscape Printout
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Purchase Studio & Sizing Engine
+> **Walkthrough:** `docs/walkthrough/purchase/Purchase_Studio_Phase_3_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/purchase/Purchase_Studio_Phase_3_Plan_v1.0.0.md`
+
+### Added
+- **Dedicated Lookbook Sub-Tab (`2. Images & Articles`):** Implemented visual merchandiser tab with dual Card and Table view modes, displaying high-resolution footwear thumbnails, article codes, and live financial totals.
+- **Color / Shade Dimension Support:**
+  - Added `SHADE_COLOR_MAP`, `COLOR_SWATCHES`, and `getShadeHex()` mapping footwear colors (Tan, Brown, Black, Camel, Navy, Olive, Cherry, White) to curated hex palettes.
+  - Added prominent Color / Shade badges, quick inline color editor inputs, and interactive swatch buttons on lookbook cards.
+  - Added a dedicated `Color / Shade` column in the high-density Table View.
+  - Implemented composite `Article + Color` image binding hierarchy via `resolveLineImage()` allowing buyers to bind specific photos per colorway (`${articleNo}::${color.toLowerCase()}`).
+- **Mathematical Size Assortment Engine (`recommendSizeAssortment`):**
+  - Added pure mathematical size curve distribution utility with Gaussian Bell Curve, Core-heavy curve, and Uniform curve.
+  - Implemented zero-drift remainder sorting (`fractions.sort((a,b) => b.remainder - a.remainder)`) strictly guaranteeing integer sum invariance ($\sum \text{sizes} \equiv \text{targetQty}$).
+  - Added single-row "Recommend Ratio" popover and global "Bulk Recommend" toolbar action.
+- **A4 Landscape Statutory Print Engine:**
+  - Enhanced `FootwearPurchaseOrderA4` and `SizePivotMatrixA4` to support A4 Landscape (`297mm × 210mm`) with active `@page { size: A4 landscape; margin: 8mm; }` media styling.
+  - Rendered article photo thumbnails, colorway badges, and technical footwear specifications across 16 uncompressed matrix columns.
+  - Added `Layout: [Landscape] [Portrait]` switcher in `POPrintPreviewModal`.
+- **Automated Vitest Test Suite:** Added unit tests 22–28 in `src/tests/poSizewiseUX.test.ts` verifying Bell curves, Core curves, Uniform curves, 100-iteration sum invariance, Landscape orientation, and composite colorway image resolution.
+- **Headless Playwright Visual Evidence Capture:** Automated capture script (`scripts/capture_purchase_studio_headless.py`) generating 13 high-resolution evidence artifacts with zero physical browser windows opened.
+
+### Changed
+- **Renumbered Sub-Tabs:** Reorganized Purchase Order sub-tabs into `1. Items`, `2. Images & Articles (NEW)`, `3. Delivery & Tax`, `4. Other Details`.
+- **Statutory Data Mapping:** Propagated `orientation`, `imageUrl`, and `photoUrl` to print rows via `resolveLineImage()`.
+
 ## [6.49.0] - 2026-09-30 — Document Series Studio: Category-Aware Article Numbering Configuration
 
 > **Branch:** `smritiNX` | **Area:** Inventory / Document Series & Numbering Studio

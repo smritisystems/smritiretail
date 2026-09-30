@@ -94,7 +94,7 @@ async def ai_chat(
     return {
         "reply": (
             "**[Demo AI Mode]** SMRITI Assistant is running in offline fallback mode. "
-            "Your message has been received. Configure `GEMINI_API_KEY` if you need live generative intelligence "
-            "from the upstream Gemini service."
+            "Your message has been received. Configure AI service credentials if you need live generative intelligence "
+            "from the upstream AI service."
         )
     }
