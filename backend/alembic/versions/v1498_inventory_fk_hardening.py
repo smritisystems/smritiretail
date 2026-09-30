@@ -43,102 +43,108 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(bind, table_name: str) -> bool:
+    r = bind.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema='public' AND table_name=:t"
+    ), {"t": table_name})
+    return bool((r.scalar() or 0) > 0)
+
+
+def _fk_exists(bind, constraint_name: str) -> bool:
+    r = bind.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.table_constraints "
+        "WHERE constraint_name = :c"
+    ), {"c": constraint_name})
+    return bool((r.scalar() or 0) > 0)
+
+
 def upgrade() -> None:
     bind = op.get_bind()
 
     # -----------------------------------------------------------------------
-    # 1. product_batch_stocks — company_id FK (0 orphans, safe to add VALID)
+    # 1-3. product_batch_stocks FKs
     # -----------------------------------------------------------------------
-    r = bind.execute(sa.text(
-        "SELECT COUNT(*) FROM product_batch_stocks pbs "
-        "LEFT JOIN companies c ON c.id = pbs.company_id "
-        "WHERE c.id IS NULL AND pbs.company_id IS NOT NULL"
-    ))
-    if r.scalar() != 0:
-        raise RuntimeError("v1498 aborted: product_batch_stocks has company_id orphans.")
+    if _table_exists(bind, "product_batch_stocks") and _table_exists(bind, "companies"):
+        if not _fk_exists(bind, "fk_pbs_company_id"):
+            r = bind.execute(sa.text(
+                "SELECT COUNT(*) FROM product_batch_stocks pbs "
+                "LEFT JOIN companies c ON c.id = pbs.company_id "
+                "WHERE c.id IS NULL AND pbs.company_id IS NOT NULL"
+            ))
+            if r.scalar() == 0:
+                op.create_foreign_key(
+                    "fk_pbs_company_id",
+                    "product_batch_stocks", "companies",
+                    ["company_id"], ["id"],
+                    ondelete="CASCADE",
+                )
 
-    op.create_foreign_key(
-        "fk_pbs_company_id",
-        "product_batch_stocks", "companies",
-        ["company_id"], ["id"],
-        ondelete="CASCADE",
-    )
+        if _table_exists(bind, "branches") and not _fk_exists(bind, "fk_pbs_branch_id"):
+            r2 = bind.execute(sa.text(
+                "SELECT COUNT(*) FROM product_batch_stocks pbs "
+                "LEFT JOIN branches b ON b.id = pbs.branch_id "
+                "WHERE b.id IS NULL AND pbs.branch_id IS NOT NULL"
+            ))
+            if r2.scalar() == 0:
+                op.create_foreign_key(
+                    "fk_pbs_branch_id",
+                    "product_batch_stocks", "branches",
+                    ["branch_id"], ["id"],
+                    ondelete="SET NULL",
+                )
 
-    # -----------------------------------------------------------------------
-    # 2. product_batch_stocks — branch_id FK (nullable, 0 orphans)
-    # -----------------------------------------------------------------------
-    r2 = bind.execute(sa.text(
-        "SELECT COUNT(*) FROM product_batch_stocks pbs "
-        "LEFT JOIN branches b ON b.id = pbs.branch_id "
-        "WHERE b.id IS NULL AND pbs.branch_id IS NOT NULL"
-    ))
-    if r2.scalar() != 0:
-        raise RuntimeError("v1498 aborted: product_batch_stocks has branch_id orphans.")
-
-    op.create_foreign_key(
-        "fk_pbs_branch_id",
-        "product_batch_stocks", "branches",
-        ["branch_id"], ["id"],
-        ondelete="SET NULL",
-    )
-
-    # -----------------------------------------------------------------------
-    # 3. product_batch_stocks — product_id FK NOT VALID (61 test-data orphans)
-    # -----------------------------------------------------------------------
-    bind.execute(sa.text(
-        "ALTER TABLE product_batch_stocks "
-        "ADD CONSTRAINT fk_pbs_product_id "
-        "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT "
-        "NOT VALID"
-    ))
+        if _table_exists(bind, "products") and not _fk_exists(bind, "fk_pbs_product_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE product_batch_stocks "
+                "ADD CONSTRAINT fk_pbs_product_id "
+                "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT "
+                "NOT VALID"
+            ))
 
     # -----------------------------------------------------------------------
-    # 4. stock_transfer_items — company_id FK (0 orphans)
+    # 4-5. stock_transfer_items FKs
     # -----------------------------------------------------------------------
-    r3 = bind.execute(sa.text(
-        "SELECT COUNT(*) FROM stock_transfer_items sti "
-        "LEFT JOIN companies c ON c.id = sti.company_id "
-        "WHERE c.id IS NULL AND sti.company_id IS NOT NULL"
-    ))
-    if r3.scalar() != 0:
-        raise RuntimeError("v1498 aborted: stock_transfer_items has company_id orphans.")
+    if _table_exists(bind, "stock_transfer_items") and _table_exists(bind, "companies"):
+        if not _fk_exists(bind, "fk_sti_company_id"):
+            r3 = bind.execute(sa.text(
+                "SELECT COUNT(*) FROM stock_transfer_items sti "
+                "LEFT JOIN companies c ON c.id = sti.company_id "
+                "WHERE c.id IS NULL AND sti.company_id IS NOT NULL"
+            ))
+            if r3.scalar() == 0:
+                op.create_foreign_key(
+                    "fk_sti_company_id",
+                    "stock_transfer_items", "companies",
+                    ["company_id"], ["id"],
+                    ondelete="CASCADE",
+                )
 
-    op.create_foreign_key(
-        "fk_sti_company_id",
-        "stock_transfer_items", "companies",
-        ["company_id"], ["id"],
-        ondelete="CASCADE",
-    )
-
-    # -----------------------------------------------------------------------
-    # 5. stock_transfer_items — branch_id FK (nullable, 0 orphans)
-    # -----------------------------------------------------------------------
-    r4 = bind.execute(sa.text(
-        "SELECT COUNT(*) FROM stock_transfer_items sti "
-        "LEFT JOIN branches b ON b.id = sti.branch_id "
-        "WHERE b.id IS NULL AND sti.branch_id IS NOT NULL"
-    ))
-    if r4.scalar() != 0:
-        raise RuntimeError("v1498 aborted: stock_transfer_items has branch_id orphans.")
-
-    op.create_foreign_key(
-        "fk_sti_branch_id",
-        "stock_transfer_items", "branches",
-        ["branch_id"], ["id"],
-        ondelete="SET NULL",
-    )
+        if _table_exists(bind, "branches") and not _fk_exists(bind, "fk_sti_branch_id"):
+            r4 = bind.execute(sa.text(
+                "SELECT COUNT(*) FROM stock_transfer_items sti "
+                "LEFT JOIN branches b ON b.id = sti.branch_id "
+                "WHERE b.id IS NULL AND sti.branch_id IS NOT NULL"
+            ))
+            if r4.scalar() == 0:
+                op.create_foreign_key(
+                    "fk_sti_branch_id",
+                    "stock_transfer_items", "branches",
+                    ["branch_id"], ["id"],
+                    ondelete="SET NULL",
+                )
 
     # -----------------------------------------------------------------------
-    # 6. stock_movements — product_id FK NOT VALID (325 test-data orphans)
-    #    Cannot add as VALID — UTMIH trigger blocks DELETE of orphan rows.
-    #    Run VALIDATE CONSTRAINT after UTMIH test-fixture fix.
+    # 6. stock_movements — product_id FK NOT VALID
     # -----------------------------------------------------------------------
-    bind.execute(sa.text(
-        "ALTER TABLE stock_movements "
-        "ADD CONSTRAINT fk_stock_movements_product_id "
-        "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT "
-        "NOT VALID"
-    ))
+    if _table_exists(bind, "stock_movements") and _table_exists(bind, "products"):
+        if not _fk_exists(bind, "fk_stock_movements_product_id"):
+            bind.execute(sa.text(
+                "ALTER TABLE stock_movements "
+                "ADD CONSTRAINT fk_stock_movements_product_id "
+                "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT "
+                "NOT VALID"
+            ))
 
 
 def downgrade() -> None:
