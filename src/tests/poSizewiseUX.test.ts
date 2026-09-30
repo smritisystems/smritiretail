@@ -23,6 +23,8 @@ import {
   getShadeHex,
   COLOR_SWATCHES,
   resolveLineImage,
+  matchImageFilenameToLines,
+  FilenameMatchResult,
 } from "../components/purchase/PoSizewiseTab.tsx";
 
 describe("SMRITI 9 Sizewise Purchase Order Matrix & Calculation Suite", () => {
@@ -848,6 +850,105 @@ describe("Phase 2 Purchase Studio Resiliency, Safety & Overflow Suite", () => {
     // Size reduction > 99.8%
     const reductionPercent = ((simulatedBase64.length - spifWebpUrl.length) / simulatedBase64.length) * 100;
     expect(reductionPercent).toBeGreaterThan(99.8);
+  });
+
+  // ── Phase 5 Tests: Multi-Image Batch Ingestion & Filename Heuristics ──
+  const sampleBatchLines = [
+    { articleNo: "FW-NK-9921", shade: "Tan", itemCode: "FW-01" },
+    { articleNo: "FW-NK-9921", shade: "Black", itemCode: "FW-02" },
+    { articleNo: "OXF-990", shade: "Rustic Brown", itemCode: "OXF-01" },
+    { articleNo: "SND-10001", shade: "Cherry Red", itemCode: "SND-01" },
+  ];
+
+  it("31. Exact Composite Filename Matching — maps article number and colorway across multiple separator conventions", () => {
+    // Underscore separator
+    const res1 = matchImageFilenameToLines("FW-NK-9921_Tan.jpg", sampleBatchLines);
+    expect(res1.confidence).toBe("exact_composite");
+    expect(res1.lineIndex).toBe(0);
+    expect(res1.articleNo).toBe("FW-NK-9921");
+    expect(res1.shade).toBe("Tan");
+
+    // Hyphen separator and lowercase
+    const res2 = matchImageFilenameToLines("fw-nk-9921-black.png", sampleBatchLines);
+    expect(res2.confidence).toBe("exact_composite");
+    expect(res2.lineIndex).toBe(1);
+    expect(res2.articleNo).toBe("FW-NK-9921");
+    expect(res2.shade).toBe("Black");
+
+    // Space separator with multi-word colorway
+    const res3 = matchImageFilenameToLines("SND-10001 Cherry Red.jpeg", sampleBatchLines);
+    expect(res3.confidence).toBe("exact_composite");
+    expect(res3.lineIndex).toBe(3);
+    expect(res3.articleNo).toBe("SND-10001");
+    expect(res3.shade).toBe("Cherry Red");
+
+    // Complex naming with brackets, prefix, and WebP format
+    const res4 = matchImageFilenameToLines("[Sample] OXF-990_Rustic Brown_v2.webp", sampleBatchLines);
+    expect(res4.confidence).toBe("exact_composite");
+    expect(res4.lineIndex).toBe(2);
+    expect(res4.articleNo).toBe("OXF-990");
+    expect(res4.shade).toBe("Rustic Brown");
+  });
+
+  it("32. Article-Only Filename Matching — links photo to first matching article when colorway is omitted in filename", () => {
+    // Only article number in filename
+    const res = matchImageFilenameToLines("OXF-990_studio_catalog.png", sampleBatchLines);
+    expect(res.confidence).toBe("article_only");
+    expect(res.lineIndex).toBe(2);
+    expect(res.articleNo).toBe("OXF-990");
+
+    // Item code matching
+    const resCode = matchImageFilenameToLines("SND-01_hero.jpg", sampleBatchLines);
+    expect(resCode.confidence).toBe("article_only");
+    expect(resCode.lineIndex).toBe(3);
+    expect(resCode.articleNo).toBe("SND-10001");
+  });
+
+  it("33. Color-Only Filename Matching & Safe Fallback — handles unique shade patterns and fallback for unmatched filenames", () => {
+    // Color-only filename matching distinctive colorway
+    const resColor = matchImageFilenameToLines("cherry-red-footwear-sample.jpg", sampleBatchLines);
+    expect(resColor.confidence).toBe("color_only");
+    expect(resColor.lineIndex).toBe(3);
+    expect(resColor.articleNo).toBe("SND-10001");
+    expect(resColor.shade).toBe("Cherry Red");
+
+    // Completely unmatchable camera filename
+    const resRandom = matchImageFilenameToLines("DCIM_20260930_99812.png", sampleBatchLines);
+    expect(resRandom.confidence).toBe("none");
+    expect(resRandom.lineIndex).toBe(0); // Defaults safely to first valid line
+    expect(resRandom.articleNo).toBe("FW-NK-9921");
+
+    // Empty lines array safety check
+    const resEmpty = matchImageFilenameToLines("test.jpg", []);
+    expect(resEmpty.confidence).toBe("none");
+    expect(resEmpty.lineIndex).toBe(-1);
+  });
+
+  it("34. Batch Queue Heuristic Simulation — processes an array of diverse filenames into auto-mapped queue", () => {
+    const rawFilenames = [
+      "FW-NK-9921_Tan.jpg",
+      "FW-NK-9921_Black.png",
+      "OXF-990-Rustic Brown.webp",
+      "SND-10001_Cherry Red_angles.jpg",
+      "random_shoe_sample.jpeg",
+    ];
+
+    const mappedQueue = rawFilenames.map((name, i) => ({
+      id: `batch-${i}`,
+      name,
+      match: matchImageFilenameToLines(name, sampleBatchLines),
+    }));
+
+    expect(mappedQueue.length).toBe(5);
+
+    // 4 should be exact composite matches
+    const compositeMatches = mappedQueue.filter(m => m.match.confidence === "exact_composite");
+    expect(compositeMatches.length).toBe(4);
+
+    // 1 should be fallback
+    const fallbackMatches = mappedQueue.filter(m => m.match.confidence === "none");
+    expect(fallbackMatches.length).toBe(1);
+    expect(fallbackMatches[0].name).toBe("random_shoe_sample.jpeg");
   });
 });
 
