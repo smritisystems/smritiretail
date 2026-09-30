@@ -463,14 +463,25 @@ class PurchaseService:
         self,
         pending_only: bool = False,
         supplier_id: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> list[PurchaseOrder]:
+        """
+        List purchase orders for the tenant.
+        Phase B: status filter — pass a single status value (e.g. 'DRAFT',
+        'SUBMITTED', 'CONFIRMED') or None for all.
+        """
         stmt = select(PurchaseOrder).where(
             PurchaseOrder.company_id == self.tenant.company_id,
             PurchaseOrder.is_deleted == False,
         )
         if supplier_id:
             stmt = stmt.where(PurchaseOrder.supplier_id == supplier_id)
-        if pending_only:
+        if status:
+            # Normalise to uppercase; support comma-separated multi-status
+            statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
+            if statuses:
+                stmt = stmt.where(PurchaseOrder.status.in_(statuses))
+        elif pending_only:
             stmt = stmt.where(
                 ~PurchaseOrder.status.in_(["RECEIVED", "COMPLETED", "CANCELLED", "Received", "Completed", "Cancelled", "DRAFT", "Draft"])
             )
