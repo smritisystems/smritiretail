@@ -81,6 +81,7 @@ def bootstrap_company_database_prerequisites(
         },
         "sales_order_items": {
             "variant_id": "VARCHAR(50)",
+            "article_no": "VARCHAR(50)",
             "vendor_style": "VARCHAR(100)",
             "color": "VARCHAR(50)",
             "size": "VARCHAR(50)",
@@ -92,6 +93,7 @@ def bootstrap_company_database_prerequisites(
         },
         "sales_orders": {
             "po_number": "VARCHAR(100)",
+            "customer_id": "VARCHAR(50)",
             "total_qty": "NUMERIC(15, 4)",
             "billed_qty": "NUMERIC(15, 4)",
             "billed_value": "NUMERIC(15, 2)",

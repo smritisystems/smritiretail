@@ -520,15 +520,7 @@ async def seed():
             ).scalars().first()
             actual_br_id = primary_branch.id if primary_branch else None
 
-            reg1 = (
-                await target_session.execute(
-                    select(CashRegister).where(
-                        CashRegister.company_id == comp_id,
-                        CashRegister.code == "REG-01",
-                        CashRegister.is_deleted == False,
-                    )
-                )
-            ).scalars().first()
+            reg1 = await target_session.get(CashRegister, "PROF-DEFAULT-REG01")
             if not reg1:
                 target_session.add(CashRegister(
                     id="PROF-DEFAULT-REG01",
@@ -543,16 +535,13 @@ async def seed():
                     company_id=comp_id,
                     branch_id=actual_br_id,
                 ))
+            else:
+                reg1.company_id = comp_id
+                reg1.branch_id = actual_br_id
+                reg1.is_active = True
+                reg1.is_deleted = False
 
-            reg2 = (
-                await target_session.execute(
-                    select(CashRegister).where(
-                        CashRegister.company_id == comp_id,
-                        CashRegister.code == "REG-02",
-                        CashRegister.is_deleted == False,
-                    )
-                )
-            ).scalars().first()
+            reg2 = await target_session.get(CashRegister, "PROF-DEFAULT-REG02")
             if not reg2:
                 target_session.add(CashRegister(
                     id="PROF-DEFAULT-REG02",
@@ -567,6 +556,11 @@ async def seed():
                     company_id=comp_id,
                     branch_id=actual_br_id,
                 ))
+            else:
+                reg2.company_id = comp_id
+                reg2.branch_id = actual_br_id
+                reg2.is_active = True
+                reg2.is_deleted = False
 
             await target_session.commit()
 
@@ -576,12 +570,24 @@ async def seed():
         except Exception as e:
             print(f"Notice: skipping control plane CRM seed: {e}")
 
-        # Seed into tenant company DBs
+        # Seed into tenant company DBs with company awareness
+        comp_db_map = {"smriti001": "COMP-001", "smriti002": "COMP-002", "smriti003": "COMP-003"}
         for comp_db in ["smriti001", "smriti002", "smriti003"]:
             try:
+                target_comp_id = comp_db_map.get(comp_db, "COMP-001")
                 comp_sm = get_company_sessionmaker(comp_db)
                 async with comp_sm() as cdb:
-                    await _seed_crm_data(cdb, "COMP-001")
+                    # Ensure target Company exists in tenant DB before seeding dependent CRM records
+                    c_entry = await cdb.get(Company, target_comp_id)
+                    if not c_entry:
+                        cdb.add(Company(
+                            id=target_comp_id,
+                            name=f"Company {target_comp_id}",
+                            is_active=True,
+                            is_deleted=False,
+                        ))
+                        await cdb.flush()
+                    await _seed_crm_data(cdb, target_comp_id)
             except Exception as e:
                 print(f"Notice: seeding into company db {comp_db}: {e}")
 

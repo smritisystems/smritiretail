@@ -33,17 +33,21 @@ depends_on = None
 
 def upgrade() -> None:
     bind = op.get_bind()
-    # Pre-flight safety check — must be 0 populated rows
-    result = bind.execute(
-        sa.text("SELECT COUNT(*) FROM products WHERE tenant_id IS NOT NULL")
-    )
-    count = result.scalar()
-    if count != 0:
-        raise RuntimeError(
-            f"v1497a upgrade aborted: products.tenant_id is not empty "
-            f"({count} non-NULL rows). Investigate before retiring."
+    col_exists = bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'products' AND column_name = 'tenant_id'"
+    )).scalar()
+    if col_exists:
+        result = bind.execute(
+            sa.text("SELECT COUNT(*) FROM products WHERE tenant_id IS NOT NULL")
         )
-    op.drop_column("products", "tenant_id")
+        count = result.scalar()
+        if count != 0:
+            raise RuntimeError(
+                f"v1497a upgrade aborted: products.tenant_id is not empty "
+                f"({count} non-NULL rows). Investigate before retiring."
+            )
+        op.drop_column("products", "tenant_id")
 
 
 def downgrade() -> None:

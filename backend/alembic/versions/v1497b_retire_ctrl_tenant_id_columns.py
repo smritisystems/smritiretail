@@ -35,33 +35,53 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(bind, table_name: str) -> bool:
+    r = bind.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema='public' AND table_name=:t"
+    ), {"t": table_name})
+    return bool((r.scalar() or 0) > 0)
+
+
 def upgrade() -> None:
     bind = op.get_bind()
 
-    # Pre-flight: smriti_themes
-    r1 = bind.execute(
-        sa.text("SELECT COUNT(*) FROM smriti_themes WHERE tenant_id IS NOT NULL")
-    )
-    c1 = r1.scalar()
-    if c1 != 0:
-        raise RuntimeError(
-            f"v1497b aborted: smriti_themes.tenant_id has {c1} non-NULL rows."
-        )
-    op.drop_column("smriti_themes", "tenant_id")
+    # Pre-flight: smriti_themes (control plane only)
+    if _table_exists(bind, "smriti_themes"):
+        col_exists = bind.execute(sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'smriti_themes' AND column_name = 'tenant_id'"
+        )).scalar()
+        if col_exists:
+            r1 = bind.execute(
+                sa.text("SELECT COUNT(*) FROM smriti_themes WHERE tenant_id IS NOT NULL")
+            )
+            c1 = r1.scalar()
+            if c1 != 0:
+                raise RuntimeError(
+                    f"v1497b aborted: smriti_themes.tenant_id has {c1} non-NULL rows."
+                )
+            op.drop_column("smriti_themes", "tenant_id")
 
-    # Pre-flight: smriti_workspace_profiles
-    r2 = bind.execute(
-        sa.text(
-            "SELECT COUNT(*) FROM smriti_workspace_profiles "
-            "WHERE tenant_id IS NOT NULL"
-        )
-    )
-    c2 = r2.scalar()
-    if c2 != 0:
-        raise RuntimeError(
-            f"v1497b aborted: smriti_workspace_profiles.tenant_id has {c2} non-NULL rows."
-        )
-    op.drop_column("smriti_workspace_profiles", "tenant_id")
+    # Pre-flight: smriti_workspace_profiles (control plane only)
+    if _table_exists(bind, "smriti_workspace_profiles"):
+        col_exists = bind.execute(sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'smriti_workspace_profiles' AND column_name = 'tenant_id'"
+        )).scalar()
+        if col_exists:
+            r2 = bind.execute(
+                sa.text(
+                    "SELECT COUNT(*) FROM smriti_workspace_profiles "
+                    "WHERE tenant_id IS NOT NULL"
+                )
+            )
+            c2 = r2.scalar()
+            if c2 != 0:
+                raise RuntimeError(
+                    f"v1497b aborted: smriti_workspace_profiles.tenant_id has {c2} non-NULL rows."
+                )
+            op.drop_column("smriti_workspace_profiles", "tenant_id")
 
 
 def downgrade() -> None:

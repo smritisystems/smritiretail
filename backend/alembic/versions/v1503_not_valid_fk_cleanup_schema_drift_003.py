@@ -1,4 +1,4 @@
-﻿"""v1503: NOT VALID FK cleanup — Part 4c of Full System Audit
+"""v1503: NOT VALID FK cleanup — Part 4c of Full System Audit
 
 Actions taken after orphan classification pass:
 
@@ -72,17 +72,22 @@ def upgrade():
         "  AND NOT EXISTS (SELECT 1 FROM products WHERE products.id = product_cost_valuations.product_id)"
     ))
 
-    # 2. Validate product_cost_valuations FK (0 orphans after purge)
-    orphans = bind.execute(sa.text(
-        "SELECT COUNT(*) FROM product_cost_valuations pcv "
-        "LEFT JOIN products p ON p.id = pcv.product_id "
-        "WHERE p.id IS NULL AND pcv.product_id IS NOT NULL"
+    # 2. Validate product_cost_valuations FK (0 orphans after purge) if constraint exists
+    has_fk = bind.execute(sa.text(
+        "SELECT 1 FROM pg_constraint c JOIN pg_class t ON c.conrelid = t.oid "
+        "WHERE t.relname = 'product_cost_valuations' AND c.conname = 'fk_pcv_product_id'"
     )).scalar()
-    if orphans != 0:
-        raise RuntimeError(f"v1503: {orphans} orphans remain in product_cost_valuations — cannot validate")
-    bind.execute(sa.text(
-        "ALTER TABLE product_cost_valuations VALIDATE CONSTRAINT fk_pcv_product_id"
-    ))
+    if has_fk:
+        orphans = bind.execute(sa.text(
+            "SELECT COUNT(*) FROM product_cost_valuations pcv "
+            "LEFT JOIN products p ON p.id = pcv.product_id "
+            "WHERE p.id IS NULL AND pcv.product_id IS NOT NULL"
+        )).scalar()
+        if orphans != 0:
+            raise RuntimeError(f"v1503: {orphans} orphans remain in product_cost_valuations — cannot validate")
+        bind.execute(sa.text(
+            "ALTER TABLE product_cost_valuations VALIDATE CONSTRAINT fk_pcv_product_id"
+        ))
 
     # 3. Purge prod_test rows from packing_slip_items
     bind.execute(sa.text(
