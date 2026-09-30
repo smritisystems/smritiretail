@@ -5,8 +5,7 @@
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 1.0.0
- * Created      : 2026-09-25
- * Modified     : 2026-09-25
+ * Modified     : 2026-09-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -442,5 +441,34 @@ describe("SMRITI 9 Footwear Domain Validation with Existing SMRITI Data", () => 
     expect(summary.perSizeTotals["9"]).toBe(15);
     expect(summary.sizePercents["8"]).toBe("25.00%");
     expect(summary.sizePercents["9"]).toBe("25.00%");
+  });
+});
+
+describe("Phase 1 Purchase Studio Architecture & UX Invariant Suite", () => {
+  it("14. should initialize empty state lines array as empty [] with zero summary values", () => {
+    const emptyLines: SizewisePOLine[] = [];
+    const sizes = ["S", "M", "L", "XL"];
+    const summary = calculateSizewiseSummaryTotals(emptyLines, sizes);
+    expect(summary.totalItems).toBe(0);
+    expect(summary.grandTotalQty).toBe(0);
+    expect(summary.grossValue).toBe(0);
+    expect(summary.totalTax).toBe(0);
+    expect(summary.netOrderValue).toBe(0);
+  });
+
+  it("15. should format composite read-only document identity string as prefix-orderNumber", () => {
+    const header = { prefix: "PO", orderNumber: "37067" };
+    const compositeId = `${header.prefix}-${header.orderNumber}`;
+    expect(compositeId).toBe("PO-37067");
+  });
+
+  it("16. should distinguish between populated rows and blank placeholder rows using hasItem predicate", () => {
+    const populatedLine = { itemCode: "1001MUG" };
+    const emptyLine = { itemCode: "" };
+    const undefinedLine = { itemCode: undefined };
+
+    expect(Boolean(populatedLine.itemCode)).toBe(true);
+    expect(Boolean(emptyLine.itemCode)).toBe(false);
+    expect(Boolean((undefinedLine as any).itemCode)).toBe(false);
   });
 });

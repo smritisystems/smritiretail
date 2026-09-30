@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 1.0.0
  * Created      : 2026-09-25
- * Modified     : 2026-09-25
+ * Modified     : 2026-09-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -42,6 +42,8 @@ import React, {
 } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
+import { useF2Screen, useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import type { Product } from "../../types.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,7 +81,7 @@ const PRICE_LIST_OPTIONS = [
 ];
 const UNITS_LIST = ["Pair", "Pcs", "Box", "Set", "Mtr", "Kg", "Dzn"];
 const LEAD_TIME_OPTIONS = [3, 7, 10, 15, 30];
-const DEFAULT_BLANK_ROWS = 8;
+// Phase 1: blank rows removed — grid starts empty; empty state shown instead
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -307,11 +309,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     priceList: "Default Purchase Price",
   });
 
-  const [lines, setLines] = useState<SizewisePOLine[]>(() =>
-    Array.from({ length: DEFAULT_BLANK_ROWS }, (_, i) =>
-      buildBlankLine(i, sizes, defaultDelivery, 18)
-    )
-  );
+  // Phase 1: start with an empty grid — the empty state UI guides the user
+  const [lines, setLines] = useState<SizewisePOLine[]>([]);
 
   // ── Data load ─────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -537,11 +536,62 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
   const handleSelectProduct = useCallback(
     (product: Product) => {
+      // Ensure there is at least one row to populate into
+      setLines(prev => {
+        if (prev.length === 0) {
+          return [buildBlankLine(0, sizes, header.deliveryDate, header.commonTaxPercent)];
+        }
+        return prev;
+      });
       populateProductToLine(product, activeRowIndex);
       setShowBrowseModal(false);
     },
-    [activeRowIndex, populateProductToLine]
+    [activeRowIndex, populateProductToLine, sizes, header.deliveryDate, header.commonTaxPercent]
   );
+
+  // ── Phase 1: F2 via useF2Screen ───────────────────────────────────────
+  // Per F2 architecture rule: screens register context; they do NOT add
+  // window.addEventListener for F2. The platform dispatcher handles the key.
+  const f2Adapter = useCallback(
+    (result: LookupResult) => {
+      // Map the F2 universal lookup result → Product shape and populate
+      const rec = result.record as any;
+      const mappedProduct: Product = {
+        id:         rec.id || rec.variant_id || result.id,
+        code:       rec.code || rec.stock_no || rec.article_no || result.returnValue,
+        name:       rec.name || rec.product_name || result.displayValue,
+        price:      parseFloat(rec.price || rec.sale_price || 0),
+        costPrice:  parseFloat(rec.cost_price || 0),
+        mrp:        parseFloat(rec.mrp || rec.price || 0),
+        barcode:    rec.barcode || "",
+        brand:      rec.brand || "",
+        styleCode:  rec.style_code || rec.style || "",
+        color:      rec.color || rec.shade || "",
+        size:       rec.size || "",
+        stock:      Number(rec.stock || rec.stock_on_hand || 0),
+        category:   rec.category || "",
+      };
+      // Ensure a row exists to populate
+      setLines(prev => {
+        if (prev.length === 0) {
+          return [buildBlankLine(0, sizes, header.deliveryDate, header.commonTaxPercent)];
+        }
+        return prev;
+      });
+      populateProductToLine(mappedProduct, activeRowIndex);
+    },
+    [activeRowIndex, populateProductToLine, sizes, header.deliveryDate, header.commonTaxPercent]
+  );
+
+  useF2Screen({
+    screenId: "po_sizewise",
+    defaultEntity: "variant",
+    adapter: f2Adapter,
+  });
+
+  // Dispatcher reference — used by the F2/Scan button to programmatically
+  // trigger the platform lookup (same path as keyboard F2)
+  const f2Dispatcher = useF2Dispatcher();
 
   // ── Copy Previous PO ──────────────────────────────────────────────────
   const handleCopyPreviousPO = async () => {
@@ -731,8 +781,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </div>
               <div>
                 <h1 className="font-extrabold text-slate-800 text-base leading-none">Purchase Order</h1>
-                <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                  {header.prefix}-{header.orderNumber} · {header.orderDate}
+                {/* Phase 1: composite read-only document identity — no editable Prefix/Number */}
+                <p className="text-[11px] text-slate-500 font-mono mt-0.5 font-bold tracking-wide">
+                  {header.prefix}-{header.orderNumber}
+                  <span className="font-normal text-slate-400 ml-1">· {header.orderDate}</span>
                 </p>
               </div>
             </div>
@@ -745,22 +797,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               Sizewise
             </span>
           </div>
-          {/* Quick actions */}
+          {/* Phase 1: header quick actions — Save removed (footer is single save path) */}
           <div className="flex items-center gap-2">
             <button type="button" className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
               <span className="material-symbols-outlined text-[16px] text-blue-500">add</span> New
             </button>
             <button type="button" className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
               <span className="material-symbols-outlined text-[16px] text-slate-500">folder_open</span> Open
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => handleSavePO("draft")}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-[16px] text-slate-500">save</span>
-              {saving ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={() => window.print()} className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
               <span className="material-symbols-outlined text-[16px] text-slate-500">print</span> Print
@@ -785,25 +828,16 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <option>Indent</option>
             </select>
           </div>
-          {/* Prefix */}
+          {/* Phase 1: Document identity — composite read-only badge, Prefix+Number fields removed */}
           <div>
-            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Prefix</label>
-            <input
-              type="text"
-              value={header.prefix}
-              onChange={e => setHeader(h => ({ ...h, prefix: e.target.value }))}
-              className="border border-slate-300 rounded-lg px-2 h-7 w-14 bg-white font-mono font-bold outline-none focus:border-indigo-500 text-center text-xs"
-            />
-          </div>
-          {/* Number */}
-          <div>
-            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Number</label>
-            <input
-              type="text"
-              value={header.orderNumber}
-              onChange={e => setHeader(h => ({ ...h, orderNumber: e.target.value }))}
-              className="border border-slate-300 rounded-lg px-2 h-7 w-20 bg-white font-mono font-bold outline-none focus:border-indigo-500 text-xs"
-            />
+            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">PO Number</label>
+            <div
+              title="Document number is assigned automatically. Contact your administrator to change the series."
+              className="inline-flex items-center gap-1.5 h-7 px-3 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-xs text-slate-700 select-all cursor-default"
+            >
+              <span className="material-symbols-outlined text-[13px] text-slate-400">tag</span>
+              {header.prefix}-{header.orderNumber}
+            </div>
           </div>
           {/* Date */}
           <div>
@@ -1016,9 +1050,63 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             </button>
           </div>
 
-          {/* ── Grid ── */}
-          <div className="flex-1 overflow-auto">
-            <table className="w-full border-collapse text-xs min-w-[1100px]" id="sw-items-grid">
+          {/* ── Grid / Empty State ── */}
+          <div className="flex-1 overflow-auto relative">
+
+            {/* Phase 1: Empty state — shown when no items have been added */}
+            {lines.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 px-6 text-center select-none">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-4 shadow-sm">
+                  <span className="material-symbols-outlined text-indigo-400 text-[36px]">inventory_2</span>
+                </div>
+                <h3 className="text-sm font-bold text-slate-700 mb-1">No items added yet</h3>
+                <p className="text-xs text-slate-400 mb-5 max-w-xs">
+                  Scan a barcode or search for an item to start adding products to this Purchase Order.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={addBlankRow}
+                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    Add Item
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => excelInputRef.current?.click()}
+                    className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
+                    Import from Excel
+                  </button>
+                  <button
+                    type="button"
+                    id="sw-empty-f2-btn"
+                    onClick={() => {
+                      // Use the platform F2 dispatcher — same path as keyboard F2.
+                      // This ensures F2-button and F2-key share one code path.
+                      setActiveRowIndex(0);
+                      f2Dispatcher.openLookup("variant", f2Adapter);
+                    }}
+                    className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-indigo-500">manage_search</span>
+                    F2 / Scan
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-3 flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-500 font-mono text-[10px]">F2</kbd>
+                  Press F2 on keyboard to open item search
+                </p>
+              </div>
+            )}
+
+            {/* Grid table — always rendered so rows can be added; hidden via CSS when empty */}
+            <table
+              className={`w-full border-collapse text-xs min-w-[1100px] ${lines.length === 0 ? "hidden" : ""}`}
+              id="sw-items-grid"
+            >
               <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-300">
                 <tr>
                   <th className="p-2 w-8 text-center border-r border-slate-200 bg-slate-200">#</th>
@@ -1069,8 +1157,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
               <tbody className="divide-y divide-slate-100">
                 {lines.map((line, idx) => {
-                  const isActive = idx === activeRowIndex;
                   const hasItem = !!line.itemCode;
+                  const isActive = idx === activeRowIndex;
                   return (
                     <tr
                       key={line.id}
@@ -1194,27 +1282,32 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                         />
                       </td>
 
-                      {/* Action */}
+                      {/* Phase 1: Action — only show for populated rows */}
                       <td className="p-1.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            title="View / Edit"
-                            onClick={e => { e.stopPropagation(); setActiveRowIndex(idx); setShowBrowseModal(true); }}
-                            className="flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-bold border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                          >
-                            <span className="material-symbols-outlined text-[13px]">visibility</span>
-                            View
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete row"
-                            onClick={e => { e.stopPropagation(); deleteRow(idx); }}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">delete</span>
-                          </button>
-                        </div>
+                        {hasItem ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              title="Change item"
+                              onClick={e => { e.stopPropagation(); setActiveRowIndex(idx); setShowBrowseModal(true); }}
+                              className="flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-bold border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">visibility</span>
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete row"
+                              onClick={e => { e.stopPropagation(); deleteRow(idx); }}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        ) : (
+                          // Empty row — no actions shown
+                          <span className="text-slate-300 text-[10px]">—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1569,7 +1662,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             </div>
             <div className="grid grid-cols-3 gap-2.5">
               {[
-                { icon: "add_circle", label: "Create Another", color: "blue", action: () => { setSavedOrderNo(null); setLines(Array.from({ length: DEFAULT_BLANK_ROWS }, (_, i) => buildBlankLine(i, sizes, header.deliveryDate, header.commonTaxPercent))); } },
+                { icon: "add_circle", label: "Create Another", color: "blue", action: () => { setSavedOrderNo(null); setLines([]); } },
                 { icon: "local_shipping", label: "Receive GRN", color: "emerald", action: () => { setSavedOrderNo(null); onNavigateTab?.("grn-studio"); } },
                 { icon: "print", label: "Print PO", color: "amber", action: () => { setSavedOrderNo(null); window.print(); } },
               ].map(btn => (
