@@ -6,18 +6,26 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.33.0
+ * Version      : 4.0.0
  * Created      : 2026-07-10
- * Modified     : 2026-09-25
+ * Modified     : 2026-10-01
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Target UI    : Purchase Order / Indent Generation (SMRITI 9 Professional Terminal)
+ * Target UI    : Purchase Studio — Generation + Workspace (Phase B)
+ *
+ * Changelog (v4.0.0 — Phase B):
+ *   - Added top-level tab switcher: "Generate PO" vs "Workspace"
+ *   - POWorkspaceTab integrated for status-aware PO list + actions
+ *   - Generation tabs (Sizewise / Standard) remain unchanged
  */
 
 import React, { useState } from "react";
 import { PoGenerateTab } from "./purchase/PoGenerateTab.tsx";
 import { PoSizewiseTab } from "./purchase/PoSizewiseTab.tsx";
+import { POWorkspaceTab } from "./purchase/POWorkspaceTab.tsx";
 import { Product } from "../types.ts";
+
+type TopLevelView = "generate" | "workspace";
 
 interface PurchaseStudioTabProps {
   products?: Product[];
@@ -38,6 +46,10 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   onNavigateTab,
   initialMode,
 }) => {
+  // ── Top-level view: Generate vs Workspace ────────────────────────────────
+  const [topView, setTopView] = useState<TopLevelView>("generate");
+
+  // ── Generation sub-mode (persisted) ─────────────────────────────────────
   const [poMode, setPoMode] = useState<"standard" | "sizewise">(() => {
     if (initialMode) return initialMode;
     try {
@@ -58,50 +70,122 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     }
   };
 
+  // ── Open a PO in generation view (called from Workspace) ─────────────────
+  const handleOpenPOFromWorkspace = (_orderNo: string) => {
+    // Switch to generate view — the PO can be loaded by copy/browse
+    // Full deep-link to edit a specific PO is Phase C scope.
+    setTopView("generate");
+    onNotification?.(
+      "Open PO",
+      `To edit PO ${_orderNo}, use the search/browse in the generation panel.`,
+      "info"
+    );
+  };
+
   return (
     <div className="flex flex-col h-full w-full">
-      {/* PO Mode Switcher Header Pill */}
+
+      {/* ── Studio Header / Top Nav ──────────────────────────────────────── */}
       <div className="bg-slate-900 text-white px-4 py-1.5 flex items-center justify-between text-xs border-b border-slate-800 shrink-0">
+
+        {/* Left: Top-level view switcher */}
         <div className="flex items-center gap-2.5">
-          <span className="material-symbols-outlined text-indigo-400 text-base">tune</span>
-          <span className="font-semibold text-slate-300">PO Generation Mode:</span>
+          <span className="material-symbols-outlined text-indigo-400 text-base">shopping_bag</span>
+          <span className="font-semibold text-slate-300 mr-1">Purchase Studio</span>
+
+          {/* View pill switcher */}
           <div className="inline-flex rounded-md shadow-xs bg-slate-800 p-0.5 border border-slate-700">
             <button
               type="button"
-              onClick={() => handleModeChange("sizewise")}
+              id="purchase-studio-generate-tab"
+              onClick={() => setTopView("generate")}
               className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
-                poMode === "sizewise"
+                topView === "generate"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <span className="material-symbols-outlined text-[14px]">view_column</span>
-              Sizewise Matrix UX
+              <span className="material-symbols-outlined text-[14px]">add_box</span>
+              Generate PO
             </button>
             <button
               type="button"
-              onClick={() => handleModeChange("standard")}
+              id="purchase-studio-workspace-tab"
+              onClick={() => setTopView("workspace")}
               className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
-                poMode === "standard"
+                topView === "workspace"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <span className="material-symbols-outlined text-[14px]">table_rows</span>
-              Standard Grid UX
+              <span className="material-symbols-outlined text-[14px]">receipt_long</span>
+              Workspace
             </button>
           </div>
+
+          {/* Sub-mode switcher (only when in Generate view) */}
+          {topView === "generate" && (
+            <>
+              <span className="text-slate-700 mx-1 select-none">|</span>
+              <span className="text-slate-500 mr-1 hidden sm:inline">Mode:</span>
+              <div className="inline-flex rounded-md shadow-xs bg-slate-800 p-0.5 border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("sizewise")}
+                  className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
+                    poMode === "sizewise"
+                      ? "bg-slate-600 text-white shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[14px]">view_column</span>
+                  Sizewise
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("standard")}
+                  className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
+                    poMode === "standard"
+                      ? "bg-slate-600 text-white shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[14px]">table_rows</span>
+                  Standard
+                </button>
+              </div>
+            </>
+          )}
         </div>
-        <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-          <span>Press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">F2</kbd> to search items</span>
-          <span>·</span>
-          <span><kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">Ctrl+S</kbd> to save draft</span>
-        </div>
+
+        {/* Right: Keyboard hints (only in generate view) */}
+        {topView === "generate" && (
+          <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+            <span>
+              Press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">F2</kbd> to search items
+            </span>
+            <span>·</span>
+            <span>
+              <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">Ctrl+S</kbd> to save draft
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* PO Content Area */}
+      {/* ── Content Area ─────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0">
-        {poMode === "sizewise" ? (
+
+        {/* Workspace View */}
+        {topView === "workspace" && (
+          <POWorkspaceTab
+            currentUser={currentUser}
+            onNotification={onNotification}
+            onOpenPO={handleOpenPOFromWorkspace}
+          />
+        )}
+
+        {/* Generate View — sizewise */}
+        {topView === "generate" && poMode === "sizewise" && (
           <PoSizewiseTab
             products={products}
             currentUser={currentUser}
@@ -109,7 +193,10 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             onClose={onClose}
             onNavigateTab={onNavigateTab}
           />
-        ) : (
+        )}
+
+        {/* Generate View — standard */}
+        {topView === "generate" && poMode === "standard" && (
           <PoGenerateTab
             products={products}
             currentUser={currentUser}

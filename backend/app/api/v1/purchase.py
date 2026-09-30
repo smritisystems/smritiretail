@@ -123,6 +123,7 @@ async def get_supplier(
 async def list_purchase_orders_contract(
     pending_only: bool = Query(default=False, description="Filter only pending/open POs (exclude RECEIVED and CANCELLED)"),
     supplier_id: Optional[str] = Query(default=None, description="Filter by supplier ID"),
+    status: Optional[str] = Query(default=None, description="Filter by status: DRAFT, SUBMITTED, CONFIRMED, RECEIVED, COMPLETED, CANCELLED (comma-separated for multiple)"),
     page: Optional[int] = Query(default=None, ge=1, description="Page number"),
     page_size: Optional[int] = Query(default=None, ge=1, le=500, description="Page size"),
     sort: Optional[str] = Query(default=None, description="Sort field"),
@@ -130,10 +131,11 @@ async def list_purchase_orders_contract(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List purchase orders with line items — canonical contract URL."""
+    """List purchase orders with line items — canonical contract URL. Phase B: supports ?status=DRAFT,SUBMITTED filter."""
     orders = await PurchaseService(db, tenant_ctx).list_purchase_orders(
         pending_only=pending_only,
         supplier_id=supplier_id,
+        status=status,
     )
     if not orders:
         return []

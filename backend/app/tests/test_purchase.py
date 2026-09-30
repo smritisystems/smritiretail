@@ -1594,3 +1594,164 @@ async def test_phaseA_20_cancel_draft_po(db_session):
     db_po = result.scalars().first()
     assert db_po.status == "CANCELLED"
     assert db_po.is_deleted is True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase B: Status-Filter Tests (T21 – T25)
+# Validates GET /purchase/orders/?status= filter added in Phase B.
+# Backend: services/purchase.py list_purchase_orders(status=...) +
+#          api/v1/purchase.py list_purchase_orders_contract(status=...)
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def _make_po_with_status(db_session, suffix: str, comp_id: str, br_id: str,
+                                supplier_id: str, status: str) -> "PurchaseOrder":
+    """Helper: create a PO in a specific lifecycle status."""
+    from app.models.purchase import PurchaseOrder
+    po = PurchaseOrder(
+        id=f"phb-{status.lower()}-{suffix}", order_no=f"PHB-{status[:3]}-{suffix}",
+        supplier_id=supplier_id, status=status,
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp_id, branch_id=br_id,
+    )
+    db_session.add(po)
+    await db_session.commit()
+    return po
+
+
+# ── T21: ?status=DRAFT returns only DRAFT POs ─────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_phaseB_21_status_filter_draft(db_session):
+    """Phase B T21: GET /orders/?status=DRAFT returns only DRAFT POs for the tenant."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    await _make_po_with_status(db_session, s + "a", comp.id, br.id, supplier.id, "DRAFT")
+    await _make_po_with_status(db_session, s + "b", comp.id, br.id, supplier.id, "SUBMITTED")
+    await _make_po_with_status(db_session, s + "c", comp.id, br.id, supplier.id, "CONFIRMED")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get(
+            "/api/v1/purchase/orders/?status=DRAFT",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    returned_statuses = {po["status"] for po in data}
+    assert returned_statuses.issubset({"DRAFT"}), f"Expected only DRAFT, got {returned_statuses}"
+    # Must contain at least our DRAFT PO
+    order_nos = [po["order_no"] for po in data]
+    assert any(s + "a" in no for no in order_nos), "DRAFT PO not in result"
+
+
+# ── T22: ?status=SUBMITTED returns only SUBMITTED POs ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_phaseB_22_status_filter_submitted(db_session):
+    """Phase B T22: ?status=SUBMITTED filters to SUBMITTED POs only."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    await _make_po_with_status(db_session, s + "d", comp.id, br.id, supplier.id, "DRAFT")
+    await _make_po_with_status(db_session, s + "e", comp.id, br.id, supplier.id, "SUBMITTED")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get(
+            "/api/v1/purchase/orders/?status=SUBMITTED",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    returned_statuses = {po["status"] for po in data}
+    assert returned_statuses.issubset({"SUBMITTED"}), f"Expected only SUBMITTED, got {returned_statuses}"
+    order_nos = [po["order_no"] for po in data]
+    assert any(s + "e" in no for no in order_nos), "SUBMITTED PO not in result"
+
+
+# ── T23: no status filter returns all statuses ────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_phaseB_23_no_status_filter_returns_all(db_session):
+    """Phase B T23: GET /orders/ without ?status= returns POs of any status."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    await _make_po_with_status(db_session, s + "f", comp.id, br.id, supplier.id, "DRAFT")
+    await _make_po_with_status(db_session, s + "g", comp.id, br.id, supplier.id, "CONFIRMED")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get(
+            "/api/v1/purchase/orders/",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    returned_statuses = {po["status"] for po in data}
+    # Both DRAFT and CONFIRMED should appear
+    assert "DRAFT" in returned_statuses or "CONFIRMED" in returned_statuses
+
+
+# ── T24: ?status=CONFIRMED excludes DRAFT and SUBMITTED ──────────────────────
+
+@pytest.mark.asyncio
+async def test_phaseB_24_status_filter_confirmed_excludes_draft(db_session):
+    """Phase B T24: ?status=CONFIRMED must not include DRAFT or SUBMITTED POs."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    await _make_po_with_status(db_session, s + "h", comp.id, br.id, supplier.id, "DRAFT")
+    await _make_po_with_status(db_session, s + "i", comp.id, br.id, supplier.id, "SUBMITTED")
+    await _make_po_with_status(db_session, s + "j", comp.id, br.id, supplier.id, "CONFIRMED")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get(
+            "/api/v1/purchase/orders/?status=CONFIRMED",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    returned_statuses = {po["status"] for po in data}
+    assert "DRAFT" not in returned_statuses, "DRAFT leaked into CONFIRMED filter result"
+    assert "SUBMITTED" not in returned_statuses, "SUBMITTED leaked into CONFIRMED filter result"
+
+
+# ── T25: comma-separated multi-status filter ──────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_phaseB_25_multi_status_filter(db_session):
+    """Phase B T25: ?status=DRAFT,SUBMITTED returns both DRAFT and SUBMITTED POs."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    await _make_po_with_status(db_session, s + "k", comp.id, br.id, supplier.id, "DRAFT")
+    await _make_po_with_status(db_session, s + "l", comp.id, br.id, supplier.id, "SUBMITTED")
+    await _make_po_with_status(db_session, s + "m", comp.id, br.id, supplier.id, "CONFIRMED")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get(
+            "/api/v1/purchase/orders/?status=DRAFT,SUBMITTED",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    returned_statuses = {po["status"] for po in data}
+    assert "CONFIRMED" not in returned_statuses, "CONFIRMED leaked into DRAFT,SUBMITTED filter"
+    # Must contain at least one of DRAFT or SUBMITTED
+    assert returned_statuses & {"DRAFT", "SUBMITTED"}, "Neither DRAFT nor SUBMITTED returned"
