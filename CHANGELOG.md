@@ -28,6 +28,55 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.45.0] - 2026-10-01 — PO Two-Stage Lifecycle: DRAFT → SUBMITTED → CONFIRMED (Phase A)
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Lifecycle
+> **Commit:** `49899065`
+> **Walkthrough:** `docs/walkthrough/purchase/Purchase_PO_Lifecycle_Phase_A_v1.0.md`
+> **Implementation Plan:** `docs/implementation/purchase/PO_Lifecycle_Phase_A_v1.0.md`
+
+### Added
+- **Migration v1508:** 8 audit columns on `purchase_orders`:
+  `submitted_by`, `submitted_at`, `confirmed_by`, `confirmed_at`,
+  `cancelled_by`, `cancelled_at`, `cancellation_reason`, `parent_order_id`.
+- **Migration v1509:** `parties.merged_into_party_id` column — ORM model had
+  this column since `party.py v6.16.0` but it was never materialised via
+  Alembic; fixes `asyncpg.UndefinedColumnError` on 3 test scenarios.
+- **New API endpoint:** `POST /api/v1/purchase/orders/{id}/submit`
+  Transitions a DRAFT purchase order to SUBMITTED. Requires MANAGER or SYSADMIN role.
+  Records `submitted_by` and `submitted_at` automatically from the authenticated user.
+- **New API endpoint:** `POST /api/v1/purchase/orders/{id}/confirm`
+  Transitions a SUBMITTED purchase order to CONFIRMED. Requires MANAGER or SYSADMIN role.
+  Records `confirmed_by` and `confirmed_at` automatically.
+- **20 Phase A automated tests** covering the full DRAFT→SUBMITTED→CONFIRMED lifecycle,
+  role guards, audit column population, and backward-compatibility with existing POs.
+- **Frontend:** `poLifecycle.ts` — `SUBMITTED` status badge with label and colour.
+
+### Changed
+- **`PurchaseService.create_purchase_order()`:** New POs now default to `status="DRAFT"`
+  instead of `status="CONFIRMED"`. No stock or financial entries are created at draft time.
+- **`PurchaseService.submit_purchase_order()`:** Now transitions DRAFT → SUBMITTED
+  (previously jumped directly to CONFIRMED). Records actor identity and timestamp.
+- **`PurchaseService.cancel_purchase_order()`:** Now writes `cancelled_by`, `cancelled_at`,
+  and `cancellation_reason` columns in addition to appending to `notes`.
+- **`test_workflow_submit_purchase_order`:** Updated assertion from `"CONFIRMED"` to
+  `"SUBMITTED"` to match new lifecycle semantics.
+
+### Fixed
+- `parties.merged_into_party_id` column missing from tenant DBs (schema drift since
+  `party.py v6.16.0`). Applied via migration v1509 on smriti001–004.
+
+### Migration Applied
+- `v1508` — smriti001, smriti002, smriti003, smriti004 (exit 0)
+- `v1509` — smriti001, smriti002, smriti003, smriti004 (exit 0)
+
+### Test Results
+```
+49 passed, 0 failed, 14 warnings in 81.33s (0:01:21)
+```
+
+---
+
 ## [6.44.0] - 2026-09-30 — PO Validation Gate Hardening: Size-Pivot Policy Check, Stale-Line Detail & Audit Trail
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Validation Engine
