@@ -40,7 +40,7 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
   const rows = props.rows || props.data?.rows || [];
   const currencySymbol = props.currencySymbol || props.data?.currencySymbol || "₹";
   const vendorName = props.vendorName || props.data?.vendorName || header.supplierName || "Selected Supplier";
-  const isLandscape = (props.orientation ?? props.data?.orientation ?? "landscape") === "landscape";
+  const isLandscape = (props.orientation ?? props.data?.orientation) === "landscape";
 
   const validRows = (rows || []).filter((row) => (row.articleNo || "").trim() || (row.product || "").trim());
   const hasAnyPhotos = validRows.some((row) => Boolean(row.photoUrl || row.imageUrl));

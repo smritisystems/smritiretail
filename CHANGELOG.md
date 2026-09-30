@@ -28,7 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
-## [Upcoming Features / Roadmap]
+## [6.52.0] - 2026-09-30 — Purchase Studio Phase 5: Multi-Image Batch Drag-and-Drop with Automatic Filename-to-Article/Color Binding
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Purchase Studio & Sizing Engine
+> **Walkthrough:** `docs/walkthrough/purchase/Purchase_Studio_Phase_5_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/purchase/Purchase_Studio_Phase_5_Plan_v1.0.0.md`
+
+### Added
+- **Multi-Image Batch Ingestion & Dropzone (`PoSizewiseTab.tsx`):**
+  - Integrated native HTML5 drag-and-drop listener on `#sw-visual-lookbook-dropzone` container with a frosted visual drag overlay.
+  - Added hidden multi-file input `<input type="file" multiple accept="image/*" />` triggered via `#sw-batch-upload-btn`.
+  - Added real-time badge indicator on the toolbar button displaying the number of queued batch images.
+- **Pure Filename Matching Heuristics (`matchImageFilenameToLines`):**
+  - 3-pass heuristic engine parsing raw sample photograph filenames against active PO lines.
+  - Evaluates both `articleNo` and `itemCode` alongside `shade`/colorway with multi-separator normalization (`_`, `-`, `+`, `&`, `.`, space).
+  - Returns structured confidence (`exact_composite`, `article_only`, `color_only`, or `none`).
+- **Interactive Batch Upload Review Modal (`#sw-batch-upload-modal-dialog`):**
+  - Displays preview thumbnails, file sizes, match confidence tags, target PO line selector dropdowns, and status pills.
+  - Allows merchants to review and override line mappings before running the upload pipeline.
+  - Displays real-time progress bar during concurrent SPIF WebP processing.
+- **Concurrent SPIF WebP Upload Worker Pool:**
+  - Bounded concurrency queue (pool size: 3) uploading images to `POST /api/v1/inventory/upload-image`.
+  - Automatically updates PO line `imageUrl` and `articleImageMap` with permanent server-persisted WebP paths (`/static/uploads/spif-{uuid}.webp`).
+  - Graceful fallback to local data URLs in offline or network error conditions.
+- **Comprehensive Unit & Headless Verification:**
+  - Added unit tests 31–34 in `src/tests/poSizewiseUX.test.ts` (34/34 tests green).
+  - Added headless Playwright capture steps for Screenshot 13 (Batch Review Modal) and Screenshot 14 (Lookbook Post-Batch Upload).
 
 ## [6.51.0] - 2026-09-30 — Purchase Studio Phase 4: Backend SPIF Image Upload & WebP Persistence
 

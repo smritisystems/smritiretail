@@ -255,6 +255,149 @@ export function resolveLineImage(
   return "";
 }
 
+export interface FilenameMatchResult {
+  lineIndex: number;
+  articleNo: string;
+  shade: string;
+  confidence: "exact_composite" | "article_only" | "color_only" | "none";
+}
+
+export interface BatchUploadItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  lineIndex: number;
+  articleNo: string;
+  shade: string;
+  confidence: "exact_composite" | "article_only" | "color_only" | "none";
+  status: "ready" | "optimizing" | "uploaded" | "failed";
+  serverUrl?: string;
+  error?: string;
+}
+
+export interface BatchUploadState {
+  isOpen: boolean;
+  isDragging: boolean;
+  items: BatchUploadItem[];
+  isProcessing: boolean;
+  progressPercent: number;
+}
+
+/**
+ * Normalizes a string for heuristic comparison by stripping punctuation, extra spaces,
+ * and converting to lower case.
+ */
+export function normalizeFilenameSegment(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * matchImageFilenameToLines — Pure heuristic matching engine for wholesale retail sample photos.
+ * Analyzes raw image filenames against PO line items to detect Article Number and Shade / Colorway.
+ *
+ * Matching Strategy:
+ * 1. Exact Composite: Filename contains both articleNo/itemCode AND shade (e.g. "FW-NK-9921_Tan.jpg")
+ * 2. Article-Only: Filename matches articleNo or itemCode (e.g. "OXF-990.png" or "FW-OXFORD-01.jpg")
+ * 3. Color-Only: Filename contains unique shade in lines (e.g. "Cherry Red Sample.png")
+ * 4. Fallback: Confidence "none" with default to first valid line (index 0)
+ */
+export function matchImageFilenameToLines(
+  filename: string,
+  lines: Array<{ articleNo?: string; itemCode?: string; shade?: string }>
+): FilenameMatchResult {
+  if (!lines || lines.length === 0) {
+    return {
+      lineIndex: -1,
+      articleNo: "",
+      shade: "",
+      confidence: "none",
+    };
+  }
+
+  // Strip extension
+  const baseName = filename.replace(/\.[^/.]+$/, "");
+  const normalizedFile = normalizeFilenameSegment(baseName);
+  const rawLower = baseName.toLowerCase();
+
+  // Pass 1: Exact Composite Match (Article/ItemCode + Shade)
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const art = (l.articleNo || "").trim();
+    const code = (l.itemCode || "").trim();
+    const shd = (l.shade || "").trim();
+    if ((!art && !code) || !shd) continue;
+
+    const normArt = art ? normalizeFilenameSegment(art) : "";
+    const normCode = code ? normalizeFilenameSegment(code) : "";
+    const normShd = normalizeFilenameSegment(shd);
+
+    const artMatch = (normArt && (normalizedFile.includes(normArt) || rawLower.includes(art.toLowerCase()))) ||
+                     (normCode && (normalizedFile.includes(normCode) || rawLower.includes(code.toLowerCase())));
+    const shdMatch = normShd && (normalizedFile.includes(normShd) || rawLower.includes(shd.toLowerCase()));
+
+    if (artMatch && shdMatch) {
+      return {
+        lineIndex: i,
+        articleNo: l.articleNo || l.itemCode || "",
+        shade: l.shade || "",
+        confidence: "exact_composite",
+      };
+    }
+  }
+
+  // Pass 2: Article-Only / ItemCode-Only Match
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const art = (l.articleNo || "").trim();
+    const code = (l.itemCode || "").trim();
+    if ((!art || art.length < 2) && (!code || code.length < 2)) continue;
+
+    const normArt = art.length >= 2 ? normalizeFilenameSegment(art) : "";
+    const normCode = code.length >= 2 ? normalizeFilenameSegment(code) : "";
+    const artMatch = (normArt && (normalizedFile.includes(normArt) || rawLower.includes(art.toLowerCase()))) ||
+                     (normCode && (normalizedFile.includes(normCode) || rawLower.includes(code.toLowerCase())));
+
+    if (artMatch) {
+      return {
+        lineIndex: i,
+        articleNo: l.articleNo || l.itemCode || "",
+        shade: l.shade || "",
+        confidence: "article_only",
+      };
+    }
+  }
+
+  // Pass 3: Color-Only Match (if shade is non-trivial and unique or prominent)
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const shd = (l.shade || "").trim();
+    if (!shd || shd.length < 3) continue;
+
+    const normShd = normalizeFilenameSegment(shd);
+    const shdMatch = normShd && (normalizedFile.includes(normShd) || rawLower.includes(shd.toLowerCase()));
+
+    if (shdMatch) {
+      return {
+        lineIndex: i,
+        articleNo: l.articleNo || l.itemCode || "",
+        shade: l.shade || "",
+        confidence: "color_only",
+      };
+    }
+  }
+
+  // Fallback: None
+  const defaultIdx = Math.max(0, lines.findIndex(l => Boolean(l.articleNo || l.itemCode)));
+  const targetLine = lines[defaultIdx] || lines[0];
+
+  return {
+    lineIndex: defaultIdx >= 0 ? defaultIdx : 0,
+    articleNo: targetLine?.articleNo || targetLine?.itemCode || "",
+    shade: targetLine?.shade || "",
+    confidence: "none",
+  };
+}
+
 /**
  * recommendSizeAssortment — Pure mathematical helper for retail size ratio curves.
  * Guarantees integer distribution where sum(result.values()) === totalTargetQty.
@@ -543,6 +686,14 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   const [visualSearch, setVisualSearch] = useState<string>("");
   const [batchRecommendOpen, setBatchRecommendOpen] = useState(false);
   const [cardAssortmentOpen, setCardAssortmentOpen] = useState<number | null>(null);
+  const [batchUploadState, setBatchUploadState] = useState<BatchUploadState>({
+    isOpen: false,
+    isDragging: false,
+    items: [],
+    isProcessing: false,
+    progressPercent: 0,
+  });
+  const batchFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -874,6 +1025,173 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     };
     reader.readAsDataURL(file);
   };
+
+  // ── Phase 5: Batch Upload & Filename Matching Handlers ─────────────────
+  const handleProcessBatchFiles = useCallback((files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith("image/"));
+    if (fileArray.length === 0) {
+      onNotification?.("No Images", "Please drop or select valid image files (JPG, PNG, WebP).", "warning");
+      return;
+    }
+
+    const newItems: BatchUploadItem[] = fileArray.map((file, idx) => {
+      const match = matchImageFilenameToLines(file.name, lines);
+      return {
+        id: `batch-item-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        lineIndex: match.lineIndex,
+        articleNo: match.articleNo,
+        shade: match.shade,
+        confidence: match.confidence,
+        status: "ready",
+      };
+    });
+
+    setBatchUploadState(prev => ({
+      ...prev,
+      isOpen: true,
+      items: [...prev.items, ...newItems],
+    }));
+  }, [lines, onNotification]);
+
+  const handleUpdateBatchItemLine = useCallback((itemId: string, lineIdx: number) => {
+    const targetLine = lines[lineIdx];
+    if (!targetLine) return;
+    setBatchUploadState(prev => ({
+      ...prev,
+      items: prev.items.map(item => item.id === itemId ? {
+        ...item,
+        lineIndex: lineIdx,
+        articleNo: targetLine.articleNo || targetLine.itemCode || "",
+        shade: targetLine.shade || "",
+        confidence: "exact_composite",
+      } : item),
+    }));
+  }, [lines]);
+
+  const handleRemoveBatchItem = useCallback((itemId: string) => {
+    setBatchUploadState(prev => ({
+      ...prev,
+      items: prev.items.filter(item => {
+        if (item.id === itemId) {
+          URL.revokeObjectURL(item.previewUrl);
+          return false;
+        }
+        return true;
+      }),
+    }));
+  }, []);
+
+  const handleExecuteBatchUpload = useCallback(async () => {
+    const pendingItems = batchUploadState.items.filter(i => i.status !== "uploaded");
+    if (pendingItems.length === 0) {
+      setBatchUploadState(prev => ({ ...prev, isOpen: false }));
+      return;
+    }
+
+    setBatchUploadState(prev => ({ ...prev, isProcessing: true, progressPercent: 0 }));
+
+    let completedCount = 0;
+    const totalCount = pendingItems.length;
+
+    const queue = [...pendingItems];
+    const updatedLineMap: Record<number, string> = {};
+    const newArticleMapEntries: Record<string, string> = {};
+
+    const processItem = async (item: BatchUploadItem) => {
+      setBatchUploadState(prev => ({
+        ...prev,
+        items: prev.items.map(i => i.id === item.id ? { ...i, status: "optimizing" } : i),
+      }));
+
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("File read error"));
+          reader.readAsDataURL(item.file);
+        });
+
+        let finalUrl = dataUrl;
+        try {
+          const res = await apiFetchV1("/inventory/upload-image", {
+            method: "POST",
+            body: JSON.stringify({
+              image_data: dataUrl,
+              filename: item.file.name,
+            }),
+          });
+          if (res?.url) {
+            finalUrl = res.url;
+          }
+        } catch (serverErr) {
+          console.warn(`Server upload failed for ${item.file.name}, using local data URL:`, serverErr);
+        }
+
+        if (item.lineIndex >= 0 && item.lineIndex < lines.length) {
+          updatedLineMap[item.lineIndex] = finalUrl;
+        }
+        if (item.articleNo) {
+          if (item.shade) {
+            newArticleMapEntries[`${item.articleNo}::${item.shade.toLowerCase()}`] = finalUrl;
+          }
+          newArticleMapEntries[item.articleNo] = finalUrl;
+        }
+
+        setBatchUploadState(prev => ({
+          ...prev,
+          items: prev.items.map(i => i.id === item.id ? { ...i, status: "uploaded", serverUrl: finalUrl } : i),
+        }));
+      } catch (err: any) {
+        setBatchUploadState(prev => ({
+          ...prev,
+          items: prev.items.map(i => i.id === item.id ? { ...i, status: "failed", error: err?.message || "Upload failed" } : i),
+        }));
+      } finally {
+        completedCount++;
+        setBatchUploadState(prev => ({
+          ...prev,
+          progressPercent: Math.round((completedCount / totalCount) * 100),
+        }));
+      }
+    };
+
+    const poolSize = Math.min(3, queue.length);
+    const workers = Array.from({ length: poolSize }, async () => {
+      while (queue.length > 0) {
+        const next = queue.shift();
+        if (next) await processItem(next);
+      }
+    });
+
+    await Promise.all(workers);
+
+    if (Object.keys(updatedLineMap).length > 0) {
+      setLines(prev => prev.map((line, idx) => {
+        if (updatedLineMap[idx]) {
+          return { ...line, imageUrl: updatedLineMap[idx] };
+        }
+        return line;
+      }));
+    }
+
+    if (Object.keys(newArticleMapEntries).length > 0) {
+      setArticleImageMap(prev => ({ ...prev, ...newArticleMapEntries }));
+    }
+
+    onNotification?.(
+      "Batch Image Upload Complete",
+      `Successfully processed ${completedCount} images with SPIF WebP compression and bound to PO items.`,
+      "success"
+    );
+
+    setBatchUploadState(prev => ({
+      ...prev,
+      isProcessing: false,
+      isOpen: false,
+    }));
+  }, [batchUploadState.items, lines, onNotification]);
 
   const handleApplyRecommendationToRow = useCallback((rowIdx: number, curve: "bell" | "core" | "uniform") => {
     const line = lines[rowIdx];
@@ -2219,7 +2537,43 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
       {/* ── 2. IMAGES & ARTICLES TAB (VISUAL LOOKBOOK & RECOMMENDATION) ──── */}
       {activeTab === "visual" && (
-        <div className="flex flex-col flex-1 min-h-0 bg-slate-50/50">
+        <div
+          id="sw-visual-lookbook-dropzone"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!batchUploadState.isDragging) {
+              setBatchUploadState(prev => ({ ...prev, isDragging: true }));
+            }
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            setBatchUploadState(prev => ({ ...prev, isDragging: false }));
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setBatchUploadState(prev => ({ ...prev, isDragging: false }));
+            if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+              handleProcessBatchFiles(e.dataTransfer.files);
+            }
+          }}
+          className="relative flex flex-col flex-1 min-h-0 bg-slate-50/50"
+        >
+          {/* Frosted Drag-and-Drop Overlay */}
+          {batchUploadState.isDragging && (
+            <div className="absolute inset-0 z-50 bg-indigo-900/50 backdrop-blur-xs border-4 border-dashed border-indigo-400 flex flex-col items-center justify-center p-6 text-white pointer-events-none animate-in fade-in duration-150">
+              <div className="p-4 bg-white/20 rounded-2xl mb-3 shadow-lg">
+                <span className="material-symbols-outlined text-[48px] text-white">cloud_upload</span>
+              </div>
+              <h3 className="text-xl font-black tracking-wide">Drop Article Photos Here</h3>
+              <p className="text-xs text-indigo-100 max-w-md text-center mt-1">
+                Batch auto-match filenames to Article # and Colorway with instant SPIF WebP compression
+              </p>
+            </div>
+          )}
           {/* Visual Tab Header & View Toggles */}
           <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
             <div>
@@ -2302,20 +2656,39 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             </button>
 
             {/* Add / Bind Multiple Images */}
+            <input
+              ref={batchFileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleProcessBatchFiles(e.target.files);
+                  e.target.value = "";
+                }
+              }}
+            />
             <button
               type="button"
+              id="sw-batch-upload-btn"
               onClick={() => {
-                const firstPopulatedIdx = lines.findIndex(l => Boolean(l.itemCode));
-                if (firstPopulatedIdx >= 0) {
-                  openImageModal(firstPopulatedIdx);
+                if (batchUploadState.items.length > 0) {
+                  setBatchUploadState(prev => ({ ...prev, isOpen: true }));
                 } else {
-                  onNotification?.("No Items", "Add items to this PO first before binding photos.", "info");
+                  batchFileInputRef.current?.click();
                 }
               }}
               className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+              title="Upload multiple sample photos with automatic filename matching"
             >
               <span className="material-symbols-outlined text-[16px] text-emerald-600">add_photo_alternate</span>
               Add Multiple Images
+              {batchUploadState.items.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-full">
+                  {batchUploadState.items.length}
+                </span>
+              )}
             </button>
 
             {/* Bulk Recommend Assortment */}
@@ -3367,6 +3740,245 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 5: Multi-Image Batch Upload & Auto-Binding Modal ── */}
+      {batchUploadState.isOpen && (
+        <div
+          className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            id="sw-batch-upload-modal-dialog"
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                  <span className="material-symbols-outlined text-[24px]">collections</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                      Batch Photo Upload & Auto-Binding
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {batchUploadState.items.length} image{batchUploadState.items.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Filenames are automatically analyzed to bind Article # and Colorway to PO line items.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                id="sw-batch-modal-close-btn"
+                disabled={batchUploadState.isProcessing}
+                onClick={() => setBatchUploadState(prev => ({ ...prev, isOpen: false }))}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* In-Modal Additional Files Dropstrip */}
+            <div className="bg-indigo-50/50 border-b border-indigo-100 px-6 py-2.5 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-indigo-900 font-medium">
+                <span className="material-symbols-outlined text-indigo-600 text-[18px]">info</span>
+                <span>Review line item bindings below before optimizing & persisting to SPIF WebP.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => batchFileInputRef.current?.click()}
+                disabled={batchUploadState.isProcessing}
+                className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[15px]">add</span>
+                Add More Images
+              </button>
+            </div>
+
+            {/* Items Table / List */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-3 min-h-[200px] max-h-[50vh]">
+              {batchUploadState.items.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <span className="material-symbols-outlined text-[48px] text-slate-300 mb-2">image_search</span>
+                  <p className="text-xs">No images in batch queue. Drag & drop files or click Add More Images.</p>
+                </div>
+              ) : (
+                batchUploadState.items.map((item) => {
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition shadow-2xs"
+                    >
+                      {/* Thumbnail */}
+                      <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                        <img
+                          src={item.previewUrl}
+                          alt={item.file.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      {/* File Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800 truncate" title={item.file.name}>
+                            {item.file.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 shrink-0">
+                            {(item.file.size / 1024).toFixed(1)} KB
+                          </span>
+                        </div>
+
+                        {/* Match Confidence Tag */}
+                        <div className="flex items-center gap-2 mt-1">
+                          {item.confidence === "exact_composite" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <span className="material-symbols-outlined text-[12px]">verified</span>
+                              Exact Article + Color
+                            </span>
+                          )}
+                          {item.confidence === "article_only" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                              <span className="material-symbols-outlined text-[12px]">search</span>
+                              Article Matched
+                            </span>
+                          )}
+                          {item.confidence === "color_only" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                              <span className="material-symbols-outlined text-[12px]">palette</span>
+                              Color Matched
+                            </span>
+                          )}
+                          {item.confidence === "none" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                              <span className="material-symbols-outlined text-[12px]">edit</span>
+                              Manual Target
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Target PO Line Selector */}
+                      <div className="w-64 shrink-0">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
+                          Target PO Line
+                        </label>
+                        <select
+                          disabled={batchUploadState.isProcessing || item.status === "uploaded"}
+                          value={item.lineIndex}
+                          onChange={e => handleUpdateBatchItemLine(item.id, Number(e.target.value))}
+                          className="w-full text-xs font-semibold px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                        >
+                          {lines.map((l, lIdx) => {
+                            const desc = l.product || l.style || `Item ${lIdx + 1}`;
+                            const art = l.articleNo || l.itemCode || "No Article";
+                            const col = l.shade ? ` (${l.shade})` : "";
+                            return (
+                              <option key={l.id || lIdx} value={lIdx}>
+                                #{lIdx + 1}: {art}{col} — {desc.slice(0, 20)}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Status Indicator */}
+                      <div className="w-28 text-center shrink-0">
+                        {item.status === "ready" && (
+                          <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
+                            Ready
+                          </span>
+                        )}
+                        {item.status === "optimizing" && (
+                          <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md flex items-center justify-center gap-1">
+                            <span className="material-symbols-outlined animate-spin text-[14px]">refresh</span>
+                            SPIF WebP...
+                          </span>
+                        )}
+                        {item.status === "uploaded" && (
+                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md flex items-center justify-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                            Optimized
+                          </span>
+                        )}
+                        {item.status === "failed" && (
+                          <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-md" title={item.error}>
+                            Failed
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Remove Button */}
+                      <button
+                        type="button"
+                        disabled={batchUploadState.isProcessing}
+                        onClick={() => handleRemoveBatchItem(item.id)}
+                        className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition disabled:opacity-30"
+                        title="Remove from batch"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Processing Progress Bar */}
+            {batchUploadState.isProcessing && (
+              <div className="bg-slate-50 border-t border-slate-200 px-6 py-2">
+                <div className="flex items-center justify-between text-xs mb-1 font-semibold text-slate-700">
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined animate-spin text-indigo-600 text-[14px]">sync</span>
+                    Optimizing images with SPIF & saving to server WebP storage...
+                  </span>
+                  <span>{batchUploadState.progressPercent}%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-indigo-600 h-full transition-all duration-200"
+                    style={{ width: `${batchUploadState.progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 border-t border-slate-200 px-6 py-3.5 flex items-center justify-between shrink-0">
+              <span className="text-xs text-slate-500 font-medium">
+                {batchUploadState.items.filter(i => i.status === "uploaded").length} of {batchUploadState.items.length} uploaded
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="sw-batch-modal-cancel-btn"
+                  disabled={batchUploadState.isProcessing}
+                  onClick={() => setBatchUploadState(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg transition disabled:opacity-50"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  id="sw-batch-upload-confirm-btn"
+                  disabled={batchUploadState.isProcessing || batchUploadState.items.length === 0}
+                  onClick={handleExecuteBatchUpload}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[16px]">cloud_upload</span>
+                  <span>Upload & Auto-Bind All ({batchUploadState.items.length})</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

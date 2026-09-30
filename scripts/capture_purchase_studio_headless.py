@@ -325,11 +325,51 @@ async def run_purchase_studio_headless_capture():
                     shot10c_path = os.path.join(OUTPUT_DIR, "10c_po_image_applied_lookbook.png")
                     await page.screenshot(path=shot10c_path, full_page=True)
                     print(f"   [CAPTURE] Step 10c: Lookbook with Applied SPIF Image -> {shot10c_path}")
-            else:
                 modal_cancel = page.locator("div[role='dialog'] button:has-text('Cancel')").first
                 if await modal_cancel.count() > 0:
                     await modal_cancel.click()
                     await page.wait_for_timeout(500)
+
+        # ---------------------------------------------------------------------
+        # Phase 5: Multi-Image Batch Upload & Auto-Binding (Screenshots 13 & 14)
+        # ---------------------------------------------------------------------
+        print("\n[Step 13] Testing Phase 5 Multi-Image Batch Upload & Filename Heuristics...")
+        batch_img_1 = os.path.join(OUTPUT_DIR, "FW-NK-9921_Tan.png")
+        batch_img_2 = os.path.join(OUTPUT_DIR, "OXF-990-Rustic Black.png")
+        sample_source = os.path.join(OUTPUT_DIR, "sample_shoe_upload.png")
+
+        if os.path.exists(sample_source):
+            import shutil
+            shutil.copyfile(sample_source, batch_img_1)
+            shutil.copyfile(sample_source, batch_img_2)
+            print(f"   * Created batch test assets: {os.path.basename(batch_img_1)}, {os.path.basename(batch_img_2)}")
+
+            batch_file_input = page.locator("input[type='file'][multiple]").first
+            if await batch_file_input.count() > 0:
+                print("   * Queuing batch files via multi-file selector...")
+                await batch_file_input.set_input_files([batch_img_1, batch_img_2])
+                await page.wait_for_timeout(1000)
+
+                # Capture Screenshot 13: Batch Upload Review Modal
+                batch_modal = page.locator("#sw-batch-upload-modal-dialog").first
+                if await batch_modal.count() > 0:
+                    print("   * Batch Upload Modal is visible. Verifying auto-matched bindings...")
+                    shot13_path = os.path.join(OUTPUT_DIR, "13_po_batch_upload_modal.png")
+                    await page.screenshot(path=shot13_path, full_page=True)
+                    print(f"   [CAPTURE] Step 13: Batch Upload Modal -> {shot13_path}")
+
+                    # Trigger Upload & Auto-Bind All
+                    confirm_batch_btn = page.locator("#sw-batch-upload-confirm-btn").first
+                    if await confirm_batch_btn.count() > 0:
+                        print("   * Clicking 'Upload & Auto-Bind All' with SPIF WebP pipeline...")
+                        await confirm_batch_btn.click()
+                        # Wait for processing and modal to close
+                        await page.wait_for_timeout(3500)
+
+                        # Capture Screenshot 14: Lookbook with bound images
+                        shot14_path = os.path.join(OUTPUT_DIR, "14_po_batch_uploaded_lookbook.png")
+                        await page.screenshot(path=shot14_path, full_page=True)
+                        print(f"   [CAPTURE] Step 14: Lookbook Post-Batch Upload -> {shot14_path}")
 
 
         # ---------------------------------------------------------------------

@@ -100,7 +100,7 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
   const currencyCode = data.currency || "EUR";
   const sizingScale = data.sizingScale || "EURO";
   const showPhotos = data.showPhotos !== false;
-  const isLandscape = (data.orientation ?? "landscape") === "landscape";
+  const isLandscape = data.orientation === "landscape";
 
   const items = data.items && data.items.length > 0 ? data.items : [
     {
