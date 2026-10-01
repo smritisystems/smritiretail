@@ -174,6 +174,7 @@ class PurchaseOrderAmendRequest(BaseModel):
     """
     Amendment: the original (Confirmed) PO is cancelled and a new Confirmed
     PO is created from the supplied items.
+    Phase D: amend_revision is set automatically by the service from the original's revision + 1.
     """
     new_order_id: Optional[str] = None
     new_order_no: str
@@ -202,6 +203,10 @@ class PurchaseOrderResponse(BaseModel):
     cancelled_at:        Optional[datetime] = None
     cancellation_reason: Optional[str] = None
     parent_order_id:     Optional[str] = None
+    # Phase D amendment chain fields
+    amended_by:          Optional[str] = None
+    amended_at:          Optional[datetime] = None
+    amend_revision:      int = 0
 
     model_config = {"from_attributes": True}
 

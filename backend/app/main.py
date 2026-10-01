@@ -78,6 +78,7 @@ from .api.v1 import (
     inventory,
     inventory_reports,
     legacy_menu_map,
+    lifecycle,
     localization,
     master_lookup,
     masters,
@@ -285,6 +286,7 @@ _ROUTER_REGISTRY = [
     # --- Platform & System ---
     (health_flags,          "/health",               ["Health"]),
     (workflow,              "/workflow",             ["Workflow"]),
+    (lifecycle,             "/lifecycle",            ["Universal Lifecycle Engine"]),
     (metadata,              "",                      ["Metadata"]),
     (changelog,             "",                      ["Changelog"]),
     (dev_tracker,           "",                      ["Dev Tracker"]),

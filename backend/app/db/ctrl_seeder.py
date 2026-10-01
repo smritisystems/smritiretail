@@ -696,6 +696,28 @@ class ControlPlaneSeeder:
                         {"from": "PENDING_APPROVAL", "to": "DRAFT", "action": "REJECT", "required_roles": ["MANAGER", "SYSADMIN"]},
                     ],
                     "status": "ACTIVE"
+                },
+                {
+                    "id": "wf_purch_order_v1",
+                    "code": "WF_PURCHASE_ORDER",
+                    "version": 1,
+                    "doc_type": "PurchaseOrder",
+                    "name": "Standard Purchase Order Approval & Lifecycle Workflow",
+                    "initial_state": "DRAFT",
+                    "states": ["DRAFT", "SUBMITTED", "CONFIRMED", "RECEIVED", "COMPLETED", "CANCELLED"],
+                    "transitions": [
+                        {"from": "DRAFT", "to": "SUBMITTED", "action": "SUBMIT", "required_roles": ["STORE_MANAGER", "MANAGER", "SYSADMIN"]},
+                        {"from": "DRAFT", "to": "CANCELLED", "action": "CANCEL", "required_roles": ["STORE_MANAGER", "MANAGER", "SYSADMIN"]},
+                        {"from": "SUBMITTED", "to": "CONFIRMED", "action": "CONFIRM", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "SUBMITTED", "to": "CONFIRMED", "action": "APPROVE", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "SUBMITTED", "to": "DRAFT", "action": "REJECT", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "SUBMITTED", "to": "CANCELLED", "action": "CANCEL", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "CONFIRMED", "to": "CANCELLED", "action": "CANCEL", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "CONFIRMED", "to": "CONFIRMED", "action": "AMEND", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "CONFIRMED", "to": "RECEIVED", "action": "RECEIVE", "required_roles": ["STORE_MANAGER", "SYSADMIN"]},
+                        {"from": "RECEIVED", "to": "COMPLETED", "action": "COMPLETE", "required_roles": ["ACCOUNTANT", "MANAGER", "SYSADMIN"]},
+                    ],
+                    "status": "ACTIVE"
                 }
             ]
             for w in workflows:

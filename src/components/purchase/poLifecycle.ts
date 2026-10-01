@@ -1,9 +1,9 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : Purchase Order Lifecycle Helpers (Phase A)
+ * Module       : Purchase Order Lifecycle Helpers (Phase A + D)
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
- * Version      : 2.0.0
+ * Version      : 2.1.0
  * Created      : 2026-07-11
  * Modified     : 2026-10-01
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -77,6 +77,15 @@ export function isPOConfirmable(status?: string | null): boolean {
 export function isPOCancellable(status?: string | null): boolean {
   const s = normalizePOStatus(status);
   return s === "DRAFT" || s === "SUBMITTED" || s === "CONFIRMED";
+}
+
+/**
+ * Phase D: Returns true if this status allows amendment (CONFIRMED only).
+ * Only Managers/SysAdmins may amend; the button is hidden for other roles.
+ * Amendment creates a new Confirmed revision; original becomes Superseded.
+ */
+export function isPOAmendable(status?: string | null): boolean {
+  return normalizePOStatus(status) === "CONFIRMED";
 }
 
 export function buildPurchaseOrderDetailUrl(orderNo?: string | null): string {

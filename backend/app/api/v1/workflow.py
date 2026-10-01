@@ -36,9 +36,11 @@ from app.services.sales import SalesService
 
 router = APIRouter()
 
+from app.services.lifecycle import UniversalLifecycleEngine, LifecycleTransitionContext
+
 # Supported document types and their allowed workflow actions
 _SUPPORTED = {
-    "PurchaseOrder":  {"submit", "cancel"},
+    "PurchaseOrder":  {"submit", "confirm", "approve", "cancel"},
     "SalesInvoice":   {"approve", "cancel"},
     "SalesQuotation": {"approve", "cancel"},
 }
@@ -140,20 +142,23 @@ async def workflow_action(
     sales_svc    = SalesService(db, tenant_ctx)
 
     if doc_type == "PurchaseOrder":
-        if action == "submit":
-            result = await purchase_svc.submit_purchase_order(doc_id)
-            await _log_event(db, doc_type, doc_id, action,
-                             from_status="DRAFT", to_status="CONFIRMED",
-                             user=current_user, tenant_ctx=tenant_ctx)
-            await db.commit()
-            return result
-        if action == "cancel":
-            result = await purchase_svc.cancel_purchase_order(doc_id)
-            await _log_event(db, doc_type, doc_id, action,
-                             from_status=None, to_status="CANCELLED",
-                             user=current_user, tenant_ctx=tenant_ctx)
-            await db.commit()
-            return result
+        ctx = LifecycleTransitionContext(
+            doc_type=doc_type,
+            doc_id=doc_id,
+            action=action.upper(),
+        )
+        res = await UniversalLifecycleEngine.execute_transition(
+            db=db,
+            tenant_ctx=tenant_ctx,
+            user=current_user,
+            ctx=ctx,
+        )
+        return {
+            "success": True,
+            "order_id": doc_id,
+            "status": res.to_status,
+            "message": res.message,
+        }
 
     if doc_type == "SalesInvoice":
         if action == "approve":

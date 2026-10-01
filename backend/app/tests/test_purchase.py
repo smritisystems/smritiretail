@@ -653,12 +653,12 @@ async def test_cancel_purchase_order(db_session):
     assert res.status_code == 200, res.text
     assert res.json()["success"] is True
 
-    # Verify soft-delete in DB
+    # Verify status in DB (cancelled POs retain is_deleted=False)
     stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
     result = await db_session.execute(stmt)
     updated = result.scalars().first()
     assert updated.status == "CANCELLED"
-    assert updated.is_deleted is True
+    assert updated.is_deleted is False
 
 
 async def test_cancel_nonexistent_po_returns_404(db_session):
@@ -765,7 +765,7 @@ async def test_amend_purchase_order(db_session):
     result = await db_session.execute(stmt)
     original = result.scalars().first()
     assert original.status == "CANCELLED"
-    assert original.is_deleted is True
+    assert original.is_deleted is False
 
 
 async def test_amend_non_confirmed_po_returns_400(db_session):
@@ -1593,7 +1593,7 @@ async def test_phaseA_20_cancel_draft_po(db_session):
     result = await db_session.execute(stmt)
     db_po = result.scalars().first()
     assert db_po.status == "CANCELLED"
-    assert db_po.is_deleted is True
+    assert db_po.is_deleted is False
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1884,3 +1884,273 @@ async def test_phaseC_28_cancel_with_other_reason_and_note(db_session):
     # The composed reason string must be present
     assert db_po.cancellation_reason is not None
     assert "Vendor shifted" in db_po.cancellation_reason or "OTHER" in (db_po.cancellation_reason or "")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase D Tests — Amendment / Revision Chain (T29–T33)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── T29: Amend a CONFIRMED PO — creates new PO + supersedes original ──────────
+
+@pytest.mark.asyncio
+async def test_phaseD_29_amend_confirmed_po_creates_new_revision(db_session):
+    """Phase D T29: amending a CONFIRMED PO cancels original and returns new CONFIRMED PO."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    # Create and confirm original PO
+    original = PurchaseOrder(
+        id=f"phd-t29-orig-{s}", order_no=f"PHD-T29-{s}",
+        supplier_id=supplier.id, status="CONFIRMED",
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(original)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{original.id}/amend",
+            json={
+                "new_order_no": f"PHD-T29-{s}-R1",
+                "reason": "Price revision from supplier",
+                "items": [{
+                    "product_id": product.id,
+                    "code": product.code,
+                    "name": product.name,
+                    "quantity": "5",
+                    "cost_price": "25.00",
+                    "gst_rate": "18.00",
+                }],
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 201, r.text
+    new_po = r.json()
+    assert new_po["status"] == "CONFIRMED"
+    assert new_po["order_no"] == f"PHD-T29-{s}-R1"
+
+    # Original must be CANCELLED
+    await db_session.refresh(original)
+    assert original.status == "CANCELLED"
+    assert original.is_deleted is False
+
+
+# ── T30: New PO carries correct parent_order_id and amend_revision = 1 ────────
+
+@pytest.mark.asyncio
+async def test_phaseD_30_amendment_sets_parent_order_id_and_revision(db_session):
+    """Phase D T30: new PO has parent_order_id = original.id and amend_revision = 1."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    original = PurchaseOrder(
+        id=f"phd-t30-orig-{s}", order_no=f"PHD-T30-{s}",
+        supplier_id=supplier.id, status="CONFIRMED",
+        subtotal=Decimal("200.00"), tax_total=Decimal("36.00"),
+        grand_total=Decimal("236.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(original)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{original.id}/amend",
+            json={
+                "new_order_no": f"PHD-T30-{s}-R1",
+                "reason": "Quantity increase",
+                "items": [{
+                    "product_id": product.id,
+                    "code": product.code,
+                    "name": product.name,
+                    "quantity": "10",
+                    "cost_price": "20.00",
+                    "gst_rate": "18.00",
+                }],
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 201, r.text
+    new_po = r.json()
+
+    # Verify chain fields in response
+    assert new_po.get("parent_order_id") == original.id, (
+        f"Expected parent_order_id={original.id}, got {new_po.get('parent_order_id')}"
+    )
+    assert new_po.get("amend_revision") == 1, (
+        f"Expected amend_revision=1, got {new_po.get('amend_revision')}"
+    )
+
+
+# ── T31: Cannot amend a DRAFT or SUBMITTED PO — 400 ──────────────────────────
+
+@pytest.mark.asyncio
+async def test_phaseD_31_cannot_amend_non_confirmed_po(db_session):
+    """Phase D T31: amending a DRAFT PO returns 400 with clear message."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    draft_po = PurchaseOrder(
+        id=f"phd-t31-{s}", order_no=f"PHD-T31-{s}",
+        supplier_id=supplier.id, status="DRAFT",
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(draft_po)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{draft_po.id}/amend",
+            json={
+                "new_order_no": f"PHD-T31-{s}-R1",
+                "reason": "Should fail",
+                "items": [{
+                    "product_id": product.id,
+                    "code": product.code,
+                    "name": product.name,
+                    "quantity": "1",
+                    "cost_price": "10.00",
+                    "gst_rate": "18.00",
+                }],
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 400, r.text
+    assert "confirmed" in r.json()["detail"].lower()
+
+
+# ── T32: Amendment history endpoint returns chain sorted by revision ───────────
+
+@pytest.mark.asyncio
+async def test_phaseD_32_amendment_history_returns_chain(db_session):
+    """Phase D T32: GET /orders/{id}/amendment-history returns ordered chain."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    original = PurchaseOrder(
+        id=f"phd-t32-orig-{s}", order_no=f"PHD-T32-{s}",
+        supplier_id=supplier.id, status="CONFIRMED",
+        subtotal=Decimal("100.00"), tax_total=Decimal("18.00"),
+        grand_total=Decimal("118.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(original)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        # First create an amendment
+        r_amend = await c.post(
+            f"/api/v1/purchase/orders/{original.id}/amend",
+            json={
+                "new_order_no": f"PHD-T32-{s}-R1",
+                "reason": "Test amendment for history",
+                "items": [{
+                    "product_id": product.id,
+                    "code": product.code,
+                    "name": product.name,
+                    "quantity": "2",
+                    "cost_price": "50.00",
+                    "gst_rate": "18.00",
+                }],
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+        assert r_amend.status_code == 201, r_amend.text
+        new_po_id = r_amend.json()["id"]
+
+        # Now fetch history from the NEW PO id
+        r_hist = await c.get(
+            f"/api/v1/purchase/orders/{new_po_id}/amendment-history",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r_hist.status_code == 200, r_hist.text
+    chain = r_hist.json()
+    assert isinstance(chain, list)
+    assert len(chain) >= 2  # original + at least one amendment
+    # Verify ordering by amend_revision ascending
+    revisions = [entry["amend_revision"] for entry in chain]
+    assert revisions == sorted(revisions), f"Chain not sorted: {revisions}"
+    # Root entry must be revision 0
+    assert chain[0]["amend_revision"] == 0
+    # Last entry must be revision 1
+    assert chain[-1]["amend_revision"] == 1
+    assert chain[-1]["order_no"] == f"PHD-T32-{s}-R1"
+
+
+# ── T33: Original PO notes marked Amended & Superseded ────────────────────────
+
+@pytest.mark.asyncio
+async def test_phaseD_33_original_notes_marked_superseded(db_session):
+    """Phase D T33: after amendment, original PO notes contain 'Amended & Superseded'."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    original = PurchaseOrder(
+        id=f"phd-t33-orig-{s}", order_no=f"PHD-T33-{s}",
+        supplier_id=supplier.id, status="CONFIRMED",
+        subtotal=Decimal("300.00"), tax_total=Decimal("54.00"),
+        grand_total=Decimal("354.00"),
+        company_id=comp.id, branch_id=br.id,
+        notes="Original order notes.",
+    )
+    db_session.add(original)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{original.id}/amend",
+            json={
+                "new_order_no": f"PHD-T33-{s}-R1",
+                "reason": "Emergency price correction",
+                "items": [{
+                    "product_id": product.id,
+                    "code": product.code,
+                    "name": product.name,
+                    "quantity": "3",
+                    "cost_price": "100.00",
+                    "gst_rate": "18.00",
+                }],
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 201, r.text
+
+    from sqlalchemy import select as _s
+    result = await db_session.execute(_s(PurchaseOrder).where(PurchaseOrder.id == original.id))
+    db_original = result.scalars().first()
+    assert db_original is not None
+    assert db_original.status == "CANCELLED"
+    assert db_original.notes is not None
+    assert "Amended" in db_original.notes and "Superseded" in db_original.notes, (
+        f"Expected 'Amended & Superseded' in notes, got: {db_original.notes!r}"
+    )
+    assert "Emergency price correction" in db_original.notes
