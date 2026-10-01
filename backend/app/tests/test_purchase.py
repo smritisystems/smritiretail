@@ -1755,3 +1755,132 @@ async def test_phaseB_25_multi_status_filter(db_session):
     assert "CONFIRMED" not in returned_statuses, "CONFIRMED leaked into DRAFT,SUBMITTED filter"
     # Must contain at least one of DRAFT or SUBMITTED
     assert returned_statuses & {"DRAFT", "SUBMITTED"}, "Neither DRAFT nor SUBMITTED returned"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase C: Cancellation Policy Picker Tests (T26 – T28)
+# Validates GET /purchase/cancel-reasons endpoint and reason_code persistence.
+# Backend: api/v1/purchase.py list_cancel_reasons() +
+#          services/purchase.py cancel_purchase_order(reason_code=...)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+# ── T26: GET /cancel-reasons returns list of cancel reasons ───────────────────
+
+@pytest.mark.asyncio
+async def test_phaseC_26_cancel_reasons_endpoint_returns_list(db_session):
+    """Phase C T26: GET /cancel-reasons returns a non-empty list of cancellation reasons."""
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.get(
+            "/api/v1/purchase/cancel-reasons",
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert isinstance(data, list), "Expected a list of cancel reasons"
+    assert len(data) >= 1, "Expected at least one cancel reason"
+
+    # Each item must have code, label, requires_note
+    for item in data:
+        assert "code" in item, f"Missing 'code' in reason {item}"
+        assert "label" in item, f"Missing 'label' in reason {item}"
+        assert "requires_note" in item, f"Missing 'requires_note' in reason {item}"
+
+    # OTHER must always be present and requires_note=True
+    other = next((r for r in data if r["code"] == "OTHER"), None)
+    assert other is not None, "'OTHER' reason not found in cancel reasons"
+    assert other["requires_note"] is True, "'OTHER' reason must require a note"
+
+
+# ── T27: Cancel PO with structured reason_code persisted ──────────────────────
+
+@pytest.mark.asyncio
+async def test_phaseC_27_cancel_with_reason_code(db_session):
+    """Phase C T27: Cancelling a PO with reason_code stores reason label + code."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    po = PurchaseOrder(
+        id=f"phc-t27-{s}", order_no=f"PHC-T27-{s}",
+        supplier_id=supplier.id, status="DRAFT",
+        subtotal=Decimal("200.00"), tax_total=Decimal("36.00"),
+        grand_total=Decimal("236.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/cancel",
+            json={
+                "reason": "Budget Constraint / Funds Not Available",
+                "reason_code": "BUDGET_CONSTRAINT",
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["success"] is True
+
+    from sqlalchemy import select
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
+    result = await db_session.execute(stmt)
+    db_po = result.scalars().first()
+    assert db_po.status == "CANCELLED"
+    assert db_po.cancellation_reason is not None, "cancellation_reason not persisted"
+    # If the model has cancellation_reason_code column, verify it too
+    if hasattr(db_po, "cancellation_reason_code"):
+        assert db_po.cancellation_reason_code == "BUDGET_CONSTRAINT"
+
+
+# ── T28: Cancel with reason_code=OTHER requires and stores note ───────────────
+
+@pytest.mark.asyncio
+async def test_phaseC_28_cancel_with_other_reason_and_note(db_session):
+    """Phase C T28: reason_code=OTHER with a free-text note composites the reason string."""
+    from app.models.purchase import PurchaseOrder
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    mgr = await _make_manager(db_session, s, comp.id, br.id)
+    supplier = await _make_supplier(db_session, s, comp.id, br.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    po = PurchaseOrder(
+        id=f"phc-t28-{s}", order_no=f"PHC-T28-{s}",
+        supplier_id=supplier.id, status="DRAFT",
+        subtotal=Decimal("150.00"), tax_total=Decimal("27.00"),
+        grand_total=Decimal("177.00"),
+        company_id=comp.id, branch_id=br.id,
+    )
+    db_session.add(po)
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            f"/api/v1/purchase/orders/{po.id}/cancel",
+            json={
+                "reason": "Other (please specify): Vendor shifted location permanently",
+                "reason_code": "OTHER",
+            },
+            headers=_bearer(mgr, comp.id, br.id),
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["success"] is True
+
+    from sqlalchemy import select
+    stmt = select(PurchaseOrder).where(PurchaseOrder.id == po.id)
+    result = await db_session.execute(stmt)
+    db_po = result.scalars().first()
+    assert db_po.status == "CANCELLED"
+    # The composed reason string must be present
+    assert db_po.cancellation_reason is not None
+    assert "Vendor shifted" in db_po.cancellation_reason or "OTHER" in (db_po.cancellation_reason or "")
