@@ -214,7 +214,40 @@ class PaymentsEngine:
                 )
                 session.add(alloc)
 
+                # Synchronize invoice balance if authoritative sales invoice exists
+                if req.reference_doc_type in ("SALES_INVOICE", "POS_BILL") and req.reference_doc_id:
+                    from ..models.sales import SalesInvoice
+                    inv_match = (
+                        await session.execute(
+                            select(SalesInvoice)
+                            .where(
+                                SalesInvoice.id == req.reference_doc_id,
+                                SalesInvoice.company_id == company_id,
+                                SalesInvoice.is_deleted == False
+                            )
+                            .with_for_update()
+                        )
+                    ).scalars().first()
+                    if inv_match:
+                        cur_paid = Decimal(str(inv_match.paid_amount or "0.00"))
+                        new_paid = cur_paid + tender_amt
+                        inv_match.paid_amount = new_paid
+                        inv_match.balance_amount = max(Decimal("0.00"), Decimal(str(inv_match.grand_total or "0.00")) - new_paid)
+                        if inv_match.balance_amount == Decimal("0.00"):
+                            inv_match.status = "PAID"
+                        session.add(inv_match)
+
             created_txs.append(tx)
+
+        # Synchronous Payment Receipt GL (BD-03)
+        from .unified_ledger import UnifiedAccountingLedgerService
+        for tx in created_txs:
+            await UnifiedAccountingLedgerService.post_payment_transaction_to_gl(
+                session=session,
+                company_id=company_id,
+                payment_id=tx.id,
+                branch_id=tx.branch_id,
+            )
 
         if commit:
             await session.commit()
@@ -399,6 +432,31 @@ class PaymentsEngine:
                 f"Allocation amount ₹{alloc_req_amt} exceeds unallocated payment balance ₹{unalloc} (Total: ₹{tx_amt}, Already Allocated: ₹{already_allocated})."
             )
 
+        # Validate invoice if present in database
+        from ..models.sales import SalesInvoice
+        stmt_inv = (
+            select(SalesInvoice)
+            .where(
+                SalesInvoice.id == req.invoice_id,
+                SalesInvoice.is_deleted == False
+            )
+            .with_for_update()
+        )
+        inv = (await session.execute(stmt_inv)).scalars().first()
+        if inv:
+            if inv.company_id != company_id:
+                raise ValueError(f"Cross-company allocation forbidden: invoice '{req.invoice_id}' belongs to company '{inv.company_id}', not '{company_id}'.")
+            inv_bal = Decimal(str(inv.balance_amount)) if (inv.balance_amount is not None and (Decimal(str(inv.balance_amount)) > 0 or (inv.paid_amount and Decimal(str(inv.paid_amount)) > 0))) else Decimal(str(inv.grand_total or 0.00))
+            if alloc_req_amt > inv_bal:
+                raise ValueError(
+                    f"Allocation amount ₹{alloc_req_amt} exceeds invoice outstanding balance ₹{inv_bal}."
+                )
+            inv.paid_amount = Decimal(str(inv.paid_amount or 0.00)) + alloc_req_amt
+            inv.balance_amount = max(Decimal("0.00"), Decimal(str(inv.grand_total or 0.00)) - inv.paid_amount)
+            if inv.balance_amount == Decimal("0.00"):
+                inv.status = "PAID"
+            session.add(inv)
+
         now = datetime.now(timezone.utc)
         alloc = PaymentAllocation(
             id=f"pal_{uuid.uuid4().hex[:12]}",
@@ -414,6 +472,15 @@ class PaymentsEngine:
             created_by=created_by,
         )
         session.add(alloc)
+
+        # Synchronous Payment Receipt GL (BD-03)
+        from .unified_ledger import UnifiedAccountingLedgerService
+        await UnifiedAccountingLedgerService.post_payment_transaction_to_gl(
+            session=session,
+            company_id=company_id,
+            payment_id=tx.id,
+            branch_id=tx.branch_id,
+        )
 
         if commit:
             await session.commit()
