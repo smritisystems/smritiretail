@@ -40,6 +40,7 @@ from ..models.purchase import (
     PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
+    PurchaseBill,
 )
 from ..models.inventory import Product, StockMovement
 from ..models.workflow import WorkflowEvent
@@ -2053,6 +2054,24 @@ class PurchaseService:
                 "total_amount": str(req.total_amount),
             },
         )
+        bill_entity = PurchaseBill(
+            id=bill_id,
+            uuid=bill_id,
+            bill_no=bill_no,
+            identity_code=id_code,
+            supplier_id=supplier.id,
+            receipt_id=req.receipt_id,
+            order_id=req.order_id,
+            bill_date=req.bill_date or datetime.now(timezone.utc).date(),
+            taxable_amount=req.taxable_amount,
+            tax_amount=req.tax_amount,
+            total_amount=req.total_amount,
+            status="POSTED",
+            notes=req.notes,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+        )
+        self.db.add(bill_entity)
         await self.db.commit()
         return {
             "id": bill_id,

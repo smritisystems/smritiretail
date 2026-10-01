@@ -190,3 +190,30 @@ class PurchaseJurisdictionConfig(BaseEntity):
     __tablename__ = "purchase_jurisdiction_configs"
 
     company_state = Column(String(10), nullable=False, default="DL")
+
+
+class PurchaseBill(BaseEntity):
+    """
+    Supplier purchase commercial bill/invoice posted against a GRN or PurchaseOrder.
+    Tracks supplier liability, tax breakdown, 3-way match status, and payment eligibility.
+    """
+    __tablename__ = "purchase_bills"
+
+    bill_no             = Column(String(100), nullable=False, index=True)
+    identity_code       = Column(String(100), nullable=True, unique=True, index=True)
+    supplier_id         = Column(String(50),  ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=False, index=True)
+    receipt_id          = Column(String(50),  ForeignKey("purchase_receipts.id", ondelete="SET NULL"), nullable=True, index=True)
+    order_id            = Column(String(50),  ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True)
+    bill_date           = Column(Date,        nullable=True)
+    due_date            = Column(Date,        nullable=True)
+    status              = Column(String(30),  nullable=False, default="DRAFT", index=True)
+    taxable_amount      = Column(Numeric(15, 2), nullable=False, default=0.00)
+    tax_amount          = Column(Numeric(15, 2), nullable=False, default=0.00)
+    total_amount        = Column(Numeric(15, 2), nullable=False, default=0.00)
+    paid_amount         = Column(Numeric(15, 2), nullable=False, default=0.00)
+    notes               = Column(Text,        nullable=True)
+    cancellation_reason = Column(Text,        nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "bill_no", name="uq_purchase_bills_company_bill_no"),
+    )

@@ -48,8 +48,18 @@ class DocumentNotFoundException(LifecycleException):
 
 class TenantIsolationException(LifecycleException):
     """Raised when cross-tenant access is attempted."""
-    def __init__(self, message: str = "Access denied: Document belongs to a different tenant or organization."):
-        super().__init__(message=message, status_code=404)
+    def __init__(
+        self,
+        message: str = "Access denied: Document belongs to a different tenant or organization.",
+        doc_type: Optional[str] = None,
+        doc_id: Optional[str] = None,
+    ):
+        details = {}
+        if doc_type:
+            details["doc_type"] = doc_type
+        if doc_id:
+            details["doc_id"] = doc_id
+        super().__init__(message=message, status_code=404, details=details)
 
 
 class ConcurrencyConflictException(LifecycleException):

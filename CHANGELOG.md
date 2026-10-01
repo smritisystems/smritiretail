@@ -28,6 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.48.0] - 2026-10-01 — Universal Transaction Lifecycle Framework Phase 2 (GRN & Purchase Bill)
+
+> **Branch:** `smritiNX` | **Area:** Foundation / Procurement / Universal Lifecycle Framework
+> **Implementation Plan:** `docs/implementation/procurement/Universal_Document_Lifecycle_Phase2_GRN_PurchaseBill_v1.0.md`
+> **Architecture Report:** `docs/architecture/SMRITI_DOCUMENT_LIFECYCLE_PHASE2_REPORT.md`
+> **Backfill Audit:** `docs/architecture/SMRITI_PO_LIFECYCLE_PHASES_A_C_BACKFILL.md`
+
+### Added
+- **`GoodsReceiptLifecycleHandler`** (`backend/app/services/lifecycle/handlers/goods_receipt.py`): Authoritative domain lifecycle handler for GRN / GoodsReceipt supporting polymorphic loading across `PurchaseReceipt` and `GoodsReceiptNote`, atomic stock movement on `RECEIVE`, remaining PO line quantity validation, and cancellation immutability (`is_deleted=False`).
+- **`PurchaseBillLifecycleHandler`** (`backend/app/services/lifecycle/handlers/purchase_bill.py`): Authoritative domain lifecycle handler for Supplier Purchase Bills / Commercial Invoices, supporting 3-way match validation against PO/GRN, financial approval policy evaluation on `APPROVE`/`POST`, and accounts payable liability ledger posting.
+- **`PurchaseBill` Database Entity & Migration v1513** (`backend/app/models/purchase.py`, `backend/alembic/versions/v1513_purchase_bills_table.py`): Canonical `purchase_bills` table inheriting `BaseEntity` with composite index `(company_id, bill_no)` and full column parity.
+- **Cross-Handler Acceptance Test Suite** (`backend/app/tests/test_cross_handler_lifecycle.py`): Automated verification asserting coexistence and seamless execution of `PurchaseOrder`, `GoodsReceipt`, and `PurchaseBill` through `UniversalLifecycleEngine` without engine-level branching.
+- **Approval Engine Execution Test Suite** (`backend/app/tests/test_approval_engine.py`): Rigorous execution testing of `ApprovalEngine` across Tests A through H (tiered threshold matching, unauthorized role rejection, authorized request/action creation, rejection handling, amendment re-evaluation, and cross-tenant protection).
+
+### Verified
+- Zero document-type branching in `UniversalLifecycleEngine`.
+- Single Alembic head `v1513_purchase_bills_table (head)`.
+- Full regression battery green: Universal lifecycle, Purchase domain (62/62), GRN (4/4), Approval engine (8/8), Cross-handler (5/5), TypeScript typecheck (0 errors).
+
 ## [6.47.0] - 2026-10-01 — Universal Transaction Lifecycle Framework (Phase 1 PO Pilot)
 
 > **Branch:** `smritiNX` | **Area:** Foundation / Procurement / Universal Lifecycle Framework

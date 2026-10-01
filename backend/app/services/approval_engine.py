@@ -47,6 +47,7 @@ class ApprovalEngine:
         "CASHIER": 1,
         "SALES_EXECUTIVE": 2,
         "STORE_MANAGER": 3,
+        "MANAGER": 3,
         "FINANCE_CONTROLLER": 4,
         "DIRECTOR": 5,
         "SYSADMIN": 10,

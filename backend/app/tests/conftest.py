@@ -178,7 +178,8 @@ def _ensure_schema_compatibility_sync(cur):
             apply_same_mailing BOOLEAN DEFAULT FALSE, notes TEXT,
             UNIQUE (parent_customer_id, dependant_customer_id)
         );""",
-        "ALTER TABLE IF EXISTS approval_policies ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT gen_random_uuid();",
+        "ALTER TABLE IF EXISTS approval_policies ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) DEFAULT gen_random_uuid()::varchar;",
+        "ALTER TABLE IF EXISTS approval_policies ALTER COLUMN uuid TYPE VARCHAR(36) USING uuid::varchar;",
         "ALTER TABLE IF EXISTS approval_policies ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);",
         "ALTER TABLE IF EXISTS approval_policies ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);",
         "ALTER TABLE IF EXISTS approval_policies ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
@@ -189,6 +190,30 @@ def _ensure_schema_compatibility_sync(cur):
         "ALTER TABLE IF EXISTS approval_policies ADD COLUMN IF NOT EXISTS updated_by VARCHAR(50);",
         "ALTER TABLE IF EXISTS approval_policies ADD COLUMN IF NOT EXISTS modified_at TIMESTAMPTZ DEFAULT NOW();",
         "ALTER TABLE IF EXISTS approval_policies ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) DEFAULT gen_random_uuid()::varchar;",
+        "ALTER TABLE IF EXISTS approval_requests ALTER COLUMN uuid TYPE VARCHAR(36) USING uuid::varchar;",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS updated_by VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS modified_at TIMESTAMPTZ DEFAULT NOW();",
+        "ALTER TABLE IF EXISTS approval_requests ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) DEFAULT gen_random_uuid()::varchar;",
+        "ALTER TABLE IF EXISTS approval_actions ALTER COLUMN uuid TYPE VARCHAR(36) USING uuid::varchar;",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(50);",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS modified_at TIMESTAMPTZ DEFAULT NOW();",
+        "ALTER TABLE IF EXISTS approval_actions ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;",
     ]
     for stmt in schema_fixes:
         try:
@@ -245,6 +270,9 @@ def session_template_database():
                 "ALTER TABLE IF EXISTS products ALTER COLUMN gst_percentage SET DEFAULT 18.00;",
                 "ALTER TABLE IF EXISTS products ALTER COLUMN hsn_code SET DEFAULT '6403';",
                 "ALTER TABLE IF EXISTS products ALTER COLUMN mrp DROP NOT NULL;",
+                "ALTER TABLE IF EXISTS purchase_bills ADD COLUMN IF NOT EXISTS created_by VARCHAR(100);",
+                "ALTER TABLE IF EXISTS purchase_bills ADD COLUMN IF NOT EXISTS updated_by VARCHAR(100);",
+                "ALTER TABLE IF EXISTS purchase_bills ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(100);",
             ]
             for stmt in statements:
                 try:

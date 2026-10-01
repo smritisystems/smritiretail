@@ -196,7 +196,12 @@ class UniversalLifecycleEngine:
         doc_type = ctx.doc_type
         doc_id = ctx.doc_id
         action = ctx.action.strip().upper()
-        payload = ctx.payload or {}
+        payload = dict(ctx.payload or {})
+        if ctx.notes:
+            if "notes" not in payload:
+                payload["notes"] = ctx.notes
+            if "reason" not in payload:
+                payload["reason"] = ctx.notes
 
         # 1. Resolve registered domain handler (strategy pattern)
         handler = LifecycleRegistry.get(doc_type)
