@@ -60,5 +60,6 @@ from . import (
     vendor,
     kpi_registry,
     loyalty,
+    lifecycle,
 )
 

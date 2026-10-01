@@ -242,9 +242,29 @@ async def amend_purchase_order_contract(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Amend a purchase order — canonical contract URL."""
+    """Amend a purchase order — canonical contract URL. Phase D: sets parent_order_id + amend_revision chain."""
     new_order = await PurchaseService(db, tenant_ctx).amend_purchase_order(order_id, req)
     return new_order
+
+
+@router.get(
+    "/orders/{order_id}/amendment-history",
+    response_model=List[dict],
+    summary="Get PO Amendment History (Phase D)",
+    tags=["PO Lifecycle"],
+)
+async def get_amendment_history(
+    order_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Return the full revision chain for a purchase order.
+    Walks parent_order_id back to the original (rev 0), then collects all
+    related amendments. Returns chain sorted by amend_revision ascending.
+    Safe for any PO regardless of status.
+    """
+    return await PurchaseService(db, tenant_ctx).get_amendment_history(order_id)
 
 
 # ─────────────────────────── Purchase Receipts (GRN) ───────────────────────────

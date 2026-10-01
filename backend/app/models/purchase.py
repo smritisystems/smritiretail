@@ -56,6 +56,7 @@ class PurchaseOrder(BaseEntity):
     A purchase order sent to a supplier.
     Status lifecycle: DRAFT → SUBMITTED → CONFIRMED → RECEIVED → COMPLETED | CANCELLED
     Phase A (v1508): added submitted/confirmed/cancelled audit columns and parent_order_id.
+    Phase D (v1512): added amended_by, amended_at, amend_revision for amendment chain.
     """
     __tablename__ = "purchase_orders"
 
@@ -85,6 +86,10 @@ class PurchaseOrder(BaseEntity):
     cancellation_reason = Column(Text, nullable=True)
     # parent_order_id links an amended PO back to its predecessor (Phase D)
     parent_order_id     = Column(String(50), ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True)
+    # ── Amendment audit columns (Phase D v1512) ──────────────────────────────
+    amended_by          = Column(String(100), nullable=True)
+    amended_at          = Column(DateTime(timezone=True), nullable=True)
+    amend_revision      = Column(Integer, nullable=False, default=0, server_default="0")
 
     __table_args__ = (
         # order_no is unique per company (not globally) — supports multi-tenant same numbering

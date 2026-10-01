@@ -28,6 +28,41 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.46.0] - 2026-10-01 — Phase B: Status-Aware PO Workspace
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Workspace
+> **Commit:** `178f8c99`
+> **Walkthrough:** `docs/walkthrough/purchase/Purchase_PO_Lifecycle_Phase_B_v1.0.md`
+> **Implementation Plan:** `docs/implementation/purchase/PO_Lifecycle_Phase_B_v1.0.md`
+
+### Added
+- **`POWorkspaceTab.tsx`** (NEW): Status-tabbed purchase order workspace
+  - 6 status tabs: All POs / Draft / Submitted / Confirmed / Received / Cancelled
+  - Per-row action buttons: **Submit** (DRAFT POs, MANAGER+), **Confirm** (SUBMITTED POs, MANAGER+), **Cancel** (with reason dialog)
+  - Inline search by PO number or supplier name
+  - Tab counts auto-populated on each tab switch
+  - Non-Manager role banner: action buttons hidden, info message shown
+  - Audit column display: `submitted_by`, `confirmed_by`, delivery date, amount
+- **`GET /purchase/orders/?status=`**: New query parameter for status filtering
+  - Supports single value: `?status=DRAFT`
+  - Supports comma-separated multi-value: `?status=DRAFT,SUBMITTED`
+  - `pending_only` behaviour preserved when `status` is not provided
+- **5 Phase B tests** (T21–T25) for the status filter endpoint
+
+### Changed
+- **`PurchaseStudioTab.tsx` → v4.0.0**: Top-level Generate/Workspace tab switcher
+  - `Generate PO` tab: existing Sizewise/Standard sub-modes unchanged
+  - `Workspace` tab: `POWorkspaceTab` integrated
+- **`list_purchase_orders()` service**: Added `status: Optional[str]` parameter with comma-split + uppercase normalisation
+
+### Test Results
+```
+54 passed, 0 failed, 14 warnings in 73.80s (0:01:13)
+TypeScript: npx tsc --noEmit → exit 0 (0 errors)
+```
+
+---
+
 ## [6.45.0] - 2026-10-01 — PO Two-Stage Lifecycle: DRAFT → SUBMITTED → CONFIRMED (Phase A)
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Lifecycle

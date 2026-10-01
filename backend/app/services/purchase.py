@@ -42,6 +42,7 @@ from ..models.purchase import (
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
 )
 from ..models.inventory import Product, StockMovement
+from ..models.workflow import WorkflowEvent
 from ..api.deps import TenantContext
 from ..schemas.purchase import (
     SupplierCreate, SupplierUpdate,
@@ -1420,10 +1421,11 @@ class PurchaseService:
                        "Please raise a return/debit note instead.",
             )
 
+        prev_status = order.status
         now = datetime.now(timezone.utc)
         order.status = "CANCELLED"
-        order.is_deleted = True
-        order.deleted_at = now
+        order.is_deleted = False
+        order.deleted_at = None
         order.modified_at = now
         order.cancelled_by = cancelled_by or (self.tenant.user_id if hasattr(self.tenant, "user_id") else cancelled_by)
         order.cancelled_at = now
@@ -1441,6 +1443,19 @@ class PurchaseService:
             order.cancellation_reason = reason_code
             order.notes = f"{order.notes or ''} | Cancelled: {reason_code}".strip(" |")
 
+        event = WorkflowEvent(
+            doc_type="PurchaseOrder",
+            doc_id=order.id,
+            action="CANCEL",
+            from_status=prev_status,
+            to_status="CANCELLED",
+            performed_by_name=order.cancelled_by,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id or "BR-001",
+            notes=reason or reason_code,
+            created_at=now,
+        )
+        self.db.add(event)
         self.db.add(order)
         await self.db.commit()
         return {
@@ -1452,10 +1467,14 @@ class PurchaseService:
         self, original_id: str, req: PurchaseOrderAmendRequest
     ) -> PurchaseOrder:
         """
-        Amend a Confirmed PO:
-          1. Cancel the original (status=CANCELLED, is_deleted=True).
-          2. Create a new CONFIRMED PO with the replacement items.
-        This mirrors Express POST /api/purchase/orders/:id/amend.
+        Amend a Confirmed PO (Phase D — full revision chain):
+          1. Validate: only CONFIRMED POs may be amended.
+          2. Mark original as CANCELLED + Amended & Superseded, recording amended_by/at.
+          3. Compute new amend_revision = original.amend_revision + 1.
+          4. Create new CONFIRMED PO with parent_order_id = original.id,
+             amend_revision = N, and full item list.
+        Chain: PO-001 (rev 0) → PO-001-R1 (rev 1, parent=PO-001) → …
+        DO NOT convert, rewrite, or alter existing PO data beyond the audit columns.
         """
         original, _ = await self.get_purchase_order(original_id)
 
@@ -1465,18 +1484,26 @@ class PurchaseService:
                 detail="Only Confirmed purchase orders can be amended.",
             )
 
-        # Cancel original
+        now = datetime.now(timezone.utc)
+        acting_user = self.tenant.user_id if hasattr(self.tenant, "user_id") else None
+
+        # Compute next revision number
+        next_revision = (original.amend_revision or 0) + 1
+
+        # ── Mark original as Cancelled/Superseded ─────────────────────────────
         original.status = "CANCELLED"
-        original.is_deleted = True
-        original.deleted_at = datetime.now(timezone.utc)
-        original.modified_at = datetime.now(timezone.utc)
+        original.is_deleted = False
+        original.deleted_at = None
+        original.modified_at = now
+        original.amended_by = acting_user
+        original.amended_at = now
         original.notes = (
             f"{original.notes or ''} | Amended & Superseded. "
             f"Reason: {req.reason or 'No reason given'}"
         ).strip(" |")
         self.db.add(original)
 
-        # Build new PO items
+        # ── Build new PO items ─────────────────────────────────────────────────
         if not req.items:
             raise HTTPException(
                 status_code=400,
@@ -1486,6 +1513,9 @@ class PurchaseService:
         subtotal = Decimal("0.00")
         tax_total = Decimal("0.00")
         item_rows: list[PurchaseOrderItem] = []
+
+        # Use caller-supplied id or generate one
+        new_po_id = req.new_order_id or IdentityEngine.generate_technical_id()
 
         for item in req.items:
             res = await self.db.execute(
@@ -1511,7 +1541,7 @@ class PurchaseService:
             item_rows.append(PurchaseOrderItem(
                 id=amend_poi_id,
                 uuid=amend_poi_id,
-                order_id=req.new_order_id,
+                order_id=new_po_id,
                 product_id=item.product_id,
                 code=item.code,
                 name=item.name,
@@ -1524,13 +1554,19 @@ class PurchaseService:
                 branch_id=self.tenant.branch_id,
             ))
 
+        # ── Create the replacement (amended) PO ───────────────────────────────
         new_order = PurchaseOrder(
-            id=req.new_order_id,
+            id=new_po_id,
             order_no=req.new_order_no,
             supplier_id=original.supplier_id,
             status="CONFIRMED",
+            # Phase D: link chain and set revision counter
+            parent_order_id=original.id,
+            amend_revision=next_revision,
+            confirmed_by=acting_user,
+            confirmed_at=now,
             notes=(
-                f"Amendment of {original.order_no}. "
+                f"Amendment #{next_revision} of {original.order_no}. "
                 f"Reason: {req.reason or 'Not specified'}."
             ),
             subtotal=subtotal.quantize(Decimal("0.01")),
@@ -1554,6 +1590,73 @@ class PurchaseService:
         await self.db.refresh(new_order)
         return new_order
 
+    async def get_amendment_history(self, order_id: str) -> list:
+        """
+        Phase D: Return the full amendment chain for a PO.
+        Walks parent_order_id to find root, then breadth-first collects all
+        POs in the chain, sorted by amend_revision ascending.
+        Returns list of dicts: {id, order_no, status, amend_revision,
+        parent_order_id, amended_at, amended_by, grand_total, created_at}.
+        """
+        from sqlalchemy import select as _select
+
+        # Step 1: resolve root by walking parent_order_id (max 20 hops)
+        visited: set[str] = set()
+        current_id = order_id
+        root_id = order_id
+
+        for _ in range(20):
+            if current_id in visited:
+                break
+            visited.add(current_id)
+            res = await self.db.execute(
+                _select(PurchaseOrder).where(PurchaseOrder.id == current_id)
+            )
+            po = res.scalars().first()
+            if not po:
+                break
+            if not po.parent_order_id:
+                root_id = current_id
+                break
+            current_id = po.parent_order_id
+
+        # Step 2: BFS from root collecting the whole chain (max 10 amendments)
+        chain: list[dict] = []
+        seen_ids: set[str] = set()
+        queue = [root_id]
+
+        for _ in range(10):
+            if not queue:
+                break
+            batch_ids = queue[:]
+            queue = []
+            res = await self.db.execute(
+                _select(PurchaseOrder).where(
+                    (PurchaseOrder.id.in_(batch_ids) |
+                     PurchaseOrder.parent_order_id.in_(batch_ids)),
+                    PurchaseOrder.company_id == self.tenant.company_id,
+                )
+            )
+            pos = res.scalars().all()
+            for p in pos:
+                if p.id not in seen_ids:
+                    seen_ids.add(p.id)
+                    chain.append({
+                        "id":              p.id,
+                        "order_no":        p.order_no,
+                        "status":          p.status,
+                        "amend_revision":  p.amend_revision or 0,
+                        "parent_order_id": p.parent_order_id,
+                        "amended_at":      p.amended_at.isoformat() if p.amended_at else None,
+                        "amended_by":      p.amended_by,
+                        "grand_total":     str(p.grand_total),
+                        "created_at":      p.created_at.isoformat() if hasattr(p, "created_at") and p.created_at else None,
+                    })
+                    if p.id not in batch_ids:
+                        queue.append(p.id)
+
+        chain.sort(key=lambda x: x["amend_revision"])
+        return chain
 
 
     # ─────────────────────── Phase A: Submit PO ─────────────────────────────
@@ -1576,6 +1679,20 @@ class PurchaseService:
         order.submitted_at = now
         order.modified_at = now
         self.db.add(order)
+
+        event = WorkflowEvent(
+            doc_type="PurchaseOrder",
+            doc_id=order.id,
+            action="SUBMIT",
+            from_status="DRAFT",
+            to_status="SUBMITTED",
+            performed_by_name=submitted_by,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id or "BR-001",
+            notes=f"Submitted by {submitted_by}",
+            created_at=now,
+        )
+        self.db.add(event)
         await self.db.commit()
         return {
             "success": True,
@@ -1608,6 +1725,20 @@ class PurchaseService:
         if notes:
             order.notes = f"{order.notes or ''} | Confirmed: {notes}".strip(" |")
         self.db.add(order)
+
+        event = WorkflowEvent(
+            doc_type="PurchaseOrder",
+            doc_id=order.id,
+            action="CONFIRM",
+            from_status="SUBMITTED",
+            to_status="CONFIRMED",
+            performed_by_name=confirmed_by,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id or "BR-001",
+            notes=notes,
+            created_at=now,
+        )
+        self.db.add(event)
         await self.db.commit()
         return {
             "success": True,

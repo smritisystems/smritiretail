@@ -1,11 +1,11 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : Purchase Order Workspace (Phase B + C)
+ * Module       : Purchase Order Workspace (Phase B + C + D)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.1.0
+ * Version      : 1.2.0
  * Created      : 2026-10-01
  * Modified     : 2026-10-01
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -13,12 +13,14 @@
  * Classification: Internal
  *
  * Phase B — Status-Aware PO Workspace
- * Phase C — Cancellation Policy Picker: replaces bare text input with
- *            POCancelReasonDialog (PO_CANCEL_REASON master + fallback).
+ * Phase C — Cancellation Policy Picker (PO_CANCEL_REASON master + fallback).
+ * Phase D — Amendment/Revision Chain: Amend button for CONFIRMED POs,
+ *            POAmendDialog with item editor + history tab.
  */
 
 import React, { useState, useEffect, useCallback } from "react";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
+import { UniversalStatusBadge, DocumentActionToolbar } from "../common/lifecycle";
 import {
   POStatus,
   normalizePOStatus,
@@ -26,11 +28,16 @@ import {
   isPOSubmittable,
   isPOConfirmable,
   isPOCancellable,
+  isPOAmendable,
 } from "./poLifecycle.ts";
 import {
   POCancelReasonDialog,
   type POCancelReasonResult,
 } from "./POCancelReasonDialog.tsx";
+import {
+  POAmendDialog,
+  type POAmendRequest,
+} from "./POAmendDialog.tsx";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,7 +62,15 @@ interface PORow {
   order_date?: string;
   delivery_date?: string;
   total_amount?: number;
-  items?: { id: string }[];
+  items?: Array<{
+    id: string;
+    product_id?: string;
+    code?: string;
+    name?: string;
+    quantity?: number | string;
+    cost_price?: number | string;
+    gst_rate?: number | string;
+  }>;
   submitted_by?: string | null;
   submitted_at?: string | null;
   confirmed_by?: string | null;
@@ -63,6 +78,11 @@ interface PORow {
   cancelled_by?: string | null;
   cancelled_at?: string | null;
   cancellation_reason?: string | null;
+  // Phase D amendment chain
+  parent_order_id?: string | null;
+  amend_revision?: number;
+  amended_by?: string | null;
+  amended_at?: string | null;
   created_at?: string;
   notes?: string | null;
 }
@@ -146,18 +166,7 @@ function canActOnPO(role?: string): boolean {
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
 function POStatusBadge({ status }: { status: string }) {
-  const s = normalizePOStatus(status);
-  const tab = STATUS_TABS.find((t) => t.id === s);
-  const bg = tab?.badgeBg ?? "bg-slate-700";
-  const text = tab?.badgeText ?? "text-slate-300";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase ${bg} ${text}`}
-    >
-      <span className="material-symbols-outlined text-[11px]">{tab?.icon ?? "circle"}</span>
-      {formatPOStatusLabel(status)}
-    </span>
-  );
+  return <UniversalStatusBadge status={status} size="sm" />;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -173,6 +182,8 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [cancelTarget, setCancelTarget] = useState<PORow | null>(null);
+  const [amendTarget, setAmendTarget] = useState<PORow | null>(null);
+  const [amendLoading, setAmendLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [tabCounts, setTabCounts] = useState<Partial<Record<POStatus | "ALL", number>>>({});
 
@@ -281,6 +292,31 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
   };
 
   // ── Helpers ──────────────────────────────────────────────────────────────
+  // ── Action: Amend (Phase D — creates a new Confirmed revision) ──────────
+  const handleAmendConfirmed = async (req: POAmendRequest) => {
+    if (!amendTarget) return;
+    const po = amendTarget;
+    setAmendLoading(true);
+    try {
+      await apiFetchV1(`/purchase/orders/${po.id}/amend`, {
+        method: "POST",
+        body: JSON.stringify(req),
+      });
+      onNotification?.(
+        "PO Amended",
+        `${po.order_no} superseded — ${req.new_order_no} created as revision ${(po.amend_revision ?? 0) + 1}.`,
+        "success",
+      );
+      setAmendTarget(null);
+      fetchOrders(activeTab);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Amendment failed.";
+      onNotification?.("Amendment Failed", msg, "error");
+    } finally {
+      setAmendLoading(false);
+    }
+  };
+
   const fmtDate = (s?: string | null) => {
     if (!s) return "—";
     try {
@@ -485,68 +521,16 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
 
                       {/* Actions */}
                       <td className="py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-
-                          {/* SUBMIT — DRAFT only, MANAGER+ */}
-                          {isPOSubmittable(s) && isManager && (
-                            <button
-                              type="button"
-                              onClick={() => handleSubmit(po)}
-                              disabled={busy}
-                              title="Submit for confirmation"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-700 hover:bg-blue-600 text-white text-[10px] font-semibold transition disabled:opacity-50"
-                            >
-                              {busy ? (
-                                <span className="animate-spin material-symbols-outlined text-[12px]">progress_activity</span>
-                              ) : (
-                                <span className="material-symbols-outlined text-[12px]">send</span>
-                              )}
-                              Submit
-                            </button>
-                          )}
-
-                          {/* CONFIRM — SUBMITTED only, MANAGER+ */}
-                          {isPOConfirmable(s) && isManager && (
-                            <button
-                              type="button"
-                              onClick={() => handleConfirm(po)}
-                              disabled={busy}
-                              title="Confirm purchase order"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-semibold transition disabled:opacity-50"
-                            >
-                              {busy ? (
-                                <span className="animate-spin material-symbols-outlined text-[12px]">progress_activity</span>
-                              ) : (
-                                <span className="material-symbols-outlined text-[12px]">task_alt</span>
-                              )}
-                              Confirm
-                            </button>
-                          )}
-
-                          {/* VIEW — always available */}
-                          <button
-                            type="button"
-                            onClick={() => onOpenPO?.(po.order_no)}
-                            title="Open PO"
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition"
-                          >
-                            <span className="material-symbols-outlined text-[12px]">open_in_new</span>
-                            Open
-                          </button>
-
-                          {/* CANCEL — DRAFT/SUBMITTED/CONFIRMED, MANAGER+ */}
-                          {isPOCancellable(s) && isManager && (
-                            <button
-                              type="button"
-                              onClick={() => setCancelTarget(po)}
-                              disabled={busy}
-                              title="Cancel purchase order"
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-red-900/60 text-slate-400 hover:text-red-400 text-[10px] transition disabled:opacity-50"
-                            >
-                              <span className="material-symbols-outlined text-[12px]">cancel</span>
-                            </button>
-                          )}
-                        </div>
+                        <DocumentActionToolbar
+                          currentStatus={s}
+                          busy={busy}
+                          canManage={isManager}
+                          onSubmit={() => handleSubmit(po)}
+                          onConfirm={() => handleConfirm(po)}
+                          onAmend={() => setAmendTarget(po)}
+                          onOpen={() => onOpenPO?.(po.order_no)}
+                          onCancel={() => setCancelTarget(po)}
+                        />
                       </td>
                     </tr>
                   );
@@ -573,7 +557,7 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
           {!isManager && (
             <span className="flex items-center gap-1 text-amber-500/70">
               <span className="material-symbols-outlined text-[11px]">info</span>
-              Submit / Confirm / Cancel require Manager role
+              Submit / Confirm / Cancel / Amend require Manager role
             </span>
           )}
         </div>
@@ -589,6 +573,30 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
           loading={actionLoading[cancelTarget.id] ?? false}
           onConfirm={handleCancelConfirmed}
           onCancel={() => setCancelTarget(null)}
+        />
+      )}
+
+      {/* ── Amendment Dialog (Phase D) ───────────────────────────────────── */}
+      {amendTarget && (
+        <POAmendDialog
+          isOpen={true}
+          po={{
+            id: amendTarget.id,
+            order_no: amendTarget.order_no,
+            supplier_name: amendTarget.supplier_name,
+            amend_revision: amendTarget.amend_revision ?? 0,
+            items: (amendTarget.items ?? []).map((it) => ({
+              product_id: it.product_id ?? "",
+              code: it.code ?? "",
+              name: it.name ?? "",
+              quantity: Number(it.quantity ?? 1),
+              cost_price: Number(it.cost_price ?? 0),
+              gst_rate: Number(it.gst_rate ?? 18),
+            })),
+          }}
+          loading={amendLoading}
+          onConfirm={handleAmendConfirmed}
+          onCancel={() => setAmendTarget(null)}
         />
       )}
     </div>
