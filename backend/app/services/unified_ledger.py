@@ -35,10 +35,11 @@ from ..models.accounting import (
     BankStatementLine,
     CurrencyExchangeRate,
 )
-from ..models.sales import SalesInvoice
+from ..models.sales import SalesInvoice, SalesReturn, SalesReturnItem
 from ..models.purchase import PurchaseReceipt
 from ..models.payment_ledger import PaymentTransaction
-from ..models.inventory import StockAudit
+from ..models.inventory import Product, StockAudit
+from ..models.profitability import ProductCostValuation, TransactionCostSnapshot
 from ..models.pos import Shift
 from .outbox_service import OutboxService
 
@@ -184,7 +185,7 @@ class UnifiedAccountingLedgerService:
                 if acc and not acc.parent_account_id:
                     acc.parent_account_id = code_to_id[parent_code]
 
-        await session.commit()
+        await session.flush()
         return created_accounts
 
     @classmethod
@@ -564,6 +565,110 @@ class UnifiedAccountingLedgerService:
                     "remarks": "Roundoff Adjustment"
                 })
 
+        # 5. COGS & Inventory Asset Recognition (BD-02: Perpetual Real-Time COGS)
+        total_cogs = Decimal("0.00")
+        snapshots_to_add = []
+
+        for item in (inv.items or []):
+            if getattr(item, "is_deleted", False):
+                continue
+
+            item_qty = Decimal(str(item.quantity or 0.00))
+            if item_qty <= Decimal("0.00"):
+                continue
+
+            unit_cost = Decimal("0.00")
+            valuation_method = "ZERO_COST_UNVALUED"
+
+            # Hierarchy 1: ProductCostValuation (WAC -> Purchase -> Last Purchase -> Standard)
+            if item.product_id:
+                pcv_stmt = select(ProductCostValuation).where(
+                    ProductCostValuation.product_id == item.product_id,
+                    ProductCostValuation.company_id == company_id,
+                    ProductCostValuation.is_deleted == False
+                )
+                pcv = (await session.execute(pcv_stmt)).scalars().first()
+                if pcv:
+                    if pcv.weighted_average_cost and Decimal(str(pcv.weighted_average_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.weighted_average_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "WEIGHTED_AVERAGE"
+                    elif pcv.purchase_cost and Decimal(str(pcv.purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.purchase_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "PURCHASE_COST"
+                    elif pcv.last_purchase_cost and Decimal(str(pcv.last_purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.last_purchase_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "LAST_PURCHASE"
+                    elif pcv.standard_cost and Decimal(str(pcv.standard_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.standard_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "STANDARD_COST"
+
+            # Hierarchy 2: Product.cost_price fallback
+            if unit_cost <= Decimal("0.00") and item.product_id:
+                prod_stmt = select(Product).where(
+                    Product.id == item.product_id,
+                    Product.company_id == company_id,
+                    Product.is_deleted == False
+                )
+                prod = (await session.execute(prod_stmt)).scalars().first()
+                if prod and prod.cost_price and Decimal(str(prod.cost_price)) > Decimal("0.00"):
+                    unit_cost = Decimal(str(prod.cost_price)).quantize(Decimal("0.01"))
+                    valuation_method = "COST_PRICE_FALLBACK"
+
+            # Hierarchy 3: Zero-cost items audit
+            if unit_cost <= Decimal("0.00"):
+                selling_price = Decimal(str(item.price or 0.00))
+                if selling_price > Decimal("0.00"):
+                    logger.warning(
+                        "SMRITI-GL-COGS-AUDIT: Standard item '%s' (product_id: %s) has zero cost valuation on invoice %s",
+                        getattr(item, "name", "Unknown"),
+                        item.product_id,
+                        inv.invoice_no
+                    )
+
+            item_cogs = (unit_cost * item_qty).quantize(Decimal("0.01"))
+            selling_price_per_unit = Decimal(str(item.price or 0.00)).quantize(Decimal("0.01"))
+            line_gross = (selling_price_per_unit * item_qty).quantize(Decimal("0.01"))
+            gross_profit = (line_gross - item_cogs).quantize(Decimal("0.01"))
+
+            snapshot = TransactionCostSnapshot(
+                id=f"tcs_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id=company_id,
+                branch_id=branch_id or inv.branch_id,
+                sales_invoice_id=inv.id,
+                sales_invoice_item_id=str(item.id),
+                product_id=str(item.product_id or ""),
+                valuation_method_used=valuation_method,
+                quantity=item_qty,
+                cost_per_unit=unit_cost,
+                total_cogs=item_cogs,
+                selling_price_per_unit=selling_price_per_unit,
+                total_gross_sales=line_gross,
+                gross_profit=gross_profit,
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+            snapshots_to_add.append(snapshot)
+            total_cogs += item_cogs
+
+        if total_cogs > Decimal("0.00"):
+            acc_cogs = await cls.get_account_by_code(session, company_id, "5010")
+            acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+            lines.append({
+                "account_id": acc_cogs.id,
+                "debit_amount": total_cogs,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Cost of Goods Sold for Invoice {inv.invoice_no}"
+            })
+            lines.append({
+                "account_id": acc_inventory.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": total_cogs,
+                "remarks": f"Inventory deduction for Invoice {inv.invoice_no}"
+            })
+
+        for snap in snapshots_to_add:
+            session.add(snap)
+
         return await cls.post_journal_voucher(
             session=session,
             company_id=company_id,
@@ -708,6 +813,31 @@ class UnifiedAccountingLedgerService:
             "remarks": f"Reversal of Sales Invoice {inv.invoice_no} to {inv.customer_name}"
         })
 
+        # 5. Reverse COGS & Inventory if snapshots exist
+        snap_stmt = select(TransactionCostSnapshot).where(
+            TransactionCostSnapshot.sales_invoice_id == invoice_id,
+            TransactionCostSnapshot.company_id == company_id,
+            TransactionCostSnapshot.is_deleted == False
+        )
+        snapshots = (await session.execute(snap_stmt)).scalars().all()
+        total_cogs_reversal = sum(Decimal(str(s.total_cogs or 0.00)) for s in snapshots)
+
+        if total_cogs_reversal > Decimal("0.00"):
+            acc_cogs = await cls.get_account_by_code(session, company_id, "5010")
+            acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+            lines.append({
+                "account_id": acc_inventory.id,
+                "debit_amount": total_cogs_reversal,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of Inventory deduction for Cancelled Invoice {inv.invoice_no}"
+            })
+            lines.append({
+                "account_id": acc_cogs.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": total_cogs_reversal,
+                "remarks": f"Reversal of COGS for Cancelled Invoice {inv.invoice_no}"
+            })
+
         voucher = await cls.post_journal_voucher(
             session=session,
             company_id=company_id,
@@ -732,6 +862,150 @@ class UnifiedAccountingLedgerService:
         except Exception as e:
             logger.warning("Could not stamp cancellation GL voucher on invoice rule_snapshots: %s", e)
 
+        return voucher
+
+    @classmethod
+    async def post_sales_return_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        return_id: str,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        processed_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a processed Sales Return / Credit Note into an authoritative double-entry GL voucher:
+        Debit: Sales Revenue (4010) = Subtotal (Gross before tax)
+        Debit: Output CGST (2021) = CGST Total
+        Debit: Output SGST (2022) = SGST Total
+        Debit: Output IGST (2023) = IGST Total
+        Debit/Credit: Roundoff Account (5030) = Roundoff difference
+        Credit: Accounts Receivable (1030) = Grand Total
+        """
+        stmt = select(SalesReturn).where(
+            SalesReturn.id == return_id,
+            SalesReturn.company_id == company_id,
+        ).options(selectinload(SalesReturn.items))
+        ret = (await session.execute(stmt)).scalar_one_or_none()
+        if not ret:
+            raise HTTPException(status_code=404, detail=f"Sales return {return_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SALES_RETURN",
+            JournalVoucher.reference_doc_id == return_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        # Ensure COA is present
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+        acc_sales = await cls.get_account_by_code(session, company_id, "4010")
+        acc_cgst = await cls.get_account_by_code(session, company_id, "2021")
+        acc_sgst = await cls.get_account_by_code(session, company_id, "2022")
+        acc_igst = await cls.get_account_by_code(session, company_id, "2023")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        grand_total = Decimal(str(ret.grand_total or 0.00)).quantize(Decimal("0.01"))
+        tax_total = Decimal(str(ret.tax_total or 0.00)).quantize(Decimal("0.01"))
+        subtotal = (grand_total - tax_total).quantize(Decimal("0.01"))
+
+        cgst_sum = Decimal("0.00")
+        sgst_sum = Decimal("0.00")
+        igst_sum = Decimal("0.00")
+
+        for item in (ret.items or []):
+            cgst_sum += Decimal(str(getattr(item, "cgst_amount", 0.00) or 0.00))
+            sgst_sum += Decimal(str(getattr(item, "sgst_amount", 0.00) or 0.00))
+            igst_sum += Decimal(str(getattr(item, "igst_amount", 0.00) or 0.00))
+
+        if (cgst_sum + sgst_sum + igst_sum) == 0 and tax_total > 0:
+            if getattr(ret, "is_interstate", False):
+                igst_sum = tax_total
+            else:
+                cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
+                sgst_sum = tax_total - cgst_sum
+
+        lines = []
+
+        # 1. Debit Sales Revenue (reversing sales income)
+        lines.append({
+            "account_id": acc_sales.id,
+            "debit_amount": subtotal,
+            "credit_amount": Decimal("0.00"),
+            "remarks": f"Sales Return Revenue debit for {ret.return_no}"
+        })
+
+        # 2. Debit Output Tax Ledgers
+        if cgst_sum > 0:
+            lines.append({
+                "account_id": acc_cgst.id,
+                "debit_amount": cgst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"CGST reversal on Sales Return {ret.return_no}"
+            })
+        if sgst_sum > 0:
+            lines.append({
+                "account_id": acc_sgst.id,
+                "debit_amount": sgst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"SGST reversal on Sales Return {ret.return_no}"
+            })
+        if igst_sum > 0:
+            lines.append({
+                "account_id": acc_igst.id,
+                "debit_amount": igst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"IGST reversal on Sales Return {ret.return_no}"
+            })
+
+        # 3. Handle Roundoff difference
+        total_debit_calc = subtotal + cgst_sum + sgst_sum + igst_sum
+        diff = grand_total - total_debit_calc
+        if abs(diff) > Decimal("0.00"):
+            if diff > 0:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": diff,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": "Roundoff adjustment on Sales Return"
+                })
+            else:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": abs(diff),
+                    "remarks": "Roundoff adjustment on Sales Return"
+                })
+
+        cust_display = getattr(ret, "customer_name", None) or ret.customer_id or "Customer"
+        lines.append({
+            "account_id": acc_debtors.id,
+            "party_id": ret.customer_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": grand_total,
+            "remarks": f"Credit note for Sales Return {ret.return_no} to {cust_display}"
+        })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or ret.branch_id,
+            voucher_type="CREDIT_NOTE",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SALES_RETURN",
+            reference_doc_id=ret.id,
+            reference_doc_no=ret.return_no,
+            narration=f"Automated credit note GL voucher for Sales Return {ret.return_no}. Reason: {reason or 'Customer return'}",
+            created_by=processed_by or ret.updated_by or "SYSTEM"
+        )
         return voucher
 
     @classmethod

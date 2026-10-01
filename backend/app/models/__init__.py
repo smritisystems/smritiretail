@@ -17,8 +17,13 @@ from .crm import (
     CustomerCreditLedgerEntry, CustomerPolicy, CustomerRelationship,
 )
 from .inventory import Product, StockMovement, WarehouseLocation
-from .sales import SalesInvoice, SalesInvoiceItem, SalesOrderReservation
-from .customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
+from .sales import (
+    SalesInvoice, SalesInvoiceItem, SalesOrderReservation,
+    SalesOrder, SalesOrderItem,
+    SalesQuotation, SalesQuotationItem,
+    SalesReturn, SalesReturnItem,
+    InvoiceCustomerChangeLog, SalesOrderInvoiceAllocation,
+)
 from .customer_article_mapping import CustomerArticleMapping
 from .tenant import Company, Branch
 from .company_policy import CompanyBankAccount, CompanyPolicySetting, ComplianceThreshold
@@ -29,7 +34,7 @@ from .purchase import (
     Supplier,
     PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
-    PurchaseBill,
+    PurchaseBill, PurchaseBillItem,
 )
 from .pos import CashRegister, Shift, ShiftCashTransaction
 from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity

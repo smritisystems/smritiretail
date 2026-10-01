@@ -91,6 +91,8 @@ class PurchaseOrder(BaseEntity):
     amended_at          = Column(DateTime(timezone=True), nullable=True)
     amend_revision      = Column(Integer, nullable=False, default=0, server_default="0")
 
+    items = relationship("PurchaseOrderItem", backref="order", cascade="all, delete-orphan", lazy="selectin")
+
     __table_args__ = (
         # order_no is unique per company (not globally) — supports multi-tenant same numbering
         UniqueConstraint("order_no", "company_id", name="uq_purchase_orders_order_no_company"),
@@ -214,6 +216,30 @@ class PurchaseBill(BaseEntity):
     notes               = Column(Text,        nullable=True)
     cancellation_reason = Column(Text,        nullable=True)
 
+    items = relationship("PurchaseBillItem", backref="bill", cascade="all, delete-orphan")
+
     __table_args__ = (
         UniqueConstraint("company_id", "bill_no", name="uq_purchase_bills_company_bill_no"),
     )
+
+
+class PurchaseBillItem(BaseEntity):
+    """
+    A line item within a supplier purchase bill / commercial invoice.
+    Links directly to originating PO item and GRN item for line-level 3-way variance matching.
+    """
+    __tablename__ = "purchase_bill_items"
+
+    bill_id         = Column(String(50), ForeignKey("purchase_bills.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id      = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    item_id         = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id      = Column(String(50), nullable=True, index=True)
+    po_item_id      = Column(String(50), ForeignKey("purchase_order_items.id", ondelete="SET NULL"), nullable=True, index=True)
+    receipt_item_id = Column(String(50), ForeignKey("purchase_receipt_items.id", ondelete="SET NULL"), nullable=True, index=True)
+    code            = Column(String(50), nullable=False)
+    name            = Column(String(255), nullable=False)
+    quantity        = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    rate            = Column(Numeric(15, 4), nullable=False, default=0.0000)
+    taxable_amount  = Column(Numeric(15, 2), nullable=False, default=0.00)
+    tax_amount      = Column(Numeric(15, 2), nullable=False, default=0.00)
+    total_amount    = Column(Numeric(15, 2), nullable=False, default=0.00)

@@ -29,10 +29,19 @@ from decimal import Decimal
 from typing import Optional, Dict, Any, List
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import TenantContext
 from app.models.auth import User
-from app.models.purchase import PurchaseBill, Supplier, PurchaseReceipt, PurchaseOrder
+from app.models.purchase import (
+    PurchaseBill,
+    PurchaseBillItem,
+    Supplier,
+    PurchaseReceipt,
+    PurchaseReceiptItem,
+    PurchaseOrder,
+    PurchaseOrderItem,
+)
 from app.models.workflow import WorkflowEvent
 from ..contracts import BaseDocumentLifecycleHandler
 from ..registry import register_lifecycle_handler
@@ -108,6 +117,7 @@ class PurchaseBillLifecycleHandler(BaseDocumentLifecycleHandler):
         """Safely loads a PurchaseBill enforcing multi-tenant isolation."""
         stmt = (
             select(PurchaseBill)
+            .options(selectinload(PurchaseBill.items))
             .where(
                 or_(
                     PurchaseBill.id == doc_id,
@@ -136,7 +146,7 @@ class PurchaseBillLifecycleHandler(BaseDocumentLifecycleHandler):
         tenant_ctx: TenantContext,
         payload: Dict[str, Any],
     ) -> None:
-        """Domain validations for Purchase Bill lifecycle transitions."""
+        """Domain validations for Purchase Bill lifecycle transitions including 3-way match."""
         if action == "CANCEL":
             if doc.status == "PAID":
                 raise HandlerValidationException("Cannot cancel a PAID Purchase Bill. A debit note or payment reversal is required.", "PAID_CANNOT_CANCEL")
@@ -159,11 +169,25 @@ class PurchaseBillLifecycleHandler(BaseDocumentLifecycleHandler):
             if not supplier:
                 raise HandlerValidationException(f"Supplier '{doc.supplier_id}' not found.", "SUPPLIER_NOT_FOUND")
 
+            # If linked to PO, ensure PO exists and belongs to same tenant
+            if doc.order_id:
+                po_res = await db.execute(
+                    select(PurchaseOrder).where(
+                        (PurchaseOrder.id == doc.order_id) | (PurchaseOrder.order_no == doc.order_id),
+                        PurchaseOrder.company_id == tenant_ctx.company_id,
+                    )
+                )
+                po = po_res.scalars().first()
+                if not po:
+                    raise HandlerValidationException(f"Linked Purchase Order '{doc.order_id}' not found.", "ORDER_NOT_FOUND")
+                if (po.status or "").upper() == "CANCELLED":
+                    raise HandlerValidationException(f"Linked Purchase Order '{po.order_no or doc.order_id}' is cancelled.", "LINKED_ORDER_CANCELLED")
+
             # If linked to GRN, ensure GRN exists and belongs to same tenant
             if doc.receipt_id:
                 receipt_res = await db.execute(
                     select(PurchaseReceipt).where(
-                        PurchaseReceipt.id == doc.receipt_id,
+                        (PurchaseReceipt.id == doc.receipt_id) | (PurchaseReceipt.receipt_no == doc.receipt_id),
                         PurchaseReceipt.company_id == tenant_ctx.company_id,
                     )
                 )
@@ -172,6 +196,73 @@ class PurchaseBillLifecycleHandler(BaseDocumentLifecycleHandler):
                     raise HandlerValidationException(f"Linked Goods Receipt '{doc.receipt_id}' not found.", "RECEIPT_NOT_FOUND")
                 if receipt.status == "CANCELLED":
                     raise HandlerValidationException(f"Linked Goods Receipt '{receipt.receipt_no}' is cancelled.", "LINKED_RECEIPT_CANCELLED")
+
+            # --- LINE-LEVEL 3-WAY VARIANCE MATCHING ---
+            items = getattr(doc, "items", None)
+            if not items:
+                items_res = await db.execute(
+                    select(PurchaseBillItem).where(
+                        PurchaseBillItem.bill_id == doc.id,
+                        PurchaseBillItem.is_deleted == False,
+                    )
+                )
+                items = items_res.scalars().all()
+
+            if items:
+                # 1. Line sum verification (0.05 rounding tolerance)
+                line_sum = sum([Decimal(str(it.total_amount)) for it in items])
+                if abs(line_sum - doc.total_amount) > Decimal("0.05"):
+                    raise HandlerValidationException(
+                        f"Purchase Bill total amount ({doc.total_amount}) does not match sum of line items ({line_sum}).",
+                        "3WAY_LINE_SUM_MISMATCH"
+                    )
+
+                # 2. Match against Linked PO Items (Quantities & Rates)
+                if doc.order_id:
+                    po_items_res = await db.execute(
+                        select(PurchaseOrderItem).where(
+                            PurchaseOrderItem.order_id == doc.order_id,
+                            PurchaseOrderItem.is_deleted == False,
+                        )
+                    )
+                    po_items = po_items_res.scalars().all()
+                    po_map_by_id = {pi.id: pi for pi in po_items}
+                    po_map_by_prod = {pi.product_id: pi for pi in po_items}
+
+                    for it in items:
+                        matched_po_item = po_map_by_id.get(it.po_item_id) or po_map_by_prod.get(it.product_id)
+                        if matched_po_item:
+                            if Decimal(str(it.quantity)) > Decimal(str(matched_po_item.quantity)):
+                                raise HandlerValidationException(
+                                    f"Billed quantity ({it.quantity}) exceeds ordered quantity ({matched_po_item.quantity}) for product '{it.name}'.",
+                                    "3WAY_QTY_EXCEEDED"
+                                )
+                            if Decimal(str(it.rate)) > Decimal(str(matched_po_item.cost_price)):
+                                raise HandlerValidationException(
+                                    f"Billed rate ({it.rate}) exceeds agreed purchase order rate ({matched_po_item.cost_price}) for product '{it.name}'.",
+                                    "3WAY_RATE_EXCEEDED"
+                                )
+
+                # 3. Match against Linked GRN Items (Received Quantities)
+                if doc.receipt_id:
+                    grn_items_res = await db.execute(
+                        select(PurchaseReceiptItem).where(
+                            PurchaseReceiptItem.receipt_id == doc.receipt_id,
+                            PurchaseReceiptItem.is_deleted == False,
+                        )
+                    )
+                    grn_items = grn_items_res.scalars().all()
+                    grn_map_by_id = {gi.id: gi for gi in grn_items}
+                    grn_map_by_prod = {gi.product_id: gi for gi in grn_items}
+
+                    for it in items:
+                        matched_grn_item = grn_map_by_id.get(it.receipt_item_id) or grn_map_by_prod.get(it.product_id)
+                        if matched_grn_item:
+                            if Decimal(str(it.quantity)) > Decimal(str(matched_grn_item.quantity_received)):
+                                raise HandlerValidationException(
+                                    f"Billed quantity ({it.quantity}) exceeds GRN received quantity ({matched_grn_item.quantity_received}) for product '{it.name}'.",
+                                    "3WAY_QTY_EXCEEDED"
+                                )
 
     async def apply_transition(
         self,

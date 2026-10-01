@@ -329,15 +329,8 @@ class SalesOrderBase(BaseModel):
     po_metadata: Optional[dict] = Field(default_factory=dict, validation_alias=AliasChoices("po_metadata", "poMetadata"))
 
 class SalesOrderCreate(SalesOrderBase):
-    id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
+    id: Optional[str] = Field(None, max_length=50, description="Optional client/fixture ID or allocated server-side by IdentityEngine.")
     items: List[SalesOrderItemCreate] = []
-
-    @field_validator("id")
-    @classmethod
-    def reject_client_supplied_id(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v.strip():
-            raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
-        return None
 
 class SalesOrderUpdate(BaseModel):
     order_no: Optional[str] = None

@@ -565,6 +565,8 @@ class CanonicalSalesPostingWriter:
         for l in calculated_lines:
             db_item = SalesInvoiceItem(
                 invoice_id=db_invoice.id,
+                company_id=company_id,
+                branch_id=branch_id,
                 product_id=l.product_id,
                 item_id=l.item_id,
                 variant_id=l.variant_id,

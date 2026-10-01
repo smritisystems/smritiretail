@@ -27,9 +27,20 @@ Classification: Internal
 from .purchase_order import PurchaseOrderLifecycleHandler
 from .goods_receipt import GoodsReceiptLifecycleHandler
 from .purchase_bill import PurchaseBillLifecycleHandler
+from .sales_order import SalesOrderLifecycleHandler
+from .sales_quotation import SalesQuotationLifecycleHandler
+from .sales_invoice import SalesInvoiceLifecycleHandler
+from .sales_return import SalesReturnLifecycleHandler
+from .fulfillment import PackingSlipLifecycleHandler, DispatchLifecycleHandler
 
 __all__ = [
     "PurchaseOrderLifecycleHandler",
     "GoodsReceiptLifecycleHandler",
     "PurchaseBillLifecycleHandler",
+    "SalesOrderLifecycleHandler",
+    "SalesQuotationLifecycleHandler",
+    "SalesInvoiceLifecycleHandler",
+    "SalesReturnLifecycleHandler",
+    "PackingSlipLifecycleHandler",
+    "DispatchLifecycleHandler",
 ]

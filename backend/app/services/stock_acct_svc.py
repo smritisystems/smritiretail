@@ -271,6 +271,8 @@ class StockAccountingBoundaryService:
             # Resolve or create Account
             stmt_acc = select(Account).where(
                 Account.account_code == line.account_code,
+                Account.company_id == company_id,
+                Account.is_deleted == False
             )
             account = (await session.execute(stmt_acc)).scalars().first()
             if not account:
@@ -311,7 +313,7 @@ class StockAccountingBoundaryService:
             )
             session.add(gl_entry)
 
-        await session.commit()
+        await session.flush()
         return JournalVoucherResponse(
             voucher_id=voucher.id,
             voucher_no=voucher.voucher_no,

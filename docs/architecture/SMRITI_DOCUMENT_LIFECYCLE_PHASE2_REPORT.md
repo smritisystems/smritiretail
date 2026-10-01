@@ -177,3 +177,43 @@ DATABASE SAFETY CHECK SUMMARY: ALL INTEGRITY CONDITIONS SATISFIED
 ### Recommendation
 - Future document families (Sales Orders, Sales Invoices, Stock Transfers) can be onboarded seamlessly by implementing `BaseDocumentLifecycleHandler` and registering with `LifecycleRegistry`.
 - Seed values for production PO approval thresholds should be finalized with business stakeholders.
+
+---
+
+## 6. Phase 2.1 Domain Hardening & Forensic Reconciliation
+
+### Evidence
+- **Migration `v1514`:** Created unique constraint `uq_purchase_bills_company_bill_no` and table `purchase_bill_items`.
+- **Single Alembic Head:** `alembic current` confirms `v1514_purchase_bills_hardening (head)`.
+- **Database Schema Parity:**
+  - `purchase_bills`: 27 columns (100% column parity between ORM and PostgreSQL), `uq_purchase_bills_company_bill_no` UNIQUE constraint and index active.
+  - `purchase_bill_items`: 26 columns (100% column parity between ORM and PostgreSQL), foreign keys to bills, products, items, PO lines, and GRN lines active.
+- **Cross-Handler Acceptance Test Battery:**
+  ```text
+  pytest backend/app/tests/test_cross_handler_lifecycle.py -q
+  .........                                                                [100%]
+  9 passed, 14 warnings in 45.13s
+  ```
+  - `test_purchase_bill_duplicate_number_constraint`: `IntegrityError` strictly raised on duplicate `(company_id, bill_no)`.
+  - `test_grn_receive_creates_stock_movement_and_updates_po`: Atomic `StockMovement(INWARD_GRN)` created on receipt; PO moved to `RECEIVED`.
+  - `test_grn_cancel_reverses_stock_movement_and_po_status`: Atomic `StockMovement(RETURN_OUTWARD)` created on cancellation; PO reverted to `CONFIRMED`; soft-delete invariant `status = CANCELLED, is_deleted = False, deleted_at = None` verified.
+  - `test_purchase_bill_line_level_3way_matching`: Line-item 3-way match rejected quantity exceeding PO, rate exceeding PO, and quantity exceeding GRN with `HandlerValidationException`, and approved matching bill.
+- **Full Regression:**
+  - Universal lifecycle suite: 7/7 passed.
+  - Approval engine suite: 8/8 passed.
+  - GRN attachments suite: 1/1 passed.
+  - DB safety check: 6/6 passed.
+  - TypeScript compilation: 0 errors.
+
+### Interpretation
+- All four domain gaps flagged during the initial forensic audit have been resolved:
+  1. Duplicate purchase bill numbers per company are now physically prevented at the database constraint layer.
+  2. Physical stock movements commit atomically with Goods Receipt state changes; phantom inventory is prevented.
+  3. Goods receipt cancellation safely reverses stock movements without violating historical record queryability.
+  4. Commercial purchase bills enforce line-by-line 3-way variance matching across PO commitments and GRN physical receipts.
+- Application-level mutation paths in `UniversalLifecycleEngine` reliably protect posted documents without requiring intrusive database triggers.
+- Document status remains strictly segregated from physical stock balance (`stock_movements`) and financial balances (`gl_entries`).
+
+### Recommendation
+- With Phase 2.1 Hardening verified and tested across 9/9 cross-handler tests, Phase 2 is technically hardened and verified.
+- Production sign-off remains subject to business management confirmation of approval threshold rules and General Ledger journal entry connection.

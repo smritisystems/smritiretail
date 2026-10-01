@@ -35,6 +35,8 @@ from ..models.distribution import (
 from ..models.party import Party, PartyRole
 from ..models.item_master import Item, ItemVariant
 from ..models.inventory import Product, StockMovement
+from ..api.deps import TenantContext
+from .sales_stock_authority import SalesStockAuthority
 from ..services.pricing_engine import PricingEngine
 from ..services.governed_rules import GovernedRuleEngine
 from ..services.tx_reproduce_svc import TransactionReproducibilityService
@@ -378,14 +380,23 @@ class DistributionService:
             order.status = "DISPATCHED"
             order.delivery_challan_no = delivery_challan_no or f"DC-{uuid.uuid4().hex[:8].upper()}"
 
-            # Record authoritative Stock Movements (OUTWARD)
+            # Record authoritative Stock Movements (OUTWARD) via SalesStockAuthority
+            tenant_ctx = TenantContext(
+                company_id=order.company_id,
+                branch_id=getattr(order, "branch_id", None) or "MAIN"
+            )
+            distrib_items = []
             for line in order.lines:
                 item_stmt = select(Item).where(Item.id == line.item_id)
                 item_obj = (await session.execute(item_stmt)).scalars().first()
                 item_code = item_obj.item_code if item_obj else "ITEM"
                 item_name = item_obj.item_name if item_obj else "Item Name"
 
-                prod_stmt = select(Product).where((Product.id == line.item_id) | (Product.sku == item_code) | (Product.code == item_code))
+                prod_stmt = select(Product).where(
+                    (Product.id == line.item_id) | (Product.sku == item_code) | (Product.code == item_code),
+                    Product.company_id == order.company_id,
+                    Product.is_deleted == False
+                )
                 prod_obj = (await session.execute(prod_stmt)).scalars().first()
                 if not prod_obj:
                     prod_obj = Product(
@@ -404,22 +415,24 @@ class DistributionService:
                     session.add(prod_obj)
                     await session.flush()
 
-                mov = StockMovement(
-                    id=f"sm_{uuid.uuid4().hex[:12]}",
-                    company_id=order.company_id,
-                    movement_type="OUTWARD_SALE",
-                    reference_doc_type="DISTRIBUTION_ORDER",
-                    reference_doc_id=order.order_no,
-                    product_id=prod_obj.id,
-                    product_name=item_name,
-                    sku=item_code,
-                    quantity=line.quantity,
-                    unit_cost=line.unit_price,
-                    remarks=f"Distribution Dispatch for Order {order.order_no}",
-                    is_active=True,
-                    is_deleted=False,
-                )
-                session.add(mov)
+                distrib_items.append({
+                    "product_id": prod_obj.id,
+                    "quantity": line.quantity,
+                    "unit_cost": line.unit_price,
+                    "sku": item_code,
+                })
+
+            await SalesStockAuthority.record_outward_sale(
+                session=session,
+                tenant_ctx=tenant_ctx,
+                invoice_id=order.order_no,
+                invoice_no=order.order_no,
+                items=distrib_items,
+                warehouse_id=getattr(order, "warehouse_id", None),
+                reference_doc_type="DISTRIBUTION_ORDER",
+                user_id="DISTRIBUTION_SERVICE",
+                allow_negative_stock=True,
+            )
 
             guard.complete(
                 document_id=order.id,

@@ -109,5 +109,14 @@ class ApprovalRequiredException(LifecycleException):
 
 class HandlerValidationException(LifecycleException):
     """Raised when domain-specific pre-conditions in the handler fail."""
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, code_or_details: Optional[Any] = None):
+        if isinstance(code_or_details, str):
+            self.code = code_or_details
+            details = {"code": code_or_details}
+        elif isinstance(code_or_details, dict):
+            self.code = code_or_details.get("code")
+            details = code_or_details
+        else:
+            self.code = None
+            details = {}
         super().__init__(message=message, status_code=400, details=details)
