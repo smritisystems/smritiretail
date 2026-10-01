@@ -154,8 +154,15 @@ class PurchaseOrderCreate(BaseModel):
 
 
 class PurchaseOrderCancelRequest(BaseModel):
-    """Optional cancellation reason for cancelling a purchase order."""
+    """
+    Cancellation payload for a purchase order.
+    Phase C: structured reason_code (from PO_CANCEL_REASON master) + optional free-text.
+    """
     reason: Optional[str] = None
+    reason_code: Optional[str] = Field(
+        default=None,
+        description="Structured cancellation reason code from PO_CANCEL_REASON master lookup.",
+    )
 
 
 class PurchaseOrderConfirmRequest(BaseModel):

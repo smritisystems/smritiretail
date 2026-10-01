@@ -227,8 +227,10 @@ async def cancel_purchase_order_contract(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Cancel a purchase order — canonical contract URL."""
-    return await PurchaseService(db, tenant_ctx).cancel_purchase_order(order_id, req.reason)
+    """Cancel a purchase order — canonical contract URL. Phase C: forwards structured reason_code."""
+    return await PurchaseService(db, tenant_ctx).cancel_purchase_order(
+        order_id, req.reason, reason_code=req.reason_code
+    )
 
 
 @router.post("/orders/{order_id}/amend", response_model=PurchaseOrderResponse, status_code=201,
@@ -1479,3 +1481,61 @@ async def list_approval_reasons(
             POApprovalReasonOut(code="OTHER",                   label="Other (please specify)",                 sort_order=10, requires_note=True),
         ]
 
+
+# ────────────────────────── Cancellation Reasons (Phase C) ────────────────────
+
+@router.get(
+    "/cancel-reasons",
+    response_model=List[POApprovalReasonOut],
+    tags=["PO Lifecycle"],
+    summary="List PO cancellation reasons for the cancel reason picker (Phase C)",
+)
+async def list_cancel_reasons(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Returns the seeded cancellation reasons from the v1511 PO_CANCEL_REASON master.
+    Used by POCancelReasonDialog to populate the reason dropdown.
+    Falls back to 8 static reasons if the master lookup is unavailable.
+    """
+    from sqlalchemy import select
+    from ...models.master_lookup import MasterValue, MasterType
+
+    try:
+        stmt = (
+            select(MasterValue)
+            .join(MasterType, MasterValue.master_type_id == MasterType.id)
+            .where(
+                MasterType.code == "PO_CANCEL_REASON",
+                MasterValue.active == True,
+                MasterValue.is_deleted.is_(False) | MasterValue.is_deleted.is_(None),
+            )
+            .order_by(MasterValue.sort_order)
+        )
+        rows = (await db.execute(stmt)).scalars().all()
+        if rows:
+            return [
+                POApprovalReasonOut(
+                    code=r.code,
+                    label=r.name,
+                    sort_order=r.sort_order or 0,
+                    requires_note=(r.code == "OTHER"),
+                    is_active=r.active,
+                )
+                for r in rows
+            ]
+    except Exception:
+        pass
+
+    # Graceful fallback — 8 static cancel reasons
+    return [
+        POApprovalReasonOut(code="DUPLICATE_ORDER",       label="Duplicate Purchase Order",           sort_order=1),
+        POApprovalReasonOut(code="BUDGET_CONSTRAINT",     label="Budget Constraint / Funds Not Available", sort_order=2),
+        POApprovalReasonOut(code="VENDOR_UNAVAILABLE",    label="Vendor Unavailable or Unresponsive", sort_order=3),
+        POApprovalReasonOut(code="PRICE_CHANGED",         label="Price Changed or Not Agreed",        sort_order=4),
+        POApprovalReasonOut(code="REQUIREMENT_CANCELLED", label="Requirement Cancelled",              sort_order=5),
+        POApprovalReasonOut(code="WRONG_ITEMS",           label="Wrong Items or Specification",       sort_order=6),
+        POApprovalReasonOut(code="MANAGEMENT_DECISION",   label="Management Decision",                sort_order=7),
+        POApprovalReasonOut(code="OTHER",                 label="Other (please specify)",             sort_order=8, requires_note=True),
+    ]

@@ -1393,11 +1393,18 @@ class PurchaseService:
 
     # ── Purchase Order CANCEL / AMEND ────────────────────────────────
 
-    async def cancel_purchase_order(self, order_id: str, reason: Optional[str] = None, cancelled_by: Optional[str] = None) -> dict:
+    async def cancel_purchase_order(
+        self,
+        order_id: str,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+        reason_code: Optional[str] = None,
+    ) -> dict:
         """
         Cancel a purchase order: DRAFT or CONFIRMED → CANCELLED.
         RECEIVED POs cannot be cancelled (stock already ingested).
-        Captures cancellation_reason and cancelled_by/at audit columns.
+        Phase C: accepts structured reason_code from PO_CANCEL_REASON master.
+        Captures cancellation_reason, cancellation_reason_code, and cancelled_by/at audit columns.
         """
         order, _ = await self.get_purchase_order(order_id)
 
@@ -1418,12 +1425,22 @@ class PurchaseService:
         order.is_deleted = True
         order.deleted_at = now
         order.modified_at = now
-        order.cancelled_by = cancelled_by or self.tenant.user_id if hasattr(self.tenant, "user_id") else cancelled_by
+        order.cancelled_by = cancelled_by or (self.tenant.user_id if hasattr(self.tenant, "user_id") else cancelled_by)
         order.cancelled_at = now
+
+        # Phase C: structured reason_code stored in cancellation_reason_code if column exists
+        if reason_code and hasattr(order, "cancellation_reason_code"):
+            order.cancellation_reason_code = reason_code.strip().upper()
+
         if reason:
             order.cancellation_reason = reason
             # Also keep notes for backward-compat with existing queries that read notes
             order.notes = f"{order.notes or ''} | Cancelled: {reason}".strip(" |")
+        elif reason_code:
+            # No free-text but we have a structured code — store code as fallback reason
+            order.cancellation_reason = reason_code
+            order.notes = f"{order.notes or ''} | Cancelled: {reason_code}".strip(" |")
+
         self.db.add(order)
         await self.db.commit()
         return {

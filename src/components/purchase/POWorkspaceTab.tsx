@@ -1,11 +1,11 @@
 /**
  * Project      : SMRITI Retail OS
- * Module       : Purchase Order Workspace (Phase B)
+ * Module       : Purchase Order Workspace (Phase B + C)
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 1.1.0
  * Created      : 2026-10-01
  * Modified     : 2026-10-01
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -13,13 +13,11 @@
  * Classification: Internal
  *
  * Phase B — Status-Aware PO Workspace
- * ─────────────────────────────────────
- * Displays existing purchase orders grouped by lifecycle status tab.
- * Per-role action buttons (Submit, Confirm, Cancel) appear inline for
- * each PO row. Uses the backend ?status= filter for efficient fetching.
+ * Phase C — Cancellation Policy Picker: replaces bare text input with
+ *            POCancelReasonDialog (PO_CANCEL_REASON master + fallback).
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import {
   POStatus,
@@ -29,6 +27,10 @@ import {
   isPOConfirmable,
   isPOCancellable,
 } from "./poLifecycle.ts";
+import {
+  POCancelReasonDialog,
+  type POCancelReasonResult,
+} from "./POCancelReasonDialog.tsx";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -158,81 +160,6 @@ function POStatusBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Cancel Confirmation Dialog ───────────────────────────────────────────────
-
-interface CancelDialogProps {
-  orderNo: string;
-  onConfirm: (reason: string) => void;
-  onCancel: () => void;
-  loading: boolean;
-}
-
-const CancelDialog: React.FC<CancelDialogProps> = ({
-  orderNo,
-  onConfirm,
-  onCancel,
-  loading,
-}) => {
-  const [reason, setReason] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-6 w-[420px] max-w-full">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="material-symbols-outlined text-red-400 text-2xl">cancel</span>
-          <div>
-            <p className="text-white font-semibold text-sm">Cancel Purchase Order</p>
-            <p className="text-slate-400 text-xs mt-0.5">
-              PO <span className="font-mono text-slate-300">{orderNo}</span> will be cancelled. This cannot be undone.
-            </p>
-          </div>
-        </div>
-        <label className="block text-xs text-slate-400 mb-1 font-medium">
-          Reason for cancellation
-        </label>
-        <input
-          ref={inputRef}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="e.g. Vendor unavailable, budget constraint..."
-          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 mb-4"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && reason.trim()) onConfirm(reason.trim());
-            if (e.key === "Escape") onCancel();
-          }}
-        />
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="px-4 py-2 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-          >
-            Keep PO
-          </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(reason.trim())}
-            disabled={loading || !reason.trim()}
-            className="px-4 py-2 text-xs rounded-lg bg-red-700 hover:bg-red-600 text-white font-semibold transition disabled:opacity-50"
-          >
-            {loading ? (
-              <span className="flex items-center gap-1.5">
-                <span className="animate-spin material-symbols-outlined text-[14px]">progress_activity</span>
-                Cancelling...
-              </span>
-            ) : (
-              "Confirm Cancel"
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
@@ -321,18 +248,29 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
     }
   };
 
-  // ── Action: Cancel ───────────────────────────────────────────────────────
-  const handleCancelConfirmed = async (reason: string) => {
+  // ── Action: Cancel (Phase C — receives structured POCancelReasonResult) ──
+  const handleCancelConfirmed = async (result: POCancelReasonResult) => {
     if (!cancelTarget) return;
     const po = cancelTarget;
     setActionLoading((p) => ({ ...p, [po.id]: true }));
     setCancelTarget(null);
+    // Compose human-readable reason string for cancellation_reason column
+    const reasonText = result.reason_note
+      ? `${result.reason_label}: ${result.reason_note}`
+      : result.reason_label;
     try {
       await apiFetchV1(`/purchase/orders/${po.id}/cancel`, {
         method: "POST",
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({
+          reason: reasonText,
+          reason_code: result.reason_code,
+        }),
       });
-      onNotification?.("PO Cancelled", `${po.order_no} has been cancelled.`, "info");
+      onNotification?.(
+        "PO Cancelled",
+        `${po.order_no} has been cancelled. Reason: ${result.reason_label}`,
+        "info",
+      );
       fetchOrders(activeTab);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Cancel failed.";
@@ -641,10 +579,13 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
         </div>
       )}
 
-      {/* ── Cancel confirmation dialog ─────────────────────────────────────── */}
+      {/* ── Cancel Reason Picker Dialog (Phase C) ─────────────────────────── */}
       {cancelTarget && (
-        <CancelDialog
+        <POCancelReasonDialog
+          isOpen={true}
           orderNo={cancelTarget.order_no}
+          supplierName={cancelTarget.supplier_name}
+          status={cancelTarget.status}
           loading={actionLoading[cancelTarget.id] ?? false}
           onConfirm={handleCancelConfirmed}
           onCancel={() => setCancelTarget(null)}
