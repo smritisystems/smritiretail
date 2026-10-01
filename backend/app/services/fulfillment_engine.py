@@ -30,6 +30,8 @@ from ..models.fulfillment import (
 )
 from ..models.inventory import Product, StockMovement
 from ..models.sales import SalesInvoice, SalesOrderReservation
+from ..api.deps import TenantContext
+from .sales_stock_authority import SalesStockAuthority
 from ..schemas.fulfillment import (
     PackingSlipCreateRequest,
     PackingSlipResponse,
@@ -208,6 +210,20 @@ class FulfillmentEngine:
         if source_invoice and isinstance(source_invoice.rule_snapshots, dict):
             source_order_id = source_invoice.rule_snapshots.get("source_order_id")
 
+        # Check if invoice already deducted physical stock to prevent double deduction
+        invoice_already_deducted = False
+        if ps.sales_invoice_id:
+            inv_mov_stmt = select(func.count(StockMovement.id)).where(
+                StockMovement.company_id == company_id,
+                StockMovement.reference_doc_type.in_(["SALES_INVOICE", "Sales Invoice", "SALES INVOICE"]),
+                StockMovement.reference_doc_id == ps.sales_invoice_id,
+                StockMovement.movement_type == "OUTWARD_SALE",
+                StockMovement.is_deleted.is_(False),
+            )
+            inv_mov_count = (await session.execute(inv_mov_stmt)).scalar() or 0
+            if inv_mov_count > 0:
+                invoice_already_deducted = True
+
         requested_items = req.items or [
             type("PackingItem", (), {"product_id": item.product_id, "sku": item.sku, "quantity": item.quantity})
             for item in ps.items
@@ -234,9 +250,10 @@ class FulfillmentEngine:
                 reserved = Decimal(str(product.reserved_stock or 0))
                 if reserved < quantity:
                     raise ValueError(f"Barcode '{barcode}' has only {reserved} reserved for dispatch, requested {quantity}.")
-                physical = Decimal(str(product.stock or 0))
-                if physical < quantity:
-                    raise ValueError(f"Barcode '{barcode}' has only {physical} physical stock, requested {quantity}.")
+                if not invoice_already_deducted:
+                    physical = Decimal(str(product.stock or 0))
+                    if physical < quantity:
+                        raise ValueError(f"Barcode '{barcode}' has only {physical} physical stock, requested {quantity}.")
                 locked_products[barcode] = product
 
         now = datetime.now(timezone.utc)
@@ -298,31 +315,45 @@ class FulfillmentEngine:
                     DispatchItemResponse(id=di.id, product_id=di.product_id, quantity=di.quantity)
                 )
 
+        # Authoritative dispatch stock handling via SalesStockAuthority (zero double-deduction)
+        tenant_ctx = TenantContext(
+            company_id=company_id,
+            branch_id=getattr(ps, "branch_id", None) or "MAIN"
+        )
+        dispatch_lines = []
+        for item in requested_items:
+            barcode = str(item.sku or "").strip()
+            prod = locked_products.get(barcode)
+            if not prod and hasattr(item, "product_id") and item.product_id:
+                prod_stmt = select(Product).where(
+                    Product.id == item.product_id,
+                    Product.company_id == company_id,
+                    Product.is_deleted == False
+                )
+                prod = (await session.execute(prod_stmt)).scalars().first()
+            if prod:
+                dispatch_lines.append({
+                    "product_id": prod.id,
+                    "quantity": Decimal(str(item.quantity)),
+                    "sku": barcode or prod.sku
+                })
+
+        await SalesStockAuthority.record_dispatch_outward(
+            session=session,
+            tenant_ctx=tenant_ctx,
+            dispatch_id=dsp_id,
+            dispatch_no=dsp_num,
+            packing_slip_id=ps.id,
+            items=dispatch_lines,
+            invoice_id=ps.sales_invoice_id,
+            source_order_id=source_order_id,
+            user_id=created_by,
+        )
+
         if source_order_id:
             for item in requested_items:
                 barcode = str(item.sku).strip()
-                product = locked_products[barcode]
                 quantity = Decimal(str(item.quantity))
-                product.stock = Decimal(str(product.stock or 0)) - quantity
-                product.reserved_stock = Decimal(str(product.reserved_stock or 0)) - quantity
-                session.add(StockMovement(
-                    id=f"sm-{uuid.uuid4().hex[:24]}",
-                    company_id=company_id,
-                    product_id=product.id,
-                    item_id=product.item_id,
-                    product_name=product.name,
-                    sku=barcode,
-                    quantity=quantity,
-                    movement_type="OUTWARD_DISPATCH",
-                    reference_doc_type="DISPATCH",
-                    reference_doc_id=dsp_id,
-                    warehouse=None,
-                    remarks=f"Barcode dispatch {dsp_num}",
-                    source_module="Fulfillment",
-                    created_by=created_by,
-                    is_active=True,
-                    is_deleted=False,
-                ))
                 reservation_result = await session.execute(
                     select(SalesOrderReservation).where(
                         SalesOrderReservation.order_id == source_order_id,

@@ -28,6 +28,71 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.49.0] - 2026-10-01 — SMRITI Sales Architecture: Universal Lifecycle & Stock/GL Integration (Phases S1–S7)
+
+> **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Universal Lifecycle
+> **Implementation Plan:** `docs/implementation/sales/Sales_Architecture_Universal_Lifecycle_And_Stock_GL_Integration_Phases_S1_S7_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/sales/Sales_Architecture_Universal_Lifecycle_And_Stock_GL_Integration_Phases_S1_S7_v1.0.md`
+> **Master Completion Report:** `docs/architecture/SMRITI_SALES_IMPLEMENTATION_COMPLETION_REPORT.md`
+
+### Added
+- **Canonical Sales Stock Authority Engine** (`backend/app/services/sales_stock_authority.py`):
+  - Authoritative inventory movement handlers: `record_outward_sale`, `record_return_inward`, `record_sales_cancellation_reversal`, and `record_dispatch_outward`.
+  - Concurrency safety with `SELECT ... FOR UPDATE` row locks and strict double-deduction prevention when dispatch coincides with prior invoice movements.
+  - Dedicated test suite `backend/app/tests/test_sales_stock_authority.py` (6/6 passing).
+- **Universal Sales Lifecycle Domain Handlers** (`backend/app/services/lifecycle/handlers/`):
+  - `SalesOrderLifecycleHandler` (`sales_order.py`): Draft -> Submitted -> Confirmed -> Allocated -> Delivered / Cancelled (with auto-reservation release).
+  - `SalesQuotationLifecycleHandler` (`sales_quotation.py`): Draft -> Sent -> Accepted -> Converted / Expired / Cancelled.
+  - `SalesInvoiceLifecycleHandler` (`sales_invoice.py`): Draft -> Submitted -> Posted -> Paid / Cancelled (with 3-way matching, stock deduction, and GL voucher posting).
+  - `SalesReturnLifecycleHandler` (`sales_return.py`): Draft -> Submitted -> Approved -> Processed / Cancelled (with restock movement and credit note GL posting).
+  - `PackingSlipLifecycleHandler` & `DispatchLifecycleHandler` (`fulfillment.py`): Manifest packaging, dispatch, and delivery confirmation.
+  - Dedicated test suite `backend/app/tests/test_universal_sales_lifecycle.py` (10/10 passing).
+- **Credit Note General Ledger Integration** (`backend/app/services/unified_ledger.py`):
+  - Added `post_sales_return_to_gl` translating approved returns into balanced double-entry `JournalVoucher` entries (Debit Sales Revenue 4010 + Output Tax, Credit Accounts Receivable 1030).
+
+### Changed
+- **Stock Synchronization Authority** (`backend/app/services/stock_synchronizer.py`):
+  - Optimized batch ledger condition to check active batch stock presence (`batch_count > 0`), preventing false zeroing of products without batch entries.
+- **Sales Return Contract Resilience** (`backend/app/tests/test_sales_return_contracts.py`):
+  - Resolved session collision in concurrent test `test_sr_concurrency_001` via per-request connection isolation.
+  - Guarded expired ORM object attribute access in `test_sr_refund_policy_001`.
+  - All 32 contract tests passing (32/32).
+- **Purchase Phase 2.1 Invariant Protection**:
+  - Maintained zero regression: `test_cross_handler_lifecycle.py` 100% green (9/9 passing).
+
+## [6.48.2] - 2026-10-01 — Sales Schema & Multi-Tenant Hardening (Phase S1)
+
+> **Branch:** `smritiNX` | **Area:** Sales & Operations / Multi-Tenant Hardening
+> **Implementation Plan:** `docs/implementation/sales/Sales_Schema_And_Tenant_Hardening_Phase_S1_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/sales/Sales_Schema_And_Tenant_Hardening_Phase_S1_v1.0.md`
+> **Architecture Freeze:** `docs/architecture/SMRITI_SALES_ARCHITECTURE_FREEZE_V1.0.md`
+
+### Added
+- **Alembic Migration `v1515_sales_schema_tenant_hardening`** (`backend/alembic/versions/v1515_sales_schema_tenant_hardening.py`):
+  - Replaced global `UNIQUE` constraints across sales documents with composite `(company_id, doc_no)` unique constraints: `uq_sales_orders_company_order_no`, `uq_sales_quotations_company_quotation_no`, `uq_sales_returns_company_return_no`, `uq_packing_slips_company_num`, `uq_dispatches_company_num`.
+  - Dropped redundant global `UNIQUE` constraint on `sales_invoices(invoice_no)`, preserving `uq_sales_invoices_company_invoice_no`.
+  - Added full entity parity columns (`uuid`, `company_id`, `branch_id`, `is_active`, `is_deleted`, `deleted_at`, `deleted_by`, `version`, `created_at`, `modified_at`, `created_by`, `updated_by`) to `sales_order_items`, `sales_invoice_items`, `sales_return_items`, and `sales_quotation_items`.
+  - Executed automated backfill for UUIDs and tenant scoping for existing historical invoice items from parent `sales_invoices`.
+
+### Changed
+- **Sales & Fulfillment ORM Models Synchronized** (`backend/app/models/sales.py`, `backend/app/models/fulfillment.py`, `backend/app/models/__init__.py`):
+  - Declared compound `UniqueConstraint` on `SalesInvoice`, `SalesOrder`, `SalesQuotation`, `SalesReturn`, `PackingSlip`, and `Dispatch`.
+  - Decorated `SalesInvoiceItem`, `SalesOrderItem`, `SalesReturnItem`, and `SalesQuotationItem` with BaseEntity parity attributes and default UUIDv4 generation, eliminating runtime `TypeError: 'uuid'` crashes.
+  - Exported all Sales models in `backend/app/models/__init__.py`.
+
+## [6.48.1] - 2026-10-01 — Universal Transaction Lifecycle Framework Phase 2.1 Hardening (DB Constraint, GRN Stock Atomicity & 3-Way Match)
+
+> **Branch:** `smritiNX` | **Area:** Foundation / Procurement / Universal Lifecycle Framework
+> **Implementation Plan:** `docs/implementation/procurement/Universal_Document_Lifecycle_Phase2_1_Hardening_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Universal_Document_Lifecycle_Phase2_1_Hardening_v1.0.md`
+> **Forensic Audit:** `docs/architecture/SMRITI_DOCUMENT_LIFECYCLE_PHASE2_REPORT.md`
+
+### Added
+- **Database Unique Constraint & `purchase_bill_items` Table via Migration v1514** (`backend/alembic/versions/v1514_purchase_bills_hardening.py`, `backend/app/models/purchase.py`): Enforced database-level unique constraint `uq_purchase_bills_company_bill_no` on `purchase_bills(company_id, bill_no)` and created `purchase_bill_items` line-item table with full BaseEntity column parity and indexed foreign keys.
+- **Atomic Goods Receipt Stock Movements on `RECEIVE` & Reversals on `CANCEL`** (`backend/app/services/lifecycle/handlers/goods_receipt.py`): Inward stock movement rows (`INWARD_GRN`) are committed atomically with GRN transition to `RECEIVED`; cancellation of received goods receipts records reversing outward movements (`RETURN_OUTWARD`) and synchronizes linked PO status (`CONFIRMED` vs `PARTIALLY_RECEIVED` vs `RECEIVED`).
+- **Line-Level 3-Way Variance Matching Engine** (`backend/app/services/lifecycle/handlers/purchase_bill.py`): Enforced line-by-line verification against Purchase Order lines (ordered quantity and agreed unit rate) and Goods Receipt lines (received quantity), rejecting over-invoicing and rate escalations with `HandlerValidationException`.
+- **Phase 2.1 Automated Acceptance Tests** (`backend/app/tests/test_cross_handler_lifecycle.py`): Added dedicated automated tests asserting duplicate bill number constraint violation (`IntegrityError`), atomic stock movement creation, stock movement reversal on cancellation, and line-level 3-way match rejection and approval (9/9 passed).
+
 ## [6.48.0] - 2026-10-01 — Universal Transaction Lifecycle Framework Phase 2 (GRN & Purchase Bill)
 
 > **Branch:** `smritiNX` | **Area:** Foundation / Procurement / Universal Lifecycle Framework

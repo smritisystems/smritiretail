@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import uuid as uuid_pkg
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, Date, Text, Index, UniqueConstraint, text
 from sqlalchemy import DateTime
@@ -25,7 +26,7 @@ class SalesInvoice(BaseEntity):
         UniqueConstraint("company_id", "invoice_no", name="uq_sales_invoices_company_invoice_no"),
     )
 
-    invoice_no   = Column(String(100), nullable=False, unique=True)
+    invoice_no   = Column(String(100), nullable=False, index=True)
     identity_code = Column(String(100), nullable=True, unique=True, index=True)
     date         = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
     customer_id  = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), index=True)
@@ -120,6 +121,18 @@ class SalesInvoiceItem(Base):
     __tablename__ = "sales_invoice_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True, index=True)
+    is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(String(100), nullable=True)
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
     invoice_id = Column(String(50), ForeignKey("sales_invoices.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
     item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -155,8 +168,11 @@ class SalesInvoiceItem(Base):
 
 class SalesQuotation(BaseEntity):
     __tablename__ = "sales_quotations"
+    __table_args__ = (
+        UniqueConstraint("company_id", "quotation_no", name="uq_sales_quotations_company_quotation_no"),
+    )
 
-    quotation_no  = Column(String(100), nullable=False, unique=True)
+    quotation_no  = Column(String(100), nullable=False, index=True)
     date          = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
     customer_name = Column(String(255), nullable=False)
     tax_total     = Column(Numeric(15, 2), default=0.00)
@@ -172,6 +188,18 @@ class SalesQuotationItem(Base):
     __tablename__ = "sales_quotation_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True, index=True)
+    is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(String(100), nullable=True)
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
     quotation_id = Column(String(50), ForeignKey("sales_quotations.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id   = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
     item_id      = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -191,8 +219,11 @@ class SalesQuotationItem(Base):
 
 class SalesOrder(BaseEntity):
     __tablename__ = "sales_orders"
+    __table_args__ = (
+        UniqueConstraint("company_id", "order_no", name="uq_sales_orders_company_order_no"),
+    )
 
-    order_no           = Column(String(100), nullable=False, unique=True)
+    order_no           = Column(String(100), nullable=False, index=True)
     date               = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
     customer_name      = Column(String(255), nullable=False)
     tax_total          = Column(Numeric(15, 2), default=0.00)
@@ -230,6 +261,18 @@ class SalesOrderItem(Base):
     __tablename__ = "sales_order_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True, index=True)
+    is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(String(100), nullable=True)
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
     order_id     = Column(String(50), ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id   = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
     item_id      = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -333,8 +376,11 @@ class SalesOrderReservation(BaseEntity):
 
 class SalesReturn(BaseEntity):
     __tablename__ = "sales_returns"
+    __table_args__ = (
+        UniqueConstraint("company_id", "return_no", name="uq_sales_returns_company_return_no"),
+    )
 
-    return_no          = Column(String(100), nullable=False, unique=True)
+    return_no          = Column(String(100), nullable=False, index=True)
     original_invoice_id = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False, index=True)
     credit_note_number = Column(String(100), nullable=True)
     date               = Column(Date, nullable=False, server_default=text("CURRENT_DATE"), default=lambda: datetime.now(timezone.utc).date())
@@ -358,6 +404,18 @@ class SalesReturnItem(Base):
     __tablename__ = "sales_return_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(String(36), default=lambda: str(uuid_pkg.uuid4()), unique=True, nullable=False)
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True, index=True)
+    is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(String(100), nullable=True)
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
     return_id    = Column(String(50), ForeignKey("sales_returns.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id   = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
     item_id      = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)

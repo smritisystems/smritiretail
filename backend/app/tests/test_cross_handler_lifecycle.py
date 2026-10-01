@@ -42,11 +42,12 @@ from decimal import Decimal
 from datetime import datetime, timezone, date
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.models.auth import User, UserRole
 from app.models.tenant import Company, Branch
-from app.models.purchase import Supplier, PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseReceiptItem, PurchaseBill
-from app.models.inventory import Product
+from app.models.purchase import Supplier, PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseReceiptItem, PurchaseBill, PurchaseBillItem
+from app.models.inventory import Product, StockMovement
 from app.models.workflow import WorkflowEvent
 from app.api.deps import TenantContext
 from app.services.lifecycle import (
@@ -59,6 +60,7 @@ from app.services.lifecycle import (
     PermissionDeniedException,
     TenantIsolationException,
     DocumentNotFoundException,
+    HandlerValidationException,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -535,3 +537,503 @@ async def test_purchase_bill_cross_tenant_isolation(db_session):
                 action="SUBMIT",
             ),
         )
+
+
+async def test_purchase_bill_duplicate_number_constraint(db_session):
+    """
+    Phase 2.1 Hardening Test 1:
+    Verifies that the database unique constraint uq_purchase_bills_company_bill_no
+    strictly rejects duplicate bill_no values within the same company.
+    """
+    cid, bid, user, supp, prod, tenant = await setup_test_tenant_and_actor(db_session)
+
+    dup_bill_no = f"INV-DUP-{uuid.uuid4().hex[:6].upper()}"
+    bill1 = PurchaseBill(
+        id=f"bil_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        bill_no=dup_bill_no,
+        supplier_id=supp.id,
+        status="DRAFT",
+        total_amount=Decimal("1500.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add(bill1)
+    await db_session.flush()
+
+    # Attempt to insert identical company_id + bill_no
+    bill2 = PurchaseBill(
+        id=f"bil_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        bill_no=dup_bill_no,
+        supplier_id=supp.id,
+        status="DRAFT",
+        total_amount=Decimal("3000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add(bill2)
+    with pytest.raises(IntegrityError):
+        await db_session.flush()
+
+    await db_session.rollback()
+
+
+async def test_grn_receive_creates_stock_movement_and_updates_po(db_session):
+    """
+    Phase 2.1 Hardening Test 2:
+    Verifies that transitioning a Goods Receipt with action 'RECEIVE':
+    1. Atomically inserts authoritative StockMovement rows (movement_type='INWARD_GRN').
+    2. Atomically updates the linked Purchase Order status to RECEIVED.
+    """
+    cid, bid, user, supp, prod, tenant = await setup_test_tenant_and_actor(db_session)
+
+    # 1. Create Purchase Order with 10 units
+    po_id = f"po_{uuid.uuid4().hex[:8]}"
+    po = PurchaseOrder(
+        id=po_id,
+        uuid=str(uuid.uuid4()),
+        order_no=f"PO-STK-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        status="CONFIRMED",
+        subtotal=Decimal("1000.00"),
+        grand_total=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    po_item = PurchaseOrderItem(
+        id=f"poi_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        order_id=po_id,
+        product_id=prod.id,
+        code=prod.code,
+        name=prod.name,
+        quantity=Decimal("10.00"),
+        cost_price=Decimal("100.00"),
+        tax_amount=Decimal("0.00"),
+        line_total=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([po, po_item])
+    await db_session.commit()
+
+    # 2. Create Goods Receipt for 10 units
+    rcpt_id = f"rcp_{uuid.uuid4().hex[:8]}"
+    receipt = PurchaseReceipt(
+        id=rcpt_id,
+        uuid=str(uuid.uuid4()),
+        receipt_no=f"GRN-STK-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        order_id=po_id,
+        status="SUBMITTED",
+        grand_total=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    rcpt_item = PurchaseReceiptItem(
+        id=f"rci_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        receipt_id=rcpt_id,
+        product_id=prod.id,
+        purchase_order_id=po_id,
+        code=prod.code,
+        name=prod.name,
+        quantity_received=Decimal("10.00"),
+        cost_price=Decimal("100.00"),
+        line_total=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([receipt, rcpt_item])
+    await db_session.commit()
+
+    # 3. Transition GRN to RECEIVED
+    res = await UniversalLifecycleEngine.execute_transition(
+        db=db_session,
+        tenant_ctx=tenant,
+        user=user,
+        ctx=LifecycleTransitionContext(
+            doc_type="GOODS_RECEIPT",
+            doc_id=rcpt_id,
+            action="RECEIVE",
+        ),
+    )
+    assert res.to_status == "RECEIVED"
+
+    # 4. Verify authoritative StockMovement row in database
+    stmt_sm = select(StockMovement).where(
+        StockMovement.reference_doc_id == rcpt_id,
+        StockMovement.movement_type == "INWARD_GRN",
+    )
+    sm_rows = (await db_session.execute(stmt_sm)).scalars().all()
+    assert len(sm_rows) == 1
+    assert sm_rows[0].quantity == Decimal("10.00")
+    assert sm_rows[0].product_id == prod.id
+
+    # 5. Verify linked Purchase Order status updated to RECEIVED
+    po_check = await db_session.get(PurchaseOrder, po_id)
+    assert po_check.status == "RECEIVED"
+
+
+async def test_grn_cancel_reverses_stock_movement_and_po_status(db_session):
+    """
+    Phase 2.1 Hardening Test 3:
+    Verifies that cancelling a RECEIVED Goods Receipt:
+    1. Atomically inserts reversing StockMovement rows (movement_type='RETURN_OUTWARD').
+    2. Atomically reverts the linked Purchase Order status to CONFIRMED.
+    3. Preserves soft-delete invariant (status=CANCELLED, is_deleted=False, deleted_at=None).
+    """
+    cid, bid, user, supp, prod, tenant = await setup_test_tenant_and_actor(db_session)
+
+    # 1. Setup PO
+    po_id = f"po_{uuid.uuid4().hex[:8]}"
+    po = PurchaseOrder(
+        id=po_id,
+        uuid=str(uuid.uuid4()),
+        order_no=f"PO-REV-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        status="RECEIVED",
+        subtotal=Decimal("500.00"),
+        grand_total=Decimal("500.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    po_item = PurchaseOrderItem(
+        id=f"poi_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        order_id=po_id,
+        product_id=prod.id,
+        code=prod.code,
+        name=prod.name,
+        quantity=Decimal("5.00"),
+        cost_price=Decimal("100.00"),
+        line_total=Decimal("500.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([po, po_item])
+    await db_session.commit()
+
+    # 2. Setup received GRN
+    rcpt_id = f"rcp_{uuid.uuid4().hex[:8]}"
+    receipt = PurchaseReceipt(
+        id=rcpt_id,
+        uuid=str(uuid.uuid4()),
+        receipt_no=f"GRN-REV-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        order_id=po_id,
+        status="RECEIVED",
+        grand_total=Decimal("500.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    rcpt_item = PurchaseReceiptItem(
+        id=f"rci_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        receipt_id=rcpt_id,
+        product_id=prod.id,
+        purchase_order_id=po_id,
+        code=prod.code,
+        name=prod.name,
+        quantity_received=Decimal("5.00"),
+        cost_price=Decimal("100.00"),
+        line_total=Decimal("500.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([receipt, rcpt_item])
+    await db_session.commit()
+
+    # 3. Transition GRN with CANCEL
+    res_cancel = await UniversalLifecycleEngine.execute_transition(
+        db=db_session,
+        tenant_ctx=tenant,
+        user=user,
+        ctx=LifecycleTransitionContext(
+            doc_type="GOODS_RECEIPT",
+            doc_id=rcpt_id,
+            action="CANCEL",
+            notes="Defective shipment returned to vendor",
+        ),
+    )
+    assert res_cancel.to_status == "CANCELLED"
+
+    # 4. Invariant check on GRN
+    rcpt_check = await db_session.get(PurchaseReceipt, rcpt_id)
+    assert rcpt_check.status == "CANCELLED"
+    assert rcpt_check.is_deleted is False
+    assert rcpt_check.deleted_at is None
+
+    # 5. Check reversal StockMovement row created
+    stmt_rev = select(StockMovement).where(
+        StockMovement.reference_doc_id == rcpt_id,
+        StockMovement.movement_type == "RETURN_OUTWARD",
+    )
+    rev_rows = (await db_session.execute(stmt_rev)).scalars().all()
+    assert len(rev_rows) == 1
+    assert rev_rows[0].quantity == Decimal("5.00")
+    assert rev_rows[0].product_id == prod.id
+
+    # 6. Check PO status reverted back to CONFIRMED
+    po_check = await db_session.get(PurchaseOrder, po_id)
+    assert po_check.status == "CONFIRMED"
+
+
+async def test_purchase_bill_line_level_3way_matching(db_session):
+    """
+    Phase 2.1 Hardening Test 4:
+    Verifies that PurchaseBillLifecycleHandler strictly enforces line-level
+    3-way variance matching:
+    - Case A: Rejects if Billed Quantity > PO Ordered Quantity (3WAY_QTY_EXCEEDED).
+    - Case B: Rejects if Billed Rate > PO Agreed Cost Price (3WAY_RATE_EXCEEDED).
+    - Case C: Rejects if Billed Quantity > GRN Received Quantity (3WAY_QTY_EXCEEDED).
+    - Case D: Passes when Billed Quantity and Rate match PO and GRN lines within tolerance.
+    """
+    cid, bid, user, supp, prod, tenant = await setup_test_tenant_and_actor(db_session)
+
+    # 1. Setup PO with 10 units at ₹100.00
+    po_id = f"po_{uuid.uuid4().hex[:8]}"
+    po = PurchaseOrder(
+        id=po_id,
+        uuid=str(uuid.uuid4()),
+        order_no=f"PO-3WAY-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        status="CONFIRMED",
+        subtotal=Decimal("1000.00"),
+        grand_total=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    po_item = PurchaseOrderItem(
+        id=f"poi_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        order_id=po_id,
+        product_id=prod.id,
+        code=prod.code,
+        name=prod.name,
+        quantity=Decimal("10.00"),
+        cost_price=Decimal("100.00"),
+        line_total=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([po, po_item])
+    await db_session.commit()
+
+    # 2. Setup GRN with 8 units received
+    rcpt_id = f"rcp_{uuid.uuid4().hex[:8]}"
+    receipt = PurchaseReceipt(
+        id=rcpt_id,
+        uuid=str(uuid.uuid4()),
+        receipt_no=f"GRN-3WAY-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        order_id=po_id,
+        status="RECEIVED",
+        grand_total=Decimal("800.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    rcpt_item = PurchaseReceiptItem(
+        id=f"rci_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        receipt_id=rcpt_id,
+        product_id=prod.id,
+        purchase_order_id=po_id,
+        code=prod.code,
+        name=prod.name,
+        quantity_received=Decimal("8.00"),
+        cost_price=Decimal("100.00"),
+        line_total=Decimal("800.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([receipt, rcpt_item])
+    await db_session.commit()
+
+    # CASE A: Bill quantity (12) > PO quantity (10)
+    bill_a_id = f"bil_{uuid.uuid4().hex[:8]}"
+    bill_a = PurchaseBill(
+        id=bill_a_id,
+        uuid=str(uuid.uuid4()),
+        bill_no=f"BILL-A-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        order_id=po_id,
+        status="DRAFT",
+        total_amount=Decimal("1200.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    bill_a_item = PurchaseBillItem(
+        id=f"pbi_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        bill_id=bill_a_id,
+        product_id=prod.id,
+        po_item_id=po_item.id,
+        code=prod.code,
+        name=prod.name,
+        quantity=Decimal("12.0000"),
+        rate=Decimal("100.0000"),
+        total_amount=Decimal("1200.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([bill_a, bill_a_item])
+    await db_session.commit()
+
+    with pytest.raises(HandlerValidationException) as exc_info_a:
+        await UniversalLifecycleEngine.execute_transition(
+            db=db_session,
+            tenant_ctx=tenant,
+            user=user,
+            ctx=LifecycleTransitionContext(
+                doc_type="PURCHASE_BILL",
+                doc_id=bill_a_id,
+                action="SUBMIT",
+            ),
+        )
+    assert exc_info_a.value.code == "3WAY_QTY_EXCEEDED"
+
+    # CASE B: Bill rate (₹125.00) > PO agreed cost (₹100.00)
+    bill_b_id = f"bil_{uuid.uuid4().hex[:8]}"
+    bill_b = PurchaseBill(
+        id=bill_b_id,
+        uuid=str(uuid.uuid4()),
+        bill_no=f"BILL-B-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        order_id=po_id,
+        status="DRAFT",
+        total_amount=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    bill_b_item = PurchaseBillItem(
+        id=f"pbi_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        bill_id=bill_b_id,
+        product_id=prod.id,
+        po_item_id=po_item.id,
+        code=prod.code,
+        name=prod.name,
+        quantity=Decimal("8.0000"),
+        rate=Decimal("125.0000"),
+        total_amount=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([bill_b, bill_b_item])
+    await db_session.commit()
+
+    with pytest.raises(HandlerValidationException) as exc_info_b:
+        await UniversalLifecycleEngine.execute_transition(
+            db=db_session,
+            tenant_ctx=tenant,
+            user=user,
+            ctx=LifecycleTransitionContext(
+                doc_type="PURCHASE_BILL",
+                doc_id=bill_b_id,
+                action="SUBMIT",
+            ),
+        )
+    assert exc_info_b.value.code == "3WAY_RATE_EXCEEDED"
+
+    # CASE C: Bill quantity (10) > GRN received quantity (8)
+    bill_c_id = f"bil_{uuid.uuid4().hex[:8]}"
+    bill_c = PurchaseBill(
+        id=bill_c_id,
+        uuid=str(uuid.uuid4()),
+        bill_no=f"BILL-C-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        order_id=po_id,
+        receipt_id=rcpt_id,
+        status="DRAFT",
+        total_amount=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    bill_c_item = PurchaseBillItem(
+        id=f"pbi_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        bill_id=bill_c_id,
+        product_id=prod.id,
+        po_item_id=po_item.id,
+        receipt_item_id=rcpt_item.id,
+        code=prod.code,
+        name=prod.name,
+        quantity=Decimal("10.0000"),
+        rate=Decimal("100.0000"),
+        total_amount=Decimal("1000.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([bill_c, bill_c_item])
+    await db_session.commit()
+
+    with pytest.raises(HandlerValidationException) as exc_info_c:
+        await UniversalLifecycleEngine.execute_transition(
+            db=db_session,
+            tenant_ctx=tenant,
+            user=user,
+            ctx=LifecycleTransitionContext(
+                doc_type="PURCHASE_BILL",
+                doc_id=bill_c_id,
+                action="SUBMIT",
+            ),
+        )
+    assert exc_info_c.value.code == "3WAY_QTY_EXCEEDED"
+
+    # CASE D: Clean Match (8 units received at agreed rate of ₹100.00, total ₹800.00)
+    bill_d_id = f"bil_{uuid.uuid4().hex[:8]}"
+    bill_d = PurchaseBill(
+        id=bill_d_id,
+        uuid=str(uuid.uuid4()),
+        bill_no=f"BILL-D-{uuid.uuid4().hex[:6].upper()}",
+        supplier_id=supp.id,
+        order_id=po_id,
+        receipt_id=rcpt_id,
+        status="DRAFT",
+        total_amount=Decimal("800.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    bill_d_item = PurchaseBillItem(
+        id=f"pbi_{uuid.uuid4().hex[:8]}",
+        uuid=str(uuid.uuid4()),
+        bill_id=bill_d_id,
+        product_id=prod.id,
+        po_item_id=po_item.id,
+        receipt_item_id=rcpt_item.id,
+        code=prod.code,
+        name=prod.name,
+        quantity=Decimal("8.0000"),
+        rate=Decimal("100.0000"),
+        total_amount=Decimal("800.00"),
+        company_id=cid,
+        branch_id=bid,
+    )
+    db_session.add_all([bill_d, bill_d_item])
+    await db_session.commit()
+
+    res_d = await UniversalLifecycleEngine.execute_transition(
+        db=db_session,
+        tenant_ctx=tenant,
+        user=user,
+        ctx=LifecycleTransitionContext(
+            doc_type="PURCHASE_BILL",
+            doc_id=bill_d_id,
+            action="SUBMIT",
+        ),
+    )
+    assert res_d.to_status == "SUBMITTED"
+
+    res_approve = await UniversalLifecycleEngine.execute_transition(
+        db=db_session,
+        tenant_ctx=tenant,
+        user=user,
+        ctx=LifecycleTransitionContext(
+            doc_type="PURCHASE_BILL",
+            doc_id=bill_d_id,
+            action="APPROVE",
+        ),
+    )
+    assert res_approve.to_status == "APPROVED"

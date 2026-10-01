@@ -311,6 +311,8 @@ class SalesService:
             grand_total += item_total
 
             q_items.append(SalesQuotationItem(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
                 product_id=item.product_id,
                 code=item.code,
                 name=item.name,
@@ -521,7 +523,7 @@ class SalesService:
             )
             if existing.scalars().first():
                 raise HTTPException(
-                    status_code=409,
+                    status_code=400,
                     detail=f"Duplicate document number: Sales order with order number '{so_in.order_no}' already exists under this tenant."
                 )
 
@@ -578,6 +580,8 @@ class SalesService:
                 grand_total += item_total
 
                 so_items.append(SalesOrderItem(
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                     product_id=product.id,
                     item_id=product.item_id,
                     variant_id=item.variant_id or product.item_variant_id,
@@ -614,14 +618,17 @@ class SalesService:
                     closed_by=item.closed_by,
                 ))
 
-            tech_id, _identity_code = await IdentityEngine.allocate_internal(
-                session=self.db,
-                entity_type="SALES_ORDER",
-                tenant_id=getattr(self.tenant_ctx, "tenant_id", None),
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id,
-                purpose="ENTITY_CREATION",
-            )
+            if getattr(so_in, "id", None):
+                tech_id = so_in.id
+            else:
+                tech_id, _identity_code = await IdentityEngine.allocate_internal(
+                    session=self.db,
+                    entity_type="SALES_ORDER",
+                    tenant_id=getattr(self.tenant_ctx, "tenant_id", None),
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    purpose="ENTITY_CREATION",
+                )
 
             db_so = SalesOrder(
                 id=tech_id,
@@ -903,6 +910,8 @@ class SalesService:
 
             inv_items.append(SalesInvoiceItem(
                 invoice_id=invoice_id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
                 product_id=item.product_id,
                 item_id=item.item_id,
                 variant_id=item.variant_id,
@@ -1220,7 +1229,7 @@ class SalesService:
             )
             if existing.scalars().first():
                 raise HTTPException(
-                    status_code=409,
+                    status_code=400,
                     detail=f"Duplicate document number: Sales return '{sr_in.return_no}' already exists under active company context."
                 )
 
@@ -1281,6 +1290,8 @@ class SalesService:
                 grand_total += item_total
 
                 sr_items.append(SalesReturnItem(
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                     product_id=item.product_id,
                     code=item.code,
                     name=item.name,
@@ -1584,6 +1595,8 @@ class SalesService:
                 grand_total += item_total
                 new_items.append(SalesInvoiceItem(
                     invoice_id=invoice.id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                     product_id=item.product_id, code=item.code, name=item.name,
                     quantity=item.quantity, price=item.price,
                     hsn_code=item.hsn_code, gst_rate=item.gst_rate,
@@ -1769,6 +1782,8 @@ class SalesService:
                 grand_total += item_total
                 self.db.add(SalesQuotationItem(
                     quotation_id=q.id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                     product_id=item.product_id, code=item.code, name=item.name,
                     quantity=item.quantity, price=item.price,
                     hsn_code=item.hsn_code, gst_rate=item.gst_rate,
@@ -1848,6 +1863,8 @@ class SalesService:
                 grand_total += item_total
                 self.db.add(SalesOrderItem(
                     order_id=so.id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                     product_id=product.id, item_id=product.item_id, variant_id=item.variant_id or product.item_variant_id,
                     code=product.code, name=product.name,
                     quantity=item.quantity, price=item.price,
@@ -1964,6 +1981,8 @@ class SalesService:
                 grand_total += item_total
                 self.db.add(SalesReturnItem(
                     return_id=sr.id,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
                     product_id=item.product_id, code=item.code, name=item.name,
                     quantity=item.quantity, price=item.price,
                     gst_rate=item.gst_rate,
@@ -2096,8 +2115,9 @@ class SalesService:
             line_total = line_price * line_qty
             inv_item_id = IdentityEngine.generate_technical_id()
             inv_item = SalesInvoiceItem(
-                id           = inv_item_id,
                 uuid         = inv_item_id,
+                company_id   = self.tenant_ctx.company_id,
+                branch_id    = self.tenant_ctx.branch_id,
                 invoice_id   = invoice.id,
                 product_id   = q_item.product_id,
                 code         = q_item.code,

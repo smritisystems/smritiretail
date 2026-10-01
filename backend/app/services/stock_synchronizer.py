@@ -113,7 +113,7 @@ class StockSynchronizer:
         )
         batch_count = (await session.execute(batch_count_stmt)).scalar() or 0
 
-        if batch_count > 0 or (product.tracking_mode or "").lower() == "batch":
+        if batch_count > 0:
             # Authoritative source: product_batch_stocks
             # Usable on-hand = SUM(quantity - damaged_quantity)
             sum_stmt = select(
@@ -135,6 +135,31 @@ class StockSynchronizer:
                 StockMovement.is_deleted.is_(False),
             )
             movements = (await session.execute(moves_stmt)).scalars().all()
+
+            # Ensure unledgered initial product stock has an immutable OPENING_STOCK movement
+            has_primary_inward = any(
+                (m.movement_type or "").upper() in ("OPENING_STOCK", "IN", "INWARD_PURCHASE", "INWARD_GRN", "GRN", "INWARD_SURPLUS")
+                for m in movements
+            )
+            if not has_primary_inward and product.stock and product.stock > 0:
+                import uuid
+                opening_mov = StockMovement(
+                    id=f"sm_open_{uuid.uuid4().hex[:12]}",
+                    company_id=company_id,
+                    branch_id=product.branch_id,
+                    product_id=product_id,
+                    product_name=product.name,
+                    sku=product.sku or product.code,
+                    quantity=Decimal(str(product.stock)),
+                    movement_type="OPENING_STOCK",
+                    reference_doc_type="OPENING_BALANCE",
+                    reference_doc_id=product.id,
+                    remarks="Automatic opening stock ledger reconciliation",
+                    user="SYSTEM",
+                )
+                session.add(opening_mov)
+                movements = list(movements) + [opening_mov]
+
             computed = Decimal("0.00")
             for m in movements:
                 mtype = (m.movement_type or "").upper()
@@ -177,7 +202,7 @@ class StockSynchronizer:
             )
             has_batches = ((await session.execute(batch_count_stmt)).scalar() or 0) > 0
 
-            if has_batches or (p.tracking_mode or "").lower() == "batch":
+            if has_batches:
                 sot = "BATCH_LEDGER"
                 sum_stmt = select(
                     func.coalesce(

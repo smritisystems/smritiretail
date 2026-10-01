@@ -12,7 +12,7 @@
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
@@ -20,8 +20,11 @@ from ..db.base import BaseEntity
 class PackingSlip(BaseEntity):
     """SMRITI Retail OS - Order Pick & Pack Slip."""
     __tablename__ = "packing_slips"
+    __table_args__ = (
+        UniqueConstraint("company_id", "packing_slip_number", name="uq_packing_slips_company_num"),
+    )
 
-    packing_slip_number = Column(String(50), nullable=False, unique=True, index=True)
+    packing_slip_number = Column(String(50), nullable=False, index=True)
     sales_invoice_id = Column(String(50), nullable=False, index=True)
     packed_by_user_id = Column(String(50), nullable=True)
     status = Column(String(30), default="PACKED")  # PENDING, PACKED, CANCELLED
@@ -45,8 +48,11 @@ class PackingSlipItem(BaseEntity):
 class Dispatch(BaseEntity):
     """Dispatch Manifest & Delivery Manifest."""
     __tablename__ = "dispatches"
+    __table_args__ = (
+        UniqueConstraint("company_id", "dispatch_number", name="uq_dispatches_company_num"),
+    )
 
-    dispatch_number = Column(String(50), nullable=False, unique=True, index=True)
+    dispatch_number = Column(String(50), nullable=False, index=True)
     packing_slip_id = Column(String(50), ForeignKey("packing_slips.id", ondelete="RESTRICT"), nullable=False, index=True)
     courier_partner = Column(String(100), nullable=True)  # BlueDart, Delhivery, In-House Driver
     tracking_number = Column(String(100), nullable=True, index=True)

@@ -300,54 +300,58 @@ class UniversalLifecycleEngine:
             payload=payload,
         )
 
-        # 9. Apply entity state mutation
-        await handler.apply_transition(
-            db=db,
-            doc=doc,
-            action=action,
-            next_state=to_status,
-            user=user,
-            tenant_ctx=tenant_ctx,
-            payload=payload,
-        )
+        try:
+            # 9. Apply entity state mutation
+            await handler.apply_transition(
+                db=db,
+                doc=doc,
+                action=action,
+                next_state=to_status,
+                user=user,
+                tenant_ctx=tenant_ctx,
+                payload=payload,
+            )
 
-        # 10. Append immutable audit event in workflow_events table
-        actor_name = (
-            getattr(user, "username", None)
-            or getattr(user, "email", None)
-            or getattr(user, "name", None)
-            or str(getattr(user, "id", ""))
-        )
-        event_notes = ctx.notes or payload.get("reason") or payload.get("notes")
-        event = WorkflowEvent(
-            doc_type=handler.document_type,
-            doc_id=str(doc.id),
-            action=action,
-            from_status=from_status,
-            to_status=to_status,
-            performed_by_id=str(user.id),
-            performed_by_name=actor_name,
-            company_id=tenant_ctx.company_id,
-            branch_id=tenant_ctx.branch_id or "BR-001",
-            notes=event_notes,
-            created_at=datetime.now(timezone.utc),
-        )
-        db.add(event)
+            # 10. Append immutable audit event in workflow_events table
+            actor_name = (
+                getattr(user, "username", None)
+                or getattr(user, "email", None)
+                or getattr(user, "name", None)
+                or str(getattr(user, "id", ""))
+            )
+            event_notes = ctx.notes or payload.get("reason") or payload.get("notes")
+            event = WorkflowEvent(
+                doc_type=handler.document_type,
+                doc_id=str(doc.id),
+                action=action,
+                from_status=from_status,
+                to_status=to_status,
+                performed_by_id=str(user.id),
+                performed_by_name=actor_name,
+                company_id=tenant_ctx.company_id,
+                branch_id=tenant_ctx.branch_id or "BR-001",
+                notes=event_notes,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(event)
 
-        # 11. Post-transition handler hook
-        await handler.after_transition(
-            db=db,
-            doc=doc,
-            action=action,
-            next_state=to_status,
-            user=user,
-            tenant_ctx=tenant_ctx,
-            event=event,
-            payload=payload,
-        )
+            # 11. Post-transition handler hook
+            await handler.after_transition(
+                db=db,
+                doc=doc,
+                action=action,
+                next_state=to_status,
+                user=user,
+                tenant_ctx=tenant_ctx,
+                event=event,
+                payload=payload,
+            )
 
-        # 12. Atomic commit
-        await db.commit()
+            # 12. Atomic commit
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
         # 13. Determine dynamic available actions for next state
         next_available_actions = await handler.get_available_actions(
