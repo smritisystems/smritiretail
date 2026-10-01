@@ -26,6 +26,7 @@ from app.api.deps import TenantContext
 from app.models.inventory import Product, ProductBatchStock, StockMovement, Warehouse
 from app.models.sales import SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem
 from app.models.fulfillment import Dispatch, DispatchItem, PackingSlip
+from app.models.profitability import ProductCostValuation, TransactionCostSnapshot
 from .stock_synchronizer import StockSynchronizer
 from .identity.engine import IdentityEngine
 
@@ -207,9 +208,12 @@ class SalesStockAuthority:
         items: List[Dict[str, Any]],
         warehouse_id: Optional[str] = None,
         user_id: Optional[str] = None,
+        original_invoice_id: Optional[str] = None,
     ) -> List[StockMovement]:
         """
         Records authoritative RETURN_INWARD stock movements for an approved/processed Sales Return.
+        Uses historical unit cost from original invoice TransactionCostSnapshot if available,
+        falling back to ProductCostValuation -> Product.cost_price.
         Atomically updates batch stocks and synchronizes product stock cache.
         """
         movements: List[StockMovement] = []
@@ -263,7 +267,55 @@ class SalesStockAuthority:
                     batch_obj.modified_at = datetime.now(timezone.utc)
                     session.add(batch_obj)
 
-            # 4. Create Authoritative StockMovement
+            # 4. Resolve Historical Cost (Tier 1: Original Invoice Snapshot, Tier 2: ProductCostValuation, Tier 3: Product.cost_price)
+            unit_cost = Decimal("0.00")
+            val_method = "ZERO_COST_UNVALUED"
+
+            if line.get("unit_cost") is not None and Decimal(str(line.get("unit_cost"))) > Decimal("0.00"):
+                unit_cost = Decimal(str(line.get("unit_cost"))).quantize(Decimal("0.01"))
+                val_method = "PROVIDED_UNIT_COST"
+            elif original_invoice_id:
+                snap_stmt = select(TransactionCostSnapshot).where(
+                    TransactionCostSnapshot.sales_invoice_id == original_invoice_id,
+                    TransactionCostSnapshot.product_id == product.id,
+                    TransactionCostSnapshot.company_id == tenant_ctx.company_id,
+                    TransactionCostSnapshot.is_deleted == False
+                ).order_by(TransactionCostSnapshot.created_at.desc())
+                snap = (await session.execute(snap_stmt)).scalars().first()
+                if snap and snap.cost_per_unit is not None and Decimal(str(snap.cost_per_unit)) > Decimal("0.00"):
+                    unit_cost = Decimal(str(snap.cost_per_unit)).quantize(Decimal("0.01"))
+                    val_method = f"HISTORICAL_SNAPSHOT ({snap.valuation_method_used or 'SNAPSHOT'})"
+
+            if unit_cost <= Decimal("0.00"):
+                pcv_stmt = select(ProductCostValuation).where(
+                    ProductCostValuation.product_id == product.id,
+                    ProductCostValuation.company_id == tenant_ctx.company_id,
+                    ProductCostValuation.is_deleted == False
+                )
+                pcv = (await session.execute(pcv_stmt)).scalars().first()
+                if pcv:
+                    if pcv.weighted_average_cost and Decimal(str(pcv.weighted_average_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.weighted_average_cost)).quantize(Decimal("0.01"))
+                        val_method = "WEIGHTED_AVERAGE"
+                    elif pcv.purchase_cost and Decimal(str(pcv.purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.purchase_cost)).quantize(Decimal("0.01"))
+                        val_method = "PURCHASE_COST"
+                    elif pcv.last_purchase_cost and Decimal(str(pcv.last_purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.last_purchase_cost)).quantize(Decimal("0.01"))
+                        val_method = "LAST_PURCHASE"
+                    elif pcv.standard_cost and Decimal(str(pcv.standard_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.standard_cost)).quantize(Decimal("0.01"))
+                        val_method = "STANDARD_COST"
+
+            if unit_cost <= Decimal("0.00") and product.cost_price and Decimal(str(product.cost_price)) > Decimal("0.00"):
+                unit_cost = Decimal(str(product.cost_price)).quantize(Decimal("0.01"))
+                val_method = "COST_PRICE_FALLBACK"
+
+            if unit_cost <= Decimal("0.00") and product.price and Decimal(str(product.price)) > Decimal("0.00"):
+                unit_cost = Decimal(str(product.price)).quantize(Decimal("0.01"))
+                val_method = "PRICE_FALLBACK"
+
+            # 5. Create Authoritative StockMovement
             movement_id = f"sm_ret_{uuid.uuid4().hex[:12]}"
             mov = StockMovement(
                 id=movement_id,
@@ -281,8 +333,8 @@ class SalesStockAuthority:
                 reference_doc_id=return_id,
                 warehouse_id=warehouse_id,
                 batch=batch_no,
-                unit_cost=product.cost_price or product.price or Decimal("0.00"),
-                remarks=f"Authoritative stock return via Sales Return {return_no}",
+                unit_cost=unit_cost,
+                remarks=f"Authoritative stock return via Sales Return {return_no} (Cost: {unit_cost}, Method: {val_method})",
                 source_module="Sales",
                 user=user,
             )
@@ -290,7 +342,7 @@ class SalesStockAuthority:
             movements.append(mov)
             await session.flush()
 
-            # 5. Synchronize Materialized Cache via StockSynchronizer
+            # 6. Synchronize Materialized Cache via StockSynchronizer
             await StockSynchronizer.sync_product_stock_cache(session, product.id, tenant_ctx.company_id)
 
         return movements

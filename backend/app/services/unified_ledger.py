@@ -993,6 +993,111 @@ class UnifiedAccountingLedgerService:
             "remarks": f"Credit note for Sales Return {ret.return_no} to {cust_display}"
         })
 
+        # 5. Perpetual Real-Time COGS Reversal (BD-02)
+        # DR Inventory Asset (1040) / CR Cost of Goods Sold (5010)
+        ret_items = ret.items
+        if not ret_items:
+            q_items = select(SalesReturnItem).where(
+                SalesReturnItem.return_id == ret.id,
+                SalesReturnItem.is_deleted == False
+            )
+            ret_items = (await session.execute(q_items)).scalars().all()
+
+        total_return_cogs = Decimal("0.00")
+        line_cogs_audit = []
+
+        for item in (ret_items or []):
+            if getattr(item, "is_deleted", False):
+                continue
+            item_qty = Decimal(str(item.quantity or 0.00))
+            if item_qty <= Decimal("0.00") or not item.product_id:
+                continue
+
+            unit_cost = Decimal("0.00")
+            val_method = "ZERO_COST_UNVALUED"
+
+            # Tier 1: Historical TransactionCostSnapshot from original invoice
+            if ret.original_invoice_id:
+                snap_stmt = select(TransactionCostSnapshot).where(
+                    TransactionCostSnapshot.sales_invoice_id == ret.original_invoice_id,
+                    TransactionCostSnapshot.product_id == item.product_id,
+                    TransactionCostSnapshot.company_id == company_id,
+                    TransactionCostSnapshot.is_deleted == False
+                ).order_by(TransactionCostSnapshot.created_at.desc())
+                snap = (await session.execute(snap_stmt)).scalars().first()
+                if snap and snap.cost_per_unit is not None and Decimal(str(snap.cost_per_unit)) > Decimal("0.00"):
+                    unit_cost = Decimal(str(snap.cost_per_unit)).quantize(Decimal("0.01"))
+                    val_method = f"HISTORICAL_SNAPSHOT ({snap.valuation_method_used or 'SNAPSHOT'})"
+
+            # Tier 2: ProductCostValuation fallback
+            if unit_cost <= Decimal("0.00"):
+                pcv_stmt = select(ProductCostValuation).where(
+                    ProductCostValuation.product_id == item.product_id,
+                    ProductCostValuation.company_id == company_id,
+                    ProductCostValuation.is_deleted == False
+                )
+                pcv = (await session.execute(pcv_stmt)).scalars().first()
+                if pcv:
+                    if pcv.weighted_average_cost and Decimal(str(pcv.weighted_average_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.weighted_average_cost)).quantize(Decimal("0.01"))
+                        val_method = "WEIGHTED_AVERAGE"
+                    elif pcv.purchase_cost and Decimal(str(pcv.purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.purchase_cost)).quantize(Decimal("0.01"))
+                        val_method = "PURCHASE_COST"
+                    elif pcv.last_purchase_cost and Decimal(str(pcv.last_purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.last_purchase_cost)).quantize(Decimal("0.01"))
+                        val_method = "LAST_PURCHASE"
+                    elif pcv.standard_cost and Decimal(str(pcv.standard_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.standard_cost)).quantize(Decimal("0.01"))
+                        val_method = "STANDARD_COST"
+
+            # Tier 3: Product.cost_price fallback
+            if unit_cost <= Decimal("0.00"):
+                prod_stmt = select(Product).where(
+                    Product.id == item.product_id,
+                    Product.company_id == company_id,
+                    Product.is_deleted == False
+                )
+                prod = (await session.execute(prod_stmt)).scalars().first()
+                if prod and prod.cost_price and Decimal(str(prod.cost_price)) > Decimal("0.00"):
+                    unit_cost = Decimal(str(prod.cost_price)).quantize(Decimal("0.01"))
+                    val_method = "COST_PRICE_FALLBACK"
+
+            if unit_cost <= Decimal("0.00"):
+                logger.warning(
+                    "SMRITI-GL-COGS-AUDIT: Return line product '%s' (id: %s) on return %s has zero cost valuation",
+                    getattr(item, "name", "Unknown"),
+                    item.product_id,
+                    ret.return_no
+                )
+
+            line_cogs = (unit_cost * item_qty).quantize(Decimal("0.01"))
+            total_return_cogs += line_cogs
+            line_cogs_audit.append({
+                "product_id": str(item.product_id),
+                "product_name": getattr(item, "name", ""),
+                "quantity": str(item_qty),
+                "cost_per_unit": str(unit_cost),
+                "total_cogs": str(line_cogs),
+                "valuation_method": val_method,
+            })
+
+        if total_return_cogs > Decimal("0.00"):
+            acc_cogs = await cls.get_account_by_code(session, company_id, "5010")
+            acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+            lines.append({
+                "account_id": acc_inventory.id,
+                "debit_amount": total_return_cogs,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Perpetual Inventory Asset restoration for Sales Return {ret.return_no}"
+            })
+            lines.append({
+                "account_id": acc_cogs.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": total_return_cogs,
+                "remarks": f"Perpetual COGS reversal for Sales Return {ret.return_no}"
+            })
+
         voucher = await cls.post_journal_voucher(
             session=session,
             company_id=company_id,
@@ -1006,6 +1111,21 @@ class UnifiedAccountingLedgerService:
             narration=f"Automated credit note GL voucher for Sales Return {ret.return_no}. Reason: {reason or 'Customer return'}",
             created_by=processed_by or ret.updated_by or "SYSTEM"
         )
+
+        ret.credit_note_number = voucher.voucher_no
+        try:
+            p_snap = dict(ret.policy_snapshot or {})
+            p_snap["cogs_reversal"] = {
+                "total_return_cogs": str(total_return_cogs),
+                "items": line_cogs_audit,
+            }
+            p_snap["credit_note_gl_voucher_id"] = voucher.id
+            p_snap["credit_note_gl_voucher_no"] = voucher.voucher_no
+            ret.policy_snapshot = p_snap
+            session.add(ret)
+        except Exception as e:
+            logger.warning("Could not record cogs audit on return policy_snapshot: %s", e)
+
         return voucher
 
     @classmethod
@@ -1282,43 +1402,53 @@ class UnifiedAccountingLedgerService:
         amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
         ref_type = (payment.reference_doc_type or "SALES_INVOICE").upper()
 
+        party_id = payment.party_id
+        if not party_id and payment.reference_doc_id:
+            inv_res = await session.execute(
+                select(SalesInvoice.customer_id).where(
+                    SalesInvoice.id == payment.reference_doc_id,
+                    SalesInvoice.company_id == company_id
+                )
+            )
+            party_id = inv_res.scalar_one_or_none()
+
         lines = []
-        if ref_type in ["SALES_INVOICE", "POS_BILL", "CUSTOMER_RECEIPT"]:
-            # Customer settlement
-            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
-            lines.append({
-                "account_id": tender_account.id,
-                "party_id": payment.party_id,
-                "debit_amount": amount,
-                "credit_amount": Decimal("0.00"),
-                "remarks": f"Tender {tender_type} received for {ref_type} {payment.reference_doc_id}"
-            })
-            lines.append({
-                "account_id": acc_debtors.id,
-                "party_id": payment.party_id,
-                "debit_amount": Decimal("0.00"),
-                "credit_amount": amount,
-                "remarks": f"Receivable settlement for {payment.reference_doc_id}"
-            })
-            voucher_type = "PAYMENT_RECEIPT"
-        else:
+        if ref_type in ["PURCHASE_BILL", "SUPPLIER_PAYMENT", "VENDOR_PAYMENT", "PURCHASE_RECEIPT", "GRN"]:
             # Supplier settlement
             acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
             lines.append({
                 "account_id": acc_creditors.id,
-                "party_id": payment.party_id,
+                "party_id": party_id,
                 "debit_amount": amount,
                 "credit_amount": Decimal("0.00"),
                 "remarks": f"Payable settlement for {payment.reference_doc_id}"
             })
             lines.append({
                 "account_id": tender_account.id,
-                "party_id": payment.party_id,
+                "party_id": party_id,
                 "debit_amount": Decimal("0.00"),
                 "credit_amount": amount,
                 "remarks": f"Tender {tender_type} disbursed for {ref_type} {payment.reference_doc_id}"
             })
             voucher_type = "SUPPLIER_PAYMENT"
+        else:
+            # Customer settlement (PAYMENT_RECEIPT)
+            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+            lines.append({
+                "account_id": tender_account.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Tender {tender_type} received for {ref_type} {payment.reference_doc_id}"
+            })
+            lines.append({
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Receivable settlement for {payment.reference_doc_id}"
+            })
+            voucher_type = "PAYMENT_RECEIPT"
 
         payment_dt = getattr(payment, "captured_at", None) or getattr(payment, "created_at", None)
         v_date = payment_dt.date() if isinstance(payment_dt, datetime) else (payment_dt or date.today())
@@ -1330,7 +1460,7 @@ class UnifiedAccountingLedgerService:
             voucher_type=voucher_type,
             voucher_date=v_date,
             lines=lines,
-            reference_doc_type=payment.reference_doc_type,
+            reference_doc_type=voucher_type,
             reference_doc_id=payment.id,
             reference_doc_no=payment.transaction_no,
             narration=f"Automated GL posting for Payment {payment.transaction_no} via {tender_type}"

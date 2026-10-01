@@ -704,7 +704,18 @@ async def test_sales_return_processing_restocks_and_credit_note(db_session):
         company_id=comp.id,
         branch_id=br.id,
     )
-    db_session.add(orig_inv)
+    orig_item = SalesInvoiceItem(
+        invoice_id=orig_inv.id,
+        product_id=prod.id,
+        code=prod.code,
+        name=prod.name,
+        quantity=Decimal("2.00"),
+        price=Decimal("200.00"),
+        total_amount=Decimal("400.00"),
+        company_id=comp.id,
+        branch_id=br.id,
+    )
+    db_session.add_all([orig_inv, orig_item])
     await db_session.commit()
 
     sr = SalesReturn(

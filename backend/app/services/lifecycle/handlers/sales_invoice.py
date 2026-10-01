@@ -186,11 +186,25 @@ class SalesInvoiceLifecycleHandler(BaseDocumentLifecycleHandler):
         elif act == "CANCEL":
             if curr_state == "CANCELLED":
                 raise HandlerValidationException("This sales invoice is already cancelled.")
+            if curr_state == "PAID" or (doc.paid_amount and Decimal(str(doc.paid_amount)) > Decimal("0.00")):
+                raise HandlerValidationException(
+                    f"Cannot cancel invoice {doc.invoice_no} because it has active payments (paid amount: ₹{doc.paid_amount}). Reverse or refund payments prior to cancellation.",
+                    "INVOICE_PAID_CANNOT_CANCEL"
+                )
 
         elif act == "PAY":
             if curr_state != "POSTED":
                 raise HandlerValidationException(
                     f"Only POSTED sales invoices can receive payments. Current status: {curr_state}."
+                )
+            current_balance = Decimal(str(doc.balance_amount)) if (doc.balance_amount is not None and (Decimal(str(doc.balance_amount)) > 0 or (doc.paid_amount and Decimal(str(doc.paid_amount)) > 0))) else Decimal(str(doc.grand_total or 0.00))
+            amt = Decimal(str(payload.get("amount", current_balance)))
+            if amt <= Decimal("0.00"):
+                raise HandlerValidationException("Payment amount must be greater than zero.", "INVALID_PAYMENT_AMOUNT")
+            if amt > current_balance:
+                raise HandlerValidationException(
+                    f"Payment amount (₹{amt}) exceeds outstanding invoice balance (₹{current_balance}).",
+                    "PAYMENT_EXCEEDS_BALANCE"
                 )
 
     async def apply_transition(
@@ -216,6 +230,10 @@ class SalesInvoiceLifecycleHandler(BaseDocumentLifecycleHandler):
         doc.version = (doc.version or 0) + 1
 
         if act == "POST":
+            # Ensure balance_amount is initialized to grand_total if uninitialized
+            if doc.balance_amount is None or (Decimal(str(doc.balance_amount)) == Decimal("0.00") and (not doc.paid_amount or Decimal(str(doc.paid_amount)) == Decimal("0.00"))):
+                doc.balance_amount = Decimal(str(doc.grand_total or 0.00))
+                doc.paid_amount = Decimal("0.00")
             # 1. Authoritative Stock Movement via SalesStockAuthority
             inv_items_stmt = select(SalesInvoiceItem).where(
                 SalesInvoiceItem.invoice_id == doc.id,
@@ -270,8 +288,46 @@ class SalesInvoiceLifecycleHandler(BaseDocumentLifecycleHandler):
                 )
 
         elif act == "PAY":
-            pay_amount = payload.get("amount") or doc.grand_total
-            doc.paid_amount = Decimal(str(pay_amount))
-            doc.balance_amount = max(Decimal("0.00"), Decimal(str(doc.grand_total or 0.00)) - doc.paid_amount)
+            import uuid
+            from app.schemas.payments import ProcessPaymentRequest, PaymentTenderItem
+            from app.services.payments_engine import PaymentsEngine
+
+            tender_type = str(payload.get("tender_type") or payload.get("payment_mode") or doc.payment_mode or "CASH").upper()
+            current_balance = Decimal(str(doc.balance_amount)) if (doc.balance_amount is not None and (Decimal(str(doc.balance_amount)) > 0 or (doc.paid_amount and Decimal(str(doc.paid_amount)) > 0))) else Decimal(str(doc.grand_total or 0.00))
+            pay_amount = Decimal(str(payload.get("amount", current_balance))).quantize(Decimal("0.01"))
+            gateway_ref = payload.get("gateway_reference") or payload.get("reference_no")
+            notes = payload.get("notes") or f"Payment received for invoice {doc.invoice_no}"
+            idempotency_key = payload.get("idempotency_key") or f"PAY-INV-{doc.id}-{uuid.uuid4().hex[:8]}"
+
+            proc_payment_req = ProcessPaymentRequest(
+                reference_doc_type="SALES_INVOICE",
+                reference_doc_id=doc.id,
+                party_id=doc.customer_id,
+                branch_id=tenant_ctx.branch_id or doc.branch_id or "MAIN",
+                tenders=[
+                    PaymentTenderItem(
+                        tender_type=tender_type,
+                        amount=float(pay_amount),
+                        gateway_reference=gateway_ref,
+                        notes=notes,
+                    )
+                ],
+                idempotency_key=idempotency_key,
+                auto_allocate=True,
+            )
+
+            pay_response = await PaymentsEngine.process_payment(
+                session=db,
+                company_id=tenant_ctx.company_id,
+                req=proc_payment_req,
+                created_by=getattr(user, "username", None) or str(user.id),
+                commit=False,
+            )
+
+            # Ensure doc state reflects settlement calculated by PaymentsEngine
+            if doc.balance_amount == Decimal("0.00"):
+                doc.status = "PAID"
+            else:
+                doc.status = "POSTED"
 
         db.add(doc)

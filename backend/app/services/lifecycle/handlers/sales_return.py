@@ -30,13 +30,13 @@ from decimal import Decimal
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import TenantContext
 from app.models.auth import User
-from app.models.sales import SalesReturn, SalesReturnItem
+from app.models.sales import SalesReturn, SalesReturnItem, SalesInvoice, SalesInvoiceItem
 from app.models.workflow import WorkflowEvent
 from app.services.sales_stock_authority import SalesStockAuthority
 from app.services.unified_ledger import UnifiedAccountingLedgerService
@@ -116,6 +116,7 @@ class SalesReturnLifecycleHandler(BaseDocumentLifecycleHandler):
                 SalesReturn.company_id == tenant_ctx.company_id,
             )
             .options(selectinload(SalesReturn.items))
+            .with_for_update()
         )
         res = await db.execute(stmt)
         ret = res.scalars().first()
@@ -161,6 +162,99 @@ class SalesReturnLifecycleHandler(BaseDocumentLifecycleHandler):
                 raise HandlerValidationException(
                     f"Only APPROVED sales returns can be processed for restocking. Current status: {curr_state}."
                 )
+
+            # Ensure return has line items
+            ret_items = doc.items
+            if not ret_items:
+                q_items = select(SalesReturnItem).where(
+                    SalesReturnItem.return_id == doc.id,
+                    SalesReturnItem.is_deleted == False
+                )
+                ret_items = (await db.execute(q_items)).scalars().all()
+            if not ret_items:
+                raise HandlerValidationException("Cannot process a sales return with zero line items.")
+
+            # Validate against original SalesInvoice
+            if not doc.original_invoice_id:
+                raise HandlerValidationException(
+                    "Sales return must reference a valid original sales invoice.",
+                    "SALES_RETURN_MISSING_ORIGINAL_INVOICE"
+                )
+
+            inv_stmt = select(SalesInvoice).where(
+                SalesInvoice.id == doc.original_invoice_id,
+                SalesInvoice.company_id == tenant_ctx.company_id,
+                SalesInvoice.is_deleted == False
+            ).options(selectinload(SalesInvoice.items))
+            orig_inv = (await db.execute(inv_stmt)).scalar_one_or_none()
+            if not orig_inv:
+                raise HandlerValidationException(
+                    f"Original sales invoice '{doc.original_invoice_id}' not found for tenant.",
+                    "SALES_RETURN_ORIGINAL_INVOICE_NOT_FOUND"
+                )
+
+            inv_status = str(orig_inv.status or "").upper()
+            if inv_status not in ("POSTED", "PAID"):
+                raise HandlerValidationException(
+                    f"Cannot process return against sales invoice '{orig_inv.invoice_no}' with status '{orig_inv.status}'. Only POSTED or PAID invoices can be returned.",
+                    "SALES_RETURN_INVOICE_NOT_POSTED"
+                )
+
+            orig_items_by_prod = {item.product_id: item for item in (orig_inv.items or []) if not getattr(item, "is_deleted", False)}
+
+            # Query cumulative returned quantities from previous valid returns (excluding this return and cancelled returns)
+            valid_statuses = ("PROCESSED", "COMPLETED")
+            prev_stmt = (
+                select(SalesReturnItem.product_id, func.sum(SalesReturnItem.quantity).label("total_returned"))
+                .join(SalesReturn, SalesReturn.id == SalesReturnItem.return_id)
+                .where(
+                    SalesReturn.original_invoice_id == doc.original_invoice_id,
+                    SalesReturn.company_id == tenant_ctx.company_id,
+                    SalesReturn.is_deleted == False,
+                    SalesReturn.id != doc.id,
+                    SalesReturn.status.in_(valid_statuses),
+                    SalesReturnItem.is_deleted == False,
+                    SalesReturnItem.product_id.is_not(None)
+                )
+                .group_by(SalesReturnItem.product_id)
+            )
+            prev_rows = (await db.execute(prev_stmt)).all()
+            prev_returned_qty = {row[0]: Decimal(str(row[1] or 0)) for row in prev_rows}
+
+            # Enforce quantity eligibility per return line (accumulating per product if return has multiple lines)
+            current_return_by_prod: Dict[str, Decimal] = {}
+            for rit in ret_items:
+                if getattr(rit, "is_deleted", False):
+                    continue
+                if not rit.product_id:
+                    continue
+
+                orig_item = orig_items_by_prod.get(rit.product_id)
+                if not orig_item:
+                    raise HandlerValidationException(
+                        f"Product '{rit.name}' ({rit.code}) is not present on original sales invoice '{orig_inv.invoice_no}'.",
+                        "SALES_RETURN_PRODUCT_NOT_INVOICED"
+                    )
+
+                ret_qty = Decimal(str(rit.quantity or 0))
+                if ret_qty <= Decimal("0.00"):
+                    raise HandlerValidationException(
+                        f"Return quantity for product '{rit.name}' must be strictly greater than zero.",
+                        "SALES_RETURN_INVALID_QTY"
+                    )
+
+                current_return_by_prod[rit.product_id] = current_return_by_prod.get(rit.product_id, Decimal("0.00")) + ret_qty
+
+                orig_qty = Decimal(str(orig_item.quantity or 0))
+                already_returned = prev_returned_qty.get(rit.product_id, Decimal("0.00"))
+                remaining_qty = orig_qty - already_returned
+                total_attempted = current_return_by_prod[rit.product_id]
+
+                if total_attempted > remaining_qty:
+                    raise HandlerValidationException(
+                        f"Return quantity ({total_attempted}) exceeds remaining returnable quantity ({remaining_qty}) for product '{rit.name}'. (Invoiced: {orig_qty}, Already Returned: {already_returned})",
+                        "SALES_RETURN_QTY_EXCEEDED"
+                    )
 
         elif act == "CANCEL":
             if curr_state == "CANCELLED":
@@ -211,20 +305,18 @@ class SalesReturnLifecycleHandler(BaseDocumentLifecycleHandler):
                 items=lines,
                 warehouse_id=getattr(doc, "warehouse_id", None),
                 user_id=getattr(user, "username", None) or str(user.id),
+                original_invoice_id=doc.original_invoice_id,
             )
 
-            # 2. Financial Credit Note GL Posting via UnifiedAccountingLedgerService
-            try:
-                await UnifiedAccountingLedgerService.post_sales_return_to_gl(
-                    session=db,
-                    company_id=tenant_ctx.company_id,
-                    return_id=doc.id,
-                    branch_id=tenant_ctx.branch_id,
-                )
-            except Exception as e:
-                logger.warning("Could not post sales return %s to GL: %s", doc.id, e, exc_info=True)
+            # 2. Financial Credit Note & COGS Reversal via UnifiedAccountingLedgerService (Synchronous, Fail-Fast)
+            await UnifiedAccountingLedgerService.post_sales_return_to_gl(
+                session=db,
+                company_id=tenant_ctx.company_id,
+                return_id=doc.id,
+                branch_id=tenant_ctx.branch_id,
+            )
 
         elif act == "CANCEL":
-            doc.notes = f"{doc.notes or ''} | Cancelled: {payload.get('reason', 'Cancelled by user')}".strip(" |")
+            doc.reason = f"{doc.reason or ''} | Cancelled: {payload.get('reason', 'Cancelled by user')}".strip(" |")
 
         db.add(doc)
