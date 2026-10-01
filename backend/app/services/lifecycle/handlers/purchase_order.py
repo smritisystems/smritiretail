@@ -191,6 +191,7 @@ class PurchaseOrderLifecycleHandler(BaseDocumentLifecycleHandler):
         doc.modified_at = now
         # GUARANTEE: Never soft-delete on business lifecycle transition
         doc.is_deleted = False
+        doc.version = (doc.version or 0) + 1
 
         if act == "SUBMIT":
             doc.submitted_by = actor_name

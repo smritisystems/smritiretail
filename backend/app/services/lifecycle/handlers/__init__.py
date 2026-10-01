@@ -25,5 +25,11 @@ Classification: Internal
 """
 
 from .purchase_order import PurchaseOrderLifecycleHandler
+from .goods_receipt import GoodsReceiptLifecycleHandler
+from .purchase_bill import PurchaseBillLifecycleHandler
 
-__all__ = ["PurchaseOrderLifecycleHandler"]
+__all__ = [
+    "PurchaseOrderLifecycleHandler",
+    "GoodsReceiptLifecycleHandler",
+    "PurchaseBillLifecycleHandler",
+]

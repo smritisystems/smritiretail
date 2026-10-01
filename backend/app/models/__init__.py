@@ -29,6 +29,7 @@ from .purchase import (
     Supplier,
     PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
+    PurchaseBill,
 )
 from .pos import CashRegister, Shift, ShiftCashTransaction
 from .product_identity import BarcodeProvider, IdentityRule, ProductIdentity
