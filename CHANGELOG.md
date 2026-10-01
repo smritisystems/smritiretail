@@ -28,6 +28,29 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.47.0] - 2026-10-01 — Universal Transaction Lifecycle Framework (Phase 1 PO Pilot)
+
+> **Branch:** `smritiNX` | **Area:** Foundation / Procurement / Universal Lifecycle Framework
+> **Walkthrough:** `docs/walkthrough/procurement/Universal_Document_Lifecycle_PO_Pilot_v1.0.md`
+> **Implementation Plan:** `docs/implementation/procurement/Universal_Document_Lifecycle_PO_Pilot_v1.0.md`
+> **Architecture Report:** `docs/architecture/SMRITI_DOCUMENT_LIFECYCLE_PHASE1_REPORT.md`
+
+### Added
+- **`UniversalLifecycleEngine`** (`backend/app/services/lifecycle/engine.py`): Generic, configuration-driven state machine kernel with zero document-type conditional branching.
+- **`BaseDocumentLifecycleHandler`** (`backend/app/services/lifecycle/contracts.py`): Authoritative document strategy contract with hooks for versioning, optimistic locking, RBAC, domain validation, and post-transition events.
+- **`LifecycleRegistry`** (`backend/app/services/lifecycle/registry.py`): Dynamic, thread-safe handler registry with decorator `@register_lifecycle_handler`.
+- **`PurchaseOrderLifecycleHandler`** (`backend/app/services/lifecycle/handlers/purchase_order.py`): Reference pilot handler implementing purchase domain validations and revision tracking.
+- **Universal Lifecycle API** (`backend/app/api/v1/lifecycle.py`): REST endpoints (`POST /{doc_type}/{doc_id}/{action}`, `GET /{doc_type}/{doc_id}/state`, `GET /{doc_type}/{doc_id}/events`).
+- **Reusable Frontend Lifecycle Components**:
+  - `UniversalStatusBadge.tsx`: Visual status badge supporting all ERP transaction statuses.
+  - `DocumentActionToolbar.tsx`: Dynamic action bar with modal confirmations and optimistic concurrency enforcement.
+- **Automated Test Battery** (`backend/app/tests/test_universal_lifecycle.py`): 7 comprehensive tests covering state machine transitions, concurrency conflicts, tenant boundaries, and multi-handler dynamic coexistence.
+
+### Fixed
+- **Soft-Delete Invariant Elimination:** Cancelled and amended purchase orders now preserve `is_deleted = False` and `deleted_at = None`, maintaining operational auditability.
+- **Workflow Event Audit Discrepancies:** Resolved incorrect state logging in `purchase.py`.
+- **Workflow Route Delegation:** Consolidated legacy `/api/v1/workflow/` endpoints onto `UniversalLifecycleEngine`.
+
 ## [6.46.0] - 2026-10-01 — Phase B: Status-Aware PO Workspace
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Workspace
