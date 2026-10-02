@@ -28,6 +28,31 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.49.5] - 2026-10-02 — SMRITI Procurement Phase 2.3: Supplier Payment General Ledger Integration & Purchase Bill Knock-off
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable Settlements
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_3_Supplier_Payment_AP_Knockoff_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_3_Supplier_Payment_AP_Knockoff_v1.0.md`
+
+### Added
+- **Supplier Payment Double-Entry General Ledger Integration** (`backend/app/services/unified_ledger.py`):
+  - Implemented `post_supplier_payment_to_gl()`: Translates supplier payments into authoritative double-entry `JournalVoucher` (`SUPPLIER_PAYMENT`).
+    - `Debit 2010 (Accounts Payable / Sundry Creditors)` = Payment amount with party attribution (`party_id=supplier_id`).
+    - `Credit 1010 (Cash in Hand)` for cash payments or `1020 (Bank Accounts)` for bank/cheque/UPI payments.
+  - Implemented `reverse_supplier_payment_gl()`: Generates exact compensating reversal voucher (`SUPPLIER_PAYMENT_CANCEL`) reversing disbursement and payable settlement (`DR 1010/1020 / CR 2010`).
+  - Added strict idempotency protection returning existing vouchers on duplicate calls.
+- **Purchase Bill Knock-off & Settlement Engine** (`backend/app/services/supplier_payment.py`, `backend/app/schemas/supplier_payment.py`):
+  - Extended `SupplierPaymentCreate` and `SupplierPaymentResponse` to support single-bill knock-offs (`bill_id`), explicit multi-bill splits (`allocations`), and FIFO auto-allocation (`auto_allocate`).
+  - Implemented bill-level settlement updates: increments `PurchaseBill.paid_amount` and transitions fully settled bills to `PAID`.
+  - Added structured allocation manifest embedded in payment audit notes (`__ALLOCATIONS__:[...]`).
+  - Atomic liability reduction: decrements `supplier.outstanding` with overpayment validation guard.
+- **Payment Cancellation & Reversal Lifecycle** (`backend/app/services/supplier_payment.py`, `backend/app/api/v1/supplier_payment.py`):
+  - Implemented `cancel_payment()` service method and added `POST /api/v1/supplier-payments/{payment_id}/cancel` endpoint guarded by `MANAGER` and `SYSADMIN` roles.
+  - Fully reverses GL entries, restores `supplier.outstanding`, rolls back knocked-off bills (decrementing `paid_amount` and reverting `PAID` bills to `POSTED`), and dispatches `SUPPLIER_PAYMENT_CANCELLED` outbox events.
+- **Automated Test Battery** (`backend/app/tests/test_supplier_payment_gl_knockoff.py`):
+  - 9/9 automated tests passing: cash/bank GL vouchers, direct single-bill full/partial knock-offs, multi-bill splits, FIFO auto-allocations, overpayment rejection, payment cancellation reversal, and posting idempotency.
+  - Full regression suite verified green (25/25 total procurement tests passing).
+
 ## [6.49.4] - 2026-10-02 — SMRITI Procurement Phase 2.2: Purchase Bill Accounts Payable (2010 AP) General Ledger Integration
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable

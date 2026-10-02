@@ -1584,6 +1584,182 @@ class UnifiedAccountingLedgerService:
         )
 
     @classmethod
+    async def post_supplier_payment_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        payment_id: str,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a SupplierPayment into an authoritative double-entry GL voucher:
+        Debit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
+        Credit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+        """
+        from ..models.supplier_payment import SupplierPayment
+        stmt = (
+            select(SupplierPayment)
+            .where(SupplierPayment.id == payment_id, SupplierPayment.company_id == company_id)
+        )
+        payment = (await session.execute(stmt)).scalar_one_or_none()
+        if not payment:
+            raise HTTPException(status_code=404, detail=f"Supplier payment {payment_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SUPPLIER_PAYMENT",
+            JournalVoucher.reference_doc_id == payment_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        mode = (payment.payment_mode or "CASH").upper()
+        if mode == "CASH":
+            acc_disbursement = await cls.get_account_by_code(session, company_id, "1010")
+        else:
+            acc_disbursement = await cls.get_account_by_code(session, company_id, "1020")
+
+        supp_stmt = select(Supplier).where(Supplier.id == payment.supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (payment.supplier_id or "Supplier")
+
+        amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_creditors.id,
+                "party_id": payment.supplier_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Payable settlement to {supp_name} for Payment {payment.id}",
+            },
+            {
+                "account_id": acc_disbursement.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Disbursement via {mode} for Payment {payment.id}",
+            },
+        ]
+
+        p_date = payment.payment_date if isinstance(payment.payment_date, date) else date.today()
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or payment.branch_id,
+            voucher_type="SUPPLIER_PAYMENT",
+            voucher_date=p_date,
+            lines=lines,
+            reference_doc_type="SUPPLIER_PAYMENT",
+            reference_doc_id=payment.id,
+            reference_doc_no=payment.reference_no or payment.id,
+            narration=f"Supplier payment to {supp_name} via {mode}",
+            created_by=created_by,
+        )
+
+        return voucher
+
+    @classmethod
+    async def reverse_supplier_payment_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        payment_id: str,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a cancelled SupplierPayment into an authoritative reversing GL voucher:
+        Debit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+        Credit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
+        """
+        from ..models.supplier_payment import SupplierPayment
+        stmt = (
+            select(SupplierPayment)
+            .where(SupplierPayment.id == payment_id, SupplierPayment.company_id == company_id)
+        )
+        payment = (await session.execute(stmt)).scalar_one_or_none()
+        if not payment:
+            raise HTTPException(status_code=404, detail=f"Supplier payment {payment_id} not found.")
+
+        # Check if original payment voucher was ever posted
+        orig_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SUPPLIER_PAYMENT",
+            JournalVoucher.reference_doc_id == payment_id,
+            JournalVoucher.is_deleted == False,
+        )
+        orig_voucher = (await session.execute(orig_stmt)).scalar_one_or_none()
+        if not orig_voucher:
+            return None
+
+        # Idempotency guard: return existing cancellation voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SUPPLIER_PAYMENT_CANCEL",
+            JournalVoucher.reference_doc_id == payment_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        mode = (payment.payment_mode or "CASH").upper()
+        if mode == "CASH":
+            acc_disbursement = await cls.get_account_by_code(session, company_id, "1010")
+        else:
+            acc_disbursement = await cls.get_account_by_code(session, company_id, "1020")
+
+        supp_stmt = select(Supplier).where(Supplier.id == payment.supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (payment.supplier_id or "Supplier")
+
+        amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_disbursement.id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of disbursement via {mode} for Cancelled Payment {payment.id}",
+            },
+            {
+                "account_id": acc_creditors.id,
+                "party_id": payment.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Reversal of payable settlement for {supp_name}",
+            },
+        ]
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or payment.branch_id,
+            voucher_type="SUPPLIER_PAYMENT_CANCEL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SUPPLIER_PAYMENT_CANCEL",
+            reference_doc_id=payment.id,
+            reference_doc_no=payment.reference_no or payment.id,
+            narration=f"Compensating reversal for Cancelled Supplier Payment {payment.id}. Reason: {reason or 'Payment cancellation'}",
+            created_by=cancelled_by,
+        )
+
+        return voucher
+
+    @classmethod
     async def get_trial_balance(
         cls,
         session: AsyncSession,

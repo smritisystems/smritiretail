@@ -9,9 +9,9 @@ Founders
 * Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.13.0
+* Version    : 6.49.5
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-10-02
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -40,7 +40,9 @@ async def record_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Record a payment to a supplier. Atomically decrements supplier.outstanding.
+    Record a payment to a supplier.
+    Atomically decrements supplier.outstanding, knocks off open purchase bills,
+    and posts authoritative double-entry general ledger vouchers.
 
     Rules:
     - MANAGER or SYSADMIN only.
@@ -69,3 +71,24 @@ async def get_payment(
 ):
     """Get a specific supplier payment by ID."""
     return await SupplierPaymentService(db, tenant).get_payment(payment_id)
+
+
+@router.post(
+    "/supplier-payments/{payment_id}/cancel",
+    response_model=SupplierPaymentResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def cancel_payment(
+    payment_id: str,
+    reason: Optional[str] = Query(default=None, description="Reason for voiding/cancelling payment"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Cancel / void a supplier payment.
+    Reverses double-entry GL vouchers, restores supplier outstanding, and reverts knocked-off bills.
+    """
+    return await SupplierPaymentService(db, tenant).cancel_payment(
+        payment_id=payment_id,
+        reason=reason,
+    )

@@ -9,17 +9,29 @@ Founders
 * Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.13.0
+* Version    : 6.49.5
 * Created    : 2026-07-11
-* Modified   : 2026-07-11
+* Modified   : 2026-10-02
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
 
 from decimal import Decimal
 from datetime import date
-from typing import Optional
+from typing import Optional, List, Any, Dict
 from pydantic import BaseModel, field_validator
+
+
+class SupplierBillAllocation(BaseModel):
+    bill_id: str
+    amount: Decimal
+
+    @field_validator("amount")
+    @classmethod
+    def amount_positive(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("Allocation amount must be greater than zero.")
+        return v
 
 
 class SupplierPaymentCreate(BaseModel):
@@ -30,6 +42,9 @@ class SupplierPaymentCreate(BaseModel):
     payment_date:  date
     reference_no:  Optional[str] = None
     notes:         Optional[str] = None
+    bill_id:       Optional[str] = None
+    allocations:   Optional[List[SupplierBillAllocation]] = None
+    auto_allocate: bool = True
 
     @field_validator("amount")
     @classmethod
@@ -48,13 +63,16 @@ class SupplierPaymentCreate(BaseModel):
 
 
 class SupplierPaymentResponse(BaseModel):
-    id:            str
-    supplier_id:   str
-    amount:        Decimal
-    payment_mode:  str
-    payment_date:  date
-    reference_no:  Optional[str] = None
-    notes:         Optional[str] = None
-    company_id:    Optional[str] = None
-    branch_id:     Optional[str] = None
+    id:                 str
+    supplier_id:        str
+    amount:             Decimal
+    payment_mode:       str
+    payment_date:       date
+    reference_no:       Optional[str] = None
+    notes:              Optional[str] = None
+    company_id:         Optional[str] = None
+    branch_id:          Optional[str] = None
+    is_active:          Optional[bool] = True
+    allocated_bills:    Optional[List[Dict[str, Any]]] = None
+    journal_voucher_id: Optional[str] = None
     model_config = {"from_attributes": True}
