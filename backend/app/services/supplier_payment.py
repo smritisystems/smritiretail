@@ -620,3 +620,206 @@ class SupplierPaymentService:
             "created_at": datetime.now(timezone.utc),
         }
 
+    async def batch_knockoff_advance(
+        self,
+        supplier_id: str,
+        advance_payment_id: str,
+        allocations: Optional[List[Any]] = None,
+        auto_fifo: bool = False,
+        notes: Optional[str] = None,
+        created_by: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Knocks off an unallocated supplier advance against multiple open confirmed Purchase Bills,
+        supporting either explicit allocation manifests or automated FIFO chronological allocation.
+        Posts an atomic compound double-entry GL voucher (DR 2010 Creditors for each bill / CR 2050 Advance Liability),
+        updates bill paid amounts & statuses, decrements supplier outstanding, and records outbox event.
+        """
+        supplier = await self._get_supplier(supplier_id)
+
+        # 1. Fetch advance payment
+        stmt = select(SupplierPayment).where(
+            SupplierPayment.id == advance_payment_id,
+            SupplierPayment.supplier_id == supplier_id,
+            SupplierPayment.company_id == self.tenant.company_id,
+            SupplierPayment.is_active == True,
+            SupplierPayment.is_deleted == False,
+        )
+        payment = (await self.db.execute(stmt)).scalar_one_or_none()
+        if not payment:
+            raise HTTPException(status_code=404, detail="Supplier advance payment not found.")
+
+        current_allocs = self._extract_allocations(payment.notes)
+        total_allocated = sum(Decimal(str(a.get("amount", 0))) for a in current_allocs)
+        unallocated_advance = max(Decimal("0.00"), Decimal(str(payment.amount or 0)) - total_allocated)
+
+        if unallocated_advance <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Supplier advance payment is already fully allocated.")
+
+        allocated_manifest: List[Dict[str, Any]] = []
+        now_utc = datetime.now(timezone.utc)
+
+        # 2. Process explicit allocations
+        if allocations:
+            req_sum = sum(Decimal(str(a.amount)) for a in allocations)
+            if req_sum <= Decimal("0.00"):
+                raise HTTPException(status_code=400, detail="Batch knock-off amount must be greater than zero.")
+            if req_sum > unallocated_advance:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Total batch knock-off amount ₹{req_sum:,.2f} exceeds unallocated advance of ₹{unallocated_advance:,.2f}."
+                )
+
+            for alloc in allocations:
+                alloc_amt = Decimal(str(alloc.amount)).quantize(Decimal("0.01"))
+                if alloc_amt <= Decimal("0.00"):
+                    continue
+
+                bill_stmt = select(PurchaseBill).where(
+                    PurchaseBill.id == alloc.bill_id,
+                    PurchaseBill.supplier_id == supplier_id,
+                    PurchaseBill.company_id == self.tenant.company_id,
+                    PurchaseBill.is_deleted == False,
+                )
+                bill = (await self.db.execute(bill_stmt)).scalar_one_or_none()
+                if not bill:
+                    raise HTTPException(status_code=404, detail=f"Purchase bill {alloc.bill_id} not found for this supplier.")
+                if bill.status in ("CANCELLED", "DRAFT"):
+                    raise HTTPException(status_code=400, detail=f"Cannot knock off advance against bill {bill.bill_no or bill.id} in {bill.status} status.")
+
+                unpaid = max(Decimal("0.00"), Decimal(str(bill.total_amount or 0)) - Decimal(str(bill.paid_amount or 0)))
+                if alloc_amt > unpaid:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Knock-off amount ₹{alloc_amt:,.2f} exceeds unpaid bill balance of ₹{unpaid:,.2f} for bill {bill.bill_no or bill.id}."
+                    )
+
+                bill.paid_amount = (Decimal(str(bill.paid_amount or 0)) + alloc_amt).quantize(Decimal("0.01"))
+                if bill.paid_amount >= Decimal(str(bill.total_amount or 0)):
+                    bill.status = "PAID"
+                elif bill.paid_amount > Decimal("0.00"):
+                    bill.status = "PARTIALLY_PAID"
+                bill.modified_at = now_utc
+
+                allocated_manifest.append({
+                    "bill_id": bill.id,
+                    "bill_no": bill.bill_no,
+                    "amount": alloc_amt,
+                    "knocked_off_at": now_utc.isoformat(),
+                })
+
+        # 3. Process automated FIFO allocation
+        elif auto_fifo:
+            bill_stmt = (
+                select(PurchaseBill)
+                .where(
+                    PurchaseBill.supplier_id == supplier_id,
+                    PurchaseBill.company_id == self.tenant.company_id,
+                    PurchaseBill.is_deleted == False,
+                    PurchaseBill.status.notin_(["CANCELLED", "DRAFT", "PAID"]),
+                    PurchaseBill.paid_amount < PurchaseBill.total_amount,
+                )
+                .order_by(
+                    PurchaseBill.bill_date.asc().nullslast(),
+                    PurchaseBill.created_at.asc(),
+                )
+            )
+            open_bills = (await self.db.execute(bill_stmt)).scalars().all()
+            remaining_advance = unallocated_advance
+            for bill in open_bills:
+                if remaining_advance <= Decimal("0.00"):
+                    break
+                unpaid = max(Decimal("0.00"), Decimal(str(bill.total_amount or 0)) - Decimal(str(bill.paid_amount or 0)))
+                if unpaid <= Decimal("0.00"):
+                    continue
+                alloc_amt = min(remaining_advance, unpaid).quantize(Decimal("0.01"))
+                if alloc_amt <= Decimal("0.00"):
+                    continue
+
+                bill.paid_amount = (Decimal(str(bill.paid_amount or 0)) + alloc_amt).quantize(Decimal("0.01"))
+                if bill.paid_amount >= Decimal(str(bill.total_amount or 0)):
+                    bill.status = "PAID"
+                elif bill.paid_amount > Decimal("0.00"):
+                    bill.status = "PARTIALLY_PAID"
+                bill.modified_at = now_utc
+
+                allocated_manifest.append({
+                    "bill_id": bill.id,
+                    "bill_no": bill.bill_no,
+                    "amount": alloc_amt,
+                    "knocked_off_at": now_utc.isoformat(),
+                })
+                remaining_advance -= alloc_amt
+
+            if not allocated_manifest:
+                raise HTTPException(status_code=400, detail="No eligible open purchase bills found for automatic FIFO knock-off.")
+        else:
+            raise HTTPException(status_code=400, detail="Either explicit allocations list or auto_fifo=True must be provided.")
+
+        total_knocked_off = sum(Decimal(str(a["amount"])) for a in allocated_manifest).quantize(Decimal("0.01"))
+        if total_knocked_off <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Total knock-off amount must be greater than zero.")
+
+        # 4. Update Supplier Outstanding
+        supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0)) - total_knocked_off).quantize(Decimal("0.01"))
+        supplier.modified_at = now_utc
+
+        # 5. Append allocations into advance payment manifest
+        current_allocs.extend(allocated_manifest)
+        base_notes = payment.notes or ""
+        if "__ALLOCATIONS__:" in base_notes:
+            base_notes = base_notes.split("__ALLOCATIONS__:", 1)[0].strip()
+        manifest_tag = f"__ALLOCATIONS__:{json.dumps(current_allocs, default=str)}"
+        payment.notes = f"{base_notes}\n{manifest_tag}".strip()
+        payment.modified_at = now_utc
+
+        await self.db.flush()
+
+        # 6. Post compound double-entry GL voucher
+        voucher = await UnifiedAccountingLedgerService.post_supplier_advance_batch_knockoff_to_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            supplier_id=supplier.id,
+            advance_payment_id=payment.id,
+            allocations=allocated_manifest,
+            branch_id=self.tenant.branch_id,
+            created_by=created_by or user_id,
+        )
+
+        # 7. Record outbox event
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PSV_QUEUE",
+            payload={
+                "action": "SUPPLIER_ADVANCE_BATCH_KNOCKED_OFF",
+                "payment_id": payment.id,
+                "total_knocked_off": str(total_knocked_off),
+                "allocations_count": len(allocated_manifest),
+                "voucher_id": voucher.id if voucher else None,
+            },
+            causation_id=f"{payment.id}_batch_{now_utc.timestamp()}",
+        )
+
+        await self.db.commit()
+
+        remaining_unallocated = (unallocated_advance - total_knocked_off).quantize(Decimal("0.01"))
+        return {
+            "success": True,
+            "advance_payment_id": payment.id,
+            "total_knocked_off": total_knocked_off,
+            "remaining_advance_balance": remaining_unallocated,
+            "allocated_bills": [
+                {
+                    "bill_id": a["bill_id"],
+                    "bill_no": a["bill_no"],
+                    "amount": a["amount"],
+                }
+                for a in allocated_manifest
+            ],
+            "journal_voucher_id": voucher.id if voucher else None,
+            "voucher_id": voucher.id if voucher else None,
+            "created_at": now_utc,
+        }
+
+

@@ -25,7 +25,8 @@ import {
   TrendingDown,
   Layers,
   Receipt,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
@@ -79,6 +80,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
 
   // Modal State
   const [isKnockoffModalOpen, setIsKnockoffModalOpen] = useState(false);
+  const [knockoffMode, setKnockoffMode] = useState<"single" | "batch">("batch");
   const [selectedInitialAdvanceId, setSelectedInitialAdvanceId] = useState<string | undefined>();
   const [selectedInitialBillId, setSelectedInitialBillId] = useState<string | undefined>();
 
@@ -274,16 +276,26 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
 
   const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const openKnockoffForBill = (billId: string) => {
+  const openSingleKnockoff = (billId?: string, advanceId?: string) => {
     setSelectedInitialBillId(billId);
-    setSelectedInitialAdvanceId(undefined);
+    setSelectedInitialAdvanceId(advanceId);
+    setKnockoffMode("single");
     setIsKnockoffModalOpen(true);
   };
 
-  const openKnockoffForAdvance = (advanceId: string) => {
+  const openBatchKnockoff = (advanceId?: string) => {
     setSelectedInitialAdvanceId(advanceId);
     setSelectedInitialBillId(undefined);
+    setKnockoffMode("batch");
     setIsKnockoffModalOpen(true);
+  };
+
+  const openKnockoffForBill = (billId: string) => {
+    openSingleKnockoff(billId);
+  };
+
+  const openKnockoffForAdvance = (advanceId: string) => {
+    openBatchKnockoff(advanceId);
   };
 
   const canExecuteKnockoff = totalUnallocatedAdvance > 0 && agingReport.totalOutstanding > 0;
@@ -305,18 +317,24 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
         </div>
         <div className="flex items-center gap-2 self-stretch sm:self-auto">
           {canExecuteKnockoff && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedInitialAdvanceId(undefined);
-                setSelectedInitialBillId(undefined);
-                setIsKnockoffModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors"
-            >
-              <Sparkles size={13} />
-              <span>Knock Off Advance</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => openBatchKnockoff()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                <Zap size={13} />
+                <span>⚡ Batch Knock-Off (FIFO)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openSingleKnockoff()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                <Sparkles size={13} />
+                <span>1-Click Knock-Off</span>
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -368,10 +386,10 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
             {canExecuteKnockoff && (
               <button
                 type="button"
-                onClick={() => setIsKnockoffModalOpen(true)}
+                onClick={() => openBatchKnockoff()}
                 className="font-bold underline hover:text-emerald-800 dark:hover:text-emerald-200"
               >
-                Settle Now →
+                ⚡ Batch Settle (FIFO) →
               </button>
             )}
           </div>
@@ -590,7 +608,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
         </div>
       )}
 
-      {/* 1-Click Advance Knock-off Modal */}
+      {/* Supplier Advance Knock-off Modal */}
       <VendorAdvanceKnockoffModal
         isOpen={isKnockoffModalOpen}
         onClose={() => setIsKnockoffModalOpen(false)}
@@ -599,6 +617,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
         bills={billRecordsForModal}
         initialAdvanceId={selectedInitialAdvanceId}
         initialBillId={selectedInitialBillId}
+        initialMode={knockoffMode}
         onSuccess={loadPayablesData}
         onNotification={onNotification}
       />

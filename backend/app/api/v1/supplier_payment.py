@@ -27,6 +27,8 @@ from ...schemas.supplier_payment import (
     SupplierPaymentResponse,
     SupplierAdvanceKnockoffRequest,
     SupplierAdvanceKnockoffResponse,
+    SupplierAdvanceBatchKnockoffRequest,
+    SupplierAdvanceBatchKnockoffResponse,
 )
 from ...services.supplier_payment import SupplierPaymentService
 
@@ -120,3 +122,29 @@ async def knockoff_advance(
         amount=req.amount,
         user_id=tenant.user_id,
     )
+
+
+@router.post(
+    "/supplier-payments/advance/batch-knockoff",
+    response_model=SupplierAdvanceBatchKnockoffResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def batch_knockoff_advance(
+    req: SupplierAdvanceBatchKnockoffRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Knock off an unallocated supplier advance across multiple purchase bills (or FIFO auto-allocate).
+    Posts an atomic compound DR 2010 (Accounts Payable) / CR 2050 (Supplier Advance Liability) GL voucher
+    with zero cash movement.
+    """
+    return await SupplierPaymentService(db, tenant).batch_knockoff_advance(
+        supplier_id=req.supplier_id,
+        advance_payment_id=req.advance_payment_id,
+        allocations=req.allocations,
+        auto_fifo=req.auto_fifo,
+        notes=req.notes,
+        user_id=tenant.user_id,
+    )
+

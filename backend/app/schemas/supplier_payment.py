@@ -113,3 +113,25 @@ class SupplierAdvanceKnockoffResponse(BaseModel):
     created_at:                 Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class SupplierAdvanceBatchKnockoffRequest(BaseModel):
+    supplier_id:        str
+    advance_payment_id: str
+    allocations:        Optional[List[SupplierBillAllocation]] = None
+    auto_fifo:          bool = False
+    notes:              Optional[str] = None
+
+
+class SupplierAdvanceBatchKnockoffResponse(BaseModel):
+    success:                    bool = True
+    advance_payment_id:         str
+    total_knocked_off:          Decimal
+    remaining_advance_balance:  Decimal
+    allocated_bills:            List[Dict[str, Any]]
+    journal_voucher_id:         Optional[str] = None
+    voucher_id:                 Optional[str] = None
+    created_at:                 Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+

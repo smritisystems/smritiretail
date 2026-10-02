@@ -28,6 +28,36 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.49.9] - 2026-10-02 — SMRITI Procurement Phase 2.7: Multi-Bill Batch Advance Knock-Off & FIFO Allocation Engine
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Advance Knock-Off Engine
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_7_Multi_Bill_Batch_Advance_Knockoff_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_7_Multi_Bill_Batch_Advance_Knockoff_v1.0.md`
+
+### Added
+- **Multi-Bill Batch & FIFO Advance Knock-Off Engine** (`backend/app/services/supplier_payment.py`):
+  - Added `batch_knockoff_advance`: atomically allocates a single advance payment across multiple open purchase bills.
+  - Supports 1-click automated FIFO allocation across open `POSTED` purchase bills in chronological order (`bill_date.asc().nullslast()`, `created_at.asc()`).
+  - Supports custom split allocation manifests with strict over-allocation validations against advance credit and individual bill unpaid balances.
+  - Atomically transitions bills to `PAID` or `PARTIALLY_PAID` and decrements `supplier.outstanding`.
+  - Serializes allocation manifests into advance payment notes under `__ALLOCATIONS__:[...]`.
+- **Compound Double-Entry GL Journal Voucher Posting** (`backend/app/services/unified_ledger.py`):
+  - Added `post_supplier_advance_batch_knockoff_to_gl`: generates an authoritative compound journal voucher with multi-debit lines (`DR 2010 Accounts Payable` per bill) and a consolidated credit line (`CR 2050 Supplier Advance Liability`).
+  - Strict balance invariant enforced: `sum(DR) == sum(CR)` and `Net Cash Movement: ₹0.00`.
+- **Batch Knock-Off API Endpoint** (`backend/app/api/v1/supplier_payment.py`):
+  - Added `POST /api/v1/supplier-payments/advance/batch-knockoff` mapped to `SupplierAdvanceBatchKnockoffRequest` and `SupplierAdvanceBatchKnockoffResponse`.
+- **Vendor 360 Batch Modal & UI Integration** (`src/components/vendor/tabs/VendorAdvanceKnockoffModal.tsx`, `src/components/vendor/tabs/VendorPayablesTab.tsx`):
+  - Added mode toggle between **"Multi-Bill Batch & FIFO"** and **"Single Bill (1-to-1)"**.
+  - Added interactive batch allocation grid with bill numbers, dates, unpaid balances, live allocation inputs, and "Max" shortcut buttons.
+  - Added **"⚡ Auto FIFO Allocate"** one-click button and dynamic allocation progress strip (`Allocated: ₹XX / Available: ₹YY`).
+  - Added live compound GL preview showing all debits and credit with zero cash movement confirmation.
+  - Added **"⚡ Batch Knock-Off (FIFO)"** action buttons in top action bar and Available Advances card.
+- **Standalone Studio & Headless Verification** (`src/components/vendor/StandaloneVendorPayablesPreview.tsx`, `scripts/capture_vendor_360_batch_advance_knockoff_headless.py`):
+  - Added full batch simulation handling for interactive testing.
+  - Programmatic headless Chromium Playwright capture generating high-resolution evidence screenshots.
+- **Automated Backend Test Battery** (`backend/app/tests/test_supplier_advance_batch_knockoff.py`):
+  - 8/8 comprehensive pytest test cases covering explicit batch allocation, FIFO cascading, partial allocations, over-allocation rejections, cancelled/draft bill protections, and compound GL voucher balance invariants.
+
 ## [6.49.8] - 2026-10-02 — SMRITI Procurement Phase 2.6: Vendor 360 Supplier Advance Prepayment & Bill Knock-off UI Integration
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Vendor 360 Payables / Advance Knock-off Studio
