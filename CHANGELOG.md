@@ -28,6 +28,36 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.49.7] - 2026-10-02 — SMRITI Procurement Phase 2.5: Supplier Advance Payment General Ledger Integration & Automatic Purchase Bill Knock-off
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable Advances & PO Settlement
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_5_Supplier_Advance_Payment_PO_Knockoff_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_5_Supplier_Advance_Payment_PO_Knockoff_v1.0.md`
+
+### Added
+- **Supplier Advance Double-Entry General Ledger Integration** (`backend/app/services/unified_ledger.py`):
+  - Advance Prepayment Disbursement Voucher (`SUPPLIER_ADVANCE`):
+    - `Debit 2050 (Supplier Advance Liability)` = Advance amount with party attribution (`party_id=supplier_id`).
+    - `Credit 1010 (Cash in Hand)` or `1020 (Bank Accounts)` = Disbursed amount.
+  - Symmetrical Compensating Reversal (`SUPPLIER_ADVANCE_CANCEL`):
+    - `Debit 1010 (Cash in Hand)` or `1020 (Bank Accounts)` = Restored liquidity.
+    - `Credit 2050 (Supplier Advance Liability)` = Prepayment reversed.
+  - Automatic Knock-off General Ledger Voucher (`JOURNAL` / `SUPPLIER_ADVANCE_KNOCKOFF`):
+    - `Debit 2010 (Accounts Payable / Creditors)` = Settles purchase bill liability.
+    - `Credit 2050 (Supplier Advance Liability)` = Offsets advance prepayment balance.
+    - Zero cash movement (`₹0.00`) maintaining strict double-entry balance sheet purity.
+- **Supplier Payment Service Advance Engine & Overpayment Guard Bypass** (`backend/app/services/supplier_payment.py`):
+  - Bypassed overpayment check when `payment_type == "ADVANCE"` to allow prepayments before bills are confirmed.
+  - Added structured advance tags (`__PAYMENT_TYPE__:ADVANCE`, `__PO_ID__:{po_id}`) and allocation manifests in notes.
+  - Implemented `knockoff_advance(supplier_id, advance_payment_id, bill_id, amount, ...)` with unallocated balance verification, bill state transitions, and `supplier.outstanding` decrementing.
+  - Added `POST /api/v1/supplier-payments/advance/knockoff` endpoint (`backend/app/api/v1/supplier_payment.py`).
+- **Automated Test Battery & Regressions** (`backend/app/tests/test_supplier_advance_gl_knockoff.py`):
+  - 8/8 automated test battery passing green: cash advance GL, bank advance GL, zero outstanding disbursement bypass, creation-time automatic knock-off, explicit knock-off endpoint, multi-step partial knock-offs, advance cancellation GL reversal, and idempotency / error protection guards.
+  - 39/39 cumulative procurement GL test suite passing green across all modules.
+- **Headless Visual Evidence & Interactive Visualizer** (`src/components/procurement/SupplierAdvanceKnockoffVisualizer.tsx`):
+  - Created high-definition interactive visualizer displaying 3-step lifecycle (Disbursement DR 2050 / CR 1010, Confirmed Purchase Bill, Automatic Knock-off DR 2010 / CR 2050).
+  - Captured full headless screenshot evidence via Playwright Chromium (`channel="chrome"`, `headless=True`).
+
 ## [6.49.6] - 2026-10-02 — SMRITI Procurement Phase 2.4: Supplier Debit Notes & Purchase Returns General Ledger Integration
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable & Returns

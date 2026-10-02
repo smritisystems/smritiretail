@@ -58,6 +58,7 @@ import { clearAuthSession, normalizeBranchId, normalizeCompanyId, persistTenantC
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { SalesOrderFormPremium } from "./components/sales/SalesOrderFormPremium.tsx";
 import { VendorReturnModal } from "./components/procurement/VendorReturnModal.tsx";
+import { SupplierAdvanceKnockoffVisualizer } from "./components/procurement/SupplierAdvanceKnockoffVisualizer.tsx";
 import { StandaloneWindowView } from "./components/standalone/StandaloneWindowView.tsx";
 import { TabRenderer, mapModuleId, TabLoadingFallback } from "./components/shell/TabRenderer.tsx";
 import { useInactivityTimeout } from "./hooks/useInactivityTimeout.ts";
@@ -85,6 +86,7 @@ const AppContent: React.FC = () => {
   });
   const [checkingAuth, setCheckingAuth] = useState(true);
   const standaloneVendorReturn = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("standalone_vendor_return") === "1";
+  const standaloneSupplierAdvance = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("standalone_supplier_advance") === "1";
 
   const checkAuth = async () => {
     const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
@@ -519,6 +521,10 @@ const AppContent: React.FC = () => {
         }}
       />
     );
+  }
+
+  if (standaloneSupplierAdvance) {
+    return <SupplierAdvanceKnockoffVisualizer />;
   }
 
   if (checkingAuth) {

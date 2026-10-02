@@ -89,10 +89,11 @@ class SupplierPaymentService:
            DR 2010 (Accounts Payable / Creditor)
            CR 1010 (Cash in Hand) or 1020 (Bank Accounts)
         """
+        is_advance = (getattr(req, "payment_type", "STANDARD") or "STANDARD").upper() == "ADVANCE"
         supplier = await self._get_supplier(req.supplier_id)
 
         outstanding = Decimal(str(supplier.outstanding or "0.00"))
-        if req.amount > outstanding:
+        if not is_advance and req.amount > outstanding:
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -235,8 +236,12 @@ class SupplierPaymentService:
                 })
                 remaining_payment -= alloc_amt
 
-        # Format notes with structured allocation manifest
+        # Format notes with structured allocation manifest and advance tags
         final_notes = req.notes or ""
+        if is_advance:
+            final_notes = f"__PAYMENT_TYPE__:ADVANCE\n{final_notes}".strip()
+            if req.purchase_order_id:
+                final_notes = f"__PO_ID__:{req.purchase_order_id}\n{final_notes}".strip()
         if allocated_manifest:
             manifest_tag = f"__ALLOCATIONS__:{json.dumps(allocated_manifest)}"
             final_notes = f"{final_notes}\n{manifest_tag}".strip()
@@ -257,9 +262,16 @@ class SupplierPaymentService:
         )
         self.db.add(payment)
 
-        # Atomically decrement outstanding
-        supplier.outstanding = (outstanding - req.amount).quantize(Decimal("0.01"))
-        supplier.modified_at = datetime.now(timezone.utc)
+        # Update supplier.outstanding:
+        # Standard payment decrements by full amount; advance decrements only by knocked-off bills
+        alloc_total = sum(Decimal(str(a["amount"])) for a in allocated_manifest)
+        if is_advance:
+            if alloc_total > Decimal("0.00"):
+                supplier.outstanding = max(Decimal("0.00"), outstanding - alloc_total).quantize(Decimal("0.01"))
+                supplier.modified_at = datetime.now(timezone.utc)
+        else:
+            supplier.outstanding = (outstanding - req.amount).quantize(Decimal("0.01"))
+            supplier.modified_at = datetime.now(timezone.utc)
 
         # Flush session so payment & bill updates are visible to GL service in active txn
         await self.db.flush()
@@ -272,6 +284,22 @@ class SupplierPaymentService:
             branch_id=self.tenant.branch_id,
             created_by=created_by,
         )
+
+        # If advance knocked off bills on creation, post knock-off GL vouchers
+        if is_advance and allocated_manifest:
+            for alloc in allocated_manifest:
+                await UnifiedAccountingLedgerService.post_supplier_advance_knockoff_to_gl(
+                    session=self.db,
+                    company_id=self.tenant.company_id,
+                    supplier_id=supplier.id,
+                    advance_payment_id=payment.id,
+                    bill_id=alloc["bill_id"],
+                    amount=Decimal(str(alloc["amount"])),
+                    bill_no=alloc.get("bill_no"),
+                    branch_id=self.tenant.branch_id,
+                    created_by=created_by,
+                )
+
 
         # Record Transactional Outbox event atomically within same DB transaction
         await OutboxService.record_event(
@@ -300,6 +328,10 @@ class SupplierPaymentService:
         await self.db.refresh(payment)
 
         # Attach dynamic attributes for response schema
+        payment.payment_type = "ADVANCE" if is_advance else "STANDARD"
+        payment.purchase_order_id = req.purchase_order_id if is_advance else None
+        alloc_sum = sum(Decimal(str(a.get("amount", 0))) for a in allocated_manifest) if allocated_manifest else Decimal("0.00")
+        payment.unallocated_amount = max(Decimal("0.00"), Decimal(str(payment.amount)) - alloc_sum).quantize(Decimal("0.01")) if is_advance else Decimal("0.00")
         payment.allocated_bills = allocated_manifest
         payment.journal_voucher_id = voucher.id if voucher else None
         return payment
@@ -338,11 +370,17 @@ class SupplierPaymentService:
 
         # 2. Re-instate supplier outstanding balance
         current_outstanding = Decimal(str(supplier.outstanding or "0.00"))
-        supplier.outstanding = (current_outstanding + Decimal(str(payment.amount or "0.00"))).quantize(Decimal("0.01"))
+        is_advance = bool(payment.notes and "__PAYMENT_TYPE__:ADVANCE" in payment.notes)
+        allocations = self._extract_allocations(payment.notes)
+        alloc_sum = sum(Decimal(str(a.get("amount", 0))) for a in allocations)
+
+        if is_advance:
+            supplier.outstanding = (current_outstanding + alloc_sum).quantize(Decimal("0.01"))
+        else:
+            supplier.outstanding = (current_outstanding + Decimal(str(payment.amount or "0.00"))).quantize(Decimal("0.01"))
         supplier.modified_at = datetime.now(timezone.utc)
 
         # 3. Revert bill knock-offs
-        allocations = self._extract_allocations(payment.notes)
         for alloc in allocations:
             bill_id = alloc.get("bill_id")
             alloc_amt = Decimal(str(alloc.get("amount", 0)))
@@ -391,6 +429,10 @@ class SupplierPaymentService:
         # Attach dynamic attributes for response schema
         payment.allocated_bills = allocations
         payment.journal_voucher_id = reversal_voucher.id if reversal_voucher else None
+        payment.is_advance = is_advance
+        payment.payment_type = "ADVANCE" if is_advance else "STANDARD"
+        total_allocated = sum(Decimal(str(a.get("amount", 0))) for a in allocations)
+        payment.unallocated_amount = max(Decimal("0.00"), Decimal(str(payment.amount or 0)) - total_allocated)
         return payment
 
     async def list_payments(self, supplier_id: Optional[str] = None) -> List[SupplierPayment]:
@@ -405,6 +447,17 @@ class SupplierPaymentService:
         payments = res.scalars().all()
         for p in payments:
             p.allocated_bills = self._extract_allocations(p.notes)
+            is_adv = bool(p.notes and "__PAYMENT_TYPE__:ADVANCE" in p.notes)
+            p.is_advance = is_adv
+            p.payment_type = "ADVANCE" if is_adv else "STANDARD"
+            p.purchase_order_id = None
+            if p.notes and "__PO_ID__:" in p.notes:
+                try:
+                    p.purchase_order_id = p.notes.split("__PO_ID__:", 1)[1].split("\n", 1)[0].strip()
+                except Exception:
+                    pass
+            total_allocated = sum(Decimal(str(a.get("amount", 0))) for a in p.allocated_bills)
+            p.unallocated_amount = max(Decimal("0.00"), Decimal(str(p.amount or 0)) - total_allocated)
         return payments
 
     async def get_payment(self, payment_id: str) -> SupplierPayment:
@@ -420,4 +473,150 @@ class SupplierPaymentService:
         if not p:
             raise HTTPException(status_code=404, detail="Payment record not found.")
         p.allocated_bills = self._extract_allocations(p.notes)
+        is_adv = bool(p.notes and "__PAYMENT_TYPE__:ADVANCE" in p.notes)
+        p.is_advance = is_adv
+        p.payment_type = "ADVANCE" if is_adv else "STANDARD"
+        p.purchase_order_id = None
+        if p.notes and "__PO_ID__:" in p.notes:
+            try:
+                p.purchase_order_id = p.notes.split("__PO_ID__:", 1)[1].split("\n", 1)[0].strip()
+            except Exception:
+                pass
+        total_allocated = sum(Decimal(str(a.get("amount", 0))) for a in p.allocated_bills)
+        p.unallocated_amount = max(Decimal("0.00"), Decimal(str(p.amount or 0)) - total_allocated)
         return p
+
+    async def knockoff_advance(
+        self,
+        supplier_id: str,
+        advance_payment_id: str,
+        bill_id: str,
+        amount: Decimal,
+        notes: Optional[str] = None,
+        created_by: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Knocks off an unallocated supplier advance against an open confirmed Purchase Bill.
+        Posts double-entry GL voucher (DR 2010 Creditors / CR 2050 Supplier Advance Liability),
+        increments bill.paid_amount, transitions bill status to PAID if settled,
+        and atomically decrements supplier.outstanding liability.
+        """
+        supplier = await self._get_supplier(supplier_id)
+
+        # 1. Fetch advance payment
+        stmt = select(SupplierPayment).where(
+            SupplierPayment.id == advance_payment_id,
+            SupplierPayment.supplier_id == supplier_id,
+            SupplierPayment.company_id == self.tenant.company_id,
+            SupplierPayment.is_active == True,
+            SupplierPayment.is_deleted == False,
+        )
+        payment = (await self.db.execute(stmt)).scalar_one_or_none()
+        if not payment:
+            raise HTTPException(status_code=404, detail="Supplier advance payment not found.")
+
+        # Calculate currently allocated amount from notes
+        current_allocs = self._extract_allocations(payment.notes)
+        total_allocated = sum(Decimal(str(a.get("amount", 0))) for a in current_allocs)
+        unallocated_advance = max(Decimal("0.00"), Decimal(str(payment.amount or 0)) - total_allocated)
+
+        if amount > unallocated_advance:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Knock-off amount ₹{amount:,.2f} exceeds unallocated advance of ₹{unallocated_advance:,.2f}."
+            )
+
+        # 2. Fetch purchase bill
+        bill_stmt = select(PurchaseBill).where(
+            PurchaseBill.id == bill_id,
+            PurchaseBill.supplier_id == supplier_id,
+            PurchaseBill.company_id == self.tenant.company_id,
+            PurchaseBill.is_deleted == False,
+        )
+        bill = (await self.db.execute(bill_stmt)).scalar_one_or_none()
+        if not bill:
+            raise HTTPException(status_code=404, detail="Purchase bill not found for this supplier.")
+        if bill.status == "PAID" or Decimal(str(bill.paid_amount or 0)) >= Decimal(str(bill.total_amount or 0)):
+            raise HTTPException(status_code=400, detail="Purchase bill is already fully paid.")
+        if bill.status in ("CANCELLED", "DRAFT"):
+            raise HTTPException(status_code=400, detail=f"Cannot knock off advance against a bill in {bill.status} status.")
+
+        unpaid = max(Decimal("0.00"), Decimal(str(bill.total_amount or 0)) - Decimal(str(bill.paid_amount or 0)))
+        if amount > unpaid:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Knock-off amount ₹{amount:,.2f} exceeds unpaid bill balance of ₹{unpaid:,.2f}."
+            )
+
+        # 3. Update Bill
+        alloc_amt = amount.quantize(Decimal("0.01"))
+        bill.paid_amount = (Decimal(str(bill.paid_amount or 0)) + alloc_amt).quantize(Decimal("0.01"))
+        if bill.paid_amount >= Decimal(str(bill.total_amount or 0)):
+            bill.status = "PAID"
+        bill.modified_at = datetime.now(timezone.utc)
+
+        # 4. Update Supplier Outstanding
+        supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0)) - alloc_amt).quantize(Decimal("0.01"))
+        supplier.modified_at = datetime.now(timezone.utc)
+
+        # 5. Append allocation to payment manifest
+        current_allocs.append({
+            "bill_id": bill.id,
+            "bill_no": bill.bill_no,
+            "amount": str(alloc_amt),
+            "knocked_off_at": datetime.now(timezone.utc).isoformat(),
+        })
+        base_notes = payment.notes or ""
+        if "__ALLOCATIONS__:" in base_notes:
+            base_notes = base_notes.split("__ALLOCATIONS__:", 1)[0].strip()
+        manifest_tag = f"__ALLOCATIONS__:{json.dumps(current_allocs)}"
+        payment.notes = f"{base_notes}\n{manifest_tag}".strip()
+        payment.modified_at = datetime.now(timezone.utc)
+
+        await self.db.flush()
+
+        # 6. Post double-entry knock-off GL voucher
+        voucher = await UnifiedAccountingLedgerService.post_supplier_advance_knockoff_to_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            supplier_id=supplier.id,
+            advance_payment_id=payment.id,
+            bill_id=bill.id,
+            amount=alloc_amt,
+            bill_no=bill.bill_no,
+            branch_id=self.tenant.branch_id,
+            created_by=created_by or user_id,
+        )
+
+        # 7. Record outbox event
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PSV_QUEUE",
+            payload={
+                "action": "SUPPLIER_ADVANCE_KNOCKED_OFF",
+                "payment_id": payment.id,
+                "bill_id": bill.id,
+                "amount": str(alloc_amt),
+                "voucher_id": voucher.id if voucher else None,
+            },
+            causation_id=f"{payment.id}_{bill.id}",
+        )
+
+        await self.db.commit()
+
+        remaining_unallocated = (unallocated_advance - alloc_amt).quantize(Decimal("0.01"))
+        return {
+            "voucher_id": voucher.id if voucher else None,
+            "journal_voucher_id": voucher.id if voucher else None,
+            "advance_payment_id": payment.id,
+            "bill_id": bill.id,
+            "amount": alloc_amt,
+            "amount_knocked_off": alloc_amt,
+            "bill_paid_amount": bill.paid_amount,
+            "bill_status": bill.status,
+            "unallocated_advance": remaining_unallocated,
+            "remaining_advance_balance": remaining_unallocated,
+            "created_at": datetime.now(timezone.utc),
+        }
+
