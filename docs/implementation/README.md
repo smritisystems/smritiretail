@@ -16,12 +16,14 @@
 
 This directory contains formal, version-controlled implementation plans for SMRITI Retail OS modules and core system enhancements.
 
+| 2026-10-02 | v1.0.0 | **[POS Cashier UI Multi-Tender Split Billing & Store Credit Wallet Wiring](./pos/POS_Cashier_UI_Split_Tenders_And_Wallet_Wiring_Plan_v1.0.0.md)** | `src/components/billing/propos/types.ts`, `src/components/billing/propos/ProPosSettlementDl.tsx`, `src/components/billing/propos/ProPosBillingTerm.tsx`, `src/tests/posCashierTendersAndWallet.test.ts` | Completed | [Walkthrough](../walkthrough/pos/POS_Cashier_UI_Split_Tenders_And_Wallet_v1.0.0.md) |
+| 2026-10-02 | v1.0.0 | **[Sales P2.6: POS Cashier Multi-Tender, Store Credit & Shift Reconciliation Report](../architecture/SMRITI_SALES_P2_6_FINAL_FORENSIC_CLOSURE.md)** | `backend/app/schemas/pos.py`, `backend/app/services/pos.py`, `backend/app/api/v1/pos.py`, `backend/app/services/canonical_sales_writer.py` | Completed | [Closure Report](../architecture/SMRITI_SALES_P2_6_FINAL_FORENSIC_CLOSURE.md) |
 | 2026-10-02 | v1.0.0 | **[Sales P2.5: Customer Credit Notes, Customer Wallets & Advance Refund Plan](./sales/Sales_P2_5_Customer_Credit_Notes_Wallets_And_Advance_Refund_Plan_v1.0.md)** | `backend/app/services/payments_engine.py`, `backend/app/services/unified_ledger.py`, `backend/app/schemas/payments.py`, `backend/app/services/lifecycle/handlers/sales_invoice.py` | Completed | [Walkthrough](../walkthrough/sales/Sales_P2_5_Customer_Credit_Notes_Wallets_And_Advance_Refund_Walkthrough_v1.0.md) |
 | 2026-10-02 | v1.0.0 | **[Sales P2.4: Customer Advance Payment & Invoice Knock-off Implementation Plan](./sales/Sales_P2_4_Customer_Advance_Payment_And_Invoice_Knockoff_Implementation_Plan_v1.0.md)** | `backend/app/services/payments_engine.py`, `backend/app/services/unified_ledger.py`, `backend/app/schemas/payments.py`, `backend/app/services/lifecycle/handlers/sales_invoice.py` | Completed | [Walkthrough](../walkthrough/sales/Sales_P2_4_Customer_Advance_Payment_And_Invoice_Knockoff_Walkthrough_v1.0.md) |
 | 2026-10-02 | v1.0.0 | **[Sales P2.3: Payment General Ledger Atomicity Implementation Plan](./sales/Sales_P2_3_Payment_GL_Atomicity_Implementation_Plan_v1.0.md)** | `backend/app/services/unified_ledger.py`, `backend/app/services/payments_engine.py`, `backend/app/services/lifecycle/handlers/sales_invoice.py` | Completed | [Walkthrough](../walkthrough/sales/Sales_P2_3_Payment_GL_Atomicity_Walkthrough_v1.0.md) |
 | 2026-10-01 | v1.0.0 | **[Sales Architecture — Universal Lifecycle & Stock/GL Integration (Phases S1–S7)](./sales/Sales_Architecture_Universal_Lifecycle_And_Stock_GL_Integration_Phases_S1_S7_v1.0.md)** | `backend/app/services/lifecycle/handlers/{sales_order,sales_quotation,sales_invoice,sales_return,fulfillment}.py`, `backend/app/services/sales_stock_authority.py`, `backend/app/services/unified_ledger.py` | Completed | [Implementation Plan](./sales/Sales_Architecture_Universal_Lifecycle_And_Stock_GL_Integration_Phases_S1_S7_v1.0.md) |
 | 2026-10-01 | v1.0.0 | **[Sales Schema & Multi-Tenant Hardening — Phase S1 Implementation Plan](./sales/Sales_Schema_And_Tenant_Hardening_Phase_S1_v1.0.md)** | `backend/alembic/versions/v1515_*.py`, `backend/app/models/{sales,fulfillment}.py` | Completed | [Implementation Plan](./sales/Sales_Schema_And_Tenant_Hardening_Phase_S1_v1.0.md) |
-| 2026-10-01 | v1.0.0 | **[Universal Document Lifecycle Framework — Phase 2.1: Procurement Hardening Implementation Plan](./procurement/Universal_Document_Lifecycle_Phase2_1_Hardening_v1.0.md)** | `backend/alembic/versions/v1514_*.py`, `backend/app/models/purchase.py`, `backend/app/services/lifecycle/handlers/{goods_receipt,purchase_bill}.py` | In Progress | [Implementation Plan](./procurement/Universal_Document_Lifecycle_Phase2_1_Hardening_v1.0.md) |
+| 2026-10-01 | v1.0.0 | **[Universal Document Lifecycle Framework — Phase 2.1: Procurement Hardening Implementation Plan](./procurement/Universal_Document_Lifecycle_Phase2_1_Hardening_v1.0.md)** | `backend/alembic/versions/v1514_*.py`, `backend/app/models/purchase.py`, `backend/app/services/lifecycle/handlers/{goods_receipt,purchase_bill}.py` | Completed | [Walkthrough](../walkthrough/procurement/Universal_Document_Lifecycle_Phase2_1_Hardening_v1.0.md) |
 | 2026-10-01 | v1.0.0 | **[Universal Document Lifecycle Framework — Phase 2: GRN & Purchase Bill Implementation Plan](./procurement/Universal_Document_Lifecycle_Phase2_GRN_PurchaseBill_v1.0.md)** | `backend/app/services/lifecycle/handlers/{goods_receipt,purchase_bill}.py`, `backend/alembic/versions/v1513_*.py`, `backend/app/tests/test_cross_handler_lifecycle.py` | Completed | [Architecture Report](../architecture/SMRITI_DOCUMENT_LIFECYCLE_PHASE2_REPORT.md) |
 | 2026-10-01 | v1.0.0 | **[Universal Document Lifecycle Framework — Phase 1: Purchase Order Pilot Implementation Plan](./procurement/Universal_Document_Lifecycle_PO_Pilot_v1.0.md)** | `backend/app/services/lifecycle/*`, `backend/app/api/v1/lifecycle.py`, `src/components/common/lifecycle/*` | Completed | [Architecture Report](../architecture/SMRITI_DOCUMENT_LIFECYCLE_PHASE1_REPORT.md) |
 | 2026-09-30 | v6.44.0 | **[Purchase: PO Validation Gate Hardening — Size-Pivot Policy Check, Stale-Line Detail & Audit Trail](./purchase/PO_Validate_Hardening_v6.44.0.md)** | `src/components/purchase/PoGenerateTab.tsx`, `src/components/purchase/POValidationSummary.tsx`, `src/components/purchase/types.ts` | Completed | [Walkthrough](../walkthrough/purchase/PO_Validate_Hardening_v6.44.0.md) |
@@ -213,38 +215,3 @@ This directory contains formal, version-controlled implementation plans for SMRI
 | 2026-09-25 | v1.0.0 | [Purchase Order Sizewise Matrix UX](./purchase/Purchase_Order_Sizewise_Matrix_UX_Plan_v1.0.0.md) | `/src/components/purchase/PoSizewiseTab.tsx`, `/src/components/PurchaseStudioTab.tsx`, `/src/tests/poSizewiseUX.test.ts` | Completed | [Walkthrough](../walkthrough/purchase/Purchase_Order_Sizewise_Matrix_UX_v1.0.0.md) |
 | 2026-09-29 | v6.46.2 | [Staff Photo Upload, SPIF Optimization & ID Badge Integration](./hr/Staff_Photo_Upload_And_SPIF_Integration_Plan_v6.46.2.md) | `/backend/app/api/v1/staff.py`, `/src/components/staff/StaffMasterWs.tsx`, `/backend/tests/test_staff_photo_upload.py` | Completed | [Walkthrough](../walkthrough/hr/Staff_Photo_Upload_And_SPIF_Integration_v6.46.2.md) |
 | 2026-10-02 | v1.0.0 | [Sales P2.3: Payment GL Atomicity & Synchronous Receipt](./sales/Sales_P2_3_Payment_GL_Atomicity_Implementation_Plan_v1.0.md) | `/backend/app/services/payments_engine.py`, `/backend/app/services/lifecycle/handlers/sales_invoice.py`, `/backend/app/services/unified_ledger.py`, `/backend/app/tests/test_p2_3_payment_gl_atomicity.py` | Completed | [Walkthrough](../walkthrough/sales/Sales_P2_3_Payment_GL_Atomicity_Walkthrough_v1.0.md) |
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

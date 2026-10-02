@@ -67,6 +67,24 @@ export interface ProPosCustomer {
   registrationType?: "REGISTERED" | "UNREGISTERED";
   pricingBasis?: "MRP" | "RATE";
   allowPromotionsOnRate?: boolean;
+  availableWalletBalance?: number;
+}
+
+export interface POSTenderItem {
+  tender_type: "CASH" | "CARD" | "UPI" | "CREDIT" | "WALLET" | "STORE_CREDIT" | "CREDIT_NOTE";
+  amount: number;
+  reference_no?: string;
+  notes?: string;
+}
+
+export interface CustomerWalletBalanceResponse {
+  customer_id: string;
+  customer_name?: string;
+  available_wallet_balance: number;
+  total_credit_issued: number;
+  total_wallet_redeemed: number;
+  credit_limit?: number;
+  current_outstanding?: number;
 }
 
 export interface ProPosTenderSplit {
@@ -83,6 +101,8 @@ export interface ProPosTenderSplit {
   voucherCode?: string;
   loyaltyPointsRedeemed: number;
   loyaltyAmount: number;
+  wallet?: number;
+  walletRef?: string;
 }
 
 export interface SuspendedBill {
