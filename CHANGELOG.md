@@ -28,6 +28,38 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.49.3] - 2026-10-02 — SMRITI Sales Phase P2.5: Customer Credit Notes, Customer Wallets & Advance Refund Processing
+
+> **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Financial Accounting / CRM Wallets
+> **Implementation Plan:** `docs/implementation/sales/Sales_P2_5_Customer_Credit_Notes_Wallets_And_Advance_Refund_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/sales/Sales_P2_5_Customer_Credit_Notes_Wallets_And_Advance_Refund_Walkthrough_v1.0.md`
+
+### Added
+- **Account 2060 ("Customer Credit Note & Wallet Liability") Registration & Multi-Tenant Provisioning**:
+  - Registered account code `2060` ("Customer Credit Note & Wallet Liability", `LIABILITY`, parent `2000`, `party_type="CUSTOMER"`) in `DEFAULT_CHART_OF_ACCOUNTS` in `backend/app/services/unified_ledger.py`.
+  - Executed idempotent multi-tenant COA provisioning across all 41 tenant companies in PostgreSQL (`smritisys`), bringing active Account 2060 count to 41 with 0 schema migrations (Alembic head `v1515_sales_schema_tenant_hardening` frozen).
+- **Customer Advance Refund Engine & Concurrency Locking** (`backend/app/services/payments_engine.py` & `unified_ledger.py`):
+  - In `process_refund()`: Added pessimistic row locking (`with_for_update()`) on parent advance `PaymentTransaction`.
+  - Dynamic refund balance computation: Max Refundable = Orig Amount - Sum(Allocations) - Sum(Prior Refunds). Over-refund attempts are rejected fail-closed with `ValueError`.
+  - Double-entry GL integration in `post_refund_transaction_to_gl()`:
+    - Advance Refund (`reference_doc_type == "CUSTOMER_ADVANCE_REFUND"`): `Debit 2050 (Customer Advance Liability)` / `Credit 1010 (Cash)` or `1020 (Bank)`.
+    - Pure liability reduction and cash outflow with zero effect on Revenue or Debtors.
+- **Invoice Payment Refund & Automatic Balance Reinstatement** (`backend/app/services/payments_engine.py` & `unified_ledger.py`):
+  - In `process_refund()`: When refunding an invoice settlement payment, automatically reinstates `SalesInvoice.paid_amount` and `SalesInvoice.balance_amount`, and reverts status from `PAID` to `POSTED`.
+  - Double-entry GL integration in `post_refund_transaction_to_gl()`:
+    - Payment Refund (`reference_doc_type == "PAYMENT_REFUND"`): `Debit 1030 (Accounts Receivable)` / `Credit 1010 (Cash)` or `1020 (Bank)`.
+    - Perfectly restores customer receivable balance matching physical refund outflow.
+- **Customer Credit Note & Wallet Invoice Settlement** (`backend/app/services/payments_engine.py` & `unified_ledger.py`):
+  - In `process_payment()`: Added first-class support for `CREDIT_NOTE`, `WALLET`, and `STORE_CREDIT` tenders.
+  - Queries customer balance from `CustomerCreditLedgerEntry` ensuring sufficient credit; rejects over-tender fail-closed.
+  - Records debit entry in `CustomerCreditLedgerEntry` with tracking of balance after tender.
+  - Double-entry GL integration in `post_payment_transaction_to_gl()`:
+    - Wallet/Credit Note Settlement: `Debit 2060 (Customer Credit Note & Wallet Liability)` / `Credit 1030 (Accounts Receivable)`.
+    - Pure liability-to-receivable settlement with zero cash/bank movement (`1010`/`1020` completely untouched).
+- **Automated Verification Suite** (`backend/app/tests/test_p2_5_credit_notes_wallet_refund.py`):
+  - 11 comprehensive automated tests verifying all cash/bank refund permutations, dynamic advance over-refund guards, invoice balance reinstatement, wallet redemption, customer credit check rejection, tenant isolation, and atomic rollback on GL failure.
+  - Verified 100/100 tests passing green across Sales P2.1, P2.2, P2.3, P2.4, P2.5, and Sales Return contracts with zero regressions.
+
 ## [6.49.2] - 2026-10-02 — SMRITI Sales Phase P2.4: Customer Advance Payment & Invoice Knock-off
 
 > **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Financial Accounting
