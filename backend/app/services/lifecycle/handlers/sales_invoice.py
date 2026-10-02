@@ -289,40 +289,58 @@ class SalesInvoiceLifecycleHandler(BaseDocumentLifecycleHandler):
 
         elif act == "PAY":
             import uuid
-            from app.schemas.payments import ProcessPaymentRequest, PaymentTenderItem
+            from app.schemas.payments import ProcessPaymentRequest, PaymentTenderItem, PaymentAllocationRequest
             from app.services.payments_engine import PaymentsEngine
 
-            tender_type = str(payload.get("tender_type") or payload.get("payment_mode") or doc.payment_mode or "CASH").upper()
+            advance_payment_id = payload.get("advance_payment_id") or (payload.get("payment_id") if payload.get("use_advance") or payload.get("tender_type") == "ADVANCE" else None)
             current_balance = Decimal(str(doc.balance_amount)) if (doc.balance_amount is not None and (Decimal(str(doc.balance_amount)) > 0 or (doc.paid_amount and Decimal(str(doc.paid_amount)) > 0))) else Decimal(str(doc.grand_total or 0.00))
             pay_amount = Decimal(str(payload.get("amount", current_balance))).quantize(Decimal("0.01"))
-            gateway_ref = payload.get("gateway_reference") or payload.get("reference_no")
-            notes = payload.get("notes") or f"Payment received for invoice {doc.invoice_no}"
-            idempotency_key = payload.get("idempotency_key") or f"PAY-INV-{doc.id}-{uuid.uuid4().hex[:8]}"
 
-            proc_payment_req = ProcessPaymentRequest(
-                reference_doc_type="SALES_INVOICE",
-                reference_doc_id=doc.id,
-                party_id=doc.customer_id,
-                branch_id=tenant_ctx.branch_id or doc.branch_id or "MAIN",
-                tenders=[
-                    PaymentTenderItem(
-                        tender_type=tender_type,
-                        amount=float(pay_amount),
-                        gateway_reference=gateway_ref,
-                        notes=notes,
-                    )
-                ],
-                idempotency_key=idempotency_key,
-                auto_allocate=True,
-            )
+            if advance_payment_id:
+                alloc_req = PaymentAllocationRequest(
+                    invoice_id=doc.id,
+                    allocated_amount=float(pay_amount),
+                    discount_allowed=float(payload.get("discount_allowed", 0.0)),
+                    idempotency_key=payload.get("idempotency_key")
+                )
+                await PaymentsEngine.allocate_payment(
+                    session=db,
+                    company_id=tenant_ctx.company_id,
+                    payment_id=advance_payment_id,
+                    req=alloc_req,
+                    created_by=getattr(user, "username", None) or str(user.id),
+                    commit=False,
+                )
+            else:
+                tender_type = str(payload.get("tender_type") or payload.get("payment_mode") or doc.payment_mode or "CASH").upper()
+                gateway_ref = payload.get("gateway_reference") or payload.get("reference_no")
+                notes = payload.get("notes") or f"Payment received for invoice {doc.invoice_no}"
+                idempotency_key = payload.get("idempotency_key") or f"PAY-INV-{doc.id}-{uuid.uuid4().hex[:8]}"
 
-            pay_response = await PaymentsEngine.process_payment(
-                session=db,
-                company_id=tenant_ctx.company_id,
-                req=proc_payment_req,
-                created_by=getattr(user, "username", None) or str(user.id),
-                commit=False,
-            )
+                proc_payment_req = ProcessPaymentRequest(
+                    reference_doc_type="SALES_INVOICE",
+                    reference_doc_id=doc.id,
+                    party_id=doc.customer_id,
+                    branch_id=tenant_ctx.branch_id or doc.branch_id or "MAIN",
+                    tenders=[
+                        PaymentTenderItem(
+                            tender_type=tender_type,
+                            amount=float(pay_amount),
+                            gateway_reference=gateway_ref,
+                            notes=notes,
+                        )
+                    ],
+                    idempotency_key=idempotency_key,
+                    auto_allocate=True,
+                )
+
+                pay_response = await PaymentsEngine.process_payment(
+                    session=db,
+                    company_id=tenant_ctx.company_id,
+                    req=proc_payment_req,
+                    created_by=getattr(user, "username", None) or str(user.id),
+                    commit=False,
+                )
 
             # Ensure doc state reflects settlement calculated by PaymentsEngine
             if doc.balance_amount == Decimal("0.00"):
