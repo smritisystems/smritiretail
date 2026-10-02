@@ -1760,6 +1760,281 @@ class UnifiedAccountingLedgerService:
         return voucher
 
     @classmethod
+    async def post_debit_note_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        debit_note_id: str,
+        supplier_id: str,
+        claim_amount: Decimal,
+        tax_amount: Decimal,
+        total_debit_amount: Decimal,
+        debit_note_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a Supplier Debit Note into an authoritative double-entry GL voucher:
+        Debit: Accounts Payable / Creditors (2010) = total_debit_amount (party_id = supplier_id)
+        Credit: Inventory Asset (1040) = claim_amount
+        Credit: Input CGST (1051) + Input SGST (1052) or Input IGST (1053) = tax_amount
+        Debit/Credit: Roundoff Account (5030) = fractional cents balancing
+        """
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "DEBIT_NOTE",
+            JournalVoucher.reference_doc_id == debit_note_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        is_interstate = False
+        if supplier:
+            from ..models.tenant import Company
+            comp_stmt = select(Company).where(Company.id == company_id)
+            comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+            comp_gst_state = (comp.gst_number or "").strip()[:2] if comp else ""
+            supp_gst_state = (supplier.gst_number or "").strip()[:2] if supplier else ""
+            if comp_gst_state and supp_gst_state:
+                is_interstate = (comp_gst_state != supp_gst_state)
+            elif supplier.state:
+                from ..models.purchase import PurchaseJurisdictionConfig
+                jur_stmt = select(PurchaseJurisdictionConfig).where(PurchaseJurisdictionConfig.company_id == company_id)
+                jur = (await session.execute(jur_stmt)).scalars().first()
+                comp_state = jur.company_state.strip().upper() if jur and jur.company_state else "DL"
+                is_interstate = (supplier.state.strip().upper() != comp_state)
+
+        c_amt = Decimal(str(claim_amount or 0)).quantize(Decimal("0.01"))
+        t_amt = Decimal(str(tax_amount or 0)).quantize(Decimal("0.01"))
+        tot_amt = Decimal(str(total_debit_amount or 0)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": tot_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Payable reduction on Debit Note {debit_note_no or debit_note_id} for {supp_name}",
+            },
+            {
+                "account_id": acc_inventory.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": c_amt,
+                "remarks": f"Inventory reduction on return/claim for Debit Note {debit_note_no or debit_note_id}",
+            },
+        ]
+
+        if t_amt > Decimal("0.00"):
+            if is_interstate:
+                acc_igst = await cls.get_account_by_code(session, company_id, "1053")
+                lines.append({
+                    "account_id": acc_igst.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": t_amt,
+                    "remarks": f"Input IGST reversal on Debit Note {debit_note_no or debit_note_id}",
+                })
+            else:
+                acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
+                acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
+                cgst = (t_amt / Decimal("2")).quantize(Decimal("0.01"))
+                sgst = (t_amt - cgst).quantize(Decimal("0.01"))
+                lines.append({
+                    "account_id": acc_cgst.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": cgst,
+                    "remarks": f"Input CGST reversal on Debit Note {debit_note_no or debit_note_id}",
+                })
+                lines.append({
+                    "account_id": acc_sgst.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": sgst,
+                    "remarks": f"Input SGST reversal on Debit Note {debit_note_no or debit_note_id}",
+                })
+
+        sum_credits = sum(l["credit_amount"] for l in lines)
+        round_diff = (tot_amt - sum_credits).quantize(Decimal("0.01"))
+        if round_diff > Decimal("0.00"):
+            lines.append({
+                "account_id": acc_roundoff.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": round_diff,
+                "remarks": "Roundoff adjustment (Credit)",
+            })
+        elif round_diff < Decimal("0.00"):
+            lines.append({
+                "account_id": acc_roundoff.id,
+                "debit_amount": abs(round_diff),
+                "credit_amount": Decimal("0.00"),
+                "remarks": "Roundoff adjustment (Debit)",
+            })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="DEBIT_NOTE",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="DEBIT_NOTE",
+            reference_doc_id=debit_note_id,
+            reference_doc_no=debit_note_no or debit_note_id,
+            narration=f"Supplier Debit Note {debit_note_no or debit_note_id} issued to {supp_name}",
+            created_by=created_by,
+        )
+        return voucher
+
+    @classmethod
+    async def reverse_debit_note_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        debit_note_id: str,
+        supplier_id: str,
+        claim_amount: Decimal,
+        tax_amount: Decimal,
+        total_debit_amount: Decimal,
+        debit_note_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a cancelled Supplier Debit Note into an authoritative reversing GL voucher:
+        Debit: Inventory Asset (1040) = claim_amount
+        Debit: Input CGST (1051) + Input SGST (1052) or Input IGST (1053) = tax_amount
+        Debit/Credit: Roundoff Account (5030) = fractional cents balancing
+        Credit: Accounts Payable / Creditors (2010) = total_debit_amount (party_id = supplier_id)
+        """
+        # Idempotency guard: return existing cancellation voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "DEBIT_NOTE_CANCEL",
+            JournalVoucher.reference_doc_id == debit_note_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        is_interstate = False
+        if supplier:
+            from ..models.tenant import Company
+            comp_stmt = select(Company).where(Company.id == company_id)
+            comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+            comp_gst_state = (comp.gst_number or "").strip()[:2] if comp else ""
+            supp_gst_state = (supplier.gst_number or "").strip()[:2] if supplier else ""
+            if comp_gst_state and supp_gst_state:
+                is_interstate = (comp_gst_state != supp_gst_state)
+            elif supplier.state:
+                from ..models.purchase import PurchaseJurisdictionConfig
+                jur_stmt = select(PurchaseJurisdictionConfig).where(PurchaseJurisdictionConfig.company_id == company_id)
+                jur = (await session.execute(jur_stmt)).scalars().first()
+                comp_state = jur.company_state.strip().upper() if jur and jur.company_state else "DL"
+                is_interstate = (supplier.state.strip().upper() != comp_state)
+
+        c_amt = Decimal(str(claim_amount or 0)).quantize(Decimal("0.01"))
+        t_amt = Decimal(str(tax_amount or 0)).quantize(Decimal("0.01"))
+        tot_amt = Decimal(str(total_debit_amount or 0)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_inventory.id,
+                "debit_amount": c_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of inventory reduction for Cancelled Debit Note {debit_note_no or debit_note_id}",
+            },
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tot_amt,
+                "remarks": f"Reversal of payable reduction for {supp_name}",
+            },
+        ]
+
+        if t_amt > Decimal("0.00"):
+            if is_interstate:
+                acc_igst = await cls.get_account_by_code(session, company_id, "1053")
+                lines.append({
+                    "account_id": acc_igst.id,
+                    "debit_amount": t_amt,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Reversal of Input IGST reversal on Debit Note {debit_note_no or debit_note_id}",
+                })
+            else:
+                acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
+                acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
+                cgst = (t_amt / Decimal("2")).quantize(Decimal("0.01"))
+                sgst = (t_amt - cgst).quantize(Decimal("0.01"))
+                lines.append({
+                    "account_id": acc_cgst.id,
+                    "debit_amount": cgst,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Reversal of Input CGST on Debit Note {debit_note_no or debit_note_id}",
+                })
+                lines.append({
+                    "account_id": acc_sgst.id,
+                    "debit_amount": sgst,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Reversal of Input SGST on Debit Note {debit_note_no or debit_note_id}",
+                })
+
+        sum_debits = sum(l["debit_amount"] for l in lines)
+        round_diff = (tot_amt - sum_debits).quantize(Decimal("0.01"))
+        if round_diff > Decimal("0.00"):
+            lines.append({
+                "account_id": acc_roundoff.id,
+                "debit_amount": round_diff,
+                "credit_amount": Decimal("0.00"),
+                "remarks": "Roundoff adjustment (Debit)",
+            })
+        elif round_diff < Decimal("0.00"):
+            lines.append({
+                "account_id": acc_roundoff.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": abs(round_diff),
+                "remarks": "Roundoff adjustment (Credit)",
+            })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="DEBIT_NOTE_CANCEL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="DEBIT_NOTE_CANCEL",
+            reference_doc_id=debit_note_id,
+            reference_doc_no=debit_note_no or debit_note_id,
+            narration=f"Compensating reversal for Cancelled Debit Note {debit_note_no or debit_note_id}. Reason: {reason or 'Debit note cancellation'}",
+            created_by=cancelled_by,
+        )
+        return voucher
+
+    @classmethod
     async def get_trial_balance(
         cls,
         session: AsyncSession,

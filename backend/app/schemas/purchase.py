@@ -344,8 +344,18 @@ class DebitNoteResponse(BaseModel):
     status:             str
     reason:             Optional[str] = None
     created_at:         Optional[datetime] = None
+    journal_voucher_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class DebitNoteCancelRequest(BaseModel):
+    supplier_id:        str
+    claim_amount:       Decimal
+    tax_amount:         Optional[Decimal] = Decimal("0.00")
+    total_debit_amount: Decimal
+    debit_note_no:      Optional[str] = None
+    reason:             Optional[str] = None
 
 
 class PurchaseBillCreate(BaseModel):
