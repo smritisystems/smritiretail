@@ -920,16 +920,43 @@ class POSService:
         upi_total  = Decimal("0.00")
         total      = Decimal("0.00")
 
+        invoice_ids = [inv.id for inv in invoices]
+        tx_by_invoice: Dict[str, List[Any]] = {}
+        if invoice_ids:
+            from ..models.payment_ledger import PaymentTransaction
+            tx_res = await self.db.execute(
+                select(PaymentTransaction).where(
+                    PaymentTransaction.reference_doc_id.in_(invoice_ids),
+                    PaymentTransaction.company_id == self.tenant.company_id,
+                    PaymentTransaction.is_deleted == False,
+                )
+            )
+            for tx in tx_res.scalars().all():
+                tx_by_invoice.setdefault(tx.reference_doc_id, []).append(tx)
+
         for inv in invoices:
             gt = Decimal(str(inv.grand_total)) if inv.grand_total else Decimal("0.00")
-            mode = (inv.payment_mode or "CASH").upper()
-            if mode == "CASH":
-                cash_total += gt
-            elif mode == "CARD":
-                card_total += gt
-            elif mode == "UPI":
-                upi_total += gt
-            total += gt
+            inv_txs = tx_by_invoice.get(inv.id, [])
+            if inv_txs:
+                for tx in inv_txs:
+                    t_amt = Decimal(str(tx.amount or 0.00))
+                    t_type = (tx.tender_type or "CASH").upper()
+                    if t_type == "CASH":
+                        cash_total += t_amt
+                    elif t_type in ("CARD", "CREDIT_CARD", "DEBIT_CARD"):
+                        card_total += t_amt
+                    elif t_type in ("UPI", "QR", "NETBANKING"):
+                        upi_total += t_amt
+                total += gt
+            else:
+                mode = (inv.payment_mode or "CASH").upper()
+                if mode == "CASH":
+                    cash_total += gt
+                elif mode in ("CARD", "CREDIT_CARD", "DEBIT_CARD"):
+                    card_total += gt
+                elif mode in ("UPI", "QR", "NETBANKING"):
+                    upi_total += gt
+                total += gt
 
         # Handle closing balance and physical denomination count
         if req.denominations is not None:
@@ -1227,6 +1254,49 @@ class POSService:
         # The canonical writer creates the tender after authoritative promotion,
         # discount, tax, and rounding calculation. Client totals are display-only.
         tenders = []
+        if req.tenders:
+            total_tender_amt = Decimal("0.00")
+            has_wallet_tender = False
+            wallet_tender_amt = Decimal("0.00")
+            for t in req.tenders:
+                t_amt = Decimal(str(t.amount)).quantize(Decimal("0.01"))
+                if t_amt <= Decimal("0.00"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Tender amount for mode '{t.tender_type}' must be greater than zero."
+                    )
+                t_type = t.tender_type.upper()
+                if t_type in ("WALLET", "STORE_CREDIT", "CREDIT_NOTE"):
+                    has_wallet_tender = True
+                    wallet_tender_amt += t_amt
+                total_tender_amt += t_amt
+                tenders.append(
+                    CanonicalTenderItem(
+                        tender_type=t_type,
+                        amount=t_amt,
+                        reference_no=t.reference_no,
+                        notes=t.notes,
+                    )
+                )
+
+            if has_wallet_tender:
+                if not req.customer_id:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Customer identification (customer_id) is mandatory when tendering via STORE_CREDIT / WALLET."
+                    )
+                wallet_info = await self.get_customer_wallet_balance(req.customer_id)
+                avail = wallet_info["available_wallet_balance"]
+                if wallet_tender_amt > avail:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Tender amount ₹{wallet_tender_amt:,.2f} exceeds available customer store credit / wallet balance ₹{avail:,.2f}."
+                    )
+
+            if len(tenders) > 1:
+                pm = "SPLIT"
+            elif len(tenders) == 1:
+                pm = tenders[0].tender_type
 
         canon_req = CanonicalPostingRequest(
             context=CanonicalPostingContext(
@@ -1278,5 +1348,97 @@ class POSService:
 
         await self.db.refresh(shift)
         return {"invoice": db_inv, "shift": shift, "cached": canon_result.is_replayed}
+
+    async def get_customer_wallet_balance(self, customer_id: str) -> dict:
+        """
+        Calculates authoritative available store credit / wallet balance for a customer.
+        Reuses the exact P2.5 semantic formula:
+        - CREDIT entries: store credit issued (returns, top-ups)
+        - DEBIT entries: modern wallet redemption (notes like '%wallet redemption%', wallet reference types, or compound reference_id)
+        - Excludes historical credit-sales.
+        """
+        from ..models.crm import Customer, CustomerCreditLedgerEntry
+        from sqlalchemy import case, and_, or_, func
+
+        stmt_cust = select(Customer).where(
+            Customer.id == customer_id,
+            Customer.company_id == self.tenant.company_id,
+            Customer.is_deleted == False,
+        )
+        cust = (await self.db.execute(stmt_cust)).scalars().first()
+        if not cust:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Customer '{customer_id}' not found."
+            )
+
+        stmt_credit = select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (CustomerCreditLedgerEntry.entry_type == "CREDIT", CustomerCreditLedgerEntry.amount),
+                        (
+                            and_(
+                                CustomerCreditLedgerEntry.entry_type == "DEBIT",
+                                or_(
+                                    CustomerCreditLedgerEntry.notes.ilike("%wallet redemption%"),
+                                    CustomerCreditLedgerEntry.reference_type.in_(("WALLET_REDEMPTION", "STORE_CREDIT", "WALLET")),
+                                    CustomerCreditLedgerEntry.reference_id.like("%:%"),
+                                ),
+                            ),
+                            -CustomerCreditLedgerEntry.amount,
+                        ),
+                        else_=Decimal("0.00"),
+                    )
+                ),
+                0,
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (CustomerCreditLedgerEntry.entry_type == "CREDIT", CustomerCreditLedgerEntry.amount),
+                        else_=Decimal("0.00"),
+                    )
+                ),
+                0,
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                CustomerCreditLedgerEntry.entry_type == "DEBIT",
+                                or_(
+                                    CustomerCreditLedgerEntry.notes.ilike("%wallet redemption%"),
+                                    CustomerCreditLedgerEntry.reference_type.in_(("WALLET_REDEMPTION", "STORE_CREDIT", "WALLET")),
+                                    CustomerCreditLedgerEntry.reference_id.like("%:%"),
+                                ),
+                            ),
+                            CustomerCreditLedgerEntry.amount,
+                        ),
+                        else_=Decimal("0.00"),
+                    )
+                ),
+                0,
+            ),
+        ).where(
+            CustomerCreditLedgerEntry.customer_id == customer_id,
+            CustomerCreditLedgerEntry.company_id == self.tenant.company_id,
+            CustomerCreditLedgerEntry.is_deleted == False,
+        )
+        res_credit = (await self.db.execute(stmt_credit)).first()
+        avail = Decimal(str(res_credit[0] or "0.00")).quantize(Decimal("0.01"))
+        total_issued = Decimal(str(res_credit[1] or "0.00")).quantize(Decimal("0.01"))
+        total_redeemed = Decimal(str(res_credit[2] or "0.00")).quantize(Decimal("0.01"))
+
+        return {
+            "customer_id": cust.id,
+            "customer_name": cust.name,
+            "available_wallet_balance": max(Decimal("0.00"), avail),
+            "total_credit_issued": total_issued,
+            "total_wallet_redeemed": total_redeemed,
+            "credit_limit": getattr(cust, "credit_limit", None),
+            "current_outstanding": Decimal(str(cust.outstanding or "0.00")),
+        }
 
 
