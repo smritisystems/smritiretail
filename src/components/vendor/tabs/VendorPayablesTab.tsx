@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.49.8
+ * Version      : 6.51.0
  * Created      : 2026-09-11
  * Modified     : 2026-10-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -28,7 +28,7 @@ import {
   AlertTriangle,
   Zap
 } from "lucide-react";
-import { VendorDetail } from "../../../types/vendor";
+import { VendorDetail, TdsVendorSummary } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 import { withCapability } from "../../../types/architecture";
 import { VendorAdvanceKnockoffModal, AdvanceRecord, BillRecord } from "./VendorAdvanceKnockoffModal";
@@ -77,6 +77,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
   const [invoices, setInvoices] = useState<LiveInvoice[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
+  const [tdsSummary, setTdsSummary] = useState<TdsVendorSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Modal State
@@ -130,7 +131,15 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
         }));
       setAdvances(advRecords);
 
-      // 3. Transform Purchase Bills into LiveInvoice model
+      // 3. Fetch Statutory TDS Summary (Account 2030)
+      try {
+        const tdsRes = await apiFetchV1(`/vendors/${encodeURIComponent(vendor.id)}/tds-summary`);
+        setTdsSummary(tdsRes);
+      } catch {
+        setTdsSummary(null);
+      }
+
+      // 4. Transform Purchase Bills into LiveInvoice model
       let built: LiveInvoice[] = [];
       if (rawBills.length > 0) {
         built = rawBills.map((b: any) => {
@@ -310,7 +319,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             Accounts Payable Aging & Supplier Advances
             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-600/30">
-              GL 2010 / 2050
+              GL 2010 / 2050 / 2030
             </span>
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -360,7 +369,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
       </div>
 
       {/* Financial Health Summary Cards Strip */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Card 1: Gross Outstanding AP (2010) */}
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -406,7 +415,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
           </div>
         </div>
 
-        {/* Card 3: Net Payable Exposure */}
+        {/* Card 3: Net Settlement Position */}
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
             <span className="flex items-center gap-1.5">
@@ -420,6 +429,32 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
           </div>
           <div className="text-[10px] text-slate-400">
             Net liability after applying unallocated advance deposits
+          </div>
+        </div>
+
+        {/* Card 4: Statutory TDS Withheld (Account 2030) */}
+        <div className="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-xs space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-indigo-800 dark:text-indigo-300">
+            <span className="flex items-center gap-1.5">
+              <Receipt size={14} className="text-indigo-600 dark:text-indigo-400" />
+              Statutory TDS (Account 2030)
+            </span>
+            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+              tdsSummary?.penal_applicable 
+                ? "bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300"
+                : "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300"
+            }`}>
+              {tdsSummary?.penal_applicable ? "Sec 206AA (5%)" : `Sec 194Q (${(tdsSummary?.statutory_rate_percent ?? 0.10).toFixed(2)}%)`}
+            </span>
+          </div>
+          <div className="text-lg font-black font-mono text-indigo-700 dark:text-indigo-400">
+            {fmt(tdsSummary?.total_tds_deducted_fy || 0)}
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-indigo-600/80 dark:text-indigo-400/80">
+            <span>FY Withheld ({tdsSummary?.tds_deductions_count || 0} bills)</span>
+            <span className="font-medium">
+              {tdsSummary?.pan_valid ? `PAN: ${tdsSummary?.pan || vendor.pan || "Valid"}` : "No Valid PAN"}
+            </span>
           </div>
         </div>
       </div>
