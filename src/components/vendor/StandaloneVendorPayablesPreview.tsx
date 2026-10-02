@@ -28,11 +28,13 @@ import {
   Receipt,
   RotateCcw,
   Zap,
-  Layers
+  Layers,
+  Landmark
 } from "lucide-react";
 import { VendorDetail } from "../../types/vendor";
 import { VendorAdvanceKnockoffModal, AdvanceRecord, BillRecord } from "./tabs/VendorAdvanceKnockoffModal";
 import { VendorStatementOfAccountModal } from "./tabs/VendorStatementOfAccountModal";
+import { VendorChallan281Modal } from "./tabs/VendorChallan281Modal";
 
 const MOCK_VENDOR: VendorDetail = {
   id: "sup-vardhman-adv-001",
@@ -120,6 +122,7 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
   const [bills, setBills] = useState<BillRecord[]>(INITIAL_BILLS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatementOpen, setIsStatementOpen] = useState(false);
+  const [isChallanOpen, setIsChallanOpen] = useState(false);
   const [initialMode, setInitialMode] = useState<"single" | "batch">("batch");
   const [initialAdvId, setInitialAdvId] = useState<string | undefined>();
   const [initialBillId, setInitialBillId] = useState<string | undefined>();
@@ -207,13 +210,13 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                Procurement Phase 2.9 (Statutory TDS)
+                Procurement Phase 2.10 (Challan 281 &amp; Form 26Q)
               </span>
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                 <CheckCircle2 size={12} /> Live Vendor 360 Integration
               </span>
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                SSOT v6.51.0
+                SSOT v6.52.0
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
@@ -259,6 +262,15 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
             >
               <Sparkles size={14} />
               <span>1-Click</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsChallanOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-indigo-500/40 bg-indigo-950/40 text-indigo-300 hover:bg-indigo-900/60 text-xs font-bold shadow-lg transition-all cursor-pointer"
+              title="Open Government Challan 281 & Form 26Q Compliance Studio"
+            >
+              <Landmark size={14} />
+              <span>🏛️ Challan 281 &amp; Form 26Q</span>
             </button>
             <button
               type="button"
@@ -403,7 +415,11 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
           </div>
 
           {/* Card 4: Statutory TDS Withheld (Account 2030) */}
-          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/80 shadow-lg space-y-2">
+          <div
+            onClick={() => setIsChallanOpen(true)}
+            className="p-5 rounded-2xl border border-slate-800 bg-slate-900/80 shadow-lg space-y-2 cursor-pointer hover:border-indigo-500/60 transition-all hover:scale-[1.01]"
+            title="Click to open Government Challan 281 & Form 26Q Compliance Studio"
+          >
             <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
               <span className="flex items-center gap-1.5">
                 <Receipt size={16} className="text-indigo-400" />
@@ -417,7 +433,9 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
               {fmt(140.50)}
             </div>
             <p className="text-xs text-slate-400 flex items-center justify-between">
-              <span>FY Withheld (3 bills)</span>
+              <span className="font-bold underline text-indigo-400 hover:text-white">
+                Challan 281 Studio →
+              </span>
               <span className="text-emerald-400 font-mono text-[10px]">PAN: {MOCK_VENDOR.pan} [Valid]</span>
             </p>
           </div>
@@ -626,6 +644,13 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
           onNotification={(title, msg, type) => {
             setNotification({ title, message: msg, type });
           }}
+        />
+
+        {/* Government Challan 281 & Form 26Q Compliance Studio Modal */}
+        <VendorChallan281Modal
+          isOpen={isChallanOpen}
+          onClose={() => setIsChallanOpen(false)}
+          vendor={MOCK_VENDOR}
         />
       </div>
     </div>

@@ -28,6 +28,38 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.52.0] - 2026-10-02 — SMRITI Procurement Phase 2.10: Government Challan 281 TDS Remittance Lifecycle & Electronic Form 26Q Quarterly Return Filing
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Statutory Compliance & Government Remittance
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_10_Challan_281_Form26Q_Return_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_10_Challan_281_Form26Q_Return_v1.0.md`
+
+### Added
+- **Government Challan ITNS 281 Remittance Engine** (`backend/app/services/challan_281.py`):
+  - Full double-entry remittance lifecycle discharging `Account 2030 (TDS / Withholding Tax Payable)` into `Account 1020 (Bank Accounts)` with mandatory 7-digit numeric BSR bank branch validation (`^\d{7}$`).
+  - Statutory accounting for late filing fees (Section 234E) and statutory interest (Section 201(1A)) charged into `Account 5090: Statutory Interest, Penalties & Compliance Fees`:
+    $$\text{DR } 2030 \text{ (Tax Component)} + \text{DR } 5090 \text{ (Interest/Fees)} = \text{CR } 1020 \text{ (Bank)}$$
+  - Symmetrical compensating reversal lifecycle (`CHALLAN_281_CANCEL`) restoring bank and liability accounts upon cancellation (`DR 1020 = CR 2030 + CR 5090`).
+  - Metadata serialization and deserialization in Journal Voucher narration with outbox audit event dispatching.
+- **Chart of Accounts 5090 Integration** (`backend/app/services/unified_ledger.py`):
+  - Registered `Account 5090: Statutory Interest, Penalties & Compliance Fees` under Operating Expenses (`5000`) in `DEFAULT_CHART_OF_ACCOUNTS` and company DB seeding.
+- **NSDL Form 26Q e-TDS Return Generation Engine** (`backend/app/services/form26q_generator.py`):
+  - Automatic quarterly aggregation of domestic non-salary deductees across purchase bills, supplier payments, and standalone TDS vouchers.
+  - Automatic Section 206AA penal rate flagging (Reason Code `'C'`) and entity classification (`01` Company vs `02` Non-Company).
+  - Compliant ASCII e-TDS text file export (`FH`, `BH`, `CD`, `DD` records) with `\r\n` line endings matching Income Tax Department e-Filing specifications.
+- **Statutory Compliance REST APIs** (`backend/app/api/v1/tds_compliance.py`):
+  - `POST /api/v1/tax/tds/challan281`: Records Challan 281 government deposit and creates double-entry GL voucher.
+  - `GET /api/v1/tax/tds/challan281`: Lists recorded challans with quarter, FY, and section filters.
+  - `POST /api/v1/tax/tds/challan281/{id}/cancel`: Cancels challan and generates symmetrical compensating reversal.
+  - `GET /api/v1/tax/tds/form26q/summary`: Compiles quarterly Form 26Q reconciliation summary comparing total TDS deducted vs total deposited.
+  - `GET /api/v1/tax/tds/form26q/export`: Generates and exports downloadable NSDL ASCII e-TDS text file.
+- **Frontend Vendor 360 Compliance Studio Modal** (`src/components/vendor/tabs/VendorChallan281Modal.tsx`):
+  - 4 Financial Health KPI summary cards (Gross Base Billed, Statutory TDS Withheld, Remitted via Challan 281, Net Shortfall).
+  - Challan 281 remittance recording drawer with BSR code, interest, late fee, and live balanced GL preview.
+  - Form 26Q Deductee Register and Recorded Challans tables.
+  - NSDL ASCII text inspector modal and 1-click `.txt` file export.
+  - Integrated into `VendorPayablesTab.tsx` and `StandaloneVendorPayablesPreview.tsx` via header button and interactive Card 4.
+
 ## [6.51.0] - 2026-10-02 — SMRITI Procurement Phase 2.9: Statutory Withholding Tax (TDS on Purchase & Payments — Section 194Q / 194C / 194J) & GL Account 2030 Integration
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Statutory Withholding Tax (TDS) & General Ledger

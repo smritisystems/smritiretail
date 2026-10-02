@@ -122,6 +122,7 @@ from .api.v1 import (
     system_parameters,
     kpi_registry,
     loyalty,
+    tds_compliance,
 )
 
 from .core.config import settings
@@ -334,6 +335,8 @@ _ROUTER_REGISTRY = [
     (vendor,                "",                      ["Vendors"]),
     (supplier_payment,      "",                      ["Supplier Payments"]),
     (supplier_payment,      "/purchase",             ["Supplier Payments"]),
+    (tds_compliance,        "/tax/tds",              ["Statutory TDS & Form 26Q Compliance"]),
+    (tds_compliance,        "/purchase/tax/tds",     ["Statutory TDS & Form 26Q Compliance"]),
 
     # --- CRM & Loyalty ---
     (crm,                   "",                      ["CRM"]),
