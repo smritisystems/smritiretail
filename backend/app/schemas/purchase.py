@@ -365,6 +365,7 @@ class PurchaseBillCreate(BaseModel):
     receipt_id:         Optional[str] = None
     order_id:           Optional[str] = None
     bill_date:          Optional[date] = None
+    due_date:           Optional[date] = None
     taxable_amount:     Decimal
     tax_amount:         Decimal
     total_amount:       Decimal
@@ -379,9 +380,11 @@ class PurchaseBillResponse(BaseModel):
     receipt_id:         Optional[str] = None
     order_id:           Optional[str] = None
     bill_date:          Optional[date] = None
+    due_date:           Optional[date] = None
     taxable_amount:     Decimal
     tax_amount:         Decimal
     total_amount:       Decimal
+    paid_amount:        Optional[Decimal] = Decimal("0.00")
     status:             str
     notes:              Optional[str] = None
 

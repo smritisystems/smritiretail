@@ -983,6 +983,59 @@ async def create_purchase_bill(
     return PurchaseBillResponse.model_validate(res)
 
 
+@router.get(
+    "/bills",
+    response_model=List[PurchaseBillResponse],
+    summary="List Purchase Bills",
+)
+@router.get(
+    "/bills/",
+    response_model=List[PurchaseBillResponse],
+    include_in_schema=False,
+)
+@router.get(
+    "/invoices",
+    response_model=List[PurchaseBillResponse],
+    include_in_schema=False,
+)
+@router.get(
+    "/invoices/",
+    response_model=List[PurchaseBillResponse],
+    include_in_schema=False,
+)
+async def list_purchase_bills(
+    supplier_id: Optional[str] = Query(default=None, description="Filter bills by supplier ID"),
+    status: Optional[str] = Query(default=None, description="Filter bills by status (e.g. POSTED, PAID)"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """List purchase bills for the active tenant, with optional supplier and status filtering."""
+    service = PurchaseService(db, tenant)
+    bills = await service.list_purchase_bills(supplier_id=supplier_id, status=status)
+    return [PurchaseBillResponse.model_validate(b) for b in bills]
+
+
+@router.get(
+    "/bills/{bill_id}",
+    response_model=PurchaseBillResponse,
+    summary="Get Purchase Bill by ID",
+)
+@router.get(
+    "/invoices/{bill_id}",
+    response_model=PurchaseBillResponse,
+    include_in_schema=False,
+)
+async def get_purchase_bill(
+    bill_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Retrieve a specific purchase bill by ID."""
+    service = PurchaseService(db, tenant)
+    bill = await service.get_purchase_bill(bill_id)
+    return PurchaseBillResponse.model_validate(bill)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PO Vendor Product Control — v6.42.0 (Execution Command Rule 32 Phase 4–7)
 # ═══════════════════════════════════════════════════════════════════════════════
