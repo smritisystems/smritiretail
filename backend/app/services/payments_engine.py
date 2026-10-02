@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any, List, Optional
-from sqlalchemy import select, and_, or_, func
+from sqlalchemy import select, and_, or_, func, case
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -159,6 +159,58 @@ class PaymentsEngine:
                 tx_id = IdentityEngine.generate_technical_id()
                 tx_no = f"PAY-{date_str}-{uuid.uuid4().hex[:6].upper()}"
                 sub_idempotency_key = f"{clean_key}_{idx}" if len(req.tenders) > 1 else clean_key
+
+                # Customer store credit / wallet validation
+                if tender.tender_type.upper() in ("CREDIT_NOTE", "WALLET", "STORE_CREDIT"):
+                    from ..models.crm import CustomerCreditLedgerEntry
+                    effective_cust_id = req.party_id
+                    if not effective_cust_id and req.reference_doc_id:
+                        from ..models.sales import SalesInvoice
+                        stmt_c = select(SalesInvoice.customer_id).where(SalesInvoice.id == req.reference_doc_id, SalesInvoice.company_id == company_id)
+                        effective_cust_id = await session.scalar(stmt_c)
+
+                    if not effective_cust_id:
+                        raise ValueError("Customer identification (party_id) is mandatory when tendering via STORE_CREDIT / WALLET / CREDIT_NOTE.")
+
+                    # Calculate available credit balance
+                    stmt_credit = select(
+                        func.coalesce(
+                            func.sum(
+                                case(
+                                    (CustomerCreditLedgerEntry.entry_type == "CREDIT", CustomerCreditLedgerEntry.amount),
+                                    else_=-CustomerCreditLedgerEntry.amount
+                                )
+                            ),
+                            0
+                        )
+                    ).where(
+                        CustomerCreditLedgerEntry.customer_id == effective_cust_id,
+                        CustomerCreditLedgerEntry.company_id == company_id,
+                        CustomerCreditLedgerEntry.is_deleted == False
+                    )
+                    avail_credit = Decimal(str(await session.scalar(stmt_credit) or 0.00))
+
+                    if tender_amt > avail_credit:
+                        raise ValueError(
+                            f"Tender amount ₹{tender_amt} exceeds available customer store credit / wallet balance ₹{avail_credit}."
+                        )
+
+                    # Record CustomerCreditLedgerEntry debit
+                    session.add(
+                        CustomerCreditLedgerEntry(
+                            id=f"ccle-{uuid.uuid4().hex[:12]}",
+                            customer_id=effective_cust_id,
+                            entry_date=now,
+                            entry_type="DEBIT",
+                            amount=tender_amt,
+                            balance_after=max(Decimal("0.00"), avail_credit - tender_amt),
+                            reference_type="SALES_INVOICE",
+                            reference_id=req.reference_doc_id or tx_id,
+                            notes=f"Store credit / wallet redemption via {tx_no}",
+                            company_id=company_id,
+                            branch_id=req.branch_id,
+                        )
+                    )
 
                 tx = PaymentTransaction(
                     id=tx_id,
@@ -322,32 +374,99 @@ class PaymentsEngine:
         Executes a full or partial refund against an existing payment transaction
         with balance and over-refund guards.
         """
-        stmt = select(PaymentTransaction).where(
-            PaymentTransaction.id == req.payment_transaction_id,
-            PaymentTransaction.company_id == company_id,
-            PaymentTransaction.is_deleted == False
+        stmt = (
+            select(PaymentTransaction)
+            .where(
+                PaymentTransaction.id == req.payment_transaction_id,
+                PaymentTransaction.company_id == company_id,
+                PaymentTransaction.is_deleted == False
+            )
+            .with_for_update()
         )
         orig_tx = (await session.execute(stmt)).scalars().first()
         if not orig_tx:
             raise ValueError(f"Original payment transaction '{req.payment_transaction_id}' not found.")
 
+        if orig_tx.status in ("REFUNDED", "CANCELLED", "FAILED"):
+            raise ValueError(f"Payment transaction '{orig_tx.id}' with status '{orig_tx.status}' is not eligible for refund.")
+
+        clean_key = req.idempotency_key.strip()
+
+        # Idempotency check: return existing refund if already recorded
+        stmt_existing = select(PaymentTransaction).where(
+            PaymentTransaction.company_id == company_id,
+            PaymentTransaction.idempotency_key == clean_key,
+            PaymentTransaction.is_deleted == False
+        )
+        existing_refund = (await session.execute(stmt_existing)).scalars().first()
+        if existing_refund:
+            stmt_prev = select(func.coalesce(func.sum(PaymentTransaction.amount), 0)).where(
+                PaymentTransaction.company_id == company_id,
+                PaymentTransaction.reference_doc_type.in_(("PAYMENT_REFUND", "CUSTOMER_ADVANCE_REFUND")),
+                PaymentTransaction.reference_doc_id == orig_tx.id,
+                PaymentTransaction.is_deleted == False
+            )
+            already_refunded = Decimal(str(await session.scalar(stmt_prev) or 0.00))
+            is_adv = orig_tx.reference_doc_type == "CUSTOMER_ADVANCE"
+            alloc_deduct = Decimal("0.00")
+            if is_adv:
+                stmt_alloc = select(func.coalesce(func.sum(PaymentAllocation.allocated_amount), 0)).where(
+                    PaymentAllocation.payment_id == orig_tx.id,
+                    PaymentAllocation.is_deleted == False
+                )
+                alloc_deduct = Decimal(str(await session.scalar(stmt_alloc) or 0.00))
+            orig_amt = Decimal(str(orig_tx.amount))
+            rem = max(Decimal("0.00"), orig_amt - alloc_deduct - already_refunded)
+            return PaymentRefundResponse(
+                refund_transaction_id=existing_refund.id,
+                original_payment_id=orig_tx.id,
+                refund_amount=float(existing_refund.amount),
+                remaining_balance=float(rem),
+                status="REFUND_SUCCESS" if rem == Decimal("0.00") else "PARTIAL_REFUND",
+                reason=req.reason,
+                refunded_at=existing_refund.captured_at or datetime.now(timezone.utc),
+            )
+
+        refund_req_amt = Decimal(str(req.refund_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if refund_req_amt <= Decimal("0.00"):
+            raise ValueError("Refund amount must be greater than zero.")
+
+        orig_amt = Decimal(str(orig_tx.amount))
+
         # Check total previous refunds against this transaction
         stmt_prev = select(func.coalesce(func.sum(PaymentTransaction.amount), 0)).where(
             PaymentTransaction.company_id == company_id,
-            PaymentTransaction.reference_doc_type == "PAYMENT_REFUND",
+            PaymentTransaction.reference_doc_type.in_(("PAYMENT_REFUND", "CUSTOMER_ADVANCE_REFUND")),
             PaymentTransaction.reference_doc_id == orig_tx.id,
             PaymentTransaction.is_deleted == False
         )
         already_refunded = Decimal(str(await session.scalar(stmt_prev) or 0.00))
 
-        refund_req_amt = Decimal(str(req.refund_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        orig_amt = Decimal(str(orig_tx.amount))
+        is_advance = orig_tx.reference_doc_type == "CUSTOMER_ADVANCE"
+        already_allocated = Decimal("0.00")
 
-        if already_refunded + refund_req_amt > orig_amt:
-            max_avail = orig_amt - already_refunded
-            raise ValueError(
-                f"Refund amount ₹{refund_req_amt} exceeds available refundable balance ₹{max_avail} (Original: ₹{orig_amt}, Already Refunded: ₹{already_refunded})."
+        if is_advance:
+            # For advances, deduct allocations to invoices
+            stmt_alloc = select(func.coalesce(func.sum(PaymentAllocation.allocated_amount), 0)).where(
+                PaymentAllocation.payment_id == orig_tx.id,
+                PaymentAllocation.is_deleted == False
             )
+            already_allocated = Decimal(str(await session.scalar(stmt_alloc) or 0.00))
+            max_avail = orig_amt - already_allocated - already_refunded
+            if refund_req_amt > max_avail:
+                raise ValueError(
+                    f"Refund amount ₹{refund_req_amt} exceeds available unallocated advance balance ₹{max_avail} "
+                    f"(Original Advance: ₹{orig_amt}, Allocated to Invoices: ₹{already_allocated}, Already Refunded: ₹{already_refunded})."
+                )
+            ref_doc_type = "CUSTOMER_ADVANCE_REFUND"
+        else:
+            max_avail = orig_amt - already_refunded
+            if refund_req_amt > max_avail:
+                raise ValueError(
+                    f"Refund amount ₹{refund_req_amt} exceeds available refundable balance ₹{max_avail} "
+                    f"(Original: ₹{orig_amt}, Already Refunded: ₹{already_refunded})."
+                )
+            ref_doc_type = "PAYMENT_REFUND"
 
         now = datetime.now(timezone.utc)
         refund_tx_id = f"pay_ref_{uuid.uuid4().hex[:12]}"
@@ -355,40 +474,78 @@ class PaymentsEngine:
 
         refund_tender = req.refund_tender_type.upper() if req.refund_tender_type else orig_tx.tender_type
 
-        refund_tx = PaymentTransaction(
-            id=refund_tx_id,
-            company_id=company_id,
-            branch_id=orig_tx.branch_id,
-            transaction_no=refund_tx_no,
-            reference_doc_type="PAYMENT_REFUND",
-            reference_doc_id=orig_tx.id,
-            party_id=orig_tx.party_id,
-            tender_type=refund_tender,
-            amount=refund_req_amt,
-            currency=orig_tx.currency or "INR",
-            idempotency_key=req.idempotency_key.strip(),
-            status="SUCCESS",
-            gateway_reference=f"REFUND_FOR_{orig_tx.transaction_no}",
-            captured_at=now,
-            is_active=True,
-            is_deleted=False,
-            created_by=created_by,
-        )
-        session.add(refund_tx)
+        try:
+            refund_tx = PaymentTransaction(
+                id=refund_tx_id,
+                company_id=company_id,
+                branch_id=orig_tx.branch_id,
+                transaction_no=refund_tx_no,
+                reference_doc_type=ref_doc_type,
+                reference_doc_id=orig_tx.id,
+                party_id=orig_tx.party_id,
+                tender_type=refund_tender,
+                amount=refund_req_amt,
+                currency=orig_tx.currency or "INR",
+                idempotency_key=clean_key,
+                status="SUCCESS",
+                gateway_reference=f"REFUND_FOR_{orig_tx.transaction_no}",
+                captured_at=now,
+                is_active=True,
+                is_deleted=False,
+                created_by=created_by,
+            )
+            session.add(refund_tx)
 
-        # Update original transaction status
-        new_total_refunded = already_refunded + refund_req_amt
-        if new_total_refunded >= orig_amt:
-            orig_tx.status = "REFUNDED"
-        else:
-            orig_tx.status = "PARTIALLY_REFUNDED"
+            # Update original transaction status
+            new_total_refunded = already_refunded + refund_req_amt
+            threshold_amt = (orig_amt - already_allocated) if is_advance else orig_amt
+            if new_total_refunded >= threshold_amt:
+                orig_tx.status = "REFUNDED"
+            else:
+                orig_tx.status = "PARTIALLY_REFUNDED"
+            session.add(orig_tx)
 
-        if commit:
-            await session.commit()
-        else:
+            # Rebalance and reinstate sales invoice if this was a direct invoice payment
+            if orig_tx.reference_doc_type in ("SALES_INVOICE", "POS_BILL") and orig_tx.reference_doc_id:
+                from ..models.sales import SalesInvoice
+                stmt_inv = (
+                    select(SalesInvoice)
+                    .where(
+                        SalesInvoice.id == orig_tx.reference_doc_id,
+                        SalesInvoice.company_id == company_id,
+                        SalesInvoice.is_deleted == False
+                    )
+                    .with_for_update()
+                )
+                inv = (await session.execute(stmt_inv)).scalars().first()
+                if inv:
+                    inv.paid_amount = max(Decimal("0.00"), Decimal(str(inv.paid_amount or 0.00)) - refund_req_amt)
+                    inv.balance_amount = max(Decimal("0.00"), Decimal(str(inv.grand_total or 0.00)) - inv.paid_amount)
+                    if inv.balance_amount > 0 and inv.status == "PAID":
+                        inv.status = "POSTED"
+                    session.add(inv)
+
             await session.flush()
 
-        remaining_balance = orig_amt - new_total_refunded
+            # Synchronous GL Posting for Refund
+            from .unified_ledger import UnifiedAccountingLedgerService
+            await UnifiedAccountingLedgerService.post_refund_transaction_to_gl(
+                session=session,
+                company_id=company_id,
+                refund_tx_id=refund_tx.id,
+                branch_id=orig_tx.branch_id,
+            )
+
+            if commit:
+                await session.commit()
+            else:
+                await session.flush()
+        except Exception:
+            if commit:
+                await session.rollback()
+            raise
+
+        remaining_balance = threshold_amt - new_total_refunded
 
         return PaymentRefundResponse(
             refund_transaction_id=refund_tx_id,

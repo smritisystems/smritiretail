@@ -63,6 +63,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "2022", "name": "Output SGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2023", "name": "Output IGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2050", "name": "Customer Advance Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
+    {"code": "2060", "name": "Customer Credit Note & Wallet Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
 
     # 3000 - Equity
     {"code": "3000", "name": "Equity", "type": "EQUITY", "root": "EQUITY", "is_group": True, "parent": None},
@@ -1452,6 +1453,28 @@ class UnifiedAccountingLedgerService:
                 "remarks": f"Customer Advance Liability incurred ({payment.transaction_no})"
             })
             voucher_type = "PAYMENT_RECEIPT"
+        elif tender_type in ("CREDIT_NOTE", "WALLET", "STORE_CREDIT"):
+            # P2.5 Customer Credit Note / Wallet Settlement:
+            # Debit: Customer Credit Note & Wallet Liability (2060) = Amount
+            # Credit: Accounts Receivable / Debtors (1030) = Amount
+            # Cash in Hand (1010) and Bank Accounts (1020) are NOT touched.
+            acc_credit_liability = await cls.get_account_by_code(session, company_id, "2060")
+            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+            lines.append({
+                "account_id": acc_credit_liability.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Store credit / wallet redeemed ({payment.transaction_no})"
+            })
+            lines.append({
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Receivable settlement via store credit ({payment.transaction_no})"
+            })
+            voucher_type = "PAYMENT_RECEIPT"
         else:
             # Customer settlement (PAYMENT_RECEIPT)
             acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
@@ -1585,6 +1608,124 @@ class UnifiedAccountingLedgerService:
             reference_doc_no=f"ALLOC-{alloc.id[:10]}",
             narration=f"Advance knock-off {pt.transaction_no} to Invoice {inv_no}",
             created_by=alloc.created_by or pt.created_by
+        )
+
+    @classmethod
+    async def post_refund_transaction_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        refund_tx_id: str,
+        branch_id: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        Translates a PaymentTransaction (refund) into an authoritative double-entry GL voucher:
+        Customer Advance Refund:
+            Debit: Customer Advance Liability (2050) = Amount
+            Credit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+        Sales Invoice Payment Refund / Return Payout:
+            Debit: Accounts Receivable / Debtors (1030) = Amount
+            Credit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+        """
+        stmt = select(PaymentTransaction).where(
+            PaymentTransaction.id == refund_tx_id,
+            PaymentTransaction.company_id == company_id,
+            PaymentTransaction.is_deleted == False
+        )
+        refund = (await session.execute(stmt)).scalar_one_or_none()
+        if not refund:
+            raise HTTPException(status_code=404, detail=f"Refund transaction {refund_tx_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_id == refund_tx_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        tender_type = (refund.tender_type or "CASH").upper()
+        if tender_type == "CASH":
+            tender_account = await cls.get_account_by_code(session, company_id, "1010")
+        else:
+            tender_account = await cls.get_account_by_code(session, company_id, "1020")
+
+        amount = Decimal(str(refund.amount or 0.00)).quantize(Decimal("0.01"))
+        ref_type = (refund.reference_doc_type or "").upper()
+
+        orig_ref_type = None
+        if refund.reference_doc_id:
+            orig_stmt = select(PaymentTransaction.reference_doc_type, PaymentTransaction.party_id).where(
+                PaymentTransaction.id == refund.reference_doc_id,
+                PaymentTransaction.company_id == company_id
+            )
+            orig_row = (await session.execute(orig_stmt)).first()
+            if orig_row:
+                orig_ref_type = (orig_row[0] or "").upper()
+                if not refund.party_id:
+                    refund.party_id = orig_row[1]
+
+        party_id = refund.party_id
+        lines = []
+
+        if ref_type == "CUSTOMER_ADVANCE_REFUND" or orig_ref_type == "CUSTOMER_ADVANCE":
+            # Advance deposit refund:
+            # Debit: Customer Advance Liability (2050)
+            # Credit: Cash / Bank (1010 / 1020)
+            acc_adv_liability = await cls.get_account_by_code(session, company_id, "2050")
+            lines.append({
+                "account_id": acc_adv_liability.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Customer Advance Liability reversed on refund ({refund.transaction_no})"
+            })
+            lines.append({
+                "account_id": tender_account.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Advance refund disbursed via {tender_type} ({refund.transaction_no})"
+            })
+        else:
+            # Invoice payment refund / Return payout:
+            # Debit: Accounts Receivable / Debtors (1030)
+            # Credit: Cash / Bank (1010 / 1020)
+            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+            lines.append({
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Debtors debit reinstated on refund ({refund.transaction_no})"
+            })
+            lines.append({
+                "account_id": tender_account.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Refund disbursed via {tender_type} ({refund.transaction_no})"
+            })
+
+        refund_dt = getattr(refund, "captured_at", None) or getattr(refund, "created_at", None)
+        v_date = refund_dt.date() if isinstance(refund_dt, datetime) else (refund_dt or date.today())
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or refund.branch_id,
+            voucher_type="PAYMENT_REFUND",
+            voucher_date=v_date,
+            lines=lines,
+            reference_doc_type="PAYMENT_REFUND",
+            reference_doc_id=refund.id,
+            reference_doc_no=refund.transaction_no,
+            narration=f"Automated GL posting for Refund {refund.transaction_no} via {tender_type}",
+            created_by=refund.created_by
         )
 
     @classmethod
