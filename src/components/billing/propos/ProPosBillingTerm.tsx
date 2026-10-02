@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ProPosCartItem, ProPosCustomer, ProPosTenderSplit, SuspendedBill, CancelledBillRecord, ReturnItem, POSZReportData, ShiftCashMovementRecord } from "./types.ts";
+import { ProPosCartItem, ProPosCustomer, ProPosTenderSplit, SuspendedBill, CancelledBillRecord, ReturnItem, POSZReportData, ShiftCashMovementRecord, POSTenderItem, CustomerWalletBalanceResponse } from "./types.ts";
 import { SmritiPosSettlement } from "./ProPosSettlementDl.tsx";
 import { SmritiProPosRecallDlg } from "./ProPosRecallDlg.tsx";
 import { SmritiProPosCancelDlg } from "./ProPosCancellation.tsx";
@@ -312,6 +312,20 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       SmritiSalesPromotionService.ensureReliance4376Promotion();
     }
     setCustomer(enrichedCustomer);
+
+    // Fetch live customer store credit / wallet balance if identified customer
+    if (nextCustomer.id && nextCustomer.id !== "cust-01" && nextCustomer.code !== "C01") {
+      apiFetchV1<CustomerWalletBalanceResponse>(`/pos/customer-wallet/${nextCustomer.id}`)
+        .then(walletRes => {
+          if (walletRes) {
+            setCustomer(prev => ({
+              ...prev,
+              availableWalletBalance: Number(walletRes.available_wallet_balance || 0),
+            }));
+          }
+        })
+        .catch(() => {});
+    }
 
     // Alt+M Mid-Bill Customer Switch: Re-evaluate promotions and pricing basis across all active cart lines
     const isCustomerSwitch = prevCustomer.id !== enrichedCustomer.id || prevCustomer.code !== enrichedCustomer.code || prevCustomer.pricingBasis !== enrichedCustomer.pricingBasis;
@@ -959,7 +973,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     );
     const baseSale = cartItems.reduce((acc, it) => acc + (it.unitPrice * it.qty), 0);
     const itemDiscounts = cartItems.reduce((acc, it) => acc + (it.discountAmt || 0), 0);
-    
+
     return SmritiSalesFactorService.calculateBillFactors({
       baseSaleAmount: baseSale,
       itemPromotionalDiscount: itemDiscounts,
@@ -1643,7 +1657,11 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   };
 
   // Settlement Success
-  const handleSettlementSuccess = async (tenders: ProPosTenderSplit, changeDue: number) => {
+  const handleSettlementSuccess = async (
+    tenders: ProPosTenderSplit,
+    changeDue: number,
+    tenderItems?: POSTenderItem[]
+  ) => {
     const generatedBillNo = (billDocPrefix.endsWith("/") || billDocPrefix.endsWith("-"))
       ? `${billDocPrefix}${billDocNumber}`
       : `${billDocPrefix}-${billDocNumber}`;
@@ -1671,13 +1689,32 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       return;
     }
 
-    const paymentMode = tenders.credit > 0
-      ? "CREDIT"
-      : tenders.card >= tenders.cash && tenders.card >= tenders.upi
-        ? "CARD"
-        : tenders.upi > tenders.cash
-          ? "UPI"
-          : "CASH";
+    // Build granular backend tenders array
+    let backendTenders: POSTenderItem[] = [];
+    if (tenderItems && tenderItems.length > 0) {
+      backendTenders = tenderItems.filter(t => t.amount > 0);
+    } else {
+      if (tenders.cash > 0) backendTenders.push({ tender_type: "CASH", amount: tenders.cash });
+      if (tenders.card > 0) backendTenders.push({ tender_type: "CARD", amount: tenders.card, reference_no: tenders.cardAuthCode || tenders.cardLast4 });
+      if (tenders.upi > 0) backendTenders.push({ tender_type: "UPI", amount: tenders.upi, reference_no: tenders.upiRef });
+      if ((tenders.wallet ?? 0) > 0) backendTenders.push({ tender_type: "STORE_CREDIT", amount: tenders.wallet!, reference_no: tenders.walletRef });
+      if (tenders.creditNote > 0) backendTenders.push({ tender_type: "CREDIT_NOTE", amount: tenders.creditNote, reference_no: tenders.creditNoteNo });
+      if (tenders.giftVoucher > 0) backendTenders.push({ tender_type: "WALLET", amount: tenders.giftVoucher, reference_no: tenders.voucherCode });
+      if (tenders.credit > 0) backendTenders.push({ tender_type: "CREDIT", amount: tenders.credit });
+    }
+
+    // Compute payment mode: SPLIT if multiple tenders, specific tender if single, fallback to dominant
+    const paymentMode = backendTenders.length > 1
+      ? "SPLIT"
+      : backendTenders.length === 1
+        ? backendTenders[0].tender_type
+        : (tenders.credit > 0
+          ? "CREDIT"
+          : tenders.card >= tenders.cash && tenders.card >= tenders.upi
+            ? "CARD"
+            : tenders.upi > tenders.cash
+              ? "UPI"
+              : "CASH");
 
     try {
       const response = await apiFetchV1<{
@@ -1685,6 +1722,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         invoice_id: string;
         grand_total: number;
         tax_total: number;
+        payment_mode: string;
+        paid_amount?: number;
+        balance_amount?: number;
+        change_amount?: number;
       }>("/pos/checkout", {
         method: "POST",
         headers: { "Idempotency-Key": generatedBillNo },
@@ -1695,6 +1736,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           grand_total: netPayableAmount,
           customer_id: (customer.id === "cust-01" || customer.code === "C01" || !customer.id) ? undefined : customer.id,
           customer_name: customer.name,
+          tenders: backendTenders.length > 0 ? backendTenders : undefined,
           remarks: documentRemarks || undefined,
           delivery_instructions: deliveryInstructions || undefined,
           billing_location_id: selectedBillingLocation?.id,
@@ -1737,6 +1779,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         }),
       });
 
+      const effectiveChangeDue = response.change_amount !== undefined && response.change_amount !== null
+        ? Number(response.change_amount)
+        : changeDue;
+
       const billRecord = {
         billNo: response.invoice_no,
         billDate: new Date().toISOString().slice(0, 10),
@@ -1748,7 +1794,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         taxTotal: response.tax_total,
         netPayable: response.grand_total,
         tenders,
-        changeDue,
+        changeDue: effectiveChangeDue,
       };
 
       setLastCompletedBill(billRecord);
@@ -1968,14 +2014,14 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
   return (
     <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden font-sans select-none">
-      
+
       {/* ========================================================================= */}
       {/* 0. POS ACTIVITIES TOOLBAR RIBBON (Alt+1, Alt+2, Alt+3, Alt+5, Alt+6, etc.) */}
       {/* ===========================================      {/* ========================================================================= */}
       {/* 0. POS ACTIVITIES TOOLBAR & SUB-BAR (Alt+1..6, F9, F7, F10, Alt+H)        */}
       {/* ========================================================================= */}
       <div className="bg-[#edeae1] dark:bg-[#131b2e] px-3 py-1.5 border-b border-[#c4c5d5] dark:border-[#444653] flex flex-wrap items-center justify-between gap-2 shrink-0">
-        
+
         {/* Left: Standard Desktop POS Action Buttons */}
         <div className="flex items-center gap-1.5">
           <button
@@ -2189,7 +2235,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       {/* 1. HEADER GROUP: Bill Type, Tx Type, Doc Prefix, Customer, Staff (Clean)  */}
       {/* ========================================================================= */}
       <section className="bg-white dark:bg-[#131b2e] px-4 py-2 border-b border-[#c4c5d5] dark:border-[#444653] shrink-0 flex flex-wrap gap-3 items-center shadow-2xs text-xs">
-        
+
         {/* Bill Type */}
         <div className="flex items-center gap-1.5">
           <label className="font-bold text-[#444653] dark:text-[#bec6e0] whitespace-nowrap">
@@ -2265,6 +2311,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               <UserPlus size={12} />
               <span>Add</span>
             </button>
+            {customer.availableWalletBalance !== undefined && customer.availableWalletBalance > 0 && (
+              <span className="px-2 h-7 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs whitespace-nowrap" title="Available Store Credit / Wallet Balance">
+                <Coins size={12} className="text-amber-600" />
+                <span>Wallet: ₹{customer.availableWalletBalance.toFixed(2)}</span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -2293,10 +2345,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       {/* 2. DETAIL GROUP: Item Details Grid (Top) + Direct Entry Grid (Bottom)     */}
       {/* ========================================================================= */}
       <main className="flex-1 flex overflow-hidden p-2 gap-2">
-        
+
         {/* Left Side: Dual-Grid Workspace (Top Grid + Bottom Docked Strip) */}
         <div className="flex-1 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-lg overflow-hidden flex flex-col shadow-xs">
-          
+
           {/* Top: Item Details Grid (10 Rows) */}
           <div className="overflow-auto flex-1 bg-white dark:bg-[#131b2e]">
             <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[1020px]">
@@ -2653,7 +2705,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         {/* Right Side: Exclusive Net Values Summary Panel (Shoper 9 Parity, Toggle with F9) */}
         {showTotalsPanel && (
           <div className="w-60 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-lg p-2.5 flex flex-col gap-1.5 shrink-0 shadow-xs relative">
-            
+
             {/* Collapse Arrow Tab */}
             <button
               type="button"
@@ -2758,10 +2810,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       {/* 3. FOOTER GROUP: 9-Box Dashboard Ribbon + Status Bar                      */}
       {/* ========================================================================= */}
       <footer className="bg-white dark:bg-[#131b2e] border-t border-[#c4c5d5] dark:border-[#444653] shadow-lg flex flex-col shrink-0">
-        
+
         {/* Shoper 9 Parity: 9 Metric Summary Boxes */}
         <div className="grid grid-cols-3 md:grid-cols-9 bg-[#555e68] dark:bg-[#1e293b] text-white divide-x divide-white/20 text-center">
-          
+
           <div className="flex flex-col py-1.5 px-1">
             <span className="text-[9px] uppercase tracking-wider opacity-80">No. of Items</span>
             <span className="text-sm font-mono font-bold">{totalItemsCount}</span>
@@ -3211,4 +3263,3 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 };
 
 export default SmritiProPosBillingTerminal;
-
