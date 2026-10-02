@@ -212,8 +212,23 @@ Exit Code: 0 (0 errors)
 
 ## 9. Verification Results
 - 31/31 automated tests green across all procurement & accounting integration suites.
-- 0 TypeScript compiler errors.
+- 0 TypeScript compiler errors (`npx tsc --noEmit` exit code 0).
 - Version SSOT validated across `package.json`, `backend/app/core/config.py`, `src/config/version.ts`, and `CHANGELOG.md` at `6.49.6`.
+
+### Headless Verification Screenshots (Chrome Headless Mode)
+All visual verifications were captured programmatically via Playwright headless Chromium (`channel="chrome"`, `headless=True`) with zero interactive browser windows:
+
+1. **Vendor 360 Directory & Supplier Payables Overview:**
+   ![Vendor 360 Directory](./evidence/01_vendor_360_directory.png)
+
+2. **Vendor Detail 360 Profile:**
+   ![Vendor Detail Overview](./evidence/02_vendor_360_detail_overview.png)
+
+3. **Vendor Payables & Aging Subledger Analysis:**
+   ![Vendor Payables and Aging](./evidence/03_vendor_payables_and_aging.png)
+
+4. **Purchase & PO Workspace:**
+   ![Purchase Workspace](./evidence/04_purchase_workspace.png)
 
 ---
 
