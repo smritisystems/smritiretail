@@ -37,7 +37,7 @@ from ..models.accounting import (
 )
 from ..models.sales import SalesInvoice, SalesReturn, SalesReturnItem
 from ..models.purchase import PurchaseReceipt
-from ..models.payment_ledger import PaymentTransaction
+from ..models.payment_ledger import PaymentTransaction, PaymentAllocation
 from ..models.inventory import Product, StockAudit
 from ..models.profitability import ProductCostValuation, TransactionCostSnapshot
 from ..models.pos import Shift
@@ -62,6 +62,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "2021", "name": "Output CGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2022", "name": "Output SGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2023", "name": "Output IGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
+    {"code": "2050", "name": "Customer Advance Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
 
     # 3000 - Equity
     {"code": "3000", "name": "Equity", "type": "EQUITY", "root": "EQUITY", "is_group": True, "parent": None},
@@ -1431,6 +1432,26 @@ class UnifiedAccountingLedgerService:
                 "remarks": f"Tender {tender_type} disbursed for {ref_type} {payment.reference_doc_id}"
             })
             voucher_type = "SUPPLIER_PAYMENT"
+        elif ref_type == "CUSTOMER_ADVANCE":
+            # P2.4 Customer Advance Payment Receipt:
+            # Debit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+            # Credit: Customer Advance Liability (2050) = Amount
+            acc_adv_liability = await cls.get_account_by_code(session, company_id, "2050")
+            lines.append({
+                "account_id": tender_account.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Advance tender {tender_type} received ({payment.transaction_no})"
+            })
+            lines.append({
+                "account_id": acc_adv_liability.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Customer Advance Liability incurred ({payment.transaction_no})"
+            })
+            voucher_type = "PAYMENT_RECEIPT"
         else:
             # Customer settlement (PAYMENT_RECEIPT)
             acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
@@ -1464,6 +1485,106 @@ class UnifiedAccountingLedgerService:
             reference_doc_id=payment.id,
             reference_doc_no=payment.transaction_no,
             narration=f"Automated GL posting for Payment {payment.transaction_no} via {tender_type}"
+        )
+
+    @classmethod
+    async def post_payment_allocation_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        allocation_id: str,
+        branch_id: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        Translates a PaymentAllocation of a Customer Advance into an authoritative double-entry GL voucher:
+        Debit: Customer Advance Liability (2050) = Allocated Amount
+        Credit: Accounts Receivable / Debtors (1030) = Allocated Amount
+        Cash in Hand (1010) and Bank Accounts (1020) are NOT touched.
+        """
+        stmt = (
+            select(PaymentAllocation)
+            .where(
+                PaymentAllocation.id == allocation_id,
+                PaymentAllocation.company_id == company_id,
+                PaymentAllocation.is_deleted == False
+            )
+        )
+        alloc = (await session.execute(stmt)).scalar_one_or_none()
+        if not alloc:
+            raise HTTPException(status_code=404, detail=f"Payment allocation {allocation_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "PAYMENT_ALLOCATION",
+            JournalVoucher.reference_doc_id == allocation_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        # Fetch parent payment transaction
+        stmt_pt = (
+            select(PaymentTransaction)
+            .where(
+                PaymentTransaction.id == alloc.payment_id,
+                PaymentTransaction.company_id == company_id,
+                PaymentTransaction.is_deleted == False
+            )
+        )
+        pt = (await session.execute(stmt_pt)).scalar_one_or_none()
+        if not pt:
+            raise HTTPException(status_code=404, detail=f"Payment transaction {alloc.payment_id} not found.")
+
+        # Fetch invoice to get customer party_id and invoice_no
+        stmt_inv = select(SalesInvoice).where(
+            SalesInvoice.id == alloc.invoice_id,
+            SalesInvoice.company_id == company_id
+        )
+        inv = (await session.execute(stmt_inv)).scalar_one_or_none()
+        party_id = pt.party_id or (inv.customer_id if inv else None)
+        inv_no = inv.invoice_no if inv else alloc.invoice_id
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_adv_liability = await cls.get_account_by_code(session, company_id, "2050")
+        acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+
+        amount = Decimal(str(alloc.allocated_amount or 0.00)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_adv_liability.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Advance knock-off from {pt.transaction_no} against Invoice {inv_no}"
+            },
+            {
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Receivable settlement via advance {pt.transaction_no}"
+            }
+        ]
+
+        alloc_dt = getattr(alloc, "settled_at", None) or getattr(alloc, "created_at", None)
+        v_date = alloc_dt.date() if isinstance(alloc_dt, datetime) else (alloc_dt or date.today())
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or alloc.branch_id or pt.branch_id,
+            voucher_type="JOURNAL",
+            voucher_date=v_date,
+            lines=lines,
+            reference_doc_type="PAYMENT_ALLOCATION",
+            reference_doc_id=alloc.id,
+            reference_doc_no=f"ALLOC-{alloc.id[:10]}",
+            narration=f"Advance knock-off {pt.transaction_no} to Invoice {inv_no}",
+            created_by=alloc.created_by or pt.created_by
         )
 
     @classmethod

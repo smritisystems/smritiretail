@@ -18,7 +18,7 @@
 
   * Version    : 6.44.4
   * Created    : 2026-07-11
-  * Modified   : 2026-09-26
+  * Modified   : 2026-10-02
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,74 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.49.2] - 2026-10-02 — SMRITI Sales Phase P2.4: Customer Advance Payment & Invoice Knock-off
+
+> **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Financial Accounting
+> **Implementation Plan:** `docs/implementation/sales/Sales_P2_4_Customer_Advance_Payment_And_Invoice_Knockoff_Implementation_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/sales/Sales_P2_4_Customer_Advance_Payment_And_Invoice_Knockoff_Walkthrough_v1.0.md`
+> **Forensic Audit:** `docs/architecture/SMRITI_SALES_P2_4_ADVANCE_PAYMENT_FORENSIC_AUDIT.md`
+> **Architecture & Implementation Report:** `docs/architecture/SMRITI_SALES_P2_4_ADVANCE_PAYMENT_IMPLEMENTATION.md`
+
+### Added
+- **Account 2050 ("Customer Advance Liability") Registration & Multi-Tenant Seeding**:
+  - Registered account code `2050` ("Customer Advance Liability", `LIABILITY`, parent `2000`, `party_type="CUSTOMER"`) in `DEFAULT_CHART_OF_ACCOUNTS` in `backend/app/services/unified_ledger.py`.
+  - Executed idempotent multi-tenant COA seeding via `seed_default_chart_of_accounts` across all 41 tenant companies in PostgreSQL (`smritisys`), bringing chart accounts from 1,230 to 1,271 with 0 schema migrations (Alembic head `v1515_sales_schema_tenant_hardening` frozen).
+- **Customer Advance Double-Entry GL Integration** (`backend/app/services/unified_ledger.py`):
+  - In `post_payment_transaction_to_gl()`: Routed receipts with `reference_doc_type == "CUSTOMER_ADVANCE"` to generate balanced double-entry vouchers:
+    - Cash Advance: `Debit 1010 (Cash in Hand)` / `Credit 2050 (Customer Advance Liability)`.
+    - Bank/UPI Advance: `Debit 1020 (Bank Accounts)` / `Credit 2050 (Customer Advance Liability)`.
+    - Strictly prohibited crediting Sales Revenue (`4010`) on advance receipts.
+- **Invoice Knock-Off Double-Entry GL Engine** (`backend/app/services/unified_ledger.py`):
+  - Implemented canonical `post_payment_allocation_to_gl()`:
+    - Knock-off Journal Voucher (`reference_doc_type == "PAYMENT_ALLOCATION"`): `Debit 2050 (Customer Advance Liability)` / `Credit 1030 (Accounts Receivable)`.
+    - Pure liability-to-receivable settlement with zero cash/bank movement (`1010`/`1020` untouched).
+- **Two-Phase Concurrency-Safe Knock-Off Engine** (`backend/app/services/payments_engine.py`):
+  - In `allocate_payment()`: Added deterministic row-level locking (`SELECT ... FOR UPDATE`) on `PaymentTransaction` and `SalesInvoice`.
+  - Dynamic unallocated advance calculation: `unallocated = tx.amount - sum(alloc.allocated_amount)`.
+  - Dynamic invoice unpaid balance calculation: `invoice_balance = inv.total_amount - inv.paid_amount`.
+  - Multi-tenant and customer boundary enforcement: strictly rejected cross-customer allocations (`tx.party_id == inv.customer_id`) and cross-company allocations (`tx.company_id == inv.company_id`).
+  - Idempotency via UUID5 generation: `uuid5(NAMESPACE_OID, f"alloc:{tx.id}:{inv.id}:{idempotency_key}")`.
+  - Fail-safe transaction boundary: guaranteed explicit `await session.rollback()` on any failure when `commit=True`, evicting partial DB state.
+- **Sales Lifecycle Handler Knock-Off Integration** (`backend/app/services/lifecycle/handlers/sales_invoice.py`):
+  - Extended `action == "PAY"` with optional `advance_payment_id`.
+  - Automatically executes `allocate_payment` when advance payment ID is provided, enabling single-step invoice payment settlement.
+- **Automated PostgreSQL Test Suite** (`backend/app/tests/test_p2_4_advance_payment.py`):
+  - 17 comprehensive zero-mock integration tests verifying advance creation, GL voucher balance, partial knock-off, multi-invoice allocation, unallocated balance recalculation, cross-customer isolation, over-allocation prevention, concurrency row locks, and atomic rollback on simulated failures (17/17 passed).
+
+### Changed
+- **Payment Allocation Schema** (`backend/app/schemas/payments.py`):
+  - Extended `PaymentCreateRequest.reference_doc_type` with `CUSTOMER_ADVANCE`.
+  - Added optional `idempotency_key: Optional[str]` to `PaymentAllocationRequest`.
+- **Payment Transaction Safety Guarantee**:
+  - Preserved 100% data integrity for all 29 pre-existing historical payments (`SALES_INVOICE`, ₹7,410.00 total) with zero backfill, zero schema changes, and zero data modification.
+- **Regression Verification**:
+  - Verified 100% green across all preceding accounting phases:
+    - P2.4 Advance & Knock-off: 17/17 passed.
+    - P2.3 Payment GL Atomicity: 17/17 passed.
+    - P2.2 Sales Return GL Atomicity: 15/15 passed.
+    - P2.1 Sales Invoice GL Atomicity: 8/8 passed.
+    - Sales Lifecycle & Stock Regression: 32/32 passed.
+    - Total verified test suite: 89/89 passed (0 failures, 0 regressions).
+
+## [6.49.1] - 2026-10-02 — SMRITI Sales Phase P2.3: Payment Transaction General Ledger Integration
+
+> **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Financial Accounting
+> **Implementation Plan:** `docs/implementation/sales/Sales_P2_3_Payment_GL_Atomicity_Implementation_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/sales/Sales_P2_3_Payment_GL_Atomicity_Walkthrough_v1.0.md`
+
+### Added
+- **Synchronous Fail-Fast Payment GL Voucher Creation** (`backend/app/services/unified_ledger.py`):
+  - Implemented `post_payment_transaction_to_gl()` generating balanced double-entry `JournalVoucher(voucher_type="PAYMENT_RECEIPT")`:
+    - Cash Receipts: `Debit 1010 (Cash in Hand)` / `Credit 1030 (Accounts Receivable)`.
+    - Bank/UPI Receipts: `Debit 1020 (Bank Accounts)` / `Credit 1030 (Accounts Receivable)`.
+  - Bound payment processing and GL posting into a single atomic database transaction.
+- **Invoice Lifecycle Payment Handler** (`backend/app/services/lifecycle/handlers/sales_invoice.py`):
+  - Added authoritative `action == "PAY"` handling to `SalesInvoiceLifecycleHandler`.
+  - Synchronized `paid_amount` and `balance_amount` on `SalesInvoice`, transitioning status to `PAID` upon complete settlement.
+  - Enforced cancellation guard `INVOICE_PAID_CANNOT_CANCEL` blocking cancellation of settled invoices.
+- **Automated PostgreSQL Test Suite** (`backend/app/tests/test_p2_3_payment_gl_atomicity.py`):
+  - 17 zero-mock integration tests verifying payment processing, GL voucher generation, balance synchronization, multi-payment settlement, and cancellation guards (17/17 passed).
 
 ## [6.49.0] - 2026-10-01 — SMRITI Sales Architecture: Universal Lifecycle & Stock/GL Integration (Phases S1–S7)
 

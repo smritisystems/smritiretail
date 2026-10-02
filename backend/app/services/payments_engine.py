@@ -150,109 +150,114 @@ class PaymentsEngine:
         now = datetime.now(timezone.utc)
         date_str = now.strftime("%Y%m%d")
 
-        for idx, tender in enumerate(req.tenders, start=1):
-            tender_amt = Decimal(str(tender.amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            if tender_amt <= 0:
-                raise ValueError("Tender amount must be greater than zero.")
+        try:
+            for idx, tender in enumerate(req.tenders, start=1):
+                tender_amt = Decimal(str(tender.amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                if tender_amt <= 0:
+                    raise ValueError("Tender amount must be greater than zero.")
 
-            tx_id = IdentityEngine.generate_technical_id()
-            tx_no = f"PAY-{date_str}-{uuid.uuid4().hex[:6].upper()}"
-            sub_idempotency_key = f"{clean_key}_{idx}" if len(req.tenders) > 1 else clean_key
+                tx_id = IdentityEngine.generate_technical_id()
+                tx_no = f"PAY-{date_str}-{uuid.uuid4().hex[:6].upper()}"
+                sub_idempotency_key = f"{clean_key}_{idx}" if len(req.tenders) > 1 else clean_key
 
-            tx = PaymentTransaction(
-                id=tx_id,
-                company_id=company_id,
-                branch_id=req.branch_id,
-                transaction_no=tx_no,
-                reference_doc_type=req.reference_doc_type,
-                reference_doc_id=req.reference_doc_id,
-                party_id=req.party_id,
-                tender_type=tender.tender_type.upper(),
-                amount=tender_amt,
-                currency=req.currency,
-                idempotency_key=sub_idempotency_key,
-                status="SUCCESS",
-                gateway_reference=tender.gateway_reference,
-                captured_at=now,
-                is_active=True,
-                is_deleted=False,
-                created_by=created_by,
-            )
-            session.add(tx)
-
-            # Ingest external processor gateway reference into alias bridge via IdentityEngine
-            if tender.gateway_reference and str(tender.gateway_reference).strip():
-                clean_gw = str(tender.gateway_reference).strip()
-                source_sys = _resolve_gateway_source_system(tender)
-                await IdentityEngine.register_alias(
-                    session=session,
-                    entity_type="PAYMENT_TRANSACTION",
-                    entity_id=tx_id,
-                    alias_code=clean_gw,
-                    alias_type="GATEWAY_REF",
-                    source_system=source_sys,
-                    canonical_identity_code=None,
+                tx = PaymentTransaction(
+                    id=tx_id,
                     company_id=company_id,
                     branch_id=req.branch_id,
-                    notes=f"Payment gateway reference ({tender.tender_type})",
-                    created_by=created_by,
-                )
-
-            if req.auto_allocate:
-                alloc = PaymentAllocation(
-                    id=IdentityEngine.generate_technical_id(),
-                    company_id=company_id,
-                    branch_id=req.branch_id,
-                    payment_id=tx_id,
-                    invoice_id=req.reference_doc_id,
-                    allocated_amount=tender_amt,
-                    discount_allowed=Decimal("0.00"),
-                    settled_at=now,
+                    transaction_no=tx_no,
+                    reference_doc_type=req.reference_doc_type,
+                    reference_doc_id=req.reference_doc_id,
+                    party_id=req.party_id,
+                    tender_type=tender.tender_type.upper(),
+                    amount=tender_amt,
+                    currency=req.currency,
+                    idempotency_key=sub_idempotency_key,
+                    status="SUCCESS",
+                    gateway_reference=tender.gateway_reference,
+                    captured_at=now,
                     is_active=True,
                     is_deleted=False,
                     created_by=created_by,
                 )
-                session.add(alloc)
+                session.add(tx)
 
-                # Synchronize invoice balance if authoritative sales invoice exists
-                if req.reference_doc_type in ("SALES_INVOICE", "POS_BILL") and req.reference_doc_id:
-                    from ..models.sales import SalesInvoice
-                    inv_match = (
-                        await session.execute(
-                            select(SalesInvoice)
-                            .where(
-                                SalesInvoice.id == req.reference_doc_id,
-                                SalesInvoice.company_id == company_id,
-                                SalesInvoice.is_deleted == False
+                # Ingest external processor gateway reference into alias bridge via IdentityEngine
+                if tender.gateway_reference and str(tender.gateway_reference).strip():
+                    clean_gw = str(tender.gateway_reference).strip()
+                    source_sys = _resolve_gateway_source_system(tender)
+                    await IdentityEngine.register_alias(
+                        session=session,
+                        entity_type="PAYMENT_TRANSACTION",
+                        entity_id=tx_id,
+                        alias_code=clean_gw,
+                        alias_type="GATEWAY_REF",
+                        source_system=source_sys,
+                        canonical_identity_code=None,
+                        company_id=company_id,
+                        branch_id=req.branch_id,
+                        notes=f"Payment gateway reference ({tender.tender_type})",
+                        created_by=created_by,
+                    )
+
+                if req.auto_allocate:
+                    alloc = PaymentAllocation(
+                        id=IdentityEngine.generate_technical_id(),
+                        company_id=company_id,
+                        branch_id=req.branch_id,
+                        payment_id=tx_id,
+                        invoice_id=req.reference_doc_id,
+                        allocated_amount=tender_amt,
+                        discount_allowed=Decimal("0.00"),
+                        settled_at=now,
+                        is_active=True,
+                        is_deleted=False,
+                        created_by=created_by,
+                    )
+                    session.add(alloc)
+
+                    # Synchronize invoice balance if authoritative sales invoice exists
+                    if req.reference_doc_type in ("SALES_INVOICE", "POS_BILL") and req.reference_doc_id:
+                        from ..models.sales import SalesInvoice
+                        inv_match = (
+                            await session.execute(
+                                select(SalesInvoice)
+                                .where(
+                                    SalesInvoice.id == req.reference_doc_id,
+                                    SalesInvoice.company_id == company_id,
+                                    SalesInvoice.is_deleted == False
+                                )
+                                .with_for_update()
                             )
-                            .with_for_update()
-                        )
-                    ).scalars().first()
-                    if inv_match:
-                        cur_paid = Decimal(str(inv_match.paid_amount or "0.00"))
-                        new_paid = cur_paid + tender_amt
-                        inv_match.paid_amount = new_paid
-                        inv_match.balance_amount = max(Decimal("0.00"), Decimal(str(inv_match.grand_total or "0.00")) - new_paid)
-                        if inv_match.balance_amount == Decimal("0.00"):
-                            inv_match.status = "PAID"
-                        session.add(inv_match)
+                        ).scalars().first()
+                        if inv_match:
+                            cur_paid = Decimal(str(inv_match.paid_amount or "0.00"))
+                            new_paid = cur_paid + tender_amt
+                            inv_match.paid_amount = new_paid
+                            inv_match.balance_amount = max(Decimal("0.00"), Decimal(str(inv_match.grand_total or "0.00")) - new_paid)
+                            if inv_match.balance_amount == Decimal("0.00"):
+                                inv_match.status = "PAID"
+                            session.add(inv_match)
 
-            created_txs.append(tx)
+                created_txs.append(tx)
 
-        # Synchronous Payment Receipt GL (BD-03)
-        from .unified_ledger import UnifiedAccountingLedgerService
-        for tx in created_txs:
-            await UnifiedAccountingLedgerService.post_payment_transaction_to_gl(
-                session=session,
-                company_id=company_id,
-                payment_id=tx.id,
-                branch_id=tx.branch_id,
-            )
+            # Synchronous Payment Receipt GL (BD-03)
+            from .unified_ledger import UnifiedAccountingLedgerService
+            for tx in created_txs:
+                await UnifiedAccountingLedgerService.post_payment_transaction_to_gl(
+                    session=session,
+                    company_id=company_id,
+                    payment_id=tx.id,
+                    branch_id=tx.branch_id,
+                )
 
-        if commit:
-            await session.commit()
-        else:
-            await session.flush()
+            if commit:
+                await session.commit()
+            else:
+                await session.flush()
+        except Exception:
+            if commit:
+                await session.rollback()
+            raise
 
         # Re-fetch created transactions with allocations loaded
         tx_ids = [t.id for t in created_txs]
@@ -408,23 +413,53 @@ class PaymentsEngine:
         """
         Distributes unallocated balance of a payment across an invoice.
         """
-        stmt_pay = select(PaymentTransaction).where(
-            PaymentTransaction.id == payment_id,
-            PaymentTransaction.company_id == company_id,
-            PaymentTransaction.is_deleted == False
+        stmt_pay = (
+            select(PaymentTransaction)
+            .where(
+                PaymentTransaction.id == payment_id,
+                PaymentTransaction.company_id == company_id,
+                PaymentTransaction.is_deleted == False
+            )
+            .with_for_update()
         )
         tx = (await session.execute(stmt_pay)).scalars().first()
         if not tx:
             raise ValueError(f"Payment transaction '{payment_id}' not found.")
+
+        if tx.status != "SUCCESS":
+            raise ValueError(f"Payment transaction '{payment_id}' with status '{tx.status}' is not eligible for allocation.")
+
+        # Idempotency check if idempotency_key provided
+        alloc_id = None
+        if getattr(req, "idempotency_key", None):
+            alloc_id = f"pal_{uuid.uuid5(uuid.NAMESPACE_DNS, f'{company_id}_{payment_id}_{req.idempotency_key}').hex[:20]}"
+            stmt_existing_alloc = select(PaymentAllocation).where(
+                PaymentAllocation.id == alloc_id,
+                PaymentAllocation.company_id == company_id,
+                PaymentAllocation.is_deleted == False
+            )
+            existing_alloc = (await session.execute(stmt_existing_alloc)).scalars().first()
+            if existing_alloc:
+                return PaymentAllocationDetail(
+                    id=existing_alloc.id,
+                    payment_id=existing_alloc.payment_id,
+                    invoice_id=existing_alloc.invoice_id,
+                    allocated_amount=float(existing_alloc.allocated_amount),
+                    discount_allowed=float(existing_alloc.discount_allowed or 0.0),
+                    settled_at=existing_alloc.settled_at,
+                )
+
+        alloc_req_amt = Decimal(str(req.allocated_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        tx_amt = Decimal(str(tx.amount))
+
+        if alloc_req_amt <= Decimal("0.00"):
+            raise ValueError("Allocation amount must be greater than zero.")
 
         stmt_alloc = select(func.coalesce(func.sum(PaymentAllocation.allocated_amount), 0)).where(
             PaymentAllocation.payment_id == payment_id,
             PaymentAllocation.is_deleted == False
         )
         already_allocated = Decimal(str(await session.scalar(stmt_alloc) or 0.00))
-
-        alloc_req_amt = Decimal(str(req.allocated_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        tx_amt = Decimal(str(tx.amount))
 
         if already_allocated + alloc_req_amt > tx_amt:
             unalloc = tx_amt - already_allocated
@@ -443,49 +478,75 @@ class PaymentsEngine:
             .with_for_update()
         )
         inv = (await session.execute(stmt_inv)).scalars().first()
-        if inv:
-            if inv.company_id != company_id:
-                raise ValueError(f"Cross-company allocation forbidden: invoice '{req.invoice_id}' belongs to company '{inv.company_id}', not '{company_id}'.")
-            inv_bal = Decimal(str(inv.balance_amount)) if (inv.balance_amount is not None and (Decimal(str(inv.balance_amount)) > 0 or (inv.paid_amount and Decimal(str(inv.paid_amount)) > 0))) else Decimal(str(inv.grand_total or 0.00))
-            if alloc_req_amt > inv_bal:
-                raise ValueError(
-                    f"Allocation amount ₹{alloc_req_amt} exceeds invoice outstanding balance ₹{inv_bal}."
-                )
+        if not inv:
+            raise ValueError(f"Sales invoice '{req.invoice_id}' not found.")
+
+        if inv.company_id != company_id:
+            raise ValueError(f"Cross-company allocation forbidden: invoice '{req.invoice_id}' belongs to company '{inv.company_id}', not '{company_id}'.")
+
+        if inv.status in ("CANCELLED", "VOID"):
+            raise ValueError(f"Invoice '{inv.invoice_no}' is {inv.status} and cannot receive payments or allocations.")
+
+        if tx.party_id and inv.customer_id and str(tx.party_id).strip() != str(inv.customer_id).strip():
+            raise ValueError(f"Customer mismatch: payment belongs to customer '{tx.party_id}', but invoice belongs to '{inv.customer_id}'.")
+
+        inv_bal = Decimal(str(inv.balance_amount)) if (inv.balance_amount is not None and (Decimal(str(inv.balance_amount)) > 0 or (inv.paid_amount and Decimal(str(inv.paid_amount)) > 0))) else Decimal(str(inv.grand_total or 0.00))
+        if alloc_req_amt > inv_bal:
+            raise ValueError(
+                f"Allocation amount ₹{alloc_req_amt} exceeds invoice outstanding balance ₹{inv_bal}."
+            )
+        try:
             inv.paid_amount = Decimal(str(inv.paid_amount or 0.00)) + alloc_req_amt
             inv.balance_amount = max(Decimal("0.00"), Decimal(str(inv.grand_total or 0.00)) - inv.paid_amount)
             if inv.balance_amount == Decimal("0.00"):
                 inv.status = "PAID"
             session.add(inv)
 
-        now = datetime.now(timezone.utc)
-        alloc = PaymentAllocation(
-            id=f"pal_{uuid.uuid4().hex[:12]}",
-            company_id=company_id,
-            branch_id=tx.branch_id,
-            payment_id=tx.id,
-            invoice_id=req.invoice_id,
-            allocated_amount=alloc_req_amt,
-            discount_allowed=Decimal(str(req.discount_allowed or 0.0)),
-            settled_at=now,
-            is_active=True,
-            is_deleted=False,
-            created_by=created_by,
-        )
-        session.add(alloc)
+            now = datetime.now(timezone.utc)
+            if not alloc_id:
+                alloc_id = f"pal_{uuid.uuid4().hex[:12]}"
 
-        # Synchronous Payment Receipt GL (BD-03)
-        from .unified_ledger import UnifiedAccountingLedgerService
-        await UnifiedAccountingLedgerService.post_payment_transaction_to_gl(
-            session=session,
-            company_id=company_id,
-            payment_id=tx.id,
-            branch_id=tx.branch_id,
-        )
-
-        if commit:
-            await session.commit()
-        else:
+            alloc = PaymentAllocation(
+                id=alloc_id,
+                company_id=company_id,
+                branch_id=tx.branch_id,
+                payment_id=tx.id,
+                invoice_id=req.invoice_id,
+                allocated_amount=alloc_req_amt,
+                discount_allowed=Decimal(str(req.discount_allowed or 0.0)),
+                settled_at=now,
+                is_active=True,
+                is_deleted=False,
+                created_by=created_by,
+            )
+            session.add(alloc)
             await session.flush()
+
+            # Synchronous Payment / Advance Knock-Off GL
+            from .unified_ledger import UnifiedAccountingLedgerService
+            if tx.reference_doc_type == "CUSTOMER_ADVANCE":
+                await UnifiedAccountingLedgerService.post_payment_allocation_to_gl(
+                    session=session,
+                    company_id=company_id,
+                    allocation_id=alloc.id,
+                    branch_id=tx.branch_id,
+                )
+            else:
+                await UnifiedAccountingLedgerService.post_payment_transaction_to_gl(
+                    session=session,
+                    company_id=company_id,
+                    payment_id=tx.id,
+                    branch_id=tx.branch_id,
+                )
+
+            if commit:
+                await session.commit()
+            else:
+                await session.flush()
+        except Exception:
+            if commit:
+                await session.rollback()
+            raise
 
         return PaymentAllocationDetail(
             id=alloc.id,
