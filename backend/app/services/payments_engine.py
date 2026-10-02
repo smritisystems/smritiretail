@@ -186,20 +186,37 @@ class PaymentsEngine:
                         raise ValueError(f"Customer '{effective_cust_id}' not found for company '{company_id}'.")
 
                     # Calculate available credit balance
+                    # Semantic Boundary (Phase 1):
+                    # - Genuine wallet credit: entry_type == "CREDIT" (from returns, customer credits, top-ups)
+                    # - Genuine wallet consumption: entry_type == "DEBIT" recorded by the modern wallet engine
+                    #   (identified by "wallet redemption" in notes, wallet reference types, or compound reference_id)
+                    # - Historical SALES_INVOICE credit sales (legacy customer receivables) are excluded so that
+                    #   old credit purchases do not produce artificial negative wallet balances or block store credit.
                     stmt_credit = select(
                         func.coalesce(
                             func.sum(
                                 case(
                                     (CustomerCreditLedgerEntry.entry_type == "CREDIT", CustomerCreditLedgerEntry.amount),
-                                    else_=-CustomerCreditLedgerEntry.amount
+                                    (
+                                        and_(
+                                            CustomerCreditLedgerEntry.entry_type == "DEBIT",
+                                            or_(
+                                                CustomerCreditLedgerEntry.notes.ilike("%wallet redemption%"),
+                                                CustomerCreditLedgerEntry.reference_type.in_(("WALLET_REDEMPTION", "STORE_CREDIT", "WALLET")),
+                                                CustomerCreditLedgerEntry.reference_id.like("%:%"),
+                                            ),
+                                        ),
+                                        -CustomerCreditLedgerEntry.amount,
+                                    ),
+                                    else_=Decimal("0.00"),
                                 )
                             ),
-                            0
+                            0,
                         )
                     ).where(
                         CustomerCreditLedgerEntry.customer_id == effective_cust_id,
                         CustomerCreditLedgerEntry.company_id == company_id,
-                        CustomerCreditLedgerEntry.is_deleted == False
+                        CustomerCreditLedgerEntry.is_deleted == False,
                     )
                     avail_credit = Decimal(str(await session.scalar(stmt_credit) or 0.00))
 

@@ -1298,3 +1298,183 @@ async def test_wallet_payment_idempotency_regression(db_session):
     assert Decimal(str(debits[0].amount)) == Decimal("400.00")
     assert Decimal(str(debits[0].balance_after)) == Decimal("600.00")
 
+
+async def test_historical_credit_sale_does_not_block_modern_wallet_redemption(db_session):
+    """
+    Phase 1 Closure Test: Historical Credit Sale Semantic Boundary.
+    Verifies that historical SALES_INVOICE credit sales (legacy receivables / udhar)
+    do NOT reduce modern available store credit / wallet balance.
+    Setup:
+    - Customer has legacy credit-sale DEBIT of Rs. 1,500.00 (notes='Credit sale posted')
+    - Customer receives genuine store-credit return CREDIT of Rs. 1,000.00
+    Expected:
+    - Available wallet balance is Rs. 1,000.00 (NOT negative Rs. 500.00)
+    - Customer can successfully redeem Rs. 600.00 via WALLET
+    - Remaining available credit is Rs. 400.00
+    - Attempting to redeem Rs. 500.00 (exceeding Rs. 400.00) is rejected
+    - Historical DEBIT entry remains completely untouched
+    """
+    suffix = uuid.uuid4().hex[:8]
+    company, branch, user, customer, tenant_ctx = await _setup_tenant_and_actor(db_session, suffix)
+    company_id = company.id
+    prod = await _setup_product(db_session, suffix, company_id, branch.id, stock=50, price=200.00)
+    invoice = await _setup_posted_invoice(db_session, tenant_ctx, user, customer, prod, suffix, qty=5, unit_price=200.00)
+
+    # 1. Historical credit-sale entry (legacy receivable)
+    hist_entry = CustomerCreditLedgerEntry(
+        id=f"ccle-hist-{suffix}",
+        company_id=company_id,
+        branch_id=branch.id,
+        customer_id=customer.id,
+        entry_date=datetime.now(timezone.utc),
+        entry_type="DEBIT",
+        amount=Decimal("1500.00"),
+        balance_after=Decimal("1500.00"),
+        reference_type="SALES_INVOICE",
+        reference_id=f"inv-legacy-{suffix}",
+        notes="Credit sale posted",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(hist_entry)
+
+    # 2. Modern store-credit return credit note
+    credit_entry = CustomerCreditLedgerEntry(
+        id=f"ccle-seed-{suffix}",
+        company_id=company_id,
+        branch_id=branch.id,
+        customer_id=customer.id,
+        entry_date=datetime.now(timezone.utc),
+        entry_type="CREDIT",
+        amount=Decimal("1000.00"),
+        balance_after=Decimal("1000.00"),
+        reference_type="SALES_RETURN_REFUND",
+        reference_id=f"RET-SEED-{suffix}",
+        notes="Store credit from return refund",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(credit_entry)
+    await db_session.commit()
+
+    # 3. Pay Rs. 600.00 using WALLET
+    pay_req = ProcessPaymentRequest(
+        reference_doc_type="SALES_INVOICE",
+        reference_doc_id=invoice.id,
+        party_id=customer.id,
+        branch_id=branch.id,
+        tenders=[PaymentTenderItem(tender_type="WALLET", amount=600.00)],
+        idempotency_key=f"PAY-HIST-SEMANTIC-{suffix}",
+        auto_allocate=True,
+    )
+    res = await PaymentsEngine.process_payment(
+        session=db_session,
+        company_id=company_id,
+        req=pay_req,
+        created_by=user.username,
+        commit=True,
+    )
+    assert res.transactions[0].status == "SUCCESS"
+    assert Decimal(str(res.transactions[0].amount)) == Decimal("600.00")
+
+    # 4. Attempt to pay Rs. 500.00 (exceeds remaining Rs. 400.00)
+    over_req = ProcessPaymentRequest(
+        reference_doc_type="SALES_INVOICE",
+        reference_doc_id=invoice.id,
+        party_id=customer.id,
+        branch_id=branch.id,
+        tenders=[PaymentTenderItem(tender_type="WALLET", amount=500.00)],
+        idempotency_key=f"PAY-HIST-OVER-{suffix}",
+        auto_allocate=True,
+    )
+    try:
+        await PaymentsEngine.process_payment(
+            session=db_session,
+            company_id=company_id,
+            req=over_req,
+            created_by=user.username,
+            commit=True,
+        )
+        assert False, "Expected ValueError on exceeding remaining credit"
+    except ValueError as e:
+        assert "exceeds available customer store credit" in str(e)
+
+
+async def test_triple_wallet_payments_same_invoice(db_session):
+    """
+    Phase 2 Closure Test: Triple Wallet Payments Against Same Invoice.
+    Tests Invoice A receiving three sequential wallet tenders:
+    Payment 1: Rs. 100.00
+    Payment 2: Rs. 200.00
+    Payment 3: Rs. 150.00
+    Verifies:
+    - All three create independent CustomerCreditLedgerEntry records
+    - None collide on unique constraint (reference_type, reference_id)
+    - All three reference f"{invoice.id}:{tx_id}"
+    - Total wallet debited = Rs. 450.00
+    """
+    suffix = uuid.uuid4().hex[:8]
+    company, branch, user, customer, tenant_ctx = await _setup_tenant_and_actor(db_session, suffix)
+    company_id = company.id
+    prod = await _setup_product(db_session, suffix, company_id, branch.id, stock=50, price=200.00)
+    invoice = await _setup_posted_invoice(db_session, tenant_ctx, user, customer, prod, suffix, qty=5, unit_price=200.00)
+
+    # Seed wallet credit of Rs. 1,000.00
+    credit_entry = CustomerCreditLedgerEntry(
+        id=f"ccle-seed-{suffix}",
+        company_id=company_id,
+        branch_id=branch.id,
+        customer_id=customer.id,
+        entry_date=datetime.now(timezone.utc),
+        entry_type="CREDIT",
+        amount=Decimal("1000.00"),
+        balance_after=Decimal("1000.00"),
+        reference_type="SALES_RETURN_REFUND",
+        reference_id=f"RET-SEED-{suffix}",
+        notes="Store credit seed",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(credit_entry)
+    await db_session.commit()
+
+    amounts = [100.00, 200.00, 150.00]
+    tx_ids = []
+    for idx, amt in enumerate(amounts):
+        pay_req = ProcessPaymentRequest(
+            reference_doc_type="SALES_INVOICE",
+            reference_doc_id=invoice.id,
+            party_id=customer.id,
+            branch_id=branch.id,
+            tenders=[PaymentTenderItem(tender_type="WALLET", amount=amt)],
+            idempotency_key=f"PAY-TRIPLE-{idx}-{suffix}",
+            auto_allocate=True,
+        )
+        res = await PaymentsEngine.process_payment(
+            session=db_session,
+            company_id=company_id,
+            req=pay_req,
+            created_by=user.username,
+            commit=True,
+        )
+        tx_ids.append(res.transactions[0].id)
+
+    assert len(tx_ids) == 3
+    assert len(set(tx_ids)) == 3
+
+    # Verify 3 debit entries created with unique reference_ids
+    stmt_debits = (
+        select(CustomerCreditLedgerEntry)
+        .where(
+            CustomerCreditLedgerEntry.customer_id == customer.id,
+            CustomerCreditLedgerEntry.entry_type == "DEBIT",
+            CustomerCreditLedgerEntry.company_id == company_id,
+            CustomerCreditLedgerEntry.reference_id.like(f"{invoice.id}:%"),
+        )
+        .order_by(CustomerCreditLedgerEntry.entry_date.asc())
+    )
+    debits = (await db_session.execute(stmt_debits)).scalars().all()
+    assert len(debits) == 3
+    ref_ids = [d.reference_id for d in debits]
+    assert len(set(ref_ids)) == 3
+    assert sum(Decimal(str(d.amount)) for d in debits) == Decimal("450.00")
