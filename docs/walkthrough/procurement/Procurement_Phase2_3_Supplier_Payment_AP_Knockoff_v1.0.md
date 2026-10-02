@@ -176,6 +176,18 @@ python scripts/validate_version_ssot.py
 [PASS] Version SSOT consistent across all boundaries: 6.49.5
 ```
 
+### Headless Verification Screenshots
+The following UI verification screenshots were captured headlessly via Playwright Chromium without an interactive browser window (`scripts/capture_procurement_headless_evidence.py`):
+
+1. **Vendor Payables & Aging Ledger:**
+![Vendor Payables & Aging](./evidence/03_vendor_payables_and_aging.png)
+
+2. **Vendor 360 Detail Overview:**
+![Vendor Detail Overview](./evidence/02_vendor_360_detail_overview.png)
+
+3. **Purchase Orders Workspace:**
+![Purchase Workspace](./evidence/04_purchase_workspace.png)
+
 ---
 
 ## 9. Verification Results
