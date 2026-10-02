@@ -699,9 +699,10 @@ class CanonicalSalesPostingWriter:
             )]
 
         total_paid = Decimal("0.00")
-        if tenders_to_process:
+        payment_tenders_to_send = [t for t in tenders_to_process if t.tender_type.upper() != "CREDIT"]
+        if payment_tenders_to_send:
             payment_tenders: List[PaymentTenderItem] = []
-            for t in tenders_to_process:
+            for t in payment_tenders_to_send:
                 t_amt = Decimal(str(t.amount))
                 total_paid += t_amt
                 payment_tenders.append(

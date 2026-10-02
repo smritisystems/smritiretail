@@ -158,7 +158,11 @@ class UnifiedSalesLedgerService:
             )
             stock_movements.append(movement)
 
-            # 4. Stock reconciliation handled by trigger on stock_movements
+            # 4. Stock reconciliation: update Product.stock directly (post-v1489 application-managed inventory)
+            prod_stmt = select(Product).where(Product.id == product_id, Product.company_id == company_id)
+            prod_row = (await session.execute(prod_stmt)).scalar_one_or_none()
+            if prod_row:
+                prod_row.stock = float(Decimal(str(prod_row.stock or 0)) - qty)
 
             # 5. Decrement Batch Stock if applicable
             if batch_no:

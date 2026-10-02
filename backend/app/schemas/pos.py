@@ -285,6 +285,30 @@ class POSCheckoutItem(BaseModel):
     salesperson_name: Optional[str] = None
 
 
+class POSTenderItem(BaseModel):
+    """
+    Individual payment tender in a multi-tender or split POS checkout.
+    """
+    tender_type:  str               = Field(..., description="CASH, CARD, UPI, CREDIT, WALLET, STORE_CREDIT, CREDIT_NOTE")
+    amount:       Decimal           = Field(..., gt=Decimal("0.00"), description="Tender amount")
+    reference_no: Optional[str]     = Field(None, max_length=100, description="Card last 4, UPI UTR, or voucher reference")
+    notes:        Optional[str]     = Field(None, max_length=255, description="Tender remarks or notes")
+
+
+class CustomerWalletBalanceResponse(BaseModel):
+    """
+    Authoritative customer store credit / wallet balance for POS cashier terminal.
+    """
+    customer_id:              str
+    customer_name:            Optional[str] = None
+    available_wallet_balance: Decimal       = Decimal("0.00")
+    total_credit_issued:      Decimal       = Decimal("0.00")
+    total_wallet_redeemed:    Decimal       = Decimal("0.00")
+    credit_limit:             Optional[Decimal] = None
+    current_outstanding:      Optional[Decimal] = None
+    model_config = {"from_attributes": True}
+
+
 class POSCheckoutRequest(BaseModel):
     """
     Full POS checkout payload.
@@ -296,10 +320,11 @@ class POSCheckoutRequest(BaseModel):
     invoice_no:           str
     shift_id:             str
     items:                List[POSCheckoutItem] = Field(..., min_length=1)
-    payment_mode:         str                  = "CASH"   # CASH | CARD | UPI | CREDIT
+    payment_mode:         str                  = "CASH"   # CASH | CARD | UPI | CREDIT | SPLIT
     grand_total:          Decimal                          # client display total; server re-computes
     customer_id:          Optional[str]        = None
     customer_name:        Optional[str]        = None
+    tenders:              Optional[List[POSTenderItem]] = None  # Multi-tender / split payment list
     billing_location_id:  Optional[str]        = None
     billing_store_code:   Optional[str]        = None
     billing_address:      Optional[str]        = None
@@ -323,12 +348,15 @@ class POSCheckoutResponse(BaseModel):
     cached=True means the invoice_no was already in the database —
     idempotency path, no stock was deducted a second time.
     """
-    success:      bool
-    cached:       bool    = False
-    invoice_no:   str
-    invoice_id:   str
-    grand_total:  Decimal
-    tax_total:    Decimal
-    payment_mode: str
-    shift_id:     Optional[str] = None
+    success:        bool
+    cached:         bool    = False
+    invoice_no:     str
+    invoice_id:     str
+    grand_total:    Decimal
+    tax_total:      Decimal
+    payment_mode:   str
+    shift_id:       Optional[str] = None
+    paid_amount:    Optional[Decimal] = None
+    balance_amount: Optional[Decimal] = None
+    change_amount:  Optional[Decimal] = None
     model_config = {"from_attributes": True}

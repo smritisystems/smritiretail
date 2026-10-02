@@ -19,6 +19,7 @@ Founders
 
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 import uuid
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +34,7 @@ from ...schemas.pos import (
     POSProfileCreate, POSProfileResponse,
     ShiftOpen, ShiftClose, ShiftResponse, POSZReportResponse,
     ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest, ShiftCashTransactionResponse,
-    POSCheckoutRequest, POSCheckoutResponse,
+    POSCheckoutRequest, POSCheckoutResponse, CustomerWalletBalanceResponse,
 )
 
 
@@ -257,6 +258,9 @@ async def pos_checkout(
     """
     result = await POSService(db, tenant).pos_checkout(req)
     inv = result["invoice"]
+    paid = Decimal(str(inv.paid_amount or "0.00"))
+    gt = Decimal(str(inv.grand_total or "0.00"))
+    change = max(Decimal("0.00"), paid - gt)
     return POSCheckoutResponse(
         success=True,
         cached=result["cached"],
@@ -266,7 +270,26 @@ async def pos_checkout(
         tax_total=inv.tax_total,
         payment_mode=inv.payment_mode,
         shift_id=inv.shift_id,
+        paid_amount=inv.paid_amount,
+        balance_amount=inv.balance_amount,
+        change_amount=change,
     )
+
+
+@router.get(
+    "/pos/customer-wallet/{customer_id}",
+    response_model=CustomerWalletBalanceResponse,
+    summary="Get Customer Wallet Balance",
+    description="Returns available store credit, total issued, total redeemed, and credit limits for a customer.",
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def get_customer_wallet_balance(
+    customer_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Query real-time store credit / wallet balance for POS checkout tender."""
+    return await POSService(db, tenant).get_customer_wallet_balance(customer_id)
 
 # ─────────────────────────── POS Profiles (v3.22.0) ───────────────────────────
 
