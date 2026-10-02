@@ -1606,10 +1606,15 @@ class UnifiedAccountingLedgerService:
         if not payment:
             raise HTTPException(status_code=404, detail=f"Supplier payment {payment_id} not found.")
 
+        is_advance = bool(
+            payment.notes and ("__PAYMENT_TYPE__:ADVANCE" in payment.notes or "__PAYMENT_TYPE__: ADVANCE" in payment.notes)
+        )
+        v_type = "SUPPLIER_ADVANCE" if is_advance else "SUPPLIER_PAYMENT"
+
         # Idempotency guard: return existing voucher if already posted
         existing_stmt = select(JournalVoucher).where(
             JournalVoucher.company_id == company_id,
-            JournalVoucher.reference_doc_type == "SUPPLIER_PAYMENT",
+            JournalVoucher.reference_doc_type.in_([v_type, "SUPPLIER_PAYMENT"]),
             JournalVoucher.reference_doc_id == payment_id,
             JournalVoucher.is_deleted == False,
         )
@@ -1619,26 +1624,36 @@ class UnifiedAccountingLedgerService:
 
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
-        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        supp_stmt = select(Supplier).where(Supplier.id == payment.supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (payment.supplier_id or "Supplier")
+
         mode = (payment.payment_mode or "CASH").upper()
         if mode == "CASH":
             acc_disbursement = await cls.get_account_by_code(session, company_id, "1010")
         else:
             acc_disbursement = await cls.get_account_by_code(session, company_id, "1020")
 
-        supp_stmt = select(Supplier).where(Supplier.id == payment.supplier_id, Supplier.company_id == company_id)
-        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
-        supp_name = supplier.name if supplier else (payment.supplier_id or "Supplier")
-
         amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
+
+        if is_advance:
+            # Supplier Advance Prepayment: Debit 2050 (Supplier Advance Liability)
+            acc_target = await cls.get_account_by_code(session, company_id, "2050")
+            target_remarks = f"Supplier advance disbursement to {supp_name} for Payment {payment.id}"
+            v_narration = f"Supplier advance disbursement to {supp_name} via {mode}"
+        else:
+            # Standard Bill Settlement: Debit 2010 (Accounts Payable / Creditors)
+            acc_target = await cls.get_account_by_code(session, company_id, "2010")
+            target_remarks = f"Payable settlement to {supp_name} for Payment {payment.id}"
+            v_narration = f"Supplier payment to {supp_name} via {mode}"
 
         lines = [
             {
-                "account_id": acc_creditors.id,
+                "account_id": acc_target.id,
                 "party_id": payment.supplier_id,
                 "debit_amount": amount,
                 "credit_amount": Decimal("0.00"),
-                "remarks": f"Payable settlement to {supp_name} for Payment {payment.id}",
+                "remarks": target_remarks,
             },
             {
                 "account_id": acc_disbursement.id,
@@ -1654,13 +1669,13 @@ class UnifiedAccountingLedgerService:
             session=session,
             company_id=company_id,
             branch_id=branch_id or payment.branch_id,
-            voucher_type="SUPPLIER_PAYMENT",
+            voucher_type=v_type,
             voucher_date=p_date,
             lines=lines,
             reference_doc_type="SUPPLIER_PAYMENT",
             reference_doc_id=payment.id,
             reference_doc_no=payment.reference_no or payment.id,
-            narration=f"Supplier payment to {supp_name} via {mode}",
+            narration=v_narration,
             created_by=created_by,
         )
 
@@ -1678,8 +1693,12 @@ class UnifiedAccountingLedgerService:
     ) -> Optional[JournalVoucher]:
         """
         Translates a cancelled SupplierPayment into an authoritative reversing GL voucher:
-        Debit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
-        Credit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
+        For standard payments:
+            Debit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+            Credit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
+        For advance payments:
+            Debit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+            Credit: Supplier Advance Liability (2050) = Amount (party_id = supplier_id)
         """
         from ..models.supplier_payment import SupplierPayment
         stmt = (
@@ -1690,10 +1709,16 @@ class UnifiedAccountingLedgerService:
         if not payment:
             raise HTTPException(status_code=404, detail=f"Supplier payment {payment_id} not found.")
 
+        is_advance = bool(
+            payment.notes and ("__PAYMENT_TYPE__:ADVANCE" in payment.notes or "__PAYMENT_TYPE__: ADVANCE" in payment.notes)
+        )
+        v_type = "SUPPLIER_ADVANCE" if is_advance else "SUPPLIER_PAYMENT"
+        cancel_v_type = "SUPPLIER_ADVANCE_CANCEL" if is_advance else "SUPPLIER_PAYMENT_CANCEL"
+
         # Check if original payment voucher was ever posted
         orig_stmt = select(JournalVoucher).where(
             JournalVoucher.company_id == company_id,
-            JournalVoucher.reference_doc_type == "SUPPLIER_PAYMENT",
+            JournalVoucher.reference_doc_type.in_([v_type, "SUPPLIER_PAYMENT"]),
             JournalVoucher.reference_doc_id == payment_id,
             JournalVoucher.is_deleted == False,
         )
@@ -1704,7 +1729,7 @@ class UnifiedAccountingLedgerService:
         # Idempotency guard: return existing cancellation voucher if already posted
         existing_stmt = select(JournalVoucher).where(
             JournalVoucher.company_id == company_id,
-            JournalVoucher.reference_doc_type == "SUPPLIER_PAYMENT_CANCEL",
+            JournalVoucher.reference_doc_type == cancel_v_type,
             JournalVoucher.reference_doc_id == payment_id,
             JournalVoucher.is_deleted == False,
         )
@@ -1714,7 +1739,6 @@ class UnifiedAccountingLedgerService:
 
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
-        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
         mode = (payment.payment_mode or "CASH").upper()
         if mode == "CASH":
             acc_disbursement = await cls.get_account_by_code(session, company_id, "1010")
@@ -1727,6 +1751,13 @@ class UnifiedAccountingLedgerService:
 
         amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
 
+        if is_advance:
+            acc_target = await cls.get_account_by_code(session, company_id, "2050")
+            target_remarks = f"Reversal of advance disbursement for {supp_name}"
+        else:
+            acc_target = await cls.get_account_by_code(session, company_id, "2010")
+            target_remarks = f"Reversal of payable settlement for {supp_name}"
+
         lines = [
             {
                 "account_id": acc_disbursement.id,
@@ -1735,11 +1766,11 @@ class UnifiedAccountingLedgerService:
                 "remarks": f"Reversal of disbursement via {mode} for Cancelled Payment {payment.id}",
             },
             {
-                "account_id": acc_creditors.id,
+                "account_id": acc_target.id,
                 "party_id": payment.supplier_id,
                 "debit_amount": Decimal("0.00"),
                 "credit_amount": amount,
-                "remarks": f"Reversal of payable settlement for {supp_name}",
+                "remarks": target_remarks,
             },
         ]
 
@@ -1747,10 +1778,10 @@ class UnifiedAccountingLedgerService:
             session=session,
             company_id=company_id,
             branch_id=branch_id or payment.branch_id,
-            voucher_type="SUPPLIER_PAYMENT_CANCEL",
+            voucher_type=cancel_v_type,
             voucher_date=date.today(),
             lines=lines,
-            reference_doc_type="SUPPLIER_PAYMENT_CANCEL",
+            reference_doc_type=cancel_v_type,
             reference_doc_id=payment.id,
             reference_doc_no=payment.reference_no or payment.id,
             narration=f"Compensating reversal for Cancelled Supplier Payment {payment.id}. Reason: {reason or 'Payment cancellation'}",
@@ -1758,6 +1789,80 @@ class UnifiedAccountingLedgerService:
         )
 
         return voucher
+
+    @classmethod
+    async def post_supplier_advance_knockoff_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        advance_payment_id: str,
+        bill_id: str,
+        amount: Decimal,
+        bill_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a Supplier Advance knock-off against a confirmed Purchase Bill into
+        an authoritative double-entry GL voucher with ZERO cash movement:
+        Debit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
+        Credit: Supplier Advance Liability (2050) = Amount (party_id = supplier_id)
+        """
+        knockoff_ref_id = f"{advance_payment_id}_{bill_id}"
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SUPPLIER_ADVANCE_KNOCKOFF",
+            JournalVoucher.reference_doc_id == knockoff_ref_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_advance = await cls.get_account_by_code(session, company_id, "2050")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        k_amount = Decimal(str(amount or 0.00)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": k_amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Payable reduction via advance knock-off against Bill {bill_no or bill_id}",
+            },
+            {
+                "account_id": acc_advance.id,
+                "party_id": supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": k_amount,
+                "remarks": f"Supplier advance {advance_payment_id} knocked off for {supp_name}",
+            },
+        ]
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="JOURNAL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SUPPLIER_ADVANCE_KNOCKOFF",
+            reference_doc_id=knockoff_ref_id,
+            reference_doc_no=f"KNOCK-{bill_no or bill_id[:8]}",
+            narration=f"Advance knock-off from Payment {advance_payment_id} against Bill {bill_no or bill_id} for {supp_name}",
+            created_by=created_by,
+        )
+        return voucher
+
 
     @classmethod
     async def post_debit_note_to_gl(

@@ -9,7 +9,7 @@ Founders
 * Jawahar Ramkripal Mallah  — Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.49.5
+* Version    : 6.49.7
 * Created    : 2026-07-11
 * Modified   : 2026-10-02
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -22,7 +22,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole
-from ...schemas.supplier_payment import SupplierPaymentCreate, SupplierPaymentResponse
+from ...schemas.supplier_payment import (
+    SupplierPaymentCreate,
+    SupplierPaymentResponse,
+    SupplierAdvanceKnockoffRequest,
+    SupplierAdvanceKnockoffResponse,
+)
 from ...services.supplier_payment import SupplierPaymentService
 
 router = APIRouter()
@@ -91,4 +96,27 @@ async def cancel_payment(
     return await SupplierPaymentService(db, tenant).cancel_payment(
         payment_id=payment_id,
         reason=reason,
+    )
+
+
+@router.post(
+    "/supplier-payments/advance/knockoff",
+    response_model=SupplierAdvanceKnockoffResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def knockoff_advance(
+    req: SupplierAdvanceKnockoffRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Knock off an existing supplier advance payment against a confirmed purchase bill.
+    Posts DR 2010 (Accounts Payable) / CR 2050 (Supplier Advance Liability) with zero cash movement.
+    """
+    return await SupplierPaymentService(db, tenant).knockoff_advance(
+        supplier_id=req.supplier_id,
+        advance_payment_id=req.advance_payment_id,
+        bill_id=req.bill_id,
+        amount=req.amount,
+        user_id=tenant.user_id,
     )
