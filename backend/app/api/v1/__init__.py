@@ -61,5 +61,6 @@ from . import (
     kpi_registry,
     loyalty,
     lifecycle,
+    tds_compliance,
 )
 

@@ -26,13 +26,15 @@ import {
   Layers,
   Receipt,
   AlertTriangle,
-  Zap
+  Zap,
+  Landmark
 } from "lucide-react";
 import { VendorDetail, TdsVendorSummary } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 import { withCapability } from "../../../types/architecture";
 import { VendorAdvanceKnockoffModal, AdvanceRecord, BillRecord } from "./VendorAdvanceKnockoffModal";
 import { VendorStatementOfAccountModal } from "./VendorStatementOfAccountModal";
+import { VendorChallan281Modal } from "./VendorChallan281Modal";
 
 type AgingBucket = "CURRENT" | "OVERDUE_30" | "OVERDUE_60" | "OVERDUE_90" | "CRITICAL";
 
@@ -83,6 +85,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
   // Modal State
   const [isKnockoffModalOpen, setIsKnockoffModalOpen] = useState(false);
   const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
+  const [isChallanModalOpen, setIsChallanModalOpen] = useState(false);
   const [knockoffMode, setKnockoffMode] = useState<"single" | "batch">("batch");
   const [selectedInitialAdvanceId, setSelectedInitialAdvanceId] = useState<string | undefined>();
   const [selectedInitialBillId, setSelectedInitialBillId] = useState<string | undefined>();
@@ -349,6 +352,15 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
           )}
           <button
             type="button"
+            onClick={() => setIsChallanModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-bold text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 shadow-xs transition-colors"
+            title="Record Government Challan 281 Remittance and Export Form 26Q e-TDS Return"
+          >
+            <Landmark size={13} />
+            <span>🏛️ Challan 281 & Form 26Q</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setIsStatementModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-bold text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 shadow-xs transition-colors"
             title="View and Export Authoritative Vendor Statement of Account"
@@ -433,7 +445,11 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
         </div>
 
         {/* Card 4: Statutory TDS Withheld (Account 2030) */}
-        <div className="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-xs space-y-1">
+        <div
+          onClick={() => setIsChallanModalOpen(true)}
+          className="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-xs space-y-1 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-600 transition-all hover:shadow-md"
+          title="Click to open Government Challan 281 & Form 26Q Compliance Studio"
+        >
           <div className="flex items-center justify-between text-[11px] font-semibold text-indigo-800 dark:text-indigo-300">
             <span className="flex items-center gap-1.5">
               <Receipt size={14} className="text-indigo-600 dark:text-indigo-400" />
@@ -452,8 +468,8 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
           </div>
           <div className="flex items-center justify-between text-[10px] text-indigo-600/80 dark:text-indigo-400/80">
             <span>FY Withheld ({tdsSummary?.tds_deductions_count || 0} bills)</span>
-            <span className="font-medium">
-              {tdsSummary?.pan_valid ? `PAN: ${tdsSummary?.pan || vendor.pan || "Valid"}` : "No Valid PAN"}
+            <span className="font-bold underline text-indigo-700 dark:text-indigo-300">
+              Challan 281 Studio →
             </span>
           </div>
         </div>
@@ -674,6 +690,13 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
         onClose={() => setIsStatementModalOpen(false)}
         vendor={vendor}
         onNotification={onNotification}
+      />
+
+      {/* Government Challan 281 & Form 26Q Compliance Studio Modal */}
+      <VendorChallan281Modal
+        isOpen={isChallanModalOpen}
+        onClose={() => setIsChallanModalOpen(false)}
+        vendor={vendor}
       />
     </div>
   );

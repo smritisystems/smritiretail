@@ -98,6 +98,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "5060", "name": "Foreign Exchange Loss (Unrealized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5070", "name": "Cash Register Shortage (Deficit)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5080", "name": "Customer Loyalty & Reward Program Expense", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5090", "name": "Statutory Interest, Penalties & Compliance Fees", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
 ]
 
 
