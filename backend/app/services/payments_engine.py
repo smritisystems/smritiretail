@@ -246,6 +246,78 @@ class PaymentsEngine:
                     )
                     await session.flush()
 
+                # Customer loyalty points validation & pessimistic row-locked redemption (Phase P3)
+                elif tender.tender_type.upper() in ("LOYALTY", "LOYALTY_POINTS"):
+                    from ..models.loyalty import LoyaltyMember, LoyaltyPointsLedger, LoyaltyTier
+                    effective_cust_id = req.party_id
+                    if not effective_cust_id and req.reference_doc_id:
+                        from ..models.sales import SalesInvoice
+                        stmt_c = select(SalesInvoice.customer_id).where(
+                            SalesInvoice.id == req.reference_doc_id,
+                            SalesInvoice.company_id == company_id
+                        )
+                        effective_cust_id = await session.scalar(stmt_c)
+
+                    if not effective_cust_id:
+                        raise ValueError("Customer identification (party_id) is mandatory when tendering via LOYALTY / LOYALTY_POINTS.")
+
+                    # Phase P3: Acquire pessimistic row lock on LoyaltyMember record to prevent concurrent double-spend
+                    stmt_lm_lock = (
+                        select(LoyaltyMember)
+                        .where(
+                            LoyaltyMember.customer_id == effective_cust_id,
+                            LoyaltyMember.company_id == company_id,
+                            LoyaltyMember.is_deleted == False,
+                        )
+                        .with_for_update()
+                    )
+                    lm_locked = (await session.execute(stmt_lm_lock)).scalars().first()
+                    if not lm_locked:
+                        raise ValueError(f"Customer '{effective_cust_id}' is not enrolled in the loyalty program.")
+
+                    # Resolve redemption ratio: default 1 Point = ₹1.00 (or from member's tier)
+                    redemption_ratio = Decimal("1.00")
+                    if lm_locked.loyalty_tier_id:
+                        stmt_tier = select(LoyaltyTier.redemption_ratio).where(
+                            LoyaltyTier.id == lm_locked.loyalty_tier_id,
+                            LoyaltyTier.is_deleted == False,
+                        )
+                        t_ratio = await session.scalar(stmt_tier)
+                        if t_ratio and Decimal(str(t_ratio)) > 0:
+                            redemption_ratio = Decimal(str(t_ratio))
+
+                    # Points needed = tender_amt / redemption_ratio
+                    points_needed = (tender_amt / redemption_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    current_pts = Decimal(str(lm_locked.current_points_balance or "0.00"))
+                    avail_monetary_val = (current_pts * redemption_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+                    if tender_amt > avail_monetary_val or points_needed > current_pts:
+                        raise ValueError(
+                            f"Tender amount ₹{tender_amt:,.2f} ({points_needed:,.2f} pts) exceeds available customer loyalty balance ₹{avail_monetary_val:,.2f} ({current_pts:,.2f} pts)."
+                        )
+
+                    # Deduct points from LoyaltyMember
+                    lm_locked.current_points_balance = current_pts - points_needed
+                    lm_locked.total_points_redeemed = Decimal(str(lm_locked.total_points_redeemed or "0.00")) + points_needed
+
+                    # Record LoyaltyPointsLedger entry
+                    ts_now = now.replace(tzinfo=None) if now.tzinfo else now
+                    ledger_entry = LoyaltyPointsLedger(
+                        id=f"lpl-{uuid.uuid4().hex[:12]}",
+                        company_id=company_id,
+                        member_id=lm_locked.id,
+                        transaction_type="REDEEM",
+                        points=-points_needed,
+                        reference_invoice_id=req.reference_doc_id,
+                        narration=f"Loyalty points redemption ₹{tender_amt:,.2f} ({points_needed:,.2f} pts) via {tx_no}",
+                        timestamp=ts_now,
+                        created_by=created_by,
+                        is_active=True,
+                        is_deleted=False,
+                    )
+                    session.add(ledger_entry)
+                    await session.flush()
+
                 tx = PaymentTransaction(
                     id=tx_id,
                     company_id=company_id,
@@ -558,6 +630,49 @@ class PaymentsEngine:
                     if inv.balance_amount > 0 and inv.status == "PAID":
                         inv.status = "POSTED"
                     session.add(inv)
+
+            # Reinstate loyalty points if payment was made via LOYALTY or refund is issued as LOYALTY
+            if (orig_tx.tender_type in ("LOYALTY", "LOYALTY_POINTS") or refund_tender in ("LOYALTY", "LOYALTY_POINTS")) and orig_tx.party_id:
+                from ..models.loyalty import LoyaltyMember, LoyaltyPointsLedger, LoyaltyTier
+                stmt_lm_r = (
+                    select(LoyaltyMember)
+                    .where(
+                        LoyaltyMember.customer_id == orig_tx.party_id,
+                        LoyaltyMember.company_id == company_id,
+                        LoyaltyMember.is_deleted == False,
+                    )
+                    .with_for_update()
+                )
+                lm_r = (await session.execute(stmt_lm_r)).scalars().first()
+                if lm_r:
+                    r_ratio = Decimal("1.00")
+                    if lm_r.loyalty_tier_id:
+                        stmt_tier_r = select(LoyaltyTier.redemption_ratio).where(
+                            LoyaltyTier.id == lm_r.loyalty_tier_id,
+                            LoyaltyTier.is_deleted == False,
+                        )
+                        t_rat = await session.scalar(stmt_tier_r)
+                        if t_rat and Decimal(str(t_rat)) > 0:
+                            r_ratio = Decimal(str(t_rat))
+                    pts_to_reinstate = (refund_req_amt / r_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    lm_r.current_points_balance = Decimal(str(lm_r.current_points_balance or 0.00)) + pts_to_reinstate
+                    lm_r.total_points_redeemed = max(Decimal("0.00"), Decimal(str(lm_r.total_points_redeemed or 0.00)) - pts_to_reinstate)
+                    ts_now = now.replace(tzinfo=None) if now.tzinfo else now
+                    session.add(
+                        LoyaltyPointsLedger(
+                            id=f"lpl-{uuid.uuid4().hex[:12]}",
+                            company_id=company_id,
+                            member_id=lm_r.id,
+                            transaction_type="REVERSAL",
+                            points=pts_to_reinstate,
+                            reference_invoice_id=orig_tx.reference_doc_id,
+                            narration=f"Loyalty points refunded/reinstated {pts_to_reinstate:,.2f} pts (₹{refund_req_amt:,.2f}) via {refund_tx_no}",
+                            timestamp=ts_now,
+                            created_by=created_by,
+                            is_active=True,
+                            is_deleted=False,
+                        )
+                    )
 
             await session.flush()
 

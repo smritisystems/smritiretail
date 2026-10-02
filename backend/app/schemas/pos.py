@@ -289,7 +289,7 @@ class POSTenderItem(BaseModel):
     """
     Individual payment tender in a multi-tender or split POS checkout.
     """
-    tender_type:  str               = Field(..., description="CASH, CARD, UPI, CREDIT, WALLET, STORE_CREDIT, CREDIT_NOTE")
+    tender_type:  str               = Field(..., description="CASH, CARD, UPI, CREDIT, WALLET, STORE_CREDIT, CREDIT_NOTE, LOYALTY, LOYALTY_POINTS")
     amount:       Decimal           = Field(..., gt=Decimal("0.00"), description="Tender amount")
     reference_no: Optional[str]     = Field(None, max_length=100, description="Card last 4, UPI UTR, or voucher reference")
     notes:        Optional[str]     = Field(None, max_length=255, description="Tender remarks or notes")
@@ -306,6 +306,23 @@ class CustomerWalletBalanceResponse(BaseModel):
     total_wallet_redeemed:    Decimal       = Decimal("0.00")
     credit_limit:             Optional[Decimal] = None
     current_outstanding:      Optional[Decimal] = None
+    model_config = {"from_attributes": True}
+
+
+class CustomerLoyaltyBalanceResponse(BaseModel):
+    """
+    Authoritative customer loyalty points balance and monetary value for POS cashier terminal.
+    """
+    customer_id:              str
+    customer_name:            Optional[str] = None
+    is_enrolled:              bool          = False
+    member_id:                Optional[str] = None
+    card_number:              Optional[str] = None
+    current_points_balance:   Decimal       = Decimal("0.00")
+    redemption_ratio:         Decimal       = Decimal("1.00")
+    available_monetary_value: Decimal       = Decimal("0.00")
+    total_points_earned:      Decimal       = Decimal("0.00")
+    total_points_redeemed:    Decimal       = Decimal("0.00")
     model_config = {"from_attributes": True}
 
 

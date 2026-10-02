@@ -1258,6 +1258,8 @@ class POSService:
             total_tender_amt = Decimal("0.00")
             has_wallet_tender = False
             wallet_tender_amt = Decimal("0.00")
+            has_loyalty_tender = False
+            loyalty_tender_amt = Decimal("0.00")
             for t in req.tenders:
                 t_amt = Decimal(str(t.amount)).quantize(Decimal("0.01"))
                 if t_amt <= Decimal("0.00"):
@@ -1269,6 +1271,9 @@ class POSService:
                 if t_type in ("WALLET", "STORE_CREDIT", "CREDIT_NOTE"):
                     has_wallet_tender = True
                     wallet_tender_amt += t_amt
+                elif t_type in ("LOYALTY", "LOYALTY_POINTS"):
+                    has_loyalty_tender = True
+                    loyalty_tender_amt += t_amt
                 total_tender_amt += t_amt
                 tenders.append(
                     CanonicalTenderItem(
@@ -1291,6 +1296,25 @@ class POSService:
                     raise HTTPException(
                         status_code=400,
                         detail=f"Tender amount ₹{wallet_tender_amt:,.2f} exceeds available customer store credit / wallet balance ₹{avail:,.2f}."
+                    )
+
+            if has_loyalty_tender:
+                if not req.customer_id:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Customer identification (customer_id) is mandatory when tendering via LOYALTY / LOYALTY_POINTS."
+                    )
+                loyalty_info = await self.get_customer_loyalty_balance(req.customer_id)
+                if not loyalty_info.get("is_enrolled"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Customer '{req.customer_id}' is not enrolled in the loyalty program."
+                    )
+                avail_monetary = loyalty_info["available_monetary_value"]
+                if loyalty_tender_amt > avail_monetary:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Tender amount ₹{loyalty_tender_amt:,.2f} exceeds available customer loyalty points balance ₹{avail_monetary:,.2f} ({loyalty_info['current_points_balance']:,.2f} pts)."
                     )
 
             if len(tenders) > 1:
@@ -1439,6 +1463,71 @@ class POSService:
             "total_wallet_redeemed": total_redeemed,
             "credit_limit": getattr(cust, "credit_limit", None),
             "current_outstanding": Decimal(str(cust.outstanding or "0.00")),
+        }
+
+    async def get_customer_loyalty_balance(self, customer_id: str) -> dict:
+        """
+        Calculates authoritative available loyalty points balance and monetary value for a customer.
+        """
+        from ..models.crm import Customer
+        from ..models.loyalty import LoyaltyMember, LoyaltyTier
+
+        stmt_cust = select(Customer).where(
+            Customer.id == customer_id,
+            Customer.company_id == self.tenant.company_id,
+            Customer.is_deleted == False,
+        )
+        cust = (await self.db.execute(stmt_cust)).scalars().first()
+        if not cust:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Customer '{customer_id}' not found."
+            )
+
+        stmt_lm = select(LoyaltyMember).where(
+            LoyaltyMember.customer_id == customer_id,
+            LoyaltyMember.company_id == self.tenant.company_id,
+            LoyaltyMember.is_deleted == False,
+        )
+        lm = (await self.db.execute(stmt_lm)).scalars().first()
+        if not lm:
+            return {
+                "customer_id": cust.id,
+                "customer_name": cust.name,
+                "is_enrolled": False,
+                "member_id": None,
+                "card_number": None,
+                "current_points_balance": Decimal("0.00"),
+                "redemption_ratio": Decimal("1.00"),
+                "available_monetary_value": Decimal("0.00"),
+                "total_points_earned": Decimal("0.00"),
+                "total_points_redeemed": Decimal("0.00"),
+            }
+
+        ratio = Decimal("1.00")
+        if lm.loyalty_tier_id:
+            stmt_tier = select(LoyaltyTier.redemption_ratio).where(
+                LoyaltyTier.id == lm.loyalty_tier_id,
+                LoyaltyTier.is_deleted == False,
+            )
+            t_ratio = await self.db.scalar(stmt_tier)
+            if t_ratio and Decimal(str(t_ratio)) > 0:
+                ratio = Decimal(str(t_ratio))
+
+        pts = Decimal(str(lm.current_points_balance or 0.00)).quantize(Decimal("0.01"))
+        monetary_val = (pts * ratio).quantize(Decimal("0.01"))
+
+        return {
+            "customer_id": cust.id,
+            "customer_name": cust.name,
+            "is_enrolled": True,
+            "member_id": lm.id,
+            "card_number": lm.card_number,
+            "current_points_balance": pts,
+            "redemption_ratio": ratio,
+            "available_monetary_value": max(Decimal("0.00"), monetary_val),
+            "total_points_earned": Decimal(str(lm.total_points_earned or 0.00)).quantize(Decimal("0.01")),
+            "total_points_redeemed": Decimal(str(lm.total_points_redeemed or 0.00)).quantize(Decimal("0.01")),
         }
 
 
