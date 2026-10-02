@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ProPosCartItem, ProPosCustomer, ProPosTenderSplit, SuspendedBill, CancelledBillRecord, ReturnItem, POSZReportData, ShiftCashMovementRecord, POSTenderItem, CustomerWalletBalanceResponse } from "./types.ts";
+import { ProPosCartItem, ProPosCustomer, ProPosTenderSplit, SuspendedBill, CancelledBillRecord, ReturnItem, POSZReportData, ShiftCashMovementRecord, POSTenderItem, CustomerWalletBalanceResponse, CustomerLoyaltyBalanceResponse } from "./types.ts";
 import { SmritiPosSettlement } from "./ProPosSettlementDl.tsx";
 import { SmritiProPosRecallDlg } from "./ProPosRecallDlg.tsx";
 import { SmritiProPosCancelDlg } from "./ProPosCancellation.tsx";
@@ -313,7 +313,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     }
     setCustomer(enrichedCustomer);
 
-    // Fetch live customer store credit / wallet balance if identified customer
+    // Fetch live customer store credit / wallet & loyalty balance if identified customer
     if (nextCustomer.id && nextCustomer.id !== "cust-01" && nextCustomer.code !== "C01") {
       apiFetchV1<CustomerWalletBalanceResponse>(`/pos/customer-wallet/${nextCustomer.id}`)
         .then(walletRes => {
@@ -321,6 +321,27 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             setCustomer(prev => ({
               ...prev,
               availableWalletBalance: Number(walletRes.available_wallet_balance || 0),
+            }));
+          }
+        })
+        .catch(() => {});
+
+      apiFetchV1<CustomerLoyaltyBalanceResponse>(`/pos/customer-loyalty/${nextCustomer.id}`)
+        .then(loyaltyRes => {
+          if (loyaltyRes && loyaltyRes.is_enrolled) {
+            setCustomer(prev => ({
+              ...prev,
+              loyaltyPoints: Number(loyaltyRes.current_points_balance || 0),
+              availableLoyaltyValue: Number(loyaltyRes.available_monetary_value || 0),
+              loyaltyRedemptionRatio: Number(loyaltyRes.redemption_ratio || 1.0),
+              isLoyaltyEnrolled: true,
+            }));
+          } else {
+            setCustomer(prev => ({
+              ...prev,
+              loyaltyPoints: 0,
+              availableLoyaltyValue: 0,
+              isLoyaltyEnrolled: false,
             }));
           }
         })
@@ -1700,6 +1721,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       if ((tenders.wallet ?? 0) > 0) backendTenders.push({ tender_type: "STORE_CREDIT", amount: tenders.wallet!, reference_no: tenders.walletRef });
       if (tenders.creditNote > 0) backendTenders.push({ tender_type: "CREDIT_NOTE", amount: tenders.creditNote, reference_no: tenders.creditNoteNo });
       if (tenders.giftVoucher > 0) backendTenders.push({ tender_type: "WALLET", amount: tenders.giftVoucher, reference_no: tenders.voucherCode });
+      if (tenders.loyaltyAmount > 0) backendTenders.push({ tender_type: "LOYALTY", amount: tenders.loyaltyAmount });
       if (tenders.credit > 0) backendTenders.push({ tender_type: "CREDIT", amount: tenders.credit });
     }
 
@@ -2315,6 +2337,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               <span className="px-2 h-7 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs whitespace-nowrap" title="Available Store Credit / Wallet Balance">
                 <Coins size={12} className="text-amber-600" />
                 <span>Wallet: ₹{customer.availableWalletBalance.toFixed(2)}</span>
+              </span>
+            )}
+            {customer.isLoyaltyEnrolled && customer.loyaltyPoints !== undefined && customer.loyaltyPoints > 0 && (
+              <span className="px-2 h-7 bg-indigo-100 dark:bg-indigo-950/40 border border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs whitespace-nowrap" title={`Available Loyalty Points: ${customer.loyaltyPoints.toFixed(0)} pts (₹${(customer.availableLoyaltyValue ?? customer.loyaltyPoints).toFixed(2)})`}>
+                <Award size={12} className="text-indigo-600" />
+                <span>★ {customer.loyaltyPoints.toFixed(0)} pts</span>
               </span>
             )}
           </div>

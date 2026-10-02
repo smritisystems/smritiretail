@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
-import { ProPosCustomer, ProPosTenderSplit, POSTenderItem, CustomerWalletBalanceResponse } from "./types.ts";
+import { ProPosCustomer, ProPosTenderSplit, POSTenderItem, CustomerWalletBalanceResponse, CustomerLoyaltyBalanceResponse } from "./types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import {
   X,
@@ -64,6 +64,18 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
   const [creditError, setCreditError] = useState<string>("");
   const [walletBalance, setWalletBalance] = useState<number>(customer?.availableWalletBalance ?? 0);
   const [isLoadingWallet, setIsLoadingWallet] = useState<boolean>(false);
+  const [loyaltyBalance, setLoyaltyBalance] = useState<{
+    isEnrolled: boolean;
+    points: number;
+    ratio: number;
+    availableValue: number;
+  }>({
+    isEnrolled: customer?.isLoyaltyEnrolled ?? false,
+    points: customer?.loyaltyPoints ?? 0,
+    ratio: customer?.loyaltyRedemptionRatio ?? 1.0,
+    availableValue: customer?.availableLoyaltyValue ?? (customer?.loyaltyPoints ?? 0),
+  });
+  const [isLoadingLoyalty, setIsLoadingLoyalty] = useState<boolean>(false);
 
   const availableCredit = Math.max(0, (customer?.creditLimit ?? 0) - (customer?.currentBalance ?? 0));
 
@@ -83,8 +95,33 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
         .finally(() => {
           if (isMounted) setIsLoadingWallet(false);
         });
+
+      setIsLoadingLoyalty(true);
+      apiFetchV1<CustomerLoyaltyBalanceResponse>(`/pos/customer-loyalty/${customer.id}`)
+        .then(res => {
+          if (isMounted && res) {
+            setLoyaltyBalance({
+              isEnrolled: Boolean(res.is_enrolled),
+              points: Number(res.current_points_balance || 0),
+              ratio: Number(res.redemption_ratio || 1.0),
+              availableValue: Number(res.available_monetary_value || 0),
+            });
+          }
+        })
+        .catch(err => {
+          console.warn("Failed to fetch customer loyalty balance:", err);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingLoyalty(false);
+        });
     } else {
       setWalletBalance(0);
+      setLoyaltyBalance({
+        isEnrolled: false,
+        points: 0,
+        ratio: 1.0,
+        availableValue: 0,
+      });
     }
     return () => { isMounted = false; };
   }, [customer?.id, customer?.code]);
@@ -161,6 +198,26 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
       }
     }
 
+    if (selectedMode === "LOYALTY") {
+      if (!customer?.id || customer.id === "cust-01" || customer.code === "C01") {
+        setCreditError("Select an identified customer before redeeming loyalty points.");
+        return;
+      }
+      if (!loyaltyBalance.isEnrolled) {
+        setCreditError("Customer is not enrolled in the loyalty program.");
+        return;
+      }
+      if (loyaltyBalance.availableValue <= 0) {
+        setCreditError("This customer has no available loyalty points balance.");
+        return;
+      }
+      const existingLoyaltyPaid = appliedPayments.filter(p => p.mode === "LOYALTY").reduce((a, b) => a + b.amount, 0);
+      if (amt + existingLoyaltyPaid > loyaltyBalance.availableValue) {
+        setCreditError(`Amount exceeds available loyalty points value of ₹${loyaltyBalance.availableValue.toFixed(2)} (${loyaltyBalance.points.toFixed(0)} pts).`);
+        return;
+      }
+    }
+
     setCreditError("");
 
     let subLabel = "Standard";
@@ -179,7 +236,9 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
       subLabel = voucherCode ? `Code: ${voucherCode}` : "Voucher Applied";
       ref = voucherCode;
     } else if (selectedMode === "LOYALTY") {
-      subLabel = `${customer?.loyaltyPoints || 0} pts available`;
+      const ptsRedeemed = Math.round(amt / (loyaltyBalance.ratio || 1));
+      subLabel = `Loyalty • ${ptsRedeemed} pts (Avail ₹${loyaltyBalance.availableValue.toFixed(2)})`;
+      ref = customer?.id ? `LOY-${customer.id.slice(-6)}` : "LOYALTY";
     } else if (selectedMode === "CREDIT") {
       subLabel = `Pay later • Available ₹${availableCredit.toFixed(2)}`;
     }
@@ -214,7 +273,7 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
   const handleFinalSettle = () => {
     let finalApplied = [...appliedPayments];
 
-    if (totalPaid < netAmount && (selectedMode === "CASH" || selectedMode === "CREDIT" || selectedMode === "STORE_CREDIT")) {
+    if (totalPaid < netAmount && (selectedMode === "CASH" || selectedMode === "CREDIT" || selectedMode === "STORE_CREDIT" || selectedMode === "LOYALTY")) {
       const diff = netAmount - totalPaid;
       if (selectedMode === "CREDIT" && diff > availableCredit) {
         setCreditError(`Credit available: ₹${availableCredit.toFixed(2)}`);
@@ -231,14 +290,36 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
           return;
         }
       }
+      if (selectedMode === "LOYALTY") {
+        if (!customer?.id || customer.id === "cust-01" || customer.code === "C01") {
+          setCreditError("Select an identified customer before redeeming loyalty points.");
+          return;
+        }
+        if (!loyaltyBalance.isEnrolled) {
+          setCreditError("Customer is not enrolled in the loyalty program.");
+          return;
+        }
+        const existingLoyaltyPaid = appliedPayments.filter(p => p.mode === "LOYALTY").reduce((a, b) => a + b.amount, 0);
+        if (diff + existingLoyaltyPaid > loyaltyBalance.availableValue) {
+          setCreditError(`Loyalty balance available: ₹${loyaltyBalance.availableValue.toFixed(2)} (${loyaltyBalance.points.toFixed(0)} pts)`);
+          return;
+        }
+      }
 
       finalApplied.push({
         id: `pay-auto-${Date.now()}`,
         mode: selectedMode,
-        label: selectedMode === "CASH" ? "Cash" : selectedMode === "CREDIT" ? "Credit / Pay Later" : "Store Credit / Wallet",
+        label: selectedMode === "CASH" ? "Cash"
+             : selectedMode === "CREDIT" ? "Credit / Pay Later"
+             : selectedMode === "STORE_CREDIT" ? "Store Credit / Wallet"
+             : "Loyalty Redemption",
         subLabel: "Auto-Settled",
         amount: diff,
-        reference: selectedMode === "STORE_CREDIT" && customer?.id ? `WAL-${customer.id.slice(-6)}` : undefined,
+        reference: selectedMode === "STORE_CREDIT" && customer?.id
+          ? `WAL-${customer.id.slice(-6)}`
+          : selectedMode === "LOYALTY" && customer?.id
+          ? `LOY-${customer.id.slice(-6)}`
+          : undefined,
       });
     }
 
@@ -253,9 +334,10 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
 
     const finalTotalPaid = finalApplied.reduce((acc, p) => acc + p.amount, 0);
     const finalChangeDue = Math.max(0, finalTotalPaid - netAmount);
+    const loyaltyPointsRedeemed = Math.round(loyaltyTotal / (loyaltyBalance.ratio || 1));
 
     const tenderItems: POSTenderItem[] = finalApplied.map(p => ({
-      tender_type: (p.mode === "STORE_CREDIT" ? "STORE_CREDIT" : p.mode) as POSTenderItem["tender_type"],
+      tender_type: (p.mode === "STORE_CREDIT" ? "STORE_CREDIT" : p.mode === "LOYALTY" ? "LOYALTY" : p.mode) as POSTenderItem["tender_type"],
       amount: p.amount,
       reference_no: p.reference || undefined,
     }));
@@ -269,7 +351,7 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
       credit: creditTotal,
       giftVoucher: voucherTotal,
       voucherCode: finalApplied.find(p => p.mode === "GIFT_VOUCHER")?.reference,
-      loyaltyPointsRedeemed: 0,
+      loyaltyPointsRedeemed,
       loyaltyAmount: loyaltyTotal,
       creditNote: creditNoteTotal,
       wallet: walletTotal,
@@ -425,7 +507,7 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
 
             <button
               type="button"
-              onClick={() => setSelectedMode("LOYALTY")}
+              onClick={() => { setSelectedMode("LOYALTY"); setCreditError(""); }}
               className={`flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition ${
                 selectedMode === "LOYALTY"
                   ? "bg-[#00288e] text-white shadow-md"
@@ -433,7 +515,14 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
               }`}
             >
               <Award size={18} />
-              <span>Loyalty Points</span>
+              <div className="flex flex-col text-left">
+                <span>Loyalty Points</span>
+                {customer?.id && customer.id !== "cust-01" && (
+                  <span className={`text-[10px] ${selectedMode === "LOYALTY" ? "text-indigo-200" : "text-[#4f46e5]"}`}>
+                    {loyaltyBalance.points.toFixed(0)} pts (₹{loyaltyBalance.availableValue.toFixed(2)})
+                  </span>
+                )}
+              </div>
             </button>
 
             <button
@@ -534,6 +623,34 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
                         className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold shadow-xs transition"
                       >
                         Redeem Max (₹{Math.min(balanceRemaining, walletBalance).toFixed(2)})
+                      </button>
+                    )}
+                  </div>
+                  {creditError && <div className="mt-1.5 font-semibold text-[#ba1a1a]">{creditError}</div>}
+                </div>
+              )}
+
+              {selectedMode === "LOYALTY" && (
+                <div className="mt-3 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 p-3 text-xs">
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-indigo-900 dark:text-indigo-200">Customer Loyalty Points Available</span>
+                    <span className="text-sm font-mono text-indigo-800 dark:text-indigo-300 font-bold">
+                      {isLoadingLoyalty ? "Checking..." : `${loyaltyBalance.points.toFixed(0)} pts (₹${loyaltyBalance.availableValue.toFixed(2)})`}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[#565e74] dark:text-[#bec6e0] flex justify-between items-center">
+                    <span>Rate: 1 pt = ₹{loyaltyBalance.ratio.toFixed(2)} • GL Contra: DR 2070 / CR 1030</span>
+                    {loyaltyBalance.availableValue > 0 && balanceRemaining > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const maxRedeem = Math.min(balanceRemaining, loyaltyBalance.availableValue);
+                          setKeypadInput(maxRedeem.toFixed(2));
+                          setCreditError("");
+                        }}
+                        className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-bold shadow-xs transition"
+                      >
+                        Redeem Max (₹{Math.min(balanceRemaining, loyaltyBalance.availableValue).toFixed(2)})
                       </button>
                     )}
                   </div>

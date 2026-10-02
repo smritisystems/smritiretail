@@ -68,10 +68,13 @@ export interface ProPosCustomer {
   pricingBasis?: "MRP" | "RATE";
   allowPromotionsOnRate?: boolean;
   availableWalletBalance?: number;
+  availableLoyaltyValue?: number;
+  loyaltyRedemptionRatio?: number;
+  isLoyaltyEnrolled?: boolean;
 }
 
 export interface POSTenderItem {
-  tender_type: "CASH" | "CARD" | "UPI" | "CREDIT" | "WALLET" | "STORE_CREDIT" | "CREDIT_NOTE";
+  tender_type: "CASH" | "CARD" | "UPI" | "CREDIT" | "WALLET" | "STORE_CREDIT" | "CREDIT_NOTE" | "LOYALTY" | "LOYALTY_POINTS";
   amount: number;
   reference_no?: string;
   notes?: string;
@@ -85,6 +88,19 @@ export interface CustomerWalletBalanceResponse {
   total_wallet_redeemed: number;
   credit_limit?: number;
   current_outstanding?: number;
+}
+
+export interface CustomerLoyaltyBalanceResponse {
+  customer_id: string;
+  customer_name?: string;
+  is_enrolled: boolean;
+  member_id?: string;
+  card_number?: string;
+  current_points_balance: number;
+  redemption_ratio: number;
+  available_monetary_value: number;
+  total_points_earned?: number;
+  total_points_redeemed?: number;
 }
 
 export interface ProPosTenderSplit {
