@@ -40,7 +40,7 @@ from ..models.purchase import (
     PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
-    PurchaseBill,
+    PurchaseBill, PurchaseBillItem,
 )
 from ..models.inventory import Product, StockMovement
 from ..models.workflow import WorkflowEvent
@@ -416,7 +416,7 @@ class PurchaseService:
         order = PurchaseOrder(
             id=po_id,
             identity_code=identity_code,
-            order_no=req.order_no,
+            order_no=req.order_no or identity_code or f"PO-{uuid.uuid4().hex[:8].upper()}",
             supplier_id=supplier.id,
             status=po_status,
             notes=req.notes,
@@ -432,6 +432,7 @@ class PurchaseService:
             await self.db.commit()
         except IntegrityError as e:
             await self.db.rollback()
+            logger.error(f"[PO INTEGRITY ERROR] {e} | orig: {getattr(e, 'orig', e)}")
             err_str = str(getattr(e, "orig", e)).lower()
             # Human-readable constraint translation (SMRITI HREP policy)
             if "uq_purchase_orders_order_no_company" in err_str or "purchase_orders_order_no_key" in err_str or ("order_no" in err_str and "unique" in err_str):
@@ -1754,9 +1755,18 @@ class PurchaseService:
 
     async def get_outstanding_suppliers(self) -> list[dict]:
         """
-        Outstanding report: suppliers with DRAFT or CONFIRMED (open) POs
-        and their total outstanding PO value.
+        Outstanding report: suppliers with booked ledger AP liabilities or open POs (DRAFT/CONFIRMED).
         """
+        # Fetch all active suppliers for this tenant
+        sup_stmt = select(Supplier).where(
+            Supplier.company_id == self.tenant.company_id,
+            Supplier.is_deleted == False,
+        )
+        sup_res = await self.db.execute(sup_stmt)
+        suppliers = sup_res.scalars().all()
+        supplier_map = {s.id: s for s in suppliers}
+
+        # Fetch open POs (DRAFT/CONFIRMED)
         res = await self.db.execute(
             select(PurchaseOrder).where(
                 PurchaseOrder.company_id == self.tenant.company_id,
@@ -1767,15 +1777,14 @@ class PurchaseService:
         )
         orders = res.scalars().all()
 
-        # Group by supplier
-        summary: dict[str, dict] = {}
+        # Group open POs by supplier
+        po_summary: dict[str, dict] = {}
         for po in orders:
             sid = po.supplier_id
-            if sid not in summary:
-                summary[sid] = {
-                    "supplier_id": sid,
+            if sid not in po_summary:
+                po_summary[sid] = {
                     "order_count": 0,
-                    "total_outstanding": Decimal("0.00"),
+                    "po_total": Decimal("0.00"),
                     "statuses": set(),
                 }
             items_res = await self.db.execute(
@@ -1783,24 +1792,35 @@ class PurchaseService:
             )
             items = items_res.scalars().all()
             total = sum(Decimal(str(it.cost_price)) * it.quantity for it in items)
-            summary[sid]["order_count"] += 1
-            summary[sid]["total_outstanding"] += total
-            summary[sid]["statuses"].add(po.status)
+            po_summary[sid]["order_count"] += 1
+            po_summary[sid]["po_total"] += total
+            po_summary[sid]["statuses"].add(po.status)
 
-        # Enrich with supplier names
+        # Include any supplier that has either booked outstanding liability or open POs
         rows = []
-        for sid, data in summary.items():
-            sup_res = await self.db.execute(
-                select(Supplier).where(Supplier.id == sid, Supplier.is_deleted == False)
-            )
-            supplier = sup_res.scalars().first()
+        all_supplier_ids = set(po_summary.keys()) | {
+            s.id for s in suppliers if Decimal(str(s.outstanding or 0.00)) > Decimal("0.00")
+        }
+
+        for sid in all_supplier_ids:
+            supplier = supplier_map.get(sid)
+            if not supplier:
+                continue
+            po_data = po_summary.get(sid, {"order_count": 0, "po_total": Decimal("0.00"), "statuses": set()})
+            sup_outstanding = Decimal(str(supplier.outstanding or 0.00))
+            # If supplier has recorded AP liability, that is their true ledger outstanding balance
+            effective_outstanding = sup_outstanding if sup_outstanding > Decimal("0.00") else po_data["po_total"]
+
             rows.append({
                 "supplier_id": sid,
-                "supplier_name": supplier.name if supplier else "Unknown",
-                "order_count": data["order_count"],
-                "total_outstanding": float(data["total_outstanding"]),
-                "open_statuses": list(data["statuses"]),
+                "supplier_name": supplier.name,
+                "supplier_code": supplier.code or "",
+                "order_count": po_data["order_count"],
+                "total_outstanding": float(effective_outstanding),
+                "ledger_outstanding": float(sup_outstanding),
+                "open_statuses": list(po_data["statuses"]),
             })
+
         rows.sort(key=lambda x: -x["total_outstanding"])
         return rows
 
@@ -1832,12 +1852,22 @@ class PurchaseService:
                     select(Supplier).where(Supplier.id == po.supplier_id)
                 )
                 supplier = sup_res.scalars().first()
+                item_res = await self.db.execute(
+                    select(PurchaseOrderItem).where(
+                        PurchaseOrderItem.order_id == po.id,
+                        PurchaseOrderItem.is_deleted == False,
+                    )
+                )
+                items = item_res.scalars().all()
+                total_qty = sum(it.quantity for it in items)
                 pending.append({
                     "order_id": po.id,
                     "order_no": po.order_no,
                     "supplier_id": po.supplier_id,
                     "supplier_name": supplier.name if supplier else "Unknown",
                     "status": po.status,
+                    "pending_qty": int(total_qty),
+                    "pending_amount": float(po.grand_total or 0.0),
                     "created_at": po.created_at.isoformat() if po.created_at else None,
                 })
         return pending
@@ -2158,6 +2188,78 @@ class PurchaseService:
             branch_id=self.tenant.branch_id,
         )
         self.db.add(bill_entity)
+
+        # If linked to a GRN, copy line items to PurchaseBillItem for 3-way match audit
+        if req.receipt_id:
+            from sqlalchemy.orm import selectinload
+            grn_stmt = select(PurchaseReceipt).where(
+                PurchaseReceipt.id == req.receipt_id,
+                PurchaseReceipt.company_id == self.tenant.company_id,
+            ).options(selectinload(PurchaseReceipt.items))
+            grn_res = await self.db.execute(grn_stmt)
+            grn = grn_res.scalars().first()
+            if grn and grn.items:
+                for grn_it in grn.items:
+                    bill_it_id = IdentityEngine.generate_technical_id()
+                    self.db.add(PurchaseBillItem(
+                        id=bill_it_id,
+                        uuid=bill_it_id,
+                        bill_id=bill_id,
+                        product_id=grn_it.product_id,
+                        item_id=grn_it.item_id,
+                        variant_id=grn_it.variant_id,
+                        po_item_id=grn_it.purchase_order_line_id,
+                        receipt_item_id=grn_it.id,
+                        code=grn_it.code,
+                        name=grn_it.name,
+                        quantity=grn_it.quantity_received,
+                        rate=grn_it.cost_price,
+                        taxable_amount=(grn_it.cost_price * grn_it.quantity_received).quantize(Decimal("0.01")),
+                        tax_amount=grn_it.tax_amount,
+                        total_amount=grn_it.line_total,
+                        company_id=self.tenant.company_id,
+                        branch_id=self.tenant.branch_id,
+                    ))
+
+        # If linked to a GRN, reconcile provisional GRN inward liability before formal AP Bill posting
+        if req.receipt_id and grn:
+            grn_val = Decimal(str(grn.grand_total or 0.00))
+            if grn_val > 0:
+                supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0.00)) - grn_val).quantize(Decimal("0.01"))
+
+        await self.db.flush()
+
+        from .unified_ledger import UnifiedAccountingLedgerService
+        voucher = await UnifiedAccountingLedgerService.post_purchase_bill_to_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            bill_id=bill_id,
+            branch_id=self.tenant.branch_id,
+            created_by=getattr(self.tenant, "user_id", None),
+        )
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_BILLS",
+            event_type="PURCHASE_BILL_POSTED",
+            aggregate_type="PurchaseBill",
+            aggregate_id=bill_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "bill_no": bill_no,
+                "identity_code": id_code,
+                "supplier_id": supplier.id,
+                "supplier_name": supplier.name,
+                "receipt_id": req.receipt_id,
+                "order_id": req.order_id,
+                "taxable_amount": str(req.taxable_amount),
+                "tax_amount": str(req.tax_amount),
+                "total_amount": str(req.total_amount),
+                "journal_voucher_id": voucher.id if voucher else None,
+            },
+        )
         await self.db.commit()
         return {
             "id": bill_id,
@@ -2174,6 +2276,61 @@ class PurchaseService:
             "paid_amount": Decimal("0.00"),
             "status": "POSTED",
             "notes": req.notes,
+            "journal_voucher_id": voucher.id if voucher else None,
+        }
+
+    async def cancel_purchase_bill(
+        self,
+        bill_id: str,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> dict:
+        """
+        Cancel a purchase bill, reversing GL entries and restoring supplier liability.
+        """
+        bill = await self.get_purchase_bill(bill_id)
+        if (bill.status or "").upper() == "CANCELLED":
+            raise HTTPException(status_code=400, detail="Purchase bill is already cancelled.")
+
+        from .unified_ledger import UnifiedAccountingLedgerService
+        reversal_voucher = await UnifiedAccountingLedgerService.reverse_purchase_bill_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            bill_id=bill_id,
+            branch_id=self.tenant.branch_id,
+            reason=reason,
+            cancelled_by=cancelled_by,
+        )
+
+        bill.status = "CANCELLED"
+        bill.cancellation_reason = reason
+        bill.modified_at = datetime.now(timezone.utc)
+        self.db.add(bill)
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_BILLS",
+            event_type="PURCHASE_BILL_CANCELLED",
+            aggregate_type="PurchaseBill",
+            aggregate_id=bill_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "bill_no": bill.bill_no,
+                "supplier_id": bill.supplier_id,
+                "total_amount": str(bill.total_amount),
+                "reversal_voucher_id": reversal_voucher.id if reversal_voucher else None,
+                "reason": reason,
+            },
+        )
+        await self.db.commit()
+        return {
+            "id": bill.id,
+            "bill_no": bill.bill_no,
+            "status": "CANCELLED",
+            "cancellation_reason": reason,
+            "reversal_voucher_id": reversal_voucher.id if reversal_voucher else None,
         }
 
     async def list_purchase_bills(

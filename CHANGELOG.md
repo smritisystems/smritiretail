@@ -28,6 +28,43 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.53.0] - 2026-10-03 — SMRITI Procurement Phase 2.11: End-to-End Procurement Lifecycle Audit (PO to GRN to AP GL), 1-Click Receiving Wiring & Multi-Surface Reports Studio
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / General Ledger / Multi-Surface Verification
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_11_Full_Cycle_PO_GRN_Audit_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_11_Full_Cycle_PO_GRN_Audit_v1.0.md`
+
+### Added
+- **Full Procurement End-to-End Integration Test Suite** (`backend/app/tests/test_procurement_cycle_e2e_audit.py`):
+  - Complete 12-step headless integration test validating: Supplier Master Creation -> PO Generation (DRAFT) -> Submission (SUBMITTED) -> Confirmation (CONFIRMED) -> Pending Delivery Report -> GRN Inward Receipt against PO with Inward Freight Landed Cost -> WMS Stock Level Increments -> PO State Transition to RECEIVED -> Pending Delivery Report Automatic Clearing -> Purchase Bill Generation linked to PO & GRN -> Authoritative General Ledger Accounts Payable (`Account 2010 AP`) Double-Entry Booking with Invariant $\sum \text{Debit} = \sum \text{Credit}$ -> Supplier Outstanding AP Liability Reconciliation -> Procurement Reports Validation (Pending Delivery, Supplier Outstanding, Purchase Summary Register) -> Purchase Bill Cancellation & Compensating GL Reversal restoring supplier liability to ₹0.00.
+  - Verified: **1/1 PASSED in 52.29s** with 0 regressions across existing 75 purchase tests (**75/75 PASSED**).
+- **Headless Playwright Chromium Visual Audit Runner** (`scripts/capture_procurement_cycle_visual_audit.py`):
+  - Captures 7 high-resolution screenshots into `docs/walkthrough/procurement/evidence/`:
+    1. `procurement_cycle_step1_vendor_360.png` — Vendor 360 directory, commercial status, and payables overview.
+    2. `procurement_cycle_step2_po_generation.png` — Purchase Studio PO generation with sizewise product matrix.
+    3. `procurement_cycle_step3_po_workspace.png` — PO workspace with status badges and lifecycle controls.
+    4. `procurement_cycle_step4_grn_studio_inward.png` — High-speed GRN Desktop Terminal with Ind AS 2 capitalization control.
+    5. `procurement_cycle_step5_grn_posted_and_bill.png` — GRN posting and bill conversion view.
+    6. `procurement_cycle_step6_three_way_match.png` — Three-Way Auto-Reconciliation modal (PO vs GRN vs Vendor Invoice).
+    7. `procurement_cycle_step7_procurement_reports.png` — 3-tab Procurement Reports Studio with 1-click Receive in GRN.
+- **Procurement Reports & Audit Studio Modal** (`src/components/purchase/ProcurementReportsModal.tsx`):
+  - 3-tab unified procurement studio displaying:
+    - Tab 1: Pending Delivery POs (`/purchase/reports/pending-delivery`) with 1-click `Receive in GRN` action button.
+    - Tab 2: Supplier Outstanding & Payables (`/purchase/reports/outstanding`) with 1-click `View Ledger` (Vendor 360).
+    - Tab 3: Purchase Summary Register (`/reports/purchase-summary`) with PO count, GRN count, ordered value, received value, and variance.
+    - 4-card executive KPI ribbon (Pending Delivery POs, Suppliers with Liability, Total 2010 AP Outstanding, Received Inward Value).
+
+### Changed
+- **Purchase Service GL & Cancellation Integration** (`backend/app/services/purchase.py`):
+  - In `create_purchase_bill`: Populates `PurchaseBillItem` lines from GRN receipt items, reconciles provisional GRN liability from `supplier.outstanding` before posting authoritative GL entry via `UnifiedAccountingLedgerService.post_purchase_bill_to_gl`, and records outbox event with `journal_voucher_id`.
+  - In `cancel_purchase_bill`: Calls `UnifiedAccountingLedgerService.reverse_purchase_bill_gl` to emit compensating reversal entry (`PURCHASE_BILL_CANCEL`), restores `supplier.outstanding`, marks bill `CANCELLED`, and emits outbox event.
+  - In `get_outstanding_suppliers`: Upgraded to return both active suppliers with booked AP ledger liability (`supplier.outstanding > 0`) and suppliers with open PO commitments, including `supplier_code`, `ledger_outstanding`, and `open_statuses`.
+- **Purchase Reports Schema & Service** (`backend/app/schemas/reports.py`, `backend/app/services/reports.py`):
+  - Added `supplier_code`, `ordered_amount`, and `received_amount` to `PurchaseSummaryLine` for seamless multi-client compatibility.
+- **PO & GRN Navigation Wiring** (`src/components/common/lifecycle/DocumentActionToolbar.tsx`, `src/components/purchase/POWorkspaceTab.tsx`, `src/components/purchase/GrnReceiptTab.tsx`, `src/components/purchase/GrnDesktopTerminal.tsx`):
+  - Added 1-click `📥 Receive (GRN)` toolbar button for CONFIRMED purchase orders, pre-populating GRN selection via `sessionStorage` and switching to GRN Studio.
+  - Added dedicated `📊 Reports` buttons in PO Workspace and GRN Desktop Terminal opening `ProcurementReportsModal`.
+
 ## [6.52.0] - 2026-10-02 — SMRITI Procurement Phase 2.10: Government Challan 281 TDS Remittance Lifecycle & Electronic Form 26Q Quarterly Return Filing
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Statutory Compliance & Government Remittance

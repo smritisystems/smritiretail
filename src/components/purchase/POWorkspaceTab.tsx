@@ -38,6 +38,7 @@ import {
   POAmendDialog,
   type POAmendRequest,
 } from "./POAmendDialog.tsx";
+import { ProcurementReportsModal } from "./ProcurementReportsModal.tsx";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -186,6 +187,7 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
   const [amendLoading, setAmendLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [tabCounts, setTabCounts] = useState<Partial<Record<POStatus | "ALL", number>>>({});
+  const [isReportsOpen, setIsReportsOpen] = useState(false);
 
   const isManager = canActOnPO(currentUser?.role);
 
@@ -317,6 +319,20 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
     }
   };
 
+  const handleReceivePO = (po: PORow) => {
+    try {
+      sessionStorage.setItem("smriti_grn_selected_po", po.id);
+      window.dispatchEvent(
+        new CustomEvent("smriti_navigate_module", {
+          detail: { moduleId: "grn-studio" },
+        })
+      );
+      onNotification?.("Navigating to GRN", `Loading ${po.order_no} into Goods Receipt Note Studio...`, "info");
+    } catch {
+      // Fallback
+    }
+  };
+
   const fmtDate = (s?: string | null) => {
     if (!s) return "—";
     try {
@@ -363,6 +379,17 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
               className="bg-slate-800 border border-slate-700 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-52"
             />
           </div>
+          {/* Reports */}
+          <button
+            type="button"
+            id="po-workspace-reports-btn"
+            onClick={() => setIsReportsOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/60 text-xs font-semibold shadow-xs transition"
+            title="Open Procurement Reports & Audit Studio"
+          >
+            <span className="material-symbols-outlined text-[15px]">query_stats</span>
+            <span>Reports</span>
+          </button>
           {/* Refresh */}
           <button
             type="button"
@@ -530,6 +557,7 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
                           onAmend={() => setAmendTarget(po)}
                           onOpen={() => onOpenPO?.(po.order_no)}
                           onCancel={() => setCancelTarget(po)}
+                          onReceive={() => handleReceivePO(po)}
                         />
                       </td>
                     </tr>
@@ -599,6 +627,12 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
           onCancel={() => setAmendTarget(null)}
         />
       )}
+
+      {/* ── Procurement Reports & Audit Studio Modal ────────────────────── */}
+      <ProcurementReportsModal
+        isOpen={isReportsOpen}
+        onClose={() => setIsReportsOpen(false)}
+      />
     </div>
   );
 };

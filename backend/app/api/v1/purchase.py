@@ -1036,6 +1036,40 @@ async def get_purchase_bill(
     return PurchaseBillResponse.model_validate(bill)
 
 
+@router.post(
+    "/bills/{bill_id}/cancel",
+    response_model=dict,
+    status_code=200,
+    summary="Cancel Purchase Bill",
+)
+@router.post(
+    "/bills/{bill_id}/cancel/",
+    response_model=dict,
+    status_code=200,
+    include_in_schema=False,
+)
+@router.post(
+    "/invoices/{bill_id}/cancel",
+    response_model=dict,
+    status_code=200,
+    include_in_schema=False,
+)
+async def cancel_purchase_bill(
+    bill_id: str,
+    reason: Optional[str] = Query(default=None, description="Cancellation reason"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Cancel a purchase bill, reversing GL entries and restoring supplier liability."""
+    service = PurchaseService(db, tenant)
+    return await service.cancel_purchase_bill(
+        bill_id=bill_id,
+        reason=reason,
+        cancelled_by=getattr(tenant, "user_id", None),
+    )
+
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PO Vendor Product Control — v6.42.0 (Execution Command Rule 32 Phase 4–7)
 # ═══════════════════════════════════════════════════════════════════════════════
