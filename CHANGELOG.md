@@ -28,6 +28,29 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.49.6] - 2026-10-02 — SMRITI Procurement Phase 2.4: Supplier Debit Notes & Purchase Returns General Ledger Integration
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable & Returns
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_4_Supplier_Debit_Note_Purchase_Return_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_4_Supplier_Debit_Note_Purchase_Return_v1.0.md`
+
+### Added
+- **Supplier Debit Note & Purchase Return Double-Entry GL Integration** (`backend/app/services/unified_ledger.py`):
+  - Implemented `post_debit_note_to_gl()`: Translates purchase debit notes and return claims into authoritative double-entry `JournalVoucher` (`DEBIT_NOTE`).
+    - `Debit 2010 (Accounts Payable / Sundry Creditors)` = Total debit amount with party attribution (`party_id=supplier_id`).
+    - `Credit 1040 (Inventory Asset)` = Taxable claim amount.
+    - `Credit 1051 (Input CGST)` + `1052 (Input SGST)` (50/50 split for intrastate) or `1053 (Input IGST)` (for interstate) = Tax reversal amount.
+    - `Debit / Credit 5030 (Roundoff Account)` = Automatic fractional cent balancing invariant.
+  - Implemented `reverse_debit_note_gl()`: Generates exact compensating reversal voucher (`DEBIT_NOTE_CANCEL`) restoring inventory and payable liabilities (`DR 1040, 1051/1052/1053 / CR 2010`).
+  - Added strict idempotency protection returning existing vouchers on duplicate calls.
+- **Purchase Service Debit Note GL Linking & Cancellation Engine** (`backend/app/services/purchase.py`, `backend/app/schemas/purchase.py`):
+  - Integrated `create_debit_note()` with `post_debit_note_to_gl()` to atomically stamp `journal_voucher_id`, decrement `supplier.outstanding`, and record `PURCHASE_DEBIT_NOTE_POSTED` outbox event.
+  - Implemented `cancel_debit_note()` service method and added `POST /api/v1/purchase/debit-notes/{debit_note_id}/cancel` endpoint.
+  - Symmetrically reverses GL voucher, restores `supplier.outstanding`, and records `PURCHASE_DEBIT_NOTE_CANCELLED` outbox event.
+- **Automated Test Battery** (`backend/app/tests/test_debit_note_gl_atomicity.py`):
+  - 6/6 automated tests passing: intrastate debit note GL posting, interstate debit note GL posting, sub-cent roundoff adjustment (Account 5030), GL posting idempotency, cancellation reversal with liability restoration, and cancellation idempotency.
+  - 31/31 cumulative procurement & accounting test suite passing green with zero regressions.
+
 ## [6.49.5] - 2026-10-02 — SMRITI Procurement Phase 2.3: Supplier Payment General Ledger Integration & Purchase Bill Knock-off
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable Settlements

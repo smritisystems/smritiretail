@@ -43,7 +43,7 @@ from ...schemas.purchase import (
     PurchaseReceiptCreate, PurchaseReceiptUpdate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
     PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
     PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
-    DebitNoteCreate, DebitNoteResponse, PurchaseBillCreate, PurchaseBillResponse,
+    DebitNoteCreate, DebitNoteResponse, DebitNoteCancelRequest, PurchaseBillCreate, PurchaseBillResponse,
 )
 from ...schemas.inward_cost import (
     InwardCostComponentTypeResponse,
@@ -916,6 +916,37 @@ async def create_debit_note(
     """Post a purchase debit note against a supplier/GRN."""
     service = PurchaseService(db, tenant)
     res = await service.create_debit_note(req)
+    return DebitNoteResponse.model_validate(res)
+
+
+@router.post(
+    "/debit-notes/{debit_note_id}/cancel",
+    response_model=DebitNoteResponse,
+    status_code=200,
+)
+@router.post(
+    "/debit-notes/{debit_note_id}/cancel/",
+    response_model=DebitNoteResponse,
+    status_code=200,
+)
+async def cancel_debit_note(
+    debit_note_id: str,
+    req: DebitNoteCancelRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Cancel a purchase debit note, reversing GL entries and restoring supplier outstanding."""
+    service = PurchaseService(db, tenant)
+    res = await service.cancel_debit_note(
+        debit_note_id=debit_note_id,
+        supplier_id=req.supplier_id,
+        claim_amount=req.claim_amount,
+        tax_amount=req.tax_amount or Decimal("0.00"),
+        total_debit_amount=req.total_debit_amount,
+        debit_note_no=req.debit_note_no,
+        reason=req.reason,
+        cancelled_by=getattr(tenant, "user_id", None),
+    )
     return DebitNoteResponse.model_validate(res)
 
 

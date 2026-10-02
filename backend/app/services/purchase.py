@@ -1967,6 +1967,20 @@ class PurchaseService:
 
         supplier.outstanding = (supplier.outstanding - req.total_debit_amount).quantize(Decimal("0.01"))
         supplier.modified_at = datetime.now(timezone.utc)
+        await self.db.flush()
+
+        from .unified_ledger import UnifiedAccountingLedgerService
+        voucher = await UnifiedAccountingLedgerService.post_debit_note_to_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            debit_note_id=dn_id,
+            supplier_id=supplier.id,
+            claim_amount=req.claim_amount,
+            tax_amount=req.tax_amount or Decimal("0.00"),
+            total_debit_amount=req.total_debit_amount,
+            debit_note_no=dn_no,
+            branch_id=self.tenant.branch_id,
+        )
 
         from .outbox_service import OutboxService
         await OutboxService.record_event(
@@ -1986,6 +2000,7 @@ class PurchaseService:
                 "claim_amount": str(req.claim_amount),
                 "tax_amount": str(req.tax_amount or Decimal("0.00")),
                 "total_debit_amount": str(req.total_debit_amount),
+                "voucher_id": voucher.id if voucher else None,
                 "reason": req.reason,
             },
         )
@@ -2002,6 +2017,75 @@ class PurchaseService:
             "status": req.status or "ISSUED",
             "reason": req.reason,
             "created_at": datetime.now(timezone.utc),
+            "journal_voucher_id": voucher.id if voucher else None,
+        }
+
+    async def cancel_debit_note(
+        self,
+        debit_note_id: str,
+        supplier_id: str,
+        claim_amount: Decimal,
+        tax_amount: Decimal,
+        total_debit_amount: Decimal,
+        debit_note_no: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> dict:
+        """
+        Cancels a debit note, restoring supplier outstanding liability and posting
+        a compensating reversal double-entry GL voucher (DEBIT_NOTE_CANCEL).
+        """
+        supplier = await self._get_supplier(supplier_id)
+
+        from .unified_ledger import UnifiedAccountingLedgerService
+        reversal_voucher = await UnifiedAccountingLedgerService.reverse_debit_note_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            debit_note_id=debit_note_id,
+            supplier_id=supplier.id,
+            claim_amount=claim_amount,
+            tax_amount=tax_amount or Decimal("0.00"),
+            total_debit_amount=total_debit_amount,
+            debit_note_no=debit_note_no,
+            branch_id=self.tenant.branch_id,
+            reason=reason,
+            cancelled_by=cancelled_by,
+        )
+
+        supplier.outstanding = (supplier.outstanding + total_debit_amount).quantize(Decimal("0.01"))
+        supplier.modified_at = datetime.now(timezone.utc)
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_DEBIT_NOTES",
+            event_type="PURCHASE_DEBIT_NOTE_CANCELLED",
+            aggregate_type="PurchaseDebitNote",
+            aggregate_id=debit_note_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "debit_note_no": debit_note_no or debit_note_id,
+                "supplier_id": supplier.id,
+                "total_debit_amount": str(total_debit_amount),
+                "reversal_voucher_id": reversal_voucher.id if reversal_voucher else None,
+                "reason": reason,
+            },
+        )
+        await self.db.commit()
+        return {
+            "id": debit_note_id,
+            "identity_code": debit_note_no or debit_note_id,
+            "debit_note_no": debit_note_no or debit_note_id,
+            "supplier_id": supplier.id,
+            "receipt_id": None,
+            "claim_amount": claim_amount,
+            "tax_amount": tax_amount or Decimal("0.00"),
+            "total_debit_amount": total_debit_amount,
+            "status": "CANCELLED",
+            "reason": reason,
+            "created_at": datetime.now(timezone.utc),
+            "journal_voucher_id": reversal_voucher.id if reversal_voucher else None,
         }
 
     # ─── Purchase Bills ─────────────────────────────────────────────────────
