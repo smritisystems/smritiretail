@@ -32,12 +32,15 @@ Verifies:
 """
 
 import uuid
+import asyncio
 from decimal import Decimal
 from datetime import datetime, timezone, date
 import pytest
 from unittest.mock import patch
 from fastapi import HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import User, UserRole
 from app.models.tenant import Company, Branch
@@ -912,3 +915,386 @@ async def test_refund_gl_failure_rolls_back_atomically(db_session):
         PaymentTransaction.reference_doc_id == tx_id
     )
     assert (await db_session.scalar(stmt_ref)) == 0
+
+
+async def test_split_wallet_tender_on_single_payment(db_session):
+    """
+    Phase 1 Regression Test A: Split Wallet Tender.
+    One payment request contains two wallet/store-credit tenders and one cash tender.
+    Example:
+    Invoice = ₹1,180.00
+    Wallet tender 1 = ₹400.00
+    Wallet tender 2 = ₹300.00
+    Remaining tender = ₹300.00 non-wallet (cash)
+
+    Verify:
+    - Payment succeeds without UniqueViolationError
+    - Two CustomerCreditLedgerEntry rows exist
+    - Both reference_type values are SALES_INVOICE
+    - reference_id values are different
+    - Both reference_ids contain the invoice ID
+    - Each reference_id contains a unique transaction identity
+    - Total wallet debit = ₹700.00
+    """
+    suffix = uuid.uuid4().hex[:8]
+    company, branch, user, customer, tenant_ctx = await _setup_tenant_and_actor(db_session, suffix)
+    company_id = company.id
+    prod = await _setup_product(db_session, suffix, company_id, branch.id, stock=50, price=200.00)
+    invoice = await _setup_posted_invoice(db_session, tenant_ctx, user, customer, prod, suffix, qty=5, unit_price=200.00)
+
+    # 1. Seed customer wallet credit of Rs. 1,500.00
+    credit_entry = CustomerCreditLedgerEntry(
+        id=f"ccle-seed-{suffix}",
+        company_id=company_id,
+        branch_id=branch.id,
+        customer_id=customer.id,
+        entry_date=datetime.now(timezone.utc),
+        entry_type="CREDIT",
+        amount=Decimal("1500.00"),
+        balance_after=Decimal("1500.00"),
+        reference_type="SALES_RETURN_REFUND",
+        reference_id=f"RET-SEED-{suffix}",
+        notes="Store credit initial seed",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(credit_entry)
+    await db_session.commit()
+
+    # 2. Payment request with two wallet tenders (400 + 300) and one cash tender (300)
+    pay_req = ProcessPaymentRequest(
+        reference_doc_type="SALES_INVOICE",
+        reference_doc_id=invoice.id,
+        party_id=customer.id,
+        branch_id=branch.id,
+        tenders=[
+            PaymentTenderItem(tender_type="WALLET", amount=400.00),
+            PaymentTenderItem(tender_type="WALLET", amount=300.00),
+            PaymentTenderItem(tender_type="CASH", amount=300.00),
+        ],
+        idempotency_key=f"PAY-SPLIT-WALLET-{suffix}",
+        auto_allocate=True,
+    )
+    res_pay = await PaymentsEngine.process_payment(
+        session=db_session,
+        company_id=company_id,
+        req=pay_req,
+        created_by=user.username,
+        commit=True,
+    )
+    assert len(res_pay.transactions) == 3
+    wallet_tx_ids = [t.id for t in res_pay.transactions if t.tender_type == "WALLET"]
+    assert len(wallet_tx_ids) == 2
+
+    # 3. Verify CustomerCreditLedgerEntry rows
+    stmt_debits = (
+        select(CustomerCreditLedgerEntry)
+        .where(
+            CustomerCreditLedgerEntry.customer_id == customer.id,
+            CustomerCreditLedgerEntry.entry_type == "DEBIT",
+            CustomerCreditLedgerEntry.company_id == company_id,
+        )
+        .order_by(CustomerCreditLedgerEntry.entry_date.asc())
+    )
+    debits = (await db_session.execute(stmt_debits)).scalars().all()
+    assert len(debits) == 2
+
+    # Verify reference_type, uniqueness, and reference_id format
+    for debit in debits:
+        assert debit.reference_type == "SALES_INVOICE"
+        assert invoice.id in debit.reference_id
+        # Option B: reference_id must match f"{invoice.id}:{tx_id}"
+        matching_tx = [tx_id for tx_id in wallet_tx_ids if tx_id in debit.reference_id]
+        assert len(matching_tx) == 1
+        assert debit.reference_id == f"{invoice.id}:{matching_tx[0]}"
+
+    assert debits[0].reference_id != debits[1].reference_id
+    total_wallet_debit = sum(Decimal(str(d.amount)) for d in debits)
+    assert total_wallet_debit == Decimal("700.00")
+
+
+async def test_multiple_wallet_payments_against_same_invoice(db_session):
+    """
+    Phase 1 Regression Test B: Multiple Sequential Payments Against Same Invoice.
+    Create one invoice.
+    Payment 1: ₹400.00 wallet
+    Payment 2: ₹300.00 wallet
+
+    Verify:
+    - Both payments succeed
+    - Both ledger entries exist
+    - References are unique
+    - No unique constraint violation
+    - Total wallet debit = ₹700.00
+    """
+    suffix = uuid.uuid4().hex[:8]
+    company, branch, user, customer, tenant_ctx = await _setup_tenant_and_actor(db_session, suffix)
+    company_id = company.id
+    prod = await _setup_product(db_session, suffix, company_id, branch.id, stock=50, price=200.00)
+    invoice = await _setup_posted_invoice(db_session, tenant_ctx, user, customer, prod, suffix, qty=5, unit_price=200.00)
+
+    # 1. Seed customer wallet credit of Rs. 1,000.00
+    credit_entry = CustomerCreditLedgerEntry(
+        id=f"ccle-seed-{suffix}",
+        company_id=company_id,
+        branch_id=branch.id,
+        customer_id=customer.id,
+        entry_date=datetime.now(timezone.utc),
+        entry_type="CREDIT",
+        amount=Decimal("1000.00"),
+        balance_after=Decimal("1000.00"),
+        reference_type="SALES_RETURN_REFUND",
+        reference_id=f"RET-SEED-{suffix}",
+        notes="Store credit initial seed",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(credit_entry)
+    await db_session.commit()
+
+    # 2. Payment 1: Rs. 400 wallet
+    pay_req_1 = ProcessPaymentRequest(
+        reference_doc_type="SALES_INVOICE",
+        reference_doc_id=invoice.id,
+        party_id=customer.id,
+        branch_id=branch.id,
+        tenders=[PaymentTenderItem(tender_type="WALLET", amount=400.00)],
+        idempotency_key=f"PAY-SEQ-1-{suffix}",
+        auto_allocate=True,
+    )
+    res_1 = await PaymentsEngine.process_payment(
+        session=db_session,
+        company_id=company_id,
+        req=pay_req_1,
+        created_by=user.username,
+        commit=True,
+    )
+    tx_1_id = res_1.transactions[0].id
+
+    # 3. Payment 2: Rs. 300 wallet against the same invoice
+    pay_req_2 = ProcessPaymentRequest(
+        reference_doc_type="SALES_INVOICE",
+        reference_doc_id=invoice.id,
+        party_id=customer.id,
+        branch_id=branch.id,
+        tenders=[PaymentTenderItem(tender_type="WALLET", amount=300.00)],
+        idempotency_key=f"PAY-SEQ-2-{suffix}",
+        auto_allocate=True,
+    )
+    res_2 = await PaymentsEngine.process_payment(
+        session=db_session,
+        company_id=company_id,
+        req=pay_req_2,
+        created_by=user.username,
+        commit=True,
+    )
+    tx_2_id = res_2.transactions[0].id
+
+    # 4. Verify both ledger entries exist and have unique references
+    stmt_debits = (
+        select(CustomerCreditLedgerEntry)
+        .where(
+            CustomerCreditLedgerEntry.customer_id == customer.id,
+            CustomerCreditLedgerEntry.entry_type == "DEBIT",
+            CustomerCreditLedgerEntry.company_id == company_id,
+        )
+        .order_by(CustomerCreditLedgerEntry.entry_date.asc())
+    )
+    debits = (await db_session.execute(stmt_debits)).scalars().all()
+    assert len(debits) == 2
+    assert debits[0].reference_id == f"{invoice.id}:{tx_1_id}"
+    assert debits[1].reference_id == f"{invoice.id}:{tx_2_id}"
+    assert debits[0].reference_id != debits[1].reference_id
+    assert debits[0].reference_type == "SALES_INVOICE"
+    assert debits[1].reference_type == "SALES_INVOICE"
+
+    total_wallet_debit = sum(Decimal(str(d.amount)) for d in debits)
+    assert total_wallet_debit == Decimal("700.00")
+
+
+async def test_concurrent_wallet_payment_prevents_double_spend(db_session, db_engine):
+    """
+    Phase 1 Regression Test C: Concurrent Wallet Payment.
+    Initial genuine wallet balance: ₹1,000.00
+    Run concurrently:
+    Payment A = ₹800.00
+    Payment B = ₹800.00
+
+    Expected result after customer row locking:
+    - exactly ONE transaction may consume the available ₹1,000.00
+    - the other transaction must fail the wallet balance validation
+    - total successful wallet debit MUST NOT exceed ₹1,000.00
+    - no negative wallet balance may be created
+    """
+    suffix = uuid.uuid4().hex[:8]
+    company, branch, user, customer, tenant_ctx = await _setup_tenant_and_actor(db_session, suffix)
+    company_id = company.id
+    prod = await _setup_product(db_session, suffix, company_id, branch.id, stock=50, price=200.00)
+    invoice = await _setup_posted_invoice(db_session, tenant_ctx, user, customer, prod, suffix, qty=5, unit_price=200.00)
+
+    # 1. Seed customer wallet credit of Rs. 1,000.00
+    credit_entry = CustomerCreditLedgerEntry(
+        id=f"ccle-seed-{suffix}",
+        company_id=company_id,
+        branch_id=branch.id,
+        customer_id=customer.id,
+        entry_date=datetime.now(timezone.utc),
+        entry_type="CREDIT",
+        amount=Decimal("1000.00"),
+        balance_after=Decimal("1000.00"),
+        reference_type="SALES_RETURN_REFUND",
+        reference_id=f"RET-SEED-{suffix}",
+        notes="Store credit initial seed",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(credit_entry)
+    await db_session.commit()
+
+    # Session factory bound to test database engine
+    async_session_factory = sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def execute_wallet_payment(session, amount: float, idem_key: str):
+        pay_req = ProcessPaymentRequest(
+            reference_doc_type="SALES_INVOICE",
+            reference_doc_id=invoice.id,
+            party_id=customer.id,
+            branch_id=branch.id,
+            tenders=[PaymentTenderItem(tender_type="WALLET", amount=amount)],
+            idempotency_key=idem_key,
+            auto_allocate=True,
+        )
+        return await PaymentsEngine.process_payment(
+            session=session,
+            company_id=company_id,
+            req=pay_req,
+            created_by=user.username,
+            commit=True,
+        )
+
+    # 2. Run concurrently on two independent sessions
+    async with async_session_factory() as session_a, async_session_factory() as session_b:
+        results = await asyncio.gather(
+            execute_wallet_payment(session_a, 800.00, f"PAY-CONC-A-{suffix}"),
+            execute_wallet_payment(session_b, 800.00, f"PAY-CONC-B-{suffix}"),
+            return_exceptions=True,
+        )
+
+    successes = [r for r in results if not isinstance(r, Exception)]
+    failures = [r for r in results if isinstance(r, Exception)]
+
+    # Exactly ONE transaction may consume the available ₹1,000
+    assert len(successes) == 1, f"Expected exactly 1 success, got {len(successes)}: {results}"
+    assert len(failures) == 1, f"Expected exactly 1 failure, got {len(failures)}: {results}"
+    assert isinstance(failures[0], ValueError)
+    assert "exceeds available customer store credit / wallet balance" in str(failures[0])
+
+    # 3. Verify total wallet debits and that balance never went negative
+    stmt_debits = select(CustomerCreditLedgerEntry).where(
+        CustomerCreditLedgerEntry.customer_id == customer.id,
+        CustomerCreditLedgerEntry.entry_type == "DEBIT",
+        CustomerCreditLedgerEntry.company_id == company_id,
+    )
+    debits = (await db_session.execute(stmt_debits)).scalars().all()
+    assert len(debits) == 1
+    assert Decimal(str(debits[0].amount)) == Decimal("800.00")
+    assert Decimal(str(debits[0].balance_after)) == Decimal("200.00")
+
+    # Verify calculated available credit remains 200.00
+    stmt_credit = select(
+        func.coalesce(
+            func.sum(
+                case(
+                    (CustomerCreditLedgerEntry.entry_type == "CREDIT", CustomerCreditLedgerEntry.amount),
+                    else_=-CustomerCreditLedgerEntry.amount
+                )
+            ),
+            0
+        )
+    ).where(
+        CustomerCreditLedgerEntry.customer_id == customer.id,
+        CustomerCreditLedgerEntry.company_id == company_id,
+        CustomerCreditLedgerEntry.is_deleted == False
+    )
+    avail_credit = Decimal(str(await db_session.scalar(stmt_credit)))
+    assert avail_credit == Decimal("200.00")
+    assert avail_credit >= Decimal("0.00")
+
+
+async def test_wallet_payment_idempotency_regression(db_session):
+    """
+    Phase 1 Regression Test D: Wallet Payment Idempotency.
+    Verifies duplicate payment requests with same idempotency key:
+    - Return the cached response
+    - Do NOT duplicate debits in CustomerCreditLedgerEntry
+    - Do NOT deduct wallet balance twice
+    """
+    suffix = uuid.uuid4().hex[:8]
+    company, branch, user, customer, tenant_ctx = await _setup_tenant_and_actor(db_session, suffix)
+    company_id = company.id
+    prod = await _setup_product(db_session, suffix, company_id, branch.id, stock=50, price=200.00)
+    invoice = await _setup_posted_invoice(db_session, tenant_ctx, user, customer, prod, suffix, qty=5, unit_price=200.00)
+
+    # 1. Seed customer wallet credit of Rs. 1,000.00
+    credit_entry = CustomerCreditLedgerEntry(
+        id=f"ccle-seed-{suffix}",
+        company_id=company_id,
+        branch_id=branch.id,
+        customer_id=customer.id,
+        entry_date=datetime.now(timezone.utc),
+        entry_type="CREDIT",
+        amount=Decimal("1000.00"),
+        balance_after=Decimal("1000.00"),
+        reference_type="SALES_RETURN_REFUND",
+        reference_id=f"RET-SEED-{suffix}",
+        notes="Store credit initial seed",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(credit_entry)
+    await db_session.commit()
+
+    pay_req = ProcessPaymentRequest(
+        reference_doc_type="SALES_INVOICE",
+        reference_doc_id=invoice.id,
+        party_id=customer.id,
+        branch_id=branch.id,
+        tenders=[PaymentTenderItem(tender_type="WALLET", amount=400.00)],
+        idempotency_key=f"PAY-IDEM-WALLET-{suffix}",
+        auto_allocate=True,
+    )
+
+    # First call
+    res_1 = await PaymentsEngine.process_payment(
+        session=db_session,
+        company_id=company_id,
+        req=pay_req,
+        created_by=user.username,
+        commit=True,
+    )
+    tx_1_id = res_1.transactions[0].id
+
+    # Duplicate call with identical idempotency_key
+    res_2 = await PaymentsEngine.process_payment(
+        session=db_session,
+        company_id=company_id,
+        req=pay_req,
+        created_by=user.username,
+        commit=True,
+    )
+    tx_2_id = res_2.transactions[0].id
+
+    assert tx_1_id == tx_2_id
+    assert res_1.transactions[0].amount == res_2.transactions[0].amount
+
+    # Exactly one debit entry exists
+    stmt_debits = select(CustomerCreditLedgerEntry).where(
+        CustomerCreditLedgerEntry.customer_id == customer.id,
+        CustomerCreditLedgerEntry.entry_type == "DEBIT",
+        CustomerCreditLedgerEntry.company_id == company_id,
+    )
+    debits = (await db_session.execute(stmt_debits)).scalars().all()
+    assert len(debits) == 1
+    assert Decimal(str(debits[0].amount)) == Decimal("400.00")
+    assert Decimal(str(debits[0].balance_after)) == Decimal("600.00")
+

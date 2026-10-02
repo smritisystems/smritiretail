@@ -162,7 +162,7 @@ class PaymentsEngine:
 
                 # Customer store credit / wallet validation
                 if tender.tender_type.upper() in ("CREDIT_NOTE", "WALLET", "STORE_CREDIT"):
-                    from ..models.crm import CustomerCreditLedgerEntry
+                    from ..models.crm import Customer, CustomerCreditLedgerEntry
                     effective_cust_id = req.party_id
                     if not effective_cust_id and req.reference_doc_id:
                         from ..models.sales import SalesInvoice
@@ -171,6 +171,19 @@ class PaymentsEngine:
 
                     if not effective_cust_id:
                         raise ValueError("Customer identification (party_id) is mandatory when tendering via STORE_CREDIT / WALLET / CREDIT_NOTE.")
+
+                    # Phase 2: Acquire pessimistic row lock on Customer record to prevent concurrent wallet double-spend
+                    stmt_cust_lock = (
+                        select(Customer)
+                        .where(
+                            Customer.id == effective_cust_id,
+                            Customer.company_id == company_id,
+                        )
+                        .with_for_update()
+                    )
+                    cust_locked = (await session.execute(stmt_cust_lock)).scalars().first()
+                    if not cust_locked:
+                        raise ValueError(f"Customer '{effective_cust_id}' not found for company '{company_id}'.")
 
                     # Calculate available credit balance
                     stmt_credit = select(
@@ -196,6 +209,9 @@ class PaymentsEngine:
                         )
 
                     # Record CustomerCreditLedgerEntry debit
+                    # Phase 3: Reference identity hardening (Option B) - f"{req.reference_doc_id}:{tx_id}" ensures
+                    # unique reference identity per transaction while retaining invoice traceability and preserving UNIQUE constraint.
+                    credit_ref_id = f"{req.reference_doc_id}:{tx_id}" if req.reference_doc_id else tx_id
                     session.add(
                         CustomerCreditLedgerEntry(
                             id=f"ccle-{uuid.uuid4().hex[:12]}",
@@ -205,12 +221,13 @@ class PaymentsEngine:
                             amount=tender_amt,
                             balance_after=max(Decimal("0.00"), avail_credit - tender_amt),
                             reference_type="SALES_INVOICE",
-                            reference_id=req.reference_doc_id or tx_id,
+                            reference_id=credit_ref_id,
                             notes=f"Store credit / wallet redemption via {tx_no}",
                             company_id=company_id,
                             branch_id=req.branch_id,
                         )
                     )
+                    await session.flush()
 
                 tx = PaymentTransaction(
                     id=tx_id,
