@@ -4360,6 +4360,318 @@ class UnifiedAccountingLedgerService:
                 detail="SMRITI-GL-015: Immutable Ledger Policy: Posted journal vouchers and ledger entries cannot be modified directly. Post an authoritative reversing journal voucher."
             )
 
+    @classmethod
+    async def get_vendor_statement_of_account(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        branch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generates an authoritative, audit-ready Vendor Statement of Account (Subledger)
+        for Account 2010 (Accounts Payable / Sundry Creditors) and Account 2050 (Supplier Advance Liability).
+        Computes Opening Balance prior to from_date, detailed chronological transaction lines with
+        exact running balance, and closing unallocated advance balances.
+        """
+        from ..models.supplier_payment import SupplierPayment
+        from ..models.party import Party
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        # 1. Fetch Company Info
+        comp_stmt = select(Company).where(Company.id == company_id)
+        comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+        company_name = comp.name if comp else (company_id.upper() or "SMRITI Retail")
+
+        # 2. Fetch Supplier / Party details
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        if not supplier:
+            # Fallback to Party master (Universal Party)
+            party_stmt = select(Party).where(Party.id == supplier_id, Party.company_id == company_id)
+            party = (await session.execute(party_stmt)).scalar_one_or_none()
+            if party:
+                supp_dict = {
+                    "id": party.id,
+                    "code": party.code,
+                    "name": party.legal_name or party.name,
+                    "gstin": party.tax_id,
+                    "pan": party.pan,
+                    "email": party.email,
+                    "phone": party.phone,
+                    "address": party.billing_address,
+                    "payment_terms_days": 30,
+                }
+            else:
+                raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found for this company.")
+        else:
+            supp_dict = {
+                "id": supplier.id,
+                "code": supplier.code,
+                "name": supplier.name,
+                "gstin": getattr(supplier, "gstin", None) or getattr(supplier, "gst_number", None),
+                "pan": getattr(supplier, "pan", None),
+                "email": getattr(supplier, "email", None),
+                "phone": getattr(supplier, "phone", None) or getattr(supplier, "mobile", None),
+                "address": getattr(supplier, "address", None),
+                "payment_terms_days": getattr(supplier, "payment_terms_days", 30) or 30,
+            }
+
+        # 3. Get Account 2010 (Accounts Payable)
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+
+        # 4. Opening Balance prior to from_date
+        # In Accounts Payable (liability account):
+        # Credit increases liability (+), Debit decreases liability (-)
+        # Opening AP Balance = sum(credit_amount) - sum(debit_amount)
+        opening_balance = Decimal("0.00")
+        if from_date:
+            opening_stmt = (
+                select(
+                    func.coalesce(func.sum(GeneralLedgerEntry.credit_amount), Decimal("0.00")).label("prior_credit"),
+                    func.coalesce(func.sum(GeneralLedgerEntry.debit_amount), Decimal("0.00")).label("prior_debit"),
+                )
+                .join(JournalVoucher, GeneralLedgerEntry.voucher_id == JournalVoucher.id)
+                .where(
+                    GeneralLedgerEntry.company_id == company_id,
+                    GeneralLedgerEntry.account_id == acc_creditors.id,
+                    GeneralLedgerEntry.party_id == supplier_id,
+                    GeneralLedgerEntry.entry_date < from_date,
+                    GeneralLedgerEntry.is_deleted == False,
+                    JournalVoucher.is_cancelled == False,
+                )
+            )
+            op_res = (await session.execute(opening_stmt)).one()
+            opening_balance = (Decimal(str(op_res.prior_credit or 0)) - Decimal(str(op_res.prior_debit or 0))).quantize(Decimal("0.01"))
+
+        # 5. Fetch GL Entries in the reporting period
+        date_filters = []
+        if from_date:
+            date_filters.append(GeneralLedgerEntry.entry_date >= from_date)
+        if to_date:
+            date_filters.append(GeneralLedgerEntry.entry_date <= to_date)
+
+        entries_stmt = (
+            select(
+                GeneralLedgerEntry,
+                JournalVoucher,
+                Account.account_code,
+                Account.account_name,
+            )
+            .join(JournalVoucher, GeneralLedgerEntry.voucher_id == JournalVoucher.id)
+            .join(Account, GeneralLedgerEntry.account_id == Account.id)
+            .where(
+                GeneralLedgerEntry.company_id == company_id,
+                GeneralLedgerEntry.party_id == supplier_id,
+                GeneralLedgerEntry.account_id == acc_creditors.id,
+                GeneralLedgerEntry.is_deleted == False,
+                JournalVoucher.is_cancelled == False,
+                *date_filters,
+            )
+            .order_by(
+                GeneralLedgerEntry.entry_date.asc(),
+                GeneralLedgerEntry.posting_date.asc(),
+                GeneralLedgerEntry.id.asc(),
+            )
+        )
+        gl_rows = (await session.execute(entries_stmt)).all()
+
+        lines = []
+        running_bal = opening_balance
+        total_billed = Decimal("0.00")
+        total_paid = Decimal("0.00")
+        total_knocked_off = Decimal("0.00")
+        total_debit_notes = Decimal("0.00")
+
+        if gl_rows:
+            for row in gl_rows:
+                entry = row[0]
+                voucher = row[1]
+                acc_code = row[2]
+                acc_name = row[3]
+
+                dr = Decimal(str(entry.debit_amount or 0)).quantize(Decimal("0.01"))
+                cr = Decimal(str(entry.credit_amount or 0)).quantize(Decimal("0.01"))
+                running_bal = (running_bal + cr - dr).quantize(Decimal("0.01"))
+
+                ref_type = voucher.reference_doc_type or entry.reference_doc_type or voucher.voucher_type
+                if cr > Decimal("0.00"):
+                    total_billed += cr
+                if dr > Decimal("0.00"):
+                    if ref_type in ("SUPPLIER_ADVANCE_KNOCKOFF", "SUPPLIER_ADVANCE_BATCH_KNOCKOFF"):
+                        total_knocked_off += dr
+                    elif ref_type in ("DEBIT_NOTE", "PURCHASE_RETURN"):
+                        total_debit_notes += dr
+                    else:
+                        total_paid += dr
+
+                lines.append({
+                    "id": entry.id,
+                    "date": entry.entry_date,
+                    "voucher_no": voucher.voucher_no,
+                    "voucher_type": voucher.voucher_type,
+                    "reference_doc_type": ref_type,
+                    "reference_doc_no": voucher.reference_doc_no or voucher.reference_doc_id,
+                    "account_code": acc_code,
+                    "account_name": acc_name,
+                    "narration": entry.remarks or voucher.narration,
+                    "debit": dr,
+                    "credit": cr,
+                    "running_balance": running_bal,
+                })
+        else:
+            # Fallback for legacy fixtures / unposted records: construct from PurchaseBill & SupplierPayment
+            pb_filters = [
+                PurchaseBill.company_id == company_id,
+                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.is_deleted == False,
+                PurchaseBill.status != "CANCELLED",
+            ]
+            if from_date:
+                pb_filters.append(PurchaseBill.bill_date >= from_date)
+            if to_date:
+                pb_filters.append(PurchaseBill.bill_date <= to_date)
+
+            pb_stmt = select(PurchaseBill).where(*pb_filters).order_by(PurchaseBill.bill_date.asc(), PurchaseBill.created_at.asc())
+            bills = (await session.execute(pb_stmt)).scalars().all()
+
+            sp_filters = [
+                SupplierPayment.company_id == company_id,
+                SupplierPayment.supplier_id == supplier_id,
+                SupplierPayment.is_deleted == False,
+            ]
+            if from_date:
+                sp_filters.append(SupplierPayment.payment_date >= from_date)
+            if to_date:
+                sp_filters.append(SupplierPayment.payment_date <= to_date)
+
+            sp_stmt = select(SupplierPayment).where(*sp_filters).order_by(SupplierPayment.payment_date.asc(), SupplierPayment.created_at.asc())
+            pays = (await session.execute(sp_stmt)).scalars().all()
+
+            synth_items = []
+            for b in bills:
+                b_date = b.bill_date or (b.created_at.date() if b.created_at else date.today())
+                synth_items.append({
+                    "id": f"bill_{b.id}",
+                    "date": b_date,
+                    "voucher_no": b.bill_no or b.id,
+                    "voucher_type": "PURCHASE_BILL",
+                    "reference_doc_type": "PURCHASE_BILL",
+                    "reference_doc_no": b.bill_no,
+                    "account_code": "2010",
+                    "account_name": "Accounts Payable / Sundry Creditors",
+                    "narration": f"Purchase Bill {b.bill_no or b.id}",
+                    "debit": Decimal("0.00"),
+                    "credit": Decimal(str(b.total_amount or 0)).quantize(Decimal("0.01")),
+                    "sort_date": b_date,
+                })
+            for p in pays:
+                # Exclude advances from standard payment lines in legacy fallback
+                if p.notes and "__PAYMENT_TYPE__:ADVANCE" in p.notes:
+                    continue
+                p_date = p.payment_date or (p.created_at.date() if p.created_at else date.today())
+                synth_items.append({
+                    "id": f"pay_{p.id}",
+                    "date": p_date,
+                    "voucher_no": p.reference_no or p.id,
+                    "voucher_type": "SUPPLIER_PAYMENT",
+                    "reference_doc_type": "SUPPLIER_PAYMENT",
+                    "reference_doc_no": p.reference_no,
+                    "account_code": "2010",
+                    "account_name": "Accounts Payable / Sundry Creditors",
+                    "narration": f"Supplier Payment ({p.payment_mode or 'CASH'}) {p.reference_no or p.id}",
+                    "debit": Decimal(str(p.amount or 0)).quantize(Decimal("0.01")),
+                    "credit": Decimal("0.00"),
+                    "sort_date": p_date,
+                })
+
+            synth_items.sort(key=lambda x: x["sort_date"])
+            for itm in synth_items:
+                dr = itm["debit"]
+                cr = itm["credit"]
+                running_bal = (running_bal + cr - dr).quantize(Decimal("0.01"))
+                total_billed += cr
+                total_paid += dr
+                itm["running_balance"] = running_bal
+                del itm["sort_date"]
+                lines.append(itm)
+
+        closing_balance = running_bal
+
+        # 6. Fetch Active Unallocated Advance Prepayments (Account 2050)
+        import json
+        adv_stmt = (
+            select(SupplierPayment)
+            .where(
+                SupplierPayment.company_id == company_id,
+                SupplierPayment.supplier_id == supplier_id,
+                SupplierPayment.is_deleted == False,
+                SupplierPayment.notes.like("%__PAYMENT_TYPE__:ADVANCE%"),
+            )
+        )
+        advances = (await session.execute(adv_stmt)).scalars().all()
+        unallocated_adv_total = Decimal("0.00")
+        active_advances_count = 0
+        for adv in advances:
+            adv_amt = Decimal(str(adv.amount or 0))
+            allocated_sum = Decimal("0.00")
+            if adv.notes and "__ALLOCATIONS__:" in adv.notes:
+                try:
+                    alloc_str = adv.notes.split("__ALLOCATIONS__:", 1)[1].strip()
+                    if alloc_str.startswith("["):
+                        end_idx = alloc_str.find("]") + 1
+                        if end_idx > 1:
+                            alloc_list = json.loads(alloc_str[:end_idx])
+                            allocated_sum = sum(Decimal(str(a.get("amount", 0))) for a in alloc_list)
+                except Exception:
+                    allocated_sum = Decimal("0.00")
+            unalloc = max(Decimal("0.00"), adv_amt - allocated_sum).quantize(Decimal("0.01"))
+            if unalloc > Decimal("0.00"):
+                unallocated_adv_total += unalloc
+                active_advances_count += 1
+
+        # 7. Fetch Unpaid Purchase Bills count
+        bill_stmt = (
+            select(func.count(PurchaseBill.id))
+            .where(
+                PurchaseBill.company_id == company_id,
+                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.is_deleted == False,
+                PurchaseBill.status.notin_(["CANCELLED", "DRAFT", "PAID"]),
+                PurchaseBill.paid_amount < PurchaseBill.total_amount,
+            )
+        )
+        unpaid_bills_count = (await session.execute(bill_stmt)).scalar() or 0
+
+        net_payable = max(Decimal("0.00"), closing_balance - unallocated_adv_total).quantize(Decimal("0.01"))
+        now_utc = datetime.now(timezone.utc)
+
+        return {
+            "company_id": company_id,
+            "company_name": company_name,
+            "from_date": from_date,
+            "to_date": to_date,
+            "supplier": supp_dict,
+            "summary": {
+                "opening_balance": opening_balance,
+                "total_billed": total_billed.quantize(Decimal("0.01")),
+                "total_paid": total_paid.quantize(Decimal("0.01")),
+                "total_knocked_off": total_knocked_off.quantize(Decimal("0.01")),
+                "total_debit_notes": total_debit_notes.quantize(Decimal("0.01")),
+                "closing_balance": closing_balance,
+                "unallocated_advance": unallocated_adv_total.quantize(Decimal("0.01")),
+                "net_payable": net_payable,
+            },
+            "lines": lines,
+            "unpaid_bills_count": unpaid_bills_count,
+            "active_advances_count": active_advances_count,
+            "generated_at": now_utc,
+        }
+
+
 
 
 
