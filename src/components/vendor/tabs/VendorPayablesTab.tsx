@@ -32,6 +32,7 @@ import { VendorDetail } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 import { withCapability } from "../../../types/architecture";
 import { VendorAdvanceKnockoffModal, AdvanceRecord, BillRecord } from "./VendorAdvanceKnockoffModal";
+import { VendorStatementOfAccountModal } from "./VendorStatementOfAccountModal";
 
 type AgingBucket = "CURRENT" | "OVERDUE_30" | "OVERDUE_60" | "OVERDUE_90" | "CRITICAL";
 
@@ -80,6 +81,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
 
   // Modal State
   const [isKnockoffModalOpen, setIsKnockoffModalOpen] = useState(false);
+  const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
   const [knockoffMode, setKnockoffMode] = useState<"single" | "batch">("batch");
   const [selectedInitialAdvanceId, setSelectedInitialAdvanceId] = useState<string | undefined>();
   const [selectedInitialBillId, setSelectedInitialBillId] = useState<string | undefined>();
@@ -336,6 +338,15 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
               </button>
             </>
           )}
+          <button
+            type="button"
+            onClick={() => setIsStatementModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-xs font-bold text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 shadow-xs transition-colors"
+            title="View and Export Authoritative Vendor Statement of Account"
+          >
+            <FileText size={13} />
+            <span>📄 Statement of Account</span>
+          </button>
           <button
             type="button"
             onClick={loadPayablesData}
@@ -619,6 +630,14 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
         initialBillId={selectedInitialBillId}
         initialMode={knockoffMode}
         onSuccess={loadPayablesData}
+        onNotification={onNotification}
+      />
+
+      {/* Vendor Statement of Account (SOA) Modal */}
+      <VendorStatementOfAccountModal
+        isOpen={isStatementModalOpen}
+        onClose={() => setIsStatementModalOpen(false)}
+        vendor={vendor}
         onNotification={onNotification}
       />
     </div>

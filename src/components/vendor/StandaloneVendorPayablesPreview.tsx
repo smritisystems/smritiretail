@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { VendorDetail } from "../../types/vendor";
 import { VendorAdvanceKnockoffModal, AdvanceRecord, BillRecord } from "./tabs/VendorAdvanceKnockoffModal";
+import { VendorStatementOfAccountModal } from "./tabs/VendorStatementOfAccountModal";
 
 const MOCK_VENDOR: VendorDetail = {
   id: "sup-vardhman-adv-001",
@@ -118,6 +119,7 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
   const [advances, setAdvances] = useState<AdvanceRecord[]>(INITIAL_ADVANCES);
   const [bills, setBills] = useState<BillRecord[]>(INITIAL_BILLS);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isStatementOpen, setIsStatementOpen] = useState(false);
   const [initialMode, setInitialMode] = useState<"single" | "batch">("batch");
   const [initialAdvId, setInitialAdvId] = useState<string | undefined>();
   const [initialBillId, setInitialBillId] = useState<string | undefined>();
@@ -257,6 +259,14 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
             >
               <Sparkles size={14} />
               <span>1-Click</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsStatementOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 transition-all cursor-pointer"
+            >
+              <FileText size={14} />
+              <span>📄 Statement of Account</span>
             </button>
           </div>
         </div>
@@ -583,6 +593,16 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
           onSuccess={() => {}}
           onSimulate={handleSimulateKnockoff}
           onSimulateBatch={handleSimulateBatchKnockoff}
+          onNotification={(title, msg, type) => {
+            setNotification({ title, message: msg, type });
+          }}
+        />
+
+        {/* Vendor Statement of Account (SOA) Modal */}
+        <VendorStatementOfAccountModal
+          isOpen={isStatementOpen}
+          onClose={() => setIsStatementOpen(false)}
+          vendor={MOCK_VENDOR}
           onNotification={(title, msg, type) => {
             setNotification({ title, message: msg, type });
           }}

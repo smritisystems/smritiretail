@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+from datetime import date
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +29,10 @@ from ...schemas.vendor import (
     VendorMergeRequest,
     VendorMergeResponse,
 )
+from ...schemas.vendor_statement import VendorStatementResponse
 from ...services.vendor_svc import VendorService
 from ...services.vendor_code_allocator import allocate_next_vendor_code
+from ...services.unified_ledger import UnifiedAccountingLedgerService
 from ...core.governance import smriti_capability
 
 router = APIRouter(prefix="/vendors", tags=["Vendor 360 & Universal Party"])
@@ -184,3 +187,31 @@ async def merge_vendors(
     """
     service = VendorService(db, tenant)
     return await service.merge_vendors(req)
+
+
+@router.get(
+    "/{vendor_id}/statement",
+    response_model=VendorStatementResponse,
+    summary="Get Vendor Statement of Account (Subledger Audit)",
+)
+async def get_vendor_statement(
+    vendor_id: str,
+    from_date: Optional[date] = Query(None, description="Start date for statement period (YYYY-MM-DD)"),
+    to_date: Optional[date] = Query(None, description="End date for statement period (YYYY-MM-DD)"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Retrieves the authoritative Vendor Statement of Account (Subledger Audit)
+    for Account 2010 (Accounts Payable) and Account 2050 (Supplier Advances).
+    Computes opening balances, running transaction ledger lines, and unallocated advance balances.
+    """
+    return await UnifiedAccountingLedgerService.get_vendor_statement_of_account(
+        session=db,
+        company_id=tenant.company_id,
+        supplier_id=vendor_id,
+        from_date=from_date,
+        to_date=to_date,
+        branch_id=tenant.branch_id,
+    )
+

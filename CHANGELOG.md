@@ -28,6 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.50.0] - 2026-10-02 — SMRITI Procurement Phase 2.8: Vendor Statement of Account (SOA) & Ledger Audit PDF/Excel Export
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Vendor Statement of Account (SOA)
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_8_Vendor_Statement_Of_Account_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_8_Vendor_Statement_Of_Account_v1.0.md`
+
+### Added
+- **Vendor Statement of Account (SOA) Core Engine** (`backend/app/services/unified_ledger.py`):
+  - Added `UnifiedAccountingLedgerService.get_vendor_statement_of_account()`: generates chronological double-entry audit ledger for Account 2010 (Accounts Payable) with opening balance brought forward prior to `from_date`, in-period transactions (Purchase Bills, Direct Disbursements, Advance Knock-Offs, Debit Notes), and progressive running balance.
+  - Computes active unallocated supplier advance liability deposits (Account 2050) and net payable exposure (`max(0, closing_balance - unallocated_advance)`).
+  - Multi-tenant isolated, resilient to legacy bills without posted GL vouchers by synthesizing journal lines from purchase bill records.
+- **Statement Schemas & DTOs** (`backend/app/schemas/vendor_statement.py`):
+  - Defined `VendorStatementLine`, `VendorStatementSummary`, `VendorStatementSupplier`, and `VendorStatementResponse`.
+- **REST API Endpoints** (`backend/app/api/v1/vendor.py`):
+  - Added `GET /api/v1/purchase/vendors/{vendor_id}/statement` and `GET /api/v1/vendors/{vendor_id}/statement` supporting optional `from_date`, `to_date`, and `branch_id` query parameters.
+- **Vendor 360 Statement of Account Modal** (`src/components/vendor/tabs/VendorStatementOfAccountModal.tsx`):
+  - Period selector with presets: Current FY (Apr 1 - Mar 31), This Month, Last Month, Last 30 Days, Last 90 Days, All Time, Custom Range.
+  - 7-Card Financial Health Ribbon: Opening Balance, Billed (+), Paid (-), Knocked Off (-), Closing AP, Available Advances, Net Due.
+  - Detailed Chronological General Ledger Audit Trail table with document type badges, formatted INR currency values, and period totals footer.
+  - A4 Printable Layout with `@media print` styling, company header, vendor details, and double-entry reconciliation signature certification block.
+  - 1-Click Excel / CSV export with complete header metadata, summary financials, and transaction lines.
+- **UI Integration & Action Triggers** (`src/components/vendor/tabs/VendorPayablesTab.tsx`, `src/components/vendor/StandaloneVendorPayablesPreview.tsx`):
+  - Added **"📄 Statement of Account"** action buttons.
+- **Automated Backend Test Battery** (`backend/app/tests/test_vendor_statement_of_account.py`):
+  - 4/4 passing tests: full lifecycle statement generation, date range and opening balance calculation, empty vendor clean state, and tenant isolation.
+
 ## [6.49.9] - 2026-10-02 — SMRITI Procurement Phase 2.7: Multi-Bill Batch Advance Knock-Off & FIFO Allocation Engine
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Advance Knock-Off Engine
