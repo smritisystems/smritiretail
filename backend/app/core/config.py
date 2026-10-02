@@ -141,7 +141,7 @@ _root_env_path = _root_dir / ".env"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
-    VERSION: str = "6.47.4"
+    VERSION: str = "6.49.4"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     

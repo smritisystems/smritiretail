@@ -43,6 +43,7 @@ from app.models.purchase import (
     PurchaseOrderItem,
 )
 from app.models.workflow import WorkflowEvent
+from app.services.unified_ledger import UnifiedAccountingLedgerService
 from ..contracts import BaseDocumentLifecycleHandler
 from ..registry import register_lifecycle_handler
 from ..exceptions import (
@@ -275,16 +276,38 @@ class PurchaseBillLifecycleHandler(BaseDocumentLifecycleHandler):
         payload: Dict[str, Any],
     ) -> None:
         """Applies state mutation to PurchaseBill entity atomically."""
+        from_status = self.get_current_status(doc)
         doc.status = next_state
         now = datetime.now(timezone.utc)
         doc.version = (doc.version or 0) + 1
         doc.modified_at = now
 
-        if action == "CANCEL":
+        if action == "POST" or next_state == "POSTED":
+            # Financial GL Posting via UnifiedAccountingLedgerService (Atomic, Fail-Fast)
+            await UnifiedAccountingLedgerService.post_purchase_bill_to_gl(
+                session=db,
+                company_id=tenant_ctx.company_id,
+                bill_id=doc.id,
+                branch_id=tenant_ctx.branch_id or doc.branch_id,
+                created_by=getattr(user, "username", None) or str(user.id),
+            )
+
+        elif action == "CANCEL":
             # MANDATORY INVARIANT: Cancelled records remain queryable
             doc.is_deleted = False
             doc.deleted_at = None
             doc.cancellation_reason = payload.get("reason") or payload.get("notes") or payload.get("cancellation_reason")
+
+            # If the bill was already posted to GL, generate compensating reversal voucher
+            if from_status in ("POSTED", "PAID"):
+                await UnifiedAccountingLedgerService.reverse_purchase_bill_gl(
+                    session=db,
+                    company_id=tenant_ctx.company_id,
+                    bill_id=doc.id,
+                    branch_id=tenant_ctx.branch_id or doc.branch_id,
+                    reason=doc.cancellation_reason,
+                    cancelled_by=getattr(user, "username", None) or str(user.id),
+                )
 
         elif action == "PAY":
             payment_amount = payload.get("amount") or doc.total_amount

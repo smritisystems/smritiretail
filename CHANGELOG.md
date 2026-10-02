@@ -28,6 +28,31 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.49.4] - 2026-10-02 — SMRITI Procurement Phase 2.2: Purchase Bill Accounts Payable (2010 AP) General Ledger Integration
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_2_Purchase_Bill_AP_GL_Integration_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_2_Purchase_Bill_AP_GL_Integration_v1.0.md`
+
+### Added
+- **Purchase Bill Accounts Payable Double-Entry General Ledger Integration** (`backend/app/services/unified_ledger.py`):
+  - Implemented `post_purchase_bill_to_gl()`: Translates commercial supplier invoices into balanced double-entry `JournalVoucher` (`PURCHASE_BILL`).
+    - `Debit 1040 (Inventory Asset)` = Subtotal / taxable amount.
+    - `Debit 1051 (Input CGST)` & `1052 (Input SGST)` (Intrastate) or `1053 (Input IGST)` (Interstate) = Tax breakdown.
+    - `Debit/Credit 5030 (Roundoff Account)` = Fractional cent balancing.
+    - `Credit 2010 (Accounts Payable / Sundry Creditors)` = Grand total linked to supplier party (`party_id=bill.supplier_id`).
+    - Atomically increments `supplier.outstanding` liability upon confirmation.
+  - Implemented `reverse_purchase_bill_gl()` / `post_purchase_bill_cancellation_to_gl()`: Generates exact compensating reversal voucher (`PURCHASE_BILL_CANCEL`), decrements `supplier.outstanding`, while enforcing cancellation immutability (`is_deleted=False`).
+  - Added idempotency protection guarding against duplicate posting or duplicate cancellation vouchers.
+  - Outbox audit integration publishing `GL_VOUCHER_POSTED` events to `ACCOUNTING_STREAM`.
+- **Purchase Bill Lifecycle Handler GL Wiring** (`backend/app/services/lifecycle/handlers/purchase_bill.py`):
+  - Wired `post_purchase_bill_to_gl()` on `POST` transition.
+  - Wired `reverse_purchase_bill_gl()` on `CANCEL` transition when coming from `POSTED` or `PAID` states.
+  - Guaranteed cancellation immutability and no-op handling for unposted bills.
+- **Automated Test Battery** (`backend/app/tests/test_purchase_bill_gl_atomicity.py`):
+  - 7/7 automated tests covering balanced voucher creation, interstate IGST routing, roundoff balancing, idempotency, reversal, and unposted cancellation.
+  - 100% regression green (9/9 cross-handler tests passing).
+
 ## [6.49.3] - 2026-10-02 — SMRITI Sales Phase P2.5: Customer Credit Notes, Customer Wallets & Advance Refund Processing
 
 > **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Financial Accounting / CRM Wallets
