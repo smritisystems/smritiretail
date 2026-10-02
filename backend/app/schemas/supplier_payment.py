@@ -47,6 +47,9 @@ class SupplierPaymentCreate(BaseModel):
     auto_allocate:     bool = True
     payment_type:      Optional[str] = "STANDARD"  # STANDARD | ADVANCE
     purchase_order_id: Optional[str] = None
+    tds_amount:        Optional[Decimal] = None
+    tds_section:       Optional[str] = None
+    tds_rate:          Optional[Decimal] = None
 
     @field_validator("amount")
     @classmethod
@@ -80,6 +83,9 @@ class SupplierPaymentResponse(BaseModel):
     payment_type:        Optional[str] = "STANDARD"
     purchase_order_id:   Optional[str] = None
     unallocated_amount:  Optional[Decimal] = None
+    tds_amount:          Optional[Decimal] = None
+    tds_section:         Optional[str] = None
+    tds_rate:            Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
 

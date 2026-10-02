@@ -69,6 +69,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "2021", "name": "Output CGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2022", "name": "Output SGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2023", "name": "Output IGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
+    {"code": "2030", "name": "TDS / Withholding Tax Payable", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2050", "name": "Customer Advance Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
     {"code": "2060", "name": "Customer Credit Note & Wallet Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
     {"code": "2070", "name": "Customer Loyalty Points Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
@@ -1237,6 +1238,8 @@ class UnifiedAccountingLedgerService:
         bill_id: str,
         branch_id: Optional[str] = None,
         created_by: Optional[str] = None,
+        tds_amount: Optional[Decimal] = None,
+        tds_section: Optional[str] = None,
     ) -> JournalVoucher:
         """
         Translates a posted Purchase Bill into an authoritative double-entry GL voucher:
@@ -1357,14 +1360,49 @@ class UnifiedAccountingLedgerService:
                     "remarks": f"Roundoff Adjustment on Bill {bill.bill_no}",
                 })
 
+        # Check TDS withholding
+        if tds_amount is None and bill.notes and "__TDS_AMOUNT__:" in bill.notes:
+            try:
+                for line_part in bill.notes.split("\n"):
+                    if "__TDS_AMOUNT__:" in line_part:
+                        for segment in line_part.split("|"):
+                            segment = segment.strip()
+                            if segment.startswith("__TDS_AMOUNT__:"):
+                                tds_amount = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+                            elif segment.startswith("__TDS_SECTION__:"):
+                                tds_section = segment.split(":", 1)[1].strip()
+            except Exception:
+                pass
+        tds_amount = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+
         supp_name = supplier.name if supplier else (bill.supplier_id or "Supplier")
-        lines.append({
-            "account_id": acc_creditors.id,
-            "party_id": bill.supplier_id,
-            "debit_amount": Decimal("0.00"),
-            "credit_amount": grand_total,
-            "remarks": f"Accounts Payable to {supp_name} for Bill {bill.bill_no}",
-        })
+        if tds_amount > Decimal("0.00"):
+            net_ap = max(Decimal("0.00"), grand_total - tds_amount).quantize(Decimal("0.01"))
+            acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+            lines.append({
+                "account_id": acc_creditors.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": net_ap,
+                "remarks": f"Accounts Payable (Net of TDS) to {supp_name} for Bill {bill.bill_no}",
+            })
+            lines.append({
+                "account_id": acc_tds.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tds_amount,
+                "remarks": f"TDS Withheld u/s {tds_section or '194Q'} on Bill {bill.bill_no} for {supp_name}",
+            })
+            effective_ap_delta = net_ap
+        else:
+            lines.append({
+                "account_id": acc_creditors.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": grand_total,
+                "remarks": f"Accounts Payable to {supp_name} for Bill {bill.bill_no}",
+            })
+            effective_ap_delta = grand_total
 
         bill_dt = getattr(bill, "bill_date", None) or getattr(bill, "created_at", None)
         v_date = bill_dt.date() if isinstance(bill_dt, datetime) else (bill_dt or date.today())
@@ -1384,7 +1422,7 @@ class UnifiedAccountingLedgerService:
         )
 
         if supplier:
-            supplier.outstanding = Decimal(str(supplier.outstanding or 0.00)) + grand_total
+            supplier.outstanding = Decimal(str(supplier.outstanding or 0.00)) + effective_ap_delta
             await session.flush()
 
         return voucher
@@ -1480,23 +1518,59 @@ class UnifiedAccountingLedgerService:
             igst_sum = Decimal("0.00")
 
         supp_name = supplier.name if supplier else (bill.supplier_id or "Supplier")
+        # Check if original purchase bill voucher or notes had TDS in Account 2030
+        tds_amount = Decimal("0.00")
+        if orig_voucher:
+            entry_stmt = select(GeneralLedgerEntry).where(
+                GeneralLedgerEntry.voucher_id == orig_voucher.id,
+                GeneralLedgerEntry.is_deleted == False
+            )
+            entries = (await session.execute(entry_stmt)).scalars().all()
+            for ent in entries:
+                acc = await cls.get_account_by_id(session, company_id, ent.account_id)
+                if acc and acc.account_code == "2030" and ent.credit_amount > 0:
+                    tds_amount = Decimal(str(ent.credit_amount)).quantize(Decimal("0.01"))
+                    break
+        if tds_amount <= Decimal("0.00") and bill.notes and "__TDS_AMOUNT__:" in bill.notes:
+            try:
+                for line_part in bill.notes.split("\n"):
+                    if "__TDS_AMOUNT__:" in line_part:
+                        for segment in line_part.split("|"):
+                            segment = segment.strip()
+                            if segment.startswith("__TDS_AMOUNT__:"):
+                                tds_amount = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+
+        tds_amount = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+        net_ap = max(Decimal("0.00"), grand_total - tds_amount).quantize(Decimal("0.01"))
+
         lines = [
             # 1. Debit Accounts Payable (reversing original supplier credit)
             {
                 "account_id": acc_creditors.id,
                 "party_id": bill.supplier_id,
-                "debit_amount": grand_total,
+                "debit_amount": net_ap,
                 "credit_amount": Decimal("0.00"),
                 "remarks": f"Reversal of AP to {supp_name} for Cancelled Bill {bill.bill_no}",
             },
-            # 2. Credit Inventory Asset (reversing original inventory debit)
-            {
-                "account_id": acc_inventory.id,
-                "debit_amount": Decimal("0.00"),
-                "credit_amount": subtotal,
-                "remarks": f"Reversal of Inward Inventory for Cancelled Bill {bill.bill_no}",
-            },
         ]
+        if tds_amount > Decimal("0.00"):
+            acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+            lines.append({
+                "account_id": acc_tds.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": tds_amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of TDS Withheld on Cancelled Bill {bill.bill_no}",
+            })
+        lines.append({
+            # 2. Credit Inventory Asset (reversing original inventory debit)
+            "account_id": acc_inventory.id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": subtotal,
+            "remarks": f"Reversal of Inward Inventory for Cancelled Bill {bill.bill_no}",
+        })
 
         # 3. Credit Input Tax Ledgers (reversing original tax debits)
         if is_interstate and igst_sum > 0:
@@ -1558,7 +1632,7 @@ class UnifiedAccountingLedgerService:
         )
 
         if supplier:
-            supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0.00)) - grand_total)
+            supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0.00)) - net_ap)
             await session.flush()
 
         return voucher
@@ -1591,11 +1665,14 @@ class UnifiedAccountingLedgerService:
         payment_id: str,
         branch_id: Optional[str] = None,
         created_by: Optional[str] = None,
+        tds_amount: Optional[Decimal] = None,
+        tds_section: Optional[str] = None,
     ) -> JournalVoucher:
         """
         Translates a SupplierPayment into an authoritative double-entry GL voucher:
         Debit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
-        Credit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+        Credit: Cash in Hand (1010) or Bank Accounts (1020) = Amount - TDS Amount
+        Credit (optional): TDS / Withholding Tax Payable (2030) = TDS Amount
         """
         from ..models.supplier_payment import SupplierPayment
         stmt = (
@@ -1636,6 +1713,21 @@ class UnifiedAccountingLedgerService:
 
         amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
 
+        if tds_amount is None and payment.notes and "__TDS_AMOUNT__:" in payment.notes:
+            try:
+                for line_part in payment.notes.split("\n"):
+                    if "__TDS_AMOUNT__:" in line_part:
+                        for segment in line_part.split("|"):
+                            segment = segment.strip()
+                            if segment.startswith("__TDS_AMOUNT__:"):
+                                tds_amount = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+                            elif segment.startswith("__TDS_SECTION__:"):
+                                tds_section = segment.split(":", 1)[1].strip()
+            except Exception:
+                pass
+        tds_amount = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+        net_disbursement = max(Decimal("0.00"), amount - tds_amount).quantize(Decimal("0.01"))
+
         if is_advance:
             # Supplier Advance Prepayment: Debit 2050 (Supplier Advance Liability)
             acc_target = await cls.get_account_by_code(session, company_id, "2050")
@@ -1658,10 +1750,19 @@ class UnifiedAccountingLedgerService:
             {
                 "account_id": acc_disbursement.id,
                 "debit_amount": Decimal("0.00"),
-                "credit_amount": amount,
+                "credit_amount": net_disbursement,
                 "remarks": f"Disbursement via {mode} for Payment {payment.id}",
             },
         ]
+        if tds_amount > Decimal("0.00"):
+            acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+            lines.append({
+                "account_id": acc_tds.id,
+                "party_id": payment.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tds_amount,
+                "remarks": f"TDS Withheld u/s {tds_section or 'Statutory'} for Payment {payment.id} to {supp_name}",
+            })
 
         p_date = payment.payment_date if isinstance(payment.payment_date, date) else date.today()
 
@@ -1751,6 +1852,32 @@ class UnifiedAccountingLedgerService:
 
         amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
 
+        tds_amount = Decimal("0.00")
+        if orig_voucher:
+            entry_stmt = select(GeneralLedgerEntry).where(
+                GeneralLedgerEntry.voucher_id == orig_voucher.id,
+                GeneralLedgerEntry.is_deleted == False
+            )
+            entries = (await session.execute(entry_stmt)).scalars().all()
+            for ent in entries:
+                acc = await cls.get_account_by_id(session, company_id, ent.account_id)
+                if acc and acc.account_code == "2030" and ent.credit_amount > 0:
+                    tds_amount = Decimal(str(ent.credit_amount)).quantize(Decimal("0.01"))
+                    break
+        if tds_amount <= Decimal("0.00") and payment.notes and "__TDS_AMOUNT__:" in payment.notes:
+            try:
+                for line_part in payment.notes.split("\n"):
+                    if "__TDS_AMOUNT__:" in line_part:
+                        for segment in line_part.split("|"):
+                            segment = segment.strip()
+                            if segment.startswith("__TDS_AMOUNT__:"):
+                                tds_amount = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+
+        tds_amount = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+        net_disbursement = max(Decimal("0.00"), amount - tds_amount).quantize(Decimal("0.01"))
+
         if is_advance:
             acc_target = await cls.get_account_by_code(session, company_id, "2050")
             target_remarks = f"Reversal of advance disbursement for {supp_name}"
@@ -1761,18 +1888,27 @@ class UnifiedAccountingLedgerService:
         lines = [
             {
                 "account_id": acc_disbursement.id,
-                "debit_amount": amount,
+                "debit_amount": net_disbursement,
                 "credit_amount": Decimal("0.00"),
                 "remarks": f"Reversal of disbursement via {mode} for Cancelled Payment {payment.id}",
             },
-            {
-                "account_id": acc_target.id,
-                "party_id": payment.supplier_id,
-                "debit_amount": Decimal("0.00"),
-                "credit_amount": amount,
-                "remarks": target_remarks,
-            },
         ]
+        if tds_amount > Decimal("0.00"):
+            acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+            lines.append({
+                "account_id": acc_tds.id,
+                "party_id": payment.supplier_id,
+                "debit_amount": tds_amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of TDS Withheld for Cancelled Payment {payment.id}",
+            })
+        lines.append({
+            "account_id": acc_target.id,
+            "party_id": payment.supplier_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": amount,
+            "remarks": target_remarks,
+        })
 
         voucher = await cls.post_journal_voucher(
             session=session,
@@ -4669,6 +4805,291 @@ class UnifiedAccountingLedgerService:
             "unpaid_bills_count": unpaid_bills_count,
             "active_advances_count": active_advances_count,
             "generated_at": now_utc,
+        }
+
+    @classmethod
+    async def post_tds_deduction_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        tds_amount: Decimal,
+        tds_section: str = "194Q",
+        bill_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+        remarks: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Standalone TDS Withholding Adjustment Voucher:
+        Debit: Accounts Payable (2010) = tds_amount (reduces vendor liability)
+        Credit: TDS / Withholding Tax Payable (2030) = tds_amount (creates statutory tax liability)
+        Atomically decrements supplier.outstanding.
+        """
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+        tds_amt = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+        if tds_amt <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="TDS amount must be strictly greater than zero.")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        if not supplier:
+            raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found.")
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+
+        supp_name = supplier.name or supplier_id
+        ref_no = f"TDS-{tds_section}-{date.today().strftime('%Y%m%d')}"
+
+        lines = [
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": tds_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": remarks or f"TDS Deduction u/s {tds_section} against {supp_name}",
+            },
+            {
+                "account_id": acc_tds.id,
+                "party_id": supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tds_amt,
+                "remarks": f"TDS Payable u/s {tds_section} for {supp_name}",
+            },
+        ]
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="TDS_DEDUCTION",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="TDS_DEDUCTION",
+            reference_doc_id=bill_id or supplier_id,
+            reference_doc_no=ref_no,
+            narration=f"TDS Withholding u/s {tds_section} for {supp_name} ({ref_no})",
+            created_by=created_by,
+        )
+
+        supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0.00)) - tds_amt)
+        await session.flush()
+        return voucher
+
+    @classmethod
+    async def reverse_tds_deduction_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        voucher_id: str,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Reverses a standalone TDS Withholding Adjustment Voucher:
+        Debit: TDS / Withholding Tax Payable (2030) = tds_amount
+        Credit: Accounts Payable (2010) = tds_amount
+        Atomically increments supplier.outstanding.
+        """
+        orig_stmt = select(JournalVoucher).where(
+            JournalVoucher.id == voucher_id,
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.is_deleted == False,
+        )
+        orig_voucher = (await session.execute(orig_stmt)).scalar_one_or_none()
+        if not orig_voucher:
+            raise HTTPException(status_code=404, detail="Original TDS voucher not found.")
+
+        # Read entries to get tds_amount and supplier_id
+        entry_stmt = select(GeneralLedgerEntry).where(
+            GeneralLedgerEntry.voucher_id == orig_voucher.id,
+            GeneralLedgerEntry.is_deleted == False
+        )
+        entries = (await session.execute(entry_stmt)).scalars().all()
+        tds_amt = Decimal("0.00")
+        supplier_id = None
+        for ent in entries:
+            acc = await cls.get_account_by_id(session, company_id, ent.account_id)
+            if acc and acc.account_code == "2030" and ent.credit_amount > 0:
+                tds_amt = Decimal(str(ent.credit_amount)).quantize(Decimal("0.01"))
+                supplier_id = ent.party_id
+                break
+
+        if tds_amt <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="No TDS credit line found on original voucher.")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none() if supplier_id else None
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+
+        lines = [
+            {
+                "account_id": acc_tds.id,
+                "party_id": supplier_id,
+                "debit_amount": tds_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of TDS Payable for {supp_name} ({reason or 'Cancellation'})",
+            },
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tds_amt,
+                "remarks": f"Reversal of TDS AP reduction for {supp_name}",
+            },
+        ]
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=orig_voucher.branch_id,
+            voucher_type="TDS_DEDUCTION_CANCEL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="TDS_DEDUCTION_CANCEL",
+            reference_doc_id=orig_voucher.id,
+            reference_doc_no=f"REV-{orig_voucher.voucher_no}",
+            narration=f"Reversal of TDS Voucher {orig_voucher.voucher_no}. Reason: {reason or 'Cancelled'}",
+            created_by=cancelled_by,
+        )
+
+        if supplier:
+            supplier.outstanding = Decimal(str(supplier.outstanding or 0.00)) + tds_amt
+            await session.flush()
+
+        return voucher
+
+    @classmethod
+    async def get_vendor_tds_summary(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        financial_year: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Retrieves the statutory TDS summary for a vendor across all FY transactions:
+        1. Queries Supplier and SupplierProfile for PAN and configured TDS rate/section.
+        2. Validates PAN format (Section 206AA penal rate indicator).
+        3. Queries Account 2030 (TDS Payable) ledger lines linked to party_id = supplier_id.
+        4. Calculates cumulative purchases, cumulative TDS withheld, and threshold monitoring.
+        """
+        from ..models.party import Party, SupplierProfile
+        from .tds_engine import StatutoryTdsEngine
+
+        await cls.seed_default_chart_of_accounts(session, company_id)
+
+        # 1. Fetch Supplier & Universal Party info
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        party_id = supplier_id
+        if supplier:
+            supp_name = supplier.name
+            supp_code = supplier.code
+            gstin = getattr(supplier, "gst_number", None) or ""
+            pan = getattr(supplier, "pan", None) or (gstin[2:12].upper() if len(gstin) >= 12 else None)
+        else:
+            party_stmt = select(Party).where(Party.id == supplier_id, Party.company_id == company_id)
+            party = (await session.execute(party_stmt)).scalar_one_or_none()
+            if not party:
+                raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found.")
+            supp_name = party.legal_name or party.name
+            supp_code = party.code
+            gstin = getattr(party, "tax_id", None) or ""
+            pan = getattr(party, "pan", None) or (gstin[2:12].upper() if len(gstin) >= 12 else None)
+
+        has_valid_pan = StatutoryTdsEngine.is_valid_pan(pan)
+
+        # 2. Fetch SupplierProfile for active TDS section & rate
+        prof_stmt = select(SupplierProfile).where(
+            SupplierProfile.party_id.in_([supplier_id, party_id]),
+            SupplierProfile.company_id == company_id,
+        )
+        profile = (await session.execute(prof_stmt)).scalars().first()
+        if not profile and supplier:
+            party_match_stmt = select(Party).where(
+                Party.company_id == company_id,
+                or_(Party.party_code == supplier.code, Party.gstin == gstin)
+            )
+            matched_party = (await session.execute(party_match_stmt)).scalars().first()
+            if matched_party:
+                prof_stmt2 = select(SupplierProfile).where(
+                    SupplierProfile.party_id == matched_party.id,
+                    SupplierProfile.company_id == company_id,
+                )
+                profile = (await session.execute(prof_stmt2)).scalars().first()
+        active_section = profile.tds_section if profile and profile.tds_section else "194Q"
+        if not has_valid_pan:
+            active_rate = Decimal("5.00") if active_section == "194Q" else Decimal("20.00")
+        elif profile and profile.tds_rate is not None:
+            active_rate = Decimal(str(profile.tds_rate)).quantize(Decimal("0.01"))
+        else:
+            active_rate = Decimal("0.10") if active_section == "194Q" else Decimal("2.00")
+
+        # 3. Query Account 2030 (TDS Payable) ledger lines
+        acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+        gl_stmt = (
+            select(GeneralLedgerEntry)
+            .where(
+                GeneralLedgerEntry.company_id == company_id,
+                GeneralLedgerEntry.account_id == acc_tds.id,
+                GeneralLedgerEntry.party_id.in_([supplier_id, party_id]),
+                GeneralLedgerEntry.is_deleted == False,
+            )
+        )
+        entries = (await session.execute(gl_stmt)).scalars().all()
+        total_tds_deducted = Decimal("0.00")
+        breakdown: Dict[str, Decimal] = {}
+
+        for ent in entries:
+            c_amt = Decimal(str(ent.credit_amount or 0.00))
+            d_amt = Decimal(str(ent.debit_amount or 0.00))
+            net_entry = c_amt - d_amt
+            total_tds_deducted += net_entry
+            # Group into breakdown
+            sec_key = active_section
+            if ent.remarks:
+                for s_opt in ["194Q", "194C", "194J", "194H", "194I"]:
+                    if s_opt in ent.remarks:
+                        sec_key = s_opt
+                        break
+            breakdown[sec_key] = breakdown.get(sec_key, Decimal("0.00")) + net_entry
+
+        # 4. Cumulative purchases in FY
+        bill_stmt = (
+            select(func.coalesce(func.sum(PurchaseBill.total_amount), 0))
+            .where(
+                PurchaseBill.company_id == company_id,
+                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.is_deleted == False,
+                PurchaseBill.status.notin_(["DRAFT", "CANCELLED"]),
+            )
+        )
+        total_invoiced_fy = Decimal(str((await session.execute(bill_stmt)).scalar() or 0.00)).quantize(Decimal("0.01"))
+
+        threshold_limit = Decimal("5000000.00")
+        threshold_applicable = (active_section == "194Q")
+        threshold_exceeded = total_invoiced_fy > threshold_limit if threshold_applicable else False
+
+        return {
+            "company_id": company_id,
+            "supplier_id": supplier_id,
+            "supplier_code": supp_code,
+            "supplier_name": supp_name,
+            "pan": pan,
+            "has_valid_pan": has_valid_pan,
+            "active_section": active_section,
+            "active_rate": active_rate,
+            "total_invoiced_fy": total_invoiced_fy,
+            "total_tds_deducted_fy": max(Decimal("0.00"), total_tds_deducted).quantize(Decimal("0.01")),
+            "section_breakdown": {k: v.quantize(Decimal("0.01")) for k, v in breakdown.items()},
+            "threshold_applicable": threshold_applicable,
+            "threshold_limit": threshold_limit,
+            "threshold_exceeded": threshold_exceeded,
         }
 
 

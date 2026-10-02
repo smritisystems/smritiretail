@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.51.0
  * Created      : 2026-09-11
- * Modified     : 2026-09-11
+ * Modified     : 2026-10-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -238,3 +238,18 @@ export type VendorTabId =
   | "payables"
   | "scorecard";
 
+export interface TdsVendorSummary {
+  vendor_id: string;
+  vendor_name?: string;
+  pan?: string | null;
+  pan_valid: boolean;
+  pan_entity_type?: string | null;
+  penal_applicable: boolean;
+  total_bills_fy: number;
+  total_bill_amount_fy: number;
+  total_tds_deducted_fy: number;
+  tds_deductions_count: number;
+  is_194q_threshold_crossed: boolean;
+  threshold_limit: number;
+  statutory_rate_percent: number;
+}

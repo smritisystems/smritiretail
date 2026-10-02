@@ -28,6 +28,42 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.51.0] - 2026-10-02 — SMRITI Procurement Phase 2.9: Statutory Withholding Tax (TDS on Purchase & Payments — Section 194Q / 194C / 194J) & GL Account 2030 Integration
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Statutory Withholding Tax (TDS) & General Ledger
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_9_Statutory_TDS_Withholding_Tax_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_9_Statutory_TDS_Withholding_Tax_v1.0.md`
+
+### Added
+- **Indian Statutory Withholding Tax Engine** (`backend/app/services/tds_engine.py`):
+  - Implemented `StatutoryTdsEngine` with full compliance under the Indian Income Tax Act, 1961.
+  - Section 194Q (TDS on purchase of goods): Standard rate 0.10% on payments/credits exceeding the ₹50,00,000 threshold limit in a financial year.
+  - Section 194C (Payments to contractors): 1.00% for Individual / HUF and 2.00% for Companies / Partnerships.
+  - Section 194J (Fees for professional / technical services): 2.00% technical / 10.00% professional services.
+  - Section 194H (Commission / brokerage): 5.00%.
+  - Section 206AA Penal Rate Engine: Strict PAN regex validation (`^[A-Z]{5}[0-9]{4}[A-Z]{1}$`), 4th character entity classification (C/P/H/F/A/T/B/L/J/G), and automatic penal rate enforcement (5.00% for 194Q, 20.00% for 194C/J/H) when PAN is absent or invalid.
+  - Custom override rates supported with audit tracking.
+- **Chart of Accounts 2030 Integration** (`backend/app/services/unified_ledger.py`):
+  - Registered `Account 2030: TDS / Withholding Tax Payable` under Current Liabilities (`2000`) in `DEFAULT_CHART_OF_ACCOUNTS` and company DB seeding.
+  - Symmetrical double-entry postings & reversals across purchase bills, payments, and standalone TDS vouchers:
+    - Purchase Bill GL Posting (`post_purchase_bill_to_gl`): `DR 1040/GST = CR 2010 (Net AP) + CR 2030 (TDS Withheld)`. Supplier outstanding liability increments strictly by Net AP.
+    - Purchase Bill GL Reversal (`reverse_purchase_bill_gl`): Symmetrically reverses `2030` and `2010` credit lines.
+    - Supplier Payment GL Posting (`post_supplier_payment_to_gl`): `DR 2010 (Gross Settled) = CR 1010/1020 (Net Disbursement) + CR 2030 (TDS Withheld)`.
+    - Supplier Payment GL Reversal (`reverse_supplier_payment_gl`): Detects and reverses `2030` credit lines symmetrically.
+    - Standalone TDS Adjustment Vouchers (`post_tds_deduction_to_gl` / `reverse_tds_deduction_gl`): `DR 2010 (AP) = CR 2030 (TDS Payable)` with ₹0.00 net cash disbursement.
+  - `get_vendor_tds_summary`: Computes cumulative FY bill totals, statutory TDS deductions withheld, threshold progress, active rates, and PAN validity.
+- **TDS Schemas & REST APIs** (`backend/app/schemas/tds.py`, `backend/app/api/v1/vendor.py`):
+  - `POST /api/v1/vendors/tds/calculate` and `POST /api/v1/purchase/vendors/tds/calculate` for real-time TDS withholding computations.
+  - `GET /api/v1/vendors/{vendor_id}/tds-summary` and `GET /api/v1/purchase/vendors/{vendor_id}/tds-summary` for vendor FY statutory status.
+  - Added `tds_amount`, `tds_section`, and `tds_rate` to `SupplierPaymentCreate` and `SupplierPaymentResponse`.
+- **Frontend Vendor 360 Statutory TDS Integration** (`src/components/vendor/tabs/VendorPayablesTab.tsx`, `src/components/vendor/StandaloneVendorPayablesPreview.tsx`):
+  - 4-Column Financial Health Ribbon: Gross AP (2010), Supplier Advances (2050), Net Settlement Position, and Statutory TDS (Account 2030).
+  - Displays cumulative FY TDS withheld, active statutory section badge (`Sec 194Q (0.10%)` or `Sec 206AA (5%)`), and PAN validation badge.
+- **Automated Test Battery & Verification** (`backend/app/tests/test_statutory_tds_engine.py`):
+  - 10/10 pytest test cases passed (100% green pass) covering PAN validation, entity classification, 194Q/194C standard and penal rate logic, custom rates, COA 2030 presence, bill GL posting & reversal with TDS, payment GL posting & reversal with TDS, standalone TDS adjustment vouchers, and FY aggregation.
+  - Clean TypeScript compilation (`npx tsc --noEmit` exit code 0).
+  - Headless Playwright visual evidence captured and cataloged in `docs/walkthrough/procurement/evidence/`.
+
 ## [6.50.0] - 2026-10-02 — SMRITI Procurement Phase 2.8: Vendor Statement of Account (SOA) & Ledger Audit PDF/Excel Export
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Vendor Statement of Account (SOA)

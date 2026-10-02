@@ -30,9 +30,15 @@ from ...schemas.vendor import (
     VendorMergeResponse,
 )
 from ...schemas.vendor_statement import VendorStatementResponse
+from ...schemas.tds import (
+    TdsCalculationRequest,
+    TdsCalculationResult,
+    TdsVendorSummaryResponse,
+)
 from ...services.vendor_svc import VendorService
 from ...services.vendor_code_allocator import allocate_next_vendor_code
 from ...services.unified_ledger import UnifiedAccountingLedgerService
+from ...services.tds_engine import StatutoryTdsEngine
 from ...core.governance import smriti_capability
 
 router = APIRouter(prefix="/vendors", tags=["Vendor 360 & Universal Party"])
@@ -213,5 +219,51 @@ async def get_vendor_statement(
         from_date=from_date,
         to_date=to_date,
         branch_id=tenant.branch_id,
+    )
+
+
+@router.post(
+    "/tds/calculate",
+    response_model=TdsCalculationResult,
+    summary="Calculate Statutory TDS Withholding Preview",
+)
+async def calculate_tds(
+    req: TdsCalculationRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Computes statutory TDS withholding preview under Indian Income Tax Act, 1961
+    (Sections 194Q, 194C, 194J, 194H) applying PAN validity and Section 206AA penal rates.
+    """
+    return StatutoryTdsEngine.calculate_tds(
+        gross_amount=req.gross_amount,
+        section=req.section,
+        pan=req.pan,
+        is_company_or_firm=req.is_company_or_firm,
+        custom_rate=req.custom_rate,
+    )
+
+
+@router.get(
+    "/{vendor_id}/tds-summary",
+    response_model=TdsVendorSummaryResponse,
+    summary="Get Statutory Vendor TDS Summary (Account 2030 Audit)",
+)
+async def get_vendor_tds_summary(
+    vendor_id: str,
+    financial_year: Optional[str] = Query(None, description="Financial Year (e.g. 2026-27)"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Retrieves the statutory TDS withholding summary for a vendor:
+    PAN validity check, active section/rate, cumulative FY purchases, Section 194Q threshold status,
+    and cumulative TDS withheld under Account 2030.
+    """
+    return await UnifiedAccountingLedgerService.get_vendor_tds_summary(
+        session=db,
+        company_id=tenant.company_id,
+        supplier_id=vendor_id,
+        financial_year=financial_year,
     )
 

@@ -54,6 +54,27 @@ class SupplierPaymentService:
         except Exception:
             return []
 
+    @staticmethod
+    def _extract_tds_metadata(notes: Optional[str]) -> Dict[str, Any]:
+        """Extracts statutory TDS metadata embedded in payment notes."""
+        result = {"tds_amount": None, "tds_section": None, "tds_rate": None}
+        if not notes or "__TDS_AMOUNT__:" not in notes:
+            return result
+        try:
+            for line_part in notes.split("\n"):
+                if "__TDS_AMOUNT__:" in line_part:
+                    for segment in line_part.split("|"):
+                        segment = segment.strip()
+                        if segment.startswith("__TDS_AMOUNT__:"):
+                            result["tds_amount"] = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+                        elif segment.startswith("__TDS_SECTION__:"):
+                            result["tds_section"] = segment.split(":", 1)[1].strip()
+                        elif segment.startswith("__TDS_RATE__:"):
+                            result["tds_rate"] = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+        except Exception:
+            pass
+        return result
+
     async def _get_supplier(self, supplier_id: str) -> Supplier:
         res = await self.db.execute(
             select(Supplier).where(
@@ -242,6 +263,13 @@ class SupplierPaymentService:
             final_notes = f"__PAYMENT_TYPE__:ADVANCE\n{final_notes}".strip()
             if req.purchase_order_id:
                 final_notes = f"__PO_ID__:{req.purchase_order_id}\n{final_notes}".strip()
+        if req.tds_amount and req.tds_amount > Decimal("0.00"):
+            tds_tag = f"__TDS_AMOUNT__:{req.tds_amount}"
+            if req.tds_section:
+                tds_tag += f"|__TDS_SECTION__:{req.tds_section}"
+            if req.tds_rate:
+                tds_tag += f"|__TDS_RATE__:{req.tds_rate}"
+            final_notes = f"{final_notes}\n{tds_tag}".strip()
         if allocated_manifest:
             manifest_tag = f"__ALLOCATIONS__:{json.dumps(allocated_manifest)}"
             final_notes = f"{final_notes}\n{manifest_tag}".strip()
@@ -283,6 +311,8 @@ class SupplierPaymentService:
             payment_id=payment.id,
             branch_id=self.tenant.branch_id,
             created_by=created_by,
+            tds_amount=req.tds_amount,
+            tds_section=req.tds_section,
         )
 
         # If advance knocked off bills on creation, post knock-off GL vouchers
@@ -334,6 +364,9 @@ class SupplierPaymentService:
         payment.unallocated_amount = max(Decimal("0.00"), Decimal(str(payment.amount)) - alloc_sum).quantize(Decimal("0.01")) if is_advance else Decimal("0.00")
         payment.allocated_bills = allocated_manifest
         payment.journal_voucher_id = voucher.id if voucher else None
+        payment.tds_amount = req.tds_amount
+        payment.tds_section = req.tds_section
+        payment.tds_rate = req.tds_rate
         return payment
 
     async def cancel_payment(
@@ -447,6 +480,10 @@ class SupplierPaymentService:
         payments = res.scalars().all()
         for p in payments:
             p.allocated_bills = self._extract_allocations(p.notes)
+            tds_meta = self._extract_tds_metadata(p.notes)
+            p.tds_amount = tds_meta["tds_amount"]
+            p.tds_section = tds_meta["tds_section"]
+            p.tds_rate = tds_meta["tds_rate"]
             is_adv = bool(p.notes and "__PAYMENT_TYPE__:ADVANCE" in p.notes)
             p.is_advance = is_adv
             p.payment_type = "ADVANCE" if is_adv else "STANDARD"
@@ -473,6 +510,10 @@ class SupplierPaymentService:
         if not p:
             raise HTTPException(status_code=404, detail="Payment record not found.")
         p.allocated_bills = self._extract_allocations(p.notes)
+        tds_meta = self._extract_tds_metadata(p.notes)
+        p.tds_amount = tds_meta["tds_amount"]
+        p.tds_section = tds_meta["tds_section"]
+        p.tds_rate = tds_meta["tds_rate"]
         is_adv = bool(p.notes and "__PAYMENT_TYPE__:ADVANCE" in p.notes)
         p.is_advance = is_adv
         p.payment_type = "ADVANCE" if is_adv else "STANDARD"

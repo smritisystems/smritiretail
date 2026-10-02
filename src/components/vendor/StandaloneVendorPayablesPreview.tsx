@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.49.9
+ * Version      : 6.51.0
  * Created      : 2026-10-02
  * Modified     : 2026-10-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -207,13 +207,13 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                Procurement Phase 2.7
+                Procurement Phase 2.9 (Statutory TDS)
               </span>
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                 <CheckCircle2 size={12} /> Live Vendor 360 Integration
               </span>
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                SSOT v6.49.9
+                SSOT v6.51.0
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
@@ -330,7 +330,7 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
         </div>
 
         {/* Financial Health Summary Cards Strip */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Gross Outstanding AP (2010) */}
           <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/80 shadow-lg space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
@@ -399,6 +399,26 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
             </div>
             <p className="text-xs text-slate-400">
               Net balance required to settle all bills after consuming available advance deposits.
+            </p>
+          </div>
+
+          {/* Card 4: Statutory TDS Withheld (Account 2030) */}
+          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/80 shadow-lg space-y-2">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <Receipt size={16} className="text-indigo-400" />
+                Statutory TDS (Account 2030)
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                Sec 194Q (0.10%)
+              </span>
+            </div>
+            <div className="text-2xl font-black font-mono text-indigo-400">
+              {fmt(140.50)}
+            </div>
+            <p className="text-xs text-slate-400 flex items-center justify-between">
+              <span>FY Withheld (3 bills)</span>
+              <span className="text-emerald-400 font-mono text-[10px]">PAN: {MOCK_VENDOR.pan} [Valid]</span>
             </p>
           </div>
         </div>
