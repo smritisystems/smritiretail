@@ -107,6 +107,7 @@ export interface GrnDesktopTerminalProps {
   onOpenScanner: () => void;
   onOpenThreeWayMatch?: () => void;
   onOpenDebitNote?: () => void;
+  onOpenReports?: () => void;
   onClose?: () => void;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   onSwitchToWizard?: () => void;
@@ -146,6 +147,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
   onOpenScanner,
   onOpenThreeWayMatch,
   onOpenDebitNote,
+  onOpenReports,
   onClose,
   onNotification,
   onSwitchToWizard,
@@ -1031,6 +1033,20 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             </button>
           )}
 
+          {/* Reports Button */}
+          {onOpenReports && (
+            <button
+              type="button"
+              id="grn-terminal-reports-btn"
+              onClick={onOpenReports}
+              className="px-2 py-0.5 h-6.5 text-[11px] font-semibold rounded bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs flex items-center gap-1 transition cursor-pointer"
+              title="Open Procurement Reports & Audit Studio"
+            >
+              <span>📊</span>
+              <span>Reports</span>
+            </button>
+          )}
+
           {/* Options Dropdown */}
           <div className="relative">
             <button
@@ -1043,6 +1059,19 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             </button>
             {showOptionsMenu && (
               <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 text-xs font-medium">
+                {onOpenReports && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      onOpenReports();
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-indigo-600 font-semibold"
+                  >
+                    <span>📊</span>
+                    <span>Procurement Reports</span>
+                  </button>
+                )}
                 {onOpenThreeWayMatch && (
                   <button
                     type="button"

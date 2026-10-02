@@ -60,6 +60,7 @@ import { GrnCameraScannerModal } from "./GrnCameraScannerModal.tsx";
 import { GrnCsvImportModal, ParsedGrnCsvRow } from "./GrnCsvImportModal.tsx";
 import { ThreeWayMatchingModal } from "./ThreeWayMatchingModal.tsx";
 import { RMAManagementModal } from "./RMAManagementModal.tsx";
+import { ProcurementReportsModal } from "./ProcurementReportsModal.tsx";
 import {
   InwardCostItem,
   InwardCostTypeOption,
@@ -163,6 +164,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [subView, setSubView] = useState<"create" | "history" | "bill">("create");
   const [workspaceMode, setWorkspaceMode] = useState<"desktop" | "wizard">("desktop");
+  const [showReportsModal, setShowReportsModal] = useState(false);
 
   // Persistent GRN Header State
   const [grnNumber, setGrnNumber] = useState(
@@ -340,8 +342,29 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   useEffect(() => {
     if (initialOrderId && orders.length > 0 && selectedOrderId !== initialOrderId) {
       handleSelectOrder(initialOrderId);
+    } else if (!selectedOrderId) {
+      try {
+        const stored = sessionStorage.getItem("smriti_grn_selected_po");
+        if (stored) {
+          sessionStorage.removeItem("smriti_grn_selected_po");
+          let targetId = stored;
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === "object" && parsed.id) {
+              targetId = parsed.id;
+            }
+          } catch {
+            // raw string ID
+          }
+          if (targetId) {
+            handleSelectOrder(targetId);
+          }
+        }
+      } catch {
+        // ignore
+      }
     }
-  }, [initialOrderId, orders]);
+  }, [initialOrderId, orders, selectedOrderId]);
 
   const handleSelectOrder = async (orderId: string) => {
     setSelectedOrderId(orderId);
@@ -3011,6 +3034,12 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         onNotification={onNotification}
       />
 
+      <ProcurementReportsModal
+        isOpen={showReportsModal}
+        onClose={() => setShowReportsModal(false)}
+        onReceivePO={(po: any) => handleSelectOrder(typeof po === "string" ? po : (po?.id || ""))}
+      />
+
       {/* View 0: High-Speed Goods Receipt Desktop Terminal (Shoper 9 Parity) */}
       {subView === "create" && workspaceMode === "desktop" && (
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -3052,6 +3081,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             onOpenScanner={() => setIsCameraScannerOpen(true)}
             onOpenThreeWayMatch={() => setShowThreeWayMatch(true)}
             onOpenDebitNote={() => setIsDebitNoteOpen(true)}
+            onOpenReports={() => setShowReportsModal(true)}
             onClose={onClose}
             onNotification={
               onNotification
@@ -3149,6 +3179,15 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             >
               <Receipt className="w-3.5 h-3.5 inline mr-1" />
               Purchase Bill
+            </button>
+            <button
+              type="button"
+              id="grn-reports-btn"
+              onClick={() => setShowReportsModal(true)}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750 flex items-center gap-1.5"
+            >
+              <span>📊</span>
+              <span>Reports</span>
             </button>
             {onClose && (
               <button

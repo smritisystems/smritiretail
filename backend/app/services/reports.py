@@ -268,10 +268,13 @@ class ReportsService:
             result.append(PurchaseSummaryLine(
                 supplier_id=sup.id,
                 supplier_name=sup.name,
+                supplier_code=sup.code or "",
                 po_count=len(pos),
                 grn_count=len(grns),
                 total_ordered=Decimal(str(total_ordered)),
                 total_received=Decimal(str(total_received)),
+                ordered_amount=Decimal(str(total_ordered)),
+                received_amount=Decimal(str(total_received)),
                 outstanding=Decimal(str(sup.outstanding or "0.00")),
             ))
         return result

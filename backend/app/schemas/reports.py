@@ -78,13 +78,16 @@ class SupplierLedger(BaseModel):
 # ── Purchase Summary ──────────────────────────────────────────────────────────
 
 class PurchaseSummaryLine(BaseModel):
-    supplier_id:   str
-    supplier_name: str
-    po_count:      int
-    grn_count:     int
-    total_ordered: Decimal
-    total_received: Decimal
-    outstanding:   Decimal
+    supplier_id:     str
+    supplier_name:   str
+    supplier_code:   Optional[str] = ""
+    po_count:        int
+    grn_count:       int
+    total_ordered:   Decimal
+    total_received:  Decimal
+    ordered_amount:  Optional[Decimal] = None
+    received_amount: Optional[Decimal] = None
+    outstanding:     Decimal
 
 # ---------------------------------------------------------------------------
 # Sprint 8a P1 Schemas -- Tax & Compliance (Shoper9 parity)

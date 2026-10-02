@@ -36,6 +36,7 @@ export interface DocumentActionToolbarProps {
   onCancel?: () => void;
   onAmend?: () => void;
   onOpen?: () => void;
+  onReceive?: () => void;
   className?: string;
   size?: "sm" | "md";
 }
@@ -50,6 +51,7 @@ export const DocumentActionToolbar: React.FC<DocumentActionToolbarProps> = ({
   onCancel,
   onAmend,
   onOpen,
+  onReceive,
   className = "",
   size = "sm",
 }) => {
@@ -101,6 +103,20 @@ export const DocumentActionToolbar: React.FC<DocumentActionToolbarProps> = ({
             <span className={`material-symbols-outlined ${iconSize}`}>task_alt</span>
           )}
           <span>Confirm</span>
+        </button>
+      )}
+
+      {/* RECEIVE IN GRN */}
+      {normStatus === "CONFIRMED" && onReceive && (
+        <button
+          type="button"
+          onClick={onReceive}
+          disabled={busy}
+          title="Create Goods Receipt Note (GRN) against this confirmed PO"
+          className={`inline-flex items-center gap-1 rounded-md bg-indigo-700 hover:bg-indigo-600 text-white font-semibold transition disabled:opacity-50 ${btnPadding}`}
+        >
+          <span className={`material-symbols-outlined ${iconSize}`}>inventory_2</span>
+          <span>Receive (GRN)</span>
         </button>
       )}
 
