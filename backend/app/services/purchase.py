@@ -2147,9 +2147,11 @@ class PurchaseService:
             receipt_id=req.receipt_id,
             order_id=req.order_id,
             bill_date=req.bill_date or datetime.now(timezone.utc).date(),
+            due_date=req.due_date,
             taxable_amount=req.taxable_amount,
             tax_amount=req.tax_amount,
             total_amount=req.total_amount,
+            paid_amount=Decimal("0.00"),
             status="POSTED",
             notes=req.notes,
             company_id=self.tenant.company_id,
@@ -2165,9 +2167,58 @@ class PurchaseService:
             "receipt_id": req.receipt_id,
             "order_id": req.order_id,
             "bill_date": req.bill_date or datetime.now(timezone.utc).date(),
+            "due_date": req.due_date,
             "taxable_amount": req.taxable_amount,
             "tax_amount": req.tax_amount,
             "total_amount": req.total_amount,
+            "paid_amount": Decimal("0.00"),
             "status": "POSTED",
             "notes": req.notes,
         }
+
+    async def list_purchase_bills(
+        self,
+        supplier_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[PurchaseBill]:
+        """
+        List purchase bills for the tenant, optionally filtered by supplier and status.
+        """
+        stmt = select(PurchaseBill).where(
+            PurchaseBill.company_id == self.tenant.company_id,
+            PurchaseBill.is_deleted == False,
+        )
+        if supplier_id:
+            stmt = stmt.where(PurchaseBill.supplier_id == supplier_id)
+        if status:
+            statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
+            if statuses:
+                stmt = stmt.where(PurchaseBill.status.in_(statuses))
+        if self.tenant.branch_id:
+            stmt = stmt.where(
+                or_(
+                    PurchaseBill.branch_id == self.tenant.branch_id,
+                    PurchaseBill.branch_id.is_(None),
+                )
+            )
+        stmt = stmt.order_by(
+            PurchaseBill.bill_date.desc().nullslast(),
+            PurchaseBill.created_at.desc(),
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_purchase_bill(self, bill_id: str) -> PurchaseBill:
+        """
+        Retrieve a specific purchase bill by ID for the tenant.
+        """
+        stmt = select(PurchaseBill).where(
+            PurchaseBill.id == bill_id,
+            PurchaseBill.company_id == self.tenant.company_id,
+            PurchaseBill.is_deleted == False,
+        )
+        res = await self.db.execute(stmt)
+        bill = res.scalars().first()
+        if not bill:
+            raise HTTPException(status_code=404, detail="Purchase bill not found.")
+        return bill

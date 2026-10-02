@@ -333,6 +333,7 @@ _ROUTER_REGISTRY = [
     (vendor,                "/purchase",             ["Vendors"]),
     (vendor,                "",                      ["Vendors"]),
     (supplier_payment,      "",                      ["Supplier Payments"]),
+    (supplier_payment,      "/purchase",             ["Supplier Payments"]),
 
     # --- CRM & Loyalty ---
     (crm,                   "",                      ["CRM"]),

@@ -28,6 +28,31 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.49.8] - 2026-10-02 — SMRITI Procurement Phase 2.6: Vendor 360 Supplier Advance Prepayment & Bill Knock-off UI Integration
+
+> **Branch:** `smritiNX` | **Area:** Procurement / Vendor 360 Payables / Advance Knock-off Studio
+> **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_6_Vendor360_Advance_Knockoff_UI_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Procurement_Phase2_6_Vendor360_Advance_Knockoff_UI_v1.0.md`
+
+### Added
+- **Vendor 360 Available Advance Credit Monitoring** (`src/components/vendor/tabs/VendorPayablesTab.tsx`):
+  - Added real-time tracking of unallocated supplier advances (`Account 2050 Supplier Advance Liability`).
+  - Added financial metrics strip cards: Gross AP (Account 2010), Available Advance Prepayments (Account 2050), and Net Settlement Exposure.
+  - Added dedicated **Supplier Advance Deposits (Account 2050)** table showing original disbursement, knocked-off/allocated amount, and available unallocated balance.
+  - Added active **Purchase Bills & Commercial Invoices** table reflecting confirmed `PurchaseBill` records with total amount, paid amount, and unpaid balance.
+- **1-Click Advance Knock-off Modal** (`src/components/vendor/tabs/VendorAdvanceKnockoffModal.tsx`):
+  - Interactive selection of open advance prepayment and target confirmed purchase bill.
+  - Automatic maximum eligible knock-off calculation (`min(unallocated_advance, unpaid_bill)`).
+  - Double-Entry General Ledger Impact preview: `DR 2010 Accounts Payable / CR 2050 Supplier Advance Liability` with zero net cash movement.
+  - Full validation and seamless journal knock-off execution via `POST /api/v1/supplier-payments/advance/knockoff`.
+- **Purchase Bills API Listing & Schema Parity** (`backend/app/api/v1/purchase.py`, `backend/app/services/purchase.py`, `backend/app/schemas/purchase.py`):
+  - Added `GET /api/v1/bills` and `GET /api/v1/purchase/bills` with `supplier_id` and `status` query filters.
+  - Exposed `due_date` and `paid_amount` on `PurchaseBillResponse`.
+  - Added `/purchase/supplier-payments` router alias in `backend/app/main.py`.
+- **Headless Visual Evidence & Automated Tests**:
+  - `backend/app/tests/test_purchase_bill_listing.py`: 6/6 tests passed green.
+  - `scripts/capture_vendor_360_advance_knockoff_headless.py`: Programmatic Playwright Chromium headless capture verifying the complete Vendor 360 advance knock-off lifecycle.
+
 ## [6.49.7] - 2026-10-02 — SMRITI Procurement Phase 2.5: Supplier Advance Payment General Ledger Integration & Automatic Purchase Bill Knock-off
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable Advances & PO Settlement
