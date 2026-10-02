@@ -64,6 +64,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "2023", "name": "Output IGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2050", "name": "Customer Advance Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
     {"code": "2060", "name": "Customer Credit Note & Wallet Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
+    {"code": "2070", "name": "Customer Loyalty Points Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
 
     # 3000 - Equity
     {"code": "3000", "name": "Equity", "type": "EQUITY", "root": "EQUITY", "is_group": True, "parent": None},
@@ -77,6 +78,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "4030", "name": "Foreign Exchange Gain (Realized)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
     {"code": "4040", "name": "Foreign Exchange Gain (Unrealized)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
     {"code": "4050", "name": "Cash Register Overage (Surplus)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
+    {"code": "4060", "name": "Loyalty Points Breakage & Expiry Income", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
 
     # 5000 - Expenses
     {"code": "5000", "name": "Expenses", "type": "EXPENSE", "root": "EXPENSE", "is_group": True, "parent": None},
@@ -87,6 +89,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "5050", "name": "Foreign Exchange Loss (Realized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5060", "name": "Foreign Exchange Loss (Unrealized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5070", "name": "Cash Register Shortage (Deficit)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5080", "name": "Customer Loyalty & Reward Program Expense", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
 ]
 
 
@@ -1475,6 +1478,28 @@ class UnifiedAccountingLedgerService:
                 "remarks": f"Receivable settlement via store credit ({payment.transaction_no})"
             })
             voucher_type = "PAYMENT_RECEIPT"
+        elif tender_type in ("LOYALTY", "LOYALTY_POINTS"):
+            # P3 Customer Loyalty Points Settlement:
+            # Debit: Customer Loyalty Points Liability (2070) = Amount
+            # Credit: Accounts Receivable / Debtors (1030) = Amount
+            # Cash in Hand (1010) and Bank Accounts (1020) are NOT touched.
+            acc_loyalty_liability = await cls.get_account_by_code(session, company_id, "2070")
+            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+            lines.append({
+                "account_id": acc_loyalty_liability.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Customer loyalty points redeemed ({payment.transaction_no})"
+            })
+            lines.append({
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Receivable settlement via loyalty points ({payment.transaction_no})"
+            })
+            voucher_type = "PAYMENT_RECEIPT"
         else:
             # Customer settlement (PAYMENT_RECEIPT)
             acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
@@ -1651,6 +1676,10 @@ class UnifiedAccountingLedgerService:
         tender_type = (refund.tender_type or "CASH").upper()
         if tender_type == "CASH":
             tender_account = await cls.get_account_by_code(session, company_id, "1010")
+        elif tender_type in ("STORE_CREDIT", "WALLET", "CREDIT_NOTE"):
+            tender_account = await cls.get_account_by_code(session, company_id, "2060")
+        elif tender_type in ("LOYALTY", "LOYALTY_POINTS"):
+            tender_account = await cls.get_account_by_code(session, company_id, "2070")
         else:
             tender_account = await cls.get_account_by_code(session, company_id, "1020")
 
@@ -1726,6 +1755,219 @@ class UnifiedAccountingLedgerService:
             reference_doc_no=refund.transaction_no,
             narration=f"Automated GL posting for Refund {refund.transaction_no} via {tender_type}",
             created_by=refund.created_by
+        )
+
+    @classmethod
+    async def post_loyalty_accrual_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        customer_id: str,
+        points: Decimal,
+        monetary_value: Decimal,
+        reference_invoice_id: str,
+        reference_invoice_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        voucher_date: Optional[date] = None,
+        created_by: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        P3 Double-Entry Customer Loyalty Points Accrual:
+        Debit: Customer Loyalty & Reward Program Expense (5080) = Monetary Value
+        Credit: Customer Loyalty Points Liability (2070) = Monetary Value
+        Party: customer_id
+        Zero cash movement.
+        """
+        amount = Decimal(str(monetary_value or 0.00)).quantize(Decimal("0.01"))
+        if amount <= Decimal("0.00"):
+            raise ValueError(f"Loyalty accrual monetary value must be positive, got {amount}")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "LOYALTY_ACCRUAL",
+            JournalVoucher.reference_doc_id == reference_invoice_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_expense = await cls.get_account_by_code(session, company_id, "5080")
+        acc_liability = await cls.get_account_by_code(session, company_id, "2070")
+
+        lines = [
+            {
+                "account_id": acc_expense.id,
+                "party_id": customer_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Loyalty points expense accrued ({points} pts on {reference_invoice_no or reference_invoice_id})"
+            },
+            {
+                "account_id": acc_liability.id,
+                "party_id": customer_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Loyalty points liability recognized ({points} pts on {reference_invoice_no or reference_invoice_id})"
+            }
+        ]
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="LOYALTY_ACCRUAL",
+            voucher_date=voucher_date or date.today(),
+            lines=lines,
+            reference_doc_type="LOYALTY_ACCRUAL",
+            reference_doc_id=reference_invoice_id,
+            reference_doc_no=reference_invoice_no,
+            narration=f"Automated GL posting for Loyalty Accrual {points} pts (INR {amount}) on {reference_invoice_no or reference_invoice_id}",
+            created_by=created_by
+        )
+
+    @classmethod
+    async def post_loyalty_reversal_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        customer_id: str,
+        points: Decimal,
+        monetary_value: Decimal,
+        reference_return_id: str,
+        reference_return_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        voucher_date: Optional[date] = None,
+        created_by: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        P3 Double-Entry Customer Loyalty Points Reversal (on Sales Return or Clawback):
+        Debit: Customer Loyalty Points Liability (2070) = Monetary Value
+        Credit: Customer Loyalty & Reward Program Expense (5080) = Monetary Value
+        Party: customer_id
+        Zero cash movement.
+        """
+        amount = Decimal(str(monetary_value or 0.00)).quantize(Decimal("0.01"))
+        if amount <= Decimal("0.00"):
+            raise ValueError(f"Loyalty reversal monetary value must be positive, got {amount}")
+
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "LOYALTY_REVERSAL",
+            JournalVoucher.reference_doc_id == reference_return_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_liability = await cls.get_account_by_code(session, company_id, "2070")
+        acc_expense = await cls.get_account_by_code(session, company_id, "5080")
+
+        lines = [
+            {
+                "account_id": acc_liability.id,
+                "party_id": customer_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Loyalty points liability reversed ({points} pts on {reference_return_no or reference_return_id})"
+            },
+            {
+                "account_id": acc_expense.id,
+                "party_id": customer_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Loyalty points expense credit ({points} pts on {reference_return_no or reference_return_id})"
+            }
+        ]
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="LOYALTY_REVERSAL",
+            voucher_date=voucher_date or date.today(),
+            lines=lines,
+            reference_doc_type="LOYALTY_REVERSAL",
+            reference_doc_id=reference_return_id,
+            reference_doc_no=reference_return_no,
+            narration=f"Automated GL posting for Loyalty Reversal {points} pts (INR {amount}) on {reference_return_no or reference_return_id}",
+            created_by=created_by
+        )
+
+    @classmethod
+    async def post_loyalty_expiry_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        customer_id: str,
+        points: Decimal,
+        monetary_value: Decimal,
+        expiry_reference_id: str,
+        branch_id: Optional[str] = None,
+        voucher_date: Optional[date] = None,
+        created_by: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        P3 Double-Entry Customer Loyalty Points Expiry (Breakage Recognition):
+        Debit: Customer Loyalty Points Liability (2070) = Monetary Value
+        Credit: Loyalty Points Breakage & Expiry Income (4060) = Monetary Value
+        Party: customer_id
+        Zero cash movement.
+        """
+        amount = Decimal(str(monetary_value or 0.00)).quantize(Decimal("0.01"))
+        if amount <= Decimal("0.00"):
+            raise ValueError(f"Loyalty expiry monetary value must be positive, got {amount}")
+
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "LOYALTY_EXPIRY",
+            JournalVoucher.reference_doc_id == expiry_reference_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_liability = await cls.get_account_by_code(session, company_id, "2070")
+        acc_income = await cls.get_account_by_code(session, company_id, "4060")
+
+        lines = [
+            {
+                "account_id": acc_liability.id,
+                "party_id": customer_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Loyalty points liability derecognized on expiry ({points} pts)"
+            },
+            {
+                "account_id": acc_income.id,
+                "party_id": customer_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Loyalty points breakage income recognized ({points} pts)"
+            }
+        ]
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="LOYALTY_EXPIRY",
+            voucher_date=voucher_date or date.today(),
+            lines=lines,
+            reference_doc_type="LOYALTY_EXPIRY",
+            reference_doc_id=expiry_reference_id,
+            reference_doc_no=expiry_reference_id,
+            narration=f"Automated GL posting for Loyalty Expiry Breakage {points} pts (INR {amount})",
+            created_by=created_by
         )
 
     @classmethod

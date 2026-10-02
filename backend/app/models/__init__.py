@@ -25,6 +25,7 @@ from .sales import (
     InvoiceCustomerChangeLog, SalesOrderInvoiceAllocation,
 )
 from .customer_article_mapping import CustomerArticleMapping
+from .customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine
 from .tenant import Company, Branch
 from .company_policy import CompanyBankAccount, CompanyPolicySetting, ComplianceThreshold
 from .company_registry import CompanyDatabaseRegistry

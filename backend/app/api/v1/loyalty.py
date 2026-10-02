@@ -289,6 +289,43 @@ async def get_loyalty_member(
     }
 
 
+@router.get("/customer/{customer_id}")
+async def get_loyalty_member_by_customer(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve full loyalty member profile by customer_id directly."""
+    company_id = tenant.company_id if tenant else "COMP-001"
+
+    stmt = select(LoyaltyMember).where(
+        LoyaltyMember.company_id == company_id,
+        LoyaltyMember.customer_id == customer_id,
+        LoyaltyMember.is_deleted == False,
+    )
+    member = (await db.execute(stmt)).scalars().first()
+    if not member:
+        raise HTTPException(status_code=404, detail="SMRITI-CGE-404: Loyalty member not found for this customer.")
+
+    cust_stmt = select(Customer).where(Customer.id == member.customer_id)
+    cust = (await db.execute(cust_stmt)).scalars().first()
+
+    return {
+        "id": member.id,
+        "customer_id": member.customer_id,
+        "customer_name": cust.name if cust else "Unknown Customer",
+        "customer_mobile": cust.mobile if cust else None,
+        "card_number": member.card_number,
+        "loyalty_tier_id": member.loyalty_tier_id,
+        "current_points_balance": float(member.current_points_balance or 0),
+        "total_points_earned": float(member.total_points_earned or 0),
+        "total_points_redeemed": float(member.total_points_redeemed or 0),
+        "total_lifetime_spend": float(member.total_lifetime_spend or 0),
+        "joined_date": member.joined_date.isoformat() if member.joined_date else None,
+    }
+
+
 @router.post("/members/enroll", response_model=LoyaltyMemberResponse, status_code=201)
 async def enroll_member(
     req: LoyaltyMemberEnrollRequest,

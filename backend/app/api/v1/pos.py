@@ -34,7 +34,7 @@ from ...schemas.pos import (
     POSProfileCreate, POSProfileResponse,
     ShiftOpen, ShiftClose, ShiftResponse, POSZReportResponse,
     ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest, ShiftCashTransactionResponse,
-    POSCheckoutRequest, POSCheckoutResponse, CustomerWalletBalanceResponse,
+    POSCheckoutRequest, POSCheckoutResponse, CustomerWalletBalanceResponse, CustomerLoyaltyBalanceResponse,
 )
 
 
@@ -290,6 +290,23 @@ async def get_customer_wallet_balance(
 ):
     """Query real-time store credit / wallet balance for POS checkout tender."""
     return await POSService(db, tenant).get_customer_wallet_balance(customer_id)
+
+
+@router.get(
+    "/pos/customer-loyalty/{customer_id}",
+    response_model=CustomerLoyaltyBalanceResponse,
+    summary="Get Customer Loyalty Points Balance",
+    description="Returns available loyalty points, tier, redemption ratio, and monetary equivalent for POS checkout tender.",
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def get_customer_loyalty_balance(
+    customer_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Query real-time loyalty points balance and monetary value for POS checkout tender."""
+    return await POSService(db, tenant).get_customer_loyalty_balance(customer_id)
+
 
 # ─────────────────────────── POS Profiles (v3.22.0) ───────────────────────────
 
