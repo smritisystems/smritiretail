@@ -1863,6 +1863,78 @@ class UnifiedAccountingLedgerService:
         )
         return voucher
 
+    @classmethod
+    async def post_supplier_advance_batch_knockoff_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        advance_payment_id: str,
+        allocations: List[Dict[str, Any]],
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a multi-bill batch supplier advance knock-off into an authoritative
+        compound double-entry GL journal voucher with ZERO cash movement:
+        Debit: Accounts Payable / Creditors (2010) = Amount (for each bill line, party_id = supplier_id)
+        Credit: Supplier Advance Liability (2050) = Total Knocked Off (party_id = supplier_id)
+        """
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_advance = await cls.get_account_by_code(session, company_id, "2050")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        lines = []
+        total_amount = Decimal("0.00")
+        for alloc in allocations:
+            alloc_amt = Decimal(str(alloc.get("amount", 0.00))).quantize(Decimal("0.01"))
+            if alloc_amt <= Decimal("0.00"):
+                continue
+            total_amount += alloc_amt
+            b_id = alloc.get("bill_id", "")
+            b_no = alloc.get("bill_no") or b_id[:8]
+            lines.append({
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": alloc_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Payable reduction via advance knock-off against Bill {b_no}",
+            })
+
+        if not lines or total_amount <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Cannot post GL voucher with zero batch knock-off amount.")
+
+        # Single consolidated credit to Supplier Advance Liability (2050)
+        lines.append({
+            "account_id": acc_advance.id,
+            "party_id": supplier_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": total_amount,
+            "remarks": f"Supplier advance {advance_payment_id} batch knock-off across {len(lines)} bills for {supp_name}",
+        })
+
+        batch_ref_id = f"{advance_payment_id}_batch_{uuid.uuid4().hex[:8]}"
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="JOURNAL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SUPPLIER_ADVANCE_BATCH_KNOCKOFF",
+            reference_doc_id=batch_ref_id,
+            reference_doc_no=f"BKNOCK-{advance_payment_id[:8]}",
+            narration=f"Batch advance knock-off from Advance {advance_payment_id} across {len(lines) - 1} bills (Total: ₹{total_amount:,.2f}) for {supp_name}",
+            created_by=created_by,
+        )
+        return voucher
+
+
 
     @classmethod
     async def post_debit_note_to_gl(

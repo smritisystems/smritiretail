@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.49.8
+ * Version      : 6.49.9
  * Created      : 2026-10-02
  * Modified     : 2026-10-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -26,7 +26,9 @@ import {
   RefreshCw,
   TrendingDown,
   Receipt,
-  RotateCcw
+  RotateCcw,
+  Zap,
+  Layers
 } from "lucide-react";
 import { VendorDetail } from "../../types/vendor";
 import { VendorAdvanceKnockoffModal, AdvanceRecord, BillRecord } from "./tabs/VendorAdvanceKnockoffModal";
@@ -116,11 +118,12 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
   const [advances, setAdvances] = useState<AdvanceRecord[]>(INITIAL_ADVANCES);
   const [bills, setBills] = useState<BillRecord[]>(INITIAL_BILLS);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [initialMode, setInitialMode] = useState<"single" | "batch">("batch");
   const [initialAdvId, setInitialAdvId] = useState<string | undefined>();
   const [initialBillId, setInitialBillId] = useState<string | undefined>();
   const [notification, setNotification] = useState<{ title: string; message: string; type: string } | null>({
     title: "Vendor 360 Advance Engine Live",
-    message: "Ready to inspect Account 2050 advance prepayments and execute 1-click bill knock-offs.",
+    message: "Ready to test Multi-Bill Batch & FIFO advance knock-offs (Account 2050 -> 2010 AP).",
     type: "info",
   });
 
@@ -156,6 +159,34 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
     });
   };
 
+  const handleSimulateBatchKnockoff = (allocations: { billId: string; amount: number }[], advId: string) => {
+    const totalAmount = allocations.reduce((sum, a) => sum + a.amount, 0);
+    setAdvances((prev) =>
+      prev.map((a) => (a.id === advId ? { ...a, unallocated_amount: Math.max(0, a.unallocated_amount - totalAmount) } : a))
+    );
+    setBills((prev) =>
+      prev.map((b) => {
+        const match = allocations.find((a) => a.billId === b.id);
+        if (match) {
+          const newPaid = b.paid_amount + match.amount;
+          const newUnpaid = Math.max(0, b.total_amount - newPaid);
+          return {
+            ...b,
+            paid_amount: newPaid,
+            unpaid_amount: newUnpaid,
+            status: newUnpaid <= 0 ? "PAID" : "PARTIALLY_PAID",
+          };
+        }
+        return b;
+      })
+    );
+    setNotification({
+      title: "Batch Advance Knock-Off Complete",
+      message: `Successfully settled ${allocations.length} purchase bill(s) totaling ${fmt(totalAmount)}! Compound General Ledger Journal Voucher JV-${Date.now().toString().slice(-6)} posted (DR 2010 / CR 2050). Net cash movement: ₹0.00.`,
+      type: "success",
+    });
+  };
+
   const resetSimulation = () => {
     setAdvances(INITIAL_ADVANCES);
     setBills(INITIAL_BILLS);
@@ -174,13 +205,13 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                Procurement Phase 2.6
+                Procurement Phase 2.7
               </span>
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                 <CheckCircle2 size={12} /> Live Vendor 360 Integration
               </span>
               <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                SSOT v6.49.8
+                SSOT v6.49.9
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
@@ -188,30 +219,44 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
               Vendor 360 Payables & Advance Knock-off Studio
             </h1>
             <p className="text-sm text-slate-300 max-w-3xl">
-              Real-time supplier advance balance monitoring (Account 2050) and 1-click automatic bill settlement (DR 2010 Accounts Payable / CR 2050 Supplier Advance Liability).
+              Multi-Bill Batch &amp; FIFO supplier advance knock-offs (Account 2050 Liability &rarr; 2010 AP) with compound double-entry GL journal vouchers.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
               onClick={resetSimulation}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
             >
               <RotateCcw size={13} />
-              <span>Reset Demo State</span>
+              <span>Reset State</span>
             </button>
             <button
               type="button"
               onClick={() => {
                 setInitialAdvId(undefined);
                 setInitialBillId(undefined);
+                setInitialMode("batch");
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+            >
+              <Zap size={14} />
+              <span>⚡ Batch FIFO Knock-Off</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInitialAdvId(undefined);
+                setInitialBillId(undefined);
+                setInitialMode("single");
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
             >
               <Sparkles size={14} />
-              <span>Knock Off Advance</span>
+              <span>1-Click</span>
             </button>
           </div>
         </div>
@@ -314,10 +359,15 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
               {totalAdvance > 0 && totalAP > 0 && (
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(true)}
-                  className="font-bold underline hover:text-white"
+                  onClick={() => {
+                    setInitialAdvId(undefined);
+                    setInitialBillId(undefined);
+                    setInitialMode("batch");
+                    setIsModalOpen(true);
+                  }}
+                  className="font-bold underline text-emerald-400 hover:text-white"
                 >
-                  Settle Now →
+                  ⚡ Batch Settle (FIFO) →
                 </button>
               )}
             </div>
@@ -480,18 +530,34 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
                       </td>
                       <td className="p-3.5 text-center">
                         {isAvailable && totalAP > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setInitialAdvId(adv.id);
-                              setInitialBillId(undefined);
-                              setIsModalOpen(true);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white text-[11px] font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors"
-                          >
-                            <Sparkles size={12} />
-                            Knock Off Bill
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInitialAdvId(adv.id);
+                                setInitialBillId(undefined);
+                                setInitialMode("batch");
+                                setIsModalOpen(true);
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-white text-[11px] font-bold inline-flex items-center gap-1 shadow-xs transition-colors"
+                            >
+                              <Zap size={11} />
+                              Batch FIFO
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInitialAdvId(adv.id);
+                                setInitialBillId(undefined);
+                                setInitialMode("single");
+                                setIsModalOpen(true);
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white text-[11px] font-bold inline-flex items-center gap-1 shadow-xs transition-colors"
+                            >
+                              <Sparkles size={11} />
+                              1-Click
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-[11px] text-slate-500">—</span>
                         )}
@@ -504,7 +570,7 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
           </div>
         </div>
 
-        {/* 1-Click Advance Knock-off Modal */}
+        {/* Advance Knock-off Modal */}
         <VendorAdvanceKnockoffModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -513,8 +579,10 @@ export const StandaloneVendorPayablesPreview: React.FC = () => {
           bills={bills}
           initialAdvanceId={initialAdvId}
           initialBillId={initialBillId}
+          initialMode={initialMode}
           onSuccess={() => {}}
           onSimulate={handleSimulateKnockoff}
+          onSimulateBatch={handleSimulateBatchKnockoff}
           onNotification={(title, msg, type) => {
             setNotification({ title, message: msg, type });
           }}
