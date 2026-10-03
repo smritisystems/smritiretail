@@ -84,3 +84,21 @@ class TenantContextSwitchRequest(BaseModel):
     target_company_id: str
     target_branch_id: str
 
+
+class SupervisorPinVerifyRequest(BaseModel):
+    username: str = "manager"
+    pin: str
+    action_type: str
+    reason: Optional[str] = "Store Manager On-Duty Authorization"
+
+
+class SupervisorPinVerifyResponse(BaseModel):
+    verified: bool
+    supervisor_id: Optional[str] = None
+    supervisor_name: Optional[str] = None
+    action_type: Optional[str] = None
+    auth_token: Optional[str] = None
+    authorized_at: Optional[str] = None
+    reason: Optional[str] = None
+    message: Optional[str] = None
+
