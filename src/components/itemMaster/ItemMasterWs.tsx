@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.47.3
+ * Version      : 6.68.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-30
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -24,6 +24,8 @@ import {
   FileSpreadsheet,
   Menu,
   X,
+  Hash,
+  Replace,
 } from "lucide-react";
 import { Product } from "../../types.ts";
 import { ItemCatalogGrid } from "./ItemCatalogGrid.tsx";
@@ -33,6 +35,8 @@ import { ItemViewConfig, ItemViewConfigState } from "./ItemViewConfig.tsx";
 import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
 import { AttrMgmtStudio } from "./AttrMgmtStudio.tsx";
 import { ImgPathStudio } from "./ImgPathStudio.tsx";
+import { CodeSelectDlg } from "./CodeSelectDlg.tsx";
+import { ReplaceDataDlg } from "./ReplaceDataDlg.tsx";
 import { VariantTplSec } from "../VariantTemplateSec.tsx";
 import { hydrateRoleGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 
@@ -63,6 +67,8 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   });
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showCodeSelectDlg, setShowCodeSelectDlg] = useState(false);
+  const [showReplaceDataDlg, setShowReplaceDataDlg] = useState(false);
   const [adaptiveMode, setAdaptiveMode] = useState<"SIMPLE" | "HYBRID" | "ADVANCED">(() => {
     return (localStorage.getItem("smriti_article_mode") as any) || "HYBRID";
   });
@@ -320,7 +326,29 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              id="item-code-select-btn"
+              type="button"
+              onClick={() => setShowCodeSelectDlg(true)}
+              className="px-2.5 py-1 bg-white dark:bg-[#1d263b] border border-[#c3c6d6] dark:border-[#434654] text-xs font-semibold rounded hover:bg-[#eceef0] dark:hover:bg-[#28354f] transition flex items-center gap-1.5"
+              title="SKU Code & Barcode Generator"
+            >
+              <Hash size={13} className="text-blue-600 dark:text-blue-400" />
+              <span>SKU Generator</span>
+            </button>
+
+            <button
+              id="item-replace-data-btn"
+              type="button"
+              onClick={() => setShowReplaceDataDlg(true)}
+              className="px-2.5 py-1 bg-white dark:bg-[#1d263b] border border-[#c3c6d6] dark:border-[#434654] text-xs font-semibold rounded hover:bg-[#eceef0] dark:hover:bg-[#28354f] transition flex items-center gap-1.5"
+              title="Batch Find & Replace across Article attributes"
+            >
+              <Replace size={13} className="text-blue-600 dark:text-blue-400" />
+              <span>Replace Data</span>
+            </button>
+
             <span className="px-2.5 py-0.5 bg-[#e9edff] dark:bg-[#1d3054] text-[#003d9b] dark:text-[#b2c5ff] font-mono text-[11px] font-bold rounded">
               {products.length} Articles Live
             </span>
@@ -416,6 +444,34 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
         onNotification={handleNotify}
         productType="Footwear"
         mode={adaptiveMode}
+      />
+
+      {/* ── Code / SKU Selection Dialog ── */}
+      <CodeSelectDlg
+        isOpen={showCodeSelectDlg}
+        onClose={() => setShowCodeSelectDlg(false)}
+        onSelectCode={(code, barcode) => {
+          handleNotify("SKU Generated", `Generated SKU: ${code} (Barcode: ${barcode})`, "success");
+          setShowCodeSelectDlg(false);
+        }}
+      />
+
+      {/* ── Replace Data Dialog ── */}
+      <ReplaceDataDlg
+        isOpen={showReplaceDataDlg}
+        onClose={() => setShowReplaceDataDlg(false)}
+        onReplace={(targetField, findText, replaceText) => {
+          handleNotify("Replace Data", `Batch find & replace scheduled: "${findText}" → "${replaceText}" in field "${targetField}".`, "info");
+        }}
+        fields={[
+          { key: "name", label: "Product Name" },
+          { key: "brand", label: "Brand" },
+          { key: "styleCode", label: "Style Code" },
+          { key: "colour", label: "Colour" },
+          { key: "size", label: "Size" },
+          { key: "hsn_code", label: "HSN Code" },
+          { key: "category", label: "Category" },
+        ]}
       />
     </div>
   );

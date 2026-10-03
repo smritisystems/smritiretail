@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.67.0
+ * Version      : 6.68.0
  * Created      : 2026-09-26
  * Modified     : 2026-10-03
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
@@ -64,6 +64,7 @@ import { MyProfileView } from "./MyProfileView.tsx";
 import { ChangePasswordView } from "./ChangePasswordView.tsx";
 import { MenuShortcutsView } from "./MenuShortcutsView.tsx";
 import { AdminMenuManagementModal } from "../AdminMenuMgmtDlg.tsx";
+import { SecManageDlg } from "./SecManageDlg.tsx";
 
 // ── Nav hierarchy matching reference design ───────────────────────────────
 
@@ -185,6 +186,7 @@ export const SecurityAccessShell: React.FC<SecurityAccessShellProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showAdminMenuModal, setShowAdminMenuModal] = useState<boolean>(false);
+  const [showClassicSecDlg, setShowClassicSecDlg] = useState<boolean>(false);
 
   useEffect(() => { setActiveSection(initialSection); }, [initialSection]);
 
@@ -321,6 +323,17 @@ export const SecurityAccessShell: React.FC<SecurityAccessShellProps> = ({
             <span className="hidden sm:inline">Menu Registry</span>
           </button>
 
+          <button
+            type="button"
+            id="security-classic-dlg-btn"
+            onClick={() => setShowClassicSecDlg(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f8fafc] hover:bg-[#f1f5f9] text-[#475569] border border-[#cbd5e1] rounded-lg text-xs font-semibold transition cursor-pointer"
+            title="Open Classic Security Management Dialog"
+          >
+            <Shield size={13} />
+            <span className="hidden sm:inline">Classic Dialog</span>
+          </button>
+
           {toast && (
             <div
               role="status"
@@ -381,6 +394,13 @@ export const SecurityAccessShell: React.FC<SecurityAccessShellProps> = ({
         <AdminMenuManagementModal
           isOpen={showAdminMenuModal}
           onClose={() => setShowAdminMenuModal(false)}
+        />
+      )}
+
+      {showClassicSecDlg && (
+        <SecManageDlg
+          isOpen={showClassicSecDlg}
+          onClose={() => setShowClassicSecDlg(false)}
         />
       )}
     </div>

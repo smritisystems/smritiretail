@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.18.0
+ * Version      : 6.68.0
  * Created      : 2026-09-11
- * Modified     : 2026-09-11
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -50,6 +50,8 @@ import { User } from "../../types.ts";
 import { withCapability } from "../../types/architecture.ts";
 import { collectCustomerOptions } from "./staffCustomerLoader";
 import StaffPrintModal from "./StaffPrintModal.tsx";
+import { CommissionStudioModal } from "../hr/CommissionStudioModal.tsx";
+import { EmployeeAttendanceModal } from "../hr/EmployeeAttendanceModal.tsx";
 import { dateAfter, validateReassignment } from "./staffPlacementHelpers.ts";
 
 export interface StaffMasterWsProps {
@@ -135,6 +137,8 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   const [search, setSearch] = useState("");
   const [showDirectory, setShowDirectory] = useState(true);
   const [showPrint, setShowPrint] = useState(false);
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -921,7 +925,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       <div className="grid grid-cols-3 gap-2 border-b border-slate-200 p-3 text-center dark:border-slate-800"><div><div className="text-lg font-black">{staff.length}</div><div className="text-[10px] text-slate-500">Staff</div></div><div><div className="text-lg font-black text-emerald-600">{activeCount}</div><div className="text-[10px] text-slate-500">Active</div></div><div><div className="text-lg font-black text-indigo-600">{adminCount}</div><div className="text-[10px] text-slate-500">Admin</div></div></div>
       <div className="min-h-0 flex-1 overflow-y-auto">{loading ? <div className="p-6 text-xs text-slate-500">Loading staff directory...</div> : filteredStaff.map((person) => <button key={person.id} onClick={() => { setSelectedId(person.id); setActiveTab("overview"); }} className={`w-full border-b border-slate-100 p-3 text-left dark:border-slate-800 ${person.id === selectedId ? "border-l-4 border-l-indigo-600 bg-indigo-50 dark:bg-indigo-950/30" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"}`}><div className="flex items-center justify-between"><span className="truncate text-xs font-bold">{displayValue(person.fullName, person.username)}</span><span className="text-[9px] font-mono text-indigo-600">{person.role}</span></div><div className="mt-1 flex justify-between text-[10px] text-slate-500"><span>{displayValue(person.designation, "Operator")}</span><span>{displayValue(person.branch, "No branch")}</span></div></button>)}</div>
     </aside>}
-    <section className="min-w-0 flex-1 overflow-y-auto"><div className="border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/70"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-600"><ShieldCheck size={14} />Staff 360</div><h1 className="mt-1 text-xl font-black">{displayValue(selected.fullName, "Staff & User Access Management")}</h1><p className="mt-1 text-xs text-slate-500">Identity, employment, access scope, sensitive data, sessions, audit, and lifecycle governance.</p></div><div className="flex items-center gap-2"><div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><CheckCircle2 size={14} className="text-emerald-500" />{currentUser?.role || "Authorized operator"}</div>{selectedId && !isEditing && <button onClick={() => setIsEditing(true)} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Edit Staff</button>}{isEditing && <><button onClick={() => setIsEditing(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={saving} onClick={handleSave} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">{saving ? "Saving..." : "Save Changes"}</button></>}</div></div>{isEditing && (
+    <section className="min-w-0 flex-1 overflow-y-auto"><div className="border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/70"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-600"><ShieldCheck size={14} />Staff 360</div><h1 className="mt-1 text-xl font-black">{displayValue(selected.fullName, "Staff & User Access Management")}</h1><p className="mt-1 text-xs text-slate-500">Identity, employment, access scope, sensitive data, sessions, audit, and lifecycle governance.</p></div><div className="flex items-center gap-2"><button id="staff-commissions-btn" type="button" onClick={() => setShowCommissionModal(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" title="Commission Payouts & Performance Leaderboard"><WalletCards size={14} className="text-indigo-600" />Commissions</button><button id="staff-attendance-modal-btn" type="button" onClick={() => setShowAttendanceModal(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" title="Attendance Ledger & Clock Times"><CalendarDays size={14} className="text-indigo-600" />Attendance Studio</button><div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><CheckCircle2 size={14} className="text-emerald-500" />{currentUser?.role || "Authorized operator"}</div>{selectedId && !isEditing && <button onClick={() => setIsEditing(true)} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Edit Staff</button>}{isEditing && <><button onClick={() => setIsEditing(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={saving} onClick={handleSave} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">{saving ? "Saving..." : "Save Changes"}</button></>}</div></div>{isEditing && (
           <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-900 dark:bg-indigo-950/20">
             <div className="mb-3 flex items-center justify-between border-b border-indigo-100 pb-2 dark:border-indigo-900/50">
               <div className="flex gap-2">
@@ -1293,6 +1297,20 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
         )}<div className="mt-5 flex gap-1 overflow-x-auto">{STAFF_TABS.map((tab) => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === tab.id ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{tab.icon}{tab.label}</button>)}</div></div><div className="p-5">{renderTab()}</div></section>
     {showNew && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h2 className="text-base font-black">Create Staff Account</h2><button title="Close" onClick={() => setShowNew(false)}>×</button></div><p className="mt-1 text-xs text-slate-500">An explicit temporary password is required. No default credentials are generated.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><input aria-label="Full name" placeholder="Full name" value={newStaff.fullName} onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Username" placeholder="Username" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Temporary password" type="password" placeholder="Temporary password" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><select aria-label="Role" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="CASHIER">CASHIER</option><option value="MANAGER">MANAGER</option><option value="ADMIN">ADMIN</option></select></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => setShowNew(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button onClick={handleCreate} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Create Staff</button></div></div></div>}
     {showPrint && <StaffPrintModal isOpen={showPrint} onClose={() => setShowPrint(false)} staff={selected} />}
+    {showCommissionModal && (
+      <CommissionStudioModal
+        isOpen={showCommissionModal}
+        onClose={() => setShowCommissionModal(false)}
+        onNotification={onNotification ? (title, msg, type) => onNotification(title, msg, type === "info" ? "info" : type) : undefined}
+      />
+    )}
+    {showAttendanceModal && (
+      <EmployeeAttendanceModal
+        isOpen={showAttendanceModal}
+        onClose={() => setShowAttendanceModal(false)}
+        onNotification={onNotification ? (title, msg, type) => onNotification(title, msg, type === "info" ? "info" : type) : undefined}
+      />
+    )}
   </div>;
 };
 

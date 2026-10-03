@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.67.0
+ * Version      : 6.68.0
  * Created      : 2026-09-08
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -22,6 +22,8 @@ import { GiftCardLifecycleModal } from "../pos/GiftCardLifecycleModal.tsx";
 import { GiftVoucherModal } from "../pos/GiftVoucherModal.tsx";
 import { ProPosReconciliationDlg } from "./propos/ProPosReconciliationDlg.tsx";
 import { ProPosSupervisorAuthModal } from "./propos/ProPosSupervisorAuthModal.tsx";
+import { DynamicPricingStudioModal } from "./propos/DynamicPricingStudioModal.tsx";
+import { OmniOrderStudioModal } from "../pos/OmniOrderStudioModal.tsx";
 import {
   Receipt,
   FileSpreadsheet,
@@ -39,6 +41,8 @@ import {
   CreditCard,
   Gift,
   Ticket,
+  Zap,
+  ShoppingBag,
 } from "lucide-react";
 
 export type BillingWorkspaceMode = "RETAIL_POS";
@@ -85,6 +89,8 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const [showGiftVoucherModal, setShowGiftVoucherModal] = useState<boolean>(false);
   const [showReconModal, setShowReconModal] = useState<boolean>(false);
   const [showSupervisorPinModal, setShowSupervisorPinModal] = useState<boolean>(false);
+  const [showDynamicPricingModal, setShowDynamicPricingModal] = useState<boolean>(false);
+  const [showOmniOrderModal, setShowOmniOrderModal] = useState<boolean>(false);
 
   // Clock ticker
   useEffect(() => {
@@ -257,6 +263,30 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           >
             <ShieldCheck size={13} />
             <span className="hidden sm:inline">Supervisor PIN</span>
+          </button>
+
+          {/* Dynamic Pricing Engine Rules */}
+          <button
+            type="button"
+            id="pos-dynamic-pricing-btn"
+            onClick={() => setShowDynamicPricingModal(true)}
+            title="Inspect Real-time Dynamic Pricing, Happy Hours & Velocity Rules"
+            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer"
+          >
+            <Zap size={13} />
+            <span className="hidden sm:inline">Dynamic Pricing</span>
+          </button>
+
+          {/* Omnichannel Orders & BOPIS Pickup */}
+          <button
+            type="button"
+            id="pos-omni-order-btn"
+            onClick={() => setShowOmniOrderModal(true)}
+            title="Omnichannel Order Fulfillment, BOPIS Pickup & Slot Reservation"
+            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer"
+          >
+            <ShoppingBag size={13} />
+            <span className="hidden sm:inline">Omni Orders</span>
           </button>
 
           {/* Shift HUD Badge - Only visible for Counter POS */}
@@ -442,6 +472,24 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             showToast("Supervisor Authorized", `Authorized by ${authResult.supervisor_name}`, "success");
             setShowSupervisorPinModal(false);
           }}
+          onNotification={(title, msg, type) => showToast(title, msg, type)}
+        />
+      )}
+
+      {/* Dynamic Pricing Studio Modal */}
+      {showDynamicPricingModal && (
+        <DynamicPricingStudioModal
+          isOpen={showDynamicPricingModal}
+          onClose={() => setShowDynamicPricingModal(false)}
+          onNotification={(title, msg, type) => showToast(title, msg, type)}
+        />
+      )}
+
+      {/* Omnichannel Orders Studio Modal */}
+      {showOmniOrderModal && (
+        <OmniOrderStudioModal
+          isOpen={showOmniOrderModal}
+          onClose={() => setShowOmniOrderModal(false)}
           onNotification={(title, msg, type) => showToast(title, msg, type)}
         />
       )}

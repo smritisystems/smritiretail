@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.67.0
+ * Version      : 6.68.0
  * Created      : 2026-08-22
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -19,6 +19,10 @@ import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
 import { StockExpiryModal } from "../warehouse/StockExpiryModal.tsx";
 import { SmartReplenishmentModal } from "../inventory/SmartReplenishmentModal.tsx";
 import { WarehouseWavePickingModal } from "../inventory/WarehouseWavePickingModal.tsx";
+import { StockTransferStudioModal } from "../inventory/StockTransferStudioModal.tsx";
+import { IPOStudioModal } from "../warehouse/IPOStudioModal.tsx";
+import { RFIDFittingRoomStudioModal } from "../inventory/RFIDFittingRoomStudioModal.tsx";
+import { LabelPrintModal } from "../warehouse/LabelPrintModal.tsx";
 import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { 
@@ -42,7 +46,10 @@ import {
   Printer,
   ClipboardCheck,
   ScanLine,
-  X
+  X,
+  Send,
+  Store,
+  Shirt
 } from "lucide-react";
 
 interface Godown {
@@ -179,6 +186,10 @@ export const WmsStudioTab: React.FC<{
   const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [showReplenishModal, setShowReplenishModal] = useState(false);
   const [showWavePickingModal, setShowWavePickingModal] = useState(false);
+  const [showStockTransferModal, setShowStockTransferModal] = useState(false);
+  const [showIPOModal, setShowIPOModal] = useState(false);
+  const [showFittingRoomModal, setShowFittingRoomModal] = useState(false);
+  const [showLabelPrintModal, setShowLabelPrintModal] = useState(false);
 
   const fetchWmsData = async () => {
     setLoading(true);
@@ -680,6 +691,50 @@ export const WmsStudioTab: React.FC<{
           >
             <ScanLine className="w-3.5 h-3.5" />
             <span className="hidden lg:inline">Wave Picking</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-stock-transfer-modal-btn"
+            onClick={() => setShowStockTransferModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Inter-Branch Stock Transfer Requisition & Approval Matrix"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">STO Requisition</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-ipo-modal-btn"
+            onClick={() => setShowIPOModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Inter-Store Purchase Orders, Picking & Auto-GRN"
+          >
+            <Store className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Inter-Store PO</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-rfid-fitting-btn"
+            onClick={() => setShowFittingRoomModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Smart RFID Fitting Room Analytics & Cross-Sell Recommendations"
+          >
+            <Shirt className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Fitting Room</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-label-print-btn"
+            onClick={() => setShowLabelPrintModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Batch Warehouse Barcode & Shelf Label Print Studio"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Print Labels</span>
           </button>
 
           <button
@@ -1756,6 +1811,38 @@ export const WmsStudioTab: React.FC<{
             isOpen={showWavePickingModal}
             onClose={() => setShowWavePickingModal(false)}
             assignedWarehouse={selectedWarehouseFilter !== "ALL" ? getWarehouseName(selectedWarehouseFilter) : "Central Distribution Hub (WH-01)"}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showStockTransferModal && (
+          <StockTransferStudioModal
+            isOpen={showStockTransferModal}
+            onClose={() => setShowStockTransferModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showIPOModal && (
+          <IPOStudioModal
+            isOpen={showIPOModal}
+            onClose={() => setShowIPOModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showFittingRoomModal && (
+          <RFIDFittingRoomStudioModal
+            isOpen={showFittingRoomModal}
+            onClose={() => setShowFittingRoomModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showLabelPrintModal && (
+          <LabelPrintModal
+            isOpen={showLabelPrintModal}
+            onClose={() => setShowLabelPrintModal(false)}
             onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
           />
         )}

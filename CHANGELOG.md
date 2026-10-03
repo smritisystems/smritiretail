@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.67.0
+  * Version    : 6.68.0
   * Created    : 2026-07-11
   * Modified   : 2026-10-03
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,51 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.68.0] - 2026-10-03 — UX & Foundation: 100% Elimination of Orphaned Domain Modals & Unreferenced Workspaces Routing
+
+> **Branch:** `smritiNX` | **Area:** Foundation, POS Billing, CRM, WMS, Promotions, Purchasing, Reports, Staff, Master Data & Tab Routing
+> **Implementation Plan:** `docs/implementation/foundation/Domain_Modals_Phase4_Comprehensive_Wiring_Plan_v6.68.0.md`
+> **Walkthrough:** `docs/walkthrough/foundation/Domain_Modals_Phase4_Comprehensive_Wiring_v6.68.0.md`
+
+### Added
+- **CRM Studio Customer Intelligence & Loyalty Modals (`CustomerSegmentationModal.tsx`, `LoyaltyTierModal.tsx`)**:
+  - Mounted `CustomerSegmentationModal` in `src/components/CrmStudioTab.tsx` with dedicated `#crm-studio-segmentation-btn` ("RFM Segments") toolbar button for RFM cohort segmentation.
+  - Mounted `LoyaltyTierModal` in `src/components/CrmStudioTab.tsx` with dedicated `#crm-studio-tiers-btn` ("Tier Matrix") toolbar button for tier qualification and benefit simulation.
+- **Financial Report Designer Branch P&L Dashboard (`PLDashboardModal.tsx`)**:
+  - Mounted `PLDashboardModal` in `src/components/ReportDesignerTab.tsx` with dedicated `#reports-pnl-dashboard-btn` ("Branch P&L") toolbar button for gross margin, EBITDA, and branch comparison.
+- **POS Billing Workspace Real-Time Pricing & Omni Fulfillment (`DynamicPricingStudioModal.tsx`, `OmniOrderStudioModal.tsx`)**:
+  - Mounted `DynamicPricingStudioModal` in `src/components/billing/BillingWorkspace.tsx` with dedicated `#pos-dynamic-pricing-btn` ("Dynamic Pricing") action button for surge/happy-hour discount simulation.
+  - Mounted `OmniOrderStudioModal` in `src/components/billing/BillingWorkspace.tsx` with dedicated `#pos-omni-order-btn` ("Omni Orders") action button for BOPIS and ship-from-store processing.
+- **Promotions Studio Bundling & Markdown Modals (`BundlingModal.tsx`, `MarkdownPlanningModal.tsx`)**:
+  - Mounted `BundlingModal` in `src/components/promotions/SmritiSalesPromotionsStudio.tsx` with dedicated `#promotions-bundling-btn` ("Bundles") toolbar button for multi-product kit and combo promotions.
+  - Mounted `MarkdownPlanningModal` in `src/components/promotions/SmritiSalesPromotionsStudio.tsx` with dedicated `#promotions-markdown-btn` ("Markdown") toolbar button for aged stock clearance curves.
+- **WMS Studio Inter-Store Logistics & Fitting Room RFID (`StockTransferStudioModal.tsx`, `IPOStudioModal.tsx`, `RFIDFittingRoomStudioModal.tsx`)**:
+  - Mounted `StockTransferStudioModal` in `src/components/wms/WmsStudioTab.tsx` with dedicated `#wms-stock-transfer-modal-btn` ("STO Requisition") toolbar button.
+  - Mounted `IPOStudioModal` in `src/components/wms/WmsStudioTab.tsx` with dedicated `#wms-ipo-modal-btn` ("Inter-Store PO") toolbar button.
+  - Mounted `RFIDFittingRoomStudioModal` in `src/components/wms/WmsStudioTab.tsx` with dedicated `#wms-rfid-fitting-btn` ("Fitting Room") toolbar button.
+- **Purchase Studio Consignment & Supplier Payment Aging (`ConsignmentStudioModal.tsx`, `SupplierPaymentModal.tsx`)**:
+  - Mounted `ConsignmentStudioModal` in `src/components/PurchaseStudioTab.tsx` with dedicated `#purchase-studio-consignment-btn` ("Consignment") toolbar button.
+  - Mounted `SupplierPaymentModal` in `src/components/PurchaseStudioTab.tsx` with dedicated `#purchase-studio-supplier-pay-btn` ("Payment Aging") toolbar button.
+- **Compliance Studio E-Invoice Generation Modal (`EInvoiceStudioModal.tsx`)**:
+  - Mounted `EInvoiceStudioModal` in `src/components/compliance/EWayBillManagementTab.tsx` with dedicated `#compliance-einvoice-studio-btn` ("E-Invoice Studio") toolbar button.
+- **Staff 360 Workspace HR Modals (`CommissionStudioModal.tsx`, `EmployeeAttendanceModal.tsx`)**:
+  - Mounted `CommissionStudioModal` in `src/components/staff/StaffMasterWs.tsx` with dedicated `#staff-commissions-btn` ("Commissions") toolbar button.
+  - Mounted `EmployeeAttendanceModal` in `src/components/staff/StaffMasterWs.tsx` with dedicated `#staff-attendance-modal-btn` ("Attendance Studio") toolbar button.
+- **Article / Design Master Data Dialogs (`CodeSelectDlg.tsx`, `ReplaceDataDlg.tsx`)**:
+  - Mounted `CodeSelectDlg` in `src/components/itemMaster/ItemMasterWs.tsx` with dedicated `#item-code-select-btn` ("SKU Generator") toolbar button.
+  - Mounted `ReplaceDataDlg` in `src/components/itemMaster/ItemMasterWs.tsx` with dedicated `#item-replace-data-btn` ("Replace Data") toolbar button.
+- **Shell Workspace Routing (`CommunicatorStudioTab.tsx`, `SalesOrderTab.tsx`)**:
+  - Routed `CommunicatorStudioTab` in `src/components/shell/TabRenderer.tsx` under module IDs `"communicator"`, `"communicator-studio"`, `"messaging"`, `"whatsapp"`.
+  - Routed `SalesOrderTab` in `src/components/shell/TabRenderer.tsx` under module IDs `"sales-orders"`, `"sales-order"`.
+
+### Changed
+- **100% Elimination of Orphaned Modals**:
+  - All 18 unreferenced dialogs detected across the entire repository are now either fully mounted or integrated into authoritative domain workflows.
+- **Zero Unreferenced Functional Workspaces**:
+  - Routed `CommunicatorStudioTab` and `SalesOrderTab` through the central `TabRenderer` router.
+- **Version SSOT Parity**:
+  - Synchronized `package.json`, `src/config/version.ts`, `backend/app/core/config.py`, and `CHANGELOG.md` to authoritative release version `6.68.0`.
 
 ## [6.67.0] - 2026-10-03 — Foundation & UX: Complete API-Backed Domain Modals Mounting (WMS, Reports, POS, Dispatch & Security)
 
