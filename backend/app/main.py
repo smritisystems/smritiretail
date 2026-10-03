@@ -319,6 +319,7 @@ _ROUTER_REGISTRY = [
     (inventory_reports,     "",                      ["Inventory Reports"]),
     (physical_stock,        "",                      ["Physical Stock"]),
     (wms,                   "/wms",                  ["Warehouse & Batch Management"]),
+    (wms,                   "",                      ["Warehouse & Batch Management Core"]),
     (boundaries,            "/boundaries",           ["Stock & Accounting Boundaries"]),
     (psv,                   "",                      ["Projected Stock Visibility"]),
 
@@ -401,6 +402,7 @@ _ROUTER_REGISTRY = [
     (exchange,              "/exchange",             ["Data Exchange Hub"]),
     (universal_import,      "/import",               ["Universal Import"]),
     (universal_import,      "/universal",            ["Universal Import"]),
+    (universal_import,      "/universal-import",     ["Universal Import"]),
     (sync,                  "/sync",                 ["Offline-First Synchronization"]),
     (integration,           "/integration",          ["Integration Hub & Audit"]),
     (ecom,                  "",                      ["eCommerce / Omnichannel Engine"]),

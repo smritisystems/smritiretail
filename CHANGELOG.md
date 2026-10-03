@@ -28,6 +28,28 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.64.0] - 2026-10-03 — Foundation & Backend: Core API Parity & POS Supervisor PIN Authorization Wiring
+
+> **Branch:** `smritiNX` | **Area:** Foundation, POS Security & Core API Connectivity
+> **Implementation Plan:** `docs/implementation/foundation/Core_API_Parity_And_Supervisor_Auth_Wiring_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/foundation/Foundation_Core_API_Parity_And_Supervisor_Auth_Wiring_v1.0.md`
+
+### Added
+- **POS Supervisor Authorization Endpoint (`POST /api/v1/auth/verify-supervisor-pin`)**:
+  - Implemented real-time operational override verification in `backend/app/api/v1/auth.py` verifying active user status, `SYSADMIN`/`MANAGER` role governance, and passlib hash comparison with backward-compatible support for store manager PINs.
+  - Generates signed `token-sup-*` tokens for audit tracking across `NEGATIVE_CASH_DRAWER`, `FORCED_SHIFT_RESET`, `PRICE_OVERRIDE`, and `EXCESS_VARIANCE_EOD` actions in `ProPosSupervisorAuthModal.tsx`.
+- **Security Audit Log Query Endpoint (`GET /api/v1/security/audit-log`)**:
+  - Implemented audit entry query endpoint in `backend/app/api/v1/security.py` pulling from `smriti_audit_log` with tenant isolation and descending chronological ordering for `AuditLogView.tsx`.
+- **FastAPI Router Aliases (`backend/app/main.py`)**:
+  - Mounted `/api/v1/universal-import` router alias resolving preview and commit routes for `ItemMasterStudio.tsx`.
+  - Mounted root `/api/v1/warehouses` alias resolving godown lookups for `fieldContext.ts`.
+- **Automated Verification Suite (`backend/tests/test_core_api_parity_wiring.py`)**:
+  - Added 6-test suite verifying supervisor PIN success, invalid PIN, missing user, import preview alias, warehouse lookups, and audit log queries.
+
+### Fixed
+- Resolved 404 network failure on supervisor override popup in ProPOS cashier terminal.
+- Resolved 404 network failure when committing dynamic item catalog imports in ItemMasterStudio.
+
 ## [6.63.0] - 2026-10-03 — Global Grid Import Standard Rollout: Auxiliary & Secondary Surface Parser Modernization
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Sales & Operations / Multi-Surface Parser Harmonization
