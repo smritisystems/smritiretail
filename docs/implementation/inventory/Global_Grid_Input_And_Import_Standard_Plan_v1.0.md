@@ -78,6 +78,7 @@ Spreadsheet (Ctrl+V) / CSV / TSV / TXT / Scanner
 - `src/components/gridInput/GlobalGridImportModal.tsx`
 - `src/tests/globalGridInputEngine.test.ts`
 - `backend/tests/test_batch_product_resolution.py`
+- `src/tests/barcodeManagementIntake.test.ts`
 
 ## 9. Files Modified
 - `backend/app/schemas/product_resolution.py`
@@ -95,6 +96,9 @@ Spreadsheet (Ctrl+V) / CSV / TSV / TXT / Scanner
 - `src/components/sales/SalesOrderFormPremium.tsx`
 - `src/components/wms/WmsStudioTab.tsx`
 - `src/components/purchase/PoSizewiseTab.tsx`
+- `src/components/purchase/PoGenerateTab.tsx`
+- `src/components/itemMaster/ItemMasterStudio.tsx`
+- `src/components/BarcodeManagementTab.tsx`
 
 ## 10. Dependencies
 - Zero external frontend dependencies added (vanilla TSV/CSV parsing without heavy third-party bundles).
@@ -110,6 +114,7 @@ Git revert of affected components restores previous module-specific parsers. No 
 
 ## 13. Verification Plan
 - Vitest suite `globalGridInputEngine.test.ts` verifying parser, mappings, row building, duplicate policies, and import modes.
+- Vitest suite `barcodeManagementIntake.test.ts` verifying barcode intake parser, aliases, and headerless fallback.
 - Pytest suite `test_batch_product_resolution.py` verifying backend resolution, inactive checks, dedup cache, and HTTP endpoint.
 - Existing regression suites across item grid, tag printing, GRN import, and billing CSV.
 
@@ -126,11 +131,12 @@ Git revert of affected components restores previous module-specific parsers. No 
 - Create `docs/walkthrough/wms/Global_Grid_Import_WMS_STO_v1.0.md`.
 - Create `docs/walkthrough/purchase/Global_Grid_Import_Sizewise_PO_v1.0.md`.
 - Create `docs/walkthrough/purchase/Global_Grid_Import_PO_Generate_v1.0.md`.
+- Create `docs/walkthrough/catalog/Global_Grid_Import_Item_Master_And_Barcode_Registry_v1.0.md`.
 - Update `docs/walkthrough/README.md`.
-- Record entries in `CHANGELOG.md` (`[6.55.0]`, `[6.56.0]`, `[6.56.1]`, `[6.57.0]`, `[6.57.1]`, `[6.58.0]`, `[6.59.0]`).
+- Record entries in `CHANGELOG.md` (`[6.55.0]` through `[6.60.0]`).
 
 ## 16. Deployment Plan
-Shipped in versions `6.55.0` through `6.59.0` via standard Git pull and Vite build.
+Shipped in versions `6.55.0` through `6.60.0` via standard Git pull and Vite build.
 
 ## 17. Status
 Completed — All phases rolled out:
@@ -141,6 +147,7 @@ Completed — All phases rolled out:
 - Phase 32.1 (v6.57.1): WMS Studio Stock Transfer Orders (STO) Multi-Item Staging & Fast Import
 - Phase 33 (v6.58.0): Footwear & Apparel Sizewise Purchase Order Matrix Direct Paste & Fast Import
 - Phase 34 (v6.59.0): Standard Purchase Order Generator (`PoGenerateTab.tsx`) Direct Paste & Fast Import
+- Phase 35 (v6.60.0): Item Master Studio Matrix Parser & Barcode Registry Intake Modernization
 
 ## 18. Related ADRs
 - `docs/architecture/ADR_GLOBAL_PRODUCT_RESOLUTION.md`
@@ -152,5 +159,6 @@ Completed — All phases rolled out:
 - `docs/walkthrough/wms/Global_Grid_Import_WMS_STO_v1.0.md`
 - `docs/walkthrough/purchase/Global_Grid_Import_Sizewise_PO_v1.0.md`
 - `docs/walkthrough/purchase/Global_Grid_Import_PO_Generate_v1.0.md`
+- `docs/walkthrough/catalog/Global_Grid_Import_Item_Master_And_Barcode_Registry_v1.0.md`
 
 

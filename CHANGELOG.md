@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.44.4
+  * Version    : 6.60.0
   * Created    : 2026-07-11
-  * Modified   : 2026-10-02
+  * Modified   : 2026-10-03
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,26 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.60.0] - 2026-10-03 — Global Grid Import Standard Rollout: Item Master Matrix Parser & Barcode Registry Intake
+
+> **Branch:** `smritiNX` | **Area:** Catalog & Master Data / Item Master & Barcode Registry
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/catalog/Global_Grid_Import_Item_Master_And_Barcode_Registry_v1.0.md`
+
+### Added
+- **Barcode Registry Intake (`BarcodeManagementTab.tsx`)**:
+  - Replaced legacy naive CSV comma-split parser (`lines.shift()?.toLowerCase().split(",")` and `line.split(",")`) with `GridInputEngine.parseDelimitedText` via canonical `parseBarcodeDelimitedText`.
+  - Added direct clipboard paste (`Ctrl+V`) interceptor (`handleImportPaste`) with keyboard accessibility (`tabIndex={0}`) on the bulk barcode import panel, supporting instant intake of multi-line or delimited spreadsheet data.
+  - Added flexible alias recognition for barcode (`barcode`, `barcodeno`, `ean`, `ean13`, `upc`, `code`, `itembarcode`) and SKU (`sku`, `skucode`, `item_code`, `variant_sku`, `product_code`) headers.
+  - Added seamless headerless fallback: single-column pastes (e.g. from handheld scanners or spreadsheets) automatically map to barcodes, and two-column pastes automatically map to barcode + SKU.
+  - Expanded accepted upload mime-types to `.csv, .tsv, .txt`.
+  - Added dedicated test suite `src/tests/barcodeManagementIntake.test.ts` verifying all parser features (7/7 tests green).
+
+### Changed
+- **Item Master Studio (`ItemMasterStudio.tsx`)**:
+  - Upgraded manual multi-delimiter parsing in the batch intake textarea (`useMemo` matrix parser) to canonical `GridInputEngine.parseDelimitedText(rawText).matrix`.
+  - Provides enterprise RFC 4180 quotation handling, multi-line quoted cell protection, multi-delimiter autodetection (`\t`, `,`, `;`, `|`, `~`), and BOM stripping without changing downstream `HeaderMappingEngine` contracts.
 
 ## [6.59.0] - 2026-10-03 — Global Grid Import Standard Rollout: Standard Purchase Order Generator
 

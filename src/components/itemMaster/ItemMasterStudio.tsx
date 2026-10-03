@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.46.1
+ * Version      : 6.60.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-28
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -27,6 +27,7 @@ import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { validateItemMasterLookupOptions } from "../../services/itemMasterLookupGate.ts";
 import { HeaderMappingEngine } from "../../lib/headerMapping/HeaderMappingEngine.ts";
 import { ColumnMappingResult } from "../../lib/headerMapping/types.ts";
+import { GridInputEngine } from "../../services/gridInput/gridInputEngine.ts";
 import { 
   getUnifiedItemMasterFields, 
   getGloballyVisibleFields,
@@ -120,28 +121,11 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     return new HeaderMappingEngine(unifiedHeaderFields);
   }, [dynamicDefinitions, visibilityVersion]);
 
-  // ── 3. Parse Raw Matrix from Textarea ─────────────────────────────────────
+  // ── 3. Parse Raw Matrix from Textarea via SMRITI GridInputEngine ──────────
   const matrix = useMemo(() => {
     if (!rawText.trim()) return [];
-    const lines = rawText.trim().split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
-    if (lines.length === 0) return [];
-
-    const firstLine = lines[0];
-    const hasTabs = firstLine.includes("\t");
-    const hasCommas = !hasTabs && firstLine.includes(",");
-    const hasSemicolons = !hasTabs && !hasCommas && firstLine.includes(";");
-
-    return lines.map(line => {
-      if (hasTabs) {
-        return line.split("\t").map(c => c.trim());
-      } else if (hasCommas) {
-        return line.split(",").map(c => c.trim());
-      } else if (hasSemicolons) {
-        return line.split(";").map(c => c.trim());
-      } else {
-        return line.split(/\t+|\s{2,}/).map(c => c.trim());
-      }
-    });
+    const parseResult = GridInputEngine.parseDelimitedText(rawText);
+    return parseResult.matrix;
   }, [rawText]);
 
   // ── 4. Detect Header Row & Extract Columns ────────────────────────────────
