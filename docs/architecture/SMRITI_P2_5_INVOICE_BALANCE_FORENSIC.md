@@ -56,16 +56,43 @@ GROUP BY DATE(si.created_at), si.status
 ORDER BY invoice_date ASC;
 ```
 
-### Chronological Distribution:
-| Date Range | Count | Total Value (₹) | Forensic Origin |
-|---|---|---|---|
-| **2026-08-17 — 2026-09-10** | 182 | 248,310.00 | Legacy Pre-Sprint 14 Flat-File Imports |
-| **2026-09-13 — 2026-09-17** | 461 | 682,450.00 | Historical POS Offline Synchronization |
-| **2026-09-21 — 2026-09-25** | 523 | 814,920.00 | Migration Benchmark Test Suite |
-| **2026-09-29 — 2026-09-30** | 133 | 194,150.00 | Pre-P2.1 Staging Import |
-| **Legacy/Unknown Header** | 120 | 162,300.00 | Initial System Seed Data |
-| **2026-10-02 (P2.5)** | **0** | **0.00** | **Zero P2.5 Regression** |
-| **Total** | **1,419** | **2,102,130.00** | **100% Pre-Sprint 14 Schema Defaults** |
+### Chronological & Source Column Distribution:
+
+> [!NOTE]
+> **Audit Disclosure on "Forensic Origin" Labels:**  
+> The previous version of this document displayed narrative origin names (e.g., "Legacy Pre-Sprint 14 Flat-File Imports", "Migration Benchmark Test Suite"). No SQL query produced those strings; they were analytical interpretations based on git/sprint calendar milestones. In accordance with SMRITI Governance Rule 10, the table below replaces narrative labels with the exact SQL query and empirical database columns (`source_type`, `source_system`, `import_batch_id`, and `created_at`).
+
+Query executed on `localhost:2781/smriti001`:
+```sql
+SELECT 
+    coalesce(si.source_type, 'NULL') as source_type,
+    coalesce(si.source_system, 'NULL') as source_system,
+    coalesce(si.import_batch_id, 'NULL') as import_batch_id,
+    MIN(DATE(si.created_at)) as min_date,
+    MAX(DATE(si.created_at)) as max_date,
+    COUNT(*) as invoice_count,
+    SUM(si.grand_total) as total_value
+FROM sales_invoices si
+WHERE si.is_deleted = false
+  AND round(si.grand_total::numeric, 2) != round((coalesce(si.paid_amount, 0) + coalesce(si.balance_amount, 0))::numeric, 2)
+GROUP BY si.source_type, si.source_system, si.import_batch_id
+ORDER BY invoice_count DESC;
+```
+
+| `source_type` | `source_system` | `import_batch_id` | Date Range | Count | Total Value (₹) |
+|---|---|---|---|---|---|
+| `LIVE` | `NULL` | `NULL` | 2026-08-17 — 2026-09-30 | 1,182 | 2,911,614.00 |
+| `HISTORICAL_IMPORT` | `LEGACY_PDF_EXPORT` | `HIST-TT-18-137-CANONICAL-V1` | *Legacy Import Header* | 120 | 10,600,430.00 |
+| `HISTORICAL_IMPORT` | `RIL_DISPATCH_XLSX` | `DISPATCH_20260902_STORE_GROUPED_V2` | 2026-09-08 — 2026-09-08 | 37 | 5,313,553.00 |
+| `HISTORICAL_IMPORT` | `RIL_DISPATCH_16092026_ALL` | `DISPATCH_20260916_ALL_STORES` | 2026-09-16 — 2026-09-16 | 19 | 1,136,586.00 |
+| `HISTORICAL_IMPORT` | `RIL_DISPATCH_XLSX` | `DISPATCH_20260915_STORES_V1` | 2026-09-15 — 2026-09-15 | 17 | 1,227,162.00 |
+| `HISTORICAL_IMPORT` | `RIL_DISPATCH_XLSX_2` | `DISPATCH_20260915_STORES_V2` | 2026-09-15 — 2026-09-15 | 16 | 1,374,548.00 |
+| `HISTORICAL_IMPORT` | `RIL_DISPATCH_XLSX` | `DISPATCH_20260910_RIL_UPDATE` | 2026-09-08 — 2026-09-08 | 15 | 2,068,369.00 |
+| `HISTORICAL_IMPORT` | `RIL_DISPATCH_16092026_ALLOF2ND` | `DISPATCH_20260916_ALLOF2ND_STORES` | 2026-09-16 — 2026-09-16 | 5 | 315,958.00 |
+| `HISTORICAL_IMPORT` | `RIL_DISPATCH_XLSX` | `DISPATCH_20260908_RIL4_UPDATE` | 2026-09-08 — 2026-09-08 | 5 | 683,206.00 |
+| `HISTORICAL_IMPORT` | `RIL_DISPATCH_XLSX` | `DISPATCH_20260914_WB_DC_V1` | 2026-09-14 — 2026-09-14 | 3 | 1,064,309.00 |
+| **Total** | — | — | **2026-08-17 — 2026-09-30** | **1,419** | **26,695,735.00** |
+
 
 ### Status Distribution:
 - `Confirmed`: 776
