@@ -1,0 +1,130 @@
+<!--
+  Project      : SMRITI Retail OS
+  Author       : Jawahar Ramkripal Mallah
+  Designation  : Chief Systems Architect & Creator
+  Email        : support@smritibooks.com
+  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Version      : 6.55.0
+  Created      : 2026-10-03
+  Modified     : 2026-10-03
+  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+  License      : Proprietary Commercial Software
+  Classification: Internal
+-->
+
+# Implementation Plan: SMRITI Global Grid Input, Paste, Import & Product Resolution Standard
+
+**Plan ID:** IP-CATALOG-GRID-IMPORT-v1.0  
+**Version:** 6.55.0  
+**Date:** 2026-10-03  
+**Status:** Completed  
+**Author:** Jawahar Ramkripal Mallah (Chief Systems Architect & Creator)  
+
+---
+
+## 1. Objective
+Establish a single, authoritative, reusable Global Grid Input & Import capability across SMRITI Retail OS. Provide universal support for Direct Excel Clipboard Paste (`Ctrl+V`), CSV/TSV/TXT file upload, rapid barcode scanner collection, header mapping, batch product resolution, and pre-commit preview, eliminating fragmented ad-hoc parsers and competing product lookup logic.
+
+## 2. Business Motivation
+In retail enterprise operations, operators copy transaction lines directly from spreadsheets (Excel, Google Sheets) or scan physical barcodes in bulk. Previously, fragmented parsers existed across Billing, Goods Receipt (GRN), Item Master, and Barcode Label Printing with inconsistent delimiter handling, duplicate policy discrepancies, and rogue dummy SKU generation. Centralizing this into a single engine ensures uniform behavior, zero phantom product commits, and accelerated operator workflows.
+
+## 3. Scope
+- **Input Channels:** Native Excel/Sheets Clipboard TSV (`\t`), RFC 4180 CSV (`,`), Semicolon (`;`), Pipe (`|`), PDT Tilde (`~`), Hardware Barcode Scanner.
+- **Profiles Supported:** `BILLING`, `PURCHASE`, `STOCK_MOVEMENT`, `BARCODE_PRINTING`, `ITEM_MASTER`.
+- **Modes:** `APPEND`, `MERGE` (quantity accumulation), `REPLACE` (with confirmation).
+- **Duplicate Policies:** `MERGE_ROWS`, `ADD_AS_SEPARATE_ROWS`, `REJECT_DUPLICATE`.
+- **Atomic Safety:** In transactional grids, any unresolved product prevents batch commitment unless valid-only override is explicitly confirmed.
+- **Backend Batch Resolution:** Fast single-roundtrip batch resolution endpoint `/api/v1/products/batch-resolve`.
+
+## 4. Current State
+Prior to this standard:
+- `src/components/ExcelGridEntrySec.tsx` used tab-only splitting (`split("\t")`), failing on CSV/quotes.
+- `src/components/purchase/GrnCsvImportModal.tsx` maintained private CSV splitting logic and generated fake `ITEM-${lineIdx + 1}` SKUs for missing products.
+- `src/components/barcode/ptFileParser.ts` maintained private delimited parsing.
+- Billing CSV import maintained separate catalog lookup SQL queries.
+
+## 5. Gap Analysis
+- No unified batch resolution endpoint on backend (`/products/resolve` was single-item only).
+- No shared React hook for wiring Excel clipboard paste directly into table bodies.
+- Header ambiguity rules were not utilizing context defaults (`GRN` vs `ITEM_MASTER` for rate/costPrice).
+- No centralized preview modal supporting live product status badges (`VALID`, `WARNING`, `PRODUCT_NOT_FOUND`, `PRODUCT_INACTIVE`, `PRODUCT_QUARANTINED`).
+
+## 6. Architecture Impact
+```text
+Spreadsheet (Ctrl+V) / CSV / TSV / TXT / Scanner
+                       ↓
+         GridInputEngine.parseDelimitedText()
+                       ↓
+         HeaderMappingEngine.mapColumns()
+                       ↓
+   POST /api/v1/products/batch-resolve (Backend)
+                       ↓
+         Pre-Commit Preview & Validation
+                       ↓
+         Document Line Insertion (Mode: APPEND/MERGE/REPLACE)
+```
+
+## 7. Proposed Design
+1. **Engine Layer:** `src/services/gridInput/gridInputEngine.ts` containing pure, framework-agnostic parsing, column mapping, row normalization, duplicate policy application, and import mode application.
+2. **Hook Layer:** `src/services/gridInput/useGridClipboardPaste.ts` providing hook bindings for table `onPaste` events and clipboard API access.
+3. **UI Layer:** `src/components/gridInput/GlobalGridImportModal.tsx` providing a multi-tab wizard (Clipboard Paste, File Upload, Rapid Scanner), header mapping review, live metrics, status filters, and atomic transaction commit protection.
+4. **Backend Layer:** `backend/app/services/product_resolution_service.py` (`resolve_batch`) and `POST /api/v1/products/batch-resolve`.
+
+## 8. Files Created
+- `src/services/gridInput/types.ts`
+- `src/services/gridInput/gridProfiles.ts`
+- `src/services/gridInput/gridInputEngine.ts`
+- `src/services/gridInput/useGridClipboardPaste.ts`
+- `src/components/gridInput/GlobalGridImportModal.tsx`
+- `src/tests/globalGridInputEngine.test.ts`
+- `backend/tests/test_batch_product_resolution.py`
+
+## 9. Files Modified
+- `backend/app/schemas/product_resolution.py`
+- `backend/app/services/product_resolution_service.py`
+- `backend/app/api/v1/product_resolution.py`
+- `backend/app/api/v1/billing_csv.py`
+- `src/lib/headerMapping/HeaderMappingEngine.ts`
+- `src/components/ExcelGridEntrySec.tsx`
+- `src/components/barcode/ptFileParser.ts`
+- `src/components/purchase/GrnCsvImportModal.tsx`
+
+## 10. Dependencies
+- Zero external frontend dependencies added (vanilla TSV/CSV parsing without heavy third-party bundles).
+- `apiFetchV1` for standard communication.
+- `HeaderMappingEngine` and `HeaderAliasRegistry` for column detection.
+
+## 11. Risks
+- Risk of breaking legacy imports: Mitigated by maintaining exact props and data contracts on refactored components (`GrnCsvImportModal`, `ptFileParser`, `ExcelGridEntrySec`).
+- Large clipboard pastes (>1,000 rows): Mitigated by batch resolution and RFC 4180 parsing in O(N) linear time.
+
+## 12. Rollback Strategy
+Git revert of affected components restores previous module-specific parsers. No database migrations were altered.
+
+## 13. Verification Plan
+- Vitest suite `globalGridInputEngine.test.ts` verifying parser, mappings, row building, duplicate policies, and import modes.
+- Pytest suite `test_batch_product_resolution.py` verifying backend resolution, inactive checks, dedup cache, and HTTP endpoint.
+- Existing regression suites across item grid, tag printing, GRN import, and billing CSV.
+
+## 14. Test Plan
+- Unit tests: Delimiter detection (`\t`, `,`, `;`, `|`, `~`), quote escaping (`""`), BOM stripping.
+- Integration tests: Batch resolution against Postgres `items`, `item_variants`, `item_barcodes`.
+- Contract tests: API response shapes and HREP-compliant error codes.
+
+## 15. Documentation Impact
+- Update `docs/implementation/README.md`.
+- Create `docs/walkthrough/catalog/Global_Grid_Input_And_Import_Standard_v1.0.md`.
+- Update `docs/walkthrough/README.md`.
+- Record `[6.55.0]` in `CHANGELOG.md`.
+
+## 16. Deployment Plan
+Shipped in version `6.55.0` via standard Git pull and Vite build.
+
+## 17. Status
+Completed — All 19 tests in `globalGridInputEngine.test.ts`, 5 tests in `test_batch_product_resolution.py`, and 94 regression tests green.
+
+## 18. Related ADRs
+- `docs/architecture/ADR_GLOBAL_PRODUCT_RESOLUTION.md`
+
+## 19. Related Walkthroughs
+- `docs/walkthrough/catalog/Global_Grid_Input_And_Import_Standard_v1.0.md`

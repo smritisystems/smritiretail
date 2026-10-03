@@ -28,6 +28,46 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.55.0] - 2026-10-03 — SMRITI Global Grid Input, Paste, Import & Product Resolution Standard
+
+> **Branch:** `smritiNX` | **Area:** Catalog / Grid Engine / Clipboard / Import / Procurement / Item Master
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/catalog/Global_Grid_Input_And_Import_Standard_v1.0.md`
+
+### Added
+- **Global Grid Input Engine** (`src/services/gridInput/gridInputEngine.ts`):
+  - Universal delimited text parser supporting Excel/Google Sheets tab-separated values (`\t`), standard RFC 4180 CSV (`,`), Semicolon (`;`), Pipe (`|`), and PDT Tilde (`~`) delimiters with zero external third-party frontend dependencies.
+  - Automatic column mapping integration via authoritative `HeaderMappingEngine` with fallback positional alignment.
+  - Configurable duplicate handling policies: `ADD_AS_SEPARATE_ROWS`, `MERGE_ROWS` (accumulate quantities with merge warnings), and `REJECT_DUPLICATE` (marks row with `VALIDATION_ERROR`).
+  - Import mode integration: `APPEND`, `MERGE` (quantity accumulation into existing documents), and `REPLACE` (with confirmation).
+- **Universal Clipboard Paste Hook** (`src/services/gridInput/useGridClipboardPaste.ts`):
+  - React hook providing native `Ctrl+V` event handling on table bodies and one-click "Paste from Clipboard" API execution with live batch resolution.
+- **Global Grid Import Modal** (`src/components/gridInput/GlobalGridImportModal.tsx`):
+  - Universal 3-surface input wizard: Direct Excel Clipboard Paste (`Ctrl+V`), File Drag-and-Drop (`.csv`, `.tsv`, `.txt`, `.pdt`), and Rapid Barcode Hardware Scanner collector.
+  - Dynamic column mapping review step with confidence badges (`EXACT`, `HIGH`, `MEDIUM`, `UNMAPPED`) and dropdown overrides.
+  - Live pre-commit validation preview table with color status badges (`VALID`, `WARNING`, `PRODUCT_NOT_FOUND`, `PRODUCT_INACTIVE`, `PRODUCT_QUARANTINED`, `VALIDATION_ERROR`).
+  - Status filters (`ALL`, `VALID`, `ERRORS`, `WARNINGS`), text search, and Atomic Transaction Safety protection blocking commits with unregistered items.
+- **Governed Grid Profiles Registry** (`src/services/gridInput/gridProfiles.ts`):
+  - Standardized profiles: `BILLING`, `PURCHASE`, `STOCK_MOVEMENT`, `BARCODE_PRINTING`, `ITEM_MASTER`.
+- **Backend Batch Product Resolution Endpoint** (`backend/app/api/v1/product_resolution.py`):
+  - `POST /api/v1/products/batch-resolve` for single-roundtrip batch verification.
+  - In-memory resolution deduplication cache in `ProductResolutionService.validate_transaction_lines()`.
+- **Automated Verification Test Suites**:
+  - `src/tests/globalGridInputEngine.test.ts` (19/19 Vitest tests green).
+  - `backend/tests/test_batch_product_resolution.py` (5/5 Pytest tests green).
+
+### Changed
+- **Header Mapping Engine** (`src/lib/headerMapping/HeaderMappingEngine.ts`):
+  - Added context-aware default resolution for ambiguous headers (`GRN` / `PURCHASE_ORDER` maps "Rate" to `costPrice`, `ITEM_MASTER` / `SALES_INVOICE` maps "Rate" to `price`).
+- **Item Master Excel Grid Entry** (`src/components/ExcelGridEntrySec.tsx`):
+  - Refactored `handlePaste` to delegate line and delimiter parsing to `GridInputEngine.parseDelimitedText`.
+- **Barcode Studio PT File Parser** (`src/components/barcode/ptFileParser.ts`):
+  - Refactored `parsePTFileContent` to reuse `GridInputEngine.parseDelimitedText`, preserving Format A/B compatibility.
+- **GRN Inward Inward Engine** (`src/components/purchase/GrnCsvImportModal.tsx`):
+  - Refactored `parseInwardCsv` to delegate parsing and column mapping to `GridInputEngine`, eradicating rogue dummy `ITEM-${lineIdx + 1}` SKU generation.
+- **Billing CSV Import Endpoint** (`backend/app/api/v1/billing_csv.py`):
+  - Refactored `_lookup_catalog` to utilize `ProductResolutionService.resolve()`.
+
 ## [6.54.0] - 2026-10-03 — SMRITI Global Product Resolution & Validation Standard
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Master Data / POS Billing / Procurement / Transaction Validation

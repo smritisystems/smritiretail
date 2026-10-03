@@ -93,3 +93,31 @@ class TransactionValidationResult(BaseModel):
     resolved_lines: List[ProductResolutionResult] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class BatchProductResolutionItem(BaseModel):
+    line_no: int = 1
+    identifier: Optional[str] = None
+    identifier_type: Optional[str] = None
+    barcode: Optional[str] = None
+    sku: Optional[str] = None
+    code: Optional[str] = None
+    product_id: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BatchProductResolutionRequest(BaseModel):
+    items: List[BatchProductResolutionItem] = Field(..., min_length=1, max_length=5000)
+    allow_inactive: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BatchProductResolutionResponse(BaseModel):
+    total_requested: int
+    total_resolved: int
+    total_failed: int
+    results: List[ProductResolutionResult] = []
+
+    model_config = ConfigDict(from_attributes=True)

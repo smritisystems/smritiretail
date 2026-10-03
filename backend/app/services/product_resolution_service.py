@@ -26,6 +26,9 @@ from ..schemas.product_resolution import (
     ProductResolutionErrorDetail,
     TransactionLineItemInput,
     TransactionValidationResult,
+    BatchProductResolutionItem,
+    BatchProductResolutionRequest,
+    BatchProductResolutionResponse,
 )
 from ..core.cohort import CohortEvaluator
 from .canonical_telemetry_sink import CanonicalTelemetrySink
@@ -205,18 +208,32 @@ class ProductResolutionService:
 
         resolved_lines: List[ProductResolutionResult] = []
         errors: List[ProductResolutionErrorDetail] = []
+        cache: Dict[str, ProductResolutionResult] = {}
 
         for idx, line in enumerate(lines):
             line.line_no = idx + 1
-            res = await cls.validate_line(
-                session=session,
-                company_id=company_id,
-                line=line,
-                allow_inactive=allow_inactive,
-            )
+            ident = (line.barcode or line.sku or line.code or line.product_id or line.variant_id or line.item_id or "").strip()
+            cache_key = f"{ident}:{line.is_fee_line}"
+            if ident and cache_key in cache:
+                res = cache[cache_key].model_copy()
+                if res.error_detail:
+                    err = res.error_detail.model_copy()
+                    err.line_no = line.line_no
+                    res.error_detail = err
+            else:
+                res = await cls.validate_line(
+                    session=session,
+                    company_id=company_id,
+                    line=line,
+                    allow_inactive=allow_inactive,
+                )
+                if res.error_detail:
+                    res.error_detail.line_no = line.line_no
+                if ident:
+                    cache[cache_key] = res
+
             resolved_lines.append(res)
             if not res.success and res.error_detail:
-                res.error_detail.line_no = line.line_no
                 errors.append(res.error_detail)
 
         is_valid = (len(errors) == 0)
@@ -227,6 +244,72 @@ class ProductResolutionService:
             invalid_lines=len(errors),
             errors=errors,
             resolved_lines=resolved_lines,
+        )
+
+    @classmethod
+    async def resolve_batch(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        items: List[BatchProductResolutionItem],
+        allow_inactive: bool = False,
+    ) -> BatchProductResolutionResponse:
+        """
+        High-performance batch resolution for paste, import, and bulk-entry grids.
+        Resolves multiple items in order, utilizing in-memory cache for repeated identifiers.
+        """
+        if not company_id or not str(company_id).strip():
+            raise ValueError("Multi-tenant security violation: company_id is mandatory")
+
+        results: List[ProductResolutionResult] = []
+        cache: Dict[str, ProductResolutionResult] = {}
+        total_resolved = 0
+        total_failed = 0
+
+        for item in items:
+            ident = item.identifier or item.barcode or item.sku or item.code or item.product_id or ""
+            ident = ident.strip()
+            ident_type = item.identifier_type
+
+            cache_key = f"{ident_type or 'AUTO'}:{ident}"
+            if ident and cache_key in cache:
+                cached = cache[cache_key]
+                res = cached.model_copy()
+                if res.error_detail:
+                    err = res.error_detail.model_copy()
+                    err.line_no = item.line_no
+                    res.error_detail = err
+                results.append(res)
+                if res.success:
+                    total_resolved += 1
+                else:
+                    total_failed += 1
+                continue
+
+            res = await cls.resolve(
+                session=session,
+                company_id=company_id,
+                identifier=ident,
+                identifier_type=ident_type,
+                allow_inactive=allow_inactive,
+            )
+            if res.error_detail:
+                res.error_detail.line_no = item.line_no
+
+            if ident:
+                cache[cache_key] = res
+
+            results.append(res)
+            if res.success:
+                total_resolved += 1
+            else:
+                total_failed += 1
+
+        return BatchProductResolutionResponse(
+            total_requested=len(items),
+            total_resolved=total_resolved,
+            total_failed=total_failed,
+            results=results,
         )
 
     @classmethod

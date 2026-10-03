@@ -23,6 +23,8 @@ from ...schemas.product_resolution import (
     ProductResolutionResult,
     TransactionLineItemInput,
     TransactionValidationResult,
+    BatchProductResolutionRequest,
+    BatchProductResolutionResponse,
 )
 from ...services.product_resolution_service import ProductResolutionService
 
@@ -132,3 +134,24 @@ async def validate_transaction_lines(
         lines=req.lines,
         allow_inactive=req.allow_inactive,
     )
+
+
+@router.post(
+    "/batch-resolve",
+    response_model=BatchProductResolutionResponse,
+    summary="Batch Product Resolution",
+    description="Resolves a list of product identifiers in batch for grid input, Excel paste, and CSV import.",
+)
+async def batch_resolve_products(
+    req: BatchProductResolutionRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> BatchProductResolutionResponse:
+    return await ProductResolutionService.resolve_batch(
+        session=db,
+        company_id=tenant.company_id,
+        items=req.items,
+        allow_inactive=req.allow_inactive,
+    )
+

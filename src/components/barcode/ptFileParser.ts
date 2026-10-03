@@ -13,6 +13,7 @@
  */
 
 import { LabelPrintRow } from "./types.ts";
+import { GridInputEngine } from "../../services/gridInput/gridInputEngine";
 
 export interface PTFileRecord {
   stockNo: string;
@@ -106,19 +107,22 @@ export const SAMPLE_PT_FILE_RECORDS: PTFileRecord[] = [
  * Parse text or CSV content of a Purchase Transaction (.pt / .txt / .csv) file
  */
 export function parsePTFileContent(content: string): LabelPrintRow[] {
-  const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
+  const { matrix } = GridInputEngine.parseDelimitedText(content);
   const rows: LabelPrintRow[] = [];
 
   let lineIdx = 0;
-  for (const line of lines) {
+  for (const parts of matrix) {
+    if (parts.length === 0) continue;
+    const firstCell = parts[0] || "";
     // Skip comments or headers if present
-    if (line.startsWith("#") || line.startsWith("//") || line.toLowerCase().startsWith("stock") || line.toLowerCase().startsWith("sku")) {
+    if (
+      firstCell.startsWith("#") ||
+      firstCell.startsWith("//") ||
+      firstCell.toLowerCase().startsWith("stock") ||
+      firstCell.toLowerCase().startsWith("sku")
+    ) {
       continue;
     }
-
-    // Split by comma, tab, or pipe delimiter
-    const delimiter = line.includes("\t") ? "\t" : line.includes("|") ? "|" : ",";
-    const parts = line.split(delimiter).map(p => p.trim());
 
     if (parts.length >= 2) {
       lineIdx++;
