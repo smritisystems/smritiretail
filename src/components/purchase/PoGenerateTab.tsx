@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.44.0
+ * Version      : 6.59.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-30
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -26,6 +26,9 @@ import {
   POSubmitValidationResult,
   POVendorChangeResult,
 } from "./types.ts";
+import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
+import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
 import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
@@ -72,6 +75,190 @@ const calculateExactLeadTime = (orderDate: string, deliveryDate: string) => {
   if (!Number.isFinite(order) || !Number.isFinite(delivery)) return 7;
   return Math.max(0, Math.round((delivery - order) / 86400000));
 };
+
+/**
+ * Maps parsed and resolved grid rows to canonical PurchaseOrderLineItem objects.
+ */
+export function mapParsedGridRowsToPOLineItems(
+  rows: ParsedGridRow[],
+  existingCount = 0,
+  defaultTaxPercent = 5
+): PurchaseOrderLineItem[] {
+  return rows.map((r, idx) => {
+    const p = r.resolvedProduct;
+    const itemCode =
+      p?.sku ||
+      (p as any)?.code ||
+      p?.productId ||
+      r.mappedValues?.itemCode ||
+      r.mappedValues?.stockNo ||
+      r.mappedValues?.code ||
+      r.identifier ||
+      `ITEM-${existingCount + idx + 1}`;
+    const barcode =
+      p?.barcode ||
+      r.mappedValues?.barcode ||
+      (r.identifierType === "BARCODE" ? r.identifier : "") ||
+      "";
+    const productName =
+      p?.name ||
+      r.mappedValues?.product ||
+      r.mappedValues?.name ||
+      r.mappedValues?.description ||
+      (r as any).name ||
+      itemCode ||
+      "Imported Item";
+    const brand = p?.brand || r.mappedValues?.brand || (p as any)?.brand || "SMRITI";
+    const style = (p as any)?.styleCode || (p as any)?.style || r.mappedValues?.style || "-";
+    const shade = (p as any)?.color || (p as any)?.shade || r.mappedValues?.shade || r.mappedValues?.color || "-";
+    const size = (p as any)?.size || r.mappedValues?.size || "-";
+    const fibre = ((p as any)?.attributes as any)?.fabric_type || r.mappedValues?.fibre || "Cotton";
+    const colourBase = (p as any)?.color || r.mappedValues?.colourBase || r.mappedValues?.color || "-";
+    const styling = r.mappedValues?.styling || "Regular";
+
+    const qty = Math.max(1, r.quantity || 1);
+    const rate =
+      r.rate ||
+      r.costPrice ||
+      p?.costPrice ||
+      (p?.sellingPrice ? p.sellingPrice * 0.7 : 0) ||
+      p?.sellingPrice ||
+      (p as any)?.price ||
+      0;
+    const mrp = r.mrp || p?.mrp || (p as any)?.price || (rate > 0 ? rate * 1.3 : 0);
+    const unit = p?.uom || (p as any)?.unit || r.uom || r.mappedValues?.unit || "Pair";
+    const discountPercent = r.discount || (r as any).discountPercent || 0;
+    const taxPercent =
+      r.taxRate !== undefined
+        ? r.taxRate
+        : ((r as any).taxPercent !== undefined
+        ? (r as any).taxPercent
+        : (p?.taxRate ?? (p as any)?.taxPercent ?? defaultTaxPercent));
+
+    const gross = rate * qty;
+    const discountAmount = (gross * discountPercent) / 100;
+    const value = Math.max(0, gross - discountAmount);
+    const taxAmount = (value * taxPercent) / 100;
+    const addOnPercent = 0;
+    const addOnAmount = 0;
+    const totalValue = value + taxAmount + addOnAmount;
+
+    return {
+      id: `line-${existingCount + idx + 1}`,
+      sNo: existingCount + idx + 1,
+      stockNo: itemCode,
+      barcode,
+      product: productName,
+      brand,
+      style,
+      shade,
+      size,
+      fibre,
+      colourBase,
+      styling,
+      mrp,
+      rate,
+      orderQty: qty,
+      freeQty: 0,
+      unit,
+      discountPercent,
+      discountAmount,
+      value,
+      stockOnHand: (p as any)?.stock ?? 0,
+      taxPercent,
+      taxAmount,
+      addOnPercent,
+      addOnAmount,
+      totalValue,
+      originalProduct: p ? (p as any as Product) : undefined,
+    };
+  });
+}
+
+/**
+ * Merges existing PO lines with incoming lines according to GridImportMode:
+ * - REPLACE: Discards all existing lines and returns incoming lines (re-indexed 1..N).
+ * - APPEND: Keeps existing populated lines and appends incoming lines (re-indexed 1..N).
+ * - MERGE: Matches lines on stockNo or barcode. If matched, accumulates orderQty and recalculates values.
+ *          If not matched, appends line. Re-indexes 1..N.
+ */
+export function mergePOLineItems(
+  existingLines: PurchaseOrderLineItem[],
+  incomingLines: PurchaseOrderLineItem[],
+  mode: GridImportMode
+): PurchaseOrderLineItem[] {
+  if (mode === "REPLACE") {
+    return incomingLines.map((line, idx) => ({
+      ...line,
+      id: `line-${idx + 1}`,
+      sNo: idx + 1,
+    }));
+  }
+
+  // Filter out completely blank lines from existing lines
+  const populated = existingLines.filter(
+    (l) => Boolean(l.stockNo?.trim()) || l.orderQty > 0
+  );
+
+  if (mode === "APPEND") {
+    return [...populated, ...incomingLines].map((line, idx) => ({
+      ...line,
+      id: `line-${idx + 1}`,
+      sNo: idx + 1,
+    }));
+  }
+
+  // MERGE mode
+  const merged = populated.map((l) => ({ ...l }));
+
+  incomingLines.forEach((inc) => {
+    const incCode = inc.stockNo?.trim().toLowerCase();
+    const incBarcode = inc.barcode?.trim().toLowerCase();
+
+    const existingIdx = merged.findIndex((curr) => {
+      const currCode = curr.stockNo?.trim().toLowerCase();
+      const currBarcode = curr.barcode?.trim().toLowerCase();
+      return (
+        (incCode && currCode && incCode === currCode) ||
+        (incBarcode && currBarcode && incBarcode === currBarcode)
+      );
+    });
+
+    if (existingIdx >= 0) {
+      const curr = merged[existingIdx];
+      const newQty = curr.orderQty + inc.orderQty;
+      const rate = inc.rate > 0 ? inc.rate : curr.rate;
+      const discPercent = curr.discountPercent || 0;
+      const gross = rate * newQty;
+      const discountAmount = (gross * discPercent) / 100;
+      const value = Math.max(0, gross - discountAmount);
+      const taxPercent = curr.taxPercent ?? 5;
+      const taxAmount = (value * taxPercent) / 100;
+      const addOnAmount = (value * (curr.addOnPercent || 0)) / 100;
+      const totalValue = value + taxAmount + addOnAmount;
+
+      merged[existingIdx] = {
+        ...curr,
+        orderQty: newQty,
+        rate,
+        mrp: inc.mrp && inc.mrp > 0 ? inc.mrp : curr.mrp,
+        discountAmount,
+        value,
+        taxAmount,
+        addOnAmount,
+        totalValue,
+      };
+    } else {
+      merged.push({ ...inc });
+    }
+  });
+
+  return merged.map((line, idx) => ({
+    ...line,
+    id: `line-${idx + 1}`,
+    sNo: idx + 1,
+  }));
+}
 
 export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   products: initialProducts = [],
@@ -127,6 +314,10 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [_showPolicyConfig, setShowPolicyConfig] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+
+  // SMRITI Global Grid Input Standard State
+  const [isGlobalImportOpen, setIsGlobalImportOpen] = useState(false);
+  const [initialImportText, setInitialImportText] = useState<string | undefined>(undefined);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelImportInputRef = useRef<HTMLInputElement>(null);
@@ -614,81 +805,73 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     });
   };
 
-  // Excel / CSV Import Handler
+  // ── SMRITI Global Grid Input & Resolution Standard Handlers ──────────────
+  const handleGlobalGridImportCommit = (
+    committedRows: ParsedGridRow[],
+    mode: GridImportMode
+  ) => {
+    const existingCount =
+      mode === "REPLACE"
+        ? 0
+        : lineItems.filter((l) => Boolean(l.stockNo?.trim()) || l.orderQty > 0).length;
+
+    const incomingLines = mapParsedGridRowsToPOLineItems(
+      committedRows,
+      existingCount,
+      header.commonTaxPercent
+    );
+
+    const merged = mergePOLineItems(lineItems, incomingLines, mode);
+    setLineItems(merged);
+    setIsGlobalImportOpen(false);
+    setInitialImportText(undefined);
+    setPOWorkflowState("LINE_ADDED");
+    if (onNotification) {
+      onNotification(
+        "Import Complete",
+        `Successfully imported ${committedRows.length} item(s) into Purchase Order (${mode} mode).`,
+        "success"
+      );
+    }
+  };
+
+  // Legacy file picker adapter: route file text directly to GlobalGridImportModal
   const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (evt) => {
       const text = evt.target?.result as string;
-      if (!text) return;
-      const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
-      if (lines.length <= 1) {
-        if (onNotification) onNotification("Import Warning", "The selected file is empty or has only a header.", "warning");
-        return;
-      }
-      const importedLines: Partial<PurchaseOrderLineItem>[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].split(",");
-        if (parts.length >= 2) {
-          const code = parts[0]?.trim();
-          const name = parts[1]?.trim();
-          const qty = parseInt(parts[2]?.trim() || "1", 10) || 1;
-          const rate = parseFloat(parts[3]?.trim() || "0") || 0;
-          const mrp = parseFloat(parts[4]?.trim() || "0") || rate * 1.3;
-          importedLines.push({
-            stockNo: code,
-            barcode: code,
-            product: name,
-            orderQty: qty,
-            rate: rate,
-            mrp: mrp,
-            unit: "Pair",
-            taxPercent: 5,
-          });
-        }
-      }
-
-      if (importedLines.length > 0) {
-        setLineItems(prev => {
-          const filled = [...prev.filter(l => l.stockNo)];
-          importedLines.forEach((item, idx) => {
-            filled.push({
-              id: `line-${filled.length + 1}`,
-              sNo: filled.length + 1,
-              stockNo: item.stockNo || "",
-              barcode: item.barcode || "",
-              product: item.product || "",
-              brand: "SMRITI",
-              style: "-",
-              shade: "-",
-              size: "-",
-              fibre: "Cotton",
-              colourBase: "-",
-              styling: "Regular",
-              mrp: item.mrp || 0,
-              rate: item.rate || 0,
-              orderQty: item.orderQty || 1,
-              freeQty: 0,
-              unit: "Pair",
-              discountPercent: 0,
-              discountAmount: 0,
-              value: (item.rate || 0) * (item.orderQty || 1),
-              stockOnHand: 0,
-              taxPercent: 5,
-              taxAmount: ((item.rate || 0) * (item.orderQty || 1) * 5) / 100,
-              addOnPercent: 0,
-              addOnAmount: 0,
-              totalValue: ((item.rate || 0) * (item.orderQty || 1)) * 1.05,
-            });
-          });
-          return filled;
-        });
-        if (onNotification) onNotification("Import Complete", `Successfully imported ${importedLines.length} items from CSV.`, "success");
+      if (text) {
+        setInitialImportText(text);
+        setIsGlobalImportOpen(true);
       }
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  // Intercept table clipboard paste (Ctrl+V) for multi-line or delimited text
+  const handleTableContainerPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+    if (targetTag === "input" || targetTag === "textarea") {
+      return;
+    }
+    const pastedText = e.clipboardData?.getData("text/plain");
+    if (!pastedText) return;
+
+    const isMultiLine = pastedText.includes("\n") || pastedText.includes("\r");
+    const isDelimited =
+      pastedText.includes("\t") ||
+      pastedText.includes(",") ||
+      pastedText.includes("~") ||
+      pastedText.includes("|");
+
+    if (isMultiLine || isDelimited) {
+      e.preventDefault();
+      setInitialImportText(pastedText);
+      setIsGlobalImportOpen(true);
+    }
   };
 
   // Summary Totals Calculation with Full Retail Breakdown
@@ -1785,7 +1968,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         <main className="px-6 pt-2 pb-1 flex-1 flex flex-col min-h-0">
           <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden flex flex-col flex-1">
             {/* Scrollable Table Container */}
-            <div className="overflow-x-auto custom-scrollbar flex-1 max-h-[420px] relative">
+            <div
+              onPaste={handleTableContainerPaste}
+              tabIndex={0}
+              className="overflow-x-auto custom-scrollbar flex-1 max-h-[420px] relative focus:outline-none"
+              title="Click here and press Ctrl+V to paste table rows from Excel/Sheets"
+            >
               {/* Floating F2 Hint */}
               {showF2Hint && activeLineCount === 0 && (
                 <div
@@ -2233,19 +2421,23 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   <span>Browse Items (F2)</span>
                 </button>
 
-                {/* Import from Excel */}
+                {/* Fast Import (CSV / TSV / Excel / Clipboard) */}
                 <button
                   type="button"
-                  onClick={() => excelImportInputRef.current?.click()}
+                  onClick={() => {
+                    setInitialImportText(undefined);
+                    setIsGlobalImportOpen(true);
+                  }}
                   className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
+                  title="Import from Excel, CSV, TSV or paste spreadsheet data"
                 >
                   <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
-                  <span>Import from Excel</span>
+                  <span>Fast Import</span>
                 </button>
                 <input
                   ref={excelImportInputRef}
                   type="file"
-                  accept=".csv, .xlsx, .xls"
+                  accept=".csv, .xlsx, .xls, .tsv, .txt"
                   onChange={handleExcelImport}
                   className="hidden"
                 />
@@ -2645,6 +2837,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           onNotification={onNotification}
         />
       )}
+
+      {/* ── SMRITI Global Grid Input & Import Standard Modal ───────────────── */}
+      <GlobalGridImportModal
+        isOpen={isGlobalImportOpen}
+        onClose={() => {
+          setIsGlobalImportOpen(false);
+          setInitialImportText(undefined);
+        }}
+        profile={GRID_PROFILES.PURCHASE}
+        title="Purchase Order Fast Import & Clipboard Paste"
+        existingRowCount={lineItems.filter((l) => Boolean(l.stockNo?.trim()) || l.orderQty > 0).length}
+        initialRawText={initialImportText}
+        onCommit={handleGlobalGridImportCommit}
+      />
     </div>
   );
 };
