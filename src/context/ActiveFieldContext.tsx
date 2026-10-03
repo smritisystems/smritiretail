@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 7.1.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-02
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -48,13 +48,9 @@ export interface ActiveFieldContextState {
   fieldValue: string;
   element: HTMLElement | null;
   isInputFocused: boolean;
-  isF2ModalOpen: boolean;
   activeProductPreview: Product | null;
   activeCustomerPreview: Customer | null;
-  openF2Modal: (category?: ActiveFieldCategory, label?: string) => void;
-  closeF2Modal: () => void;
   setManualCategory: (category: ActiveFieldCategory, label?: string) => void;
-  insertValueIntoActiveField: (value: string | Record<string, any>) => void;
   setActiveProductPreview: (prod: Product | null) => void;
   setActiveCustomerPreview: (cust: Customer | null) => void;
 }
@@ -78,8 +74,9 @@ export function inferFieldCategory(element: HTMLElement | null): { category: Act
     return { category: "general", label: "Global Search" };
   }
 
-  // 1. Check explicit data-f2-browse, data-context-type, or data-field-type attribute
+  // 1. Check explicit data-field-key, data-f2-browse, data-context-type, or data-field-type attribute
   const explicitType = (
+    element.getAttribute("data-field-key") ||
     element.getAttribute("data-f2-browse") ||
     element.getAttribute("data-context-type") || 
     element.getAttribute("data-field-type") || 
@@ -87,6 +84,18 @@ export function inferFieldCategory(element: HTMLElement | null): { category: Act
   )?.toLowerCase();
 
   if (explicitType) {
+    if (explicitType.includes("customer") || explicitType.includes("cust") || explicitType.includes("client") || explicitType.includes("mobile") || explicitType.includes("gstin") || explicitType === "phone") {
+      return { category: "customer", label: "Customer Field" };
+    }
+    if (explicitType.includes("product") || explicitType.includes("item") || explicitType.includes("sku") || explicitType.includes("barcode") || explicitType.includes("scan")) {
+      return { category: "product", label: "Scan / Product Lookup" };
+    }
+    if (explicitType.includes("supplier") || explicitType.includes("vendor") || explicitType.includes("party") || explicitType.includes("creditor")) {
+      return { category: "supplier", label: "Supplier / Party Lookup" };
+    }
+    if (explicitType.includes("invoice") || explicitType.includes("voucher") || explicitType === "bill_no" || explicitType === "order_no" || explicitType === "po_no") {
+      return { category: "invoice", label: "Invoice / Document Field" };
+    }
     if (["article", "style", "model"].includes(explicitType)) return { category: "article", label: "Article / Style Lookup" };
     if (["color", "shade", "colour"].includes(explicitType)) return { category: "color", label: "Color / Shade Lookup" };
     if (["size", "waist", "dimension"].includes(explicitType)) return { category: "size", label: "Size Lookup" };
@@ -98,25 +107,22 @@ export function inferFieldCategory(element: HTMLElement | null): { category: Act
     if (["category", "subcat", "subcategory"].includes(explicitType)) return { category: "category", label: "Category Lookup" };
     if (["season"].includes(explicitType)) return { category: "season", label: "Season Lookup" };
     if (["uom", "unit"].includes(explicitType)) return { category: "uom", label: "UOM (Unit of Measure) Lookup" };
-    if (["supplier", "vendor", "seller", "party", "creditor"].includes(explicitType)) return { category: "supplier", label: "Supplier / Party Lookup" };
-    if (["customer", "cust", "mobile", "phone", "client", "buyer", "debtor"].includes(explicitType)) return { category: "customer", label: "Customer Lookup" };
     if (["store", "branch", "warehouse", "godown"].includes(explicitType)) return { category: "store", label: "Chain Store / Branch Lookup" };
     if (["classification", "hierarchy"].includes(explicitType)) return { category: "classification", label: "Item Classification Lookup" };
     if (["hsn", "sac", "tax", "gst"].includes(explicitType)) return { category: "hsn", label: "HSN / GST Lookup" };
     if (["staff", "salesman", "salesstaff", "cashier", "employee"].includes(explicitType)) return { category: "staff", label: "Sales Staff Lookup" };
     if (["scheme", "disc_code", "discount_code", "promo"].includes(explicitType)) return { category: "scheme", label: "Scheme / Discount Code Lookup" };
     if (["terms", "condition"].includes(explicitType)) return { category: "terms", label: "Terms & Conditions Lookup" };
-    if (["product", "scan", "barcode", "item", "sku", "stockno"].includes(explicitType)) return { category: "product", label: "Scan / Product Lookup" };
   }
 
-  // 2. Analyze element properties (name, id, placeholder, aria-label, className)
+  // 2. Analyze element semantic properties ONLY (name, id, placeholder, aria-label)
+  // NEVER include className (Tailwind CSS utility classes like "border", "order-first" cause semantic collisions)
   const inputEl = element as HTMLInputElement;
   const rawIdentifiers = [
     inputEl.name,
     inputEl.id,
     inputEl.placeholder,
-    inputEl.getAttribute("aria-label"),
-    inputEl.className
+    inputEl.getAttribute("aria-label")
   ].filter(Boolean).join(" ").toLowerCase();
 
   // Article / Style Code
@@ -245,13 +251,11 @@ export function inferFieldCategory(element: HTMLElement | null): { category: Act
     return { category: "hsn", label: "HSN Code Field" };
   }
 
-  // Document / Invoice
+  // Document / Invoice (use word-boundary matching for generic tokens to prevent substring collisions)
   if (
     rawIdentifiers.includes("invoice") || 
-    rawIdentifiers.includes("bill") || 
-    rawIdentifiers.includes("order") || 
-    rawIdentifiers.includes("po") || 
-    rawIdentifiers.includes("voucher")
+    rawIdentifiers.includes("voucher") || 
+    /\b(bill|order|po)\b/i.test(rawIdentifiers)
   ) {
     return { category: "invoice", label: "Invoice / Document Field" };
   }
@@ -280,24 +284,10 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [fieldValue, setFieldValue] = useState<string>("");
   const [activeElement, setActiveElement] = useState<HTMLElement | null>(null);
   const [isInputFocused, setIsInputFocused] = useState<boolean>(false);
-  const [isF2ModalOpen, setIsF2ModalOpen] = useState<boolean>(false);
   const [activeProductPreview, setActiveProductPreview] = useState<Product | null>(null);
   const [activeCustomerPreview, setActiveCustomerPreview] = useState<Customer | null>(null);
 
   const lastFocusedInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
-
-  const openF2Modal = useCallback((cat?: ActiveFieldCategory, label?: string) => {
-    if (cat) setCategory(cat);
-    if (label) setFieldLabel(label);
-    setIsF2ModalOpen(true);
-  }, []);
-
-  const closeF2Modal = useCallback(() => {
-    setIsF2ModalOpen(false);
-    setTimeout(() => {
-      lastFocusedInputRef.current?.focus();
-    }, 50);
-  }, []);
 
   // Global DOM Focus and Input Tracking
   useEffect(() => {
@@ -353,37 +343,19 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
     };
 
-    // Global Keydown Listener for F2
-    const handleGlobalF2 = (e: KeyboardEvent) => {
-      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-      if (!token) return;
-
-      if (e.key === "F2") {
-        const active = document.activeElement as HTMLElement;
-        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
-          lastFocusedInputRef.current = active as HTMLInputElement;
-          const { category: inferredCategory, label: inferredLabel } = inferFieldCategory(active);
-          setCategory(inferredCategory);
-          setFieldLabel(inferredLabel);
-          setFieldName((active as HTMLInputElement).name || active.id || "active_input");
-          setFieldValue((active as HTMLInputElement).value || "");
-        }
-
-        e.preventDefault();
-        setIsF2ModalOpen(prev => !prev);
-      }
-    };
+    // NOTE: The F2 keydown listener has been removed from ActiveFieldContext.
+    // F2Dispatcher (src/context/F2DispatcherContext.tsx) is now the sole
+    // authoritative F2 keyboard listener. This context retains focus tracking
+    // only (focusin / focusout / input) for contextual metadata and HUD display.
 
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", handleFocusOut);
     document.addEventListener("input", handleInput);
-    window.addEventListener("keydown", handleGlobalF2);
 
     return () => {
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
       document.removeEventListener("input", handleInput);
-      window.removeEventListener("keydown", handleGlobalF2);
     };
   }, []);
 
@@ -392,39 +364,6 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (label) setFieldLabel(label);
   }, []);
 
-  const insertValueIntoActiveField = useCallback((value: string | Record<string, any>) => {
-    const target = lastFocusedInputRef.current || activeElement as HTMLInputElement;
-    if (!target) return;
-
-    const stringVal = typeof value === "string" 
-      ? value 
-      : (value.code || value.barcode || value.sku || value.name || value.id || "");
-    
-    // Use prototype setter to properly update React's internal value tracker on controlled components
-    try {
-      const isInput = target instanceof HTMLInputElement;
-      const isTextArea = target instanceof HTMLTextAreaElement;
-      const proto = isInput 
-        ? window.HTMLInputElement.prototype 
-        : isTextArea 
-        ? window.HTMLTextAreaElement.prototype 
-        : Object.getPrototypeOf(target);
-      
-      const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
-      if (descriptor && descriptor.set) {
-        descriptor.set.call(target, stringVal);
-      } else {
-        target.value = stringVal;
-      }
-    } catch {
-      target.value = stringVal;
-    }
-    
-    // Dispatch input & change events for React synthetic event listeners
-    target.dispatchEvent(new Event("input", { bubbles: true }));
-    target.dispatchEvent(new Event("change", { bubbles: true }));
-    target.focus();
-  }, [activeElement]);
 
   return (
     <ActiveFieldContext.Provider
@@ -435,13 +374,9 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
         fieldValue,
         element: activeElement,
         isInputFocused,
-        isF2ModalOpen,
         activeProductPreview,
         activeCustomerPreview,
-        openF2Modal,
-        closeF2Modal,
         setManualCategory,
-        insertValueIntoActiveField,
         setActiveProductPreview,
         setActiveCustomerPreview
       }}

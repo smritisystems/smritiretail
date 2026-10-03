@@ -13,13 +13,18 @@ Classification: Internal
 """
 
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_company_db, get_current_user
+from ...api.deps import get_company_db, get_current_user, get_db, require_role
+from ...models.auth import UserRole
+from ...models.master_lookup import MasterType, MasterValue
 from ...services.univ_party_svc import UniversalPartyService
 from ...services.party_master_svc import UniversalPartyMasterService
 from ...services.item_master_svc import UniversalItemMasterService
+from ...services.po_item_import_service import parse_po_item_master_excel
+from ...services.catalog_validation import CatalogDimensionValidator
 from ...services.univ_item_svc import UniversalItemService
 from ...schemas.party_master import (
     PartyCreateRequest,
@@ -210,18 +215,159 @@ async def create_item(
     try:
         item = await UniversalItemMasterService.create_item(session=db, req=req)
         return item
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/items/resolve", response_model=ItemResolutionResponse, summary="Resolve canonical Item by barcode/SKU/serial")
+@router.post(
+    "/items/import-from-po-excel",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Items from PO Excel",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def import_items_from_po_excel(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Create grouped item-master records and variant barcodes from a consolidated PO Excel file."""
+    if not file.filename or not file.filename.lower().endswith((".xlsx", ".xlsm")):
+        raise HTTPException(status_code=400, detail="Please upload an .xlsx purchase-order item file.")
+
+    try:
+        payloads = parse_po_item_master_excel(await file.read())
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Unable to read the purchase-order Excel item sheet.") from exc
+    if not payloads:
+        raise HTTPException(status_code=400, detail="No item rows were found in the purchase-order Excel file.")
+
+    # Register source dimensions first, then validate the canonical values.
+    validated_dimensions = {
+        "category": set(),
+        "style_code": set(),
+        "color": set(),
+        "size": set(),
+    }
+    for payload in payloads:
+        validated_dimensions["category"].add(payload.get("category"))
+        validated_dimensions["style_code"].add(payload.get("style_code"))
+        for variant in payload.get("variants", []):
+            attributes = variant.get("attributes_json", {})
+            validated_dimensions["color"].add(attributes.get("color"))
+            validated_dimensions["size"].add(attributes.get("size"))
+
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+    for dimension, values in validated_dimensions.items():
+        type_code = CatalogDimensionValidator.resolve_type_code(dimension)
+        master_type = await control_db.scalar(select(MasterType).where(MasterType.code == type_code))
+        if not master_type:
+            raise HTTPException(status_code=404, detail=f"Master Lookup type '{type_code}' is not configured.")
+        for value in sorted(value for value in values if value):
+            existing = await control_db.scalar(
+                select(MasterValue).where(
+                    MasterValue.master_type_id == master_type.id,
+                    func.lower(MasterValue.code) == value.casefold(),
+                    MasterValue.is_deleted.is_(False),
+                    or_(MasterValue.company_id == company_id, MasterValue.company_id.is_(None)),
+                    or_(MasterValue.branch_id == branch_id, MasterValue.branch_id.is_(None)),
+                )
+            )
+            if not existing:
+                control_db.add(
+                    MasterValue(
+                        master_type_id=master_type.id,
+                        company_id=company_id,
+                        branch_id=branch_id,
+                        code=value,
+                        name=value,
+                        data={"source": "PURCHASE_ORDER_EXCEL"},
+                        active=True,
+                        sort_order=0,
+                        is_deleted=False,
+                    )
+                )
+        await control_db.flush()
+    await control_db.commit()
+
+    for dimension, values in validated_dimensions.items():
+        for value in sorted(value for value in values if value):
+            await CatalogDimensionValidator.validate_and_normalize_dimension(
+                dimension_field=dimension,
+                value=value,
+                strict=True,
+                control_db=control_db,
+            )
+
+    created = []
+    skipped = []
+    try:
+        for payload in payloads:
+            existing = await UniversalItemMasterService.get_item_by_code(db, payload["item_code"])
+            if existing:
+                skipped.append(payload["item_code"])
+                continue
+            request = ItemCreateRequest(**payload)
+            item = await UniversalItemMasterService.create_item(
+                session=db,
+                req=request,
+                commit=False,
+            )
+            created.append({
+                "item_id": item.id,
+                "item_code": item.item_code,
+                "variant_count": len(payload["variants"]),
+                "barcode_count": sum(len(variant["barcodes"]) for variant in payload["variants"]),
+            })
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=422, detail="The purchase-order items could not be created in Item Master.") from exc
+
+    return {
+        "source": file.filename,
+        "created": created,
+        "skipped_existing": skipped,
+        "created_item_count": len(created),
+        "created_barcode_count": sum(entry["barcode_count"] for entry in created),
+    }
+
+
+@router.get("/items/resolve", response_model=ItemResolutionResponse, summary="Resolve canonical Item by barcode/SKU/buyer code/serial")
 async def resolve_item(
-    query: str = Query(..., description="Barcode, Variant SKU, Item Code, or Serial Number"),
+    query: str = Query(..., description="Barcode, Variant SKU, Buyer Article Code, Item Code, or Serial Number"),
+    customer_id: Optional[str] = Query(None, description="Optional customer ID for buyer catalog and contract price resolution"),
+    branch_id: Optional[str] = Query(None, description="Optional branch or warehouse ID for localized inventory buckets"),
+    as_of_date: Optional[str] = Query(None, description="Optional date (YYYY-MM-DD) for temporal contract evaluation"),
+    currency: Optional[str] = Query("INR", description="Transaction currency (e.g. INR, USD)"),
+    customer_group_id: Optional[str] = Query(None, description="Optional customer group ID for contract group authorization"),
+    place_of_supply: Optional[str] = Query(None, description="2-digit GST state code of destination/place of supply"),
+    company_state: Optional[str] = Query("27", description="2-digit GST state code of dispatching company/branch"),
     db: AsyncSession = Depends(get_company_db),
     current_user: dict = Depends(get_current_user),
 ):
-    """Fast 4-tier scanner resolver for POS register and WMS mobile scanners."""
-    res = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(db, query)
+    """Fast 5-tier scanner resolver with 5-bucket inventory, temporal contract pricing, and statutory GST slab validation."""
+    parsed_date = None
+    if as_of_date:
+        try:
+            from datetime import datetime
+            parsed_date = datetime.strptime(as_of_date, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    res = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(
+        session=db,
+        query_str=query,
+        customer_id=customer_id,
+        branch_id=branch_id,
+        as_of_date=parsed_date,
+        transaction_currency=currency,
+        customer_group_id=customer_group_id,
+        place_of_supply=place_of_supply,
+        company_state=company_state,
+    )
     if not res:
         raise HTTPException(status_code=404, detail=f"No item found matching '{query}'.")
     return res

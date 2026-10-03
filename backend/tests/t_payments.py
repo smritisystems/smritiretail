@@ -12,11 +12,25 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import sys
+import os
 import uuid
 from decimal import Decimal
+from pathlib import Path
 import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
+
+backend_dir = Path(__file__).resolve().parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from dotenv import dotenv_values
+env_file = backend_dir.parent / ".env"
+if env_file.exists():
+    for k, v in dotenv_values(env_file).items():
+        if v is not None and k not in os.environ:
+            os.environ[k] = v
 
 from app.main import app
 from app.db.session import get_company_sessionmaker
@@ -38,7 +52,7 @@ def _get_auth_headers(role: str = "SYSADMIN") -> dict:
             "username": "usr_super",
             "role": role,
             "company_id": "COMP-001",
-            "branch_id": "BR-001",
+            "branch_id": "BR-MAIN-001",
             "tenant_id": "smriti001",
             "db_name": "smriti001",
             "is_active": True,

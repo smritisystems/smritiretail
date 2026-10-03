@@ -29,6 +29,8 @@
     "src/routes/**/*",
     "src/tests/**/*",
     "src/middleware/**/*",
-    "src/modules/dev_tracker/**/*"
+    "src/modules/dev_tracker/**/*",
+    "src/db/**/*",
+    "src/bootstrap/**/*"
   ]
 }

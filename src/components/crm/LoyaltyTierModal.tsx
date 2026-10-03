@@ -7,7 +7,7 @@
  * Version      : 3.110.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -39,7 +39,7 @@ function buildSampleMembers(): LoyaltyMember[] {
   let m1Final = LoyaltyTierEngine.checkAnniversary(um1, NOW);
 
   let m2 = LoyaltyTierEngine.createMember({ memberId: "MBR-002", memberNo: "LYL-0002", name: "Rahul Mehta",     joinDate: "2023-03-10", initialTier: "GOLD" });
-  m2 = { ...m2, lastTierChangeAt: new Date("2026-07-01").toISOString() };   // Recent â€” downgrade locked
+  m2 = { ...m2, lastTierChangeAt: new Date("2026-07-01").toISOString() };   // Recent — downgrade locked
   m2 = LoyaltyTierEngine.accrue(m2, 8000, 800);     // Below GOLD threshold but cooldown active
 
   let m3 = LoyaltyTierEngine.createMember({ memberId: "MBR-003", memberNo: "LYL-0003", name: "Sunita Rao",      joinDate: "2022-01-15", initialTier: "PLATINUM" });
@@ -87,7 +87,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
     }
   };
 
-  const fmt = (n: number) => `â‚¹${n.toLocaleString("en-IN")}`;
+  const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
@@ -97,7 +97,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
             <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-2xl">ðŸ’Ž</div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Customer Loyalty Tier Upgrade Engine</h2>
-              <p className="text-xs text-slate-400">Bronze â†’ Silver â†’ Gold â†’ Platinum Â· Downgrade Cooldown Â· Anniversary Rewards</p>
+              <p className="text-xs text-slate-400">Bronze → Silver → Gold → Platinum · Downgrade Cooldown · Anniversary Rewards</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -137,7 +137,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div>
                     <p className="text-lg font-bold text-slate-100">{selected.name}</p>
-                    <p className="text-xs text-slate-400">{selected.memberNo} Â· Joined: {selected.joinDate}</p>
+                    <p className="text-xs text-slate-400">{selected.memberNo} · Joined: {selected.joinDate}</p>
                     <p className="text-[10px] text-slate-500">Last tier change: {new Date(selected.lastTierChangeAt).toLocaleDateString("en-IN")}</p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -177,7 +177,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
                           <div className="flex items-center gap-2">
                             <span>{TIER_STYLE[t.tier].icon}</span>
                             <span className="font-bold text-slate-200">{t.tier}</span>
-                            {selected.currentTier === t.tier && <span className="text-[9px] text-emerald-400 font-bold">â— CURRENT</span>}
+                            {selected.currentTier === t.tier && <span className="text-[9px] text-emerald-400 font-bold">? CURRENT</span>}
                           </div>
                           <div className="flex items-center gap-4 text-[10px] font-mono">
                             <span className={met ? "text-emerald-400" : "text-slate-500"}>Spend: {fmt(t.minSpend)}</span>
@@ -204,7 +204,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
                             : "text-slate-400 bg-slate-700/10 border-slate-600/20"
                           }`}>{e.type.replace(/_/g, " ")}</span>
                           <div>
-                            <p className="font-mono text-[10px] text-slate-500">{e.fromTier} â†’ {e.toTier} Â· {new Date(e.performedAt).toLocaleDateString("en-IN")}</p>
+                            <p className="font-mono text-[10px] text-slate-500">{e.fromTier} → {e.toTier} · {new Date(e.performedAt).toLocaleDateString("en-IN")}</p>
                             <p className="text-slate-400 mt-0.5">{e.reason}</p>
                             {e.pointsDelta && <p className="text-yellow-400 mt-0.5">+{e.pointsDelta} pts awarded</p>}
                           </div>
@@ -222,7 +222,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
                   <p className="text-sm font-bold text-slate-200">Bulk Tier Evaluation</p>
                   <button onClick={handleEvaluateAll}
                     className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-yellow-600 hover:bg-yellow-500 transition-all">
-                    âš¡ Evaluate All Members
+                    ? Evaluate All Members
                   </button>
                 </div>
                 <div className="space-y-3">
@@ -235,12 +235,12 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
                           <span className="text-xl">{TIER_STYLE[m.currentTier].icon}</span>
                           <div>
                             <p className="text-sm font-medium text-slate-200">{m.name}</p>
-                            <p className="text-[10px] text-slate-500">Spend: {fmt(m.windowSpend)} Â· Points: {m.windowPoints.toLocaleString("en-IN")}</p>
+                            <p className="text-[10px] text-slate-500">Spend: {fmt(m.windowSpend)} · Points: {m.windowPoints.toLocaleString("en-IN")}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_STYLE[m.currentTier].badge}`}>{m.currentTier}</span>
-                          <span className="text-slate-500">â†’</span>
+                          <span className="text-slate-500">→</span>
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_STYLE[ev.evaluation.proposedTier].badge}`}>{ev.evaluation.proposedTier}</span>
                           <span className={`text-[9px] font-bold px-2 py-1 rounded-full border ${
                             changeType === "UPGRADE"   ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/20"
@@ -259,7 +259,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
 
             {activeTab === "SUMMARY" && (
               <div className="space-y-5">
-                <p className="text-sm font-bold text-slate-200">Tier Distribution â€” {members.length} Members</p>
+                <p className="text-sm font-bold text-slate-200">Tier Distribution — {members.length} Members</p>
                 <div className="grid grid-cols-2 gap-4">
                   {(["PLATINUM", "GOLD", "SILVER", "BRONZE"] as LoyaltyTier[]).map((tier) => {
                     const count = summary[tier];
@@ -285,10 +285,10 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
                 <div className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">Policy Reference</p>
                   <div className="text-xs text-slate-400 space-y-1">
-                    <p>Â· Evaluation Window: <strong className="text-slate-200">{DEFAULT_TIER_POLICY.evaluationWindowMonths} months</strong></p>
-                    <p>Â· Downgrade Cooldown: <strong className="text-slate-200">{DEFAULT_TIER_POLICY.downgradeCooldownMonths} months</strong></p>
-                    <p>Â· Auto-Upgrade: Immediate on crossing threshold.</p>
-                    <p>Â· Downgrade: Blocked until cooldown elapsed since last tier change.</p>
+                    <p>· Evaluation Window: <strong className="text-slate-200">{DEFAULT_TIER_POLICY.evaluationWindowMonths} months</strong></p>
+                    <p>· Downgrade Cooldown: <strong className="text-slate-200">{DEFAULT_TIER_POLICY.downgradeCooldownMonths} months</strong></p>
+                    <p>· Auto-Upgrade: Immediate on crossing threshold.</p>
+                    <p>· Downgrade: Blocked until cooldown elapsed since last tier change.</p>
                   </div>
                 </div>
               </div>

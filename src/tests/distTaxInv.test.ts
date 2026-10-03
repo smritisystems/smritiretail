@@ -14,6 +14,7 @@
 
 import { describe, it, expect } from "vitest";
 import { TaxInvoiceDocumentState, TaxInvoiceItemRow } from "../components/sales/types.ts";
+import { calculateTaxInvoiceMetrics } from "../components/sales/DistTaxInvoice.tsx";
 
 describe("Smriti Distributor Tax Invoice Domain Engine & Calculations", () => {
   const sampleItems: TaxInvoiceItemRow[] = [
@@ -74,6 +75,18 @@ describe("Smriti Distributor Tax Invoice Domain Engine & Calculations", () => {
     }, 0);
 
     expect(totalTax).toBe(486 + 288); // 774
+  });
+
+  it("calculates invoice metrics from taxable line values without double-counting GST", () => {
+    const metrics = calculateTaxInvoiceMetrics(sampleItems, [
+      { id: "ADD-1", type: "Addon", code: "FRG", description: "Freight", amount: 150 },
+      { id: "DED-1", type: "Deduction", code: "DISC", description: "Trade discount", amount: 50 },
+    ]);
+
+    expect(metrics.salesValue).toBe(5400);
+    expect(metrics.itemDiscount).toBe(300);
+    expect(metrics.totalTax).toBe(774);
+    expect(metrics.netAmount).toBe(5974);
   });
 
   it("correctly integrates Addons (Freight) and Deductions", () => {

@@ -4,22 +4,24 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.18.0
 Created      : 2026-07-12
 Modified     : 2026-07-12
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_db, get_company_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...schemas.numbering import (
     DocumentSeriesCreate, DocumentSeriesUpdate, DocumentSeriesResponse,
-    NumberingAuditLogResponse, AllocationRequest
+    NumberingAuditLogResponse, AllocationRequest,
+    BillPrefixResolveRequest, BillPrefixResolveResponse,
+    BillPrefixBatchSaveRequest, YearEndRolloverRequest, YearEndRolloverResponse
 )
 from ...services.numbering import NumberingService
 
@@ -27,18 +29,47 @@ router = APIRouter()
 
 
 @router.get(
+    "/preview",
+    summary="Preview Next Sequential Document Number (Read-Only)",
+)
+async def preview_number(
+    document_type: str = Query("ARTICLE", description="Document type, e.g. ARTICLE, SALES_INVOICE"),
+    category: Optional[str] = Query(None, description="Category name, e.g. SANDAL, SHOES"),
+    branch_id: Optional[str] = Query(None, description="Branch ID"),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Authoritative read-only preview of the next document number for the given document_type and category.
+    Performs zero database mutations and consumes no sequence numbers.
+    Follows exact priority: 1) exact category match, 2) category IS NULL fallback.
+    """
+    from ...services.documents_engine import DocumentsEngine
+    company_id = getattr(current_user, "company_id", None) or "COMP-001"
+    return await DocumentsEngine.preview_next_number(
+        session=db,
+        company_id=company_id,
+        document_type=document_type,
+        category=category,
+        branch_id=branch_id,
+    )
+
+
+@router.get(
     "/series",
     response_model=List[DocumentSeriesResponse],
 )
 async def list_series(
-    db: AsyncSession = Depends(get_db),
+    document_type: Optional[str] = Query(None, description="Optional document type filter, e.g. ARTICLE"),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    List all active document series configuration parameters.
+    List all active document series configuration parameters for the authenticated tenant.
     """
+    company_id = getattr(current_user, "company_id", None)
     service = NumberingService(db)
-    return await service.list_series()
+    return await service.list_series(company_id=company_id, document_type=document_type)
 
 
 @router.post(
@@ -139,7 +170,14 @@ async def allocate_number(
                 status_code=401,
                 detail="A valid access token or internal service key is required."
             )
-        token = authorization.split(" ")[1]
+        token = authorization.split(" ", 1)[1].strip()
+        # SMRITI-SEC-2026-001: guard against malformed "Bearer " with no token.
+        # Without this, get_current_user raises an unhandled exception → HTTP 500.
+        if not token:
+            raise HTTPException(
+                status_code=401,
+                detail="A valid access token or internal service key is required."
+            )
         # Avoid circular imports
         from ...api.deps import get_current_user
         current_user = await get_current_user(token=token, db=db)
@@ -153,3 +191,154 @@ async def allocate_number(
         username=username
     )
     return {"success": True, "documentNo": doc_no}
+
+
+# =========================================================================
+# Shoper 9 Bill Prefix Endpoints
+# =========================================================================
+
+@router.get(
+    "/bill-prefixes",
+    response_model=List[DocumentSeriesResponse],
+)
+async def list_bill_prefixes(
+    transaction_group: Optional[str] = None,
+    terminal_id: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List bill prefixes with optional group, terminal, and branch filters.
+    """
+    service = NumberingService(db)
+    return await service.list_bill_prefixes(
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=branch_id,
+        transaction_group=transaction_group,
+        terminal_id=terminal_id
+    )
+
+
+@router.post(
+    "/bill-prefixes/resolve",
+    response_model=BillPrefixResolveResponse,
+)
+async def resolve_bill_prefix(
+    req: BillPrefixResolveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Resolves the active Bill Prefix, sequence preview, and statutory GST Rule 46(b) validation
+    for a POS terminal counter before transaction creation.
+    """
+    service = NumberingService(db)
+    return await service.resolve_bill_prefix(
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=req.branchId,
+        terminal_id=req.terminalId or "COMMON",
+        transaction_type=req.transactionType,
+        bill_type=req.billType or "Product"
+    )
+
+
+@router.post(
+    "/bill-prefixes/save-batch",
+    response_model=List[DocumentSeriesResponse],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def save_bill_prefixes_batch(
+    req: BillPrefixBatchSaveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Batch save or update document prefix schemes from the Prefix Management window.
+    Enforces GST Rule 46(b) validation on each prefix scheme.
+    """
+    service = NumberingService(db)
+    return await service.save_bill_prefixes_batch(
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=req.branchId,
+        req=req,
+        operator=current_user.username
+    )
+
+
+@router.post(
+    "/year-end-rollover",
+    response_model=YearEndRolloverResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def execute_year_end_rollover(
+    req: YearEndRolloverRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Supervisory Year End Process:
+    Increments financial year suffix across all active document series,
+    resets starting document numbers, and logs immutable audit trail.
+    """
+    service = NumberingService(db)
+    return await service.execute_year_end_rollover(
+        company_id=getattr(current_user, "company_id", None),
+        req=req,
+        operator=current_user.username
+    )
+
+
+@router.get(
+    "/terminal-prefixes-report",
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def get_terminal_prefixes_report(
+    terminal_id: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Terminal Prefix Listing report: detailed breakdown of bill prefixes defined per terminal node.
+    """
+    service = NumberingService(db)
+    series_list = await service.list_bill_prefixes(
+        company_id=getattr(current_user, "company_id", None),
+        branch_id=branch_id,
+        terminal_id=terminal_id
+    )
+    rows = []
+    for s in series_list:
+        pfx = s.prefix or ""
+        sfx = s.suffix or ""
+        next_n = (s.current_number or (s.start_number - 1)) + 1
+        fmt = str(next_n).zfill(s.running_length or 4)
+        preview = service._assemble_doc_no(
+            pfx, fmt, sfx,
+            s.financial_year,
+            getattr(s, "number_format", None)
+        )
+        gst_eval = service.validate_gst_rule_46b(pfx, fmt, sfx)
+        rows.append({
+            "seriesId": s.id,
+            "name": s.name,
+            "terminalId": s.terminal_id or "COMMON",
+            "isCommonAcrossTerminals": s.is_common_across_terminals if s.is_common_across_terminals is not None else True,
+            "documentType": s.document_type,
+            "transactionGroup": s.transaction_group or "SALES",
+            "prefix": pfx,
+            "suffix": sfx,
+            "startNumber": s.start_number or 1,
+            "currentNumber": s.current_number or 0,
+            "nextDocumentNo": next_n,
+            "preview": preview,
+            "runningLength": s.running_length or 4,
+            "financialYear": s.financial_year or "2026-2027",
+            "isActive": s.is_active,
+            "gstRule46bValid": gst_eval["isValid"],
+            "gstRule46bLength": gst_eval["length"],
+            "numberFormat": getattr(s, "number_format", None) or "PREFIX_NUM_SUFFIX",
+        })
+    return {"success": True, "count": len(rows), "items": rows}
+

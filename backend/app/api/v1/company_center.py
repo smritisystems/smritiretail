@@ -14,6 +14,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
+import psycopg2
 
 try:
     from app.services.db_resolver import (
@@ -21,7 +22,7 @@ try:
         generate_company_database_name,
         validate_company_database_name
     )
-    from app.services.code_allocator import CompanyCodeAllocator
+    from app.services.code_allocator import CompanyCodeAllocator, CONTROL_PLANE_DB_URL
     from app.services.db_provisioner import CompanyDatabaseProvisioner
     from app.api.deps import get_current_user, require_role
     from app.models.auth import User, UserRole
@@ -31,7 +32,7 @@ except ImportError:
         generate_company_database_name,
         validate_company_database_name
     )
-    from backend.app.services.code_allocator import CompanyCodeAllocator
+    from backend.app.services.code_allocator import CompanyCodeAllocator, CONTROL_PLANE_DB_URL
     from backend.app.services.db_provisioner import CompanyDatabaseProvisioner
     from backend.app.api.deps import get_current_user, require_role
     from backend.app.models.auth import User, UserRole
@@ -40,7 +41,7 @@ router = APIRouter(prefix="/control-center", tags=["Company Control Center"])
 
 # Pydantic Request Schemas
 class ValidateCodeRequest(BaseModel):
-    company_code: str = Field(..., description="4-character alphanumeric code [A-Z0-9]")
+    company_code: str = Field(..., description="3-12 character alphanumeric code [A-Z0-9]")
 
 class CreateCompanyRequest(BaseModel):
     company_id: str
@@ -56,12 +57,12 @@ class LifecycleActionRequest(BaseModel):
 # Endpoints
 @router.post("/companies/validate-code")
 def validate_company_code(payload: ValidateCodeRequest):
-    """Validates 3-character alphanumeric company code [A-Z0-9]. Rejects 000 and SYS."""
+    """Validates configurable 3-12 character alphanumeric company code [A-Z0-9]."""
     code = payload.company_code.strip().upper()
-    if len(code) != 3 or not code.isalnum():
+    if not 3 <= len(code) <= 12 or not code.isalnum():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Company code '{payload.company_code}' must be exactly 3 alphanumeric characters [A-Z0-9]."
+            detail=f"Company code '{payload.company_code}' must be 3-12 alphanumeric characters [A-Z0-9]."
         )
     if code in ("000", "SYS"):
         raise HTTPException(

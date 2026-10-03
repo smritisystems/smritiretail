@@ -1,0 +1,183 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Generating a Purchase Order/ Indent</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><script language="javascript" src="../ehlpdhtm.js"></script>
+<style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { background-color:Transparent; }
+span.hcp3 { x-text-underline:normal; font-weight:bold; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Generating a Purchase Order/ Indent</h1>
+
+<p class=Body-Text>The <span class="hcp1">Purchase Order/Indent 
+ Generation</span> window is as shown.</p>
+
+<p class=Body-Text><img src="po_generation_generation.gif"
+						x-maintain-ratio=TRUE
+						style="border: none;
+								float: none;
+								width: 550px;
+								height: 392px;
+								border-style: none;
+								border-style: none;"
+						width=550
+						height=392
+						border=0></p>
+
+<p class=Body-Text><span class="hcp1">Purchase/Indent Document 
+ Details</span>: </p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Type</span>: 
+ Select the document type from the list.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Prefix</span>: 
+ Select the purchase order/ indent prefix from the list.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Number</span>: 
+ The purchase order/ indent number is displayed. This is a running serial 
+ number.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Date</span>: 
+ The current date is displayed as the date of purchase order/ indent.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Supplier</span>: 
+ Choose the supplier on whom the purchase order/ indent is generated.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Bill To</span>: 
+ Choose the location to which the bill has to be sent. In case of independent 
+ stores, the login company name is displayed by default.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Delivery 
+ Date</span>: Enter the expected date of delivery. Alternatively, you may 
+ enter the number of days (lead time) in which the supplier needs to fulfil 
+ the order.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Lead Time</span>: 
+ The number of days that the supplier gets to fulfil the order from the 
+ date of purchase order generation is displayed, if you have entered the 
+ delivery date. Alternatively, you can enter the lead time in number of 
+ days.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Delivery 
+ Location</span>: Choose the location to ship the items.</p>
+
+<p class=Note
+	style="margin-left: 59px;"><span class="hcp1">Note:</span> 
+ <span class="hcp2">In the case of indents (chain 
+ store), list of delivery locations is populated based on the showroom 
+ catalogues and sync. rule. The list will include the names of showrooms 
+ that are linked to the selected Supplier (service location).</span></p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Picture</span>: 
+ As you browse through the items in the grid, the image of the item will 
+ be displayed here, if available.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1"><a name=POLoadFromPDTFile>Load</a></span>: 
+ Click to <a href="PO-Gen_Load.htm">load data from specified file</a>.</p>
+
+<p class=Body-Text><span class="hcp1">C</span><span class="hcp3">o</span><span class="hcp1">nfigure</span>: To open the <a href="PO-Gen_Entry_Columns.htm">Entry 
+ Column Selection</a>.</p>
+
+<p class=Body-Text><span class="hcp1">Common Tax / Duty (%)</span>: 
+ Enter the tax/ duty as a percentage. The value entered here would be treated 
+ as the default tax percentage for all items. However, you can change the 
+ rate for individual items, if required.</p>
+
+<p class=Body-Text>The columns of the grid get filled as per the selection 
+ criteria opted. The attributes are arranged based on the order you specified 
+ in <span class="hcp1">Configure</span>. Other attributes 
+ that are displayed in the grid, irrespective of the selections, are <span class="hcp1">Rate</span>, <span class="hcp1">Order 
+ Qty</span>, <span class="hcp1">Total Value</span>, <span class="hcp1">Stock On Hand</span>, <span class="hcp1">Tax/Duty</span>, 
+ <span class="hcp1">Net Value</span> and <span class="hcp1">Delivery 
+ Date</span>. Enter the value in each column depending on the items required.</p>
+
+<ul>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text>If you have chosen 
+ Normal Entry, the grid appears as shown above.</p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text>If you have chosen 
+ <a name=POGenSizewise>Size Wise Entry</a>, each size is displayed as a 
+ column in the grid for you to enter <span class="hcp1">Size 
+ Wise Order Qty</span>.</p></li>
+</ul>
+
+<p class=Body-Text
+	style="margin-left: 47px;">Click <a href="PO_Generation_GenerationSzWs.gif">here</a> 
+ to view a sample screen. Initially the size wise entry columns would appear 
+ disabled. However, when you fill in all other details, the columns would 
+ be enabled.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Total:</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Qty</span>: 
+ Displays the total of all order quantities in the purchase order.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Gross Value</span>: 
+ Displays the gross value of the purchase order.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Net Value</span>: 
+ Displays the total net value after tax.</p>
+
+<p class=Navigation><span class="hcp3">N</span><span class="hcp1">ext</span>: To move to the <a href="PO-Gen_Other_Details_tab.htm">Other 
+ Details</a> tab</p>
+
+<p class=Navigation><span class="hcp3">C</span><span class="hcp1">lear</span>: To undo all the changes you have 
+ made</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=FunctionKey><span class="hcp1"><a name=POBrowse>F2</a></span>: 
+ To <a href="PO-Item_Browse.htm">browse the values</a> to populate the 
+ current column. If the value for Subclass1 (Style) is entered and the 
+ user presses <span class="hcp1">F2</span> when the cursor 
+ is on the stock number, then only those stock numbers of items with the 
+ selected style are displayed in the browse. <span class="hcp2">In 
+ case you enter the starting characters of the field, all values starting 
+ with those characters are displayed in the browse window.</span> You can 
+ also use the browse facility in any sequence, for example, you can first 
+ select the brand, then the stock number, and so on.</p>
+
+<p class=FunctionKey><span class="hcp1">F4</span>: To delete 
+ the current row.</p>
+
+<p class=FunctionKey><span class="hcp1">F5</span>: To enter 
+ quantity.</p>
+
+<p class=FunctionKey
+	style="font-weight: bold;">F6: <span style="font-weight: normal;">To 
+ copy the previous row as is and make necessary changes. This reduces the 
+ effort of re-typing all the values.</span></p>
+
+<p class=FunctionKey><span class="hcp1">F7</span>: To copy 
+ rate, order quantity, tax and delivery date specified in the previous 
+ row, after you enter the item specification. </p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

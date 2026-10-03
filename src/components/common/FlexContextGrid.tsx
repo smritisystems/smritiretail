@@ -16,10 +16,9 @@
  * A single, reusable, keyboard-navigable data grid that renders dynamically
  * based on the active entity context descriptor from FieldContextRegistry.
  *
- * This component replaces the three duplicated product/item/customer search
+ * This component replaces the older legacy search
  * table implementations in:
- *   - billing/ProductSearchBrows.tsx
- *   - billing/ItemBrowseOverlayD.tsx
+ *   - billing/SmritiF2AdvancedItemSearch.tsx
  *   - purchase/PurchBrowseDlg.tsx
  *
  * Props:

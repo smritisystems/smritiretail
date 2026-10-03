@@ -25,7 +25,9 @@
 
 import React from "react";
 
-export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
+export const ThermalReceipt80mm: React.FC<{ data?: any }> = ({ data = {} }) => {
+  const fmt = (v: any) => (typeof v === "number" ? v.toFixed(2) : Number(v || 0).toFixed(2));
+
   return (
     <div className="w-[80mm] bg-white text-black font-mono text-xs mx-auto p-[4mm]">
       <div className="text-center mb-4 border-b border-dashed border-black pb-4">
@@ -50,13 +52,17 @@ export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
           </tr>
         </thead>
         <tbody className="block w-full">
-          {(data.items || []).map((item: any, idx: number) => (
-            <tr key={idx} className="flex w-full mb-1">
-              <td className="w-1/2 truncate">{item.name}</td>
-              <td className="w-1/6 text-right">{item.qty}</td>
-              <td className="w-1/3 text-right">{(item.qty * item.rate).toFixed(2)}</td>
-            </tr>
-          ))}
+          {(data.items || []).map((item: any, idx: number) => {
+            const qty = Number(item.qty ?? item.quantity ?? 1);
+            const rate = Number(item.rate ?? item.price ?? 0);
+            return (
+              <tr key={idx} className="flex w-full mb-1">
+                <td className="w-1/2 truncate">{item.name || item.productName || "Item"}</td>
+                <td className="w-1/6 text-right">{qty}</td>
+                <td className="w-1/3 text-right">{fmt(qty * rate)}</td>
+              </tr>
+            );
+          })}
           {(!data.items || data.items.length === 0) && (
             <tr className="flex w-full"><td className="w-full text-center py-2">No Items</td></tr>
           )}
@@ -64,8 +70,8 @@ export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
       </table>
 
       <div className="mb-4">
-        <div className="flex justify-between font-bold"><span>TOTAL:</span><span>{data.total?.toFixed(2) || "0.00"}</span></div>
-        <div className="flex justify-between"><span>PAID ({data.paymentMethod || "CASH"}):</span><span>{data.paid?.toFixed(2) || data.total?.toFixed(2) || "0.00"}</span></div>
+        <div className="flex justify-between font-bold"><span>TOTAL:</span><span>{fmt(data.total)}</span></div>
+        <div className="flex justify-between"><span>PAID ({data.paymentMethod || "CASH"}):</span><span>{fmt(data.paid ?? data.total)}</span></div>
       </div>
 
       <div className="text-center mt-6 border-t border-dashed border-black pt-4">
@@ -78,6 +84,12 @@ export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
         <div className="w-3/4 h-8 bg-black"></div>
       </div>
       <p className="text-center mt-1 text-[10px]">{data.receiptNo || "RCT-001"}</p>
+
+      {/* SMRITI RETAIL OS MANDATORY FOOTER BRANDING */}
+      <div className="text-center mt-3 pt-2 border-t border-dashed border-gray-400 text-[9px] font-mono text-gray-600">
+        <p className="font-bold tracking-wider">POWERED BY SMRITI RETAIL OS</p>
+        <p>smritibooks.com</p>
+      </div>
     </div>
   );
 };

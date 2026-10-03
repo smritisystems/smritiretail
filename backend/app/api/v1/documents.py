@@ -79,6 +79,9 @@ async def create_document_series(
             financial_year=series.financial_year,
             company_code=series.company_code,
             mode=series.mode or "Auto",
+            start_number=series.start_number or 1,
+            end_number=series.end_number,
+            category=series.category,
         )
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))

@@ -24,10 +24,11 @@ const HOTKEY_GROUPS = [
     category: "POS Core Activities",
     items: [
       { key: "Alt + 1", desc: "Create a new bill (reset terminal / new transaction)" },
-      { key: "Alt + 2", desc: "Void / Cancel a bill generated earlier" },
-      { key: "Alt + 3", desc: "Record sales return WITH reference to earlier invoice" },
+      { key: "Alt + 2", desc: "Void / Cancel a bill (Manager PIN gated for shrinkage control)" },
+      { key: "Alt + 3", desc: "Record sales return WITH reference (GST Sec. 15 bundle clawback)" },
       { key: "Alt + 5", desc: "Record sales return WITHOUT reference (blind return)" },
-      { key: "Alt + 6", desc: "Reprint an existing bill or sales return document" },
+      { key: "Alt + 6", desc: "Quick reprint last receipt or browse past documents" },
+      { key: "F12", desc: "Park active cart (4-hr auto-expire) or Recall suspended bill" },
       { key: "Alt + H", desc: "Show Hotkeys and shortcuts reference guide" }
     ]
   },
@@ -43,10 +44,11 @@ const HOTKEY_GROUPS = [
   {
     category: "Header & Customer Search",
     items: [
-      { key: "F2", desc: "Open Customer Browse & Search Window" },
-      { key: "Alt + S", desc: "Hold / Suspend current active cart to queue" },
+      { key: "Alt + M", desc: "Mid-bill Customer switch with auto promotion re-evaluation" },
+      { key: "F2", desc: "Open Customer Browse & Universal Lookup Window" },
+      { key: "F12 / Alt + S", desc: "Hold / Suspend current active cart to queue (4-hr expire)" },
       { key: "Alt + R", desc: "Recall suspended bills or sales advice slips" },
-      { key: "Alt + I", desc: "Open PDT Import window (File or Transaction)" }
+      { key: "Alt + I", desc: "Open CSV Import window" }
     ]
   },
   {

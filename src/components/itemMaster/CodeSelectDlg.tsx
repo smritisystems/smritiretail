@@ -4,17 +4,22 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.0.0
+ * Version      : 3.31.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-09-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState } from "react";
-import { X, Sparkles, CheckCircle, Barcode, Hash } from "lucide-react";
+import { X, Sparkles, CheckCircle, Barcode, Hash, ShieldCheck } from "lucide-react";
 import { generateSkuCode } from "../../services/skuGenerationEngine.ts";
+import {
+  generatePlaceholderBarcode,
+  fetchAuthoritativePlaceholderBarcode,
+  BARCODE_PREFIX_PRESETS
+} from "../../services/barcodePlaceholderService";
 
 interface SmritiCodeSelectionDialogProps {
   isOpen: boolean;
@@ -39,6 +44,11 @@ export const CodeSelectDlg: React.FC<SmritiCodeSelectionDialogProps> = ({
   const [separator, setSeparator] = useState<string>("-");
   const [includeSize, setIncludeSize] = useState<boolean>(true);
   const [includeColor, setIncludeColor] = useState<boolean>(true);
+
+  // Policy-Governed Placeholder Barcode State
+  const [barcodePrefix, setBarcodePrefix] = useState<string>("S");
+  const [allowNoBarcodePrefix, setAllowNoBarcodePrefix] = useState<boolean>(true);
+
   const [customSku, setCustomSku] = useState<string>(() => {
     return generateSkuCode({
       brand: currentRow.brand || "SMRITI",
@@ -47,13 +57,14 @@ export const CodeSelectDlg: React.FC<SmritiCodeSelectionDialogProps> = ({
       size: currentRow.size || "M"
     });
   });
+
   const [customBarcode, setCustomBarcode] = useState<string>(() => {
-    return `890${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    return generatePlaceholderBarcode("S", true);
   });
 
   if (!isOpen) return null;
 
-  const handleRegenerate = () => {
+  const handleRegenerate = async (targetPrefix = barcodePrefix, targetAllowNo = allowNoBarcodePrefix) => {
     const newSku = generateSkuCode({
       brand: currentRow.brand || prefix,
       styleCode: currentRow.styleCode || "ITEM",
@@ -65,7 +76,14 @@ export const CodeSelectDlg: React.FC<SmritiCodeSelectionDialogProps> = ({
       prefix: prefix
     });
     setCustomSku(newSku);
-    setCustomBarcode(`890${Math.floor(1000000000 + Math.random() * 9000000000)}`);
+
+    const newBarcode = await fetchAuthoritativePlaceholderBarcode(targetPrefix, targetAllowNo);
+    setCustomBarcode(newBarcode);
+  };
+
+  const handleSelectBarcodePreset = (pfxValue: string) => {
+    setBarcodePrefix(pfxValue);
+    handleRegenerate(pfxValue, allowNoBarcodePrefix);
   };
 
   const handleApply = () => {
@@ -75,13 +93,13 @@ export const CodeSelectDlg: React.FC<SmritiCodeSelectionDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 font-sans select-none animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-[#131b2e] border border-[#c6c6cd] dark:border-[#45464d] rounded-xl shadow-2xl w-full max-w-md overflow-hidden text-[#191c1e] dark:text-[#eff1f3]">
+      <div className="bg-white dark:bg-[#131b2e] border border-[#c6c6cd] dark:border-[#45464d] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden text-[#191c1e] dark:text-[#eff1f3]">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#eceef0] dark:border-[#2d3133] bg-[#f2f4f6] dark:bg-[#191c1e]">
           <div className="flex items-center gap-2">
             <Sparkles size={18} className="text-[#0052cc]" />
-            <h3 className="text-sm font-bold">SKU &amp; Barcode Generator</h3>
+            <h3 className="text-sm font-bold">SKU &amp; Placeholder Barcode Generator</h3>
           </div>
           <button
             type="button"
@@ -107,68 +125,142 @@ export const CodeSelectDlg: React.FC<SmritiCodeSelectionDialogProps> = ({
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[11px] font-bold text-[#003d9b] dark:text-[#b2c5ff] uppercase flex items-center gap-1.5">
-                <Barcode size={14} /> EAN-13 Barcode:
+                <Barcode size={14} /> Placeholder Barcode:
               </span>
-              <span className="font-mono font-bold text-xs bg-white dark:bg-[#131b2e] px-2 py-0.5 rounded border border-[#c4d2ff] dark:border-[#434654]">
-                {customBarcode}
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#0052cc] dark:text-[#8ab4f8] bg-[#0052cc]/10 px-1.5 py-0.5 rounded">
+                  <ShieldCheck size={11} /> Service Policy
+                </span>
+                <span className="font-mono font-bold text-xs bg-white dark:bg-[#131b2e] px-2 py-0.5 rounded border border-[#c4d2ff] dark:border-[#434654]">
+                  {customBarcode}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* SKU Generator Options */}
+          <div className="space-y-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-3">
+            <span className="font-bold text-[11px] text-[#515f74] dark:text-[#bec6e0] uppercase tracking-wide">
+              SKU Pattern Settings
+            </span>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Prefix</label>
+                <input
+                  type="text"
+                  value={prefix}
+                  onChange={e => setPrefix(e.target.value)}
+                  className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold text-xs"
+                />
+              </div>
+              <div>
+                <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Separator</label>
+                <select
+                  value={separator}
+                  onChange={e => setSeparator(e.target.value)}
+                  className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-semibold text-xs"
+                >
+                  <option value="-">Hyphen (-)</option>
+                  <option value="_">Underscore (_)</option>
+                  <option value="/">Slash (/)</option>
+                  <option value="">None</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 pt-1">
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold">
+                <input
+                  type="checkbox"
+                  checked={includeSize}
+                  onChange={e => setIncludeSize(e.target.checked)}
+                  className="rounded"
+                />
+                <span>Include Size</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold">
+                <input
+                  type="checkbox"
+                  checked={includeColor}
+                  onChange={e => setIncludeColor(e.target.checked)}
+                  className="rounded"
+                />
+                <span>Include Color</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Placeholder Barcode Policy Options */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[11px] text-[#515f74] dark:text-[#bec6e0] uppercase tracking-wide">
+                Placeholder Barcode Policy (Provisional)
               </span>
+              <span className="text-[10px] text-[#76777d] italic">Default: &apos;S&apos; prefix</span>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex flex-wrap gap-1.5">
+              {BARCODE_PREFIX_PRESETS.map(preset => {
+                const isSelected = barcodePrefix === preset.value;
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => handleSelectBarcodePreset(preset.value)}
+                    className={`px-2 py-1 rounded text-[10px] font-bold transition border ${
+                      isSelected
+                        ? "bg-[#0052cc] text-white border-[#0052cc]"
+                        : "bg-white dark:bg-[#191c1e] text-[#515f74] dark:text-[#bec6e0] border-[#c6c6cd] dark:border-[#45464d] hover:border-[#0052cc]"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Barcode Prefix Input & Bare Option */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">
+                  Active Barcode Prefix
+                </label>
+                <input
+                  type="text"
+                  value={barcodePrefix}
+                  onChange={e => {
+                    const val = e.target.value.toUpperCase();
+                    setBarcodePrefix(val);
+                  }}
+                  placeholder="e.g. S, GEN, SKU"
+                  className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold text-xs"
+                />
+              </div>
+              <div className="flex flex-col justify-center pt-3">
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={allowNoBarcodePrefix}
+                    onChange={e => setAllowNoBarcodePrefix(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span>Allow Bare Token (No Prefix)</span>
+                </label>
+                <span className="text-[9px] text-[#76777d] mt-0.5">
+                  When prefix is empty, emits 12-char hex without prefix
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Form Options */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Prefix</label>
-              <input
-                type="text"
-                value={prefix}
-                onChange={e => setPrefix(e.target.value)}
-                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold text-xs"
-              />
-            </div>
-            <div>
-              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Separator</label>
-              <select
-                value={separator}
-                onChange={e => setSeparator(e.target.value)}
-                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-semibold text-xs"
-              >
-                <option value="-">Hyphen (-)</option>
-                <option value="_">Underscore (_)</option>
-                <option value="/">Slash (/)</option>
-                <option value="">None</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold">
-              <input
-                type="checkbox"
-                checked={includeSize}
-                onChange={e => setIncludeSize(e.target.checked)}
-                className="rounded"
-              />
-              <span>Include Size</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold">
-              <input
-                type="checkbox"
-                checked={includeColor}
-                onChange={e => setIncludeColor(e.target.checked)}
-                className="rounded"
-              />
-              <span>Include Color</span>
-            </label>
-          </div>
-
-          <div className="flex justify-start">
+          <div className="flex justify-start pt-1">
             <button
               type="button"
-              onClick={handleRegenerate}
+              onClick={() => handleRegenerate()}
               className="text-[#0052cc] hover:underline font-bold text-xs flex items-center gap-1"
             >
-              <Sparkles size={12} /> Regenerate Pattern
+              <Sparkles size={12} /> Regenerate Both SKU &amp; Barcode
             </button>
           </div>
 

@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { FieldInfo } from "../types";
 
 interface FieldExplorerTabProps {
@@ -39,15 +39,21 @@ export const FieldExplorerTab: React.FC<FieldExplorerTabProps> = ({ fields }) =>
   const [barcodeFormat, setBarcodeFormat] = useState("CODE128");
   const [labelSize, setLabelSize] = useState("50x25");
 
-  const docTypes = ["All", ...Array.from(new Set(fields.map(f => f.docType)))];
+  const docTypes = useMemo(() => {
+    return ["All", ...Array.from(new Set(fields.map(f => f.docType)))];
+  }, [fields]);
 
-  const filteredFields = fields.filter(f => {
-    const matchesSearch = f.fieldName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          f.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          f.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDoc = selectedDocType === "All" || f.docType === selectedDocType;
-    return matchesSearch && matchesDoc;
-  });
+  const filteredFields = useMemo(() => {
+    return fields.filter(f => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q ||
+                            f.fieldName.toLowerCase().includes(q) || 
+                            f.label.toLowerCase().includes(q) || 
+                            f.description.toLowerCase().includes(q);
+      const matchesDoc = selectedDocType === "All" || f.docType === selectedDocType;
+      return matchesSearch && matchesDoc;
+    });
+  }, [fields, searchQuery, selectedDocType]);
 
   const toggleFieldSelect = (fieldName: string) => {
     if (selectedFields.includes(fieldName)) {
@@ -58,7 +64,12 @@ export const FieldExplorerTab: React.FC<FieldExplorerTabProps> = ({ fields }) =>
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div
+      role="region"
+      aria-label="Universal Field Explorer (UFE)"
+      title="Universal Field Explorer (UFE) (en-IN Locale & Dynamic Barcodes)"
+      className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:px-2 md:px-4"
+    >
       
       {/* Left panel: Universal Field Explorer (Col span 7) */}
       <div className="lg:col-span-7 bg-theme-surface-1 p-6 rounded-xl border border-theme-divider space-y-4">

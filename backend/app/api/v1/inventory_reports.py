@@ -22,7 +22,7 @@ EXE refs: SR202500, SR203000, SR241700, SR233600, SR202800, SR212600.
 
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -244,7 +244,7 @@ async def stock_availability(
 ):
     """
     RPT-INV-003 -- Stock Availability (Shoper9: SR241700.EXE MnuNo 430/445).
-    Current availability status â€” identifies below-minimum and reorder-required items.
+    Current availability status — identifies below-minimum and reorder-required items.
     """
     p_stmt = select(Product).where(Product.is_deleted == False, Product.is_active == True)
     p_stmt = _tenant_inv(p_stmt, Product, tenant)

@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 
@@ -64,7 +64,7 @@ class ComplianceAuditLog(BaseEntity):
     response_payload = Column(Text, nullable=True)
     status_code = Column(Integer, nullable=True)
     duration_ms = Column(Integer, nullable=True)
-    timestamp = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 class ComplianceOutbox(BaseEntity):
     """

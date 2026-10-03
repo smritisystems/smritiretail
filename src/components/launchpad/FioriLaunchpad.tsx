@@ -146,20 +146,6 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
   // Quick Action card specific colors
   const getQuickActionStyle = (qa: TileData) => {
     switch (qa.id) {
-      case "pos":
-        return {
-          bg: "hover:bg-gradient-to-br hover:from-emerald-600 hover:to-emerald-700 hover:text-white",
-          iconBg: "bg-emerald-100 text-emerald-700 group-hover:bg-white/20 group-hover:text-white",
-          badge: "bg-emerald-100 text-emerald-800 border-emerald-300",
-          hotkey: "bg-emerald-500 text-white",
-        };
-      case "create-tax-invoice":
-        return {
-          bg: "hover:bg-gradient-to-br hover:from-indigo-600 hover:to-indigo-700 hover:text-white",
-          iconBg: "bg-indigo-100 text-indigo-700 group-hover:bg-white/20 group-hover:text-white",
-          badge: "bg-indigo-100 text-indigo-800 border-indigo-300",
-          hotkey: "bg-indigo-500 text-white",
-        };
       case "item-master":
         return {
           bg: "hover:bg-gradient-to-br hover:from-purple-600 hover:to-purple-700 hover:text-white",
@@ -274,8 +260,8 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
               <Database size={16} />
             </div>
             <div>
-              <div className="text-blue-200/70 text-[9px] uppercase font-bold tracking-wider">Backend</div>
-              <div className="text-xs font-bold text-white">FastAPI + PG</div>
+              <div className="text-blue-200/70 text-[9px] uppercase font-bold tracking-wider">Service Engine</div>
+              <div className="text-xs font-bold text-white">Connected</div>
             </div>
           </div>
 

@@ -16,20 +16,22 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.18.0
+* Version    : 3.35.0
 * Created    : 2026-07-11
-* Modified   : 2026-07-14
+* Modified   : 2026-10-01
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
 """
 
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
@@ -38,33 +40,18 @@ from ..models.purchase import (
     PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
+    PurchaseBill, PurchaseBillItem,
 )
 from ..models.inventory import Product, StockMovement
+from ..models.workflow import WorkflowEvent
 from ..api.deps import TenantContext
 from ..schemas.purchase import (
     SupplierCreate, SupplierUpdate,
     PurchaseOrderCreate, PurchaseOrderAmendRequest,
     PurchaseReceiptCreate,
+    DebitNoteCreate, PurchaseBillCreate,
 )
-
-
-def _uid() -> str:
-    return uuid.uuid4().hex[:8]
-
-
-# Default fallback specs for reorders matching legacy Express store
-REORDER_SPECS = {
-    "p1": {"level": 50, "reorderQty": 100, "preferredSupplierId": "sup-1"},
-    "p2": {"level": 40, "reorderQty": 80, "preferredSupplierId": "sup-1"},
-    "p3": {"level": 20, "reorderQty": 50, "preferredSupplierId": "sup-1"},
-    "p4": {"level": 30, "reorderQty": 60, "preferredSupplierId": "sup-2"},
-    "p5": {"level": 25, "reorderQty": 50, "preferredSupplierId": "sup-2"},
-    "p6": {"level": 15, "reorderQty": 40, "preferredSupplierId": "sup-3"},
-    "p7": {"level": 20, "reorderQty": 50, "preferredSupplierId": "sup-3"},
-    "p8": {"level": 25, "reorderQty": 60, "preferredSupplierId": "sup-2"},
-    "p9": {"level": 20, "reorderQty": 50, "preferredSupplierId": "sup-2"},
-    "p10": {"level": 50, "reorderQty": 100, "preferredSupplierId": "sup-1"}
-}
+from .identity.engine import IdentityEngine
 
 
 class PurchaseService:
@@ -72,13 +59,51 @@ class PurchaseService:
         self.db = db
         self.tenant = tenant
 
+    def _effective_branch_id(self) -> str:
+        if not self.tenant.branch_id or self.tenant.branch_id == "MAIN":
+            return "BR-MAIN-001"
+        return self.tenant.branch_id
+
+    async def get_effective_branch_id(self) -> str:
+        """
+        Dynamically resolve active branch from the database for this company.
+        Falls back to tenant branch or default seed branch.
+        """
+        if self.tenant.branch_id and self.tenant.branch_id not in ("MAIN", ""):
+            return self.tenant.branch_id
+        from ..models.tenant import Branch
+        if self.tenant.company_id:
+            b_stmt = (
+                select(Branch.id)
+                .where(
+                    Branch.company_id == self.tenant.company_id,
+                    Branch.is_active == True,
+                    Branch.is_deleted == False,
+                )
+                .order_by(Branch.created_at.asc())
+                .limit(1)
+            )
+            b_res = await self.db.execute(b_stmt)
+            b_id = b_res.scalars().first()
+            if b_id:
+                return b_id
+        return self._effective_branch_id()
+
+    def _branch_filter(self, col):
+        if not self.tenant.branch_id:
+            return True
+        if self.tenant.branch_id in ("BR-MAIN-001", "MAIN", "BR-001"):
+            return or_(col.in_(["BR-MAIN-001", "MAIN", "BR-001"]), col.is_(None))
+        return or_(col == self.tenant.branch_id, col.is_(None))
+
     # ──────────────────────────────────────────────────────────────
     # Supplier helpers
     # ──────────────────────────────────────────────────────────────
 
     async def _get_supplier(self, supplier_id: str) -> Supplier:
+        clean_sup = (supplier_id or "").strip()
         stmt = select(Supplier).where(
-            Supplier.id == supplier_id,
+            (Supplier.id == clean_sup) | (Supplier.code == clean_sup) | (Supplier.identity_code == clean_sup) | (Supplier.name.ilike(clean_sup)),
             Supplier.is_deleted == False,
         )
         if self.tenant.company_id:
@@ -87,17 +112,75 @@ class PurchaseService:
             )
         res = await self.db.execute(stmt)
         supplier = res.scalars().first()
+        if not supplier and clean_sup:
+            # Fallback 1: substring match on Supplier name
+            sub_stmt = select(Supplier).where(
+                Supplier.name.ilike(f"%{clean_sup}%"),
+                Supplier.is_deleted == False,
+            )
+            if self.tenant.company_id:
+                sub_stmt = sub_stmt.where(
+                    (Supplier.company_id == self.tenant.company_id) | (Supplier.company_id.is_(None))
+                )
+            sub_res = await self.db.execute(sub_stmt)
+            supplier = sub_res.scalars().first()
+
+        if not supplier and clean_sup:
+            # Fallback 2: Check Universal Party Master (parties table)
+            from ..models.party import Party
+            party_stmt = select(Party).where(
+                (Party.id == clean_sup) | (Party.party_code == clean_sup) | (Party.identity_code == clean_sup) | (Party.legal_name.ilike(clean_sup)) | (Party.legal_name.ilike(f"%{clean_sup}%")),
+                Party.is_deleted == False,
+            )
+            if self.tenant.company_id:
+                party_stmt = party_stmt.where(
+                    (Party.company_id == self.tenant.company_id) | (Party.company_id.is_(None))
+                )
+            party_res = await self.db.execute(party_stmt)
+            party = party_res.scalars().first()
+            if party:
+                sup_check = await self.db.execute(
+                    select(Supplier).where(
+                        (Supplier.code == party.party_code) | (Supplier.id == party.id),
+                        Supplier.is_deleted == False,
+                    )
+                )
+                supplier = sup_check.scalars().first()
+                if not supplier:
+                    eff_branch = await self.get_effective_branch_id()
+                    supplier = Supplier(
+                        id=party.id,
+                        name=party.legal_name or party.trade_name or party.party_code,
+                        code=party.party_code,
+                        identity_code=party.identity_code,
+                        gst_number=party.gstin,
+                        mobile=party.mobile or party.phone,
+                        email=party.email,
+                        address=party.address_line1,
+                        city=party.city,
+                        state=party.state,
+                        pincode=party.pincode,
+                        outstanding=Decimal("0.00"),
+                        company_id=self.tenant.company_id,
+                        branch_id=eff_branch,
+                    )
+                    self.db.add(supplier)
+                    await self.db.flush()
+
         if not supplier:
             raise HTTPException(
                 status_code=404,
-                detail=f"Supplier not found. "
+                detail=f"Supplier not found for identifier '{clean_sup}'. "
                        f"Please verify the supplier ID and try again.",
             )
         return supplier
 
     async def _get_product(self, product_id: str) -> Product:
         stmt = select(Product).where(
-            (Product.id == product_id) | (Product.code == product_id),
+            (Product.id == product_id)
+            | (Product.code == product_id)
+            | (Product.sku == product_id)
+            | (Product.barcode == product_id),
             Product.is_deleted == False,
         )
         if self.tenant.company_id:
@@ -147,13 +230,13 @@ class PurchaseService:
         return supplier
 
     async def list_suppliers(self) -> list[Supplier]:
-        res = await self.db.execute(
-            select(Supplier).where(
-                Supplier.company_id == self.tenant.company_id,
-                Supplier.branch_id  == self.tenant.branch_id,
-                Supplier.is_deleted == False,
-            )
+        stmt = select(Supplier).where(
+            Supplier.company_id == self.tenant.company_id,
+            Supplier.is_deleted == False,
         )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(Supplier.branch_id))
+        res = await self.db.execute(stmt)
         return res.scalars().all()
 
     async def get_supplier(self, supplier_id: str) -> Supplier:
@@ -165,7 +248,7 @@ class PurchaseService:
 
     async def create_purchase_order(self, req: PurchaseOrderCreate) -> PurchaseOrder:
         # Validate supplier belongs to tenant
-        await self._get_supplier(req.supplier_id)
+        supplier = await self._get_supplier(req.supplier_id)
 
         if not req.items:
             raise HTTPException(
@@ -173,26 +256,120 @@ class PurchaseService:
                 detail="A purchase order must contain at least one item.",
             )
 
+        # ── Prevent duplicate order_no for this company (HREP-compliant 409) ──
+        if req.order_no:
+            existing_stmt = select(PurchaseOrder).where(
+                PurchaseOrder.order_no == req.order_no.strip(),
+                PurchaseOrder.company_id == self.tenant.company_id,
+                PurchaseOrder.is_deleted == False,
+            )
+            existing_res = await self.db.execute(existing_stmt)
+            if existing_res.scalars().first():
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"A purchase order with number '{req.order_no.strip()}' already exists. "
+                        "Please use a different order number or retrieve the existing order."
+                    ),
+                )
+
+        eff_branch_id = await self.get_effective_branch_id()
+        tech_id, identity_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="PURCHASE_ORDER",
+            tenant_id=getattr(self.tenant, "tenant_id", None) or self.tenant.company_id,
+            company_id=self.tenant.company_id,
+            branch_id=eff_branch_id,
+            purpose="ENTITY_CREATION",
+        )
+        po_id = tech_id
+
         subtotal  = Decimal("0.00")
         tax_total = Decimal("0.00")
         item_rows = []
 
-        for item in req.items:
-            # Validate product is in this tenant
-            res = await self.db.execute(
-                select(Product).where(
-                    Product.id == item.product_id,
-                    Product.company_id == self.tenant.company_id,
-                    Product.branch_id  == self.tenant.branch_id,
+        from .product_resolution_service import ProductResolutionService
+        from ..schemas.product_resolution import TransactionLineItemInput
+
+        for idx, item in enumerate(req.items):
+            line_no = idx + 1
+            clean_item_code = (item.code or "").strip()
+            clean_prod_id = (item.product_id or "").strip()
+
+            line_input = TransactionLineItemInput(
+                line_no=line_no,
+                product_id=clean_prod_id or None,
+                code=clean_item_code or None,
+                sku=clean_item_code or None,
+                barcode=clean_item_code if (clean_item_code and clean_item_code.isdigit()) else None,
+                quantity=item.quantity,
+            )
+            res = await ProductResolutionService.validate_line(
+                session=self.db,
+                company_id=self.tenant.company_id,
+                line=line_input,
+                allow_inactive=False,
+            )
+            if not res.success:
+                err = res.error_detail
+                status_code = 404 if res.code == "PRODUCT_NOT_FOUND" else 400
+                ident_val = clean_item_code or clean_prod_id
+                raise HTTPException(
+                    status_code=status_code,
+                    detail={
+                        "code": res.code or "PRODUCT_NOT_FOUND",
+                        "title": err.title if err else "Product Not Found",
+                        "explanation": err.explanation if err else f"Product '{ident_val}' was not found in Product List.",
+                        "suggested_action": err.suggested_action if err else "Please add the product to Product List before continuing.",
+                        "identifier": ident_val,
+                        "line_no": line_no,
+                    },
+                )
+
+            # Ensure we have a persistent Product row reference for transactional foreign keys
+            product = await self.db.get(Product, res.product_id) if res.product_id else None
+            if not product:
+                p_stmt = select(Product).where(
+                    (Product.id == res.product_id) | (Product.code == res.sku) | (Product.item_id == res.item_id),
                     Product.is_deleted == False,
                 )
-            )
-            product = res.scalars().first()
+                if self.tenant.company_id:
+                    p_stmt = p_stmt.where((Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None)))
+                product = (await self.db.execute(p_stmt)).scalars().first()
+
+            if not product and res.item_id:
+                # Synchronize legacy Product bridge record linked directly to canonical item_id
+                product = Product(
+                    id=f"prd_{res.item_id[:20]}",
+                    item_id=res.item_id,
+                    item_variant_id=res.variant_id,
+                    code=res.sku or clean_item_code,
+                    name=res.name or item.name or clean_item_code,
+                    category=res.category or "GENERAL",
+                    barcode=res.barcode or clean_item_code,
+                    hsn_code=res.hsn_code or "6109",
+                    company_id=self.tenant.company_id,
+                    branch_id=eff_branch_id,
+                    price=res.selling_price,
+                    cost_price=Decimal(str(item.cost_price or 0.00)),
+                    stock=0,
+                    reserved_stock=Decimal("0.0000"),
+                )
+                self.db.add(product)
+                await self.db.flush()
+
             if not product:
+                ident_val = clean_item_code or clean_prod_id
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Product '{item.code}' was not found in your inventory. "
-                           f"Please verify the product and try again.",
+                    detail={
+                        "code": "PRODUCT_NOT_FOUND",
+                        "title": "Product Not Found",
+                        "explanation": f"Product '{ident_val}' was not found in Product List.",
+                        "suggested_action": "Please add the product to Product List before continuing.",
+                        "identifier": ident_val,
+                        "line_no": line_no,
+                    },
                 )
 
             tax_amt  = (item.cost_price * item.quantity * item.gst_rate / 100).quantize(Decimal("0.01"))
@@ -201,72 +378,162 @@ class PurchaseService:
             tax_total += tax_amt
 
             item_rows.append(PurchaseOrderItem(
-                id=f"poi-{_uid()}",
-                order_id=req.id,
-                product_id=item.product_id,
-                code=item.code,
-                name=item.name,
+                id=IdentityEngine.generate_technical_id(),
+                uuid=IdentityEngine.generate_technical_id(),
+                order_id=po_id,
+                product_id=product.id,
+                item_id=getattr(product, "item_id", None),
+                code=product.code or item.code,
+                name=product.name or item.name,
                 quantity=item.quantity,
                 cost_price=item.cost_price,
                 gst_rate=item.gst_rate,
                 tax_amount=tax_amt,
                 line_total=line_tot,
                 company_id=self.tenant.company_id,
-                branch_id=self.tenant.branch_id,
+                branch_id=eff_branch_id,
             ))
 
+        # ── Normalize and guard status server-side ──────────────────────────
+        # Clients may send DRAFT (or omit). CONFIRMED may only be set via the
+        # /confirm endpoint, never by the create payload directly.
+        _ALLOWED_CREATE_STATUSES = {"DRAFT", "SUBMITTED", "CONFIRMED"}
+        raw_status = str(req.status or "DRAFT").strip().upper()
+        if raw_status not in _ALLOWED_CREATE_STATUSES:
+            raw_status = "DRAFT"
+        # For safety: only MANAGER/SYSADMIN can create as CONFIRMED via payload.
+        # DRAFT is the safe default for all create operations.
+        po_status = raw_status if raw_status == "DRAFT" else "DRAFT"
+
         order = PurchaseOrder(
-            id=req.id,
-            order_no=req.order_no,
-            supplier_id=req.supplier_id,
-            status="CONFIRMED",
+            id=po_id,
+            identity_code=identity_code,
+            order_no=req.order_no or identity_code or f"PO-{uuid.uuid4().hex[:8].upper()}",
+            supplier_id=supplier.id,
+            status=po_status,
             notes=req.notes,
             subtotal=subtotal.quantize(Decimal("0.01")),
             tax_total=tax_total.quantize(Decimal("0.01")),
             grand_total=(subtotal + tax_total).quantize(Decimal("0.01")),
             company_id=self.tenant.company_id,
-            branch_id=self.tenant.branch_id,
+            branch_id=eff_branch_id,
         )
         self.db.add(order)
         self.db.add_all(item_rows)
         try:
             await self.db.commit()
-        except IntegrityError:
+        except IntegrityError as e:
             await self.db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="A purchase order with this order number already exists.",
-            )
+            logger.error(f"[PO INTEGRITY ERROR] {e} | orig: {getattr(e, 'orig', e)}")
+            err_str = str(getattr(e, "orig", e)).lower()
+            # Human-readable constraint translation (SMRITI HREP policy)
+            if "uq_purchase_orders_order_no_company" in err_str or "purchase_orders_order_no_key" in err_str or ("order_no" in err_str and "unique" in err_str):
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"A purchase order with number '{req.order_no}' already exists. "
+                        "Please use a different order number or retrieve the existing order."
+                    ),
+                )
+            elif "uq_purchase_orders_identity_code" in err_str or ("identity_code" in err_str and "unique" in err_str):
+                raise HTTPException(
+                    status_code=409,
+                    detail="An internal identity code conflict occurred. Please try again.",
+                )
+            elif "foreign key" in err_str or "fk" in err_str:
+                raise HTTPException(
+                    status_code=400,
+                    detail="One or more referenced records (product, supplier, or branch) could not be found. Please verify your selections and try again.",
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="The purchase order could not be saved due to a data conflict. Please check your entries and try again.",
+                )
         await self.db.refresh(order)
         order.items = item_rows          # attach items for response serialisation
         return order
 
-    async def list_purchase_orders(self) -> list[PurchaseOrder]:
-        res = await self.db.execute(
-            select(PurchaseOrder).where(
-                PurchaseOrder.company_id == self.tenant.company_id,
-                PurchaseOrder.branch_id  == self.tenant.branch_id,
-                PurchaseOrder.is_deleted == False,
-            )
+    async def list_purchase_orders(
+        self,
+        pending_only: bool = False,
+        supplier_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[PurchaseOrder]:
+        """
+        List purchase orders for the tenant.
+        Phase B: status filter — pass a single status value (e.g. 'DRAFT',
+        'SUBMITTED', 'CONFIRMED') or None for all.
+        """
+        stmt = select(PurchaseOrder).where(
+            PurchaseOrder.company_id == self.tenant.company_id,
+            PurchaseOrder.is_deleted == False,
         )
+        if supplier_id:
+            stmt = stmt.where(PurchaseOrder.supplier_id == supplier_id)
+        if status:
+            # Normalise to uppercase; support comma-separated multi-status
+            statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
+            if statuses:
+                stmt = stmt.where(PurchaseOrder.status.in_(statuses))
+        elif pending_only:
+            stmt = stmt.where(
+                ~PurchaseOrder.status.in_(["RECEIVED", "COMPLETED", "CANCELLED", "Received", "Completed", "Cancelled", "DRAFT", "Draft"])
+            )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+        stmt = stmt.order_by(PurchaseOrder.created_at.desc())
+        res = await self.db.execute(stmt)
         return res.scalars().all()
 
-    async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:
-        res = await self.db.execute(
-            select(PurchaseOrder).where(
-                PurchaseOrder.id == order_id,
-                PurchaseOrder.company_id == self.tenant.company_id,
-                PurchaseOrder.branch_id  == self.tenant.branch_id,
-                PurchaseOrder.is_deleted == False,
-            )
+    async def get_next_order_number(self, prefix: Optional[str] = None) -> dict:
+        """
+        Return the next available sequential order number for the given prefix
+        and this company.  Scans existing non-deleted POs whose order_no matches
+        <prefix>-<digits> and returns max+1.  Falls back to 1 when no POs
+        exist so the frontend never needs a hardcoded seed value.
+        """
+        import re
+        stmt = select(PurchaseOrder.order_no).where(
+            PurchaseOrder.company_id == self.tenant.company_id,
+            PurchaseOrder.is_deleted == False,
         )
+        if prefix:
+            stmt = stmt.where(PurchaseOrder.order_no.like(f"{prefix}-%"))
+        res = await self.db.execute(stmt)
+        order_nos: list[str] = [row[0] for row in res.fetchall() if row[0]]
+
+        max_seq = 0
+        pattern = re.compile(r"(\d+)$")
+        for no in order_nos:
+            m = pattern.search(no)
+            if m:
+                val = int(m.group(1))
+                if val > max_seq:
+                    max_seq = val
+
+        return {
+            "prefix": prefix or "",
+            "next_number": max_seq + 1,
+            "next_order_no": f"{prefix}-{max_seq + 1}" if prefix else str(max_seq + 1),
+        }
+
+    async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:
+        stmt = select(PurchaseOrder).where(
+            (PurchaseOrder.id == order_id) | (PurchaseOrder.order_no == order_id) | (PurchaseOrder.identity_code == order_id),
+            PurchaseOrder.company_id == self.tenant.company_id,
+            PurchaseOrder.is_deleted == False,
+        )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+        res = await self.db.execute(stmt)
         order = res.scalars().first()
         if not order:
             raise HTTPException(status_code=404, detail="Purchase order not found.")
 
         items_res = await self.db.execute(
             select(PurchaseOrderItem).where(
-                PurchaseOrderItem.order_id == order_id,
+                PurchaseOrderItem.order_id == order.id,
                 PurchaseOrderItem.is_deleted == False,
             )
         )
@@ -279,20 +546,46 @@ class PurchaseService:
     async def create_purchase_receipt(self, req: PurchaseReceiptCreate) -> PurchaseReceipt:
         await self._get_supplier(req.supplier_id)
 
-        if req.order_id:
-            po_res = await self.db.execute(
-                select(PurchaseOrder).where(
-                    PurchaseOrder.id == req.order_id,
-                    PurchaseOrder.company_id == self.tenant.company_id,
-                    PurchaseOrder.branch_id  == self.tenant.branch_id,
-                    PurchaseOrder.is_deleted == False,
-                )
+        # Pre-flight check: duplicate GRN receipt_no immutability
+        if req.receipt_no and req.receipt_no.strip():
+            existing_receipt_stmt = select(PurchaseReceipt).where(
+                PurchaseReceipt.receipt_no == req.receipt_no.strip(),
+                PurchaseReceipt.company_id == self.tenant.company_id,
+                PurchaseReceipt.is_deleted == False,
             )
-            if not po_res.scalars().first():
+            existing_receipt_res = await self.db.execute(existing_receipt_stmt)
+            if existing_receipt_res.scalars().first():
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Purchase Receipt / GRN '{req.receipt_no.strip()}' has already been posted and committed. Duplicate GRN submission is prohibited.",
+                )
+
+        linked_po: Optional[PurchaseOrder] = None
+        if req.order_id:
+            po_stmt = select(PurchaseOrder).where(
+                (PurchaseOrder.id == req.order_id) | (PurchaseOrder.order_no == req.order_id) | (PurchaseOrder.identity_code == req.order_id),
+                PurchaseOrder.company_id == self.tenant.company_id,
+                PurchaseOrder.is_deleted == False,
+            )
+            if self.tenant.branch_id:
+                po_stmt = po_stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+            po_res = await self.db.execute(po_stmt)
+            linked_po = po_res.scalars().first()
+            if not linked_po:
                 raise HTTPException(
                     status_code=404,
                     detail="The linked purchase order was not found. "
                            "Please verify the order ID.",
+                )
+            if (linked_po.status or "").upper() in ("RECEIVED", "COMPLETED"):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Purchase Order '{linked_po.order_no or req.order_id}' has already been fully received and closed. Duplicate receipt against a fulfilled PO is prohibited.",
+                )
+            if (linked_po.status or "").upper() == "CANCELLED":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Purchase Order '{linked_po.order_no or req.order_id}' is cancelled and cannot be received.",
                 )
 
         if not req.items:
@@ -314,13 +607,99 @@ class PurchaseService:
         tax_total = Decimal("0.00")
         item_rows = []
 
-        for item in req.items:
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="PURCHASE_RECEIPT",
+            group_code="PUR",
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            purpose="GRN_CREATION",
+        )
+        receipt_id = tech_id
+        receipt_no = req.receipt_no or id_code
+        identity_code = id_code
+
+        # Register external challan/paper GRN as alias if custom number provided
+        if req.receipt_no and req.receipt_no != id_code:
+            try:
+                await IdentityEngine.register_alias(
+                    session=self.db,
+                    entity_type="PURCHASE_RECEIPT",
+                    entity_id=receipt_id,
+                    alias_code=req.receipt_no,
+                    alias_type="PHYSICAL_GRN",
+                    source_system="CHALLAN",
+                    canonical_identity_code=id_code,
+                    company_id=self.tenant.company_id,
+                    branch_id=self.tenant.branch_id,
+                    notes="Supplier physical challan GRN reference",
+                )
+            except ValueError:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Purchase Receipt / GRN '{req.receipt_no.strip()}' has already been registered or committed. Duplicate GRN submission is prohibited.",
+                )
+
+        for idx, item in enumerate(req.items, start=1):
             if item.quantity_received <= Decimal("0.00"):
                 raise HTTPException(
                     status_code=400,
                     detail="Quantity received must be greater than zero.",
                 )
             product = await self._get_product(item.product_id)
+
+            target_po_id = (item.purchase_order_id or item.order_id or req.order_id or "").strip()
+            target_po: Optional[PurchaseOrder] = None
+            target_po_line: Optional[PurchaseOrderItem] = None
+            if target_po_id:
+                po_stmt = select(PurchaseOrder).where(
+                    (PurchaseOrder.id == target_po_id) | (PurchaseOrder.order_no == target_po_id) | (PurchaseOrder.identity_code == target_po_id),
+                    PurchaseOrder.company_id == self.tenant.company_id,
+                    PurchaseOrder.is_deleted == False,
+                )
+                if self.tenant.branch_id:
+                    po_stmt = po_stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+                po_res = await self.db.execute(po_stmt)
+                target_po = po_res.scalars().first()
+                if not target_po:
+                    raise HTTPException(status_code=404, detail="The linked purchase order was not found.")
+                if target_po.supplier_id != req.supplier_id:
+                    raise HTTPException(status_code=400, detail=f"Receipt supplier '{req.supplier_id}' does not match purchase order '{target_po.order_no}'.")
+                if (target_po.status or "").upper() in ("RECEIVED", "COMPLETED"):
+                    raise HTTPException(status_code=409, detail=f"Purchase Order '{target_po.order_no}' has already been fully received and closed.")
+                if (target_po.status or "").upper() == "CANCELLED":
+                    raise HTTPException(status_code=400, detail=f"Purchase Order '{target_po.order_no}' is cancelled and cannot be received.")
+
+                po_line_stmt = select(PurchaseOrderItem).where(
+                    PurchaseOrderItem.order_id == target_po.id,
+                    PurchaseOrderItem.product_id == product.id,
+                    PurchaseOrderItem.is_deleted == False,
+                )
+                po_line_res = await self.db.execute(po_line_stmt)
+                target_po_line = po_line_res.scalars().first()
+                if not target_po_line:
+                    raise HTTPException(status_code=400, detail=f"Product '{product.code}' is not present on purchase order '{target_po.order_no}'.")
+
+                received_stmt = select(func.coalesce(func.sum(PurchaseReceiptItem.quantity_received), Decimal("0.00"))).select_from(PurchaseReceiptItem).join(
+                    PurchaseReceipt, PurchaseReceipt.id == PurchaseReceiptItem.receipt_id
+                ).where(
+                    PurchaseReceiptItem.purchase_order_id == target_po.id,
+                    PurchaseReceiptItem.product_id == product.id,
+                    PurchaseReceiptItem.is_deleted == False,
+                    PurchaseReceipt.is_deleted == False,
+                )
+                received_res = await self.db.execute(received_stmt)
+                already_received = Decimal(str(received_res.scalar() or Decimal("0.00")))
+                remaining_allowed = target_po_line.quantity - already_received
+                if item.quantity_received > remaining_allowed:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Receipt quantity {item.quantity_received} exceeds remaining pending quantity "
+                            f"{remaining_allowed} for product '{product.code}' on purchase order '{target_po.order_no}'."
+                        ),
+                    )
+
             tax_amt = (
                 item.cost_price * item.quantity_received * (item.gst_rate / Decimal("100"))
             ).quantize(Decimal("0.01"))
@@ -330,13 +709,17 @@ class PurchaseService:
             subtotal += item.cost_price * item.quantity_received
             tax_total += tax_amt
 
-            batch_no = item.batch_no or f"BATCH-GRN-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+            item_tech_id = IdentityEngine.generate_technical_id()
+            batch_no = item.batch_no or f"BATCH-{receipt_no}-{idx:02d}"
 
             item_rows.append(PurchaseReceiptItem(
-                id=_uid(),
-                uuid=str(uuid.uuid4()),
-                receipt_id=req.id,
+                id=item_tech_id,
+                uuid=item_tech_id,
+                receipt_id=receipt_id,
                 product_id=item.product_id,
+                purchase_order_id=target_po.id if target_po else None,
+                purchase_order_no=target_po.order_no if target_po else None,
+                purchase_order_line_id=target_po_line.id if target_po_line else None,
                 code=item.code,
                 name=item.name,
                 batch_no=batch_no,
@@ -354,33 +737,49 @@ class PurchaseService:
                 branch_id=self.tenant.branch_id,
             ))
 
-            # Inward into WMS Batch Stock atomically
-            await wms_service.atomic_mutate_batch_stock(
-                product_id=product.id,
-                warehouse_id=warehouse_id,
-                batch_no=batch_no,
-                qty_delta=Decimal(str(item.quantity_received)),
-                movement_type="INWARD_GRN",
-                mfg_date=item.mfg_date,
-                expiry_date=item.expiry_date,
-                mrp=item.mrp,
-                purchase_rate=item.cost_price,
-                unit_cost=item.cost_price,
-                reference_doc_type="Purchase Receipt",
-                reference_doc_id=req.id,
-                remarks=f"Inward GRN receipt {req.receipt_no} from supplier {req.supplier_id}",
-            )
-
         grand_total = (subtotal + tax_total).quantize(Decimal("0.01"))
 
+        # Build logistics & landed cost notes if transport details provided
+        transport_parts = []
+        if req.transporter_name:
+            transport_parts.append(f"Transporter: {req.transporter_name}")
+        if req.lr_number:
+            transport_parts.append(f"LR: {req.lr_number}")
+        if req.lr_date:
+            transport_parts.append(f"Date: {req.lr_date}")
+        if req.vehicle_number:
+            transport_parts.append(f"Vehicle: {req.vehicle_number}")
+        if req.freight_amount and req.freight_amount > Decimal("0.00"):
+            transport_parts.append(f"Freight: Rs. {req.freight_amount}")
+        if req.handling_amount and req.handling_amount > Decimal("0.00"):
+            transport_parts.append(f"Handling: Rs. {req.handling_amount}")
+        if req.insurance_amount and req.insurance_amount > Decimal("0.00"):
+            transport_parts.append(f"Insurance: Rs. {req.insurance_amount}")
+        if req.pkg_forward_amount and req.pkg_forward_amount > Decimal("0.00"):
+            transport_parts.append(f"P&F: Rs. {req.pkg_forward_amount}")
+
+        combined_notes = req.notes or ""
+        if transport_parts:
+            transport_str = f"[LOGISTICS & LANDED COST: {', '.join(transport_parts)}]"
+            combined_notes = f"{combined_notes} | {transport_str}" if combined_notes else transport_str
+        if getattr(req, "attachments", None):
+            import json
+            import base64
+            raw_json = json.dumps(req.attachments)
+            b64 = base64.b64encode(raw_json.encode("utf-8")).decode("ascii")
+            att_str = f"[ATTACHMENTS_METADATA_B64:{b64}]"
+            combined_notes = f"{combined_notes} | {att_str}" if combined_notes else att_str
+
         receipt = PurchaseReceipt(
-            id=req.id,
-            receipt_no=req.receipt_no,
+            id=receipt_id,
+            uuid=receipt_id,
+            receipt_no=receipt_no,
+            identity_code=identity_code,
             supplier_id=req.supplier_id,
             warehouse_id=warehouse_id,
-            order_id=req.order_id,
+            order_id=linked_po.id if linked_po else req.order_id,
             status="RECEIVED",
-            notes=req.notes,
+            notes=combined_notes or None,
             subtotal=subtotal.quantize(Decimal("0.01")),
             tax_total=tax_total.quantize(Decimal("0.01")),
             grand_total=grand_total,
@@ -390,8 +789,124 @@ class PurchaseService:
         self.db.add(receipt)
         self.db.add_all(item_rows)
 
+        if linked_po:
+            linked_po.status = "RECEIVED"
+            linked_po.modified_at = datetime.now(timezone.utc)
+
+        # Inward Landed Cost & Multi-Component Allocation Engine
+        from .landed_cost import LandedCostAllocationEngine
+        from ..schemas.inward_cost import InwardCostComponentCreate
+
+        effective_components: list[InwardCostComponentCreate] = []
+        if req.cost_components:
+            effective_components = list(req.cost_components)
+        else:
+            if req.freight_amount and req.freight_amount > Decimal("0.00"):
+                effective_components.append(InwardCostComponentCreate(
+                    component_type="FREIGHT",
+                    amount=req.freight_amount,
+                    allocation_method=req.allocation_method or "VALUE",
+                    transporter_name=req.transporter_name,
+                    document_no=req.lr_number,
+                    document_date=req.lr_date,
+                    vehicle_no=req.vehicle_number,
+                    itc_eligible=True,
+                    is_capitalizable=True,
+                ))
+            if req.handling_amount and req.handling_amount > Decimal("0.00"):
+                effective_components.append(InwardCostComponentCreate(
+                    component_type="HANDLING",
+                    amount=req.handling_amount,
+                    allocation_method="QUANTITY",
+                    itc_eligible=True,
+                    is_capitalizable=True,
+                ))
+            if req.insurance_amount and req.insurance_amount > Decimal("0.00"):
+                effective_components.append(InwardCostComponentCreate(
+                    component_type="INSURANCE",
+                    amount=req.insurance_amount,
+                    allocation_method="VALUE",
+                    itc_eligible=True,
+                    is_capitalizable=True,
+                ))
+            if req.pkg_forward_amount and req.pkg_forward_amount > Decimal("0.00"):
+                effective_components.append(InwardCostComponentCreate(
+                    component_type="PACKING_FORWARDING",
+                    amount=req.pkg_forward_amount,
+                    allocation_method="VALUE",
+                    itc_eligible=True,
+                    is_capitalizable=True,
+                ))
+
+        if effective_components:
+            await LandedCostAllocationEngine.allocate_and_persist_components_async(
+                db=self.db,
+                receipt=receipt,
+                item_rows=item_rows,
+                components_in=effective_components,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                user_id=getattr(self.tenant, "user_id", None),
+            )
+
+        # Inward into WMS Batch Stock atomically with true calculated landed cost
+        from ..models.profitability import ProductCostValuation
+        for item_row in item_rows:
+            landed = getattr(item_row, "landed_cost", None)
+            effective_unit_cost = (
+                Decimal(str(landed))
+                if landed is not None and Decimal(str(landed)) > Decimal("0.00")
+                else item_row.cost_price
+            )
+
+            await wms_service.atomic_mutate_batch_stock(
+                product_id=item_row.product_id,
+                warehouse_id=warehouse_id,
+                batch_no=item_row.batch_no,
+                qty_delta=Decimal(str(item_row.quantity_received)),
+                movement_type="INWARD_GRN",
+                mfg_date=item_row.mfg_date,
+                expiry_date=item_row.expiry_date,
+                mrp=item_row.mrp,
+                purchase_rate=item_row.cost_price,
+                unit_cost=effective_unit_cost,
+                reference_doc_type="Purchase Receipt",
+                reference_doc_id=receipt_id,
+                remarks=f"Inward GRN receipt {receipt_no} from supplier {req.supplier_id}",
+            )
+
+            # Atomically update / upsert ProductCostValuation for retail multi-valuation COGS
+            val_res = await self.db.execute(
+                select(ProductCostValuation).where(ProductCostValuation.product_id == item_row.product_id)
+            )
+            valuation = val_res.scalars().first()
+            if valuation:
+                valuation.purchase_cost = item_row.cost_price
+                valuation.last_purchase_cost = item_row.cost_price
+                valuation.landed_cost = effective_unit_cost
+                if item_row.mrp and item_row.mrp > Decimal("0.00"):
+                    valuation.mrp = item_row.mrp
+                valuation.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            else:
+                val_tech_id = IdentityEngine.generate_technical_id()
+                new_val = ProductCostValuation(
+                    id=val_tech_id,
+                    uuid=val_tech_id,
+                    product_id=item_row.product_id,
+                    purchase_cost=item_row.cost_price,
+                    last_purchase_cost=item_row.cost_price,
+                    landed_cost=effective_unit_cost,
+                    mrp=item_row.mrp or Decimal("0.00"),
+                    company_id=self.tenant.company_id,
+                    branch_id=self.tenant.branch_id,
+                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                )
+                self.db.add(new_val)
+
+
         supplier = await self._get_supplier(req.supplier_id)
-        supplier.outstanding = (supplier.outstanding + grand_total).quantize(Decimal("0.01"))
+        curr_outstanding = Decimal(str(supplier.outstanding)) if supplier.outstanding is not None else Decimal("0.00")
+        supplier.outstanding = (curr_outstanding + grand_total).quantize(Decimal("0.01"))
         supplier.modified_at = datetime.now(timezone.utc)
 
         # Record Transactional Outbox event atomically within same DB transaction
@@ -414,44 +929,95 @@ class PurchaseService:
         except IntegrityError:
             await self.db.rollback()
             raise HTTPException(
-                status_code=400,
+                status_code=409,
                 detail="A purchase receipt with this receipt number already exists.",
             )
         await self.db.refresh(receipt)
         return receipt
 
     async def list_purchase_receipts(self) -> list[PurchaseReceipt]:
-        res = await self.db.execute(
-            select(PurchaseReceipt).where(
-                PurchaseReceipt.company_id == self.tenant.company_id,
-                PurchaseReceipt.branch_id  == self.tenant.branch_id,
+        stmt = (
+            select(PurchaseReceipt)
+            .options(
+                selectinload(PurchaseReceipt.items),
+                selectinload(PurchaseReceipt.cost_components),
+            )
+            .where(
                 PurchaseReceipt.is_deleted == False,
             )
+            .order_by(PurchaseReceipt.created_at.desc())
         )
-        return res.scalars().all()
+        if self.tenant.company_id:
+            stmt = stmt.where(
+                or_(
+                    PurchaseReceipt.company_id == self.tenant.company_id,
+                    PurchaseReceipt.company_id.is_(None),
+                )
+            )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(PurchaseReceipt.branch_id))
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
 
     async def get_purchase_receipt(
         self, receipt_id: str
     ) -> tuple[PurchaseReceipt, list[PurchaseReceiptItem]]:
-        res = await self.db.execute(
-            select(PurchaseReceipt).where(
+        stmt = (
+            select(PurchaseReceipt)
+            .options(
+                selectinload(PurchaseReceipt.items),
+                selectinload(PurchaseReceipt.cost_components),
+            )
+            .where(
                 PurchaseReceipt.id == receipt_id,
-                PurchaseReceipt.company_id == self.tenant.company_id,
-                PurchaseReceipt.branch_id  == self.tenant.branch_id,
                 PurchaseReceipt.is_deleted == False,
             )
         )
+        if self.tenant.company_id:
+            stmt = stmt.where(
+                or_(
+                    PurchaseReceipt.company_id == self.tenant.company_id,
+                    PurchaseReceipt.company_id.is_(None),
+                )
+            )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(PurchaseReceipt.branch_id))
+        res = await self.db.execute(stmt)
         receipt = res.scalars().first()
         if not receipt:
             raise HTTPException(status_code=404, detail="Purchase receipt not found.")
 
-        items_res = await self.db.execute(
-            select(PurchaseReceiptItem).where(
-                PurchaseReceiptItem.receipt_id == receipt_id,
-                PurchaseReceiptItem.is_deleted == False,
-            )
-        )
-        return receipt, items_res.scalars().all()
+        return receipt, list(receipt.items or [])
+
+    async def update_purchase_receipt(
+        self, receipt_id: str, req: Any
+    ) -> tuple[PurchaseReceipt, list[PurchaseReceiptItem]]:
+        """Update existing purchase receipt notes, transport or attachments."""
+        receipt, items = await self.get_purchase_receipt(receipt_id)
+        import json
+        import re
+
+        current_notes = receipt.notes or ""
+        if getattr(req, "notes", None) is not None:
+            current_notes = req.notes or ""
+
+        if getattr(req, "attachments", None) is not None:
+            import base64
+            cleaned = re.sub(r'\[ATTACHMENTS_METADATA_B64:[A-Za-z0-9+/=]+\]', '', current_notes)
+            cleaned = re.sub(r'\[ATTACHMENTS_METADATA:\[.*?\]\]', '', cleaned)
+            cleaned = cleaned.strip(' |').strip()
+            if req.attachments:
+                raw_json = json.dumps(req.attachments)
+                b64 = base64.b64encode(raw_json.encode("utf-8")).decode("ascii")
+                att_str = f"[ATTACHMENTS_METADATA_B64:{b64}]"
+                current_notes = f"{cleaned} | {att_str}" if cleaned else att_str
+            else:
+                current_notes = cleaned
+
+        receipt.notes = current_notes or None
+        await self.db.commit()
+        await self.db.refresh(receipt)
+        return receipt, items
 
     # ──────────────────────────────────────────────────────────────
     # Reorder Suggestion logic
@@ -472,43 +1038,87 @@ class PurchaseService:
         products = prod_res.scalars().all()
 
         # Fetch custom reorder configs from DB
-        cfg_res = await self.db.execute(
-            select(PurchaseReorderConfig).where(
-                PurchaseReorderConfig.company_id == self.tenant.company_id,
-                PurchaseReorderConfig.branch_id  == self.tenant.branch_id,
-                PurchaseReorderConfig.is_deleted == False
-            )
+        cfg_stmt = select(PurchaseReorderConfig).where(
+            PurchaseReorderConfig.is_deleted == False
         )
+        if self.tenant.company_id:
+            cfg_stmt = cfg_stmt.where(
+                or_(
+                    PurchaseReorderConfig.company_id == self.tenant.company_id,
+                    PurchaseReorderConfig.company_id.is_(None),
+                )
+            )
+        if self.tenant.branch_id:
+            cfg_stmt = cfg_stmt.where(self._branch_filter(PurchaseReorderConfig.branch_id))
+        cfg_res = await self.db.execute(cfg_stmt)
         configs = {cfg.product_id: cfg for cfg in cfg_res.scalars().all()}
+
+        # Fetch ItemWarehouseLocations from DB for items with reorder levels
+        from ..models.item_master import ItemWarehouseLocation
+        loc_res = await self.db.execute(select(ItemWarehouseLocation))
+        item_locs = {loc.item_id: loc for loc in loc_res.scalars().all()}
 
         # Fetch all suppliers and confirmed orders for sourcing history rate calculations
         suppliers_list = await self.list_suppliers()
-        confirmed_po_res = await self.db.execute(
-            select(PurchaseOrder).where(
-                PurchaseOrder.company_id == self.tenant.company_id,
-                PurchaseOrder.branch_id  == self.tenant.branch_id,
-                PurchaseOrder.status.in_(["Confirmed", "Complete"]),
-                PurchaseOrder.is_deleted == False
-            )
+        confirmed_po_stmt = select(PurchaseOrder).where(
+            PurchaseOrder.status.in_(["Confirmed", "Complete"]),
+            PurchaseOrder.is_deleted == False,
         )
+        if self.tenant.company_id:
+            confirmed_po_stmt = confirmed_po_stmt.where(
+                or_(
+                    PurchaseOrder.company_id == self.tenant.company_id,
+                    PurchaseOrder.company_id.is_(None),
+                )
+            )
+        if self.tenant.branch_id:
+            confirmed_po_stmt = confirmed_po_stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+        confirmed_po_res = await self.db.execute(confirmed_po_stmt)
         confirmed_orders = confirmed_po_res.scalars().all()
 
         suggestions = []
 
         for prod in products:
-            # Match database configuration or fall back to static specifications
+            # 1. Match database configuration from PurchaseReorderConfig
             db_cfg = configs.get(prod.id)
+            level = None
+            reorder_qty = None
+            preferred_supplier_id = None
+
             if db_cfg:
                 level = float(db_cfg.reorder_level)
                 reorder_qty = float(db_cfg.reorder_quantity)
                 preferred_supplier_id = db_cfg.preferred_supplier_id
-            elif prod.id in REORDER_SPECS:
-                fallback = REORDER_SPECS[prod.id]
-                level = float(fallback["level"])
-                reorder_qty = float(fallback["reorderQty"])
-                preferred_supplier_id = fallback["preferredSupplierId"]
-            else:
+
+            # 2. Check ItemWarehouseLocation from DB
+            if level is None and prod.item_id and prod.item_id in item_locs:
+                loc = item_locs[prod.item_id]
+                if loc.min_reorder_level and float(loc.min_reorder_level) > 0:
+                    level = float(loc.min_reorder_level)
+                    reorder_qty = float(loc.reorder_quantity or (level * 2))
+
+            # 3. Check product JSON attributes in DB
+            if level is None and prod.attributes and isinstance(prod.attributes, dict):
+                attr_lvl = prod.attributes.get("reorder_level") or prod.attributes.get("min_stock_level")
+                if attr_lvl is not None:
+                    try:
+                        level = float(attr_lvl)
+                        reorder_qty = float(prod.attributes.get("reorder_qty") or (level * 2))
+                    except (ValueError, TypeError):
+                        pass
+
+            # If no reorder threshold defined in DB, skip
+            if level is None:
                 continue
+
+            # Resolve preferred supplier from DB if not already set
+            if not preferred_supplier_id:
+                if prod.vendor_code:
+                    v_sup = next((s for s in suppliers_list if s.code == prod.vendor_code or s.id == prod.vendor_code), None)
+                    if v_sup:
+                        preferred_supplier_id = v_sup.id
+                if not preferred_supplier_id and suppliers_list:
+                    preferred_supplier_id = suppliers_list[0].id
 
             if supplier_id and preferred_supplier_id != supplier_id:
                 continue
@@ -518,18 +1128,17 @@ class PurchaseService:
                 suggested_qty = reorder_qty - current_qty
                 supplier = next((s for s in suppliers_list if s.id == preferred_supplier_id), None)
 
-                # Fetch last purchase rate
-                last_rate = float(prod.price) * 0.6
-                rate_source = "Default Cost Fallback"
+                # Fetch true purchase rate from DB sourcing history or product cost master
+                last_rate = None
+                rate_source = None
 
-                # Sort confirmed orders by date desc to find last rate
+                # Sort confirmed orders by date desc to find last rate from DB
                 sorted_orders = sorted(
                     [o for o in confirmed_orders if o.supplier_id == preferred_supplier_id],
                     key=lambda o: o.created_at,
                     reverse=True
                 )
                 if sorted_orders:
-                    # check if product in items
                     order_items_res = await self.db.execute(
                         select(PurchaseOrderItem).where(
                             PurchaseOrderItem.order_id == sorted_orders[0].id,
@@ -537,9 +1146,20 @@ class PurchaseService:
                         )
                     )
                     o_item = order_items_res.scalars().first()
-                    if o_item:
+                    if o_item and o_item.cost_price:
                         last_rate = float(o_item.cost_price)
                         rate_source = "Supplier Sourcing History"
+
+                # If no order history, check Product Cost Master in DB
+                if last_rate is None and prod.cost_price and Decimal(str(prod.cost_price)) > Decimal("0.00"):
+                    last_rate = float(prod.cost_price)
+                    rate_source = "Product Cost Master"
+                elif last_rate is None and prod.buying_price and Decimal(str(prod.buying_price)) > Decimal("0.00"):
+                    last_rate = float(prod.buying_price)
+                    rate_source = "Product Buying Master"
+                elif last_rate is None:
+                    last_rate = float(prod.price) * 0.6
+                    rate_source = "Estimated Margin Base"
 
                 suggestions.append({
                     "productId": prod.id,
@@ -586,6 +1206,8 @@ class PurchaseService:
         tax_total = Decimal("0.00")
         item_rows: list[PurchaseOrderItem] = []
 
+        order_id = IdentityEngine.generate_technical_id()
+
         for suggestion in items_data:
             product_res = await self.db.execute(
                 select(Product).where(
@@ -611,9 +1233,11 @@ class PurchaseService:
             subtotal += cost_price * quantity
             tax_total += tax_amount
 
+            poi_id = IdentityEngine.generate_technical_id()
             item_rows.append(PurchaseOrderItem(
-                id=f"poi-{_uid()}",
-                order_id=f"po-{_uid()}",
+                id=poi_id,
+                uuid=poi_id,
+                order_id=order_id,
                 product_id=product.id,
                 code=product.code,
                 name=product.name,
@@ -626,7 +1250,6 @@ class PurchaseService:
                 branch_id=self.tenant.branch_id,
             ))
 
-        order_id = f"po-{_uid()}"
         order_no = f"PO-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
         order = PurchaseOrder(
             id=order_id,
@@ -664,17 +1287,40 @@ class PurchaseService:
 
     async def get_jurisdiction(self) -> str:
         """
-        Fetch company state tax jurisdiction.
+        Fetch company state tax jurisdiction from DB.
         """
-        res = await self.db.execute(
-            select(PurchaseJurisdictionConfig).where(
-                PurchaseJurisdictionConfig.company_id == self.tenant.company_id,
-                PurchaseJurisdictionConfig.branch_id  == self.tenant.branch_id,
-                PurchaseJurisdictionConfig.is_deleted == False
-            )
+        stmt = select(PurchaseJurisdictionConfig).where(
+            PurchaseJurisdictionConfig.is_deleted == False
         )
+        if self.tenant.company_id:
+            stmt = stmt.where(
+                or_(
+                    PurchaseJurisdictionConfig.company_id == self.tenant.company_id,
+                    PurchaseJurisdictionConfig.company_id.is_(None),
+                )
+            )
+        if self.tenant.branch_id:
+            stmt = stmt.where(self._branch_filter(PurchaseJurisdictionConfig.branch_id))
+
+        res = await self.db.execute(stmt)
         cfg = res.scalars().first()
-        return cfg.company_state if cfg else "DL"
+        if cfg and cfg.company_state:
+            return cfg.company_state
+
+        # Check Company record from DB
+        from ..models.tenant import Company
+        if self.tenant.company_id:
+            c_res = await self.db.execute(
+                select(Company).where(Company.id == self.tenant.company_id, Company.is_deleted == False)
+            )
+            comp = c_res.scalars().first()
+            if comp and comp.gst_number and len(comp.gst_number) >= 2 and comp.gst_number[:2].isdigit():
+                from ..core.gst_engine import GST_STATE_CODES
+                gst_code = comp.gst_number[:2]
+                if gst_code in GST_STATE_CODES:
+                    return gst_code
+
+        return "DL"
 
     async def set_jurisdiction(self, state: str) -> str:
         """
@@ -692,8 +1338,10 @@ class PurchaseService:
             cfg.company_state = state
             cfg.modified_at = datetime.now(timezone.utc)
         else:
+            jur_id = IdentityEngine.generate_technical_id()
             cfg = PurchaseJurisdictionConfig(
-                id=f"jur-{_uid()}",
+                id=jur_id,
+                uuid=jur_id,
                 company_state=state,
                 company_id=self.tenant.company_id,
                 branch_id=self.tenant.branch_id
@@ -740,10 +1388,18 @@ class PurchaseService:
 
     # ── Purchase Order CANCEL / AMEND ────────────────────────────────
 
-    async def cancel_purchase_order(self, order_id: str, reason: Optional[str] = None) -> dict:
+    async def cancel_purchase_order(
+        self,
+        order_id: str,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+        reason_code: Optional[str] = None,
+    ) -> dict:
         """
-        Cancel a purchase order: set status=CANCELLED and soft-delete.
-        Only CONFIRMED orders can be cancelled (RECEIVED = stock already taken).
+        Cancel a purchase order: DRAFT or CONFIRMED → CANCELLED.
+        RECEIVED POs cannot be cancelled (stock already ingested).
+        Phase C: accepts structured reason_code from PO_CANCEL_REASON master.
+        Captures cancellation_reason, cancellation_reason_code, and cancelled_by/at audit columns.
         """
         order, _ = await self.get_purchase_order(order_id)
 
@@ -759,12 +1415,41 @@ class PurchaseService:
                        "Please raise a return/debit note instead.",
             )
 
+        prev_status = order.status
+        now = datetime.now(timezone.utc)
         order.status = "CANCELLED"
-        order.is_deleted = True
-        order.deleted_at = datetime.now(timezone.utc)
-        order.modified_at = datetime.now(timezone.utc)
+        order.is_deleted = False
+        order.deleted_at = None
+        order.modified_at = now
+        order.cancelled_by = cancelled_by or (self.tenant.user_id if hasattr(self.tenant, "user_id") else cancelled_by)
+        order.cancelled_at = now
+
+        # Phase C: structured reason_code stored in cancellation_reason_code if column exists
+        if reason_code and hasattr(order, "cancellation_reason_code"):
+            order.cancellation_reason_code = reason_code.strip().upper()
+
         if reason:
+            order.cancellation_reason = reason
+            # Also keep notes for backward-compat with existing queries that read notes
             order.notes = f"{order.notes or ''} | Cancelled: {reason}".strip(" |")
+        elif reason_code:
+            # No free-text but we have a structured code — store code as fallback reason
+            order.cancellation_reason = reason_code
+            order.notes = f"{order.notes or ''} | Cancelled: {reason_code}".strip(" |")
+
+        event = WorkflowEvent(
+            doc_type="PurchaseOrder",
+            doc_id=order.id,
+            action="CANCEL",
+            from_status=prev_status,
+            to_status="CANCELLED",
+            performed_by_name=order.cancelled_by,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id or "BR-001",
+            notes=reason or reason_code,
+            created_at=now,
+        )
+        self.db.add(event)
         self.db.add(order)
         await self.db.commit()
         return {
@@ -776,10 +1461,14 @@ class PurchaseService:
         self, original_id: str, req: PurchaseOrderAmendRequest
     ) -> PurchaseOrder:
         """
-        Amend a Confirmed PO:
-          1. Cancel the original (status=CANCELLED, is_deleted=True).
-          2. Create a new CONFIRMED PO with the replacement items.
-        This mirrors Express POST /api/purchase/orders/:id/amend.
+        Amend a Confirmed PO (Phase D — full revision chain):
+          1. Validate: only CONFIRMED POs may be amended.
+          2. Mark original as CANCELLED + Amended & Superseded, recording amended_by/at.
+          3. Compute new amend_revision = original.amend_revision + 1.
+          4. Create new CONFIRMED PO with parent_order_id = original.id,
+             amend_revision = N, and full item list.
+        Chain: PO-001 (rev 0) → PO-001-R1 (rev 1, parent=PO-001) → …
+        DO NOT convert, rewrite, or alter existing PO data beyond the audit columns.
         """
         original, _ = await self.get_purchase_order(original_id)
 
@@ -789,18 +1478,26 @@ class PurchaseService:
                 detail="Only Confirmed purchase orders can be amended.",
             )
 
-        # Cancel original
+        now = datetime.now(timezone.utc)
+        acting_user = self.tenant.user_id if hasattr(self.tenant, "user_id") else None
+
+        # Compute next revision number
+        next_revision = (original.amend_revision or 0) + 1
+
+        # ── Mark original as Cancelled/Superseded ─────────────────────────────
         original.status = "CANCELLED"
-        original.is_deleted = True
-        original.deleted_at = datetime.now(timezone.utc)
-        original.modified_at = datetime.now(timezone.utc)
+        original.is_deleted = False
+        original.deleted_at = None
+        original.modified_at = now
+        original.amended_by = acting_user
+        original.amended_at = now
         original.notes = (
             f"{original.notes or ''} | Amended & Superseded. "
             f"Reason: {req.reason or 'No reason given'}"
         ).strip(" |")
         self.db.add(original)
 
-        # Build new PO items
+        # ── Build new PO items ─────────────────────────────────────────────────
         if not req.items:
             raise HTTPException(
                 status_code=400,
@@ -810,6 +1507,9 @@ class PurchaseService:
         subtotal = Decimal("0.00")
         tax_total = Decimal("0.00")
         item_rows: list[PurchaseOrderItem] = []
+
+        # Use caller-supplied id or generate one
+        new_po_id = req.new_order_id or IdentityEngine.generate_technical_id()
 
         for item in req.items:
             res = await self.db.execute(
@@ -831,9 +1531,11 @@ class PurchaseService:
             line_tot = (item.cost_price * item.quantity + tax_amt).quantize(Decimal("0.01"))
             subtotal += item.cost_price * item.quantity
             tax_total += tax_amt
+            amend_poi_id = IdentityEngine.generate_technical_id()
             item_rows.append(PurchaseOrderItem(
-                id=f"poi-{_uid()}",
-                order_id=req.new_order_id,
+                id=amend_poi_id,
+                uuid=amend_poi_id,
+                order_id=new_po_id,
                 product_id=item.product_id,
                 code=item.code,
                 name=item.name,
@@ -846,13 +1548,19 @@ class PurchaseService:
                 branch_id=self.tenant.branch_id,
             ))
 
+        # ── Create the replacement (amended) PO ───────────────────────────────
         new_order = PurchaseOrder(
-            id=req.new_order_id,
+            id=new_po_id,
             order_no=req.new_order_no,
             supplier_id=original.supplier_id,
             status="CONFIRMED",
+            # Phase D: link chain and set revision counter
+            parent_order_id=original.id,
+            amend_revision=next_revision,
+            confirmed_by=acting_user,
+            confirmed_at=now,
             notes=(
-                f"Amendment of {original.order_no}. "
+                f"Amendment #{next_revision} of {original.order_no}. "
                 f"Reason: {req.reason or 'Not specified'}."
             ),
             subtotal=subtotal.quantize(Decimal("0.01")),
@@ -876,15 +1584,82 @@ class PurchaseService:
         await self.db.refresh(new_order)
         return new_order
 
-
-
-    # ─────────────────────────── Phase 4B: Submit PO ────────────────────────────
-
-    async def submit_purchase_order(self, order_id: str) -> dict:
+    async def get_amendment_history(self, order_id: str) -> list:
         """
-        Submit a purchase order: DRAFT → CONFIRMED.
-        Mirrors the workflow action POST /workflow/PurchaseOrder/{id}/submit.
-        Only DRAFT orders can be submitted.
+        Phase D: Return the full amendment chain for a PO.
+        Walks parent_order_id to find root, then breadth-first collects all
+        POs in the chain, sorted by amend_revision ascending.
+        Returns list of dicts: {id, order_no, status, amend_revision,
+        parent_order_id, amended_at, amended_by, grand_total, created_at}.
+        """
+        from sqlalchemy import select as _select
+
+        # Step 1: resolve root by walking parent_order_id (max 20 hops)
+        visited: set[str] = set()
+        current_id = order_id
+        root_id = order_id
+
+        for _ in range(20):
+            if current_id in visited:
+                break
+            visited.add(current_id)
+            res = await self.db.execute(
+                _select(PurchaseOrder).where(PurchaseOrder.id == current_id)
+            )
+            po = res.scalars().first()
+            if not po:
+                break
+            if not po.parent_order_id:
+                root_id = current_id
+                break
+            current_id = po.parent_order_id
+
+        # Step 2: BFS from root collecting the whole chain (max 10 amendments)
+        chain: list[dict] = []
+        seen_ids: set[str] = set()
+        queue = [root_id]
+
+        for _ in range(10):
+            if not queue:
+                break
+            batch_ids = queue[:]
+            queue = []
+            res = await self.db.execute(
+                _select(PurchaseOrder).where(
+                    (PurchaseOrder.id.in_(batch_ids) |
+                     PurchaseOrder.parent_order_id.in_(batch_ids)),
+                    PurchaseOrder.company_id == self.tenant.company_id,
+                )
+            )
+            pos = res.scalars().all()
+            for p in pos:
+                if p.id not in seen_ids:
+                    seen_ids.add(p.id)
+                    chain.append({
+                        "id":              p.id,
+                        "order_no":        p.order_no,
+                        "status":          p.status,
+                        "amend_revision":  p.amend_revision or 0,
+                        "parent_order_id": p.parent_order_id,
+                        "amended_at":      p.amended_at.isoformat() if p.amended_at else None,
+                        "amended_by":      p.amended_by,
+                        "grand_total":     str(p.grand_total),
+                        "created_at":      p.created_at.isoformat() if hasattr(p, "created_at") and p.created_at else None,
+                    })
+                    if p.id not in batch_ids:
+                        queue.append(p.id)
+
+        chain.sort(key=lambda x: x["amend_revision"])
+        return chain
+
+
+    # ─────────────────────── Phase A: Submit PO ─────────────────────────────
+
+    async def submit_purchase_order(self, order_id: str, submitted_by: Optional[str] = None) -> dict:
+        """
+        Submit a purchase order: DRAFT → SUBMITTED.
+        Only DRAFT orders can be submitted. Records submitted_by and submitted_at.
+        Phase A: SUBMITTED is the new intermediate state before CONFIRMED.
         """
         order, _ = await self.get_purchase_order(order_id)
         if order.status != "DRAFT":
@@ -892,25 +1667,98 @@ class PurchaseService:
                 status_code=400,
                 detail=f"Only DRAFT orders can be submitted. Current status: {order.status}.",
             )
-        order.status = "CONFIRMED"
-        order.modified_at = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        order.status = "SUBMITTED"
+        order.submitted_by = submitted_by
+        order.submitted_at = now
+        order.modified_at = now
         self.db.add(order)
+
+        event = WorkflowEvent(
+            doc_type="PurchaseOrder",
+            doc_id=order.id,
+            action="SUBMIT",
+            from_status="DRAFT",
+            to_status="SUBMITTED",
+            performed_by_name=submitted_by,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id or "BR-001",
+            notes=f"Submitted by {submitted_by}",
+            created_at=now,
+        )
+        self.db.add(event)
+        await self.db.commit()
+        return {
+            "success": True,
+            "order_id": order.id,
+            "order_no": order.order_no,
+            "status": "SUBMITTED",
+            "submitted_by": submitted_by,
+            "message": f"Purchase order '{order.order_no}' has been submitted for approval.",
+        }
+
+    # ─────────────────────── Phase A: Confirm PO ────────────────────────────
+
+    async def confirm_purchase_order(self, order_id: str, confirmed_by: Optional[str] = None, notes: Optional[str] = None) -> dict:
+        """
+        Confirm a purchase order: SUBMITTED → CONFIRMED.
+        Only SUBMITTED orders can be confirmed. Records confirmed_by and confirmed_at.
+        MANAGER or SYSADMIN role required (enforced at the API layer).
+        """
+        order, _ = await self.get_purchase_order(order_id)
+        if order.status != "SUBMITTED":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only SUBMITTED orders can be confirmed. Current status: {order.status}.",
+            )
+        now = datetime.now(timezone.utc)
+        order.status = "CONFIRMED"
+        order.confirmed_by = confirmed_by
+        order.confirmed_at = now
+        order.modified_at = now
+        if notes:
+            order.notes = f"{order.notes or ''} | Confirmed: {notes}".strip(" |")
+        self.db.add(order)
+
+        event = WorkflowEvent(
+            doc_type="PurchaseOrder",
+            doc_id=order.id,
+            action="CONFIRM",
+            from_status="SUBMITTED",
+            to_status="CONFIRMED",
+            performed_by_name=confirmed_by,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id or "BR-001",
+            notes=notes,
+            created_at=now,
+        )
+        self.db.add(event)
         await self.db.commit()
         return {
             "success": True,
             "order_id": order.id,
             "order_no": order.order_no,
             "status": "CONFIRMED",
-            "message": f"Purchase order '{order.order_no}' submitted for fulfilment.",
+            "confirmed_by": confirmed_by,
+            "message": f"Purchase order '{order.order_no}' has been confirmed.",
         }
 
     # ─────────────────────────── Phase 4B: Reports ──────────────────────────────
 
     async def get_outstanding_suppliers(self) -> list[dict]:
         """
-        Outstanding report: suppliers with DRAFT or CONFIRMED (open) POs
-        and their total outstanding PO value.
+        Outstanding report: suppliers with booked ledger AP liabilities or open POs (DRAFT/CONFIRMED).
         """
+        # Fetch all active suppliers for this tenant
+        sup_stmt = select(Supplier).where(
+            Supplier.company_id == self.tenant.company_id,
+            Supplier.is_deleted == False,
+        )
+        sup_res = await self.db.execute(sup_stmt)
+        suppliers = sup_res.scalars().all()
+        supplier_map = {s.id: s for s in suppliers}
+
+        # Fetch open POs (DRAFT/CONFIRMED)
         res = await self.db.execute(
             select(PurchaseOrder).where(
                 PurchaseOrder.company_id == self.tenant.company_id,
@@ -921,15 +1769,14 @@ class PurchaseService:
         )
         orders = res.scalars().all()
 
-        # Group by supplier
-        summary: dict[str, dict] = {}
+        # Group open POs by supplier
+        po_summary: dict[str, dict] = {}
         for po in orders:
             sid = po.supplier_id
-            if sid not in summary:
-                summary[sid] = {
-                    "supplier_id": sid,
+            if sid not in po_summary:
+                po_summary[sid] = {
                     "order_count": 0,
-                    "total_outstanding": Decimal("0.00"),
+                    "po_total": Decimal("0.00"),
                     "statuses": set(),
                 }
             items_res = await self.db.execute(
@@ -937,24 +1784,35 @@ class PurchaseService:
             )
             items = items_res.scalars().all()
             total = sum(Decimal(str(it.cost_price)) * it.quantity for it in items)
-            summary[sid]["order_count"] += 1
-            summary[sid]["total_outstanding"] += total
-            summary[sid]["statuses"].add(po.status)
+            po_summary[sid]["order_count"] += 1
+            po_summary[sid]["po_total"] += total
+            po_summary[sid]["statuses"].add(po.status)
 
-        # Enrich with supplier names
+        # Include any supplier that has either booked outstanding liability or open POs
         rows = []
-        for sid, data in summary.items():
-            sup_res = await self.db.execute(
-                select(Supplier).where(Supplier.id == sid, Supplier.is_deleted == False)
-            )
-            supplier = sup_res.scalars().first()
+        all_supplier_ids = set(po_summary.keys()) | {
+            s.id for s in suppliers if Decimal(str(s.outstanding or 0.00)) > Decimal("0.00")
+        }
+
+        for sid in all_supplier_ids:
+            supplier = supplier_map.get(sid)
+            if not supplier:
+                continue
+            po_data = po_summary.get(sid, {"order_count": 0, "po_total": Decimal("0.00"), "statuses": set()})
+            sup_outstanding = Decimal(str(supplier.outstanding or 0.00))
+            # If supplier has recorded AP liability, that is their true ledger outstanding balance
+            effective_outstanding = sup_outstanding if sup_outstanding > Decimal("0.00") else po_data["po_total"]
+
             rows.append({
                 "supplier_id": sid,
-                "supplier_name": supplier.name if supplier else "Unknown",
-                "order_count": data["order_count"],
-                "total_outstanding": float(data["total_outstanding"]),
-                "open_statuses": list(data["statuses"]),
+                "supplier_name": supplier.name,
+                "supplier_code": supplier.code or "",
+                "order_count": po_data["order_count"],
+                "total_outstanding": float(effective_outstanding),
+                "ledger_outstanding": float(sup_outstanding),
+                "open_statuses": list(po_data["statuses"]),
             })
+
         rows.sort(key=lambda x: -x["total_outstanding"])
         return rows
 
@@ -986,12 +1844,22 @@ class PurchaseService:
                     select(Supplier).where(Supplier.id == po.supplier_id)
                 )
                 supplier = sup_res.scalars().first()
+                item_res = await self.db.execute(
+                    select(PurchaseOrderItem).where(
+                        PurchaseOrderItem.order_id == po.id,
+                        PurchaseOrderItem.is_deleted == False,
+                    )
+                )
+                items = item_res.scalars().all()
+                total_qty = sum(it.quantity for it in items)
                 pending.append({
                     "order_id": po.id,
                     "order_no": po.order_no,
                     "supplier_id": po.supplier_id,
                     "supplier_name": supplier.name if supplier else "Unknown",
                     "status": po.status,
+                    "pending_qty": int(total_qty),
+                    "pending_amount": float(po.grand_total or 0.0),
                     "created_at": po.created_at.isoformat() if po.created_at else None,
                 })
         return pending
@@ -1002,56 +1870,504 @@ class PurchaseService:
         self, supplier_id: str, product_id: str
     ) -> dict:
         """
-        Return the last GRN (PurchaseReceiptItem) unit_cost for supplier+product.
-        Falls back to last PurchaseOrderItem unit_cost if no GRN exists.
+        Return the last GRN (PurchaseReceiptItem) cost_price for supplier+product from DB.
+        Falls back to last PurchaseOrderItem cost_price if no GRN exists,
+        or product master cost_price/buying_price from database.
         """
-        # Try last GRN cost
-        receipt_res = await self.db.execute(
+        # Try last GRN cost from DB
+        receipt_stmt = (
             select(PurchaseReceiptItem)
-            .join(PurchaseReceipt, PurchaseReceipt.id == PurchaseReceiptItem.purchase_receipt_id)
+            .join(PurchaseReceipt, PurchaseReceipt.id == PurchaseReceiptItem.receipt_id)
             .where(
-                PurchaseReceipt.company_id == self.tenant.company_id,
-                PurchaseReceipt.branch_id  == self.tenant.branch_id,
                 PurchaseReceipt.is_deleted == False,
                 PurchaseReceipt.supplier_id == supplier_id,
                 PurchaseReceiptItem.product_id == product_id,
             )
-            .order_by(PurchaseReceipt.created_at.desc())
-            .limit(1)
         )
+        if self.tenant.company_id:
+            receipt_stmt = receipt_stmt.where(
+                or_(
+                    PurchaseReceipt.company_id == self.tenant.company_id,
+                    PurchaseReceipt.company_id.is_(None),
+                )
+            )
+        if self.tenant.branch_id:
+            receipt_stmt = receipt_stmt.where(self._branch_filter(PurchaseReceipt.branch_id))
+
+        receipt_stmt = receipt_stmt.order_by(PurchaseReceipt.created_at.desc()).limit(1)
+        receipt_res = await self.db.execute(receipt_stmt)
         grn_item = receipt_res.scalars().first()
-        if grn_item:
+        if grn_item and grn_item.cost_price:
             return {
                 "supplier_id": supplier_id,
                 "product_id": product_id,
-                "default_rate": float(grn_item.unit_cost),
+                "default_rate": float(grn_item.cost_price),
                 "source": "last_grn",
             }
 
-        # Fallback: last PO cost
-        po_res = await self.db.execute(
+        # Fallback 1: last PO cost from DB
+        po_stmt = (
             select(PurchaseOrderItem)
-            .join(PurchaseOrder, PurchaseOrder.id == PurchaseOrderItem.purchase_order_id)
+            .join(PurchaseOrder, PurchaseOrder.id == PurchaseOrderItem.order_id)
             .where(
-                PurchaseOrder.company_id  == self.tenant.company_id,
-                PurchaseOrder.branch_id   == self.tenant.branch_id,
-                PurchaseOrder.is_deleted  == False,
+                PurchaseOrder.is_deleted == False,
                 PurchaseOrder.supplier_id == supplier_id,
                 PurchaseOrderItem.product_id == product_id,
             )
-            .order_by(PurchaseOrder.created_at.desc())
-            .limit(1)
         )
+        if self.tenant.company_id:
+            po_stmt = po_stmt.where(
+                or_(
+                    PurchaseOrder.company_id == self.tenant.company_id,
+                    PurchaseOrder.company_id.is_(None),
+                )
+            )
+        if self.tenant.branch_id:
+            po_stmt = po_stmt.where(self._branch_filter(PurchaseOrder.branch_id))
+
+        po_stmt = po_stmt.order_by(PurchaseOrder.created_at.desc()).limit(1)
+        po_res = await self.db.execute(po_stmt)
         po_item = po_res.scalars().first()
-        if po_item:
+        if po_item and po_item.cost_price:
             return {
                 "supplier_id": supplier_id,
                 "product_id": product_id,
-                "default_rate": float(po_item.unit_cost),
+                "default_rate": float(po_item.cost_price),
                 "source": "last_purchase_order",
+            }
+
+        # Fallback 2: Check database Product Master (cost_price / buying_price)
+        prod = await self._get_product(product_id)
+        if prod.cost_price and Decimal(str(prod.cost_price)) > Decimal("0.00"):
+            return {
+                "supplier_id": supplier_id,
+                "product_id": product_id,
+                "default_rate": float(prod.cost_price),
+                "source": "product_master_cost",
+            }
+        if prod.buying_price and Decimal(str(prod.buying_price)) > Decimal("0.00"):
+            return {
+                "supplier_id": supplier_id,
+                "product_id": product_id,
+                "default_rate": float(prod.buying_price),
+                "source": "product_master_buying_price",
             }
 
         raise HTTPException(
             status_code=404,
-            detail=f"No purchase history found for supplier '{supplier_id}' and product '{product_id}'.",
+            detail=f"No purchase history or product cost found in database for supplier '{supplier_id}' and product '{product_id}'.",
         )
+
+    # ─── Debit Notes ────────────────────────────────────────────────────────
+    async def create_debit_note(self, req: DebitNoteCreate) -> dict:
+        supplier = await self._get_supplier(req.supplier_id)
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="DEBIT_NOTE",
+            group_code="PUR",
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            purpose="DEBIT_NOTE_CREATION",
+        )
+        dn_id = tech_id
+        dn_no = req.debit_note_no or id_code
+
+        # Register external debit note reference as alias if supplied
+        if req.debit_note_no and req.debit_note_no != id_code:
+            await IdentityEngine.register_alias(
+                session=self.db,
+                entity_type="DEBIT_NOTE",
+                entity_id=dn_id,
+                alias_code=req.debit_note_no,
+                alias_type="EXTERNAL_DEBIT_NOTE",
+                source_system="SUPPLIER_PORTAL",
+                canonical_identity_code=id_code,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                notes="External debit note reference",
+            )
+
+        supplier.outstanding = (supplier.outstanding - req.total_debit_amount).quantize(Decimal("0.01"))
+        supplier.modified_at = datetime.now(timezone.utc)
+        await self.db.flush()
+
+        from .unified_ledger import UnifiedAccountingLedgerService
+        voucher = await UnifiedAccountingLedgerService.post_debit_note_to_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            debit_note_id=dn_id,
+            supplier_id=supplier.id,
+            claim_amount=req.claim_amount,
+            tax_amount=req.tax_amount or Decimal("0.00"),
+            total_debit_amount=req.total_debit_amount,
+            debit_note_no=dn_no,
+            branch_id=self.tenant.branch_id,
+        )
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_DEBIT_NOTES",
+            event_type="PURCHASE_DEBIT_NOTE_ISSUED",
+            aggregate_type="PurchaseDebitNote",
+            aggregate_id=dn_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "debit_note_no": dn_no,
+                "identity_code": id_code,
+                "supplier_id": supplier.id,
+                "supplier_name": supplier.name,
+                "receipt_id": req.receipt_id,
+                "claim_amount": str(req.claim_amount),
+                "tax_amount": str(req.tax_amount or Decimal("0.00")),
+                "total_debit_amount": str(req.total_debit_amount),
+                "voucher_id": voucher.id if voucher else None,
+                "reason": req.reason,
+            },
+        )
+        await self.db.commit()
+        return {
+            "id": dn_id,
+            "debit_note_no": dn_no,
+            "identity_code": id_code,
+            "supplier_id": supplier.id,
+            "receipt_id": req.receipt_id,
+            "claim_amount": req.claim_amount,
+            "tax_amount": req.tax_amount or Decimal("0.00"),
+            "total_debit_amount": req.total_debit_amount,
+            "status": req.status or "ISSUED",
+            "reason": req.reason,
+            "created_at": datetime.now(timezone.utc),
+            "journal_voucher_id": voucher.id if voucher else None,
+        }
+
+    async def cancel_debit_note(
+        self,
+        debit_note_id: str,
+        supplier_id: str,
+        claim_amount: Decimal,
+        tax_amount: Decimal,
+        total_debit_amount: Decimal,
+        debit_note_no: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> dict:
+        """
+        Cancels a debit note, restoring supplier outstanding liability and posting
+        a compensating reversal double-entry GL voucher (DEBIT_NOTE_CANCEL).
+        """
+        supplier = await self._get_supplier(supplier_id)
+
+        from .unified_ledger import UnifiedAccountingLedgerService
+        reversal_voucher = await UnifiedAccountingLedgerService.reverse_debit_note_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            debit_note_id=debit_note_id,
+            supplier_id=supplier.id,
+            claim_amount=claim_amount,
+            tax_amount=tax_amount or Decimal("0.00"),
+            total_debit_amount=total_debit_amount,
+            debit_note_no=debit_note_no,
+            branch_id=self.tenant.branch_id,
+            reason=reason,
+            cancelled_by=cancelled_by,
+        )
+
+        supplier.outstanding = (supplier.outstanding + total_debit_amount).quantize(Decimal("0.01"))
+        supplier.modified_at = datetime.now(timezone.utc)
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_DEBIT_NOTES",
+            event_type="PURCHASE_DEBIT_NOTE_CANCELLED",
+            aggregate_type="PurchaseDebitNote",
+            aggregate_id=debit_note_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "debit_note_no": debit_note_no or debit_note_id,
+                "supplier_id": supplier.id,
+                "total_debit_amount": str(total_debit_amount),
+                "reversal_voucher_id": reversal_voucher.id if reversal_voucher else None,
+                "reason": reason,
+            },
+        )
+        await self.db.commit()
+        return {
+            "id": debit_note_id,
+            "identity_code": debit_note_no or debit_note_id,
+            "debit_note_no": debit_note_no or debit_note_id,
+            "supplier_id": supplier.id,
+            "receipt_id": None,
+            "claim_amount": claim_amount,
+            "tax_amount": tax_amount or Decimal("0.00"),
+            "total_debit_amount": total_debit_amount,
+            "status": "CANCELLED",
+            "reason": reason,
+            "created_at": datetime.now(timezone.utc),
+            "journal_voucher_id": reversal_voucher.id if reversal_voucher else None,
+        }
+
+    # ─── Purchase Bills ─────────────────────────────────────────────────────
+    async def create_purchase_bill(self, req: PurchaseBillCreate) -> dict:
+        supplier = await self._get_supplier(req.supplier_id)
+        tech_id, id_code = await IdentityEngine.allocate_internal(
+            session=self.db,
+            entity_type="PURCHASE_BILL",
+            group_code="PUR",
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            purpose="PURCHASE_BILL_CREATION",
+        )
+        bill_id = tech_id
+        bill_no = req.bill_no or id_code
+
+        # Register external supplier invoice number as sovereign alias
+        if req.bill_no and req.bill_no != id_code:
+            await IdentityEngine.register_alias(
+                session=self.db,
+                entity_type="PURCHASE_BILL",
+                entity_id=bill_id,
+                alias_code=req.bill_no,
+                alias_type="SUPPLIER_INVOICE",
+                source_system="SUPPLIER",
+                canonical_identity_code=id_code,
+                company_id=self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+                notes="External supplier invoice reference",
+            )
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_BILLS",
+            event_type="PURCHASE_BILL_POSTED",
+            aggregate_type="PurchaseBill",
+            aggregate_id=bill_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "bill_no": bill_no,
+                "identity_code": id_code,
+                "supplier_id": supplier.id,
+                "supplier_name": supplier.name,
+                "receipt_id": req.receipt_id,
+                "order_id": req.order_id,
+                "taxable_amount": str(req.taxable_amount),
+                "tax_amount": str(req.tax_amount),
+                "total_amount": str(req.total_amount),
+            },
+        )
+        bill_entity = PurchaseBill(
+            id=bill_id,
+            uuid=bill_id,
+            bill_no=bill_no,
+            identity_code=id_code,
+            supplier_id=supplier.id,
+            receipt_id=req.receipt_id,
+            order_id=req.order_id,
+            bill_date=req.bill_date or datetime.now(timezone.utc).date(),
+            due_date=req.due_date,
+            taxable_amount=req.taxable_amount,
+            tax_amount=req.tax_amount,
+            total_amount=req.total_amount,
+            paid_amount=Decimal("0.00"),
+            status="POSTED",
+            notes=req.notes,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+        )
+        self.db.add(bill_entity)
+
+        # If linked to a GRN, copy line items to PurchaseBillItem for 3-way match audit
+        if req.receipt_id:
+            from sqlalchemy.orm import selectinload
+            grn_stmt = select(PurchaseReceipt).where(
+                PurchaseReceipt.id == req.receipt_id,
+                PurchaseReceipt.company_id == self.tenant.company_id,
+            ).options(selectinload(PurchaseReceipt.items))
+            grn_res = await self.db.execute(grn_stmt)
+            grn = grn_res.scalars().first()
+            if grn and grn.items:
+                for grn_it in grn.items:
+                    bill_it_id = IdentityEngine.generate_technical_id()
+                    self.db.add(PurchaseBillItem(
+                        id=bill_it_id,
+                        uuid=bill_it_id,
+                        bill_id=bill_id,
+                        product_id=grn_it.product_id,
+                        item_id=grn_it.item_id,
+                        variant_id=grn_it.variant_id,
+                        po_item_id=grn_it.purchase_order_line_id,
+                        receipt_item_id=grn_it.id,
+                        code=grn_it.code,
+                        name=grn_it.name,
+                        quantity=grn_it.quantity_received,
+                        rate=grn_it.cost_price,
+                        taxable_amount=(grn_it.cost_price * grn_it.quantity_received).quantize(Decimal("0.01")),
+                        tax_amount=grn_it.tax_amount,
+                        total_amount=grn_it.line_total,
+                        company_id=self.tenant.company_id,
+                        branch_id=self.tenant.branch_id,
+                    ))
+
+        # If linked to a GRN, reconcile provisional GRN inward liability before formal AP Bill posting
+        if req.receipt_id and grn:
+            grn_val = Decimal(str(grn.grand_total or 0.00))
+            if grn_val > 0:
+                supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0.00)) - grn_val).quantize(Decimal("0.01"))
+
+        await self.db.flush()
+
+        from .unified_ledger import UnifiedAccountingLedgerService
+        voucher = await UnifiedAccountingLedgerService.post_purchase_bill_to_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            bill_id=bill_id,
+            branch_id=self.tenant.branch_id,
+            created_by=getattr(self.tenant, "user_id", None),
+        )
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_BILLS",
+            event_type="PURCHASE_BILL_POSTED",
+            aggregate_type="PurchaseBill",
+            aggregate_id=bill_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "bill_no": bill_no,
+                "identity_code": id_code,
+                "supplier_id": supplier.id,
+                "supplier_name": supplier.name,
+                "receipt_id": req.receipt_id,
+                "order_id": req.order_id,
+                "taxable_amount": str(req.taxable_amount),
+                "tax_amount": str(req.tax_amount),
+                "total_amount": str(req.total_amount),
+                "journal_voucher_id": voucher.id if voucher else None,
+            },
+        )
+        await self.db.commit()
+        return {
+            "id": bill_id,
+            "bill_no": bill_no,
+            "identity_code": id_code,
+            "supplier_id": supplier.id,
+            "receipt_id": req.receipt_id,
+            "order_id": req.order_id,
+            "bill_date": req.bill_date or datetime.now(timezone.utc).date(),
+            "due_date": req.due_date,
+            "taxable_amount": req.taxable_amount,
+            "tax_amount": req.tax_amount,
+            "total_amount": req.total_amount,
+            "paid_amount": Decimal("0.00"),
+            "status": "POSTED",
+            "notes": req.notes,
+            "journal_voucher_id": voucher.id if voucher else None,
+        }
+
+    async def cancel_purchase_bill(
+        self,
+        bill_id: str,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> dict:
+        """
+        Cancel a purchase bill, reversing GL entries and restoring supplier liability.
+        """
+        bill = await self.get_purchase_bill(bill_id)
+        if (bill.status or "").upper() == "CANCELLED":
+            raise HTTPException(status_code=400, detail="Purchase bill is already cancelled.")
+
+        from .unified_ledger import UnifiedAccountingLedgerService
+        reversal_voucher = await UnifiedAccountingLedgerService.reverse_purchase_bill_gl(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            bill_id=bill_id,
+            branch_id=self.tenant.branch_id,
+            reason=reason,
+            cancelled_by=cancelled_by,
+        )
+
+        bill.status = "CANCELLED"
+        bill.cancellation_reason = reason
+        bill.modified_at = datetime.now(timezone.utc)
+        self.db.add(bill)
+
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="PURCHASE_BILLS",
+            event_type="PURCHASE_BILL_CANCELLED",
+            aggregate_type="PurchaseBill",
+            aggregate_id=bill_id,
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+            payload={
+                "bill_no": bill.bill_no,
+                "supplier_id": bill.supplier_id,
+                "total_amount": str(bill.total_amount),
+                "reversal_voucher_id": reversal_voucher.id if reversal_voucher else None,
+                "reason": reason,
+            },
+        )
+        await self.db.commit()
+        return {
+            "id": bill.id,
+            "bill_no": bill.bill_no,
+            "status": "CANCELLED",
+            "cancellation_reason": reason,
+            "reversal_voucher_id": reversal_voucher.id if reversal_voucher else None,
+        }
+
+    async def list_purchase_bills(
+        self,
+        supplier_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> list[PurchaseBill]:
+        """
+        List purchase bills for the tenant, optionally filtered by supplier and status.
+        """
+        stmt = select(PurchaseBill).where(
+            PurchaseBill.company_id == self.tenant.company_id,
+            PurchaseBill.is_deleted == False,
+        )
+        if supplier_id:
+            stmt = stmt.where(PurchaseBill.supplier_id == supplier_id)
+        if status:
+            statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
+            if statuses:
+                stmt = stmt.where(PurchaseBill.status.in_(statuses))
+        if self.tenant.branch_id:
+            stmt = stmt.where(
+                or_(
+                    PurchaseBill.branch_id == self.tenant.branch_id,
+                    PurchaseBill.branch_id.is_(None),
+                )
+            )
+        stmt = stmt.order_by(
+            PurchaseBill.bill_date.desc().nullslast(),
+            PurchaseBill.created_at.desc(),
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_purchase_bill(self, bill_id: str) -> PurchaseBill:
+        """
+        Retrieve a specific purchase bill by ID for the tenant.
+        """
+        stmt = select(PurchaseBill).where(
+            PurchaseBill.id == bill_id,
+            PurchaseBill.company_id == self.tenant.company_id,
+            PurchaseBill.is_deleted == False,
+        )
+        res = await self.db.execute(stmt)
+        bill = res.scalars().first()
+        if not bill:
+            raise HTTPException(status_code=404, detail="Purchase bill not found.")
+        return bill

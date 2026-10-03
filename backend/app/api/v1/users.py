@@ -15,7 +15,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_db, get_current_user, get_tenant_context, require_permission, TenantContext
 from ...models.auth import User, UserRole
 from ...schemas.user import (
     UserCreate, UserUpdate, UserResponse, UserListResponse, PasswordChange,
@@ -34,23 +34,24 @@ router = APIRouter()
     "/",
     response_model=StaffUserResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("staff_mgmt", "CREATE"))],
 )
 async def create_staff_user(
     req: StaffUserCreate,
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
     Create a new staff user profile.
     """
-    service = UserService(db)
+    service = UserService(db, tenant)
     return await service.create_staff_user(req)
 
 
 @router.get(
     "/",
     response_model=StaffUserListResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("staff_mgmt", "VIEW"))],
 )
 async def list_staff_users(
     skip: int = Query(0, ge=0),
@@ -59,13 +60,15 @@ async def list_staff_users(
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
     List all staff user accounts with filters.
     """
-    service = UserService(db)
+    service = UserService(db, tenant)
     total, staff_list = await service.list_staff(
-        skip=skip, limit=limit, role_filter=role, status_filter=status, search=search
+        skip=skip, limit=limit, role_filter=role, status_filter=status, search=search,
+        tenant=tenant,
     )
     return StaffUserListResponse(total=total, users=staff_list)
 
@@ -78,6 +81,7 @@ async def get_staff_user(
     user_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
     Retrieve user profile by ID.
@@ -88,8 +92,8 @@ async def get_staff_user(
             status_code=403,
             detail="You do not have permission to view another user's profile.",
         )
-    service = UserService(db)
-    user = await service.get_user(user_id)
+    service = UserService(db, tenant)
+    user = await service.get_user(user_id, tenant=tenant)
     return to_staff_response(user)
 
 
@@ -102,30 +106,32 @@ async def update_staff_user(
     req: StaffUserUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
     Update staff user profile.
     Field-level security validation is processed inside the user service.
     """
-    service = UserService(db)
-    return await service.update_staff_user(user_id, req, current_user)
+    service = UserService(db, tenant)
+    return await service.update_staff_user(user_id, req, current_user, tenant=tenant)
 
 
 @router.delete(
     "/{user_id}",
     status_code=200,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_permission("staff_mgmt", "DEACTIVATE"))],
 )
 async def deactivate_staff_user(
     user_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
     Soft delete / Deactivate a staff profile.
     """
-    service = UserService(db)
-    await service.deactivate_staff(user_id, current_user.id)
+    service = UserService(db, tenant)
+    await service.deactivate_staff(user_id, current_user.id, tenant=tenant)
     return {"success": True, "deletedId": user_id, "status": "Inactive"}
 
 

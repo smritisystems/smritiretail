@@ -28,6 +28,10 @@ from ..models.fulfillment import (
     DeliveryCommissionSettlement,
     ReverseLogisticsReturn,
 )
+from ..models.inventory import Product, StockMovement
+from ..models.sales import SalesInvoice, SalesOrderReservation
+from ..api.deps import TenantContext
+from .sales_stock_authority import SalesStockAuthority
 from ..schemas.fulfillment import (
     PackingSlipCreateRequest,
     PackingSlipResponse,
@@ -74,7 +78,7 @@ class FulfillmentEngine:
             status="PACKED",
             total_packages=req.total_packages,
             weight_kg=req.weight_kg,
-            created_at=now.replace(tzinfo=None),
+            created_at=now,
             created_by=created_by,
             is_active=True,
             is_deleted=False,
@@ -191,6 +195,66 @@ class FulfillmentEngine:
         ps = (await session.execute(stmt_ps)).scalars().first()
         if not ps:
             raise ValueError(f"Packing slip '{req.packing_slip_id}' not found.")
+        if ps.status == "DISPATCHED":
+            raise ValueError(f"Packing slip '{ps.packing_slip_number}' has already been dispatched.")
+
+        source_order_id = None
+        invoice_result = await session.execute(
+            select(SalesInvoice).where(
+                SalesInvoice.id == ps.sales_invoice_id,
+                SalesInvoice.company_id == company_id,
+                SalesInvoice.is_deleted == False,
+            )
+        )
+        source_invoice = invoice_result.scalars().first()
+        if source_invoice and isinstance(source_invoice.rule_snapshots, dict):
+            source_order_id = source_invoice.rule_snapshots.get("source_order_id")
+
+        # Check if invoice already deducted physical stock to prevent double deduction
+        invoice_already_deducted = False
+        if ps.sales_invoice_id:
+            inv_mov_stmt = select(func.count(StockMovement.id)).where(
+                StockMovement.company_id == company_id,
+                StockMovement.reference_doc_type.in_(["SALES_INVOICE", "Sales Invoice", "SALES INVOICE"]),
+                StockMovement.reference_doc_id == ps.sales_invoice_id,
+                StockMovement.movement_type == "OUTWARD_SALE",
+                StockMovement.is_deleted.is_(False),
+            )
+            inv_mov_count = (await session.execute(inv_mov_stmt)).scalar() or 0
+            if inv_mov_count > 0:
+                invoice_already_deducted = True
+
+        requested_items = req.items or [
+            type("PackingItem", (), {"product_id": item.product_id, "sku": item.sku, "quantity": item.quantity})
+            for item in ps.items
+        ]
+        locked_products: Dict[str, Product] = {}
+        if source_order_id:
+            for item in requested_items:
+                barcode = str(item.sku or "").strip()
+                if not barcode:
+                    raise ValueError("Dispatch item barcode is required.")
+                product_result = await session.execute(
+                    select(Product).where(
+                        Product.barcode == barcode,
+                        Product.company_id == company_id,
+                        Product.is_deleted == False,
+                    ).with_for_update()
+                )
+                product = product_result.scalars().first()
+                if not product:
+                    raise ValueError(f"Dispatch barcode '{barcode}' was not found in inventory.")
+                quantity = Decimal(str(item.quantity or 0))
+                if quantity <= 0:
+                    raise ValueError(f"Dispatch quantity for barcode '{barcode}' must be greater than zero.")
+                reserved = Decimal(str(product.reserved_stock or 0))
+                if reserved < quantity:
+                    raise ValueError(f"Barcode '{barcode}' has only {reserved} reserved for dispatch, requested {quantity}.")
+                if not invoice_already_deducted:
+                    physical = Decimal(str(product.stock or 0))
+                    if physical < quantity:
+                        raise ValueError(f"Barcode '{barcode}' has only {physical} physical stock, requested {quantity}.")
+                locked_products[barcode] = product
 
         now = datetime.now(timezone.utc)
         dsp_num = f"DSP-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
@@ -206,7 +270,7 @@ class FulfillmentEngine:
             tracking_number=tracking,
             driver_person_id=req.driver_person_id,
             status="DISPATCHED",
-            dispatch_date=now.replace(tzinfo=None),
+            dispatch_date=now,
             delivered_date=None,
             delivery_fee=req.delivery_fee,
             driver_commission=req.driver_commission,
@@ -250,6 +314,65 @@ class FulfillmentEngine:
                 dispatch_items.append(
                     DispatchItemResponse(id=di.id, product_id=di.product_id, quantity=di.quantity)
                 )
+
+        # Authoritative dispatch stock handling via SalesStockAuthority (zero double-deduction)
+        tenant_ctx = TenantContext(
+            company_id=company_id,
+            branch_id=getattr(ps, "branch_id", None) or "MAIN"
+        )
+        dispatch_lines = []
+        for item in requested_items:
+            barcode = str(item.sku or "").strip()
+            prod = locked_products.get(barcode)
+            if not prod and hasattr(item, "product_id") and item.product_id:
+                prod_stmt = select(Product).where(
+                    Product.id == item.product_id,
+                    Product.company_id == company_id,
+                    Product.is_deleted == False
+                )
+                prod = (await session.execute(prod_stmt)).scalars().first()
+            if prod:
+                dispatch_lines.append({
+                    "product_id": prod.id,
+                    "quantity": Decimal(str(item.quantity)),
+                    "sku": barcode or prod.sku
+                })
+
+        await SalesStockAuthority.record_dispatch_outward(
+            session=session,
+            tenant_ctx=tenant_ctx,
+            dispatch_id=dsp_id,
+            dispatch_no=dsp_num,
+            packing_slip_id=ps.id,
+            items=dispatch_lines,
+            invoice_id=ps.sales_invoice_id,
+            source_order_id=source_order_id,
+            user_id=created_by,
+        )
+
+        if source_order_id:
+            for item in requested_items:
+                barcode = str(item.sku).strip()
+                quantity = Decimal(str(item.quantity))
+                reservation_result = await session.execute(
+                    select(SalesOrderReservation).where(
+                        SalesOrderReservation.order_id == source_order_id,
+                        SalesOrderReservation.barcode == barcode,
+                        SalesOrderReservation.status.in_(["ACTIVE", "PARTIAL"]),
+                        SalesOrderReservation.is_deleted == False,
+                    ).with_for_update()
+                )
+                reservation = reservation_result.scalars().first()
+                if not reservation:
+                    raise ValueError(f"No active reservation found for dispatched barcode '{barcode}'.")
+                open_reserved = Decimal(str(reservation.reserved_quantity or 0)) - Decimal(str(reservation.released_quantity or 0)) - Decimal(str(reservation.consumed_quantity or 0))
+                if open_reserved < quantity:
+                    raise ValueError(f"Reservation for barcode '{barcode}' has only {open_reserved} available, requested {quantity}.")
+                reservation.consumed_quantity = Decimal(str(reservation.consumed_quantity or 0)) + quantity
+                if reservation.consumed_quantity + Decimal(str(reservation.released_quantity or 0)) >= Decimal(str(reservation.reserved_quantity or 0)):
+                    reservation.status = "CONSUMED"
+                else:
+                    reservation.status = "PARTIAL"
 
         ps.status = "DISPATCHED"
         await session.commit()
@@ -299,7 +422,7 @@ class FulfillmentEngine:
         commission_settled = False
 
         if target_status == "DELIVERED":
-            dsp.delivered_date = now.replace(tzinfo=None)
+            dsp.delivered_date = now
             # Settle driver commission if assigned
             if dsp.driver_person_id and (dsp.driver_commission or 0) > 0:
                 settlement = DeliveryCommissionSettlement(
@@ -310,7 +433,7 @@ class FulfillmentEngine:
                     participant_role="DRIVER",
                     total_commission_amount=dsp.driver_commission,
                     settlement_status="SETTLED",
-                    settled_date=now.replace(tzinfo=None),
+                    settled_date=now,
                     created_by=created_by,
                     is_active=True,
                     is_deleted=False,
@@ -381,7 +504,7 @@ class FulfillmentEngine:
             reason=req.reason,
             restock_status=req.restock_status.upper(),
             commission_reversed=True,
-            timestamp=now.replace(tzinfo=None),
+            timestamp=now,
             created_by=created_by,
             is_active=True,
             is_deleted=False,

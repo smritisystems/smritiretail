@@ -31,6 +31,11 @@ from app.models.control.control_models import ControlCompanyDatabase
 from app.models.outbox import IntegrationOutboxEvent
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 @pytest.mark.asyncio
 async def test_sanitize_company_db_name():
     assert sanitize_company_db_name("TATTLY") == "Smritibus_TATTLY"
@@ -49,10 +54,10 @@ async def test_control_registry_url_building():
         database_id="cdb_1",
         database_name="Smritibus_TATTLY",
         host_reference="localhost",
-        port_reference=5432,
+        port_reference=_PG_PORT,
     )
     url = ControlDatabaseRegistryService.build_connection_url(dummy)
-    assert url == "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_TATTLY"
+    assert url == f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/Smritibus_TATTLY"
 
 
 @pytest.mark.asyncio
@@ -73,12 +78,12 @@ async def test_router_tenant_isolation_security():
 @pytest.mark.asyncio
 async def test_lru_connection_pool_eviction():
     mgr = LRUConnectionPoolManager(max_pools=2, pool_size=1, max_overflow=1)
-    await mgr.get_session_factory("COMP_A", "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_COMPA")
-    await mgr.get_session_factory("COMP_B", "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_COMPB")
+    await mgr.get_session_factory("COMP_A", f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/Smritibus_COMPA")
+    await mgr.get_session_factory("COMP_B", f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/Smritibus_COMPB")
     assert mgr.active_pool_count == 2
 
     # Adding third pool evicts COMP_A
-    await mgr.get_session_factory("COMP_C", "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_COMPC")
+    await mgr.get_session_factory("COMP_C", f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/Smritibus_COMPC")
     assert mgr.active_pool_count == 2
     await mgr.dispose_all()
     assert mgr.active_pool_count == 0

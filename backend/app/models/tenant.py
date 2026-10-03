@@ -25,11 +25,12 @@ class Company(Base):
     name = Column(String(255), nullable=False)
     gst_number = Column(String(15), nullable=True)
     company_code = Column(String(50), nullable=True, unique=True, index=True)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     logo_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    modified_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 class Branch(Base):
     __tablename__ = "branches"
@@ -39,10 +40,11 @@ class Branch(Base):
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False, unique=True)
+    identity_code = Column(String(100), nullable=True, unique=True, index=True)
     is_active = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    modified_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     company = relationship("Company", backref="branches")

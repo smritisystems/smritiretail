@@ -1,0 +1,118 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Change Payment Mode</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+img.hcp2 { border:none; float:none; border-style:none; }
+span.hcp3 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Change Payment Mode</h1>
+
+<p class=Body-Text>This option addresses the flexibility of changing the 
+ payment details (mode of payment) once the bill is settled. This option 
+ is available only in the Retail flavour of Shoper POS and the menu option 
+ is restricted to Super users only.</p>
+
+<p class=Body-Text>Suppose a POS Super user settles a bill using <span class="hcp1">F7</span> option during billing by Cash mode 
+ as per the customer's choice. Later, the customer realises that enough 
+ cash is not available to settle the bill and offers credit card for settling 
+ the bill. In such a case, the Super user can change the payment mode from 
+ Cash to Credit Card.</p>
+
+<p class=Body-Text>Change Payment Mode is not permitted if:</p>
+
+<ul style="list-style: disc;"
+	type=disc>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text
+									style="margin-left: 47px;">Tally Interface 
+ is executed for a given transaction</p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text
+									style="margin-left: 47px;">Online polling 
+ is executed for a given transaction</p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text
+									style="margin-left: 47px;">Day End 
+ process is executed</p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text
+									style="margin-left: 47px;">Payment 
+ is made through credit note</p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text
+									style="margin-left: 47px;">Credit card 
+ transaction is submitted for realisation</p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text
+									style="margin-left: 47px;">Online authorisation 
+ for credit card is <span class="hcp1">ON</span></p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text
+									style="margin-left: 47px; font-weight: normal;">The 
+ bill is generated using older version of Shoper and migrated to <span class="hcp1">Shoper 9</span> </p></li>
+</ul>
+
+<p class=Body-Text>The options <span class="hcp1">Submission</span> 
+ and <span class="hcp1">Realisation</span> are also applicable 
+ for Gift Voucher transactions.</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Sales 
+ &gt; Change Payment Mode</span></p>
+
+<p class=Body-Text>The Change POS Payment Modes window is displayed.</p>
+
+<p class=Body-Text><img src="Change_Payment_Mode_1.gif" x-maintain-ratio="TRUE" style="width:475px; height:407px;" width="475" height="407" border="0" class="hcp2"></p>
+
+<p class=Body-Text><span class="hcp1">Bill Doc Prefix</span>: 
+ Enter the Document Prefix of the bill.</p>
+
+<p class=Body-Text><span class="hcp1">Bill Doc No.</span>: 
+ Enter the Document Number of the bill.</p>
+
+<p class=Body-Text><span class="hcp1">Total Bill Amount</span>: 
+ The total bill amount is displayed in this field.</p>
+
+<p class=Body-Text><span class="hcp1">Item Details</span>: 
+ The item details in the specified bill are displayed in this grid.</p>
+
+<p class=Body-Text><span class="hcp1">Payment Details</span>: 
+ The payment details like <span class="hcp1">Payment Mode</span>, 
+ <span class="hcp1">Paymode 
+ Code</span> and <span class="hcp1">Amount </span>are displayed 
+ in this grid. Here, you can make changes to the mode of payment and the 
+ amount. </p>
+
+<p class=Body-Text><img src="Change_Payment_Mode_2.gif" x-maintain-ratio="TRUE" style="width:475px; height:407px;" width="475" height="407" border="0" class="hcp2"></p>
+
+<p class=Body-Text>By default, Cash and Credit Card options are available 
+ to change the mode of payment. Any other mode of payment captured in billing 
+ can be changed to cash or credit card. If there are any payment modes, 
+ which cannot be changed are displayed in different colour.</p>
+
+<p class=Body-Text>The validations are carried out to make sure that the 
+ sum total of all the payment modes exactly matches the original bill amount 
+ displayed. </p>
+
+<p class=Body-Text><img src="Change_Payment_Mode_3.gif" x-maintain-ratio="TRUE" style="width:475px; height:407px;" width="475" height="407" border="0" class="hcp2"></p>
+
+<p class=Navigation><span class="hcp3">U</span><span class="hcp1">pdate</span>: To update the changes made in 
+ payment details</p>
+
+<p class=Navigation><span class="hcp3">C</span><span class="hcp1">lear</span>: To clear the payment details captured</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp3">x</span><span class="hcp1">it</span>: To exit Change Payment Mode option</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

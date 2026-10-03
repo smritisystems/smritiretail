@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-52F8AB",
+  "entity": "vendor",
+  "capability": "vendor.contact",
+  "asset_type": "component",
+  "proposed_name": "VendorContactTab.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorContactTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "0bcb305040c1fd630fd9a7c3a7e6b9e32b7a8d1b6b8b8381008495dd2ef8a9e5",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:58.908522+00:00",
+  "expires_at": "2026-09-18T05:21:58.908522+00:00",
+  "status": "ISSUED"
+}

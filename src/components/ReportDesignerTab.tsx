@@ -6,18 +6,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.28.0
+ * Version      : 6.68.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : BI & Reporting Center (Fiori Horizon Inspired Light Theme)
  */
 
 import React, { useState, useEffect } from "react";
-import { apiFetchV1 } from "../lib/apiFetchV1";
+import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
-import { recordAuditAction } from "../lib/apiFetch";
 import { GlobalExportService } from "../services/globalExportService.ts";
 import { formatDate, formatCurrency, formatNumber } from "../utils/formatters";
 import { motion, AnimatePresence } from "motion/react";
@@ -32,11 +31,14 @@ import {
   ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2,
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
-  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight
+  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight, TrendingUp
 } from "lucide-react";
 import { SalesOrderA4 } from "./templates/SalesOrderA4";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SmritiReportEngine } from "./reports/SmritiReportEngine";
+import { ConsolidatedBalanceSheetModal } from "./reports/ConsolidatedBalanceSheetModal.tsx";
+import { ScheduleReportModal } from "./reports/ScheduleReportModal.tsx";
+import { PLDashboardModal } from "./finance/PLDashboardModal.tsx";
 
 // Types for drill down context
 interface DrilldownBreadcrumb {
@@ -82,6 +84,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   // Toolbar action modals
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+  const [showBalanceSheetModal, setShowBalanceSheetModal] = useState<boolean>(false);
+  const [showPLDashboardModal, setShowPLDashboardModal] = useState<boolean>(false);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [shareType, setShareType] = useState<"Email" | "WhatsApp">("Email");
 
@@ -123,6 +127,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [stockValuationData, setStockValuationData] = useState<any>(null);
   const [genericReportData, setGenericReportData] = useState<any>(null);
   const [loadingReports, setLoadingReports] = useState<boolean>(false);
+  const [reportRefreshKey, setReportRefreshKey] = useState<number>(0);
   const [soPreviewData, setSoPreviewData] = useState<any | null>(null);
   const [showSoPrintModal, setShowSoPrintModal] = useState<boolean>(false);
   const [convertingOrderId, setConvertingOrderId] = useState<string | null>(null);
@@ -139,7 +144,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
           const valData = await apiFetchV1("/reports/stock-valuation");
           setStockValuationData(valData);
-        } else if (selectedReport.id === "RPT-PUR-002") {
+        } else if (selectedReport.id === "RPT-PUR-001" || selectedReport.id === "RPT-PUR-002") {
           const data = await apiFetchV1(`/reports/purchase-summary${params}`);
           setPurchaseReportData(data);
 
@@ -175,7 +180,10 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           const data = await apiFetchV1(`/reports/attribute-size-sales${params}`);
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-TAX-006") {
-          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}`);
+          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}&include_archived=true`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-TAX-007") {
+          const data = await apiFetchV1("/reports/invoice-reconciliation?bill_from=18&bill_to=137&include_archived=true");
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-MRC-005") {
           const data = await apiFetchV1(`/reports/article-color-size-matrix${params}`);
@@ -248,7 +256,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       }
     }
     loadReportsData();
-  }, [selectedReport, drillLevel, drillFilter, filters.startDate, filters.endDate]);
+  }, [selectedReport, drillLevel, drillFilter, filters.startDate, filters.endDate, reportRefreshKey]);
 
   // Debounced search query audit logging
   useEffect(() => {
@@ -380,14 +388,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       }
 
       if (rows.length === 0) {
-        rows = [
-          { report: moduleTitle, generated_at: new Date().toISOString(), status: "Report initialized" }
-        ];
-        columns = [
-          { key: "report", label: "Report", datatype: "text" },
-          { key: "generated_at", label: "Generated At", datatype: "datetime" },
-          { key: "status", label: "Status", datatype: "text" },
-        ];
+        showNotification("info", "No live data is available for this report and date range. Nothing was exported.");
+        return;
       }
 
       await GlobalExportService.openInGoogleSheets({
@@ -490,7 +492,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     const upperFormat = format.toUpperCase();
 
     // 1. Direct High-Fidelity Native Backend Excel/CSV Routes for Master Registers
-    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-001") {
+    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-006") {
       const link = document.createElement("a");
       link.href = "/api/v1/reports/export/tax-invoices-excel";
       link.download = "SMRITI_Statutory_Tax_Invoices_Master.xlsx";
@@ -697,6 +699,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   // Switch views
   const runReport = (report: any) => {
     setSelectedReport(report);
+    setReportRefreshKey(0);
     recordAuditAction("VIEW", "reports", report.id, `Report viewed: ${report.title}`);
     setBreadcrumbs([{ title: report.title, level: 0, id: report.id }]);
     setDrillLevel(0);
@@ -724,8 +727,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   const handleConvertToInvoice = async (orderId: string, orderNo: string) => {
     try {
-      setConvertingOrderId(orderId);
-      const res = await apiFetchV1(`/sales/orders/${orderId}/convert-to-invoice`, { method: "POST" });
+      const cleanId = String(orderId || "").replace(/^:/, "").trim();
+      setConvertingOrderId(cleanId || orderId);
+      const res = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanId)}/convert-to-invoice`, { method: "POST" });
       showNotification("success", `Sales Order ${orderNo} converted to Tax Invoice ${res.invoice_no}!`);
       const params = `?from_date=${filters.startDate}&to_date=${filters.endDate}`;
       if (selectedReport?.id === "RPT-SO-009") {
@@ -744,7 +748,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   const handlePreviewSO = async (orderId: string) => {
     try {
-      const order = await apiFetchV1(`/sales/orders/${orderId}`);
+      const cleanId = String(orderId || "").replace(/^:/, "").trim();
+      if (!cleanId) return;
+      const order = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanId)}`);
       setSoPreviewData(order);
       setShowSoPrintModal(true);
     } catch (e: any) {
@@ -809,6 +815,45 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <LayoutGrid size={13} /> New Dashboard
+            </button>
+            <button
+              type="button"
+              onClick={fetchStudios}
+              disabled={loading}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Reload the complete report catalogue from the database"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Reports List
+            </button>
+            <button
+              type="button"
+              id="reports-balance-sheet-btn"
+              onClick={() => setShowBalanceSheetModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Open Consolidated Multi-Branch Balance Sheet Report"
+            >
+              <FileSpreadsheet size={13} className="text-blue-600" />
+              <span>Balance Sheet</span>
+            </button>
+            <button
+              type="button"
+              id="reports-pnl-dashboard-btn"
+              onClick={() => setShowPLDashboardModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Inspect Branch Profit & Loss, COGS, Margins & Shrinkage"
+            >
+              <TrendingUp size={13} className="text-emerald-600" />
+              <span>Branch P&amp;L</span>
+            </button>
+            <button
+              type="button"
+              id="reports-schedule-distribution-btn"
+              onClick={() => setShowScheduleModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Automate Report Distribution via Cron & Dispatch Channels"
+            >
+              <Calendar size={13} className="text-purple-600" />
+              <span>Schedule</span>
             </button>
             {lastRefreshedAt && (
               <span className="hidden xl:flex items-center gap-1 text-[10px] text-theme-muted font-mono whitespace-nowrap" title={lastRefreshedAt.toLocaleString()}>
@@ -1197,6 +1242,17 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             {/* Universal Controls */}
             <div className="flex flex-wrap items-center gap-2">
 
+              <button
+                type="button"
+                onClick={() => setReportRefreshKey((key) => key + 1)}
+                disabled={loadingReports}
+                className="px-3 py-2 bg-theme-primary/10 border border-theme-primary/30 hover:bg-theme-primary/20 text-theme-primary rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Reload this report from the database"
+              >
+                <RefreshCw size={13} className={loadingReports ? "animate-spin" : ""} />
+                Refresh Data
+              </button>
+
               {/* Export Dropdown menu */}
               <div className="relative group">
                 <button className="px-3 py-2 bg-theme-surface-2 border border-theme-divider hover:border-blue-500/30 text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
@@ -1562,7 +1618,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             )}
 
             {/* Purchase Studio Outstanding Drilldown */}
-            {selectedReport.id === "RPT-PUR-002" && (
+            {(selectedReport.id === "RPT-PUR-001" || selectedReport.id === "RPT-PUR-002") && (
               <>
                 {drillLevel === 0 && (
                   <div className="overflow-x-auto text-xs">
@@ -3402,127 +3458,31 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         </div>
       )}
 
-      {/* AUTOMATED SCHEDULER POPUP MODAL */}
-      <AnimatePresence>
-        {showScheduleModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)}></div>
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-md shadow-2xl overflow-hidden relative z-50 font-sans"
-            >
-              <div className="p-5 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-amber-400" />
-                  <h4 className="font-bold text-theme-body text-sm">Schedule Report Distribution</h4>
-                </div>
-                <button onClick={() => setShowScheduleModal(false)} className="text-theme-muted hover:text-white">
-                  <X size={16} />
-                </button>
-              </div>
+      {/* CANONICAL CONSOLIDATED BALANCE SHEET MODAL */}
+      {showBalanceSheetModal && (
+        <ConsolidatedBalanceSheetModal
+          isOpen={showBalanceSheetModal}
+          onClose={() => setShowBalanceSheetModal(false)}
+        />
+      )}
 
-              <form onSubmit={handleRegisterSchedule} className="p-5 space-y-4 text-xs">
-                {activeRole === "Cashier" && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl flex items-start gap-2.5">
-                    <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold">Access Restrained (Rule 10)</div>
-                      <p className="text-[10px] mt-0.5">Cashiers are blocked from registering automated business reports schedules.</p>
-                    </div>
-                  </div>
-                )}
+      {/* CANONICAL BRANCH PROFIT & LOSS DASHBOARD MODAL */}
+      {showPLDashboardModal && (
+        <PLDashboardModal
+          isOpen={showPLDashboardModal}
+          onClose={() => setShowPLDashboardModal(false)}
+        />
+      )}
 
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Active Report</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={selectedReport?.title || ""}
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted cursor-not-allowed"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Recipient Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={scheduleForm.recipientEmail}
-                    onChange={(e) => setScheduleForm({...scheduleForm, recipientEmail: e.target.value})}
-                    placeholder="manager@smritibooks.com"
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500"
-                    disabled={activeRole === "Cashier"}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-theme-muted font-bold block uppercase">Frequency</label>
-                    <select
-                      value={scheduleForm.frequency}
-                      onChange={(e) => {
-                        let cron = "0 8 * * *";
-                        if (e.target.value === "Weekly") cron = "0 8 * * 1";
-                        if (e.target.value === "Monthly") cron = "0 8 1 * *";
-                        setScheduleForm({...scheduleForm, frequency: e.target.value, cron});
-                      }}
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-2 text-theme-body focus:outline-none focus:border-blue-500 cursor-pointer"
-                      disabled={activeRole === "Cashier"}
-                    >
-                      <option value="Daily">Daily Summary</option>
-                      <option value="Weekly">Weekly Summary</option>
-                      <option value="Monthly">Monthly Pivot</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-theme-muted font-bold block uppercase">Attachment Format</label>
-                    <select
-                      value={scheduleForm.format}
-                      onChange={(e) => setScheduleForm({...scheduleForm, format: e.target.value})}
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-2 text-theme-body focus:outline-none focus:border-blue-500 cursor-pointer"
-                      disabled={activeRole === "Cashier"}
-                    >
-                      <option value="PDF">PDF Document</option>
-                      <option value="Excel">Excel Sheet</option>
-                      <option value="CSV">CSV Format</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Calculated Cron Expression</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={scheduleForm.cron}
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted font-mono"
-                  />
-                </div>
-
-                <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-theme-divider">
-                  <button
-                    type="button"
-                    onClick={() => setShowScheduleModal(false)}
-                    className="px-4 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-muted hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={activeRole === "Cashier"}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-theme-muted text-white rounded-lg font-bold shadow-lg shadow-blue-500/10 transition-colors"
-                  >
-                    Register Schedule
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* CANONICAL AUTOMATED SCHEDULER MODAL */}
+      {showScheduleModal && (
+        <ScheduleReportModal
+          isOpen={showScheduleModal}
+          onClose={() => setShowScheduleModal(false)}
+          reportCode={selectedReport?.id || "RPT-SAL-001"}
+          reportTitle={selectedReport?.title || "Daily Sales & Tax Register"}
+        />
+      )}
 
       {/* DIRECT SHARING POPUP MODAL */}
       <AnimatePresence>

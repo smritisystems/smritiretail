@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0924-EE3EAF",
+  "entity": "purchase",
+  "capability": "purchase.po_sizewise_entry",
+  "asset_type": "component",
+  "proposed_name": "PoSizewiseTab.tsx",
+  "target_file_path": "src/components/purchase/PoSizewiseTab.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/PoSizewiseTab.tsx",
+  "content_hash": "3ba72af127c15185470b958a8527cf6769a94ec42497dc570b52a875dd0caa82",
+  "git_commit": "16aeaf5f3d3ea8ffba42ac5ea4a23fea3decf00d",
+  "issued_at": "2026-09-24T18:40:04.018197+00:00",
+  "expires_at": "2026-10-01T18:40:04.018197+00:00",
+  "status": "ISSUED"
+}

@@ -1,0 +1,211 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Importing into Secondary Db.</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body><script type="text/javascript" language="JavaScript1.2" x-save-method="compute-relative" src="../ehlpdhtm.js"></script>
+<script type="text/javascript"
+		language=JavaScript1.2>
+<!-- 
+if( typeof( kadovFilePopupInit ) != 'function' ) kadovFilePopupInit = new Function();if( typeof( kadovTextPopupInit ) != 'function' ) kadovTextPopupInit = new Function();
+ //-->
+</script>
+
+<div class=x-popup-text id=POPUP260052021  style='display: none; position: absolute' >
+<p class=Body-Text>The Item Master is validated before import into its 
+ Primary DB. The System </p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>checks for the correctness 
+ of the POS Company code in the file name as well as its contents before 
+ import. </p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>checks for the sequence number 
+ of the file being imported. The system will not import files of lower 
+ sequence numbers. In other words the sequence numbers of the files being 
+ imported should be increasing progressively.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>If there is any change in 
+ the item master’s file name and its contents, the system will abort the 
+ import of item masters.</p></li>
+</ul>
+
+<p class=Body-Text>The <span class="hcp1">Item Master</span> 
+ file is deleted after import into POS Primary DB. If an error is detected 
+ during import, the file is renamed as <span class="hcp1">Error 
+ &lt;file name&gt;</span> and the error file details are recorded in a 
+ Log file.</p>
+
+<p class=Body-Text>&nbsp;</p>
+</div>
+
+<div class=x-popup-text
+id=POPUP260047046
+ style='display: none; position: absolute' >
+<p class=Body-Text
+	style="margin-left: 7px;">This is a filter defined to select the required 
+ number of item masters in the secondary database for better manageability 
+ and improving response time.</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">The values of this parameter are configured 
+ in a manner so that the first digit denotes <span class="hcp1">Pricing 
+ Master Import</span> and the second digit, <span class="hcp1">Price 
+ Revision Import</span>.</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">In addition to the above, the following nos 
+ are used to filter data-<span class="hcp1">1/2/3/4/5/6</span>.</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">1 - SubClass2Code</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">2 - SubClass1Code</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">3 - SizeCode</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">4 - SubClass1Code + SubClass2Cd + SizeCode</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">5 - Stock No</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">6 - SubClass1Code + SizeCode</p>
+
+<p class=body-text
+	style="margin-left: 0px;">&nbsp;</p>
+</div>
+
+<div class=x-popup-text
+id=POPUP262279985
+ style='display: none; position: absolute' >
+<p class=Body-Text
+	style="margin-left: 7px;">This is a table providing details about the 
+ status of Item Masters import into POS Secondary DB. The contents of this 
+ table are transferred to HO to report whether the import was successful 
+ or not.</p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">&nbsp;</p>
+</div>
+
+<h1>Importing into Secondary Database</h1>
+
+<p class=Body-Text>In addition to Primary Database, Shoper 9 can maintain 
+ another database called Secondary Database. This database is similar to 
+ the primary database in all respects, but it will not be referred for 
+ any of the transactions that Shoper 9 carries out. It is also referred 
+ as <span class="hcp1">Global Database</span>, with respect 
+ to a particular chain location.</p>
+
+<p class=Body-Text>The Head Office creates pricing master in the desired 
+ file format for any price revision or new inclusion of items. At the Head 
+ Office, this database contains the pricing master details of all items 
+ generated from the time of inception of the chain. This database is never 
+ purged and hence, the details of any item are available permanently. Use 
+ this option to load the details of all new inclusions of items sent by 
+ HO into the Secondary database.</p>
+
+<p class=Body-Text>The process explained is for manual loading of Item 
+ Master into the Secondary Database. Auto loading is performed through 
+ a synch process defined at HO for the POS as per a schedule.</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Housekeeping 
+ &gt; Data Import &gt; Import into Secondary Db. (s)</span></p>
+
+<p class=Body-Text>The<span class="hcp1"> Item Master Import-Secondary 
+ DB</span> window is displayed.</p>
+
+<p class=Body-Text>&nbsp;<img 
+ src="Importing_Pricing_Master_into_the_Secondary_Db.gif"
+	x-maintain-ratio=TRUE
+	style="border: none;
+			width: 450px;
+			height: 209px;
+			float: none;
+			border-style: none;
+			border-style: none;"
+	width=450
+	height=209
+	border=0></p>
+
+<p class=Note><span class="hcp1">Note</span>: It is advisable 
+ to keep the main database small and compact, so that the operations are 
+ fast and optimized. Use the Secondary data base to retaining the item 
+ information which can be consumed in any transaction, if required.</p>
+
+<p class=Body-Text>The file imported into POS Primary DB is of the format 
+ SHFS02_xxx_scc_nnnnnn.txt and should be present in the Shoper-In folder.</p>
+
+<p class=Body-Text>The details of the file components are: &nbsp;</p>
+
+<p class=Body-Text>SHFS02: Enables you to identify the file type as Primary/ 
+ Secondary, </p>
+
+<p class=Body-Text>xxx: Shoper company code of the source of price master, 
+ i.e., file source/ Head Office,</p>
+
+<p class=Body-Text>scc: Your Shoper Company code/ destination, i.e., POS/ 
+ Distributor,</p>
+
+<p class=Body-Text>nnnnnn: Sequence number,</p>
+
+<p class=Body-Text>.txt: File extension</p>
+
+<p class=Body-Text
+	style="font-weight: bold;"><a class=dropspot
+									x-use-popup=#POPUP260052021
+									x-popup-type=pulldown
+									href="javascript:kadovTextPopup(this)"
+									id=a1>File Name Validation</a><script 
+ type="text/javascript"
+	language=JavaScript1.2><!--
+kadovTextPopupInit('a1');
+//--></script></p>
+
+<p class=Body-Text
+	style="font-weight: bold;"><a class=dropspot
+									x-use-popup=#POPUP260047046
+									x-popup-type=pulldown
+									href="javascript:kadovTextPopup(this)"
+									id=a2>Primary KeyMatch</a><script 
+ type="text/javascript"
+	language=JavaScript1.2><!--
+kadovTextPopupInit('a2');
+//--></script></p>
+
+<p class=Body-Text
+	style="font-weight: bold;"><a class=dropspot
+									x-use-popup=#POPUP262279985
+									x-popup-type=pulldown
+									href="javascript:kadovTextPopup(this)"
+									id=a3>POS Activity Log</a><script 
+ type="text/javascript"
+	language=JavaScript1.2><!--
+kadovTextPopupInit('a3');
+//--></script></p>
+
+<p class=Navigation><span class="hcp2">I</span><span class="hcp1">mport</span>: To load item master details to 
+ the database. An appropriate message is displayed if the above mentioned 
+ file is not available for import.</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp2">x</span><span class="hcp1">it</span>: To quit this option.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

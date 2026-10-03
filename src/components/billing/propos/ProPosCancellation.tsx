@@ -264,12 +264,13 @@ export const SmritiProPosCancelDlg: React.FC<SmritiProPosCancelDlgProps> = ({
           </button>
           <button
             type="button"
-            disabled={!foundBill}
+            disabled={!foundBill || !managerPin.trim()}
             onClick={handleConfirmCancellation}
-            className="px-6 py-2.5 bg-[#ba1a1a] hover:bg-[#93000a] text-white font-bold rounded-xl text-xs flex items-center gap-2 transition disabled:opacity-40 shadow-sm"
+            className="px-6 py-2.5 bg-[#ba1a1a] hover:bg-[#93000a] text-white font-bold rounded-xl text-xs flex items-center gap-2 transition disabled:opacity-40 shadow-sm cursor-pointer disabled:cursor-not-allowed"
+            title={!managerPin.trim() ? "Manager Authorization PIN required" : "Confirm cancellation"}
           >
             <AlertTriangle size={15} />
-            <span>Confirm Void / Cancel Bill</span>
+            <span>{!managerPin.trim() ? "Manager PIN Required" : "Authorize & Void Bill"}</span>
           </button>
         </div>
 

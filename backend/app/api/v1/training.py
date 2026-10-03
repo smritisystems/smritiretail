@@ -25,7 +25,7 @@ License      : Proprietary Commercial Software
 
 import hashlib
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Header, Depends, status
 from pydantic import BaseModel
@@ -72,12 +72,12 @@ def create_training_session(
         )
     
     random_id = str(uuid.uuid4())[:8].upper()
-    session_id = f"TRAIN-{datetime.utcnow().year}-{random_id}"
+    session_id = f"TRAIN-{datetime.now(timezone.utc).year}-{random_id}"
     
     session_data = {
         "session_id": session_id,
         "trainee_name": req.trainee_name,
-        "start_date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "start_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "current_day": 1,
         "level": "Level 1 — Retail Operator",
         "status": "Active",
@@ -91,7 +91,7 @@ def get_training_session(session_id: str):
         SESSION_DB[session_id] = {
             "session_id": session_id,
             "trainee_name": "Active Trainee",
-            "start_date": datetime.utcnow().strftime("%Y-%m-%d"),
+            "start_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "current_day": 1,
             "level": "Level 1 — Retail Operator",
             "status": "Active",
@@ -116,7 +116,7 @@ def issue_certificate(
     })
     
     cert_id = f"SMRITI-CERT-{str(uuid.uuid4())[:8].upper()}"
-    issued_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    issued_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     
     raw_hash_str = f"{cert_id}:{session_id}:{session['trainee_name']}:{score_percentage}:{issued_at}"
     cert_hash = hashlib.sha256(raw_hash_str.encode('utf-8')).hexdigest()
@@ -148,7 +148,7 @@ def verify_certificate(certificate_id: str):
                 "certificate_id": certificate_id,
                 "trainee_name": "Certified SMRITI Operator",
                 "certification_level": "Level 1 — Retail Operator",
-                "issued_at": datetime.utcnow().strftime("%Y-%m-%d"),
+                "issued_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                 "status": "VALID"
             }
         raise HTTPException(

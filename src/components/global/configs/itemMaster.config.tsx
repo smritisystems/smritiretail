@@ -94,6 +94,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
   columns: [
     {
       key: "name",
+      fieldId: "product.name",
       label: "Product / SKU Details",
       width: "240px",
       sortable: true,
@@ -122,6 +123,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "category",
+      fieldId: "product.category",
       label: "Category",
       width: "120px",
       render: (val) => (
@@ -132,6 +134,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "hsnCode",
+      fieldId: "product.hsn_code",
       label: "HSN Code",
       width: "100px",
       align: "center",
@@ -143,6 +146,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "buyingPrice",
+      fieldId: "product.buying_price",
       label: "Buying Price",
       width: "115px",
       align: "right",
@@ -155,6 +159,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "costPrice",
+      fieldId: "product.cost_price",
       label: "Cost Price",
       width: "115px",
       align: "right",
@@ -167,6 +172,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "mrp",
+      fieldId: "product.mrp",
       label: "MRP",
       width: "110px",
       align: "right",
@@ -179,6 +185,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "price",
+      fieldId: "product.price",
       label: "Selling Price",
       width: "120px",
       align: "right",
@@ -191,6 +198,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "stock",
+      fieldId: "product.stock",
       label: "Stock (Qty)",
       width: "110px",
       align: "right",
@@ -206,6 +214,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "gstRate",
+      fieldId: "product.gst_percentage",
       label: "GST %",
       width: "80px",
       align: "center",
@@ -220,6 +229,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       key: "status",
+      fieldId: "product.is_active",
       label: "Status",
       width: "90px",
       renderStatus: true
@@ -229,6 +239,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
   fields: [
     {
       name: "name",
+      fieldId: "product.name",
       label: "Product Name",
       type: "text",
       required: true,
@@ -237,6 +248,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "code",
+      fieldId: "product.code",
       label: "SKU / Item Code",
       type: "text",
       required: true,
@@ -247,6 +259,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "barcode",
+      fieldId: "product.barcode",
       label: "Barcode / EAN-13",
       type: "text",
       disabled: (_form, isEdit) => Boolean(isEdit),
@@ -256,6 +269,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "category",
+      fieldId: "product.category",
       label: "Product Category",
       type: "select",
       options: [
@@ -271,6 +285,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "buyingPrice",
+      fieldId: "product.buying_price",
       label: "Buying Price (₹)",
       type: "number",
       placeholder: "0.00",
@@ -278,6 +293,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "costPrice",
+      fieldId: "product.cost_price",
       label: "Cost Price (₹)",
       type: "number",
       placeholder: "0.00",
@@ -285,6 +301,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "mrp",
+      fieldId: "product.mrp",
       label: "Maximum Retail Price (MRP)",
       type: "number",
       placeholder: "0.00",
@@ -292,6 +309,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "price",
+      fieldId: "product.price",
       label: "Selling Price (₹ = MRP)",
       type: "number",
       required: true,
@@ -300,6 +318,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "stock",
+      fieldId: "product.stock",
       label: "Initial Stock Quantity",
       type: "number",
       placeholder: "100",
@@ -308,6 +327,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "gstRate",
+      fieldId: "product.gst_percentage",
       label: "GST Tax Rate (%)",
       type: "select",
       options: [
@@ -322,6 +342,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "hsnCode",
+      fieldId: "product.hsn_code",
       label: "HSN Code",
       type: "text",
       placeholder: "e.g. 6205",
@@ -330,6 +351,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
     },
     {
       name: "status",
+      fieldId: "product.is_active",
       label: "Status",
       type: "select",
       options: [

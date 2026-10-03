@@ -7,7 +7,7 @@
 # 
 # * Pushpa Devi Jawahar Mallah
 #   * Founder & Chairperson
-#   * Phone: +91 9324117007
+#   * Phone: [REDACTED_PUBLIC_PII]
 #   * Email: founder@aitdl.com
 # 
 # * Jawahar Ramkripal Mallah
@@ -52,5 +52,7 @@ docker compose up -d
 
 echo "====================================================================="
 echo "SMRITI Retail OS running in the background."
-echo "API endpoint: http://localhost:3000"
+echo "Web UI endpoint: http://localhost:8101"
+echo "API endpoint   : http://localhost:1981"
+echo "Database port  : localhost:2781"
 echo "====================================================================="

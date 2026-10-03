@@ -1,5 +1,44 @@
-export type GlobalFieldEntity = "item" | "customer" | "supplier" | "staff" | "invoice" | "warehouse" | "general";
-export type LookupGroup = "product" | "customer" | "supplier" | "staff" | "hsn" | "invoice" | "warehouse" | "general";
+export type GlobalFieldEntity = "item" | "customer" | "supplier" | "staff" | "invoice" | "warehouse" | "branch" | "general";
+/**
+ * LookupGroup — aligned with the canonical F2 LOOKUP_REGISTRY entity domain (22 entities).
+ * "product" is the governed System Master Product option used by Item Master.
+ */
+export type LookupGroup =
+  // Canonical product-domain entities (Gate 11E)
+  | "variant"        // /api/v1/variants  — canonical physical SKU (replaces deprecated "product")
+  | "item"           // /api/v1/items     — parent catalog/style
+  | "item_barcode"   // /api/v1/item-barcodes
+  // Master data
+  | "customer"
+  | "supplier"
+  | "staff"
+  | "hsn"
+  | "uom"
+  | "brand"
+  | "color"
+  | "size"
+  | "article"
+  | "style_article"
+  | "vendor_code"
+  | "department"
+  | "branch"
+  | "section"
+  | "fabric"
+  | "fit"
+  | "category"
+  | "subcategory"
+  | "season"
+  | "scheme"
+  | "terms"
+  | "store"
+  | "classification"
+  | "invoice"
+  | "warehouse"
+  | "location"
+  // Non-resolvable
+  | "general"
+  // Deprecated legacy alias — do NOT use for new field definitions
+  | "product";
 export type FieldDataType = "text" | "number" | "currency" | "date" | "select";
 
 export interface GlobalFieldDef {
@@ -19,6 +58,11 @@ export interface GlobalFieldDef {
 
 export interface GlobalFieldLookupRule {
   lookupGroup: LookupGroup;
+  /**
+   * FastAPI endpoint path relative to /api/v1.
+   * MANDATORY: Must reference canonical Gate-11E endpoints only.
+   * /api/v1/products MUST NOT appear here; use /variants, /items, or /item-barcodes.
+   */
   endpoint: string;
   searchFields: string[];
   insertValueKeys: string[];
@@ -55,7 +99,7 @@ export const GLOBAL_FIELD_CATALOG: GlobalFieldDef[] = [
     dataType: "text",
     required: true,
     aliases: ["sku", "stock no", "item code", "item no", "product code", "style code", "article no"],
-    lookupGroup: "product",
+    lookupGroup: "item",
     sourceTable: "items",
     displayWidthPct: 12,
     active: true,
@@ -69,7 +113,7 @@ export const GLOBAL_FIELD_CATALOG: GlobalFieldDef[] = [
     dataType: "text",
     required: true,
     aliases: ["barcode", "ean", "upc", "scan code", "scanner code"],
-    lookupGroup: "product",
+    lookupGroup: "item",
     sourceTable: "items",
     displayWidthPct: 14,
     active: true,
@@ -97,7 +141,7 @@ export const GLOBAL_FIELD_CATALOG: GlobalFieldDef[] = [
     dataType: "text",
     required: false,
     aliases: ["brand", "manufacturer", "label"],
-    lookupGroup: "product",
+    lookupGroup: "brand",
     sourceTable: "items",
     displayWidthPct: 10,
     active: true,
@@ -111,7 +155,7 @@ export const GLOBAL_FIELD_CATALOG: GlobalFieldDef[] = [
     dataType: "text",
     required: false,
     aliases: ["category", "department", "group"],
-    lookupGroup: "product",
+    lookupGroup: "category",
     sourceTable: "items",
     displayWidthPct: 10,
     active: true,
@@ -125,7 +169,7 @@ export const GLOBAL_FIELD_CATALOG: GlobalFieldDef[] = [
     dataType: "text",
     required: false,
     aliases: ["sub category", "subcategory", "segment"],
-    lookupGroup: "product",
+    lookupGroup: "subcategory",
     sourceTable: "items",
     displayWidthPct: 10,
     active: true,
@@ -139,7 +183,7 @@ export const GLOBAL_FIELD_CATALOG: GlobalFieldDef[] = [
     dataType: "text",
     required: false,
     aliases: ["color", "colour", "shade", "colorway"],
-    lookupGroup: "product",
+    lookupGroup: "color",
     sourceTable: "items",
     displayWidthPct: 9,
     active: true,
@@ -153,11 +197,53 @@ export const GLOBAL_FIELD_CATALOG: GlobalFieldDef[] = [
     dataType: "text",
     required: false,
     aliases: ["size", "waist", "fit"],
-    lookupGroup: "product",
+    lookupGroup: "size",
     sourceTable: "items",
     displayWidthPct: 8,
     active: true,
     description: "Size variant for the item."
+  },
+  {
+    id: "style_article",
+    entity: "item",
+    fieldKey: "style_article",
+    label: "Style / Article",
+    dataType: "text",
+    required: false,
+    aliases: ["style", "style code", "article", "article no", "style article"],
+    lookupGroup: "style_article",
+    sourceTable: "items",
+    displayWidthPct: 12,
+    active: true,
+    description: "Style or article identifier shared by item variants."
+  },
+  {
+    id: "vendor_code",
+    entity: "item",
+    fieldKey: "vendor_code",
+    label: "Vendor Code",
+    dataType: "text",
+    required: false,
+    aliases: ["vendor code", "vendor id", "vendor no", "supplier code"],
+    lookupGroup: "vendor_code",
+    sourceTable: "products",
+    displayWidthPct: 12,
+    active: true,
+    description: "Supplier or vendor-specific item code."
+  },
+  {
+    id: "branch_code",
+    entity: "branch",
+    fieldKey: "branch_code",
+    label: "Branch Code",
+    dataType: "text",
+    required: true,
+    aliases: ["branch code", "branch id", "branch no", "outlet code"],
+    lookupGroup: "branch",
+    sourceTable: "branches",
+    displayWidthPct: 12,
+    active: true,
+    description: "Authoritative code created and maintained on the Branch master."
   },
   {
     id: "mrp",
@@ -489,6 +575,15 @@ export const GLOBAL_FIELD_CATALOG: GlobalFieldDef[] = [
 export const GLOBAL_FIELD_LOOKUP_RULES: GlobalFieldLookupRule[] = [
   {
     lookupGroup: "product",
+    endpoint: "/masters/lookup/product/values",
+    searchFields: ["code", "name", "description"],
+    insertValueKeys: ["name", "code", "id"],
+    suggestOnF2: true,
+    matchPriority: 1,
+    defaultLimit: 200
+  },
+  {
+    lookupGroup: "item",
     endpoint: "/universal/items",
     searchFields: ["item_code", "barcode", "product_name", "brand", "category", "color", "size"],
     insertValueKeys: ["item_code", "barcode", "product_name", "id"],
@@ -498,13 +593,22 @@ export const GLOBAL_FIELD_LOOKUP_RULES: GlobalFieldLookupRule[] = [
   },
   {
     lookupGroup: "customer",
-    endpoint: "/customers",
+    endpoint: "/crm/customers",
     searchFields: ["customer_name", "customer_mobile", "customer_code", "customer_gstin"],
     insertValueKeys: ["customer_name", "customer_mobile", "customer_code", "id"],
     suggestOnF2: true,
     matchPriority: 2,
     defaultLimit: 200
   },
+  ...(["brand", "style_article", "size", "color", "category", "subcategory", "vendor_code"] as LookupGroup[]).map((lookupGroup, index) => ({
+    lookupGroup,
+    endpoint: `/masters/lookup/${lookupGroup}/values`,
+    searchFields: ["code", "name", "description"],
+    insertValueKeys: ["name", "code", "id"],
+    suggestOnF2: true,
+    matchPriority: 10 + index,
+    defaultLimit: 200
+  })),
   {
     lookupGroup: "supplier",
     endpoint: "/suppliers",
@@ -524,12 +628,57 @@ export const GLOBAL_FIELD_LOOKUP_RULES: GlobalFieldLookupRule[] = [
     defaultLimit: 200
   },
   {
+    lookupGroup: "branch",
+    endpoint: "/masters/branch",
+    searchFields: ["code", "name"],
+    insertValueKeys: ["code", "name", "id"],
+    suggestOnF2: true,
+    matchPriority: 7,
+    defaultLimit: 100
+  },
+  {
+    lookupGroup: "store",
+    endpoint: "/masters/store",
+    searchFields: ["code", "name", "store_type"],
+    insertValueKeys: ["code", "name", "id"],
+    suggestOnF2: true,
+    matchPriority: 8,
+    defaultLimit: 100
+  },
+  {
+    lookupGroup: "warehouse",
+    endpoint: "/masters/warehouse",
+    searchFields: ["code", "name", "city", "state"],
+    insertValueKeys: ["code", "name", "id"],
+    suggestOnF2: true,
+    matchPriority: 9,
+    defaultLimit: 100
+  },
+  {
+    lookupGroup: "location",
+    endpoint: "/wms/locations",
+    searchFields: ["code", "name", "warehouse_id", "aisle", "rack", "shelf", "bin_code"],
+    insertValueKeys: ["code", "name", "id"],
+    suggestOnF2: true,
+    matchPriority: 12,
+    defaultLimit: 200
+  },
+  {
     lookupGroup: "hsn",
-    endpoint: "/hsn-codes",
+    endpoint: "/localization/hsn-sac",
     searchFields: ["hsn_code", "description", "gst_rate"],
     insertValueKeys: ["hsn_code", "description", "id"],
     suggestOnF2: true,
     matchPriority: 5,
+    defaultLimit: 100
+  },
+  {
+    lookupGroup: "uom",
+    endpoint: "/localization/uoms",
+    searchFields: ["code", "name", "uqc_code"],
+    insertValueKeys: ["code", "name", "id"],
+    suggestOnF2: true,
+    matchPriority: 11,
     defaultLimit: 100
   },
   {

@@ -7,7 +7,7 @@
  * Version      : 3.105.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -61,7 +61,7 @@ function buildSampleIPOs(): InterStorePO[] {
     { lineId: "IPOL-3", pickedQty: 30  },
   ], "PICKER-01");
 
-  // IPO 2: Draft â€” just created
+  // IPO 2: Draft — just created
   const ipo2 = IPOEngine.createIPO({
     requestingBranch: "BR-BLR-01", fulfillingBranch: "BR-MUM-01",
     requestedBy: "MGR-BLR-01",
@@ -107,7 +107,7 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
     if (action === "grn")      { o = IPOEngine.generateAutoGRN(o, o.lines.map((l) => ({ lineId: l.lineId, receivedQty: l.dispatchedQty })), "RECV"); setActiveTab("GRN"); }
     if (action === "close")    o = IPOEngine.close(o, "STORE-MGR");
     update(o);
-    onNotification?.("IPO Updated", `${o.ipoNo} â†’ ${o.status}`, "success");
+    onNotification?.("IPO Updated", `${o.ipoNo} → ${o.status}`, "success");
   };
 
   const NEXT_ACTION: Partial<Record<IPOStatus, { label: string; action: string; color: string }>> = {
@@ -130,7 +130,7 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Inter-Store Purchase Order (IPO) Studio</h2>
-              <p className="text-xs text-slate-400">Branch-to-Branch Requisition Â· Approval Â· Picking Â· Dispatch Â· Auto-GRN</p>
+              <p className="text-xs text-slate-400">Branch-to-Branch Requisition · Approval · Picking · Dispatch · Auto-GRN</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -154,10 +154,10 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
               <button key={o.ipoId} onClick={() => { setSelectedId(o.ipoId); setActiveTab("DETAIL"); }}
                 className={`w-full text-left p-3 rounded-xl border transition-all ${selectedId === o.ipoId ? "bg-indigo-950/20 border-indigo-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
                 <div className="text-xs font-mono font-bold text-slate-200">{o.ipoNo}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{o.requestingBranch} â† {o.fulfillingBranch}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{o.requestingBranch} ← {o.fulfillingBranch}</div>
                 <div className="flex items-center justify-between mt-1.5">
                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[o.status]}`}>{o.status.replace(/_/g, " ")}</span>
-                  {o.totalValue > 0 && <span className="text-[10px] font-mono text-slate-400">â‚¹{o.totalValue.toLocaleString("en-IN")}</span>}
+                  {o.totalValue > 0 && <span className="text-[10px] font-mono text-slate-400">₹{o.totalValue.toLocaleString("en-IN")}</span>}
                 </div>
               </button>
             ))}
@@ -171,7 +171,7 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
                   <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-lg font-bold font-mono text-slate-100">{selected.ipoNo}</p>
-                      <p className="text-xs text-slate-400">{selected.requestingBranch} â† {selected.fulfillingBranch}</p>
+                      <p className="text-xs text-slate-400">{selected.requestingBranch} ← {selected.fulfillingBranch}</p>
                       <p className="text-[10px] text-slate-500 mt-0.5">Requested by: {selected.requestedBy}</p>
                       {selected.approvedBy && <p className="text-[10px] text-emerald-400">Approved by: {selected.approvedBy}</p>}
                       {selected.dispatchRef && <p className="text-[10px] text-sky-400">Dispatch ref: {selected.dispatchRef}</p>}
@@ -193,7 +193,7 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
                       { label: "Requested Qty",  value: selected.totalRequestedQty,  color: "text-slate-300" },
                       { label: "Dispatched Qty", value: selected.totalDispatchedQty, color: "text-indigo-400" },
                       { label: "Fulfillment %",  value: `${selected.fulfillmentRate}%`, color: selected.fulfillmentRate >= 90 ? "text-emerald-400" : "text-amber-400" },
-                      { label: "Total Value",    value: `â‚¹${selected.totalValue.toLocaleString("en-IN")}`, color: "text-violet-400" },
+                      { label: "Total Value",    value: `₹${selected.totalValue.toLocaleString("en-IN")}`, color: "text-violet-400" },
                     ].map((m) => (
                       <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-3 text-center">
                         <div className={`text-base font-black font-mono ${m.color}`}>{m.value}</div>
@@ -221,9 +221,9 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
                           <tr key={l.lineId}>
                             <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku}</p></td>
                             <td className="py-2 px-3 text-right text-slate-400">{l.requestedQty}</td>
-                            <td className="py-2 px-3 text-right text-sky-400">{l.approvedQty || "â€”"}</td>
-                            <td className="py-2 px-3 text-right text-indigo-400">{l.dispatchedQty || "â€”"}</td>
-                            <td className="py-2 px-3 text-right text-slate-200">â‚¹{l.lineValue.toLocaleString("en-IN") || "â€”"}</td>
+                            <td className="py-2 px-3 text-right text-sky-400">{l.approvedQty || "—"}</td>
+                            <td className="py-2 px-3 text-right text-indigo-400">{l.dispatchedQty || "—"}</td>
+                            <td className="py-2 px-3 text-right text-slate-200">₹{l.lineValue.toLocaleString("en-IN") || "—"}</td>
                             <td className="py-2 px-3 text-center">
                               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
                                 l.lineStatus === "FULFILLED" ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/20" :
@@ -246,7 +246,7 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
                         <div key={e.auditId} className="flex items-start gap-3 px-3 py-2.5 bg-slate-800/30 border border-slate-800/60 rounded-xl text-xs">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border mt-0.5 flex-shrink-0 ${STATUS_STYLE[e.toStatus]}`}>{e.toStatus.replace(/_/g, " ")}</span>
                           <div>
-                            <p className="text-[10px] text-slate-500 font-mono">{e.performedBy} Â· {new Date(e.timestamp).toLocaleString("en-IN")}</p>
+                            <p className="text-[10px] text-slate-500 font-mono">{e.performedBy} · {new Date(e.timestamp).toLocaleString("en-IN")}</p>
                             {e.note && <p className="text-slate-400 mt-0.5">{e.note}</p>}
                           </div>
                         </div>
@@ -262,10 +262,10 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <div>
                         <p className="text-lg font-bold font-mono text-slate-100">{selected.autoGRN.grnNo}</p>
-                        <p className="text-xs text-slate-400">Receiving: {selected.autoGRN.receivingBranch} Â· Generated: {new Date(selected.autoGRN.generatedAt).toLocaleString("en-IN")}</p>
+                        <p className="text-xs text-slate-400">Receiving: {selected.autoGRN.receivingBranch} · Generated: {new Date(selected.autoGRN.generatedAt).toLocaleString("en-IN")}</p>
                       </div>
                       <span className={`text-sm font-black px-3 py-1.5 rounded-full border ${selected.autoGRN.hasVariance ? "text-rose-300 bg-rose-500/20 border-rose-500/30" : "text-emerald-300 bg-emerald-500/20 border-emerald-500/30"}`}>
-                        {selected.autoGRN.hasVariance ? "âš  Variance Detected" : "âœ“ Fully Received"}
+                        {selected.autoGRN.hasVariance ? "? Variance Detected" : "? Fully Received"}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -294,8 +294,8 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
                               <td className="py-2 px-3 font-sans text-slate-300 text-xs">{l.productName}<div className="text-[10px] text-slate-500">{l.sku}</div></td>
                               <td className="py-2 px-3 text-right text-indigo-400">{l.dispatchedQty}</td>
                               <td className="py-2 px-3 text-right text-emerald-400">{l.receivedQty}</td>
-                              <td className="py-2 px-3 text-right text-rose-400">{l.shortQty > 0 ? l.shortQty : "â€”"}</td>
-                              <td className="py-2 px-3 text-center">{l.hasVariance ? <span className="text-rose-400">âš </span> : <span className="text-emerald-400">âœ“</span>}</td>
+                              <td className="py-2 px-3 text-right text-rose-400">{l.shortQty > 0 ? l.shortQty : "—"}</td>
+                              <td className="py-2 px-3 text-center">{l.hasVariance ? <span className="text-rose-400">?</span> : <span className="text-emerald-400">?</span>}</td>
                             </tr>
                           ))}
                         </tbody>

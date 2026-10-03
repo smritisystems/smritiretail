@@ -1,0 +1,117 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Importing Item Master </title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><script language="javascript" src="../ehlpdhtm.js"></script>
+<style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Importing Item Master </h1>
+
+<p class=Body-Text>To maintain uniformity of item details across the chain 
+ and to avoid duplication, the head office sends details of new items added, 
+ to all the POS location. The items master can also be sent by other chain 
+ constituent. The POS locations can use this option to import Item Masters 
+ from HO.</p>
+
+<p class=Body-Text>The process explained is for manual loading of Item 
+ Master. Auto loading is performed through a synch process defined at HO 
+ for the POS as per a schedule.</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Housekeeping 
+ &gt; Data Import &gt; Item Master</span></p>
+
+<p class=Body-Text>The <span class="hcp1">Item Master Import 
+ -Primary DB</span> window is displayed. </p>
+
+<p class=Body-Text>&nbsp;<img 
+ src="Importing_Item_Master.gif"
+	x-maintain-ratio=TRUE
+	style="border: none;
+			width: 450px;
+			height: 209px;
+			float: none;
+			border-style: none;"
+	width=450
+	height=209
+	border=0></p>
+
+<p class=Body-Text>The price master file imported into POS Primary DB is 
+ of the format SHFM02_xxx_scc_nnnnnn.txt and should be present in the Shoper-In 
+ folder.</p>
+
+<p class=Body-Text>The details of the file components are: &nbsp;</p>
+
+<p class=Body-Text>SHFM02: Enables you to identify the file type as Primary, 
+ </p>
+
+<p class=Body-Text>xxx: Shoper company code of the source of price master, 
+ i.e., file source/ Head Office,</p>
+
+<p class=Body-Text>scc: Your Shoper Company code/ destination, i.e., POS/ 
+ Distributor,</p>
+
+<p class=Body-Text>nnnnnn: Sequence number,</p>
+
+<p class=Body-Text>.txt: File extension</p>
+
+<p class=Body-Text
+	style="font-weight: bold;"><span class="hcp1">File Name 
+ Validation</span></p>
+
+<p class=Body-Text>The Item Master is validated before import into its 
+ Primary DB. The System </p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>checks for the correctness 
+ of the POS Company code in the file name as well as its contents before 
+ import. </p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>checks for the sequence number 
+ of the file being imported. The system will not import files of lower 
+ sequence numbers. In other words the sequence numbers of the files being 
+ imported should be increasing progressively.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>If there is any change in 
+ the item master’s file name and its contents, the system will abort the 
+ import of item masters.</p></li>
+</ul>
+
+<p class=Body-Text>The <span class="hcp1">Item Master</span> 
+ file is deleted after import into POS Primary DB. If an error is detected 
+ during import, the file is renamed as <span class="hcp1">Error 
+ &lt;file name&gt;</span> and the error file details are recorded in a 
+ Log file.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note><span class="hcp1">Note:</span> The file SHFM02scc.TXT 
+ (Where scc = Shoper Company Code) sent by Shoper POS of versions earlier 
+ to release 3.0 can also be used for import. This file is to be present 
+ in the Shoper-In Folder.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">POS Activity Log</p>
+
+<p class=Body-Text>This is a table providing details about the status of 
+ Item Masters import into POS Primary DB. The contents of this table are 
+ transferred to HO to report whether the import was successful or not.</p>
+
+<p class=Navigation><span class="hcp2">I</span><span class="hcp1">mport</span>: To load item master details to 
+ the database. An appropriate message is displayed if the above mentioned 
+ file is not available for import.</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp2">x</span><span class="hcp1">it</span>: To quit this option.</p>
+
+</body>
+</html>

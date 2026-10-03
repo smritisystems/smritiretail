@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-0EF856",
+  "entity": "vendor",
+  "capability": "vendor.banking",
+  "asset_type": "component",
+  "proposed_name": "VendorBankingTab.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/tabs/VendorBankingTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "8c5e78a74b411580bb09833014fb412b4eec0d023af61615e1e718f78b3a933c",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:59.075243+00:00",
+  "expires_at": "2026-09-18T05:21:59.075243+00:00",
+  "status": "ISSUED"
+}

@@ -1,43 +1,64 @@
 /**
  * Project      : SMRITI Retail OS
- * Repository   : SMRITIRetailNX
- * Organization : AITDL NETWORKS
- *
- * Founders
- *
- * * Pushpa Devi Jawahar Mallah
- *   * Founder & Chairperson
- *   * Phone: +91 9324117007
- *   * Email: founder@aitdl.com
- *
- * * Jawahar Ramkripal Mallah
- *   * Founder, Chief Executive Officer (CEO) & Chief Software Architect
- *   * Email: founder@aitdl.com
- *
- * * Websites: aitdl.com | erpnbook.com | smritibooks.com
- *
- * * Version    : 3.21.0
- * * Created    : 2026-07-10
- * * Modified   : 2026-07-16
- * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
- * * License    : Proprietary Commercial Software
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 6.45.2
+ * Created      : 2026-07-10
+ * Modified     : 2026-09-27
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Classification: Internal
  */
 
 import React, { useState } from "react";
-import { motion } from "motion/react";
-import { Shield, User, Lock, ArrowRight, AlertTriangle } from "lucide-react";
-import { APP_VERSION_LABEL } from "../config/version.ts";
+import { motion, AnimatePresence } from "motion/react";
+import { Info, X, Globe, ChevronDown } from "lucide-react";
 import { persistTenantContext, normalizeBranchId, normalizeCompanyId } from "../lib/apiFetchV1";
+import {
+  SmritiBrandLogo,
+  BrandPanel,
+  LoginCard,
+  EnterpriseDock,
+  ResponsiveBackground,
+  SUPPORTED_LANGUAGES,
+} from "./login";
 
-interface LoginScreenProps {
-  onLoginSuccess: (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => void;
+// ── Types ──────────────────────────────────────────────────────────────────
+
+export interface LoginScreenProps {
+  onLoginSuccess: (user: {
+    role: string;
+    name: string;
+    passwordResetRequired?: boolean;
+    companyId?: string;
+    branchId?: string;
+  }) => void;
+  sessionNotice?: string | null;
+  onClearSessionNotice?: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+// ── Component ──────────────────────────────────────────────────────────────
+
+export const LoginScreen: React.FC<LoginScreenProps> = ({
+  onLoginSuccess,
+  sessionNotice,
+  onClearSessionNotice,
+}) => {
+  const [username, setUsername]                 = useState("");
+  const [password, setPassword]                 = useState("");
+  const [showPassword, setShowPassword]         = useState(false);
+  const [rememberMe, setRememberMe]             = useState(true);
+  const [selectedLanguage, setSelectedLanguage] = useState("English");
+  const [isLangOpen, setIsLangOpen]             = useState(false);
+  const [activePersona, setActivePersona]       = useState<string | null>("Manager");
+  const [error, setError]                       = useState<string | null>(null);
+  const [loading, setLoading]                   = useState(false);
+  const [showForgotModal, setShowForgotModal]   = useState(false);
+  const [noticeDismissed, setNoticeDismissed]   = useState(false);
+
+  // ── Authentication logic (PRESERVED & GOVERNED) ──────────────────────────
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,25 +66,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       setError("Please fill in all fields.");
       return;
     }
-
     setError(null);
     setLoading(true);
-
     try {
-      const loginPayload = {
-        username,
-        password,
-      };
-
       const res = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginPayload),
+        body: JSON.stringify({ username, password }),
       });
-
       const data = await res.json();
       if (res.ok && data.access_token) {
-        // Clear any stale auth context before establishing a fresh session.
         localStorage.removeItem("smriti_session_token");
         localStorage.removeItem("smriti_jwt_token");
         localStorage.removeItem("smriti_refresh_token");
@@ -71,177 +83,213 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         localStorage.removeItem("smriti_company_code");
         localStorage.removeItem("smriti_branch_id");
         localStorage.setItem("smriti_jwt_token", data.access_token);
-        if (data.refresh_token) {
-          localStorage.setItem("smriti_refresh_token", data.refresh_token);
+        if (data.refresh_token) localStorage.setItem("smriti_refresh_token", data.refresh_token);
+        if (rememberMe) {
+          localStorage.setItem("smriti_saved_operator", username);
+        } else {
+          localStorage.removeItem("smriti_saved_operator");
         }
-        const user = data.user ?? {};
+        const user   = data.user ?? {};
         const compId = normalizeCompanyId(data.company_id ?? user.company_id ?? "COMP-001");
-        const brId = normalizeBranchId(data.branch_id ?? user.branch_id ?? "BR-MAIN-001");
+        const brId   = normalizeBranchId(data.branch_id ?? user.branch_id ?? "BR-MAIN-001");
         persistTenantContext({
-          companyId: compId,
+          companyId:   compId,
           companyCode: data.company_code ?? user.company_code,
-          branchId: brId,
-          branchCode: data.branch_code ?? user.branch_code,
+          branchId:    brId,
+          branchCode:  data.branch_code ?? user.branch_code,
           companyName: data.company_name ?? user.company_name,
-          branchName: data.branch_name ?? user.branch_name,
+          branchName:  data.branch_name ?? user.branch_name,
         });
         onLoginSuccess({
           role: user.role ?? "",
           name: user.display_name || user.full_name || user.username || username,
           passwordResetRequired: data.password_reset_required ?? false,
           companyId: compId,
-          branchId: brId,
+          branchId:  brId,
         });
       } else {
-        const errMsg = typeof data.detail === "string"
-          ? data.detail
-          : Array.isArray(data.detail)
-          ? data.detail[0]?.msg ?? "Authentication failed."
-          : data.error || "Authentication failed.";
+        const errMsg =
+          typeof data.detail === "string"
+            ? data.detail
+            : Array.isArray(data.detail)
+            ? data.detail[0]?.msg ?? "Authentication failed."
+            : data.error || "Authentication failed.";
         setError(errMsg);
       }
-    } catch (err) {
+    } catch {
       setError("Failed to connect to authentication server.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleQuickPersona = (role: string, u: string, pw: string) => {
+    setUsername(u);
+    setPassword(pw);
+    setActivePersona(role);
+    setError(null);
+  };
+
+  const handleDismissNotice = () => {
+    setNoticeDismissed(true);
+    onClearSessionNotice?.();
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-theme-base text-theme-primary px-4 transition-colors duration-300">
-      <div className="absolute inset-0 bg-radial from-blue-600/10 via-transparent to-transparent opacity-60 pointer-events-none" />
+    <div className="relative min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden font-sans select-none bg-slate-50 text-slate-900">
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-md bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-2xl overflow-hidden relative z-10"
+      {/* ── Responsive Background Layers ── */}
+      <ResponsiveBackground />
+
+      {/* ── Top Mobile Brand Banner (< lg) ── */}
+      <header
+        className="relative z-20 w-full lg:hidden px-4 pt-4 pb-2 flex items-center justify-between shrink-0"
+        aria-label="SMRITI Retail OS mobile header"
       >
-        {/* Decorative Top Accent */}
-        <div className="h-1.5 bg-blue-600 w-full" />
+        <SmritiBrandLogo size="sm" showTagline={false} />
 
-        <div className="p-8">
-          {/* Header */}
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xl font-display text-white border border-blue-500 shadow-md">
-              S
-            </div>
-            <div>
-              <h2 className="font-display font-bold text-lg text-theme-body leading-none">
-                SMRITI Retail OS
-              </h2>
-              <p className="text-xs text-theme-muted mt-1">
-                Enterprise Experience & Operations Login
-              </p>
-            </div>
-          </div>
+        {/* Mobile Language Selector */}
+        <div className="relative">
+          <button
+            type="button"
+            aria-label="Select language"
+            aria-expanded={isLangOpen}
+            onClick={() => setIsLangOpen(!isLangOpen)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-200/90 bg-white/90 backdrop-blur-sm text-xs font-semibold text-slate-700 hover:border-blue-400 cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <Globe size={13} className="text-slate-500 flex-shrink-0" aria-hidden="true" />
+            <span>{selectedLanguage}</span>
+            <ChevronDown size={11} className="text-slate-400 flex-shrink-0" aria-hidden="true" />
+          </button>
+          <AnimatePresence>
+            {isLangOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 5 }}
+                className="absolute right-0 mt-1.5 w-36 rounded-xl bg-white border border-slate-200 shadow-xl py-1 z-50 text-slate-800"
+                role="listbox"
+                aria-label="Mobile language options"
+              >
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    role="option"
+                    aria-selected={selectedLanguage === lang.label.split(" ")[0]}
+                    onClick={() => {
+                      setSelectedLanguage(lang.label.split(" ")[0]);
+                      setIsLangOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition cursor-pointer font-medium focus:outline-none"
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </header>
 
-          {/* Error Callout */}
-          {error && (
+      {/* ── Main Responsive Layout ── */}
+      <main
+        className="relative z-20 flex-1 w-full max-w-[1650px] mx-auto px-4 sm:px-6 md:px-8 lg:px-12 py-3 sm:py-5 lg:py-6 flex flex-col justify-center"
+        role="main"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-12 items-center">
+
+          {/* ── Desktop Left Column: Brand & 6 Feature Pillars (Hidden on mobile & tablet) ── */}
+          <BrandPanel className="hidden lg:flex lg:col-span-6 xl:col-span-5" />
+
+          {/* ── Center Column: Frosted Glass Login Card (Centered on all viewports) ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.10 }}
+            className="lg:col-span-6 xl:col-span-5 flex justify-center items-center w-full"
+          >
+            <LoginCard
+              username={username}
+              setUsername={setUsername}
+              password={password}
+              setPassword={setPassword}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+              rememberMe={rememberMe}
+              setRememberMe={setRememberMe}
+              selectedLanguage={selectedLanguage}
+              setSelectedLanguage={setSelectedLanguage}
+              isLangOpen={isLangOpen}
+              setIsLangOpen={setIsLangOpen}
+              activePersona={activePersona}
+              onSelectPersona={handleQuickPersona}
+              error={error}
+              loading={loading}
+              sessionNotice={sessionNotice}
+              noticeDismissed={noticeDismissed}
+              onDismissNotice={handleDismissNotice}
+              onSubmit={handleSubmit}
+              onForgotPassword={() => setShowForgotModal(true)}
+            />
+          </motion.div>
+
+        </div>
+      </main>
+
+      {/* ── Bottom Enterprise Floating Dock (Desktop only, hidden on mobile & tablet) ── */}
+      <EnterpriseDock className="hidden lg:block" />
+
+      {/* ── Forgot Password Modal ── */}
+      <AnimatePresence>
+        {showForgotModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="forgot-modal-title"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="mb-5 p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-start space-x-2.5 font-mono"
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 relative max-h-[90dvh] overflow-y-auto text-slate-900"
             >
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-              <span>{error}</span>
+              <button
+                type="button"
+                aria-label="Close password assistance dialog"
+                onClick={() => setShowForgotModal(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg p-1"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                  <Info size={20} />
+                </div>
+                <div>
+                  <h2 id="forgot-modal-title" className="font-display font-bold text-base text-slate-900">
+                    Operator Security Assistance
+                  </h2>
+                  <p className="text-xs text-slate-500">SMRITI Identity &amp; Access Governance</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed mb-6">
+                Operator passwords are encrypted with enterprise-grade salt hashes. If you have forgotten your password or your operator ID has been locked, please contact your store supervisor or system administrator to reissue operator credentials.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                className="w-full min-h-[44px] py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                Understood
+              </button>
             </motion.div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-
-            <div>
-              <label className="block text-[10px] font-mono font-bold text-theme-muted uppercase tracking-wider mb-1.5">
-                Operator ID / Username
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-theme-muted">
-                  <User size={14} />
-                </div>
-                <input
-                  type="text"
-                  id="login-username"
-                  aria-label="Operator ID / Username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  disabled={loading}
-                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-10 pr-4 py-2.5 text-xs text-theme-body placeholder-theme-muted/50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all font-semibold"
-                  placeholder="e.g. manager"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="login-password" className="block text-[10px] font-mono font-bold text-theme-muted uppercase tracking-wider mb-1.5">
-                Security Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-theme-muted">
-                  <Lock size={14} />
-                </div>
-                <input
-                  type="password"
-                  id="login-password"
-                  aria-label="Security Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl pl-10 pr-4 py-2.5 text-xs text-theme-body placeholder-theme-muted/50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all font-semibold"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold font-display rounded-xl shadow-lg border border-blue-500 hover:border-blue-400 transition-all flex items-center justify-center space-x-2 text-xs cursor-pointer select-none disabled:opacity-50"
-            >
-              <span>{loading ? "Verifying..." : "Authorize Operator"}</span>
-              <ArrowRight size={14} />
-            </button>
-          </form>
-
-          {/* Quick-Fill Credentials Helper */}
-          <div className="mt-5 pt-4 border-t border-theme-divider">
-            <p className="text-[10px] font-mono text-theme-muted uppercase tracking-wider mb-2 text-center">
-              Quick Select Demo Persona
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => { setUsername("admin"); setPassword("Admin@123"); setError(null); }}
-                className="py-1.5 px-2 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-lg text-[10px] font-semibold text-theme-body transition-all text-center"
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => { setUsername("manager"); setPassword("Manager@123"); setError(null); }}
-                className="py-1.5 px-2 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-lg text-[10px] font-semibold text-theme-body transition-all text-center"
-              >
-                Manager
-              </button>
-              <button
-                type="button"
-                onClick={() => { setUsername("cashier"); setPassword("Cashier@123"); setError(null); }}
-                className="py-1.5 px-2 bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider rounded-lg text-[10px] font-semibold text-theme-body transition-all text-center"
-              >
-                Cashier
-              </button>
-            </div>
           </div>
-        </div>
-
-        <div className="bg-theme-surface-2 px-6 py-3 border-t border-theme-divider flex items-center justify-between text-[10px] text-theme-muted font-mono">
-          <div className="flex items-center space-x-1.5">
-            <Shield className="w-3.5 h-3.5 text-blue-500" />
-            <span>AES-256 Auth Channel</span>
-          </div>
-          <span>{APP_VERSION_LABEL}</span>
-        </div>
-      </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

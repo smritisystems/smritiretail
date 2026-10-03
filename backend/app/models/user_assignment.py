@@ -75,24 +75,9 @@ class UserBranchAssignment(BaseEntity):
     branch = relationship("Branch", foreign_keys=[branch_id])
 
 
-class UserStoreAssignment(BaseEntity):
-    __tablename__ = "user_store_assignments"
+# RETIRED — Phase C (2026-09-16, v6.26.0)
+# Table 'user_store_assignments' dropped via migration v1454_retire_stores_table.py.
+# All 5 safety gates passed. Canonical replacement is UserBranchAssignment.
+# class UserStoreAssignment(BaseEntity):
+#     __tablename__ = "user_store_assignments"
 
-    id = Column(String(50), primary_key=True, default=lambda: f"usa-{uuid_pkg.uuid4().hex[:12]}")
-    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
-    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True)
-    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    store_id = Column(String(50), ForeignKey("stores.id", ondelete="RESTRICT"), nullable=False, index=True)
-
-    __table_args__ = (
-        Index(
-            "ix_user_store_assignments_user_id_store_id_active",
-            "user_id",
-            "store_id",
-            unique=True,
-            postgresql_where=text("is_deleted = false"),
-        ),
-    )
-
-    user = relationship("User", foreign_keys=[user_id])
-    store = relationship("Store", foreign_keys=[store_id])

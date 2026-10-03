@@ -41,7 +41,7 @@ def _get_auth_headers(role: str = "SYSADMIN") -> dict:
             "username": "usr_super",
             "role": role,
             "company_id": "COMP-001",
-            "branch_id": "BR-001",
+            "branch_id": "MAIN",
             "tenant_id": "smriti001",
             "db_name": "smriti001",
             "is_active": True,
@@ -51,6 +51,7 @@ def _get_auth_headers(role: str = "SYSADMIN") -> dict:
         "Authorization": f"Bearer {token}",
         "X-Company-ID": "COMP-001",
         "X-Company-Code": "001",
+        "X-Branch-ID": "MAIN",
     }
 
 

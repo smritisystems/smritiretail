@@ -54,15 +54,18 @@ class CompanyPolicyService:
         key: str,
         invoice_date: date,
     ) -> Optional[str]:
-        rows = await session.execute(
-            select(ComplianceThreshold.value)
-            .where(ComplianceThreshold.key == key)
-            .where(ComplianceThreshold.effective_from <= invoice_date)
-            .where((ComplianceThreshold.effective_to.is_(None)) | (ComplianceThreshold.effective_to >= invoice_date))
-            .order_by(ComplianceThreshold.effective_from.desc())
-            .limit(1)
-        )
-        return rows.scalar_one_or_none()
+        try:
+            rows = await session.execute(
+                select(ComplianceThreshold.value)
+                .where(ComplianceThreshold.key == key)
+                .where(ComplianceThreshold.effective_from <= invoice_date)
+                .where((ComplianceThreshold.effective_to.is_(None)) | (ComplianceThreshold.effective_to >= invoice_date))
+                .order_by(ComplianceThreshold.effective_from.desc())
+                .limit(1)
+            )
+            return rows.scalar_one_or_none()
+        except Exception:
+            return None
 
     @staticmethod
     async def resolve_credit_limit_default(session: AsyncSession, company_id: str) -> Decimal:

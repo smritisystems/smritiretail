@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0918-6A2CEC",
+  "entity": "SALES",
+  "capability": "B2B_DISPATCH_INVOICING_STUDIO",
+  "asset_type": "FASTAPI_ROUTER",
+  "proposed_name": "dispatch_invoicing.py",
+  "target_file_path": "backend/app/api/v1/dispatch_invoicing.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/api/v1/dispatch_invoicing.py",
+  "content_hash": "5057d7561fb49dcfa08a7d3c0a5fb83c7b068fb1a4acc85cac6621090d61e646",
+  "git_commit": "b247be0c03f3b1420c9bfa533db6a572345ea17a",
+  "issued_at": "2026-09-18T14:36:45.878302+00:00",
+  "expires_at": "2027-09-18T14:36:45.878302+00:00",
+  "status": "ISSUED"
+}

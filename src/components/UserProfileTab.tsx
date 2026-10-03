@@ -636,8 +636,7 @@ export const UserProfileTab: React.FC = () => {
                   <div>
                     <p className="text-sm font-bold text-theme-body mb-1">Managed by SMRITI Security Gateway</p>
                     <p className="text-xs text-theme-muted max-w-xs mx-auto">
-                      Your authentication is now secured by JWT tokens issued by the SMRITI FastAPI backend.
-                      Per-session management will be available in v3.22.0 when the secure session audit table is provisioned.
+                      Your authentication is secured by active enterprise session credentials issued by the SMRITI security service.
                     </p>
                   </div>
                   <button

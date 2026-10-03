@@ -44,30 +44,14 @@ class StockAuditService:
 
     async def _sync_product_stock_cache(self, product_id: str):
         """
-        Resynchronize aggregate products.stock cache with sum of active batch physical quantities.
-        Note: products.stock represents total physical on-hand quantity across all company batches
-        for high-performance catalog indexing. Granular availability (physical - reserved - damaged)
-        is resolved dynamically per-batch in ProductBatchStock.
+        Resynchronize aggregate products.stock cache via canonical StockSynchronizer.
         """
-        res = await self.db.execute(
-            select(ProductBatchStock.quantity).where(
-                ProductBatchStock.company_id == self.tenant.company_id,
-                ProductBatchStock.product_id == product_id,
-                ProductBatchStock.is_deleted == False
-            )
+        from .stock_synchronizer import StockSynchronizer
+        await StockSynchronizer.sync_product_stock_cache(
+            session=self.db,
+            product_id=product_id,
+            company_id=self.tenant.company_id,
         )
-        total_qty = sum(float(q or 0.0) for q in res.scalars().all())
-        
-        prod_res = await self.db.execute(
-            select(Product).where(
-                Product.company_id == self.tenant.company_id,
-                Product.id == product_id
-            ).with_for_update()
-        )
-        prod = prod_res.scalar_one_or_none()
-        if prod:
-            prod.stock = int(total_qty)
-            await self.db.flush()
 
     async def create_stock_audit(
         self,
@@ -131,6 +115,8 @@ class StockAuditService:
 
         for b in batches:
             p = products_map.get(b.product_id)
+            if not p:
+                continue
             unit_cost = float(getattr(p, 'cost_price', None) or getattr(p, 'price', 100.0) or 100.0)
             sys_qty = float(b.quantity)
             

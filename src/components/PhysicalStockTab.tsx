@@ -30,8 +30,12 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import {
   ClipboardList, Plus, RefreshCw, CheckCircle, AlertTriangle,
-  ChevronRight, Package, BarChart3, Loader2, Save, Pencil, X, ScanLine
+  ChevronRight, Package, BarChart3, Loader2, Save, Pencil, X, ScanLine,
+  FileSpreadsheet
 } from "lucide-react";
+import { GlobalGridImportModal } from "./gridInput/GlobalGridImportModal.tsx";
+import { GRID_PROFILES } from "../services/gridInput/gridProfiles.ts";
+import { ParsedGridRow } from "../services/gridInput/types.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -471,6 +475,38 @@ const SessionDetailPanel: React.FC<{
     });
   }, []);
 
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+
+  const handleBulkImportCommit = async (rows: ParsedGridRow[]) => {
+    if (!detail) return;
+    setIsBulkImportOpen(false);
+
+    for (const r of rows) {
+      const ident = (r.identifier || "").trim().toLowerCase();
+      const line = detail.count_lines.find(l => 
+        l.sku?.toLowerCase() === ident || 
+        l.product_id?.toLowerCase() === ident ||
+        (r.resolvedProduct?.sku && l.sku?.toLowerCase() === r.resolvedProduct.sku.toLowerCase()) ||
+        (r.resolvedProduct?.productId && l.product_id?.toLowerCase() === r.resolvedProduct.productId.toLowerCase())
+      );
+
+      if (line) {
+        try {
+          const qty = r.quantity;
+          const updated = await apiFetchV1<CountLine>(
+            `/physical-stock/sessions/${sessionId}/lines/${line.id}`,
+            { method: "PATCH", body: JSON.stringify({ counted_qty: qty }) }
+          );
+          handleSaved(updated.id, updated.counted_qty ?? 0, updated.variance_qty ?? 0);
+        } catch (err) {
+          console.error("Failed to update count line", line.sku, err);
+        }
+      }
+    }
+
+    load();
+  };
+
   const handleApprove = async () => {
     if (!window.confirm("Approve this stock count session? This action cannot be undone.")) return;
     setApproving(true);
@@ -605,13 +641,27 @@ const SessionDetailPanel: React.FC<{
                 ))}
               </div>
 
-              {/* Barcode Scan-to-Count (PHY-008, Sprint 20) */}
-              <ScanBar
-                sessionId={sessionId}
-                lines={detail?.count_lines ?? []}
-                editable={editable}
-                onSaved={handleSaved}
-              />
+              {/* Barcode Scan-to-Count (PHY-008, Sprint 20) & Bulk Count Import */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div className="flex-1 min-w-[280px]">
+                  <ScanBar
+                    sessionId={sessionId}
+                    lines={detail?.count_lines ?? []}
+                    editable={editable}
+                    onSaved={handleSaved}
+                  />
+                </div>
+                {editable && (
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkImportOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shrink-0 mb-4"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Bulk Count Import (PDT / Excel / CSV)</span>
+                  </button>
+                )}
+              </div>
 
               {/* Count Lines Table */}
               <div className="overflow-x-auto rounded-xl border border-slate-700">
@@ -685,6 +735,16 @@ const SessionDetailPanel: React.FC<{
             </>
           ) : null}
         </div>
+
+        {isBulkImportOpen && (
+          <GlobalGridImportModal
+            isOpen={isBulkImportOpen}
+            profile={GRID_PROFILES.STOCK_MOVEMENT}
+            onClose={() => setIsBulkImportOpen(false)}
+            onCommit={handleBulkImportCommit}
+            title={`Physical Stock Count #${detail?.take_no || ""}`}
+          />
+        )}
       </div>
     </div>
   );

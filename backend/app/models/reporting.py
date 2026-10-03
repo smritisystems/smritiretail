@@ -83,3 +83,28 @@ class DashboardWidget(BaseEntity):
 
     dashboard = relationship("Dashboard", back_populates="widgets")
     report_definition = relationship("ReportDefinition", back_populates="widgets")
+
+
+class PreparedReport(BaseEntity):
+    """
+    Asynchronous Background Prepared Report Queue & Cache.
+    Stores task execution lifecycle, output artifact locations, and SHA-256 forensic hashes.
+    """
+    __tablename__ = "prepared_reports"
+
+    report_code = Column(String(50), nullable=False, index=True)
+    report_name = Column(String(150), nullable=False)
+    parameters = Column(JSONB, server_default=text("'{}'"), default=dict)
+    parameters_hash = Column(String(64), nullable=False, index=True)
+    status = Column(String(30), default="QUEUED", index=True)  # QUEUED, PROCESSING, COMPLETED, FAILED
+    execution_mode = Column(String(30), default="ASYNC_BACKGROUND")
+    export_format = Column(String(20), default="XLSX")  # XLSX, CSV, JSON, PDF
+    output_file_path = Column(String(255), nullable=True)
+    file_size_bytes = Column(Integer, default=0)
+    row_count = Column(Integer, default=0)
+    execution_time_ms = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)
+    forensic_hash = Column(String(64), nullable=True)
+    requested_by_id = Column(String(100), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+

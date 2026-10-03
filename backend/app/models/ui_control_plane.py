@@ -25,7 +25,8 @@ class SmritiTheme(Base):
     __tablename__ = "smriti_themes"
 
     id = Column(String(50), primary_key=True)
-    tenant_id = Column(String(50), nullable=True)
+    # tenant_id RETIRED — v1497 (2026-09-29): was 0/4 populated, no write paths.
+    # company_id below is the tenant discriminator.
     company_id = Column(String(50), nullable=False, default="GLOBAL")
     theme_name = Column(String(100), nullable=False)
     icon_pack = Column(String(50), nullable=True, default="Material Symbols Outlined")
@@ -67,7 +68,8 @@ class SmritiWorkspaceProfile(Base):
     __tablename__ = "smriti_workspace_profiles"
 
     id = Column(String(50), primary_key=True)
-    tenant_id = Column(String(50), nullable=True)
+    # tenant_id RETIRED — v1497 (2026-09-29): was 0/5 populated, no write paths.
+    # Workspace profiles are global by persona; company_id not required.
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(100), nullable=False)
     persona = Column(String(50), nullable=False)  # 'SYSADMIN', 'CASHIER', 'STORE_MANAGER', 'ACCOUNTANT'
@@ -132,6 +134,12 @@ class ScreenDefinition(Base):
     icon_key = Column(String(100), nullable=True)
     status = Column(String(30), nullable=False, default="ACTIVE")
 
+    # Architecture Governance SSOT Extensions
+    screen_key = Column(String(100), nullable=True)
+    entity_key = Column(String(50), nullable=True)
+    canonical_route = Column(String(255), nullable=True)
+    canonical_component = Column(String(255), nullable=True)
+
 
 class FieldDefinition(Base):
     """
@@ -178,6 +186,14 @@ class FieldDefinition(Base):
     max_value = Column(Numeric(precision=18, scale=4), nullable=True)
     format_mask = Column(String(100), nullable=True)
     status = Column(String(30), nullable=False, default="ACTIVE")
+
+    # Architecture Governance SSOT Extensions
+    entity_key = Column(String(50), nullable=True)
+    canonical_table = Column(String(100), nullable=True)
+    canonical_column = Column(String(100), nullable=True)
+    api_alias = Column(String(100), nullable=True)
+    ui_aliases = Column(JSONB, nullable=False, default=list)
+    semantic_definition = Column(Text, nullable=True)
 
 
 class ActionDefinition(Base):

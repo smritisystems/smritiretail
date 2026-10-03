@@ -82,7 +82,11 @@ class JournalVoucher(BaseEntity):
     created_by = Column(String(100), nullable=True)
 
     # Relationships
-    entries = relationship("GeneralLedgerEntry", back_populates="voucher", cascade="all, delete-orphan")
+    # NOTE: cascade="all, delete-orphan" intentionally removed (Phase 1 Wave 1).
+    # GL entries are immutable financial records (Indian Companies Act, GST Act).
+    # The DB-level FK is now ON DELETE RESTRICT — hard-delete of a voucher will
+    # fail at the DB layer. The ORM must not cascade-delete GL lines either.
+    entries = relationship("GeneralLedgerEntry", back_populates="voucher")
 
 
 class GeneralLedgerEntry(BaseEntity):

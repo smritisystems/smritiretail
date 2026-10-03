@@ -191,12 +191,12 @@ describe("SMRITI 9 POS — Hotkeys, Direct Entry & Billing Engine Unit Tests", (
     expect(showRecallModal).toBe(true);
   });
 
-  // 11. Alt+I — PDT File / Transaction Import Trigger
-  it("TEST 11 [Alt+I]: should open PDT import dialog", () => {
-    let showPdtModal = false;
-    const onAltI = () => { showPdtModal = true; };
+  // 11. Alt+I — CSV File Import Trigger
+  it("TEST 11 [Alt+I]: should open CSV import dialog", () => {
+    let showCsvModal = false;
+    const onAltI = () => { showCsvModal = true; };
     onAltI();
-    expect(showPdtModal).toBe(true);
+    expect(showCsvModal).toBe(true);
   });
 
   // 12. F2 — Customer Browse & On-the-fly Search Trigger
@@ -217,6 +217,7 @@ describe("SMRITI 9 POS — Hotkeys, Direct Entry & Billing Engine Unit Tests", (
         cash: netPayable,
         card: 0,
         upi: 0,
+        credit: 0,
         creditNote: 0,
         giftVoucher: 0,
         loyaltyPointsRedeemed: 0,

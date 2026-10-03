@@ -14,12 +14,16 @@ Classification: Internal
 Live Headless API Verification Harness for Sales Orders and Report Studios
 """
 
+import os
 import urllib.request
 import json
 
+api_port = os.getenv("BACKEND_API_PORT", "1981")
+base_api = f"http://localhost:{api_port}"
+
 # 1. Login
 login_data = json.dumps({'username': 'admin', 'password': 'Admin@123'}).encode()
-req = urllib.request.Request('http://localhost:8000/api/v1/auth/login', data=login_data, headers={'Content-Type': 'application/json'})
+req = urllib.request.Request(f'{base_api}/api/v1/auth/login', data=login_data, headers={'Content-Type': 'application/json'})
 token = None
 try:
     with urllib.request.urlopen(req) as resp:
@@ -39,7 +43,7 @@ if token:
     }
 
     # 2. Test /api/v1/reports/studios
-    req2 = urllib.request.Request('http://localhost:8000/api/v1/reports/studios', headers=headers)
+    req2 = urllib.request.Request(f'{base_api}/api/v1/reports/studios', headers=headers)
     with urllib.request.urlopen(req2) as resp2:
         data = json.loads(resp2.read().decode())
         studios = data.get('studios', data)
@@ -50,7 +54,7 @@ if token:
             print(f"  [{r.get('id')}] {r.get('title')} ({r.get('category')})")
 
     # 3. Test /api/v1/sales/orders/
-    req3 = urllib.request.Request('http://localhost:8000/api/v1/sales/orders/', headers=headers)
+    req3 = urllib.request.Request(f'{base_api}/api/v1/sales/orders/', headers=headers)
     with urllib.request.urlopen(req3) as resp3:
         orders = json.loads(resp3.read().decode())
         print(f"\n--- Total sales orders returned: {len(orders)} ---")

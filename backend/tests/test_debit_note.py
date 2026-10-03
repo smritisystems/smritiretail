@@ -15,6 +15,11 @@ import pytest
 import psycopg2
 from decimal import Decimal
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def test_debit_note_creation_and_history_protection():
     """
     Test Blocker #5 Purchase Return / Debit Note Workflow.
@@ -23,7 +28,7 @@ def test_debit_note_creation_and_history_protection():
     - Transaction history protection: Original PO (50 units) and GRN (48 units) remain immutable
     - Debit Note state persistence in supplier_debit_notes table
     """
-    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smriti001")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
     cur = conn.cursor()
 
     sup_code = "SUP-DN-TEST-001"

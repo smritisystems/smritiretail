@@ -27,12 +27,12 @@ async def test_role_based_menu_resolver_and_security_boundaries():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Create access tokens for real users in DB
-        token_sysadmin = create_access_token({"sub": "usr-super", "type": "access", "role": "SYSADMIN", "company_id": "comp-1786046519947", "branch_id": "br-1786046519947"})
-        token_manager = create_access_token({"sub": "usr-manager", "type": "access", "role": "MANAGER", "company_id": "comp-default", "branch_id": "br-default"})
-        token_cashier = create_access_token({"sub": "usr-cashier", "type": "access", "role": "CASHIER", "company_id": "comp-default", "branch_id": "br-default"})
+        token_sysadmin = create_access_token({"sub": "usr-super", "type": "access", "role": "SYSADMIN", "company_id": "COMP-001", "branch_id": "BR-MAIN-001"})
+        token_manager = create_access_token({"sub": "usr-manager", "type": "access", "role": "MANAGER", "company_id": "COMP-001", "branch_id": "BR-MAIN-001"})
+        token_cashier = create_access_token({"sub": "usr-cashier", "type": "access", "role": "CASHIER", "company_id": "COMP-001", "branch_id": "BR-MAIN-001"})
 
-        headers_sysadmin = {"Authorization": f"Bearer {token_sysadmin}", "X-Company-Code": "comp-1786046519947", "X-Branch-Code": "br-1786046519947"}
-        headers_cashier = {"Authorization": f"Bearer {token_cashier}", "X-Company-Code": "comp-default", "X-Branch-Code": "br-default"}
+        headers_sysadmin = {"Authorization": f"Bearer {token_sysadmin}", "X-Company-ID": "COMP-001", "X-Branch-ID": "BR-MAIN-001"}
+        headers_cashier = {"Authorization": f"Bearer {token_cashier}", "X-Company-ID": "COMP-001", "X-Branch-ID": "BR-MAIN-001"}
 
         # 1. SYSADMIN Resolver Test (Returns 200, includes restricted admin routes)
         res_sysadmin = await client.get("/api/v1/menus/resolved", headers=headers_sysadmin)

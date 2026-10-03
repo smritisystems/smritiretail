@@ -18,7 +18,12 @@ from decimal import Decimal
 
 # Architecture Rule: sales_returns is an operational table.
 # Operational data belongs in Company DB (smriti001), NOT in smritisys (Control Plane).
-COMPANY_001_DB_URL = "postgresql://postgres:postgres@localhost:5432/smriti001"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
 
 def test_sales_return_and_credit_note_workflow():
     """

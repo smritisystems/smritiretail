@@ -1,12 +1,492 @@
 [
   {
-    "timestamp": "Sun 08/30/2026",
-    "dhi": 84,
+    "timestamp": "Thu 09/10/2026",
+    "dhi": 85,
     "developmentScore": 77,
     "qualityScore": 0,
-    "releaseScore": 88,
+    "releaseScore": 89,
     "securityScore": 100,
-    "testCoverage": 85,
+    "testCoverage": 88,
     "documentation": 85
+  },
+  {
+    "timestamp": "2026-09-12T11:00:42.716910+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-12T11:01:36.386862+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-12T11:02:41.665770+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-13T22:21:16.354958+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-13T22:21:35.472185+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-13T22:27:17.324596+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-13T22:36:10.358173+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-13T22:36:57.236973+00:00",
+    "dhi": 93,
+    "developmentScore": 94,
+    "qualityScore": 75,
+    "releaseScore": 89,
+    "securityScore": 100,
+    "testCoverage": 79,
+    "documentation": 97
+  },
+  {
+    "timestamp": "2026-09-13T22:38:18.398259+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-13T22:41:04.537178+00:00",
+    "dhi": 84,
+    "developmentScore": 77,
+    "qualityScore": 75,
+    "releaseScore": 86,
+    "securityScore": 100,
+    "testCoverage": 88,
+    "documentation": 88
+  },
+  {
+    "timestamp": "2026-09-13T22:44:10.473945+00:00",
+    "dhi": 93,
+    "developmentScore": 94,
+    "qualityScore": 75,
+    "releaseScore": 89,
+    "securityScore": 100,
+    "testCoverage": 79,
+    "documentation": 97
+  },
+  {
+    "timestamp": "2026-09-13T22:46:10.823660+00:00",
+    "dhi": 93,
+    "developmentScore": 94,
+    "qualityScore": 75,
+    "releaseScore": 89,
+    "securityScore": 100,
+    "testCoverage": 79,
+    "documentation": 97
+  },
+  {
+    "timestamp": "2026-09-13T22:52:49.952724+00:00",
+    "dhi": 97,
+    "developmentScore": 95,
+    "qualityScore": 75,
+    "releaseScore": 93,
+    "securityScore": 100,
+    "testCoverage": 97,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-13T22:55:17.167741+00:00",
+    "dhi": 97,
+    "developmentScore": 95,
+    "qualityScore": 75,
+    "releaseScore": 93,
+    "securityScore": 100,
+    "testCoverage": 97,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-13T22:59:28.176648+00:00",
+    "dhi": 94,
+    "developmentScore": 94,
+    "qualityScore": 75,
+    "releaseScore": 90,
+    "securityScore": 100,
+    "testCoverage": 82,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-13T23:05:16.035152+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-13T23:08:32.505Z",
+    "dhi": 98,
+    "developmentScore": 99,
+    "qualityScore": 0,
+    "releaseScore": 66,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-13T23:11:10.953321+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-13T23:12:12.301607+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-13T23:15:36.201147+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-13T23:16:14.107140+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-14T10:26:23.433053+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-14T14:09:48.305720+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-14T14:14:06.658130+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-14T15:07:21.254365+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-14T16:04:46.017342+00:00",
+    "dhi": 98,
+    "developmentScore": 97,
+    "qualityScore": 75,
+    "releaseScore": 94,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-14T16:15:37.420733+00:00",
+    "dhi": 98,
+    "developmentScore": 97,
+    "qualityScore": 75,
+    "releaseScore": 94,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T05:24:21.819826+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T05:25:09.263157+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T05:28:13.351476+00:00",
+    "dhi": 98,
+    "developmentScore": 97,
+    "qualityScore": 75,
+    "releaseScore": 94,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T06:09:00.395592+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T06:10:55.269718+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T06:36:24.389941+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T20:31:23.791659+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T20:31:42.883228+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-15T21:20:16.594194+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-16T00:26:45.629783+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-16T04:51:08.847877+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-16T05:06:33.503308+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-16T05:07:58.041523+00:00",
+    "dhi": 99,
+    "developmentScore": 98,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-16T05:11:20.731568+00:00",
+    "dhi": 100,
+    "developmentScore": 100,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-16T05:17:52.586545+00:00",
+    "dhi": 100,
+    "developmentScore": 100,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-17T09:31:16.479039+00:00",
+    "dhi": 100,
+    "developmentScore": 100,
+    "qualityScore": 75,
+    "releaseScore": 95,
+    "securityScore": 100,
+    "testCoverage": 100,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-19T18:40:04.787037+00:00",
+    "dhi": 97,
+    "developmentScore": 97,
+    "qualityScore": 75,
+    "releaseScore": 93,
+    "securityScore": 100,
+    "testCoverage": 97,
+    "documentation": 97
+  },
+  {
+    "timestamp": "2026-09-19T18:40:21.373824+00:00",
+    "dhi": 97,
+    "developmentScore": 97,
+    "qualityScore": 75,
+    "releaseScore": 93,
+    "securityScore": 100,
+    "testCoverage": 97,
+    "documentation": 97
+  },
+  {
+    "timestamp": "2026-09-22T12:32:53.377091+00:00",
+    "dhi": 97,
+    "developmentScore": 96,
+    "qualityScore": 74,
+    "releaseScore": 93,
+    "securityScore": 100,
+    "testCoverage": 97,
+    "documentation": 97
+  },
+  {
+    "timestamp": "2026-09-25T17:25:22.786776+00:00",
+    "dhi": 97,
+    "developmentScore": 96,
+    "qualityScore": 74,
+    "releaseScore": 93,
+    "securityScore": 100,
+    "testCoverage": 97,
+    "documentation": 100
+  },
+  {
+    "timestamp": "2026-09-25T21:42:12.806463+00:00",
+    "dhi": 97,
+    "developmentScore": 96,
+    "qualityScore": 74,
+    "releaseScore": 93,
+    "securityScore": 100,
+    "testCoverage": 97,
+    "documentation": 100
   }
 ]

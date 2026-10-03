@@ -1,0 +1,118 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Replication Export (AST)</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+img.hcp2 { border:none; float:none; }
+span.hcp3 { font-weight:normal; }
+span.hcp4 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Replication Export (AST)</h1>
+
+<p class=Body-Text>This option is used to create replication data files, 
+ for a given period, to be exported to HO in addition to the file sent 
+ by the day end program. There are two modes of extraction namely <span class="hcp1">Normal</span> and <span class="hcp1">Complete</span>.</p>
+
+<p class=InvocationSequence>How to reach: &nbsp;<span class="hcp1">Housekeeping &gt; 
+ Data Export Masters &gt; Replication Export (AST)</span></p>
+
+<p class=Body-Text>The <span class="hcp1">Advanced Stock 
+ Tracking – Exporting</span> window is displayed.</p>
+
+<p class=Body-Text>&nbsp;<img src="Replication_Export_AST_1.gif" x-maintain-ratio="TRUE" style="width:325px; height:212px;" width="325" height="212" border="0" class="hcp2"></p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Select Date</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">From</span>: 
+ Enter the start date</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">To</span>: 
+ Enter the end date</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Option<span class="hcp3">: 
+ Select </span>Normal Mode<span class="hcp3"> or </span>Complete 
+ Mode<span class="hcp3">.</span></p>
+
+<p class=Navigation><span class="hcp4">E</span><span class="hcp1">xport</span>: Select to create the VSP file 
+ in the Shoper-Out directory with naming pattern SsccMMDD.VSP file (Where 
+ scc = Shoper Company Code, MM = Month and DD = Date)</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp4">x</span><span class="hcp1">it</span>: Select to quit the option.</p>
+
+<p class=Body-Text
+	style="font-weight: bold;">Complete Mode:</p>
+
+<p class=Note>&nbsp;<span class="hcp1">Note:</span> 
+ The date fields are irrelevant when Complete Mode is selected and are 
+ not editable.</p>
+
+<p class=Body-Text>By selecting this mode, the entire database is considered 
+ from the day of Shoper installation. </p>
+
+<p class=Body-Text><span class="hcp4">C</span><span class="hcp1">omplete Data Replication</span>: This option 
+ is checked by default where extraction is not restricted to specific transaction 
+ type. </p>
+
+<p class=Body-Text>&nbsp;<img src="Replication_Export_AST_2.gif" x-maintain-ratio="TRUE" style="width:325px; height:212px;" width="325" height="212" border="0" class="hcp2"></p>
+
+<p class=Body-Text>If you do not need complete data replication, then deselect 
+ this option. The transaction types are displayed on the right side of 
+ the window. Select by checking the boxes against the transaction types.</p>
+
+<p class=Body-Text><span class="hcp4">O</span><span class="hcp1">nly Transacted Stock Details</span>: Select 
+ this box if the extraction of the data has to be limited to items which 
+ have been transacted at least once. </p>
+
+<p class=Body-Text><span class="hcp4">E</span><span class="hcp1">xport</span>: To create the VSP file in the 
+ Shoper-Out directory with naming pattern as: </p>
+
+<ul style="list-style: disc;"
+	type=disc>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text>If complete data replication 
+ is selected then file naming will be SsccXXXX.VSP </p></li>
+	
+	<li class=kadov-p-CBody-Text><p class=Body-Text>If complete data replication 
+ is not selected then file naming is as follows:</p></li>
+</ul>
+
+<ul style="list-style: decimal;"
+	type=1>
+	
+	<ol style="list-style: decimal;"
+		type=1>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>All option are 
+ selected then SsccXXXX.VSP</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text><span class="hcp1">Pricing 
+ Information</span> and <span class="hcp1">Other Masters</span> 
+ or any one selected from the list like pricing information or other master 
+ then SsccYYYY.VSP</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text><span class="hcp1">All 
+ Transaction</span> and <span class="hcp1">Stock Transaction 
+ Summary</span> or any one selected from the list like All transaction 
+ or stock transaction summary then SsccZZZZ.VSP</p></li>
+	</ol>
+</ul>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp4">x</span><span class="hcp1">it</span>: To quit the option.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

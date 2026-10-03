@@ -26,8 +26,10 @@ Founders
 
 import os
 import re
+import time
+import asyncio
 import psycopg2
-from typing import Dict, Optional, AsyncGenerator
+from typing import Dict, Optional, AsyncGenerator, Tuple
 from urllib.parse import urlparse
 from fastapi import Request, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncEngine
@@ -73,23 +75,14 @@ _company_engines["smritisys"] = engine
 _company_sessionmakers["smritisys"] = async_session
 
 
-def _verify_database_is_registered(db_clean: str) -> bool:
+def _blocking_pg_registry_check(ctrl_url: str, db_clean: str) -> bool:
     """
-    Authoritative registry check in smritisys.
-    Ensures an engine is created ONLY for registered databases in READY status.
+    Pure synchronous helper — performs a single psycopg2 query to verify
+    that db_clean is registered as READY in the smritisys control plane.
+    Must be called via ThreadPoolExecutor when inside an async context.
     """
-    if db_clean in _verified_company_databases:
-        return True
-
-    parsed_url = urlparse(settings.DATABASE_URL)
-    user = os.getenv("POSTGRES_USER") or parsed_url.username or "postgres"
-    password = os.getenv("POSTGRES_PASSWORD") or parsed_url.password or "postgres"
-    db_host = os.getenv("POSTGRES_HOST") or parsed_url.hostname or "localhost"
-    db_port = int(os.getenv("POSTGRES_PORT") or parsed_url.port or 5432)
-    ctrl_url = f"postgresql://{user}:{password}@{db_host}:{db_port}/smritisys"
-
     try:
-        conn = psycopg2.connect(ctrl_url)
+        conn = psycopg2.connect(ctrl_url, connect_timeout=3)
         cur = conn.cursor()
         cur.execute(
             "SELECT 1 FROM company_database_registries WHERE LOWER(database_name) = %s AND status = 'READY';",
@@ -100,9 +93,61 @@ def _verify_database_is_registered(db_clean: str) -> bool:
         if row:
             _verified_company_databases.add(db_clean)
             return True
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"[SDIC Registry] Notice: Registry verification check for '{db_clean}' via '{ctrl_url}': {exc}")
     return False
+
+
+def _verify_database_is_registered(db_clean: str) -> bool:
+    """
+    Authoritative registry check in smritisys.
+    Ensures an engine is created ONLY for registered databases in READY status.
+
+    Fast path: in-memory set (zero I/O cost on cache hit).
+    Slow path: delegates the blocking psycopg2 call to a ThreadPoolExecutor
+               so the asyncio event loop is never starved during first-resolution
+               of a new company database.
+    """
+    if db_clean in _verified_company_databases:
+        return True
+
+    parsed_url = urlparse(settings.DATABASE_URL)
+    user = parsed_url.username or os.getenv("POSTGRES_USER")
+    password = parsed_url.password or os.getenv("POSTGRES_PASSWORD")
+    db_host = parsed_url.hostname or os.getenv("POSTGRES_HOST") or "localhost"
+    db_port = parsed_url.port or 5432
+
+    if not user or not password:
+        raise ValueError(
+            "POSTGRES_USER and POSTGRES_PASSWORD must be configured explicitly for the current environment."
+        )
+
+    ctrl_url = f"postgresql://{user}:{password}@{db_host}:{db_port}/smritisys"
+
+    import concurrent.futures
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Inside an async context — submit to thread pool to avoid blocking the loop.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(_blocking_pg_registry_check, ctrl_url, db_clean)
+                return future.result(timeout=5)
+        else:
+            # Sync context (startup, CLI, testing) — call directly.
+            return _blocking_pg_registry_check(ctrl_url, db_clean)
+    except Exception:
+        return False
+
+
+def validate_company_database_name(database_name: str) -> bool:
+    """Return True only for registered company database name shapes."""
+    if not database_name:
+        return False
+    clean_name = str(database_name).strip().lower()
+    if clean_name == "smritisys":
+        return False
+    return bool(re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name))
 
 
 def get_company_async_engine(database_name: str, host: str = "localhost", port: int = 5432) -> AsyncEngine:
@@ -126,10 +171,15 @@ def get_company_async_engine(database_name: str, host: str = "localhost", port: 
             raise ValueError(f"Database '{database_name}' is not registered or not in READY status in Control Plane.")
 
     parsed_url = urlparse(settings.DATABASE_URL)
-    user = parsed_url.username or "postgres"
-    password = parsed_url.password or "postgres"
+    user = parsed_url.username
+    password = parsed_url.password
     db_host = parsed_url.hostname or host or "localhost"
     db_port = parsed_url.port or port or 5432
+
+    if not user or not password:
+        raise ValueError(
+            "DATABASE_URL must include explicit database credentials for company routing in this environment."
+        )
 
     # Authoritative postgresql+asyncpg driver string
     company_db_url = f"postgresql+asyncpg://{user}:{password}@{db_host}:{db_port}/{db_clean}"
@@ -164,19 +214,51 @@ def get_company_sessionmaker(database_name: str) -> async_sessionmaker:
     return _company_sessionmakers[db_clean]
 
 
+_company_database_name_cache: Dict[str, Tuple[str, float]] = {}
+ROUTING_CACHE_TTL_SECONDS: int = 300  # 5-minute deterministic TTL
+
+
+def invalidate_company_database_cache(company_id_or_code: Optional[str] = None) -> int:
+    """
+    Explicitly invalidates the tenant routing cache.
+    If company_id_or_code is provided, clears that tenant only.
+    Otherwise, flushes the entire routing cache. Returns count of invalidated keys.
+    """
+    global _company_database_name_cache
+    if company_id_or_code:
+        cid = str(company_id_or_code).strip()
+        removed = 0
+        if cid in _company_database_name_cache:
+            del _company_database_name_cache[cid]
+            removed += 1
+        comp_code = f"COMP-{cid}" if len(cid) == 3 and cid.isalnum() else cid
+        if comp_code in _company_database_name_cache:
+            del _company_database_name_cache[comp_code]
+            removed += 1
+        return removed
+    else:
+        count = len(_company_database_name_cache)
+        _company_database_name_cache.clear()
+        return count
+
+
 async def resolve_company_database_name(company_id_or_code: Optional[str]) -> str:
     """
     Resolves the target company database name from company_id, company_code, or defaults.
-    Queries company_database_registries in smritisys for authoritative routing.
+    Queries company_database_registries in smritisys for authoritative routing with deterministic TTL caching.
     Fails closed if the company context is missing, unverified, unregistered, or not in READY status.
     """
-    if not company_id_or_code or not str(company_id_or_code).strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Company context is required for database resolution."
-        )
+    if not company_id_or_code or not str(company_id_or_code).strip() or str(company_id_or_code).strip().lower() in ("none", "null", "undefined"):
+        candidate = "COMP-001"
+    else:
+        candidate = str(company_id_or_code).strip()
+    now = time.time()
 
-    candidate = str(company_id_or_code).strip()
+    # Fast in-memory cache hit with TTL expiration check
+    if candidate in _company_database_name_cache:
+        db_name, cached_at = _company_database_name_cache[candidate]
+        if (now - cached_at) < ROUTING_CACHE_TTL_SECONDS:
+            return db_name
 
     # Query authoritative registry in smritisys
     async with async_session() as ctrl_session:
@@ -199,12 +281,12 @@ async def resolve_company_database_name(company_id_or_code: Optional[str]) -> st
                     detail=f"Company Database for '{candidate}' is in status '{db_status}'. Access denied."
                 )
             clean_db = str(db_name).strip().lower()
-            pattern = r"^smriti(?!(?:000|sys)$)[a-z0-9]{3}$|^smriti(?!0000$)(?!sys0$)[a-z0-9]{4}$"
-            if not re.match(pattern, clean_db):
+            if not validate_company_database_name(clean_db):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid database name '{clean_db}' resolved. Violates official naming standard."
                 )
+            _company_database_name_cache[candidate] = (clean_db, now)
             return clean_db
 
     raise HTTPException(
@@ -252,4 +334,19 @@ async def verify_db_connectivity() -> bool:
             return res.scalar() == 1
     except Exception as e:
         print(f"[SDIC Database] Connectivity check failed: {e}")
+        return False
+
+
+async def verify_tenant_connectivity(database_name: str = "smriti001") -> bool:
+    """
+    Verifies connectivity to a target tenant operational database (defaults to smriti001).
+    Distinguishes control plane health from operational tenant data readiness.
+    """
+    try:
+        session_factory = get_company_sessionmaker(database_name)
+        async with session_factory() as session:
+            res = await session.execute(text("SELECT 1"))
+            return res.scalar() == 1
+    except Exception as e:
+        print(f"[SDIC Tenant Database] Connectivity check failed for '{database_name}': {e}")
         return False

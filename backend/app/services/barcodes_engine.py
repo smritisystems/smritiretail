@@ -245,16 +245,36 @@ PRINT 1
         """
         now = datetime.now(timezone.utc)
         batch_id = f"lbl_{uuid.uuid4().hex[:12]}"
-        total_spooled = 0
+        from .product_resolution_service import ProductResolutionService
+        from ..schemas.product_resolution import TransactionLineItemInput
 
-        for item in req.items:
+        # Validate all items against authoritative catalog before spooling print jobs
+        validation_lines = [
+            TransactionLineItemInput(
+                line_no=idx + 1,
+                code=item.item_code,
+                sku=item.item_code,
+                barcode=item.barcode,
+                quantity=Decimal(str(item.quantity)),
+            )
+            for idx, item in enumerate(req.items)
+        ]
+        resolved_lines = await ProductResolutionService.enforce_transaction_lines(
+            session=session,
+            company_id=company_id,
+            lines=validation_lines,
+            allow_inactive=False,
+        )
+
+        for idx, item in enumerate(req.items):
+            res_prod = resolved_lines[idx]
             history = PrintHistory(
                 id=f"prh_{uuid.uuid4().hex[:12]}",
                 company_id=company_id,
                 user=created_by or "system",
-                item_code=item.item_code,
-                item_name=item.item_name,
-                barcode=item.barcode,
+                item_code=res_prod.sku or item.item_code,
+                item_name=res_prod.name or item.item_name,
+                barcode=res_prod.barcode or item.barcode,
                 quantity=item.quantity,
                 status="Success",
                 error_message=None,

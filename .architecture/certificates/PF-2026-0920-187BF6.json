@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0920-187BF6",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "component",
+  "proposed_name": "GrnCameraScannerModal.tsx",
+  "target_file_path": "src/components/purchase/GrnCameraScannerModal.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/GrnCameraScannerModal.tsx",
+  "content_hash": "6952a739279ae8e80292f5feadc3b45b3ab8cf8ff9c52c3e7b4b2cbd9ef272eb",
+  "git_commit": "1381639a1c025534400381b169c093449e4f7958",
+  "issued_at": "2026-09-20T01:55:14.066654+00:00",
+  "expires_at": "2026-09-27T01:55:14.066654+00:00",
+  "status": "ISSUED"
+}

@@ -16,17 +16,21 @@ import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from sqlalchemy import select, or_, and_
+from sqlalchemy import select, or_
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.psv import (
     PSVParty,
-    PSVPartySkuTracking,
     PSVStockEvent,
     PSVStockBalance,
     PSVVisibilityPolicy,
     PSVPartyScope,
 )
+from ..models.sales import SalesInvoice
+from ..models.crm import Customer, CustomerDeliveryLocation
+from ..models.tenant import Company
 from ..models.control.control_models import ControlPSVConfig
+from .partner_resolver import PartnerIdentifierResolver
 from ..schemas.psv import (
     PSVScopedVisibilityResponse,
     PSVScopedBalanceItem,
@@ -41,6 +45,93 @@ class PSVProjectionService:
     Processes stock movements into immutable psv_stock_events ledger and psv_stock_balances projection.
     Operates strictly as a non-authoritative shadow visibility layer.
     """
+
+    @classmethod
+    async def project_posted_invoice(
+        cls,
+        session: AsyncSession,
+        invoice_id: str,
+        company_id: str,
+        branch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Project partner-delivery invoice lines into PSV idempotently.
+
+        Invoices without a registered customer delivery location are ordinary
+        internal sales and are intentionally ignored by PSV.
+        """
+        invoice = (await session.execute(
+            select(SalesInvoice).where(
+                SalesInvoice.id == invoice_id,
+                SalesInvoice.company_id == company_id,
+            ).options(selectinload(SalesInvoice.items))
+        )).scalar_one_or_none()
+        if not invoice or not invoice.delivery_location_id or not invoice.delivery_store_code:
+            return {"status": "SKIPPED_NO_PARTNER_LOCATION", "invoice_id": invoice_id, "projected": 0}
+
+        location = (await session.execute(select(CustomerDeliveryLocation).where(
+            CustomerDeliveryLocation.id == invoice.delivery_location_id,
+            CustomerDeliveryLocation.company_id == company_id,
+            CustomerDeliveryLocation.status == "ACTIVE",
+            CustomerDeliveryLocation.is_deleted == False,
+        ))).scalar_one_or_none()
+        if not location:
+            return {"status": "SKIPPED_UNKNOWN_PARTNER_LOCATION", "invoice_id": invoice_id, "projected": 0}
+
+        party = (await session.execute(select(PSVParty).where(
+            PSVParty.company_id == company_id,
+            PSVParty.delivery_location_id == location.id,
+        ))).scalar_one_or_none()
+        if not party:
+            customer = (await session.execute(select(Customer).where(Customer.id == location.customer_id))).scalar_one_or_none()
+            party = PSVParty(
+                id=f"psv-{company_id}-{location.id}"[:50],
+                company_id=company_id,
+                branch_id=branch_id,
+                host_customer_id=location.customer_id,
+                delivery_location_id=location.id,
+                store_code=location.store_code,
+                store_name_snapshot=location.location_name,
+                stock_model="OUTRIGHT_SALE",
+                name=customer.name if customer else location.location_name,
+                location=location.location_name,
+                status="Healthy",
+            )
+            session.add(party)
+            await session.flush()
+
+        projected = 0
+        for line in invoice.items:
+            result = await cls.project_psv_stock_event(
+                psv_session=session,
+                event_payload={
+                    "source_event_id": f"PSV-INVOICE-{invoice.id}-{line.id}",
+                    "correlation_id": f"SALES-INVOICE-{invoice.id}",
+                    "company_id": company_id,
+                    "company_code": company_id,
+                    "product_id": getattr(line, "product_id", None),
+                    "source_document_type": "SALES_INVOICE",
+                    "source_document_id": invoice.id,
+                    "source_document_line_id": str(line.id),
+                    "psv_party_id": party.id,
+                    "host_customer_id": location.customer_id,
+                    "delivery_location_id": location.id,
+                    "store_code_snapshot": location.store_code,
+                    "invoice_id": invoice.id,
+                    "invoice_line_id": str(line.id),
+                    "sku": line.code,
+                    "movement_type": "BILLED_TO_PARTNER",
+                    "quantity": line.quantity,
+                    "source_event_created_at": invoice.created_at or datetime.now(timezone.utc),
+                    "event_date": invoice.created_at or datetime.now(timezone.utc),
+                    "approval_status": "APPROVED",
+                },
+                commit=False,
+            )
+            if result.get("status") == "PROJECTED_SUCCESSFULLY":
+                projected += 1
+
+        await session.flush()
+        return {"status": "PROJECTED", "invoice_id": invoice_id, "party_id": party.id, "projected": projected}
 
     @classmethod
     async def is_psv_enabled_for_company(
@@ -131,7 +222,8 @@ class PSVProjectionService:
     async def project_psv_stock_event(
         cls,
         psv_session: AsyncSession,
-        event_payload: Dict[str, Any]
+        event_payload: Dict[str, Any],
+        commit: bool = True,
     ) -> Dict[str, Any]:
         """
         Idempotently projects stock event into SmritiPSV.
@@ -159,18 +251,47 @@ class PSVProjectionService:
         if isinstance(evt_dt, str):
             evt_dt = datetime.fromisoformat(evt_dt)
 
+        # Extract authoritative company_id and resolve product_id
+        company_id = event_payload.get("company_id")
+        comp_code = event_payload["company_code"].strip().upper()
+        if not company_id:
+            c_stmt = select(Company.id).where(or_(Company.id == comp_code, Company.name.ilike(f"%{comp_code}%"))).limit(1)
+            company_id = (await psv_session.execute(c_stmt)).scalar_one_or_none() or comp_code
+
+        product_id = event_payload.get("product_id")
+        if not product_id and company_id:
+            res = await PartnerIdentifierResolver.resolve(
+                session=psv_session,
+                company_id=company_id,
+                external_sku=event_payload["sku"],
+                party_id=event_payload.get("psv_party_id"),
+            )
+            if res.found and res.product_id:
+                product_id = res.product_id
+
         psv_event = PSVStockEvent(
             event_id=f"psve_{uuid.uuid4().hex[:16]}",
             source_event_id=source_event_id,
             correlation_id=event_payload.get("correlation_id", f"corr_{uuid.uuid4().hex[:16]}"),
             causation_id=event_payload.get("causation_id"),
             event_schema_version=event_payload.get("event_schema_version", "1.0"),
-            company_code=event_payload["company_code"].strip().upper(),
+            company_id=company_id,
+            company_code=comp_code,
+            product_id=product_id,
             source_database=event_payload.get("source_database", "smriti001"),
             source_document_type=event_payload["source_document_type"],
             source_document_id=event_payload["source_document_id"],
             source_document_line_id=event_payload.get("source_document_line_id"),
             psv_party_id=event_payload["psv_party_id"],
+            host_customer_id=event_payload.get("host_customer_id"),
+            delivery_location_id=event_payload.get("delivery_location_id"),
+            store_code_snapshot=event_payload.get("store_code_snapshot"),
+            invoice_id=event_payload.get("invoice_id"),
+            invoice_line_id=event_payload.get("invoice_line_id"),
+            staff_placement_id=event_payload.get("staff_placement_id"),
+            approval_status=event_payload.get("approval_status", "APPROVED"),
+            reported_by=event_payload.get("reported_by"),
+            approval_reason=event_payload.get("approval_reason"),
             destination_type=event_payload.get("destination_type", "RETAIL_STORE"),
             destination_id=event_payload.get("destination_id"),
             psv_store_id=event_payload.get("psv_store_id"),
@@ -185,37 +306,66 @@ class PSVProjectionService:
 
         # 2. Update or Create PSVStockBalance
         bal_stmt = select(PSVStockBalance).where(
-            PSVStockBalance.company_code == psv_event.company_code,
             PSVStockBalance.psv_party_id == psv_event.psv_party_id,
-            PSVStockBalance.sku == psv_event.sku
+            PSVStockBalance.sku == psv_event.sku,
         )
+        if company_id:
+            bal_stmt = bal_stmt.where(PSVStockBalance.company_id == company_id)
+        else:
+            bal_stmt = bal_stmt.where(PSVStockBalance.company_code == psv_event.company_code)
+
         bal = (await psv_session.execute(bal_stmt)).scalar_one_or_none()
 
         if not bal:
             bal = PSVStockBalance(
                 id=f"psvb_{uuid.uuid4().hex[:16]}",
+                company_id=company_id,
                 company_code=psv_event.company_code,
+                product_id=product_id,
                 psv_party_id=psv_event.psv_party_id,
                 psv_store_id=psv_event.psv_store_id,
+                delivery_location_id=psv_event.delivery_location_id,
+                store_code_snapshot=psv_event.store_code_snapshot,
                 sku=psv_event.sku,
                 billed_qty=Decimal("0.0000"),
                 received_qty=Decimal("0.0000"),
                 sold_qty=Decimal("0.0000"),
                 returned_qty=Decimal("0.0000"),
                 transferred_qty=Decimal("0.0000"),
-                current_balance=Decimal("0.0000")
+                current_balance=Decimal("0.0000"),
+                reconciliation_status="AUTO_MATCHED" if product_id else "PENDING_CATALOG_MAPPING",
             )
             psv_session.add(bal)
+        else:
+            if bal.company_id is None and company_id:
+                bal.company_id = company_id
+            if bal.product_id is None and product_id:
+                bal.product_id = product_id
+                bal.reconciliation_status = "AUTO_MATCHED"
 
         mtype = psv_event.movement_type.upper()
         qty = psv_event.quantity
 
-        if mtype in ["GST_BILLED", "INVOICE", "INWARD"]:
+        # Pending partner reports remain in the immutable event ledger but do
+        # not alter the approved projection until reviewed.
+        if psv_event.approval_status != "APPROVED":
+            if commit:
+                await psv_session.commit()
+            else:
+                await psv_session.flush()
+            return {
+                "status": "RECORDED_PENDING_APPROVAL",
+                "source_event_id": source_event_id,
+                "event_id": psv_event.event_id,
+                "current_balance": float(bal.current_balance),
+            }
+
+        if mtype in ["GST_BILLED", "INVOICE", "INWARD", "BILLED_TO_PARTNER"]:
             bal.billed_qty += qty
             bal.current_balance += qty
-        elif mtype in ["STORE_RECEIVED", "RECEIVED"]:
+        elif mtype in ["STORE_RECEIVED", "RECEIVED", "RECEIVED_AT_STORE"]:
             bal.received_qty += qty
-        elif mtype in ["SOLD", "OUTWARD_SALE", "POS_SALE"]:
+        elif mtype in ["SOLD", "SOLD_THROUGH", "OUTWARD_SALE", "POS_SALE"]:
             bal.sold_qty += qty
             bal.current_balance -= qty
         elif mtype in ["RETURNED", "SALES_RETURN"]:
@@ -225,7 +375,16 @@ class PSVProjectionService:
             bal.transferred_qty += qty
             bal.current_balance -= qty
 
-        await psv_session.commit()
+        bal.last_reported_at = psv_event.event_date
+        if bal.product_id:
+            bal.reconciliation_status = "AUTO_MATCHED"
+        else:
+            bal.reconciliation_status = "PENDING_CATALOG_MAPPING"
+
+        if commit:
+            await psv_session.commit()
+        else:
+            await psv_session.flush()
 
         return {
             "status": "PROJECTED_SUCCESSFULLY",
@@ -275,6 +434,9 @@ class PSVProjectionService:
                     sold_qty=b.sold_qty,
                     returned_qty=b.returned_qty,
                     current_balance=b.current_balance,
+                    store_code=b.store_code_snapshot,
+                    reconciliation_status=b.reconciliation_status,
+                    stock_status=("SOLD_OUT" if b.current_balance <= 0 and b.sold_qty > 0 else "IN_STOCK"),
                 )
             )
             tot_units += b.current_balance

@@ -1,18 +1,19 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.104.0
+ * Version      : 4.0.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-09-23 (v4.0.0 — EXC-0005, EXC-0006 retired via CanonicalInlineInput)
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useMemo } from "react";
+import { CanonicalInlineInput } from "../global/CanonicalInlineInput.tsx";
 import ComplaintCRMEngine, {
   Complaint, ComplaintStatus, ComplaintPriority, ComplaintCategory, SLA_MATRIX,
 } from "../../utils/complaintCRMEngine";
@@ -58,13 +59,13 @@ function buildSampleComplaints(): Complaint[] {
   c1 = ComplaintCRMEngine.assign(c1, "AGT-01", "Ramesh Verma", "SUP-01");
   c1 = ComplaintCRMEngine.recordFirstResponse(c1, "AGT-01", "We have logged your complaint and are investigating.", AS_OF_2H(now));
 
-  let c2 = ComplaintCRMEngine.openComplaint({ customerId: "C-002", customerName: "Arjun Mehta", branchCode: "BR-DEL-01", category: "BILLING_ERROR", priority: "CRITICAL", subject: "Overcharged by â‚¹5,000", description: "Invoice shows â‚¹5,000 more than the agreed price.", openedAt: now });
+  let c2 = ComplaintCRMEngine.openComplaint({ customerId: "C-002", customerName: "Arjun Mehta", branchCode: "BR-DEL-01", category: "BILLING_ERROR", priority: "CRITICAL", subject: "Overcharged by ₹5,000", description: "Invoice shows ₹5,000 more than the agreed price.", openedAt: now });
   c2 = ComplaintCRMEngine.checkSLABreaches(c2, AS_OF_50H(now)); // Auto-escalate
 
   let c3 = ComplaintCRMEngine.openComplaint({ customerId: "C-003", customerName: "Kavya Reddy", branchCode: "BR-MUM-01", category: "REFUND_NOT_RECEIVED", priority: "MEDIUM", subject: "Refund pending for 10 days", description: "Returned item 10 days ago but refund not credited yet.", openedAt: now });
   c3 = ComplaintCRMEngine.assign(c3, "AGT-02", "Sunita Rao", "SUP-01");
   c3 = ComplaintCRMEngine.recordFirstResponse(c3, "AGT-02", "Checking with finance team.", AS_OF_2H(now));
-  c3 = ComplaintCRMEngine.resolve(c3, { summary: "Refund processed â€” will credit in 2 business days.", resolvedBy: "AGT-02", asOf: AS_OF_50H(now) });
+  c3 = ComplaintCRMEngine.resolve(c3, { summary: "Refund processed — will credit in 2 business days.", resolvedBy: "AGT-02", asOf: AS_OF_50H(now) });
   c3 = ComplaintCRMEngine.close(c3, 4, "Good resolution, just took too long.", "AGT-02");
 
   let c4 = ComplaintCRMEngine.openComplaint({ customerId: "C-004", customerName: "Deepak Gupta", branchCode: "BR-BLR-01", category: "WRONG_ITEM", priority: "HIGH", subject: "Wrong size delivered", description: "Ordered L but received M.", relatedInvoiceNo: "INV-2026-0799", openedAt: now });
@@ -97,7 +98,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
     if (!selected) return;
     const agent = AGENTS[Math.floor(Math.random() * AGENTS.length)];
     update(ComplaintCRMEngine.assign(selected, agent.id, agent.name, "SUPERVISOR"));
-    onNotification?.("Assigned", `${selected.ticketNo} â†’ ${agent.name}`, "info");
+    onNotification?.("Assigned", `${selected.ticketNo} → ${agent.name}`, "info");
   };
 
   const handleRespond = () => {
@@ -122,7 +123,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
 
   const handleEscalate = () => {
     if (!selected) return;
-    update(ComplaintCRMEngine.escalate(selected, "Manual escalation â€” management review required.", "SUPERVISOR"));
+    update(ComplaintCRMEngine.escalate(selected, "Manual escalation — management review required.", "SUPERVISOR"));
     onNotification?.("Escalated", selected.ticketNo, "error");
   };
 
@@ -132,7 +133,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
   const starRow = (score: number) => (
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((s) => (
-        <span key={s} className={`text-lg ${s <= score ? "text-yellow-400" : "text-slate-700"}`}>â˜…</span>
+        <span key={s} className={`text-lg ${s <= score ? "text-yellow-400" : "text-slate-700"}`}>?</span>
       ))}
     </div>
   );
@@ -147,7 +148,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Customer Complaint & After-Sales CRM Engine</h2>
-              <p className="text-xs text-slate-400">SLA Matrix Â· Auto-Escalation Â· Resolution Workflow Â· CSAT Scoring</p>
+              <p className="text-xs text-slate-400">SLA Matrix · Auto-Escalation · Resolution Workflow · CSAT Scoring</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -178,7 +179,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                 className={`w-full text-left p-3 rounded-xl border transition-all ${selectedId === c.complaintId ? "bg-sky-950/20 border-sky-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] font-mono text-slate-400">{c.ticketNo}</span>
-                  {c.isEscalated && <span className="text-[9px] text-rose-300">âš  ESC</span>}
+                  {c.isEscalated && <span className="text-[9px] text-rose-300">? ESC</span>}
                 </div>
                 <p className="text-xs font-medium text-slate-200 truncate">{c.subject}</p>
                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
@@ -197,10 +198,10 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-mono text-slate-500">{selected.ticketNo}</span>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${PRIORITY_STYLE[selected.priority]}`}>{selected.priority}</span>
-                    {selected.isEscalated && <span className="text-[9px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded-full">âš  ESCALATED</span>}
+                    {selected.isEscalated && <span className="text-[9px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded-full">? ESCALATED</span>}
                   </div>
                   <p className="text-base font-bold text-slate-100">{selected.subject}</p>
-                  <p className="text-xs text-slate-400">{selected.customerName} Â· {selected.branchCode} Â· {selected.category.replace(/_/g, " ")}</p>
+                  <p className="text-xs text-slate-400">{selected.customerName} · {selected.branchCode} · {selected.category.replace(/_/g, " ")}</p>
                   {selected.relatedInvoiceNo && <p className="text-[10px] text-indigo-400 mt-0.5">Invoice: {selected.relatedInvoiceNo}</p>}
                   {selected.assignedAgentName && <p className="text-[10px] text-sky-400">Agent: {selected.assignedAgentName}</p>}
                 </div>
@@ -221,7 +222,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                           {s.breached ? "BREACHED" : s.responded ? "MET" : "RUNNING"}
                         </span>
                       </div>
-                      <div className="text-xs font-mono text-slate-200">{s.limit}h target Â· {elapsedH}h elapsed</div>
+                      <div className="text-xs font-mono text-slate-200">{s.limit}h target · {elapsedH}h elapsed</div>
                     </div>
                   ))}
                 </div>
@@ -246,8 +247,16 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                     )}
                     {["IN_PROGRESS", "PENDING_CUSTOMER", "REOPENED"].includes(selected.status) && (
                       <div className="flex items-center gap-2 w-full">
-                        <input value={resolveNote} data-field-key="remarks" onChange={(e) => setResolveNote(e.target.value)} placeholder="Resolution summary..."
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500/60" />
+                        {/* EXC-0005 RETIRED: remarks -> CanonicalInlineInput (customer.notes alias) */}
+                        <CanonicalInlineInput
+                          fieldId="customer.notes"
+                          canonicalKey="profile_notes"
+                          fallbackLabel="Resolution summary"
+                          value={resolveNote}
+                          onChange={(e) => setResolveNote(e.target.value)}
+                          placeholder="Resolution summary..."
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500/60"
+                        />
                         <button onClick={handleResolve} disabled={!resolveNote} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-500 disabled:opacity-40 transition-all">Resolve</button>
                       </div>
                     )}
@@ -255,11 +264,19 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                       <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex gap-1">
                           {[1,2,3,4,5].map((s) => (
-                            <button key={s} onClick={() => setCsatInput(s)} className={`text-2xl transition-all ${s <= csatInput ? "text-yellow-400" : "text-slate-700 hover:text-yellow-600"}`}>â˜…</button>
+                            <button key={s} onClick={() => setCsatInput(s)} className={`text-2xl transition-all ${s <= csatInput ? "text-yellow-400" : "text-slate-700 hover:text-yellow-600"}`}>?</button>
                           ))}
                         </div>
-                        <input value={csatComment} data-field-key="remarks" onChange={(e) => setCsatComment(e.target.value)} placeholder="Customer comment (optional)"
-                          className="w-52 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/60" />
+                        {/* EXC-0006 RETIRED: remarks (CSAT comment) -> CanonicalInlineInput (customer.notes alias) */}
+                        <CanonicalInlineInput
+                          fieldId="customer.notes"
+                          canonicalKey="profile_notes"
+                          fallbackLabel="Customer comment"
+                          value={csatComment}
+                          onChange={(e) => setCsatComment(e.target.value)}
+                          placeholder="Customer comment (optional)"
+                          className="w-52 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/60"
+                        />
                         <button onClick={handleClose} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all">Close with CSAT</button>
                       </div>
                     )}
@@ -288,7 +305,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                       <div key={n.noteId} className={`p-3 rounded-xl border text-xs ${n.isInternal ? "bg-slate-900/60 border-slate-800/60" : "bg-slate-800/30 border-slate-700/50"}`}>
                         <div className="flex items-center gap-2 mb-1">
                           {n.isInternal && <span className="text-[9px] font-bold text-slate-500 bg-slate-700/30 px-1.5 py-0.5 rounded-full border border-slate-600/30">Internal</span>}
-                          <span className="text-[10px] text-slate-500">{n.addedBy} Â· {new Date(n.timestamp).toLocaleTimeString("en-IN")}</span>
+                          <span className="text-[10px] text-slate-500">{n.addedBy} · {new Date(n.timestamp).toLocaleTimeString("en-IN")}</span>
                         </div>
                         <p className="text-slate-300">{n.content}</p>
                       </div>
@@ -323,7 +340,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
                     const pct = report.csatResponses > 0 ? Math.round((cnt / report.csatResponses) * 100) : 0;
                     return (
                       <div key={s} className="flex items-center gap-3">
-                        <span className="text-sm text-yellow-400 w-4">{s}â˜…</span>
+                        <span className="text-sm text-yellow-400 w-4">{s}?</span>
                         <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
                           <div className="h-full bg-yellow-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                         </div>

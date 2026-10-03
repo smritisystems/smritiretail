@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-A67C1F",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "script",
+  "proposed_name": "verify_inward_landed_cost_database_parity.py",
+  "target_file_path": "scripts/verify_inward_landed_cost_database_parity.py",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "scripts/verify_inward_landed_cost_database_parity.py",
+  "content_hash": "d384b4994ceff998f47f3a9b8827502197f1d8df33a42796330642471430310a",
+  "git_commit": "acba70c30d5776ce3e903d0ec4a0a2fe7da12cd6",
+  "issued_at": "2026-09-19T19:15:08.366336+00:00",
+  "expires_at": "2026-09-26T19:15:08.366336+00:00",
+  "status": "ISSUED"
+}

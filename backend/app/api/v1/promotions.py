@@ -12,6 +12,8 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import uuid
+from datetime import datetime, timezone
 import traceback
 from typing import Dict, Any, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -19,7 +21,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ...api.deps import get_company_db, get_current_user
-from ...models.promotions import PromotionCampaign, PromotionRule, Coupon, PromotionRedemption
+from ...models.promotions import (
+    PromotionCampaign,
+    PromotionRule,
+    Coupon,
+    PromotionRedemption,
+    SmritiPromotion,
+    SmritiPromotionDecline,
+)
 from ...services.promotions_engine import PromotionsEngine
 from ...schemas.promotions import (
     PromotionCampaignCreateRequest,
@@ -32,6 +41,8 @@ from ...schemas.promotions import (
     PromotionEvaluationResponse,
     PromotionRedemptionRequest,
     PromotionRedemptionResponse,
+    PromotionSchemeDTO,
+    PromotionSchemeUpsertRequest,
 )
 
 router = APIRouter()
@@ -243,3 +254,298 @@ async def record_promotion_redemption(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# STATUTORY PROMOTION SCHEMES SYNCHRONIZATION (Define Sales Promotions & F6)
+# ============================================================================
+
+@router.get("/schemes", response_model=List[PromotionSchemeDTO], summary="List Defined Promotional Schemes")
+async def list_promotion_schemes(
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Returns active and defined promotional schemes synchronized between POS and PostgreSQL."""
+    try:
+        q = select(PromotionCampaign).order_by(PromotionCampaign.priority.asc(), PromotionCampaign.name.asc())
+        res = await db.execute(q)
+        campaigns = res.scalars().all()
+
+        dtos: List[PromotionSchemeDTO] = []
+        for camp in campaigns:
+            rq = select(PromotionRule).where(PromotionRule.campaign_id == camp.id).limit(1)
+            r_res = await db.execute(rq)
+            rule = r_res.scalars().first()
+
+            bundle = getattr(rule, "bundle_offer_details", {}) or {}
+            pelig = getattr(rule, "product_eligibility", {}) or {}
+            celig = getattr(camp, "customer_eligibility", {}) or {}
+
+            level = bundle.get("level", "ITEM_LEVEL")
+            category = bundle.get("category", "ITEM_DISCOUNT_PERCENT")
+            disc_val = float(rule.discount_percent or 0.0) if rule and float(rule.discount_percent or 0.0) > 0 else float(getattr(rule, "discount_fixed_amount", 0.0) or 0.0)
+
+            valid_from = camp.start_date.strftime("%Y-%m-%d") if camp.start_date else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            valid_to = camp.end_date.strftime("%Y-%m-%d") if camp.end_date else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+            dtos.append(
+                PromotionSchemeDTO(
+                    id=camp.id,
+                    code=camp.promo_code or camp.name,
+                    name=camp.name,
+                    description=camp.description or "",
+                    level=level,
+                    category=category,
+                    priority=camp.priority or 1,
+                    discount_value=disc_val,
+                    min_bill_value=float(camp.min_order_amount) if camp.min_order_amount is not None else None,
+                    min_qty=getattr(rule, "buy_quantity", None) if rule else None,
+                    buy_qty=getattr(rule, "buy_quantity", None) if rule else None,
+                    free_qty=getattr(rule, "get_quantity", None) if rule else None,
+                    max_discount=float(camp.max_discount_amount) if camp.max_discount_amount is not None else None,
+                    applicable_categories=pelig.get("categories", []),
+                    applicable_brands=pelig.get("brands", []),
+                    applicable_customer_groups=celig.get("groups", ["ALL"]),
+                    valid_from=valid_from,
+                    valid_to=valid_to,
+                    is_happy_hours=bool(bundle.get("is_happy_hours", False)),
+                    happy_hours_start=bundle.get("happy_hours_start"),
+                    happy_hours_end=bundle.get("happy_hours_end"),
+                    is_active=bool(camp.is_active),
+                    created_at=camp.created_at.isoformat() if camp.created_at else None,
+                    updated_at=camp.modified_at.isoformat() if hasattr(camp, "modified_at") and camp.modified_at else None,
+                )
+            )
+
+        return dtos
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/schemes", response_model=PromotionSchemeDTO, summary="Upsert Promotional Scheme")
+async def upsert_promotion_scheme(
+    req: PromotionSchemeUpsertRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Upserts a promotional scheme definition and synchronizes it into PostgreSQL."""
+    try:
+        company_id, user_id = _extract_user_info(current_user)
+
+        try:
+            start_dt = datetime.strptime(req.valid_from, "%Y-%m-%d")
+        except Exception:
+            start_dt = datetime.now(timezone.utc)
+        try:
+            end_dt = datetime.strptime(req.valid_to, "%Y-%m-%d")
+        except Exception:
+            end_dt = datetime.now(timezone.utc).replace(year=datetime.now(timezone.utc).year + 1)
+
+        camp = None
+        if req.id:
+            cq = select(PromotionCampaign).where(PromotionCampaign.id == req.id)
+            res = await db.execute(cq)
+            camp = res.scalars().first()
+
+        if not camp:
+            cq2 = select(PromotionCampaign).where(PromotionCampaign.promo_code == req.code)
+            res2 = await db.execute(cq2)
+            camp = res2.scalars().first()
+
+        if not camp:
+            camp = PromotionCampaign(
+                id=req.id or f"camp-{uuid.uuid4().hex[:12]}",
+                name=req.name,
+                promo_code=req.code,
+                description=req.description or "",
+                start_date=start_dt,
+                end_date=end_dt,
+                min_order_amount=req.min_bill_value or 0.0,
+                max_discount_amount=req.max_discount,
+                priority=req.priority or 1,
+                is_active=req.is_active,
+                customer_eligibility={"groups": req.applicable_customer_groups},
+                created_by=user_id,
+            )
+            db.add(camp)
+            await db.flush()
+        else:
+            camp.name = req.name
+            camp.promo_code = req.code
+            camp.description = req.description or ""
+            camp.start_date = start_dt
+            camp.end_date = end_dt
+            camp.min_order_amount = req.min_bill_value or 0.0
+            camp.max_discount_amount = req.max_discount
+            camp.priority = req.priority or 1
+            camp.is_active = req.is_active
+            camp.customer_eligibility = {"groups": req.applicable_customer_groups}
+
+        rq = select(PromotionRule).where(PromotionRule.campaign_id == camp.id)
+        r_res = await db.execute(rq)
+        rule = r_res.scalars().first()
+
+        rule_type = "PERCENTAGE" if "PERCENT" in req.category else ("FIXED_DISCOUNT" if "FLAT" in req.category else req.category)
+        disc_pct = req.discount_value if "PERCENT" in req.category else 0.0
+        disc_amt = req.discount_value if ("FLAT" in req.category or "AMOUNT" in req.category) else 0.0
+
+        bundle_details = {
+            "level": req.level,
+            "category": req.category,
+            "is_happy_hours": req.is_happy_hours,
+            "happy_hours_start": req.happy_hours_start,
+            "happy_hours_end": req.happy_hours_end,
+        }
+        prod_eligibility = {
+            "categories": req.applicable_categories,
+            "brands": req.applicable_brands,
+        }
+
+        if not rule:
+            rule = PromotionRule(
+                id=f"rule-{uuid.uuid4().hex[:12]}",
+                campaign_id=camp.id,
+                rule_type=rule_type,
+                discount_percent=disc_pct,
+                discount_fixed_amount=disc_amt,
+                buy_quantity=req.buy_qty or req.min_qty or 1,
+                get_quantity=req.free_qty or 0,
+                bundle_offer_details=bundle_details,
+                product_eligibility=prod_eligibility,
+                is_active=req.is_active,
+                created_by=user_id,
+            )
+            db.add(rule)
+        else:
+            rule.rule_type = rule_type
+            rule.discount_percent = disc_pct
+            rule.discount_fixed_amount = disc_amt
+            rule.buy_quantity = req.buy_qty or req.min_qty or 1
+            rule.get_quantity = req.free_qty or 0
+            rule.bundle_offer_details = bundle_details
+            rule.product_eligibility = prod_eligibility
+            rule.is_active = req.is_active
+
+        await db.commit()
+        await db.refresh(camp)
+
+        return PromotionSchemeDTO(
+            id=camp.id,
+            code=camp.promo_code or camp.name,
+            name=camp.name,
+            description=camp.description or "",
+            level=req.level,
+            category=req.category,
+            priority=camp.priority or 1,
+            discount_value=req.discount_value,
+            min_bill_value=float(camp.min_order_amount) if camp.min_order_amount is not None else None,
+            min_qty=req.min_qty,
+            buy_qty=req.buy_qty,
+            free_qty=req.free_qty,
+            max_discount=float(camp.max_discount_amount) if camp.max_discount_amount is not None else None,
+            applicable_categories=req.applicable_categories,
+            applicable_brands=req.applicable_brands,
+            applicable_customer_groups=req.applicable_customer_groups,
+            valid_from=req.valid_from,
+            valid_to=req.valid_to,
+            is_happy_hours=req.is_happy_hours,
+            happy_hours_start=req.happy_hours_start,
+            happy_hours_end=req.happy_hours_end,
+            is_active=bool(camp.is_active),
+            created_at=camp.created_at.isoformat() if camp.created_at else None,
+            updated_at=camp.modified_at.isoformat() if hasattr(camp, "modified_at") and camp.modified_at else None,
+        )
+    except Exception as e:
+        await db.rollback()
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/schemes/{scheme_id}", summary="Delete or Deactivate Promotional Scheme")
+async def delete_promotion_scheme(
+    scheme_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Deletes a promotional scheme from PostgreSQL."""
+    try:
+        cq = select(PromotionCampaign).where(PromotionCampaign.id == scheme_id)
+        res = await db.execute(cq)
+        camp = res.scalars().first()
+        if not camp:
+            cq2 = select(PromotionCampaign).where(PromotionCampaign.promo_code == scheme_id)
+            res2 = await db.execute(cq2)
+            camp = res2.scalars().first()
+
+        if not camp:
+            raise HTTPException(status_code=404, detail="Promotional scheme not found")
+
+        await db.delete(camp)
+        await db.commit()
+        return {"status": "SUCCESS", "deleted_id": scheme_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/declines", summary="Record Promotion Decline Event")
+async def record_promotion_decline(
+    payload: Dict[str, Any],
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Non-blocking persistence of customer/cashier promotion decline events.
+    Stored in PostgreSQL table smriti_promotion_declines for shrinkage and audit telemetry.
+    """
+    comp_id, user_id = _extract_user_info(current_user)
+    try:
+        scheme_code = payload.get("schemeCode") or payload.get("promotion_id") or "PROMO-UNKNOWN"
+        promo_res = await db.execute(
+            select(SmritiPromotion).where(
+                SmritiPromotion.tenant_id == comp_id,
+                SmritiPromotion.promotion_code == scheme_code
+            )
+        )
+        promo = promo_res.scalars().first()
+
+        promo_id = promo.id if promo else scheme_code
+        version_id = promo.active_version_id if (promo and promo.active_version_id) else f"ver-{scheme_code}"
+
+        decline_record = SmritiPromotionDecline(
+            id=payload.get("declineId") or f"dec-{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            tenant_id=comp_id,
+            promotion_id=promo_id,
+            promotion_version_id=version_id,
+            sales_session_id=payload.get("salesSessionId", "SESSION-DEFAULT"),
+            sales_invoice_id=payload.get("salesInvoiceId"),
+            cashier_id=payload.get("cashierId", user_id),
+            customer_id=payload.get("customerId"),
+            decline_reason_code=payload.get("reasonCode", "CUSTOMER_DECLINED"),
+            decline_reason_text=payload.get("reasonText", "Customer declined promotional bundle or free item"),
+            unclaimed_potential_savings=float(payload.get("potentialSavings", 0.00)),
+            declined_at=datetime.now(timezone.utc),
+        )
+        db.add(decline_record)
+        await db.commit()
+        return {
+            "recorded": True,
+            "decline_id": decline_record.id,
+            "promotion_id": promo_id,
+            "declined_at": decline_record.declined_at.isoformat() if decline_record.declined_at else None,
+        }
+    except Exception as e:
+        await db.rollback()
+        # Non-blocking: log but return graceful response
+        traceback.print_exc()
+        return {
+            "recorded": False,
+            "error": str(e),
+            "decline_id": payload.get("declineId"),
+        }
+

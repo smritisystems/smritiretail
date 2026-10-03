@@ -1,0 +1,102 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Selecting Entry Columns for Purchase Order/ Indent Generation</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+img.hcp2 { border:none; float:none; border-style:none; }
+-->
+</style>
+</head>
+<body>
+<h1>Selecting Entry Columns for Purchase Order/ Indent Generation</h1>
+
+<p class=Body-Text>You can configure the data entry columns for the Purchase 
+ Order here, if the system parameter <span class="hcp1">Allow 
+ PO/Indent Configuration</span> under the category <span class="hcp1">Purchase 
+ Order</span> is enabled. Otherwise, the setting done using <a href="PO_Configuring_Purchase_Orders-Indents.htm">Purchase 
+ Order Configuration</a> is used and you can only sequence the columns 
+ here.</p>
+
+<p class=Body-Text>The <span class="hcp1">Entry Column Selection</span> 
+ group is as shown.</p>
+
+<p class=Body-Text><img src="PO_Generation_EntryColSelectn.gif" x-maintain-ratio="TRUE" style="width:200px; height:323px;" width="200" height="323" border="0" class="hcp2"></p>
+
+<p class=Body-Text><span class="hcp1">Normal Entry</span>: 
+ Click to generate purchase order based on <span class="hcp1">Class1</span>, 
+ <span class="hcp1">Class2</span>, <span class="hcp1">SubClass1</span>, 
+ <span class="hcp1">SubClass2</span>, <span class="hcp1">Size</span>, 
+ <span class="hcp1">ItemAnalysis Code</span> or a combination 
+ of any of these attributes.</p>
+
+<p class=Body-Text><span class="hcp1">Size Wise Entry</span>: 
+ Click to generate purchase order based on size. <span class="hcp1">Class1</span>, 
+ <span class="hcp1">Class2</span> and <span class="hcp1">Size</span> 
+ are selected by default and you cannot change this.</p>
+
+<p class=Body-Text><span class="hcp1">Standard Browse for 
+ Stock Number</span>: Choose to open the <span class="hcp1">Advanced 
+ Item Search</span> window instead of <span class="hcp1">Browse 
+ - Stock Number</span> window on pressing <span class="hcp1">F2</span> 
+ while generating the purchase order. Advanced Item Search window allows 
+ specification of item selection criteria based on multiple attributes 
+ whereas <span class="hcp1">Browse - Stock Number</span> 
+ window allows item selection only based on code and description.</p>
+
+<p class=Body-Text><span class="hcp1">Column Selection</span>: 
+ Displays the list of attributes for which the values may be provided while 
+ preparing the PO.</p>
+
+<p class=Body-Text><span class="hcp1">Code</span>: Select 
+ the attributes for which the code will be provided while preparing the 
+ PO. All the selected columns will appear enabled during PO generation. 
+ However, data entry is not mandatory for all columns.</p>
+
+<p class=Body-Text><span class="hcp1">Desc.</span>: Select 
+ the attributes for which the description will be displayed while preparing 
+ the PO. All the selected columns will appear grayed in the grid.</p>
+
+<p class=Body-Text>Click <img src="po-gen-b_up.gif" x-maintain-ratio="TRUE" style="width:32px; height:32px;" width="32" height="32" border="0" class="hcp2"> or <img src="po-gen-b_down.gif" x-maintain-ratio="TRUE" style="width:32px; height:32px;" width="32" height="32" border="0" class="hcp2"> to move the 
+ currently selected attribute up or down to place it at the appropriate 
+ position. The selected attributes will be displayed in the PO entry grid 
+ on the <span class="hcp1">Purchase Order/Indent Generation</span> 
+ window, in the same order as set here.</p>
+
+<p class=Note><span class="hcp1">Notes:</span> </p>
+
+<p class=Note>1. If you have selected the option Size Wise Entry, then 
+ Class1, Class2 and Size are deactivated. However, their positions can 
+ be changed. Also, the Stock Number cannot be selected.</p>
+
+<p class=Note>2. Based on the Class1 and Class2 combo selected, size groups 
+ are selected and displayed on the top of the grid on the Purchase Order/Indent 
+ Generation window.</p>
+
+<p class=Body-Text><span class="hcp1">Tax Columns</span>: 
+ Select the appropriate taxation parameter from the list. The values selected 
+ will be considered for tax computation, depending on whether it is before 
+ tax or after tax.</p>
+
+<p class=Navigation><span class="hcp1">Apply</span>: To populate 
+ the grid on the Purchase Order/Indent Generation window as per the selections 
+ made </p>
+
+<p class=Navigation><span class="hcp1">Cancel</span>: To 
+ undo the selections made</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Tips><span class="hcp1">Tip:</span> You can change 
+ any of the combination with in normal entry mode, but cannot club both 
+ normal entry and size wise entry in a given purchase order.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>
