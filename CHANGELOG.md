@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.59.0] - 2026-10-03 — Global Grid Import Standard Rollout: Standard Purchase Order Generator
+
+> **Branch:** `smritiNX` | **Area:** Procurement & Merchandising / Standard Purchase Order Generator
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/purchase/Global_Grid_Import_PO_Generate_v1.0.md`
+
+### Added
+- **Standard Purchase Order Generator (`PoGenerateTab.tsx`)**:
+  - Replaced legacy naive comma-split file parser (`lines[i].split(",")`) with centralized `GlobalGridImportModal` configured with `GRID_PROFILES.PURCHASE` and catalog batch resolution (`POST /api/v1/products/batch-resolve`).
+  - Added direct table clipboard paste interceptor (`handleTableContainerPaste`) on the scrollable table container, detecting multi-line or delimited text (`\t`, `,`, `~`, `|`) and opening `GlobalGridImportModal` pre-populated with parsed spreadsheet content.
+  - Exported pure mapper `mapParsedGridRowsToPOLineItems` transforming resolved products and raw rows into canonical `PurchaseOrderLineItem` records with accurate rates, MRP, tax calculations, units, and brand styling attributes.
+  - Exported pure merge utility `mergePOLineItems` supporting `APPEND`, `MERGE` (accumulating quantities, updating rates, and recalculating net totals without dropping existing attributes), and `REPLACE` modes.
+  - Updated primary action toolbar with "Fast Import" action button and wired file picker adapter to stream CSV/TSV/Excel data into `GlobalGridImportModal`.
+  - Added unit tests 7–11 in `src/tests/poGenerateUX.test.ts` verifying product mapping, fallback handling for unmapped rows, and all merge modes (11/11 tests green).
+
 ## [6.58.0] - 2026-10-03 — Global Grid Import Standard Rollout: Sizewise Purchase Order Matrix
 
 > **Branch:** `smritiNX` | **Area:** Procurement & Merchandising / Footwear & Apparel Sizewise PO

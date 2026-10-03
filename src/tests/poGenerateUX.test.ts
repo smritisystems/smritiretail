@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 6.59.0
  * Created      : 2026-09-21
- * Modified     : 2026-09-21
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -22,7 +22,10 @@ import {
   PURCHASER_FIELD_LABEL,
   PO_PRIMARY_SUBMIT_LABEL,
   formatLeadTimeLabel,
+  mapParsedGridRowsToPOLineItems,
+  mergePOLineItems,
 } from "../components/purchase/PoGenerateTab.tsx";
+import type { ParsedGridRow } from "../services/gridInput/types.ts";
 
 describe("SMRITI 9 Purchase Order Modern UX & Calculation Suite", () => {
   it("1. should maintain MRP as an explicit separate field from purchase rate", () => {
@@ -204,5 +207,286 @@ describe("SMRITI 9 Purchase Order Modern UX & Calculation Suite", () => {
     expect(PO_PRIMARY_SUBMIT_LABEL).toBe("Submit PO");
     expect(formatLeadTimeLabel(7)).toBe("7 days");
     expect(formatLeadTimeLabel(1)).toBe("1 day");
+  });
+
+  it("7. should map resolved grid import rows into canonical PurchaseOrderLineItem with accurate tax and pricing", () => {
+    const mockRows: ParsedGridRow[] = [
+      {
+        rowNumber: 1,
+        rawValues: { barcode: "8901234567890", qty: "10", rate: "600" },
+        mappedValues: { barcode: "8901234567890", quantity: 10, rate: 600 },
+        identifier: "8901234567890",
+        identifierType: "BARCODE",
+        quantity: 10,
+        rate: 600,
+        mrp: 1200,
+        taxRate: 5,
+        resolutionStatus: "RESOLVED",
+        resolvedProduct: {
+          productId: "p-101",
+          sku: "CMP-RUN-01",
+          barcode: "8901234567890",
+          name: "Campus Runner Shoes",
+          brand: "Campus",
+          mrp: 1200,
+          costPrice: 600,
+          taxRate: 5,
+        },
+      },
+    ];
+
+    const lines = mapParsedGridRowsToPOLineItems(mockRows, 0, 5);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].stockNo).toBe("CMP-RUN-01");
+    expect(lines[0].barcode).toBe("8901234567890");
+    expect(lines[0].product).toBe("Campus Runner Shoes");
+    expect(lines[0].brand).toBe("Campus");
+    expect(lines[0].orderQty).toBe(10);
+    expect(lines[0].rate).toBe(600);
+    expect(lines[0].mrp).toBe(1200);
+    expect(lines[0].value).toBe(6000);
+    expect(lines[0].taxPercent).toBe(5);
+    expect(lines[0].taxAmount).toBe(300);
+    expect(lines[0].totalValue).toBe(6300);
+  });
+
+  it("8. should provide resilient fallbacks for unresolved/manual grid rows during PO import", () => {
+    const mockUnresolved: ParsedGridRow[] = [
+      {
+        rowNumber: 2,
+        rawValues: { code: "CUSTOM-099", qty: "4", rate: "250", disc: "10" },
+        mappedValues: { itemCode: "CUSTOM-099", name: "Custom Safety Gloves", unit: "Pcs" },
+        identifier: "CUSTOM-099",
+        identifierType: "ITEM_CODE",
+        quantity: 4,
+        rate: 250,
+        discount: 10,
+        resolutionStatus: "UNRESOLVED",
+      },
+    ];
+
+    const lines = mapParsedGridRowsToPOLineItems(mockUnresolved, 2, 12);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].id).toBe("line-3");
+    expect(lines[0].sNo).toBe(3);
+    expect(lines[0].stockNo).toBe("CUSTOM-099");
+    expect(lines[0].product).toBe("Custom Safety Gloves");
+    expect(lines[0].orderQty).toBe(4);
+    expect(lines[0].rate).toBe(250);
+    expect(lines[0].discountPercent).toBe(10);
+    // gross = 1000, discount = 100, taxable = 900, tax 12% = 108, totalValue = 1008
+    expect(lines[0].discountAmount).toBe(100);
+    expect(lines[0].value).toBe(900);
+    expect(lines[0].taxPercent).toBe(12);
+    expect(lines[0].taxAmount).toBe(108);
+    expect(lines[0].totalValue).toBe(1008);
+  });
+
+  it("9. should replace all line items in REPLACE import mode", () => {
+    const existing: PurchaseOrderLineItem[] = [
+      {
+        id: "line-1",
+        sNo: 1,
+        stockNo: "OLD-ITEM",
+        product: "Old Stock Item",
+        brand: "OldBrand",
+        style: "-",
+        shade: "-",
+        size: "-",
+        fibre: "-",
+        colourBase: "-",
+        styling: "-",
+        rate: 100,
+        orderQty: 2,
+        value: 200,
+        stockOnHand: 10,
+        taxPercent: 5,
+        taxAmount: 10,
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: 210,
+      },
+    ];
+
+    const incoming: PurchaseOrderLineItem[] = [
+      {
+        id: "temp-1",
+        sNo: 1,
+        stockNo: "NEW-01",
+        product: "New Product",
+        brand: "NewBrand",
+        style: "-",
+        shade: "-",
+        size: "-",
+        fibre: "-",
+        colourBase: "-",
+        styling: "-",
+        rate: 500,
+        orderQty: 5,
+        value: 2500,
+        stockOnHand: 0,
+        taxPercent: 5,
+        taxAmount: 125,
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: 2625,
+      },
+    ];
+
+    const result = mergePOLineItems(existing, incoming, "REPLACE");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("line-1");
+    expect(result[0].stockNo).toBe("NEW-01");
+    expect(result[0].orderQty).toBe(5);
+  });
+
+  it("10. should append incoming items to existing active items in APPEND mode", () => {
+    const existing: PurchaseOrderLineItem[] = [
+      {
+        id: "line-1",
+        sNo: 1,
+        stockNo: "ITEM-A",
+        product: "Item A",
+        brand: "SMRITI",
+        style: "-",
+        shade: "-",
+        size: "-",
+        fibre: "-",
+        colourBase: "-",
+        styling: "-",
+        rate: 100,
+        orderQty: 2,
+        value: 200,
+        stockOnHand: 5,
+        taxPercent: 5,
+        taxAmount: 10,
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: 210,
+      },
+      // Blank placeholder row
+      {
+        id: "line-2",
+        sNo: 2,
+        stockNo: "",
+        product: "",
+        brand: "",
+        style: "",
+        shade: "",
+        size: "",
+        fibre: "",
+        colourBase: "",
+        styling: "",
+        rate: 0,
+        orderQty: 0,
+        value: 0,
+        stockOnHand: 0,
+        taxPercent: 5,
+        taxAmount: 0,
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: 0,
+      },
+    ];
+
+    const incoming: PurchaseOrderLineItem[] = [
+      {
+        id: "temp-2",
+        sNo: 1,
+        stockNo: "ITEM-B",
+        product: "Item B",
+        brand: "SMRITI",
+        style: "-",
+        shade: "-",
+        size: "-",
+        fibre: "-",
+        colourBase: "-",
+        styling: "-",
+        rate: 200,
+        orderQty: 3,
+        value: 600,
+        stockOnHand: 0,
+        taxPercent: 5,
+        taxAmount: 30,
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: 630,
+      },
+    ];
+
+    const result = mergePOLineItems(existing, incoming, "APPEND");
+    expect(result).toHaveLength(2);
+    expect(result[0].stockNo).toBe("ITEM-A");
+    expect(result[1].stockNo).toBe("ITEM-B");
+    expect(result[1].sNo).toBe(2);
+    expect(result[1].id).toBe("line-2");
+  });
+
+  it("11. should accumulate quantities and recalculate values in MERGE mode", () => {
+    const existing: PurchaseOrderLineItem[] = [
+      {
+        id: "line-1",
+        sNo: 1,
+        stockNo: "ITEM-A",
+        barcode: "8901111111111",
+        product: "Item A",
+        brand: "SMRITI",
+        style: "-",
+        shade: "-",
+        size: "-",
+        fibre: "-",
+        colourBase: "-",
+        styling: "-",
+        rate: 100,
+        orderQty: 5,
+        discountPercent: 10,
+        discountAmount: 50,
+        value: 450,
+        stockOnHand: 5,
+        taxPercent: 5,
+        taxAmount: 22.5,
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: 472.5,
+      },
+    ];
+
+    const incoming: PurchaseOrderLineItem[] = [
+      {
+        id: "temp-1",
+        sNo: 1,
+        stockNo: "ITEM-A",
+        barcode: "8901111111111",
+        product: "Item A",
+        brand: "SMRITI",
+        style: "-",
+        shade: "-",
+        size: "-",
+        fibre: "-",
+        colourBase: "-",
+        styling: "-",
+        rate: 100,
+        orderQty: 5,
+        discountPercent: 10,
+        discountAmount: 50,
+        value: 450,
+        stockOnHand: 0,
+        taxPercent: 5,
+        taxAmount: 22.5,
+        addOnPercent: 0,
+        addOnAmount: 0,
+        totalValue: 472.5,
+      },
+    ];
+
+    const result = mergePOLineItems(existing, incoming, "MERGE");
+    expect(result).toHaveLength(1);
+    expect(result[0].stockNo).toBe("ITEM-A");
+    expect(result[0].orderQty).toBe(10);
+    // gross = 100 * 10 = 1000, discount 10% = 100, taxable = 900, tax 5% = 45, totalValue = 945
+    expect(result[0].discountAmount).toBe(100);
+    expect(result[0].value).toBe(900);
+    expect(result[0].taxAmount).toBe(45);
+    expect(result[0].totalValue).toBe(945);
   });
 });
