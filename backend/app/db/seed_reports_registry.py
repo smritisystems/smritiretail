@@ -391,4 +391,37 @@ CANONICAL_REPORT_REGISTRY: Dict[str, ReportRegistryEntry] = {
         security_policy_version="v1.0",
         status=ReportContractStatus.ACTIVE,
     ),
+
+    # =========================================================================
+    # ACCOUNTS STUDIO -- Monthly Accounts Summary
+    # Phase 1D -- 2026-10-04
+    # =========================================================================
+    "RPT-ACCT-001": ReportRegistryEntry(
+        report_id="RPT-ACCT-001",
+        name="Monthly Accounts Summary",
+        studio=StudioType.MIS_STUDIO,
+        description=(
+            "Month-end financial summary covering total sales revenue, sales returns, "
+            "purchase receipts, purchase bills payable, and net position. "
+            "Period: previous calendar month by default; accepts year/month override. "
+            "Source tables: sales_invoices, sales_returns, purchase_receipts, purchase_bills."
+        ),
+        dimensions=["year", "month", "company_id", "branch_id"],
+        measures=[
+            "MTR_SALES_REVENUE",
+            "MTR_SALES_RETURNS",
+            "MTR_NET_SALES",
+            "MTR_PURCHASE_VALUE",
+            "MTR_PURCHASE_BILLS",
+            "MTR_NET_POSITION",
+        ],
+        allowed_roles=["ACCOUNTANT", "ADMIN", "CEO", "Sysadmin"],
+        drill_route="/reports/monthly-accounts",
+        shoper_aliases=[],
+        contract_version="v1.0",
+        metric_version="v1.0",
+        schema_version="v1.0",
+        security_policy_version="v1.0",
+        status=ReportContractStatus.ACTIVE,
+    ),
 }

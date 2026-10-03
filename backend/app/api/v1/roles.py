@@ -4,11 +4,19 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.16.1
 Created      : 2026-07-12
-Modified     : 2026-07-12
+Modified     : 2026-10-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+
+Changes v3.16.1 (2026-10-04 — Phase 1D):
+  - create_role: assigns company_id from requesting user for custom roles.
+  - create_role: duplicate check is now tenant-scoped
+    (name + company_id + is_deleted=False) so two different tenants may
+    share a role name, which is the intended post-migration behaviour.
+  - System roles guard preserved: isSystem=True blocked at API level;
+    system roles are global templates managed by seeding only.
 """
 
 import json
@@ -65,14 +73,35 @@ async def create_role(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Register a new custom user access role mapping.
+    Register a new custom user access role scoped to the requesting user's company.
+
+    System roles (is_system=True) cannot be created via this API — they are
+    global templates managed exclusively by the seeding process.
     """
-    # Check if role exists
-    q = select(Role).where(Role.name.ilike(req.name), Role.is_deleted == False)
+    # Block creation of system roles via API
+    if req.isSystem:
+        raise HTTPException(
+            status_code=400,
+            detail="System roles are global templates and cannot be created via this endpoint."
+        )
+
+    # Resolve tenant scope from the requesting user
+    company_id: str | None = getattr(current_user, "company_id", None)
+
+    # Tenant-scoped duplicate check: same name within the same company
+    q = select(Role).where(
+        Role.name.ilike(req.name),
+        Role.company_id == company_id,
+        Role.is_deleted == False,
+        Role.is_system == False,
+    )
     res = await db.execute(q)
     existing = res.scalars().first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"Access role '{req.name}' already registered.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"A custom access role named '{req.name}' already exists for your organisation."
+        )
 
     new_id = f"rol-{int(datetime.now(timezone.utc).timestamp())}"
     role = Role(
@@ -80,9 +109,10 @@ async def create_role(
         name=req.name,
         description=req.description,
         permissions_json=json.dumps(req.permissions),
-        is_system=req.isSystem or False,
+        is_system=False,           # always False for custom roles created via API
+        company_id=company_id,     # tenant-scoped per Phase 1D migration
         created_by=current_user.username,
-        updated_by=current_user.username
+        updated_by=current_user.username,
     )
     db.add(role)
     await db.commit()
@@ -93,7 +123,7 @@ async def create_role(
         name=role.name,
         description=role.description,
         permissions=req.permissions,
-        isSystem=role.is_system or False
+        isSystem=False,
     )
 
 

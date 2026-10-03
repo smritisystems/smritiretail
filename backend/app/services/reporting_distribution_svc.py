@@ -4,12 +4,22 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.72.0
+Version      : 3.73.0
 Created      : 2026-08-28
-Modified     : 2026-08-28
+Modified     : 2026-10-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
+
+Changes v3.73.0 (2026-10-04 — Phase 1D):
+  - CronEvaluator: replaced partial daily-only logic with a complete
+    5-field cron implementation supporting wildcards, step (*/n), ranges
+    (a-b), and lists (a,b,c) using pure Python stdlib datetime.
+  - Removed hardcoded TattlyThreads email/WhatsApp fallback recipients
+    from execute_schedule(); dispatch now requires explicit recipients.
+  - Removed static demo dataset from _render_report_payload(); report
+    payload now uses _dataset from filter_overrides or returns empty.
+  - create_schedule: removed hardcoded fallback company/branch IDs.
 """
 
 import asyncio
@@ -41,40 +51,170 @@ from app.services.reports import ReportsService
 
 class CronEvaluator:
     """
-    Evaluates standard 5-part cron expressions to compute deterministic next execution timestamps.
+    Evaluates standard 5-field cron expressions to compute deterministic
+    next execution timestamps.
+
     Format: [minute] [hour] [day_of_month] [month] [day_of_week]
+    Ranges : 0-23 for hour, 0-59 for minute, 1-31 for dom, 1-12 for month,
+             0-6 for dow (0=Sunday).
+
+    Supported field syntax:
+        *       — wildcard (every unit)
+        n       — exact value
+        a-b     — inclusive range
+        a,b,c   — list of values
+        */n     — step (every n units across the full range)
+        a-b/n   — step over a range
+
+    Implementation uses only Python stdlib datetime — zero new dependencies.
+    Scans forward minute-by-minute from (base_time + 1 minute), up to 4 years
+    to handle monthly/quarterly schedules safely, then falls back to +24h.
     """
 
+    # ── Field range boundaries ──────────────────────────────────────────────
+    _RANGES: Dict[str, Tuple[int, int]] = {
+        "minute": (0, 59),
+        "hour":   (0, 23),
+        "dom":    (1, 31),
+        "month":  (1, 12),
+        "dow":    (0, 6),
+    }
+
     @staticmethod
-    def compute_next_run(cron_expression: str, base_time: Optional[datetime] = None) -> datetime:
+    def _expand_field(field: str, lo: int, hi: int) -> List[int]:
+        """
+        Expand one cron field string into a sorted list of allowed integer
+        values within [lo, hi].
+        """
+        result: set = set()
+
+        for part in field.split(","):
+            part = part.strip()
+            step = 1
+
+            # Extract step — e.g. "*/15" or "8-20/2"
+            if "/" in part:
+                part, step_str = part.rsplit("/", 1)
+                try:
+                    step = max(1, int(step_str))
+                except ValueError:
+                    step = 1
+
+            if part == "*":
+                for v in range(lo, hi + 1, step):
+                    result.add(v)
+            elif "-" in part:
+                try:
+                    a_str, b_str = part.split("-", 1)
+                    a, b = int(a_str), int(b_str)
+                    for v in range(max(lo, a), min(hi, b) + 1, step):
+                        result.add(v)
+                except ValueError:
+                    result.update(range(lo, hi + 1, step))
+            else:
+                try:
+                    v = int(part)
+                    if lo <= v <= hi:
+                        for s in range(v, hi + 1, step):
+                            result.add(s)
+                            if step == 1:
+                                break
+                except ValueError:
+                    pass  # Malformed — ignore silently
+
+        return sorted(result)
+
+    @classmethod
+    def compute_next_run(cls, cron_expression: str, base_time: Optional[datetime] = None) -> datetime:
+        """
+        Return the next UTC datetime that satisfies the 5-field cron
+        expression, strictly after base_time.
+
+        Scan limit: 2 years of minutes (~1,051,200 iterations) to handle
+        monthly/quarterly schedules. Falls back to base_time + 24h on
+        malformed expressions or exhausted scan.
+        """
         if base_time is None:
             base_time = datetime.now(timezone.utc)
-        
+
+        if not cron_expression or not cron_expression.strip():
+            return base_time + timedelta(days=1)
+
         parts = cron_expression.strip().split()
         if len(parts) != 5:
-            # Default fallback: 24 hours from now
             return base_time + timedelta(days=1)
-        
-        minute_str, hour_str, dom_str, month_str, dow_str = parts
-        
-        # Simple daily cron parsing (e.g. "0 21 * * *")
+
+        minute_f, hour_f, dom_f, month_f, dow_f = parts
+
         try:
-            target_min = int(minute_str) if minute_str != "*" else 0
-            target_hour = int(hour_str) if hour_str != "*" else base_time.hour
-            
-            candidate = base_time.replace(
-                hour=target_hour,
-                minute=target_min,
-                second=0,
-                microsecond=0
-            )
-            
-            if candidate <= base_time:
-                candidate += timedelta(days=1)
-                
-            return candidate
+            allowed_min   = cls._expand_field(minute_f, 0, 59)
+            allowed_hour  = cls._expand_field(hour_f,   0, 23)
+            allowed_dom   = cls._expand_field(dom_f,    1, 31)
+            allowed_month = cls._expand_field(month_f,  1, 12)
+            allowed_dow   = cls._expand_field(dow_f,    0, 6)
         except Exception:
             return base_time + timedelta(days=1)
+
+        if not all([allowed_min, allowed_hour, allowed_dom, allowed_month, allowed_dow]):
+            return base_time + timedelta(days=1)
+
+        # Start scanning from the next whole minute after base_time
+        candidate = (base_time + timedelta(minutes=1)).replace(second=0, microsecond=0)
+        scan_limit = candidate + timedelta(days=730)  # 2-year cap
+
+        while candidate <= scan_limit:
+            if candidate.month not in allowed_month:
+                # Jump to first allowed month in this or next year
+                candidate = candidate.replace(day=1, hour=0, minute=0)
+                candidate += timedelta(days=32)
+                candidate = candidate.replace(day=1)
+                continue
+
+            dom_ok = candidate.day in allowed_dom
+            # dow: Python weekday() is Mon=0..Sun=6; cron dow is Sun=0..Sat=6
+            py_dow = (candidate.weekday() + 1) % 7
+            dow_ok = py_dow in allowed_dow
+
+            # When dom field is *, only dow matters; when dow is *, only dom.
+            # When both are specified (non-wildcard), either matching is sufficient
+            # (standard POSIX cron OR semantics).
+            dom_star = (dom_f.strip() == "*")
+            dow_star = (dow_f.strip() == "*")
+
+            if dom_star and dow_star:
+                day_ok = True
+            elif dom_star:
+                day_ok = dow_ok
+            elif dow_star:
+                day_ok = dom_ok
+            else:
+                day_ok = dom_ok or dow_ok
+
+            if not day_ok:
+                candidate = candidate.replace(hour=0, minute=0) + timedelta(days=1)
+                continue
+
+            if candidate.hour not in allowed_hour:
+                next_hour = next((h for h in allowed_hour if h > candidate.hour), None)
+                if next_hour is None:
+                    candidate = candidate.replace(hour=0, minute=0) + timedelta(days=1)
+                else:
+                    candidate = candidate.replace(hour=next_hour, minute=0)
+                continue
+
+            if candidate.minute not in allowed_min:
+                next_min = next((m for m in allowed_min if m > candidate.minute), None)
+                if next_min is None:
+                    candidate = candidate.replace(minute=0) + timedelta(hours=1)
+                else:
+                    candidate = candidate.replace(minute=next_min)
+                continue
+
+            # All fields satisfied
+            return candidate
+
+        # Scan exhausted — safe fallback
+        return base_time + timedelta(days=1)
 
 
 class EmailDispatcher:
@@ -204,8 +344,8 @@ class ReportDistributionEngine:
         now = datetime.now(timezone.utc)
         next_run = CronEvaluator.compute_next_run(payload.cron_expression, now)
         
-        company_id = self.tenant_ctx.company_id if self.tenant_ctx else "COMP-001"
-        branch_id = self.tenant_ctx.branch_id if self.tenant_ctx else "BR-MAIN-001"
+        company_id = self.tenant_ctx.company_id if self.tenant_ctx else None
+        branch_id = self.tenant_ctx.branch_id if self.tenant_ctx else None
         
         schedule = ReportSchedule(
             id=schedule_id,
@@ -280,43 +420,64 @@ class ReportDistributionEngine:
         return True
 
     def _render_report_payload(self, report_code: str, export_format: str, filters: dict) -> bytes:
-        """Renders canonical report data into requested binary/text format."""
-        dataset = filters.get("_dataset") if filters else None
-        if not dataset:
-            dataset = [
-                {"date": "2026-08-28", "doc_no": "INV-2026-001", "entity": "Tattly Threads", "net_amount": 15450.00, "gst": 1854.00, "gross_total": 17304.00},
-                {"date": "2026-08-28", "doc_no": "INV-2026-002", "entity": "Reliance Retail", "net_amount": 42000.00, "gst": 5040.00, "gross_total": 47040.00},
-                {"date": "2026-08-28", "doc_no": "INV-2026-003", "entity": "Shoppers Stop", "net_amount": 89000.00, "gst": 10680.00, "gross_total": 99680.00},
-            ]
-        
+        """
+        Renders report data into the requested binary/text format.
+
+        Data source: ``filters["_dataset"]`` — a list of dicts pre-populated
+        by the caller (e.g., ReportsService query results serialized to dicts).
+        If the caller provides no dataset the method returns an empty-data
+        envelope in the requested format rather than inventing demo data.
+        """
+        dataset: List[Dict[str, Any]] = (filters or {}).get("_dataset") or []
+
         fmt = export_format.upper()
+
         if fmt == "CSV":
+            if not dataset:
+                return b"# No data available for the requested schedule period\n"
             output = io.StringIO()
             writer = csv.DictWriter(output, fieldnames=list(dataset[0].keys()))
             writer.writeheader()
             writer.writerows(dataset)
             return output.getvalue().encode("utf-8")
+
         elif fmt == "JSON":
-            return json.dumps({
-                "report_code": report_code,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "filters": filters,
-                "data": dataset
-            }, indent=2, default=str).encode("utf-8")
+            return json.dumps(
+                {
+                    "report_code": report_code,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "filters": {k: v for k, v in (filters or {}).items() if k != "_dataset"},
+                    "total_records": len(dataset),
+                    "data": dataset,
+                },
+                indent=2,
+                default=str,
+            ).encode("utf-8")
+
         elif fmt == "PDF":
-            pdf_content = f"%PDF-1.4\n1 0 obj\n<< /Title ({report_code}) /Producer (SMRITI Engine) >>\nendobj\n"
-            pdf_content += f"2 0 obj\n<< /Length {len(json.dumps(dataset, default=str))} >>\nstream\n{json.dumps(dataset, default=str)}\nendstream\nendobj\nxref\n0 3\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
+            body_text = json.dumps(dataset, default=str) if dataset else "[No records]"
+            pdf_content = (
+                f"%PDF-1.4\n"
+                f"1 0 obj\n<< /Title ({report_code}) /Producer (SMRITI Engine v3.73) >>\nendobj\n"
+                f"2 0 obj\n<< /Length {len(body_text)} >>\nstream\n{body_text}\nendstream\nendobj\n"
+                f"xref\n0 3\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
+            )
             return pdf_content.encode("latin-1")
-        else: # Default XLSX / Excel binary
+
+        else:  # Default XLSX
             try:
                 import openpyxl
                 wb = openpyxl.Workbook()
                 ws = wb.active
                 ws.title = report_code[:30]
-                columns = list(dataset[0].keys())
-                ws.append([c.replace("_", " ").upper() for c in columns])
-                for r in dataset:
-                    ws.append([r.get(c, "") for c in columns])
+                if dataset:
+                    cols = list(dataset[0].keys())
+                    ws.append([c.replace("_", " ").upper() for c in cols])
+                    for r in dataset:
+                        ws.append([r.get(c, "") for c in cols])
+                else:
+                    ws.append(["NO DATA"])
+                    ws.append(["No records for the requested schedule period."])
                 out_io = io.BytesIO()
                 wb.save(out_io)
                 return out_io.getvalue()
@@ -355,8 +516,11 @@ class ReportDistributionEngine:
             dispatch_tasks = []
 
             # 3. Queue Dispatch Tasks
+            # Recipients must be explicitly configured on the schedule.
+            # No hardcoded fallback addresses — dispatch silently skips
+            # a channel when no valid targets are registered.
             if "EMAIL" in channels:
-                emails = recipients.get("emails", ["cfo@tattlythreads.com"])
+                emails = [e for e in recipients.get("emails", []) if e and "@" in e]
                 for em in emails:
                     dispatch_tasks.append(
                         EmailDispatcher.dispatch(
@@ -366,7 +530,7 @@ class ReportDistributionEngine:
                     )
 
             if "WHATSAPP" in channels:
-                phones = recipients.get("phone_numbers", ["+919876543210"])
+                phones = [p for p in recipients.get("phone_numbers", []) if p and p.startswith("+")]
                 for ph in phones:
                     dispatch_tasks.append(
                         WhatsAppDispatcher.dispatch(
