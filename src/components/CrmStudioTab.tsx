@@ -6,7 +6,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.65.0
+ * Version      : 6.66.0
  * Created      : 2026-07-13
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -38,12 +38,16 @@ import {
   Loader2,
   X,
   CreditCard,
-  UserCheck
+  UserCheck,
+  Headphones,
+  History
 } from "lucide-react";
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { Customer360LoyaltyModal } from "./crm/Customer360LoyaltyModal.tsx";
 import { CustomerCreditModal } from "./crm/CustomerCreditModal.tsx";
+import { ComplaintCRMModal } from "./crm/ComplaintCRMModal.tsx";
+import { LoyaltyLedgerModal } from "./crm/LoyaltyLedgerModal.tsx";
 
 
 export interface CrmStudioTabProps {
@@ -58,6 +62,8 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [showLoyalty360Modal, setShowLoyalty360Modal] = useState<boolean>(false);
   const [showCreditModal, setShowCreditModal] = useState<boolean>(false);
+  const [showComplaintsModal, setShowComplaintsModal] = useState<boolean>(false);
+  const [showLoyaltyLedgerModal, setShowLoyaltyLedgerModal] = useState<boolean>(false);
 
   // Seed Data
   const [leads, setLeads] = useState([
@@ -153,6 +159,26 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
           >
             <CreditCard size={13} className="text-sky-600" />
             <span>Credit &amp; Aging</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-complaints-btn"
+            onClick={() => setShowComplaintsModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Customer Complaints, Service Requests & SLA Tracker"
+          >
+            <Headphones size={13} className="text-rose-600" />
+            <span>Complaints</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-loyalty-ledger-btn"
+            onClick={() => setShowLoyaltyLedgerModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Customer Loyalty Points Transaction Ledger"
+          >
+            <History size={13} className="text-purple-600" />
+            <span>Points Ledger</span>
           </button>
           <button 
             onClick={() => recordAuditAction("EXPORT", "crm", "export", "Exported lead pipeline report")}
@@ -317,6 +343,20 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
         <CustomerCreditModal
           isOpen={showCreditModal}
           onClose={() => setShowCreditModal(false)}
+        />
+      )}
+
+      {showComplaintsModal && (
+        <ComplaintCRMModal
+          isOpen={showComplaintsModal}
+          onClose={() => setShowComplaintsModal(false)}
+        />
+      )}
+
+      {showLoyaltyLedgerModal && (
+        <LoyaltyLedgerModal
+          isOpen={showLoyaltyLedgerModal}
+          onClose={() => setShowLoyaltyLedgerModal(false)}
         />
       )}
     </div>

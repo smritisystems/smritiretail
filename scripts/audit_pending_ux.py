@@ -29,12 +29,15 @@ modal_report = []
 for m in modals:
     name = os.path.splitext(os.path.basename(m))[0]
     content = file_contents.get(m, '')
-    imported_by = [sf for sf, c in file_contents.items() if sf != m and name in c]
+    exports = re.findall(r'export\s+(?:default\s+)?(?:const|function|class)\s+(\w+)', content)
+    names = set([name] + exports)
+    imported_by = [sf for sf, c in file_contents.items() if sf != m and '/tests/' not in sf and any(n in c for n in names)]
     has_api = ('apiFetch' in content) or ('/api/v1' in content) or ('fetch(' in content)
-    rendered = any(('<' + name in file_contents.get(sf, '')) for sf in imported_by)
+    rendered = any(any('<' + n in file_contents.get(sf, '') for n in names) for sf in imported_by)
     modal_report.append({
         'path': m,
         'name': name,
+        'exports': exports,
         'imported_count': len(imported_by),
         'rendered': rendered,
         'has_api': has_api
@@ -69,9 +72,11 @@ ws_rendered_with_api = []
 for w in workspaces:
     name = os.path.splitext(os.path.basename(w))[0]
     content = file_contents.get(w, '')
-    imported_by = [sf for sf, c in file_contents.items() if sf != w and name in c]
+    exports = re.findall(r'export\s+(?:default\s+)?(?:const|function|class)\s+(\w+)', content)
+    names = set([name] + exports)
+    imported_by = [sf for sf, c in file_contents.items() if sf != w and '/tests/' not in sf and any(n in c for n in names)]
     has_api = ('apiFetch' in content) or ('/api/v1' in content) or ('fetch(' in content)
-    rendered = any(('<' + name in file_contents.get(sf, '')) for sf in imported_by)
+    rendered = any(any('<' + n in file_contents.get(sf, '') for n in names) for sf in imported_by)
     if len(imported_by) == 0:
         ws_unref.append(w)
     elif not has_api:

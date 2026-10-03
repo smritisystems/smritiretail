@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.32.0
+ * Version      : 6.66.0
  * Created      : 2026-09-08
- * Modified     : 2026-09-17
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Single Consolidated Billing Workspace Component (Phase 2C Step 13)
@@ -18,6 +18,8 @@ import { SmritiProPosBillingTerminal } from "./propos/ProPosBillingTerm.tsx";
 import { SmritiProPosEodReport } from "./propos/ProPosEodReportVie.tsx";
 import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
 import { SmritiCreditBillingTerminal } from "./SmritiCreditBillingTerminal.tsx";
+import { GiftCardLifecycleModal } from "../pos/GiftCardLifecycleModal.tsx";
+import { GiftVoucherModal } from "../pos/GiftVoucherModal.tsx";
 import {
   Receipt,
   FileSpreadsheet,
@@ -33,6 +35,8 @@ import {
   RotateCcw,
   Sparkles,
   CreditCard,
+  Gift,
+  Ticket,
 } from "lucide-react";
 
 export type BillingWorkspaceMode = "RETAIL_POS";
@@ -75,6 +79,8 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const registerLabel = activeShift?.profileId || "REG-01";
   const shiftStatus = activeShift?.status?.toUpperCase() === "OPEN" ? "Shift Active" : "Shift Ready";
   const [toast, setToast] = useState<{ title: string; message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
+  const [showGiftCardModal, setShowGiftCardModal] = useState<boolean>(false);
+  const [showGiftVoucherModal, setShowGiftVoucherModal] = useState<boolean>(false);
 
   // Clock ticker
   useEffect(() => {
@@ -199,6 +205,30 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           >
             <CreditCard size={13} />
             <span className="hidden sm:inline">Credit Billing</span>
+          </button>
+
+          {/* Gift Cards */}
+          <button
+            type="button"
+            id="pos-gift-cards-btn"
+            onClick={() => setShowGiftCardModal(true)}
+            title="Gift Card Issuance, Top-up & Ledger"
+            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-amber-600 dark:text-amber-400"
+          >
+            <Gift size={13} />
+            <span className="hidden sm:inline">Gift Cards</span>
+          </button>
+
+          {/* Gift Vouchers */}
+          <button
+            type="button"
+            id="pos-gift-vouchers-btn"
+            onClick={() => setShowGiftVoucherModal(true)}
+            title="Store Credit & Gift Vouchers"
+            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-teal-600 dark:text-teal-400"
+          >
+            <Ticket size={13} />
+            <span className="hidden sm:inline">Vouchers</span>
           </button>
 
           {/* Shift HUD Badge - Only visible for Counter POS */}
@@ -343,6 +373,24 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Gift Card Lifecycle Modal */}
+      {showGiftCardModal && (
+        <GiftCardLifecycleModal
+          isOpen={showGiftCardModal}
+          onClose={() => setShowGiftCardModal(false)}
+          onNotification={(title, msg, type) => showToast(title, msg, type === "info" ? "info" : type)}
+        />
+      )}
+
+      {/* Gift Voucher Modal */}
+      {showGiftVoucherModal && (
+        <GiftVoucherModal
+          isOpen={showGiftVoucherModal}
+          onClose={() => setShowGiftVoucherModal(false)}
+          onNotification={(title, msg, type) => showToast(title, msg, type === "info" ? "info" : type)}
+        />
       )}
     </div>
   );

@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 6.19.0
+ * * Version    : 6.66.0
  * * Created    : 2026-09-14
- * * Modified   : 2026-09-14
+ * * Modified   : 2026-10-03
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  * * Classification: Internal
@@ -69,6 +69,7 @@ import {
   SimulationResult,
   SMRITI_PROMOTION_RECIPES
 } from "../../services/smritiSalesPromotionService";
+import PricingStudioModal from "../pricing/PricingStudioModal";
 import { withCapability } from "../../types/architecture";
 
 interface Props {
@@ -90,6 +91,7 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterLevel, setFilterLevel] = useState<"ALL" | SmritiPromoLevel>("ALL");
   const [syncStatus, setSyncStatus] = useState<"IDLE" | "SYNCING" | "SYNCHRONIZED" | "LOCAL_CACHE">("IDLE");
+  const [showPricingStudioModal, setShowPricingStudioModal] = useState<boolean>(false);
 
   // Builder State
   const [selectedRecipe, setSelectedRecipe] = useState<string | null>(null);
@@ -515,6 +517,16 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
 
         {/* Header Action Buttons */}
         <div className="flex items-center gap-2">
+          <button
+            id="promotions-pricing-studio-btn"
+            onClick={() => setShowPricingStudioModal(true)}
+            title="Open Interactive Pricing & Discount Engine Studio"
+            aria-label="Open Pricing Studio"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 shadow-xs transition-all"
+          >
+            <Sliders className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Pricing Studio</span>
+          </button>
           <button
             onClick={() => window.print()}
             title="Print promotion schemes and rule definitions"
@@ -1585,6 +1597,13 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
           </div>
         )}
       </div>
+
+      {/* Interactive Pricing Engine & Discount Simulator Modal */}
+      <PricingStudioModal
+        isOpen={showPricingStudioModal}
+        onClose={() => setShowPricingStudioModal(false)}
+        onNotification={onNotification}
+      />
     </div>
   );
 };
