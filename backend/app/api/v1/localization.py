@@ -255,3 +255,43 @@ async def format_currency(
 ):
     """Format currency values according to locale rules and symbol placement."""
     return await LocalizationDictionaryService(db).format_currency(req.amount, req.currency_code, req.locale_code)
+
+
+# ─────────────────────────── Localization Core Router ───────────────────────────
+# Serves /api/v1/localization/* (used by ItemDetailsGridTab, globalFieldRegistry)
+
+localization_core_router = APIRouter(prefix="/localization", tags=["Localization Core"])
+
+
+@localization_core_router.get("/uoms", response_model=List[UOMResponse])
+async def list_localization_uoms(
+    active_only: bool = Query(default=True, description="Filter active units"),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """List standard Units of Measurement with GST Unique Quantity Code (UQC) mappings."""
+    return await GlobalReferenceService(db).get_uoms(active_only)
+
+
+@localization_core_router.post("/uoms/convert", response_model=UOMConvertResult)
+async def convert_localization_uom(
+    req: UOMConvertRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Convert quantity between compatible Units of Measurement."""
+    try:
+        factor, converted = await GlobalReferenceService(db).convert_uom(req.from_uom, req.to_uom, req.quantity)
+        return UOMConvertResult(
+            from_uom=req.from_uom.upper(),
+            to_uom=req.to_uom.upper(),
+            source_quantity=req.quantity,
+            conversion_factor=factor,
+            converted_quantity=converted,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"SMRITI-UOM-CONV-FAIL: Incompatible UOM conversion {req.from_uom} -> {req.to_uom}: {e}",
+        )
+

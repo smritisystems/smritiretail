@@ -85,6 +85,12 @@ class ManualPointsAdjustmentRequest(BaseModel):
     reference_doc: Optional[str] = Field(default=None, description="Optional invoice or ticket reference.")
 
 
+class LoyaltyMemberBonusExpireRequest(BaseModel):
+    points: Decimal = Field(..., gt=0, description="Points quantity (must be positive)")
+    reason: str = Field(..., min_length=1, max_length=255, description="Audit reason")
+    reference_id: Optional[str] = Field(default=None, description="Optional reference id or doc")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Tier Management Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
@@ -412,6 +418,79 @@ async def adjust_member_points(
         raise HTTPException(status_code=400, detail=f"SMRITI-LOYALTY-002: {val_err}")
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"SMRITI-SYS-001: Points adjustment failed: {err}")
+
+
+@router.post("/members/{member_id}/{adj_type}")
+async def adjust_member_points_by_type(
+    member_id: str,
+    adj_type: str,
+    payload: LoyaltyMemberBonusExpireRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
+):
+    """
+    Adjust member points by adjustment type ('bonus' grants points, 'expire' or 'deduct' removes points).
+    Used by CrmStudioTab (/api/v1/crm/loyalty/members/{id}/bonus|expire).
+    """
+    company_id = tenant.company_id if tenant else "COMP-001"
+
+    adj_clean = adj_type.lower().strip()
+    if adj_clean in ("expire", "deduct", "penalty"):
+        delta = -abs(payload.points)
+        tx_type = "EXPIRY" if adj_clean == "expire" else "DEDUCTION"
+    elif adj_clean in ("bonus", "grant", "reward"):
+        delta = abs(payload.points)
+        tx_type = "BONUS"
+    else:
+        delta = payload.points
+        tx_type = "ADJUSTMENT"
+
+    adj_req = PointsAdjustmentRequest(
+        member_id=member_id,
+        transaction_type=tx_type,
+        points=delta,
+        reference_invoice_id=payload.reference_id,
+        narration=f"[{adj_clean.upper()}] {payload.reason}",
+    )
+
+    try:
+        ledger_entry, new_balance = await CrmGrowthEngine.record_points_transaction(
+            session=db,
+            company_id=company_id,
+            req=adj_req,
+            user_id=current_user.id,
+        )
+
+        await ComplianceAuditService.record_audit_event(
+            session=db,
+            company_id=company_id,
+            event_type="LOYALTY_POINTS_ADJUSTMENT",
+            entity_name="loyalty_members",
+            entity_id=member_id,
+            action_summary=(
+                f"Processed loyalty {adj_clean} of {payload.points} pts for member {member_id} "
+                f"(Reason: {payload.reason}). New balance: {new_balance}"
+            ),
+            actor_user_id=current_user.id,
+            actor_role=getattr(current_user.role, "value", str(current_user.role)),
+        )
+        await db.commit()
+
+        return {
+            "success": True,
+            "member_id": member_id,
+            "adj_type": adj_clean,
+            "points_delta": float(delta),
+            "new_balance": float(new_balance),
+            "ledger_id": ledger_entry.id,
+            "narration": payload.reason,
+        }
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=f"SMRITI-LOYALTY-002: {val_err}")
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"SMRITI-SYS-001: Points adjustment failed: {err}")
+
 
 
 @router.get("/members/{member_id}/ledger", response_model=LoyaltyLedgerListResponse)

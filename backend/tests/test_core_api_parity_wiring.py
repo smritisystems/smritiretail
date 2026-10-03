@@ -128,3 +128,75 @@ async def test_security_audit_log_endpoint():
         data = res.json()
         assert "entries" in data
         assert "total" in data
+
+
+@pytest.mark.asyncio
+async def test_localization_uoms_endpoint():
+    """Verify that GET /api/v1/localization/uoms returns standard GST UQC units."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = _get_auth_headers(role="MANAGER")
+        res = await client.get("/api/v1/localization/uoms?active_only=true", headers=headers)
+        assert res.status_code == 200, f"Route /localization/uoms failed: {res.status_code}, {res.text}"
+        data = res.json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+        uqc_codes = [u.get("code") for u in data]
+        assert any(c in uqc_codes for c in ["PCS", "PAIR", "NOS", "KGS"])
+
+
+@pytest.mark.asyncio
+async def test_crm_loyalty_member_adjustment_route():
+    """Verify that POST /api/v1/crm/loyalty/members/{id}/{adj_type} route exists and processes payload."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = _get_auth_headers(role="MANAGER")
+        payload = {
+            "points": 50,
+            "reason": "Parity test loyalty adjustment",
+            "reference_id": "TEST-ADJ-001"
+        }
+        res = await client.post("/api/v1/crm/loyalty/members/mem-test-999/bonus", json=payload, headers=headers)
+        data = res.json()
+        # Route is registered and calls CrmGrowthEngine which validates the member
+        assert "Loyalty member 'mem-test-999' not found" in data.get("detail", "")
+
+
+@pytest.mark.asyncio
+async def test_purchase_3way_matching_commit():
+    """Verify that POST /api/v1/purchase/3way-matching/commit creates reconciliation and AP voucher."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = _get_auth_headers(role="MANAGER")
+        payload = {
+            "po_no": "PO-2026-001",
+            "grn_no": "GRN-2026-001",
+            "vendor_invoice_no": "INV-2026-001",
+            "vendor_gstin": "27AABCU9603R1ZM",
+            "reconciliation_status": "MATCHED",
+            "total_po_value": 15000.0,
+            "total_grn_value": 15000.0,
+            "total_invoice_value": 15000.0,
+            "variance_amount": 0.0,
+            "lines": [
+                {
+                    "item_code": "SKU-TEST-01",
+                    "po_qty": 10,
+                    "grn_accepted_qty": 10,
+                    "invoice_qty": 10,
+                    "po_rate": 1500,
+                    "invoice_rate": 1500,
+                    "status": "MATCHED"
+                }
+            ]
+        }
+        res = await client.post("/api/v1/purchase/3way-matching/commit", json=payload, headers=headers)
+        assert res.status_code == 200, f"Route /purchase/3way-matching/commit failed: {res.status_code}, {res.text}"
+        data = res.json()
+        assert data["status"] == "COMMITTED"
+        assert "AP-VOUCH-" in data["ap_voucher_no"]
+        assert "rec-3way-" in data["reconciliation_id"]
+        assert data["po_no"] == "PO-2026-001"
+        assert data["grn_no"] == "GRN-2026-001"
+        assert data["vendor_invoice_no"] == "INV-2026-001"
+

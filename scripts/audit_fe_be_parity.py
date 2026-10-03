@@ -24,8 +24,10 @@ for r in app.routes:
 # Regex for matching dynamic path segments
 # e.g. /api/v1/orders/{order_id} -> ^/api/v1/orders/[^/]+$
 def route_to_regex(route_path):
+    # replace {param:path} with .+
+    regex = re.sub(r'\{[^}]+:path\}', r'.+', route_path)
     # replace {param} with [^/]+
-    regex = re.sub(r'\{[^}]+\}', r'[^/]+', route_path)
+    regex = re.sub(r'\{[^}]+\}', r'[^/]+', regex)
     return re.compile(f'^{regex}$')
 
 compiled_routes = [(r, route_to_regex(r)) for r in fastapi_routes.keys()]
@@ -44,15 +46,22 @@ for root, dirs, files in os.walk(frontend_dir):
                 content = open(filepath, 'r', encoding='utf-8', errors='ignore').read()
                 matches = endpoint_pattern.findall(content)
                 for m in matches:
-                    clean_m = m.split('?')[0]
+                    # Distinguish query params from path params in template literals
+                    # If ${...} has query-like variable names or ternary query expressions, strip it
+                    cleaned = re.sub(r'\$\{(?:params|qs|activeFilter|filter|query)[^}]*\}', '', m)
+                    # If template expression contains a ternary like ? `?status=...` : ""
+                    if "${" in cleaned and ("?" in cleaned or "qs" in cleaned or "activeFilter" in cleaned):
+                        cleaned = re.sub(r'\$\{[^}]*(?:\?|\bqs\b|\bactiveFilter\b).*$', '', cleaned)
+                    cleaned = cleaned.split('?')[0].split('&')[0]
                     # Ensure starts with /api/v1
-                    if not clean_m.startswith('/api/v1'):
-                        api_v1_path = '/api/v1' + (clean_m if clean_m.startswith('/') else '/' + clean_m)
+                    if not cleaned.startswith('/api/v1'):
+                        api_v1_path = '/api/v1' + (cleaned if cleaned.startswith('/') else '/' + cleaned)
                     else:
-                        api_v1_path = clean_m
+                        api_v1_path = cleaned
                     
-                    # Convert JS template string interpolation ${...} to dummy value like 1
+                    # Convert remaining JS template string interpolation ${...} to dummy value like 1
                     test_path = re.sub(r'\$\{[^}]+\}', '1', api_v1_path)
+                    test_path = re.sub(r'\$\{[^}]*$', '1', test_path)
                     
                     fe_calls.append({
                         'raw': m,

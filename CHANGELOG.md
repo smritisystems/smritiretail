@@ -28,6 +28,34 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.64.1] - 2026-10-03 — Foundation & Backend: Complete Frontend-Backend API Parity & Reconciliation Wiring
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Purchase 3-Way Matching, CRM Loyalty & Localization
+> **Implementation Plan:** `docs/implementation/foundation/Complete_FE_BE_Parity_And_Reconciliation_Wiring_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/foundation/Foundation_Complete_FE_BE_Parity_And_Reconciliation_Wiring_v1.0.md`
+
+### Added
+- **Purchase 3-Way Matching Reconciliation Commitment (`POST /api/v1/purchase/3way-matching/commit`)**:
+  - Implemented authoritative invoice-PO-GRN reconciliation commitment in `backend/app/api/v1/purchase.py` and schemas in `backend/app/schemas/purchase.py`.
+  - Validates document identifiers (`po_no`, `grn_no`, `vendor_invoice_no`), computes variance amounts, generates authoritative `AP-VOUCH-YYYYMMDD-XXXXXX` voucher references, and records immutable cryptographic compliance audit logs.
+- **CRM Loyalty Member Points Adjustment (`POST /api/v1/crm/loyalty/members/{id}/{adj_type}`)**:
+  - Added operational loyalty bonus and expiration handler in `backend/app/api/v1/loyalty.py` accepting positive point payloads, deriving signed point deltas based on `adj_type` (`bonus` vs `expire`), and mutating member ledgers via `CrmGrowthEngine.record_points_transaction`.
+  - Mounted CRM loyalty alias `(loyalty, "/crm")` in `backend/app/main.py` fulfilling frontend calls from `CrmStudioTab.tsx`.
+- **Localization Core Router & GST UQC Units (`GET /api/v1/localization/uoms`)**:
+  - Exported and mounted `localization_core_router` in `backend/app/api/v1/localization.py` and `backend/app/main.py`, providing standard Unit of Measurement lookups and unit conversion APIs for `ItemDetailsGridTab.tsx` and `globalFieldRegistry.ts`.
+
+### Fixed
+- **100% Frontend-Backend API Parity Achieved**:
+  - Resolved all remaining unmatched endpoints across the repository, achieving 443/443 matched frontend call instances (0 unmatched endpoints) in `scripts/audit_fe_be_parity.py`.
+- **Parity Audit Parser Hardening (`scripts/audit_fe_be_parity.py`)**:
+  - Enhanced regular expression parser to distinguish dynamic path parameters (`${id}`) from template literal query strings (`${params}`, `${qs...}`) containing nested quotes and ternaries.
+
+### Verified
+- **Automated Test Suite**:
+  - `backend/tests/test_core_api_parity_wiring.py`: 9/9 passed in 17.28s.
+  - `src/tests/threeWayMatching.test.ts` & `src/tests/globalFieldRegistry.test.ts`: 12/12 passed in 392ms.
+  - TypeScript Compiler: 0 errors (`npx tsc --noEmit` exit 0).
+
 ## [6.64.0] - 2026-10-03 — Foundation & Backend: Core API Parity & POS Supervisor PIN Authorization Wiring
 
 > **Branch:** `smritiNX` | **Area:** Foundation, POS Security & Core API Connectivity
