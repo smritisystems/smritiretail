@@ -51,6 +51,9 @@ import type {
   PurchaseOrderLineItem,
   PurchaseOrderSizePivotRow,
 } from "./types.ts";
+import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
+import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -531,6 +534,164 @@ export function calculateSizewiseSummaryTotals(
   };
 }
 
+/**
+ * mapParsedGridRowsToSizewiseLines — Maps parsed grid rows (from Excel clipboard, CSV, PDT)
+ * into authoritative SizewisePOLine items.
+ *
+ * If explicit size columns (e.g. "6", "7", "S", "M") exist in rawValues, their values are preserved.
+ * Otherwise, the total quantity is distributed across sizes using the retail Gaussian bell curve.
+ */
+export function mapParsedGridRowsToSizewiseLines(
+  rows: ParsedGridRow[],
+  sizes: string[],
+  defaultDeliveryDate: string,
+  commonTaxPercent: number,
+  startIndex: number = 0
+): SizewisePOLine[] {
+  return rows.map((r, i) => {
+    const resolved = r.resolvedProduct;
+    const itemCode =
+      resolved?.sku ||
+      (resolved as any)?.model_code ||
+      resolved?.itemId ||
+      r.mappedValues?.itemCode ||
+      r.mappedValues?.productId ||
+      (r.identifierType !== "BARCODE" ? r.identifier : "") ||
+      (r as any).productId ||
+      (r as any).barcode ||
+      r.identifier ||
+      `ITEM-${startIndex + i + 1}`;
+    const barcode =
+      (r as any).barcode ||
+      (r.identifierType === "BARCODE" ? r.identifier : "") ||
+      resolved?.barcode ||
+      "";
+    const product =
+      resolved?.name ||
+      r.mappedValues?.productName ||
+      r.mappedValues?.product ||
+      (r as any).productName ||
+      "Imported Article";
+    const brand = (resolved as any)?.brand || r.mappedValues?.brand || "";
+    const style = (resolved as any)?.style || r.mappedValues?.style || "";
+    const shade = (resolved as any)?.shade || (resolved as any)?.color || r.mappedValues?.shade || "";
+    const rate = Number(
+      (r as any).unitCost ||
+        r.costPrice ||
+        r.rate ||
+        r.mappedValues?.costPrice ||
+        r.mappedValues?.rate ||
+        (resolved as any)?.costPrice ||
+        (resolved as any)?.purchase_price ||
+        0
+    );
+
+    // Check if rawValues or mappedValues contain explicit size column definitions
+    let hasExplicitSizes = false;
+    const explicitQtys: Record<string, number> = {};
+    for (const sz of sizes) {
+      const rawVal =
+        r.rawValues?.[sz] ??
+        r.rawValues?.[sz.toLowerCase()] ??
+        r.rawValues?.[sz.toUpperCase()];
+      if (rawVal !== undefined && rawVal !== "") {
+        const parsed = parseInt(String(rawVal).trim(), 10);
+        if (!isNaN(parsed) && parsed >= 0) {
+          explicitQtys[sz] = parsed;
+          hasExplicitSizes = true;
+        }
+      }
+    }
+
+    let finalSizeQtys: Record<string, number>;
+    let totalQty: number;
+
+    if (hasExplicitSizes) {
+      finalSizeQtys = sizes.reduce<Record<string, number>>((acc, sz) => {
+        acc[sz] = explicitQtys[sz] || 0;
+        return acc;
+      }, {});
+      const explicitSum = sizes.reduce((sum, sz) => sum + (finalSizeQtys[sz] || 0), 0);
+      totalQty = explicitSum > 0 ? explicitSum : (r.quantity && r.quantity > 0 ? r.quantity : 1);
+      if (explicitSum === 0) {
+        finalSizeQtys = recommendSizeAssortment(sizes, totalQty, "bell");
+      }
+    } else {
+      totalQty = r.quantity && r.quantity > 0 ? r.quantity : 1;
+      finalSizeQtys = recommendSizeAssortment(sizes, totalQty, "bell");
+    }
+
+    return {
+      id: `sw-imp-${Date.now()}-${startIndex + i + 1}`,
+      sNo: startIndex + i + 1,
+      itemCode,
+      barcode,
+      product,
+      brand,
+      style,
+      shade,
+      unit: r.uom || (resolved as any)?.uom || "Pcs",
+      sizeQuantities: finalSizeQtys,
+      totalQty,
+      rate,
+      stockOnHand: 0,
+      taxPercent: r.taxRate || commonTaxPercent,
+      netValue: Number((totalQty * rate).toFixed(2)),
+      deliveryDate: defaultDeliveryDate,
+    };
+  });
+}
+
+/**
+ * mergeSizewisePOLines — Combines existing SizewisePOLine rows with newly imported rows
+ * according to GridImportMode (APPEND, MERGE, REPLACE).
+ */
+export function mergeSizewisePOLines(
+  existing: SizewisePOLine[],
+  incoming: SizewisePOLine[],
+  mode: GridImportMode,
+  sizes: string[]
+): SizewisePOLine[] {
+  if (mode === "REPLACE") {
+    return incoming.map((l, i) => ({ ...l, sNo: i + 1 }));
+  }
+
+  const filledExisting = existing.filter((l) => l.itemCode);
+
+  if (mode === "MERGE") {
+    const copy = [...filledExisting];
+    for (const inc of incoming) {
+      const matchIndex = copy.findIndex(
+        (c) =>
+          (inc.barcode && c.barcode && c.barcode === inc.barcode) ||
+          (inc.itemCode && c.itemCode === inc.itemCode)
+      );
+      if (matchIndex >= 0) {
+        const target = copy[matchIndex];
+        const newSizeQtys: Record<string, number> = {};
+        for (const sz of sizes) {
+          newSizeQtys[sz] = (target.sizeQuantities[sz] || 0) + (inc.sizeQuantities[sz] || 0);
+        }
+        const newTotalQty = sizes.reduce((sum, sz) => sum + (newSizeQtys[sz] || 0), 0);
+        const effectiveRate = inc.rate > 0 ? inc.rate : target.rate;
+        copy[matchIndex] = {
+          ...target,
+          sizeQuantities: newSizeQtys,
+          totalQty: newTotalQty,
+          rate: effectiveRate,
+          netValue: Number((newTotalQty * effectiveRate).toFixed(2)),
+        };
+      } else {
+        copy.push(inc);
+      }
+    }
+    return copy.map((l, i) => ({ ...l, sNo: i + 1 }));
+  }
+
+  // mode === "APPEND"
+  return [...filledExisting, ...incoming].map((l, i) => ({ ...l, sNo: i + 1 }));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Component Props
 // ─────────────────────────────────────────────────────────────────────────────
@@ -634,6 +795,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Global Grid Import & Paste States
+  const [isGlobalImportOpen, setIsGlobalImportOpen] = useState(false);
+  const [initialImportText, setInitialImportText] = useState<string | undefined>(undefined);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -1603,53 +1768,67 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     }));
   }, [lines, articleImageMap]);
 
-  // ── Import Excel (CSV parse) ───────────────────────────────────────────
+  // ── Import via Global Grid Input & Resolution Standard ──────────────────
+  const handleGlobalGridImportCommit = (
+    committedRows: ParsedGridRow[],
+    mode: GridImportMode
+  ) => {
+    const incomingLines = mapParsedGridRowsToSizewiseLines(
+      committedRows,
+      sizes,
+      header.deliveryDate,
+      header.commonTaxPercent,
+      mode === "REPLACE" ? 0 : lines.filter((l) => l.itemCode).length
+    );
+
+    const updatedLines = mergeSizewisePOLines(lines, incomingLines, mode, sizes);
+    setLines(updatedLines);
+    setIsGlobalImportOpen(false);
+    setInitialImportText(undefined);
+    onNotification?.(
+      "Import Successful",
+      `Processed ${committedRows.length} item(s) into Purchase Order (${mode} mode).`,
+      "success"
+    );
+  };
+
+  // Legacy file picker adapter: route file text directly to GlobalGridImportModal
   const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const rows = text.split("\n").filter(Boolean);
-      const data = rows.slice(1).map(r => r.split(","));
-      const importedLines: SizewisePOLine[] = data
-        .filter(cols => cols[0]?.trim())
-        .map((cols, i) => {
-          const sizeQtys = sizes.reduce<Record<string, number>>((acc, sz, si) => {
-            acc[sz] = parseInt(cols[2 + si] || "0", 10) || 0;
-            return acc;
-          }, {});
-          const totalQty = sizes.reduce((s, sz) => s + (sizeQtys[sz] || 0), 0);
-          const rate = parseFloat(cols[2 + sizes.length] || "0") || 0;
-          return {
-            id: `sw-import-${i + 1}`,
-            sNo: i + 1,
-            itemCode: cols[0]?.trim() || "",
-            barcode: "",
-            product: cols[1]?.trim() || "",
-            brand: "",
-            style: "",
-            shade: "",
-            unit: "Pcs",
-            sizeQuantities: sizeQtys,
-            totalQty,
-            rate,
-            stockOnHand: 0,
-            taxPercent: header.commonTaxPercent,
-            netValue: totalQty * rate,
-            deliveryDate: header.deliveryDate,
-          };
-        });
-      if (importedLines.length > 0) {
-        setLines(prev => {
-          const filled = prev.filter(l => l.itemCode);
-          return [...filled, ...importedLines];
-        });
-        onNotification?.("Import Complete", `Imported ${importedLines.length} items.`, "success");
+      if (text) {
+        setInitialImportText(text);
+        setIsGlobalImportOpen(true);
       }
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  // Intercept table clipboard paste (Ctrl+V) for multi-line or delimited text
+  const handleTableContainerPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+    if (targetTag === "input" || targetTag === "textarea") {
+      return;
+    }
+    const pastedText = e.clipboardData?.getData("text/plain");
+    if (!pastedText) return;
+
+    const isMultiLine = pastedText.includes("\n") || pastedText.includes("\r");
+    const isDelimited =
+      pastedText.includes("\t") ||
+      pastedText.includes(",") ||
+      pastedText.includes("~") ||
+      pastedText.includes("|");
+
+    if (isMultiLine || isDelimited) {
+      e.preventDefault();
+      setInitialImportText(pastedText);
+      setIsGlobalImportOpen(true);
+    }
   };
 
   // ── Save PO ───────────────────────────────────────────────────────────
@@ -1974,14 +2153,18 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               Add Item
             </button>
 
-            {/* 3. Import from Excel */}
+            {/* 3. Global Grid Import */}
             <button
               type="button"
-              onClick={() => excelInputRef.current?.click()}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+              onClick={() => {
+                setInitialImportText(undefined);
+                setIsGlobalImportOpen(true);
+              }}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs cursor-pointer"
+              title="Universal Grid Import (Excel Paste, CSV, PDT, Barcode Scanner)"
             >
               <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
-              Import from Excel
+              Global Import
             </button>
             <input ref={excelInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleExcelImport} className="hidden" />
 
@@ -2086,7 +2269,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
 
           {/* ── Grid / Empty State ── */}
-          <div className="flex-1 overflow-auto relative">
+          <div
+            className="flex-1 overflow-auto relative focus:outline-none"
+            tabIndex={0}
+            onPaste={handleTableContainerPaste}
+          >
 
             {/* Phase 1: Empty state — shown when no items have been added */}
             {lines.length === 0 && (
@@ -2096,7 +2283,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 </div>
                 <h3 className="text-sm font-bold text-slate-700 mb-1">No items added yet</h3>
                 <p className="text-xs text-slate-400 mb-5 max-w-xs">
-                  Scan a barcode or search for an item to start adding products to this Purchase Order.
+                  Scan a barcode, search for an item, or paste from Excel (Ctrl+V) to start adding products.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
@@ -2109,11 +2296,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => excelInputRef.current?.click()}
-                    className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
+                    onClick={() => {
+                      setInitialImportText(undefined);
+                      setIsGlobalImportOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm cursor-pointer"
+                    title="Universal Grid Import (Excel Paste, CSV, PDT, Barcode Scanner)"
                   >
                     <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
-                    Import from Excel
+                    Global Import
                   </button>
                   <button
                     type="button"
@@ -2645,14 +2836,18 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               Add Item
             </button>
 
-            {/* Import from Excel */}
+            {/* Global Grid Import */}
             <button
               type="button"
-              onClick={() => excelInputRef.current?.click()}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+              onClick={() => {
+                setInitialImportText(undefined);
+                setIsGlobalImportOpen(true);
+              }}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs cursor-pointer"
+              title="Universal Grid Import (Excel Paste, CSV, PDT, Barcode Scanner)"
             >
               <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
-              Import from Excel
+              Global Import
             </button>
 
             {/* Add / Bind Multiple Images */}
@@ -3982,6 +4177,20 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* ── SMRITI Global Grid Input & Import Standard Modal ───────────────── */}
+      <GlobalGridImportModal
+        isOpen={isGlobalImportOpen}
+        onClose={() => {
+          setIsGlobalImportOpen(false);
+          setInitialImportText(undefined);
+        }}
+        profile={GRID_PROFILES.PURCHASE}
+        title="Purchase Order Sizewise Items Import & Resolution"
+        initialRawText={initialImportText}
+        existingRowCount={lines.filter((l) => l.itemCode).length}
+        onCommit={handleGlobalGridImportCommit}
+      />
     </div>
   );
 };

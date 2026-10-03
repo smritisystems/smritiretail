@@ -25,7 +25,10 @@ import {
   resolveLineImage,
   matchImageFilenameToLines,
   FilenameMatchResult,
+  mapParsedGridRowsToSizewiseLines,
+  mergeSizewisePOLines,
 } from "../components/purchase/PoSizewiseTab.tsx";
+import type { ParsedGridRow } from "../services/gridInput/types.ts";
 
 describe("SMRITI 9 Sizewise Purchase Order Matrix & Calculation Suite", () => {
   const sizes = ["S", "M", "L", "XL", "XXL"];
@@ -950,5 +953,179 @@ describe("Phase 2 Purchase Studio Resiliency, Safety & Overflow Suite", () => {
     expect(fallbackMatches.length).toBe(1);
     expect(fallbackMatches[0].name).toBe("random_shoe_sample.jpeg");
   });
+
+  // ── SMRITI Global Grid Input & Import Standard Tests ───────────────────────
+  it("35. Global Grid Import: Maps explicit size column quantities correctly", () => {
+    const scaleSizes = ["S", "M", "L", "XL", "XXL"];
+    const rows: ParsedGridRow[] = [
+      {
+        rowNumber: 1,
+        rawValues: { "Item Code": "TSH-01", Product: "Cotton Tee", S: "10", M: "20", L: "30", XL: "15", XXL: "5", Rate: "450" },
+        mappedValues: { itemCode: "TSH-01", productName: "Cotton Tee", costPrice: 450 },
+        identifier: "TSH-01",
+        identifierType: "ITEM_CODE",
+        quantity: 80,
+        costPrice: 450,
+        resolutionStatus: "VALID",
+      },
+    ];
+
+    const lines = mapParsedGridRowsToSizewiseLines(rows, scaleSizes, "2026-10-15", 18);
+    expect(lines.length).toBe(1);
+    expect(lines[0].itemCode).toBe("TSH-01");
+    expect(lines[0].product).toBe("Cotton Tee");
+    expect(lines[0].sizeQuantities).toEqual({ S: 10, M: 20, L: 30, XL: 15, XXL: 5 });
+    expect(lines[0].totalQty).toBe(80);
+    expect(lines[0].rate).toBe(450);
+    expect(lines[0].netValue).toBe(80 * 450);
+  });
+
+  it("36. Global Grid Import: Flat row distributes quantity across sizes with retail Gaussian curve", () => {
+    const scaleSizes = ["6", "7", "8", "9", "10"];
+    const rows: ParsedGridRow[] = [
+      {
+        rowNumber: 1,
+        rawValues: { Barcode: "8901234567890", Product: "Leather Oxford", Qty: "60", Rate: "1200" },
+        mappedValues: { barcode: "8901234567890", productName: "Leather Oxford", quantity: 60, costPrice: 1200 },
+        identifier: "8901234567890",
+        identifierType: "BARCODE",
+        barcode: "8901234567890",
+        quantity: 60,
+        costPrice: 1200,
+        resolutionStatus: "VALID",
+      },
+    ];
+
+    const lines = mapParsedGridRowsToSizewiseLines(rows, scaleSizes, "2026-10-15", 18);
+    expect(lines.length).toBe(1);
+    expect(lines[0].barcode).toBe("8901234567890");
+    expect(lines[0].totalQty).toBe(60);
+    // Gaussian distribution across 5 sizes should total 60
+    const sumQtys = scaleSizes.reduce((sum, sz) => sum + lines[0].sizeQuantities[sz], 0);
+    expect(sumQtys).toBe(60);
+    expect(lines[0].rate).toBe(1200);
+    expect(lines[0].netValue).toBe(72000);
+  });
+
+  it("37. Global Grid Import: Maps resolved product catalog metadata into PO line", () => {
+    const scaleSizes = ["S", "M", "L"];
+    const rows: ParsedGridRow[] = [
+      {
+        rowNumber: 1,
+        rawValues: { Barcode: "8904551000088", Qty: "30" },
+        mappedValues: { barcode: "8904551000088", quantity: 30 },
+        identifier: "8904551000088",
+        identifierType: "BARCODE",
+        barcode: "8904551000088",
+        quantity: 30,
+        resolutionStatus: "VALID",
+        resolvedProduct: {
+          productId: "prod_0088",
+          sku: "CH-01-APEACH37",
+          name: "Casual Peach Chappal",
+          brand: "Relaxo",
+          costPrice: 280,
+          mrp: 599,
+        },
+      },
+    ];
+
+    const lines = mapParsedGridRowsToSizewiseLines(rows, scaleSizes, "2026-10-15", 12);
+    expect(lines.length).toBe(1);
+    expect(lines[0].itemCode).toBe("CH-01-APEACH37");
+    expect(lines[0].product).toBe("Casual Peach Chappal");
+    expect(lines[0].brand).toBe("Relaxo");
+    expect(lines[0].rate).toBe(280);
+    expect(lines[0].totalQty).toBe(30);
+    expect(lines[0].netValue).toBe(30 * 280);
+  });
+
+  it("38. Global Grid Import: Merges lines correctly under APPEND, MERGE, and REPLACE modes", () => {
+    const scaleSizes = ["S", "M", "L"];
+    const existing: SizewisePOLine[] = [
+      {
+        id: "sw-1",
+        sNo: 1,
+        itemCode: "TSH-01",
+        barcode: "8901001",
+        product: "Tee 1",
+        brand: "BrandA",
+        style: "",
+        shade: "",
+        unit: "Pcs",
+        sizeQuantities: { S: 5, M: 10, L: 5 },
+        totalQty: 20,
+        rate: 500,
+        stockOnHand: 0,
+        taxPercent: 18,
+        netValue: 10000,
+        deliveryDate: "2026-10-10",
+      },
+    ];
+
+    const incoming: SizewisePOLine[] = [
+      {
+        id: "sw-2",
+        sNo: 1,
+        itemCode: "TSH-01",
+        barcode: "8901001",
+        product: "Tee 1",
+        brand: "BrandA",
+        style: "",
+        shade: "",
+        unit: "Pcs",
+        sizeQuantities: { S: 10, M: 10, L: 10 },
+        totalQty: 30,
+        rate: 500,
+        stockOnHand: 0,
+        taxPercent: 18,
+        netValue: 15000,
+        deliveryDate: "2026-10-10",
+      },
+      {
+        id: "sw-3",
+        sNo: 2,
+        itemCode: "POLO-02",
+        barcode: "8901002",
+        product: "Polo 2",
+        brand: "BrandB",
+        style: "",
+        shade: "",
+        unit: "Pcs",
+        sizeQuantities: { S: 5, M: 5, L: 5 },
+        totalQty: 15,
+        rate: 800,
+        stockOnHand: 0,
+        taxPercent: 18,
+        netValue: 12000,
+        deliveryDate: "2026-10-10",
+      },
+    ];
+
+    // MERGE mode: TSH-01 quantities should sum (S:15, M:20, L:15 -> total 50), POLO-02 added
+    const merged = mergeSizewisePOLines(existing, incoming, "MERGE", scaleSizes);
+    expect(merged.length).toBe(2);
+    expect(merged[0].itemCode).toBe("TSH-01");
+    expect(merged[0].sizeQuantities).toEqual({ S: 15, M: 20, L: 15 });
+    expect(merged[0].totalQty).toBe(50);
+    expect(merged[0].netValue).toBe(50 * 500);
+    expect(merged[1].itemCode).toBe("POLO-02");
+    expect(merged[1].sNo).toBe(2);
+
+    // APPEND mode: 3 rows total
+    const appended = mergeSizewisePOLines(existing, incoming, "APPEND", scaleSizes);
+    expect(appended.length).toBe(3);
+    expect(appended[0].sNo).toBe(1);
+    expect(appended[1].sNo).toBe(2);
+    expect(appended[2].sNo).toBe(3);
+
+    // REPLACE mode: only incoming rows (2 rows)
+    const replaced = mergeSizewisePOLines(existing, incoming, "REPLACE", scaleSizes);
+    expect(replaced.length).toBe(2);
+    expect(replaced[0].itemCode).toBe("TSH-01");
+    expect(replaced[0].totalQty).toBe(30);
+    expect(replaced[1].itemCode).toBe("POLO-02");
+  });
 });
+
 
