@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.34.0
+ * Version      : 6.62.0
  * Created      : 2026-09-18
- * Modified     : 2026-09-21
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -58,6 +58,9 @@ import { GrnPrintModal, GrnPrintReceiptData } from "./GrnPrintModal.tsx";
 import { AddProductToGrnModal, SelectedGrnProduct } from "./AddProductToGrnModal.tsx";
 import { GrnCameraScannerModal } from "./GrnCameraScannerModal.tsx";
 import { GrnCsvImportModal, ParsedGrnCsvRow } from "./GrnCsvImportModal.tsx";
+import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles";
+import { ParsedGridRow, GridImportMode } from "../../services/gridInput/types";
 import { ThreeWayMatchingModal } from "./ThreeWayMatchingModal.tsx";
 import { RMAManagementModal } from "./RMAManagementModal.tsx";
 import { ProcurementReportsModal } from "./ProcurementReportsModal.tsx";
@@ -121,7 +124,7 @@ interface PurchaseOrderItemOption {
   color?: string;
 }
 
-interface GrnLineRow {
+export interface GrnLineRow {
   rowId: string;
   product_id: string;
   item_id: string;
@@ -137,6 +140,124 @@ interface GrnLineRow {
   trade_discount: number;  // Item trade discount per unit
   gst_rate: number;
   mrp?: number;
+}
+
+/**
+ * Map parsed grid rows and resolved products into canonical GrnLineRow items.
+ * If active PO lines are present, matching lines link contract cost_price and quantity_ordered.
+ */
+export function mapParsedGridRowsToGrnLines(
+  rows: ParsedGridRow[],
+  existingPoLines: GrnLineRow[] = []
+): GrnLineRow[] {
+  return rows.map((r, idx) => {
+    const p = r.resolvedProduct;
+    const barcode = (r.mappedValues.barcode || "").trim();
+    const sku = (r.mappedValues.sku || (p ? p.sku : "") || barcode).trim();
+    const name = (r.mappedValues.name || (p ? p.name : "") || `Inward Item ${sku}`).trim();
+    const size = (r.mappedValues.size || (p ? (p as any).size : "") || "M").trim();
+    const color = (r.mappedValues.color || (p ? (p as any).color : "") || "Standard").trim();
+
+    const qtyReceived = Math.max(0, Number(r.mappedValues.quantity) || 1);
+    const qtyDamaged = Math.max(0, Number(r.mappedValues.damagedQty) || 0);
+
+    // Rate resolution: explicit costPrice > resolved product costPrice > resolved sellingPrice > 0
+    let invRate = Number(r.mappedValues.costPrice);
+    if (!Number.isFinite(invRate) || invRate <= 0) {
+      invRate = p?.costPrice
+        ? Number(p.costPrice)
+        : p?.sellingPrice
+        ? Number(p.sellingPrice)
+        : (p as any)?.cost_price
+        ? Number((p as any).cost_price)
+        : 0;
+    }
+
+    // MRP resolution
+    let mrp = Number(r.mappedValues.mrp);
+    if (!Number.isFinite(mrp) || mrp <= 0) {
+      mrp = p?.mrp ? Number(p.mrp) : (invRate > 0 ? Math.round(invRate * 1.5 * 100) / 100 : 0);
+    }
+
+    // Tax rate resolution
+    let gstRate = Number(r.mappedValues.taxRate);
+    if (!Number.isFinite(gstRate) || gstRate <= 0) {
+      gstRate = p?.taxRate ? Number(p.taxRate) : (p as any)?.gst_rate ? Number((p as any).gst_rate) : 18;
+    }
+
+    const resolvedProductId = p?.productId || (p as any)?.id || "";
+    const resolvedItemId = p?.itemId || (p as any)?.item_id || resolvedProductId || "";
+
+    // Match against active PO contract line
+    const match = existingPoLines.find(
+      (po) =>
+        (po.code && po.code.toLowerCase() === sku.toLowerCase()) ||
+        (barcode && po.code && po.code.toLowerCase() === barcode.toLowerCase()) ||
+        (resolvedProductId && po.product_id && po.product_id === resolvedProductId) ||
+        (po.name && po.name.toLowerCase() === name.toLowerCase())
+    );
+
+    const contractCost = match ? match.cost_price : invRate;
+    const qtyOrdered = match ? match.quantity_ordered : 0;
+    const finalProductId = resolvedProductId || match?.product_id || "";
+    const finalItemId = resolvedItemId || match?.item_id || "";
+
+    return {
+      rowId: `grn-import-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+      product_id: finalProductId,
+      item_id: finalItemId,
+      code: sku,
+      name: name,
+      size: size,
+      color: color,
+      quantity_ordered: qtyOrdered,
+      quantity_received: qtyReceived,
+      quantity_damaged: qtyDamaged,
+      cost_price: contractCost,
+      invoice_rate: invRate,
+      trade_discount: 0,
+      gst_rate: gstRate,
+      mrp: mrp,
+    };
+  });
+}
+
+/**
+ * Pure merge utility for GRN inward lines supporting APPEND, MERGE, and REPLACE modes.
+ */
+export function mergeGrnLines(
+  existing: GrnLineRow[],
+  incoming: GrnLineRow[],
+  mode: "APPEND" | "MERGE" | "REPLACE"
+): GrnLineRow[] {
+  if (mode === "REPLACE") {
+    return incoming;
+  }
+  if (mode === "APPEND") {
+    return [...existing, ...incoming];
+  }
+
+  // MERGE mode: update existing if matching SKU / product_id, else append
+  const result = existing.map((line) => ({ ...line }));
+  for (const inc of incoming) {
+    const idx = result.findIndex(
+      (e) =>
+        (e.code && inc.code && e.code.toLowerCase() === inc.code.toLowerCase()) ||
+        (e.product_id && inc.product_id && e.product_id === inc.product_id)
+    );
+    if (idx >= 0) {
+      result[idx] = {
+        ...result[idx],
+        quantity_received: result[idx].quantity_received + inc.quantity_received,
+        quantity_damaged: result[idx].quantity_damaged + inc.quantity_damaged,
+        invoice_rate: inc.invoice_rate > 0 ? inc.invoice_rate : result[idx].invoice_rate,
+        mrp: inc.mrp && inc.mrp > 0 ? inc.mrp : result[idx].mrp,
+      };
+    } else {
+      result.push(inc);
+    }
+  }
+  return result;
 }
 
 interface GrnReceiptTabProps {
@@ -251,6 +372,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   // Barcode Scanner & CSV Inward State
   const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
+  const [showGlobalGridImportModal, setShowGlobalGridImportModal] = useState<boolean>(false);
+  const [globalImportInitialText, setGlobalImportInitialText] = useState<string>("");
   const [scanBarcodeInput, setScanBarcodeInput] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scanContinuous, setScanContinuous] = useState(true);
@@ -851,6 +974,32 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     },
     [onNotification]
   );
+
+  // Table container clipboard paste interceptor (Ctrl+V)
+  const handleTableContainerPaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData("text");
+    if (!text) return;
+    if (text.includes("\n") || text.includes("\t") || text.includes(",") || text.includes("~") || text.includes("|")) {
+      e.preventDefault();
+      setGlobalImportInitialText(text);
+      setShowGlobalGridImportModal(true);
+    }
+  };
+
+  // Global Grid Import Commit Callback (GRN Inward Standard)
+  const handleGlobalGridImportCommit = (
+    rows: ParsedGridRow[],
+    mode: GridImportMode
+  ) => {
+    if (rows.length === 0) return;
+    const newLines = mapParsedGridRowsToGrnLines(rows, grnLines);
+    setGrnLines((prev) => mergeGrnLines(prev, newLines, mode));
+    onNotification?.(
+      "Inward Lines Imported",
+      `Successfully imported ${newLines.length} inward item(s) via Global Grid Import (${mode} mode).`,
+      "success"
+    );
+  };
 
   const handleRemoveLine = (rowId: string) => {
     setGrnLines((prev) => prev.filter((r) => r.rowId !== rowId));
@@ -1718,7 +1867,12 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div
+          className="overflow-x-auto focus:outline-hidden"
+          tabIndex={0}
+          onPaste={handleTableContainerPaste}
+          title="Click here to paste (Ctrl+V) tabular data from Excel, Google Sheets, or CSV"
+        >
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
               <tr>
@@ -1944,11 +2098,15 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setIsCsvImportOpen(true)}
+            onClick={() => {
+              setGlobalImportInitialText("");
+              setShowGlobalGridImportModal(true);
+            }}
             className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5 shadow-xs"
+            title="Import invoice/ASN items via Excel clipboard, CSV, or scan terminal"
           >
             <Upload className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Import CSV</span>
+            <span>Fast Import (Excel / CSV)</span>
           </button>
           <button
             type="button"
@@ -2975,6 +3133,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           mrp: l.mrp,
           gst_rate: l.gst_rate,
         }))}
+      />
+
+      <GlobalGridImportModal
+        isOpen={showGlobalGridImportModal}
+        onClose={() => setShowGlobalGridImportModal(false)}
+        profile={GRID_PROFILES.PURCHASE}
+        title="Inward Goods (GRN) Fast Import & Resolution"
+        existingRowCount={grnLines.length}
+        initialRawText={globalImportInitialText}
+        onCommit={handleGlobalGridImportCommit}
       />
 
       <GrnPrintModal

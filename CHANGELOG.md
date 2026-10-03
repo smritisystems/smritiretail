@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.61.0
+  * Version    : 6.62.0
   * Created    : 2026-07-11
   * Modified   : 2026-10-03
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,27 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.62.0] - 2026-10-03 — Global Grid Import Standard Rollout: Goods Receipt Note (GRN) Inward Workspace
+
+> **Branch:** `smritiNX` | **Area:** Procurement & Inward Logistics / Goods Receipt Note (GRN)
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/procurement/Global_Grid_Import_GRN_Inward_v1.0.md`
+
+### Added
+- **Goods Receipt Inward Table Paste & Fast Import (`GrnReceiptTab.tsx`)**:
+  - Integrated centralized `GlobalGridImportModal` configured with `GRID_PROFILES.PURCHASE` and catalog batch resolution (`POST /api/v1/products/batch-resolve`).
+  - Added clipboard paste (`Ctrl+V`) interceptor (`handleTableContainerPaste`) with keyboard accessibility (`tabIndex={0}`) on the receiving lines table container, routing multi-line or delimited spreadsheet text directly into `GlobalGridImportModal` with pre-parsed preview.
+  - Exported pure mapper `mapParsedGridRowsToGrnLines` transforming resolved products and raw rows into canonical `GrnLineRow` records; automatically matches lines against loaded Purchase Order contracts to preserve `quantity_ordered` and contract `cost_price` while tracking Purchase Price Variance (PPV); supports ad-hoc inward receipts with zero ordered quantity.
+  - Exported pure merge utility `mergeGrnLines` supporting `APPEND`, `MERGE` (accumulating received and damaged quantities, updating invoice rates and MRP without dropping existing attributes), and `REPLACE` modes.
+  - Modernized "Fast Import (Excel / CSV)" action button on the "Barcode Scanner & Inward Tools" card opening `GlobalGridImportModal`.
+- **Unit Test Suite (`src/tests/grnGridIntake.test.ts`)**:
+  - Created dedicated test suite validating vendor ASN TSV quotation protection, PO contract matching, PPV calculation, ad-hoc item mapping, and all three merge modes (`APPEND`, `MERGE`, `REPLACE`) with zero phantom dummy IDs (4/4 tests green).
+
+### Changed
+- **GRN CSV Import Modal Modernization (`GrnCsvImportModal.tsx`)**:
+  - Eradicated rogue fallback auto-generation of fake SKUs (`ITEM-${lineIdx + 1}`); unresolvable lines missing both barcode and SKU are now cleanly flagged with status `UNRECOGNIZED` and message "Row missing both barcode and SKU identifier."
+  - Updated UADHP header version to `6.62.0`.
 
 ## [6.61.0] - 2026-10-03 — Global Grid Import Standard Rollout: Item Master Studio File Upload & Headerless Mode Hardening
 

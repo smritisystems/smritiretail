@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.34.0
+ * Version      : 6.62.0
  * Created      : 2026-09-20
- * Modified     : 2026-09-20
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -132,10 +132,10 @@ export const GrnCsvImportModal: React.FC<GrnCsvImportModalProps> = ({
           sku = barcode;
         }
         if (!sku && !barcode) {
-          sku = `ITEM-${lineIdx + 1}`;
+          sku = "";
         }
         if (!name) {
-          name = `Material SKU ${sku}`;
+          name = sku ? `Material SKU ${sku}` : "Unrecognized Inward Item";
         }
 
         // Match against existing PO lines if loaded
@@ -146,7 +146,7 @@ export const GrnCsvImportModal: React.FC<GrnCsvImportModalProps> = ({
         if (existingPoLines && existingPoLines.length > 0) {
           const match = existingPoLines.find(
             (p) =>
-              p.code.toLowerCase() === sku.toLowerCase() ||
+              (sku && p.code.toLowerCase() === sku.toLowerCase()) ||
               (barcode && p.code.toLowerCase() === barcode.toLowerCase()) ||
               p.name.toLowerCase() === name.toLowerCase()
           );
@@ -160,7 +160,10 @@ export const GrnCsvImportModal: React.FC<GrnCsvImportModalProps> = ({
         let status: "VALID" | "WARNING" | "UNRECOGNIZED" = "VALID";
         let message: string | undefined = undefined;
 
-        if (qtyReceived <= 0) {
+        if (!sku && !barcode) {
+          status = "UNRECOGNIZED";
+          message = "Row missing both barcode and SKU identifier.";
+        } else if (qtyReceived <= 0) {
           status = "WARNING";
           message = "Zero received quantity specified.";
         } else if (rateVariance > 0) {
