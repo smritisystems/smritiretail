@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.54.0
+ * Version      : 6.61.0
  * Created      : 2026-10-03
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -64,8 +64,16 @@ export class GridInputEngine {
 
     for (const line of lines) {
       if (delimiter !== ",") {
-        // Simple fast-split for TAB, TILDE, PIPE, SEMICOLON
-        matrix.push(line.split(delimiter).map((c) => c.trim()));
+        // Fast-split for TAB, TILDE, PIPE, SEMICOLON, stripping enclosing quotes if present
+        matrix.push(
+          line.split(delimiter).map((c) => {
+            const trimmed = c.trim();
+            if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+              return trimmed.slice(1, -1).replace(/""/g, '"').trim();
+            }
+            return trimmed;
+          })
+        );
         continue;
       }
 

@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.60.0
+  * Version    : 6.61.0
   * Created    : 2026-07-11
   * Modified   : 2026-10-03
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,26 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.61.0] - 2026-10-03 — Global Grid Import Standard Rollout: Item Master Studio File Upload & Headerless Mode Hardening
+
+> **Branch:** `smritiNX` | **Area:** Catalog & Master Data / Item Master Studio
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/catalog/Global_Grid_Import_Item_Master_File_Upload_And_Headerless_Mode_v1.0.md`
+
+### Added
+- **Item Master Studio Drag-and-Drop & File Upload (`ItemMasterStudio.tsx`)**:
+  - Integrated hidden file input (`ref={fileInputRef}`) and "Upload File" button supporting `.csv, .tsv, .txt`.
+  - Added drag-and-drop dropzone handlers (`onDragOver`, `onDragLeave`, `onDrop`) with visual state overlay indicating file drop readiness directly over the paste textarea.
+  - Added "Template" download button triggering client-side generation of `Item_Master_Import_Template.tsv` with pre-configured header columns and sample footwear rows.
+  - Added "First row has headers" toggle checkbox allowing operators to explicitly control header detection when ingesting raw headerless product spreadsheets.
+  - Hardened headerless mode: when unchecked (`!hasHeaderRow`), generates synthetic headers (`Column 1, Column 2, ...`) and preserves 100% of data rows (`dataRows: matrix`), ensuring row 0 is never truncated or discarded.
+- **Unit Test Suite (`src/tests/itemMasterStudioIntake.test.ts`)**:
+  - Added test coverage for Excel TSV quote unwrapping, header row detection, headerless mode 100% row preservation, and CSV input parsing (4/4 tests green).
+
+### Changed
+- **Grid Input Engine Excel Quote Protection (`gridInputEngine.ts`)**:
+  - Enhanced non-comma delimiter splitting (`delimiter !== ","`) in `GridInputEngine.parseDelimitedText` to automatically detect and strip enclosing double-quotes and unescape double-quoted literals (`""`), ensuring cells copied from Excel with internal commas (e.g. `"Classic Derby, Black"`) are cleanly sanitized without surrounding quotation artifacts.
 
 ## [6.60.0] - 2026-10-03 — Global Grid Import Standard Rollout: Item Master Matrix Parser & Barcode Registry Intake
 

@@ -4,15 +4,15 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.60.0
+ * Version      : 6.61.0
  * Created      : 2026-08-21
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-03 (v6.61.0 — File upload, drag-and-drop, template download, and headerless row mode)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { 
   Table, 
   CheckCircle, 
@@ -78,6 +78,84 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   const [previewErrors, setPreviewErrors] = useState<string[]>([]);
   const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [hasHeaderRow, setHasHeaderRow] = useState<boolean>(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setRawText(text);
+      setSkippedRowIndices(new Set());
+    } catch (err: any) {
+      onNotification?.("File Read Error", err?.message || "Could not read the selected file.", "error");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setRawText(text);
+      setSkippedRowIndices(new Set());
+    } catch (err: any) {
+      onNotification?.("File Drop Error", err?.message || "Could not read the dropped file.", "error");
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      "StyleCode",
+      "ProductName",
+      "Brand",
+      "Gender",
+      "ProductType",
+      "HeelType",
+      "UpperMaterial",
+      "Color",
+      "Size",
+      "Barcode",
+      "MRP",
+      "CostPrice",
+      "SellingPrice",
+      "GST_Rate",
+      "HSN"
+    ];
+    const sampleRow = [
+      "ART-1001",
+      "Classic Leather Derby",
+      "Apex",
+      "Men",
+      "Formal Shoes",
+      "Low Heel",
+      "Genuine Leather",
+      "Black",
+      "42",
+      "8901234567890",
+      "2999",
+      "1200",
+      "2499",
+      "18",
+      "6403"
+    ];
+    const tsvContent = `${headers.join("\t")}\n${sampleRow.join("\t")}\n`;
+    const blob = new Blob([tsvContent], { type: "text/tab-separated-values;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "Item_Master_Import_Template.tsv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Listen to global visibility changes
   useEffect(() => {
@@ -128,10 +206,31 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     return parseResult.matrix;
   }, [rawText]);
 
+  // Auto-detect header row presence when matrix changes
+  useEffect(() => {
+    if (matrix.length === 0) return;
+    const detected = mappingEngine.detectHeaderRow(matrix);
+    const hasRecognized = detected.headers.some(h => mappingEngine.isKnownHeader(h));
+    if (hasRecognized && detected.headerRowIndex >= 0) {
+      setHasHeaderRow(true);
+    }
+  }, [matrix, mappingEngine]);
+
   // ── 4. Detect Header Row & Extract Columns ────────────────────────────────
   const headerDetection = useMemo(() => {
     if (matrix.length === 0) {
       return { headerRowIndex: 0, headers: [] as string[], dataRows: [] as string[][] };
+    }
+
+    if (!hasHeaderRow) {
+      // Headerless mode: all rows are data rows, generate synthetic column labels
+      const maxCols = Math.max(...matrix.map(r => r.length));
+      const headers = Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`);
+      return {
+        headerRowIndex: -1,
+        headers,
+        dataRows: matrix
+      };
     }
 
     const detected = mappingEngine.detectHeaderRow(matrix);
@@ -151,7 +250,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         dataRows: matrix.slice(1)
       };
     }
-  }, [matrix, mappingEngine]);
+  }, [matrix, mappingEngine, hasHeaderRow]);
 
   // ── 5. Auto-Map Detected Headers via Canonical HeaderMappingEngine ────────
   useEffect(() => {
@@ -530,22 +629,62 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       <div className="flex-1 grid grid-cols-12 gap-4 p-4 min-h-0 overflow-hidden">
         
         {/* Left Panel: Raw Paste Area */}
-        <div className="col-span-12 xl:col-span-4 flex flex-col bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg overflow-hidden shadow-xs">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDraggingFile(true); }}
+          onDragLeave={() => setIsDraggingFile(false)}
+          onDrop={handleFileDrop}
+          className="col-span-12 xl:col-span-4 flex flex-col bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg overflow-hidden shadow-xs relative"
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {isDraggingFile && (
+            <div className="absolute inset-0 z-30 bg-blue-500/10 dark:bg-blue-400/10 border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center backdrop-blur-xs pointer-events-none">
+              <span className="material-symbols-outlined text-4xl text-blue-500 mb-2">upload_file</span>
+              <p className="text-xs font-bold text-blue-600 dark:text-blue-400">Drop CSV or TSV file here</p>
+            </div>
+          )}
+
           <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-4 py-2.5 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between shrink-0">
             <h3 className="text-xs font-bold text-[#191c1e] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
               <span className="material-symbols-outlined text-[#515f74] text-base">content_paste</span>
               Raw Data Input
             </h3>
-            <span className="px-2 py-0.5 bg-[#e0e3e5] dark:bg-[#45464d] text-[#191c1e] dark:text-[#eff1f3] text-[10px] font-mono font-bold rounded">
-              Ctrl+V
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1 px-2 py-0.5 bg-[#e0e3e5] dark:bg-[#45464d] hover:bg-[#d0d3d5] text-[#191c1e] dark:text-[#eff1f3] text-[10px] font-semibold rounded transition"
+                title="Upload CSV, TSV or TXT file"
+              >
+                <span className="material-symbols-outlined text-[13px]">upload_file</span>
+                Upload File
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-1 px-2 py-0.5 bg-[#e0e3e5] dark:bg-[#45464d] hover:bg-[#d0d3d5] text-[#191c1e] dark:text-[#eff1f3] text-[10px] font-semibold rounded transition"
+                title="Download standard TSV template"
+              >
+                <span className="material-symbols-outlined text-[13px]">download</span>
+                Template
+              </button>
+              <span className="px-2 py-0.5 bg-[#e0e3e5] dark:bg-[#45464d] text-[#191c1e] dark:text-[#eff1f3] text-[10px] font-mono font-bold rounded">
+                Ctrl+V
+              </span>
+            </div>
           </div>
 
           <div className="flex-1 p-2 relative">
             <textarea
               value={rawText}
               onChange={e => setRawText(e.target.value)}
-              placeholder="Paste your Excel or Google Sheets cells here...
+              placeholder="Paste your Excel or Google Sheets cells here, or upload a CSV/TSV file...
 
 Expected Columns:
 StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
@@ -555,8 +694,8 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
             {!rawText && (
               <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center opacity-40">
                 <span className="material-symbols-outlined text-4xl mb-1 text-[#76777d]">grid_on</span>
-                <p className="text-xs font-semibold text-[#191c1e] dark:text-white text-center max-w-[200px]">
-                  Copy rows in Excel (Ctrl+C) and paste them here (Ctrl+V).
+                <p className="text-xs font-semibold text-[#191c1e] dark:text-white text-center max-w-[220px]">
+                  Copy rows in Excel (Ctrl+C) and paste them here (Ctrl+V), or drag &amp; drop a CSV/TSV file.
                 </p>
               </div>
             )}
@@ -564,9 +703,22 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
 
           {/* Left Footer Bar */}
           <div className="bg-[#eceef0] dark:bg-[#131b2e] px-4 py-2 border-t border-[#c6c6cd] dark:border-[#45464d] flex justify-between items-center shrink-0 text-xs">
-            <span className="font-mono text-[#515f74] dark:text-[#bec6e0] font-bold">
-              {headerDetection.dataRows.length} data rows detected
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[#515f74] dark:text-[#bec6e0] font-bold">
+                {headerDetection.dataRows.length} data rows detected
+              </span>
+              {matrix.length > 0 && (
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs select-none border-l border-[#c6c6cd] dark:border-[#45464d] pl-3">
+                  <input
+                    type="checkbox"
+                    checked={hasHeaderRow}
+                    onChange={(e) => setHasHeaderRow(e.target.checked)}
+                    className="rounded border-[#c6c6cd] text-black focus:ring-0 cursor-pointer"
+                  />
+                  <span className="text-[11px] text-[#515f74] dark:text-[#bec6e0]">First row has headers</span>
+                </label>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => { setRawText(""); setSkippedRowIndices(new Set()); }}

@@ -132,11 +132,12 @@ Git revert of affected components restores previous module-specific parsers. No 
 - Create `docs/walkthrough/purchase/Global_Grid_Import_Sizewise_PO_v1.0.md`.
 - Create `docs/walkthrough/purchase/Global_Grid_Import_PO_Generate_v1.0.md`.
 - Create `docs/walkthrough/catalog/Global_Grid_Import_Item_Master_And_Barcode_Registry_v1.0.md`.
+- Create `docs/walkthrough/catalog/Global_Grid_Import_Item_Master_File_Upload_And_Headerless_Mode_v1.0.md`.
 - Update `docs/walkthrough/README.md`.
-- Record entries in `CHANGELOG.md` (`[6.55.0]` through `[6.60.0]`).
+- Record entries in `CHANGELOG.md` (`[6.55.0]` through `[6.61.0]`).
 
 ## 16. Deployment Plan
-Shipped in versions `6.55.0` through `6.60.0` via standard Git pull and Vite build.
+Shipped in versions `6.55.0` through `6.61.0` via standard Git pull and Vite build.
 
 ## 17. Status
 Completed — All phases rolled out:
@@ -148,6 +149,7 @@ Completed — All phases rolled out:
 - Phase 33 (v6.58.0): Footwear & Apparel Sizewise Purchase Order Matrix Direct Paste & Fast Import
 - Phase 34 (v6.59.0): Standard Purchase Order Generator (`PoGenerateTab.tsx`) Direct Paste & Fast Import
 - Phase 35 (v6.60.0): Item Master Studio Matrix Parser & Barcode Registry Intake Modernization
+- Phase 36 (v6.61.0): Item Master Studio File Upload, Drag-and-Drop, Template Download & Headerless Row Mode Hardening
 
 ## 18. Related ADRs
 - `docs/architecture/ADR_GLOBAL_PRODUCT_RESOLUTION.md`
@@ -160,5 +162,6 @@ Completed — All phases rolled out:
 - `docs/walkthrough/purchase/Global_Grid_Import_Sizewise_PO_v1.0.md`
 - `docs/walkthrough/purchase/Global_Grid_Import_PO_Generate_v1.0.md`
 - `docs/walkthrough/catalog/Global_Grid_Import_Item_Master_And_Barcode_Registry_v1.0.md`
+- `docs/walkthrough/catalog/Global_Grid_Import_Item_Master_File_Upload_And_Headerless_Mode_v1.0.md`
 
 
