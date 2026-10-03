@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.45.2
+ * Version      : 6.67.0
  * Created      : 2026-09-26
- * Modified     : 2026-09-26
+ * Modified     : 2026-10-03
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -63,6 +63,7 @@ import { AuditLogView } from "./AuditLogView.tsx";
 import { MyProfileView } from "./MyProfileView.tsx";
 import { ChangePasswordView } from "./ChangePasswordView.tsx";
 import { MenuShortcutsView } from "./MenuShortcutsView.tsx";
+import { AdminMenuManagementModal } from "../AdminMenuMgmtDlg.tsx";
 
 // ── Nav hierarchy matching reference design ───────────────────────────────
 
@@ -183,6 +184,7 @@ export const SecurityAccessShell: React.FC<SecurityAccessShellProps> = ({
   const [activeSection, setActiveSection] = useState<SecuritySection>(initialSection);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [showAdminMenuModal, setShowAdminMenuModal] = useState<boolean>(false);
 
   useEffect(() => { setActiveSection(initialSection); }, [initialSection]);
 
@@ -308,6 +310,17 @@ export const SecurityAccessShell: React.FC<SecurityAccessShellProps> = ({
             <p className="text-xs text-[#64748b] mt-0.5">{meta.sub}</p>
           </div>
 
+          <button
+            type="button"
+            id="security-admin-menu-mgmt-btn"
+            onClick={() => setShowAdminMenuModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#eff6ff] hover:bg-[#dbeafe] text-[#1e40af] border border-[#bfdbfe] rounded-lg text-xs font-semibold transition cursor-pointer"
+            title="Configure Global Menu Registry & Navigation Nodes"
+          >
+            <Settings size={13} />
+            <span className="hidden sm:inline">Menu Registry</span>
+          </button>
+
           {toast && (
             <div
               role="status"
@@ -363,6 +376,13 @@ export const SecurityAccessShell: React.FC<SecurityAccessShellProps> = ({
           {renderContent()}
         </main>
       </div>
+
+      {showAdminMenuModal && (
+        <AdminMenuManagementModal
+          isOpen={showAdminMenuModal}
+          onClose={() => setShowAdminMenuModal(false)}
+        />
+      )}
     </div>
   );
 };

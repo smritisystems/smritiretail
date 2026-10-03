@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.65.0
+ * Version      : 6.67.0
  * Created      : 2026-08-22
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -18,6 +18,7 @@ import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
 import { StockExpiryModal } from "../warehouse/StockExpiryModal.tsx";
 import { SmartReplenishmentModal } from "../inventory/SmartReplenishmentModal.tsx";
+import { WarehouseWavePickingModal } from "../inventory/WarehouseWavePickingModal.tsx";
 import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { 
@@ -177,6 +178,7 @@ export const WmsStudioTab: React.FC<{
   const [isGlobalTransferImportOpen, setIsGlobalTransferImportOpen] = useState(false);
   const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [showReplenishModal, setShowReplenishModal] = useState(false);
+  const [showWavePickingModal, setShowWavePickingModal] = useState(false);
 
   const fetchWmsData = async () => {
     setLoading(true);
@@ -667,6 +669,17 @@ export const WmsStudioTab: React.FC<{
           >
             <Layers className="w-3.5 h-3.5" />
             <span className="hidden lg:inline">Smart Replenish</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-wave-picking-btn"
+            onClick={() => setShowWavePickingModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Automated Wave Picking, RFID Verification & Bin Allocation"
+          >
+            <ScanLine className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Wave Picking</span>
           </button>
 
           <button
@@ -1734,6 +1747,15 @@ export const WmsStudioTab: React.FC<{
           <SmartReplenishmentModal
             isOpen={showReplenishModal}
             onClose={() => setShowReplenishModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showWavePickingModal && (
+          <WarehouseWavePickingModal
+            isOpen={showWavePickingModal}
+            onClose={() => setShowWavePickingModal(false)}
+            assignedWarehouse={selectedWarehouseFilter !== "ALL" ? getWarehouseName(selectedWarehouseFilter) : "Central Distribution Hub (WH-01)"}
             onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
           />
         )}
