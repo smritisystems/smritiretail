@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.62.0
+  * Version    : 6.63.0
   * Created    : 2026-07-11
   * Modified   : 2026-10-03
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,30 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.63.0] - 2026-10-03 — Global Grid Import Standard Rollout: Auxiliary & Secondary Surface Parser Modernization
+
+> **Branch:** `smritiNX` | **Area:** Catalog, Sales & Operations / Multi-Surface Parser Harmonization
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/catalog/Global_Grid_Import_Auxiliary_Surfaces_v1.0.md`
+
+### Changed
+- **Item Master Tactical Grid Paste Intake (`ItemDetailsGridTab.tsx`)**:
+  - Upgraded `handleAnalysePaste` to parse incoming clipboard content using `GridInputEngine.parseDelimitedText(pastedRawText).matrix`, eliminating naive string/tab-splitting (`line.split("\t")`) and gaining multi-delimiter auto-detection (`\t`, `,`, `;`, `|`, `~`) and RFC 4180 quotation protection.
+  - Updated UADHP header version to `6.63.0`.
+- **Sales Studio Customer Delimited Text Ingestion (`SalesStudioTab.tsx`)**:
+  - Replaced private monolithic comma-only `parseCSV` state machine with `GridInputEngine.parseDelimitedText(text).matrix`, adding seamless support for Excel clipboard TSV, semicolon, pipe, and quoted CSV fields containing embedded commas or newlines.
+  - Updated UADHP header version to `6.63.0`.
+- **Barcode Label Printing Section Ingestion (`LabelPrintingSec.tsx`)**:
+  - Replaced manual line/delimiter splitting in `parseCsv` with `GridInputEngine.parseDelimitedText(csvText)`, providing RFC 4180 quotation unescaping, multi-delimiter tolerance, and robust whitespace-trimmed column mapping.
+  - Updated UADHP header version to `6.63.0`.
+- **Standalone Terminal Window Import Staging (`StandaloneWindowView.tsx`)**:
+  - Modernized `parseImportedText` to utilize `GridInputEngine.parseDelimitedText(text).matrix`, eliminating bespoke `parseImportLine` and candidate delimiter counting heuristics.
+  - Updated UADHP header version to `6.63.0`.
+
+### Added
+- **Auxiliary Surfaces Unit Test Suite (`src/tests/auxiliaryGridIntake.test.ts`)**:
+  - Created dedicated test suite validating Item Details Grid TSV/CSV quote protection, Sales Studio customer CSV/TSV intake with embedded commas, Label Printing data parsing, and Standalone Window pipe-delimited staging (6/6 tests green).
 
 ## [6.62.0] - 2026-10-03 — Global Grid Import Standard Rollout: Goods Receipt Note (GRN) Inward Workspace
 

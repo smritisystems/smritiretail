@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.28.0
+ * Version      : 6.63.0
  * Created      : 2026-09-16
- * Modified     : 2026-09-16
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -34,6 +34,7 @@ import {
   UNIVERSAL_IMPORT_TEMPLATES,
   type UniversalImportInputRow,
 } from "../../services/universalImportEngine.ts";
+import { GridInputEngine } from "../../services/gridInput/gridInputEngine";
 
 export interface StandaloneWindowViewProps {
   registeredWorkspaces: Array<{ id: string; label: string; icon: string }>;
@@ -176,47 +177,14 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
     return nextMap;
   };
 
-  const parseImportLine = (line: string, delimiter: string) => {
-    const values: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let index = 0; index < line.length; index += 1) {
-      const ch = line[index];
-      if (ch === '"') {
-        if (inQuotes && line[index + 1] === '"') {
-          current += '"';
-          index += 1;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (ch === delimiter && !inQuotes) {
-        values.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
-      }
-    }
-
-    values.push(current.trim());
-    return values.map((value) => value.replace(/^"|"$/g, "").replace(/""/g, '"').trim());
-  };
-
   const parseImportedText = (text: string) => {
-    const rows = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
+    if (!text || !text.trim()) return { headers: [], data: [] as Array<Record<string, string>> };
 
-    if (!rows.length) return { headers: [], data: [] as Array<Record<string, string>> };
+    const parseResult = GridInputEngine.parseDelimitedText(text);
+    const parsedRows = parseResult.matrix;
+    if (!parsedRows.length) return { headers: [], data: [] as Array<Record<string, string>> };
 
-    const delimiterCandidates = ["\t", ";", ","];
-    const delimiter = delimiterCandidates
-      .map((candidate) => ({ candidate, count: rows[0].split(candidate).length - 1 }))
-      .sort((a, b) => b.count - a.count)[0]?.candidate || ",";
-
-    const parsedRows = rows.map((line) => parseImportLine(line, delimiter));
-    const headerCandidates = parsedRows[0].map((header, index) => header || `Column ${index + 1}`);
+    const headerCandidates = parsedRows[0].map((header, index) => (header || "").trim() || `Column ${index + 1}`);
     const headerRowIndex = parsedRows.some((row) => row.some((cell) => /barcode|sku|style|article|size|color|colour|brand|qty|quantity|mrp|price|discount|disc/i.test(cell))) ? 0 : -1;
 
     const finalHeaders = headerRowIndex === 0 ? headerCandidates : Array.from({ length: Math.max(...parsedRows.map((row) => row.length)) }, (_, index) => `Column ${index + 1}`);
@@ -224,7 +192,7 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
     const normalizedData = dataRows.slice(0, 8).map((row) => {
       const item: Record<string, string> = {};
       finalHeaders.forEach((header, index) => {
-        item[header] = row[index] ?? "";
+        item[header] = (row[index] ?? "").trim();
       });
       return item;
     });
