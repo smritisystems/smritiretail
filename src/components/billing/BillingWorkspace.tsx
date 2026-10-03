@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.66.0
+ * Version      : 6.67.0
  * Created      : 2026-09-08
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -20,6 +20,8 @@ import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
 import { SmritiCreditBillingTerminal } from "./SmritiCreditBillingTerminal.tsx";
 import { GiftCardLifecycleModal } from "../pos/GiftCardLifecycleModal.tsx";
 import { GiftVoucherModal } from "../pos/GiftVoucherModal.tsx";
+import { ProPosReconciliationDlg } from "./propos/ProPosReconciliationDlg.tsx";
+import { ProPosSupervisorAuthModal } from "./propos/ProPosSupervisorAuthModal.tsx";
 import {
   Receipt,
   FileSpreadsheet,
@@ -81,6 +83,8 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const [toast, setToast] = useState<{ title: string; message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
   const [showGiftCardModal, setShowGiftCardModal] = useState<boolean>(false);
   const [showGiftVoucherModal, setShowGiftVoucherModal] = useState<boolean>(false);
+  const [showReconModal, setShowReconModal] = useState<boolean>(false);
+  const [showSupervisorPinModal, setShowSupervisorPinModal] = useState<boolean>(false);
 
   // Clock ticker
   useEffect(() => {
@@ -229,6 +233,30 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           >
             <Ticket size={13} />
             <span className="hidden sm:inline">Vouchers</span>
+          </button>
+
+          {/* Offline Sync & Reconciliation */}
+          <button
+            type="button"
+            id="pos-recon-btn"
+            onClick={() => setShowReconModal(true)}
+            title="Offline Queue Sync & Terminal Transaction Reconciliation"
+            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-blue-600 dark:text-blue-400 cursor-pointer"
+          >
+            <RotateCcw size={13} />
+            <span className="hidden sm:inline">Sync &amp; Recon</span>
+          </button>
+
+          {/* Supervisor PIN Override */}
+          <button
+            type="button"
+            id="pos-supervisor-pin-btn"
+            onClick={() => setShowSupervisorPinModal(true)}
+            title="Supervisor PIN Authorization & Security Overrides"
+            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-rose-600 dark:text-rose-400 cursor-pointer"
+          >
+            <ShieldCheck size={13} />
+            <span className="hidden sm:inline">Supervisor PIN</span>
           </button>
 
           {/* Shift HUD Badge - Only visible for Counter POS */}
@@ -390,6 +418,31 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           isOpen={showGiftVoucherModal}
           onClose={() => setShowGiftVoucherModal(false)}
           onNotification={(title, msg, type) => showToast(title, msg, type === "info" ? "info" : type)}
+        />
+      )}
+
+      {/* Offline Sync & Reconciliation Dialog */}
+      {showReconModal && (
+        <ProPosReconciliationDlg
+          isOpen={showReconModal}
+          onClose={() => setShowReconModal(false)}
+          onNotification={(title, msg, type) => showToast(title, msg, type)}
+        />
+      )}
+
+      {/* POS Supervisor PIN Override Modal */}
+      {showSupervisorPinModal && (
+        <ProPosSupervisorAuthModal
+          isOpen={showSupervisorPinModal}
+          onClose={() => setShowSupervisorPinModal(false)}
+          actionType="PRICE_OVERRIDE"
+          actionTitle="POS Supervisor Authorization"
+          actionDescription="Authorize cashier override, negative cash drawer, or price adjustment."
+          onAuthorized={(authResult) => {
+            showToast("Supervisor Authorized", `Authorized by ${authResult.supervisor_name}`, "success");
+            setShowSupervisorPinModal(false);
+          }}
+          onNotification={(title, msg, type) => showToast(title, msg, type)}
         />
       )}
     </div>

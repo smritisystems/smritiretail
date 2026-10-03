@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.28.0
+ * Version      : 6.67.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : BI & Reporting Center (Fiori Horizon Inspired Light Theme)
@@ -36,6 +36,8 @@ import {
 import { SalesOrderA4 } from "./templates/SalesOrderA4";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SmritiReportEngine } from "./reports/SmritiReportEngine";
+import { ConsolidatedBalanceSheetModal } from "./reports/ConsolidatedBalanceSheetModal.tsx";
+import { ScheduleReportModal } from "./reports/ScheduleReportModal.tsx";
 
 // Types for drill down context
 interface DrilldownBreadcrumb {
@@ -81,6 +83,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   // Toolbar action modals
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+  const [showBalanceSheetModal, setShowBalanceSheetModal] = useState<boolean>(false);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [shareType, setShareType] = useState<"Email" | "WhatsApp">("Email");
 
@@ -819,6 +822,26 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               title="Reload the complete report catalogue from the database"
             >
               <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Reports List
+            </button>
+            <button
+              type="button"
+              id="reports-balance-sheet-btn"
+              onClick={() => setShowBalanceSheetModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Open Consolidated Multi-Branch Balance Sheet Report"
+            >
+              <FileSpreadsheet size={13} className="text-blue-600" />
+              <span>Balance Sheet</span>
+            </button>
+            <button
+              type="button"
+              id="reports-schedule-distribution-btn"
+              onClick={() => setShowScheduleModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Automate Report Distribution via Cron & Dispatch Channels"
+            >
+              <Calendar size={13} className="text-purple-600" />
+              <span>Schedule</span>
             </button>
             {lastRefreshedAt && (
               <span className="hidden xl:flex items-center gap-1 text-[10px] text-theme-muted font-mono whitespace-nowrap" title={lastRefreshedAt.toLocaleString()}>
@@ -3423,127 +3446,23 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         </div>
       )}
 
-      {/* AUTOMATED SCHEDULER POPUP MODAL */}
-      <AnimatePresence>
-        {showScheduleModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)}></div>
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-md shadow-2xl overflow-hidden relative z-50 font-sans"
-            >
-              <div className="p-5 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-amber-400" />
-                  <h4 className="font-bold text-theme-body text-sm">Schedule Report Distribution</h4>
-                </div>
-                <button onClick={() => setShowScheduleModal(false)} className="text-theme-muted hover:text-white">
-                  <X size={16} />
-                </button>
-              </div>
+      {/* CANONICAL CONSOLIDATED BALANCE SHEET MODAL */}
+      {showBalanceSheetModal && (
+        <ConsolidatedBalanceSheetModal
+          isOpen={showBalanceSheetModal}
+          onClose={() => setShowBalanceSheetModal(false)}
+        />
+      )}
 
-              <form onSubmit={handleRegisterSchedule} className="p-5 space-y-4 text-xs">
-                {activeRole === "Cashier" && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl flex items-start gap-2.5">
-                    <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold">Access Restrained (Rule 10)</div>
-                      <p className="text-[10px] mt-0.5">Cashiers are blocked from registering automated business reports schedules.</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Active Report</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={selectedReport?.title || ""}
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted cursor-not-allowed"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Recipient Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={scheduleForm.recipientEmail}
-                    onChange={(e) => setScheduleForm({...scheduleForm, recipientEmail: e.target.value})}
-                    placeholder="manager@smritibooks.com"
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500"
-                    disabled={activeRole === "Cashier"}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-theme-muted font-bold block uppercase">Frequency</label>
-                    <select
-                      value={scheduleForm.frequency}
-                      onChange={(e) => {
-                        let cron = "0 8 * * *";
-                        if (e.target.value === "Weekly") cron = "0 8 * * 1";
-                        if (e.target.value === "Monthly") cron = "0 8 1 * *";
-                        setScheduleForm({...scheduleForm, frequency: e.target.value, cron});
-                      }}
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-2 text-theme-body focus:outline-none focus:border-blue-500 cursor-pointer"
-                      disabled={activeRole === "Cashier"}
-                    >
-                      <option value="Daily">Daily Summary</option>
-                      <option value="Weekly">Weekly Summary</option>
-                      <option value="Monthly">Monthly Pivot</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-theme-muted font-bold block uppercase">Attachment Format</label>
-                    <select
-                      value={scheduleForm.format}
-                      onChange={(e) => setScheduleForm({...scheduleForm, format: e.target.value})}
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-2 text-theme-body focus:outline-none focus:border-blue-500 cursor-pointer"
-                      disabled={activeRole === "Cashier"}
-                    >
-                      <option value="PDF">PDF Document</option>
-                      <option value="Excel">Excel Sheet</option>
-                      <option value="CSV">CSV Format</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Calculated Cron Expression</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={scheduleForm.cron}
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted font-mono"
-                  />
-                </div>
-
-                <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-theme-divider">
-                  <button
-                    type="button"
-                    onClick={() => setShowScheduleModal(false)}
-                    className="px-4 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-muted hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={activeRole === "Cashier"}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-theme-muted text-white rounded-lg font-bold shadow-lg shadow-blue-500/10 transition-colors"
-                  >
-                    Register Schedule
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* CANONICAL AUTOMATED SCHEDULER MODAL */}
+      {showScheduleModal && (
+        <ScheduleReportModal
+          isOpen={showScheduleModal}
+          onClose={() => setShowScheduleModal(false)}
+          reportCode={selectedReport?.id || "RPT-SAL-001"}
+          reportTitle={selectedReport?.title || "Daily Sales & Tax Register"}
+        />
+      )}
 
       {/* DIRECT SHARING POPUP MODAL */}
       <AnimatePresence>

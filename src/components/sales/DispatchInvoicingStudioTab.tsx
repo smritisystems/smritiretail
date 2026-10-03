@@ -4,8 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.40.1
+ * Version      : 6.67.0
  * Created      : 2026-09-18
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: B2B Dispatch & Tax Invoicing Studio Tab
@@ -38,6 +39,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { apiFetchV1, openAuthenticatedDocument } from "../../lib/apiFetchV1";
 import { formatCurrency, formatNumber } from "../../utils/formatters";
 import { withCapability } from "../../types/architecture";
+import { ComplianceDispatchModal, type InvoiceComplianceData } from "./components/ComplianceDispatchModal.tsx";
 
 interface DispatchStoreSummary {
   store_code: string;
@@ -149,6 +151,30 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationStep, setGenerationStep] = useState<string>("");
   const [batchResult, setBatchResult] = useState<DispatchBatchResult | null>(null);
+  const [showComplianceModal, setShowComplianceModal] = useState<boolean>(false);
+  const [activeComplianceInvoice, setActiveComplianceInvoice] = useState<InvoiceComplianceData | null>(null);
+
+  const sampleComplianceInvoice: InvoiceComplianceData = {
+    invoice_id: "INV-DISP-SAMPLE-01",
+    doc_no: "TT/26-27/0001",
+    doc_type: "INV",
+    doc_date: invoiceDate,
+    supplier_gstin: "27AABCT1234F1Z5",
+    buyer_gstin: "24AAACR1234F1Z8",
+    buyer_legal_name: customerName || "Reliance Retail Ltd - Central Hub",
+    buyer_pos: "24",
+    from_pincode: "440029",
+    to_pincode: "380001",
+    distance_km: 740,
+    vehicle_no: "MH12AB9999",
+    transporter_id: "TRANS-BLUEDART-01",
+    total_taxable_value: 125000,
+    total_cgst_value: 0,
+    total_sgst_value: 0,
+    total_igst_value: 6250,
+    total_invoice_value: 131250,
+    financial_year: "2026-27",
+  };
 
   // File Drop & Select Handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -333,6 +359,19 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
               New Dispatch
             </button>
           )}
+          <button
+            type="button"
+            id="dispatch-compliance-btn"
+            onClick={() => {
+              setActiveComplianceInvoice(sampleComplianceInvoice);
+              setShowComplianceModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+            title="Inspect NIC E-Way Bill & E-Invoice IRN / QR Code Compliance"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Statutory Compliance</span>
+          </button>
           <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Identity Governed (Rule 13)</span>
@@ -784,15 +823,59 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <div className="font-bold text-emerald-800 font-mono">{formatCurrency(inv.grand_total)}</div>
-                    <div className="text-[11px] text-slate-500">{inv.pairs_count} PRS</div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="font-bold text-emerald-800 font-mono">{formatCurrency(inv.grand_total)}</div>
+                      <div className="text-[11px] text-slate-500">{inv.pairs_count} PRS</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveComplianceInvoice({
+                          invoice_id: inv.invoice_id,
+                          doc_no: inv.invoice_no,
+                          doc_type: "INV",
+                          doc_date: invoiceDate,
+                          supplier_gstin: "27AABCT1234F1Z5",
+                          buyer_gstin: "24AAACR1234F1Z8",
+                          buyer_legal_name: inv.site_name || inv.store_code,
+                          buyer_pos: "24",
+                          from_pincode: "440029",
+                          to_pincode: "380001",
+                          distance_km: 740,
+                          total_taxable_value: Math.round(inv.grand_total / 1.05),
+                          total_cgst_value: 0,
+                          total_sgst_value: 0,
+                          total_igst_value: inv.grand_total - Math.round(inv.grand_total / 1.05),
+                          total_invoice_value: inv.grand_total,
+                          financial_year: "2026-27",
+                        });
+                        setShowComplianceModal(true);
+                      }}
+                      className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[11px] font-semibold flex items-center gap-1 border border-indigo-200 cursor-pointer"
+                      title="Generate or Verify E-Invoice IRN & E-Way Bill"
+                    >
+                      <ShieldCheck className="w-3 h-3 text-indigo-600" />
+                      <span>Compliance</span>
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
+      )}
+
+      {/* Statutory Compliance Dispatch Modal (E-Invoice & E-Way Bill) */}
+      {showComplianceModal && (
+        <ComplianceDispatchModal
+          isOpen={showComplianceModal}
+          onClose={() => setShowComplianceModal(false)}
+          invoice={activeComplianceInvoice || sampleComplianceInvoice}
+          onNotification={(title, msg, type) => {
+            if (onNotification) onNotification(title, msg, type);
+          }}
+        />
       )}
     </div>
   );

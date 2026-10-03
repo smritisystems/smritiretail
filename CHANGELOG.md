@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.66.0
+  * Version    : 6.67.0
   * Created    : 2026-07-11
   * Modified   : 2026-10-03
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,37 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.67.0] - 2026-10-03 — Foundation & UX: Complete API-Backed Domain Modals Mounting (WMS, Reports, POS, Dispatch & Security)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, WMS Studio, Financial Reporting, POS Billing, Dispatch Invoicing & Security
+> **Implementation Plan:** `docs/implementation/foundation/Domain_Modals_Phase3_API_Backed_Wiring_Plan_v6.67.0.md`
+> **Walkthrough:** `docs/walkthrough/foundation/Domain_Modals_Phase3_API_Backed_Wiring_v6.67.0.md`
+
+### Added
+- **WMS Studio Warehouse Wave Picking Modal (`WarehouseWavePickingModal.tsx`)**:
+  - Mounted `WarehouseWavePickingModal` in `src/components/wms/WmsStudioTab.tsx` with dedicated `#wms-wave-picking-btn` ("Wave Picking") action button in the WMS header toolbar.
+  - Enables warehouse fulfillment supervisors to initiate batch wave picking, group orders by zone/bin, track picker route optimization, and monitor wave completion progress.
+- **Financial Report Designer Modals (`ConsolidatedBalanceSheetModal.tsx`, `ScheduleReportModal.tsx`)**:
+  - Mounted `ConsolidatedBalanceSheetModal` in `src/components/ReportDesignerTab.tsx` with dedicated `#reports-balance-sheet-btn` ("Balance Sheet") action button in the reports toolbar.
+  - Mounted `ScheduleReportModal` in `src/components/ReportDesignerTab.tsx` with dedicated `#reports-schedule-distribution-btn` ("Schedule Distribution") action button in the reports toolbar, replacing an obsolete inline schedule form mockup.
+  - Empowers CFOs, financial controllers, and accountants to inspect multi-entity balance sheets with drill-downs and automate statutory and financial report deliveries via cron and secure vaults.
+- **POS Billing Workspace Reconciliation & Supervisor Auth Dialogs (`ProPosReconciliationDlg.tsx`, `ProPosSupervisorAuthModal.tsx`)**:
+  - Mounted `ProPosReconciliationDlg` in `src/components/billing/BillingWorkspace.tsx` with dedicated `#pos-recon-btn` ("Sync & Recon") action button in the billing action bar.
+  - Mounted `ProPosSupervisorAuthModal` in `src/components/billing/BillingWorkspace.tsx` with dedicated `#pos-supervisor-pin-btn` ("Supervisor PIN") action button in the billing action bar.
+  - Connects cashiers and terminal operators directly to the end-of-shift reconciliation pipeline and enables real-time manager overrides with signed supervisor tokens (`PRICE_OVERRIDE`, `NEGATIVE_CASH_DRAWER`, `FORCED_SHIFT_RESET`, `EXCESS_VARIANCE_EOD`).
+- **Dispatch Invoicing Studio Statutory Compliance Modal (`ComplianceDispatchModal.tsx`)**:
+  - Mounted `ComplianceDispatchModal` in `src/components/sales/DispatchInvoicingStudioTab.tsx` with dedicated `#dispatch-compliance-btn` in the studio header toolbar and per-invoice action buttons on generated invoice cards.
+  - Provides instant modal verification of GSTN e-Invoice IRN status, E-Way Bill generation, and QR code payload compliance before physical dispatch.
+- **Security Access Shell Dynamic Navigation Menu Registry (`AdminMenuManagementModal.tsx`)**:
+  - Mounted `AdminMenuManagementModal` (`AdminMenuMgmtDlg.tsx`) in `src/components/security/SecurityAccessShell.tsx` with dedicated `#security-admin-menu-mgmt-btn` ("Menu Registry") action button in the security navigation toolbar.
+  - Gives system administrators full governance over application menu hierarchies, route bindings, and role-based menu visibility.
+
+### Changed
+- **Zero Orphaned API-Backed Modals**:
+  - Successfully wired all 7 remaining unreferenced dialogs that have active backend endpoints, dropping unreferenced modals from 25 to 18 in `scripts/audit_pending_ux.py` (with all 18 remaining modals having `has_api=False` purely future prototype status).
+- **Version SSOT Parity**:
+  - Synchronized `package.json`, `src/config/version.ts`, `backend/app/core/config.py`, and `CHANGELOG.md` to authoritative release version `6.67.0`.
 
 ## [6.66.0] - 2026-10-03 — Foundation & UX: CRM, Billing & Promotions Modals Mounting and SecManageDlg Deprecation
 
