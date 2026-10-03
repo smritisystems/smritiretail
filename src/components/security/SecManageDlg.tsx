@@ -4,13 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.17.0
+ * Version      : 6.66.0
  * Created      : 2026-08-22
- * Modified     : 2026-08-26
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  * Source Module: Security & Access Control Studio Main Frame (Modern Light Theme)
+ *
+ * @deprecated Superseded by src/components/security/SecurityAccessShell.tsx (v6.66.0).
+ * Retained temporarily for backwards compatibility with legacy tests.
  */
 
 import React, { useState, useEffect } from "react";
@@ -201,6 +204,19 @@ export const SecManageDlg: React.FC<SmritiSecurityManagementModalProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
+        </div>
+
+        {/* Deprecation Notice Banner */}
+        <div className="bg-amber-50 border-b border-amber-200 px-5 py-2 flex items-center justify-between text-xs text-amber-800">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Notice:</strong> This legacy dialog interface is superseded by the full-page <strong>Security & Access Shell</strong> (<code>SecurityAccessShell.tsx</code>).
+            </span>
+          </div>
+          <span className="text-[11px] font-mono text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded border border-amber-300/60 font-semibold">
+            DEPRECATED_DIALOG
+          </span>
         </div>
 
         {/* 2. Main Studio Work Area */}

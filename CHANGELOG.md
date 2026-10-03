@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.63.0
+  * Version    : 6.66.0
   * Created    : 2026-07-11
   * Modified   : 2026-10-03
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,37 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.66.0] - 2026-10-03 — Foundation & UX: CRM, Billing & Promotions Modals Mounting and SecManageDlg Deprecation
+
+> **Branch:** `smritiNX` | **Area:** Foundation, CRM Studio, Billing Workspace, Sales Promotions & Security
+> **Implementation Plan:** `docs/implementation/foundation/Domain_Modals_Phase2_Wiring_And_SecManage_Retirement_Plan_v6.66.0.md`
+> **Walkthrough:** `docs/walkthrough/foundation/Domain_Modals_Phase2_Wiring_And_SecManage_Retirement_v6.66.0.md`
+
+### Added
+- **CRM Studio Service Complaints & Points Ledger Modals (`ComplaintCRMModal.tsx`, `LoyaltyLedgerModal.tsx`)**:
+  - Mounted `ComplaintCRMModal` in `src/components/CrmStudioTab.tsx` with dedicated `#crm-studio-complaints-btn` ("Complaints") action button in the CRM header toolbar.
+  - Mounted `LoyaltyLedgerModal` in `src/components/CrmStudioTab.tsx` with dedicated `#crm-studio-loyalty-ledger-btn` ("Points Ledger") action button in the CRM header toolbar.
+  - Empowers retail CRM operators to log customer grievances, manage resolution SLAs, and audit granular loyalty points transactions without navigating away from customer records.
+- **POS Billing Workspace Gift Cards & Vouchers Modals (`GiftCardLifecycleModal.tsx`, `GiftVoucherModal.tsx`)**:
+  - Mounted `GiftCardLifecycleModal` in `src/components/billing/BillingWorkspace.tsx` with dedicated `#pos-gift-cards-btn` ("Gift Cards") action button in the POS header toolbar.
+  - Mounted `GiftVoucherModal` in `src/components/billing/BillingWorkspace.tsx` with dedicated `#pos-gift-vouchers-btn` ("Vouchers") action button in the POS header toolbar.
+  - Empowers cashiers at checkout terminals to issue new gift cards, check balances, perform card reloads, and redeem promotional vouchers directly inside the billing suite.
+- **Sales Promotions & Schemes Pricing Studio Modal (`PricingStudioModal.tsx`)**:
+  - Mounted `PricingStudioModal` in `src/components/promotions/SmritiSalesPromotionsStudio.tsx` with dedicated `#promotions-pricing-studio-btn` ("Pricing Studio") action button in the promotions action palette.
+  - Enables merchandisers and sales architects to simulate complex multi-tier customer group pricing (VIP, Wholesale, Staff), SKU-specific discounts, stackable coupon codes, and line-level discount breakdowns.
+
+### Deprecated
+- **Legacy Security Management Dialog (`src/components/security/SecManageDlg.tsx`)**:
+  - Formally annotated with `@deprecated Superseded by src/components/security/SecurityAccessShell.tsx (v6.66.0)`.
+  - Added visible in-dialog amber warning banner alerting operators and developers to use the canonical full-page `SecurityAccessShell`.
+
+### Changed
+- **Pending UX Audit Script Hardening (`scripts/audit_pending_ux.py`)**:
+  - Enhanced component detection with regex AST matching exported identifiers (`export (default)? const|function|class <name>`), eliminating false-positive import-only detection on re-exported components.
+  - Excluded test files (`src/tests/`) from the reference graph to prevent test-only imports from masquerading as UI mountings.
+- **Version SSOT Parity**:
+  - Synchronized `package.json`, `src/config/version.ts`, `backend/app/core/config.py`, and `CHANGELOG.md` to authoritative release version `6.66.0`.
 
 ## [6.65.0] - 2026-10-03 — Foundation & UX: High-Value Domain Modals Wiring & Legacy Prototype Retirement
 
