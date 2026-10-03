@@ -26,10 +26,12 @@
 import React, { useState, useEffect } from "react";
 import { 
   FileSpreadsheet, Download, Upload, CheckCircle2, 
-  AlertTriangle, RefreshCw, Plus, Trash2, ArrowRight
+  AlertTriangle, RefreshCw, Plus, Trash2, ArrowRight,
+  ClipboardList
 } from "lucide-react";
 import { AttributeGroup, AttributeDefinition } from "../types.js";
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { GridInputEngine } from "../services/gridInput/gridInputEngine";
 
 interface BulkImportSectionProps {
   onRefreshProducts: () => Promise<void>;
@@ -123,6 +125,49 @@ export const BulkImportSection: React.FC<BulkImportSectionProps> = ({
     setHasValidated(false);
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const clipboardData = e.clipboardData.getData("text");
+    if (!clipboardData) return;
+
+    const { matrix } = GridInputEngine.parseDelimitedText(clipboardData);
+    if (matrix.length === 0) return;
+
+    e.preventDefault();
+
+    // Check if first line contains known headers
+    const firstLineLower = matrix[0].map(c => c.trim().toLowerCase());
+    const hasHeader = headers.some(h => firstLineLower.includes(h.toLowerCase()));
+
+    const dataRows = hasHeader ? matrix.slice(1) : matrix;
+    const headerMap: Record<number, string> = {};
+
+    if (hasHeader) {
+      matrix[0].forEach((col, idx) => {
+        const found = headers.find(h => h.toLowerCase() === col.trim().toLowerCase());
+        if (found) headerMap[idx] = found;
+      });
+    } else {
+      headers.forEach((h, idx) => {
+        headerMap[idx] = h;
+      });
+    }
+
+    const newRows = dataRows.map(cells => {
+      const obj: Record<string, string> = {};
+      headers.forEach(h => { obj[h] = ""; });
+      cells.forEach((c, idx) => {
+        const h = headerMap[idx];
+        if (h) obj[h] = c.trim();
+      });
+      return obj;
+    });
+
+    setRows(prev => [...prev, ...newRows]);
+    setValidationResults([]);
+    setHasValidated(false);
+    onNotification("Pasted from Clipboard", `Pasted ${newRows.length} rows from Excel/Sheets. Click "Validate Cells" to check formatting.`, "success");
+  };
+
   const handleValidate = async () => {
     if (rows.length === 0) return;
     setLoading(true);
@@ -209,10 +254,58 @@ export const BulkImportSection: React.FC<BulkImportSectionProps> = ({
       </div>
 
       {/* Spreadsheet Workspace */}
-      <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-4">
+      <div 
+        onPaste={handlePaste}
+        className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-5 space-y-4"
+      >
         <div className="flex items-center justify-between border-b border-theme-divider/50 pb-3">
           <span className="text-xs font-bold font-display uppercase tracking-wider text-theme-body">Spreadsheet Data Workspace</span>
           <div className="flex space-x-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (text) {
+                    const { matrix } = GridInputEngine.parseDelimitedText(text);
+                    if (matrix.length > 0) {
+                      const firstLineLower = matrix[0].map(c => c.trim().toLowerCase());
+                      const hasHeader = headers.some(h => firstLineLower.includes(h.toLowerCase()));
+                      const dataRows = hasHeader ? matrix.slice(1) : matrix;
+                      const headerMap: Record<number, string> = {};
+                      if (hasHeader) {
+                        matrix[0].forEach((col, idx) => {
+                          const found = headers.find(h => h.toLowerCase() === col.trim().toLowerCase());
+                          if (found) headerMap[idx] = found;
+                        });
+                      } else {
+                        headers.forEach((h, idx) => { headerMap[idx] = h; });
+                      }
+                      const newRows = dataRows.map(cells => {
+                        const obj: Record<string, string> = {};
+                        headers.forEach(h => { obj[h] = ""; });
+                        cells.forEach((c, idx) => {
+                          const h = headerMap[idx];
+                          if (h) obj[h] = c.trim();
+                        });
+                        return obj;
+                      });
+                      setRows(prev => [...prev, ...newRows]);
+                      setValidationResults([]);
+                      setHasValidated(false);
+                      onNotification("Pasted from Clipboard", `Pasted ${newRows.length} rows from clipboard.`, "success");
+                    }
+                  }
+                } catch {
+                  onNotification("Paste Tip", "Press Ctrl+V anywhere on the spreadsheet to paste rows from Excel.", "error");
+                }
+              }}
+              className="px-3 py-1 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded text-xs flex items-center space-x-1 cursor-pointer transition-colors"
+              title="Paste tab-separated rows from Excel (Ctrl+V)"
+            >
+              <ClipboardList size={13} className="text-[#38bdf8]" />
+              <span>Paste from Excel</span>
+            </button>
             <button
               onClick={handleAddRow}
               className="px-3 py-1 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded text-xs flex items-center space-x-1 cursor-pointer transition-colors"
