@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.58.0] - 2026-10-03 — Global Grid Import Standard Rollout: Sizewise Purchase Order Matrix
+
+> **Branch:** `smritiNX` | **Area:** Procurement & Merchandising / Footwear & Apparel Sizewise PO
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/purchase/Global_Grid_Import_Sizewise_PO_v1.0.md`
+
+### Added
+- **Sizewise Purchase Order Matrix (`PoSizewiseTab.tsx`)**:
+  - Integrated centralized `GlobalGridImportModal` with `GRID_PROFILES.PURCHASE` and batch catalog resolution (`POST /api/v1/products/batch-resolve`).
+  - Added direct clipboard paste (`Ctrl+V`) interceptor (`handleTableContainerPaste`) on the table container, routing multi-line or delimited text (`\t`, `,`, `~`, `|`) into `GlobalGridImportModal` with pre-parsed preview.
+  - Exported pure mapper `mapParsedGridRowsToSizewiseLines` extracting explicit sizewise columns (`6`, `7`, `8` or `S`, `M`, `L`) or distributing flat product scan totals across active size scales using `recommendSizeAssortment` (Gaussian retail Bell Curve).
+  - Exported pure merge utility `mergeSizewisePOLines` supporting `APPEND`, `MERGE` (accumulating quantities across sizes and recalculating net totals), and `REPLACE` modes.
+  - Modernized "Global Import" buttons across primary toolbar, empty state, and visual catalog tab.
+  - Added unit tests 35–38 in `src/tests/poSizewiseUX.test.ts` verifying explicit size mapping, Gaussian bell-curve assortment distribution, product metadata mapping, and merge modes.
+
 ## [6.57.1] - 2026-10-03 — Global Grid Import Standard Rollout: WMS Stock Transfer Orders (STO)
 
 > **Branch:** `smritiNX` | **Area:** Warehouse Management System (WMS) / Logistics / Stock Transfer Orders

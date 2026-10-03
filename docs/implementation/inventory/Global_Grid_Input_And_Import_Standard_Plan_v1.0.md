@@ -94,6 +94,7 @@ Spreadsheet (Ctrl+V) / CSV / TSV / TXT / Scanner
 - `src/components/billing/ProPosBillingTerm.tsx`
 - `src/components/sales/SalesOrderFormPremium.tsx`
 - `src/components/wms/WmsStudioTab.tsx`
+- `src/components/purchase/PoSizewiseTab.tsx`
 
 ## 10. Dependencies
 - Zero external frontend dependencies added (vanilla TSV/CSV parsing without heavy third-party bundles).
@@ -123,11 +124,12 @@ Git revert of affected components restores previous module-specific parsers. No 
 - Create `docs/walkthrough/catalog/Global_Grid_Import_Rollout_v1.0.md`.
 - Create `docs/walkthrough/sales/Global_Grid_Import_POS_And_Sales_Order_v1.0.md`.
 - Create `docs/walkthrough/wms/Global_Grid_Import_WMS_STO_v1.0.md`.
+- Create `docs/walkthrough/purchase/Global_Grid_Import_Sizewise_PO_v1.0.md`.
 - Update `docs/walkthrough/README.md`.
-- Record entries in `CHANGELOG.md` (`[6.55.0]`, `[6.56.0]`, `[6.56.1]`, `[6.57.0]`, `[6.57.1]`).
+- Record entries in `CHANGELOG.md` (`[6.55.0]`, `[6.56.0]`, `[6.56.1]`, `[6.57.0]`, `[6.57.1]`, `[6.58.0]`).
 
 ## 16. Deployment Plan
-Shipped in versions `6.55.0` through `6.57.1` via standard Git pull and Vite build.
+Shipped in versions `6.55.0` through `6.58.0` via standard Git pull and Vite build.
 
 ## 17. Status
 Completed — All phases rolled out:
@@ -136,6 +138,7 @@ Completed — All phases rolled out:
 - Phase 31.1 (v6.56.1): Item Master Bulk Spreadsheet Paste
 - Phase 32 (v6.57.0): POS Counter Billing & Sales Order Studio
 - Phase 32.1 (v6.57.1): WMS Studio Stock Transfer Orders (STO) Multi-Item Staging & Fast Import
+- Phase 33 (v6.58.0): Footwear & Apparel Sizewise Purchase Order Matrix Direct Paste & Fast Import
 
 ## 18. Related ADRs
 - `docs/architecture/ADR_GLOBAL_PRODUCT_RESOLUTION.md`
@@ -145,4 +148,6 @@ Completed — All phases rolled out:
 - `docs/walkthrough/catalog/Global_Grid_Import_Rollout_v1.0.md`
 - `docs/walkthrough/sales/Global_Grid_Import_POS_And_Sales_Order_v1.0.md`
 - `docs/walkthrough/wms/Global_Grid_Import_WMS_STO_v1.0.md`
+- `docs/walkthrough/purchase/Global_Grid_Import_Sizewise_PO_v1.0.md`
+
 
