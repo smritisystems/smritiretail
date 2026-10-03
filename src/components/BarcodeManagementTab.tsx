@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 6.60.0
  * Created      : 2026-08-28
- * Modified     : 2026-09-23 (v4.0.0 — EXC-0001 through EXC-0004 retired via CanonicalInlineInput)
+ * Modified     : 2026-10-03 (v6.60.0 — Integrated GridInputEngine RFC 4180 parsing and clipboard paste)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -16,6 +16,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Barcode, CheckCircle2, Link2, Plus, RefreshCw, Search, ShieldCheck, XCircle } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 import { CanonicalInlineInput } from "./global/CanonicalInlineInput.tsx";
+import { GridInputEngine } from "../services/gridInput/gridInputEngine.ts";
 
 type BarcodeRecord = {
   id: string;
@@ -50,6 +51,74 @@ type CsvRow = {
   state: "READY" | "INVALID" | "DUPLICATE" | "UNKNOWN_SKU" | "IMPORTED" | "ERROR";
   message?: string;
 };
+
+export interface ParsedBarcodeRow {
+  barcode: string;
+  sku: string;
+  state: "READY" | "INVALID";
+}
+
+export function parseBarcodeDelimitedText(text: string): ParsedBarcodeRow[] {
+  if (!text || !text.trim()) return [];
+  const parsed = GridInputEngine.parseDelimitedText(text);
+  const matrix = parsed.matrix;
+  if (!matrix.length) return [];
+
+  const BARCODE_ALIASES = new Set([
+    "barcode",
+    "barcodeno",
+    "barcode_no",
+    "bar_code",
+    "ean",
+    "ean13",
+    "ean_13",
+    "upc",
+    "upca",
+    "code",
+    "itembarcode",
+  ]);
+  const SKU_ALIASES = new Set([
+    "sku",
+    "sku_code",
+    "skucode",
+    "item_code",
+    "itemcode",
+    "variant_sku",
+    "product_code",
+    "item_no",
+    "itemno",
+  ]);
+
+  const normalize = (val: string) => val.toLowerCase().replace(/[\s_\-]/g, "");
+
+  const row0 = matrix[0] || [];
+  let barcodeIndex = row0.findIndex((cell) => BARCODE_ALIASES.has(normalize(cell)));
+  let skuIndex = row0.findIndex((cell) => SKU_ALIASES.has(normalize(cell)));
+
+  let dataRows: string[][];
+  if (barcodeIndex >= 0) {
+    // Row 0 has a recognized header
+    dataRows = matrix.slice(1);
+  } else {
+    // Headerless fallback: col 0 is barcode, col 1 is sku (if exists)
+    barcodeIndex = 0;
+    skuIndex = 1;
+    dataRows = matrix;
+  }
+
+  const results: ParsedBarcodeRow[] = [];
+  for (const row of dataRows) {
+    const rawBarcode = (row[barcodeIndex] || "").trim();
+    const rawSku = skuIndex >= 0 && skuIndex < row.length ? (row[skuIndex] || "").trim() : "";
+    if (!rawBarcode && !rawSku) continue;
+    results.push({
+      barcode: rawBarcode,
+      sku: rawSku,
+      state: rawBarcode ? "READY" : "INVALID",
+    });
+  }
+  return results;
+}
 
 const statusStyles: Record<BarcodeRecord["status"], string> = {
   UNASSIGNED: "text-amber-300 bg-amber-400/10 border-amber-400/20",
@@ -130,56 +199,63 @@ export const BarcodeManagementTab: React.FC = () => {
     window.requestAnimationFrame(() => barcodeInputRef.current?.focus());
   };
 
-  const handleCsvFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const header = lines.shift()?.toLowerCase().split(",").map((value) => value.trim()) || [];
-    const barcodeIndex = header.indexOf("barcode");
-    const skuIndex = header.indexOf("sku");
-    if (barcodeIndex < 0) {
-      setCsvRows([{ barcode: "", sku: "", state: "INVALID" }]);
-      setNotice({ kind: "error", text: "CSV must contain a barcode column. The sku column is optional." });
-      return;
-    }
-    const parsedRows = lines.map((line) => {
-      const values = line.split(",").map((value) => value.trim());
-      const nextBarcode = values[barcodeIndex] || "";
-      const nextSku = values[skuIndex] || "";
-      return { barcode: nextBarcode, sku: nextSku, state: nextBarcode ? "READY" : "INVALID" };
-    });
+  const processDelimitedBarcodeText = async (text: string) => {
+    const parsedRows = parseBarcodeDelimitedText(text);
     if (!parsedRows.length) {
       setCsvRows([]);
-      setNotice({ kind: "error", text: "CSV contains no data rows." });
+      setNotice({ kind: "error", text: "Import contains no valid barcode data." });
       return;
     }
     setBusy(true);
     try {
       const preview = await apiFetchV1("/barcode-registry/bulk/preview", {
         method: "POST",
-        body: JSON.stringify({ rows: parsedRows.map((row) => ({
-          barcode: row.barcode,
-          sku: row.sku || undefined,
-          barcode_type: "EAN13",
-          barcode_purpose: "RETAIL",
-          encoding_standard: "NONE",
-          source: "GS1_IMPORT",
-        })) }),
+        body: JSON.stringify({
+          rows: parsedRows.map((row) => ({
+            barcode: row.barcode,
+            sku: row.sku || undefined,
+            barcode_type: "EAN13",
+            barcode_purpose: "RETAIL",
+            encoding_standard: "NONE",
+            source: "GS1_IMPORT",
+          })),
+        }),
       });
       const previewRows = Array.isArray(preview?.rows) ? preview.rows : [];
-      setCsvRows(previewRows.map((row: { barcode: string; sku?: string | null; state: CsvRow["state"]; message?: string }) => ({
-        barcode: row.barcode,
-        sku: row.sku || "",
-        state: row.state,
-        message: row.message,
-      })));
-      setNotice({ kind: "success", text: `${preview?.ready || 0} row${preview?.ready === 1 ? "" : "s"} ready; review rejected rows before committing.` });
+      setCsvRows(
+        previewRows.map((row: { barcode: string; sku?: string | null; state: CsvRow["state"]; message?: string }) => ({
+          barcode: row.barcode,
+          sku: row.sku || "",
+          state: row.state,
+          message: row.message,
+        }))
+      );
+      setNotice({
+        kind: "success",
+        text: `${preview?.ready || 0} row${preview?.ready === 1 ? "" : "s"} ready; review rejected rows before committing.`,
+      });
     } catch (error) {
       setCsvRows([]);
-      setNotice({ kind: "error", text: error instanceof Error ? error.message : "CSV preview failed" });
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Barcode preview failed" });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleCsvFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    await processDelimitedBarcodeText(text);
+    event.target.value = "";
+  };
+
+  const handleImportPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const clipboardData = event.clipboardData.getData("text/plain");
+    if (!clipboardData || !clipboardData.trim()) return;
+    if (clipboardData.includes("\n") || clipboardData.includes("\t") || clipboardData.includes(",")) {
+      event.preventDefault();
+      void processDelimitedBarcodeText(clipboardData);
     }
   };
 
@@ -376,14 +452,49 @@ export const BarcodeManagementTab: React.FC = () => {
             <button type="button" disabled={busy || !barcode.trim()} onClick={() => void intake()} className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg py-2 text-sm font-semibold"><Plus size={15} /> Add to unassigned queue</button>
             <button type="button" onClick={scanNext} className="w-full border border-theme-divider hover:bg-theme-surface-2 rounded-lg py-2 text-sm">Scan next</button>
           </section>
-          <section className="border border-theme-divider rounded-xl bg-theme-surface-1 p-4 space-y-3">
-            <div className="flex items-center gap-2 font-semibold"><Barcode size={16} className="text-amber-300" /> Bulk barcode import</div>
-            <p className="text-[11px] text-theme-muted">Use <span className="font-mono">barcode</span> alone to assign later, or add an optional <span className="font-mono">sku</span> reference for review.</p>
-            <input type="file" accept=".csv,text/csv" onChange={(event) => void handleCsvFile(event)} className="w-full text-xs text-theme-muted file:mr-2 file:rounded file:border-0 file:bg-theme-surface-2 file:px-2 file:py-1.5 file:text-theme-body" />
-            {csvRows.length > 0 && <div className="border border-theme-divider rounded-lg max-h-32 overflow-auto text-[11px]">
-              {csvRows.slice(0, 50).map((row, index) => <div key={`${row.barcode}-${index}`} className="flex justify-between gap-2 px-2 py-1 border-b border-theme-divider"><span className="font-mono">{row.barcode || "Missing barcode"}</span><span>{row.sku || "Assign later"}</span><span className={row.state === "READY" ? "text-emerald-300" : row.state === "IMPORTED" ? "text-sky-300" : "text-red-300"}>{row.state === "READY" && !row.sku ? "UNASSIGNED" : row.state}</span></div>)}
-            </div>}
-            <button type="button" disabled={busy || !csvRows.some((row) => row.state === "READY")} onClick={() => void importCsv()} className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg py-2 text-sm font-semibold">Import ready rows</button>
+          <section
+            onPaste={handleImportPaste}
+            tabIndex={0}
+            className="border border-theme-divider rounded-xl bg-theme-surface-1 p-4 space-y-3 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-semibold">
+                <Barcode size={16} className="text-amber-300" /> Bulk barcode import
+              </div>
+              <span className="text-[10px] bg-theme-surface-2 px-2 py-0.5 rounded text-theme-muted border border-theme-divider">
+                Paste or Upload
+              </span>
+            </div>
+            <p className="text-[11px] text-theme-muted">
+              Use <span className="font-mono">barcode</span> alone to assign later, or add an optional <span className="font-mono">sku</span> reference. Paste clipboard rows directly or select a file.
+            </p>
+            <input
+              type="file"
+              accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+              onChange={(event) => void handleCsvFile(event)}
+              className="w-full text-xs text-theme-muted file:mr-2 file:rounded file:border-0 file:bg-theme-surface-2 file:px-2 file:py-1.5 file:text-theme-body"
+            />
+            {csvRows.length > 0 && (
+              <div className="border border-theme-divider rounded-lg max-h-32 overflow-auto text-[11px]">
+                {csvRows.slice(0, 50).map((row, index) => (
+                  <div key={`${row.barcode}-${index}`} className="flex justify-between gap-2 px-2 py-1 border-b border-theme-divider">
+                    <span className="font-mono">{row.barcode || "Missing barcode"}</span>
+                    <span>{row.sku || "Assign later"}</span>
+                    <span className={row.state === "READY" ? "text-emerald-300" : row.state === "IMPORTED" ? "text-sky-300" : "text-red-300"}>
+                      {row.state === "READY" && !row.sku ? "UNASSIGNED" : row.state}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              disabled={busy || !csvRows.some((row) => row.state === "READY")}
+              onClick={() => void importCsv()}
+              className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg py-2 text-sm font-semibold"
+            >
+              Import ready rows
+            </button>
           </section>
           <section className="border border-theme-divider rounded-xl bg-theme-surface-1 p-4 space-y-3">
             <div className="flex items-center gap-2 font-semibold"><Link2 size={16} className="text-sky-400" /> Assign to stock identity</div>
