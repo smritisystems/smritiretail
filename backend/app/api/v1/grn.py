@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -271,10 +271,43 @@ async def create_grn(
         **totals,
     )
 
-    for ln in req.lines:
+    from ...services.product_resolution_service import ProductResolutionService
+    from ...schemas.product_resolution import TransactionLineItemInput
+
+    # Atomic Batch Validation of all GRN lines (Phase 5 & 6)
+    validation_lines = [
+        TransactionLineItemInput(
+            line_no=idx + 1,
+            product_id=ln.product_id,
+            variant_id=ln.variant_id,
+            code=ln.product_code,
+            sku=ln.product_code,
+            barcode=ln.barcode,
+            quantity=ln.received_qty or ln.accepted_qty or Decimal("1.0"),
+        )
+        for idx, ln in enumerate(req.lines)
+    ]
+    resolved_lines = await ProductResolutionService.enforce_transaction_lines(
+        session=db,
+        company_id=company_id,
+        lines=validation_lines,
+        allow_inactive=False,
+    )
+
+    for idx, ln in enumerate(req.lines):
+        res_prod = resolved_lines[idx]
+        line_data = ln.model_dump()
+        line_data["product_id"] = res_prod.product_id or ln.product_id
+        if res_prod.variant_id:
+            line_data["variant_id"] = res_prod.variant_id
+        if res_prod.barcode and not line_data.get("barcode"):
+            line_data["barcode"] = res_prod.barcode
+        if res_prod.name and not line_data.get("product_name"):
+            line_data["product_name"] = res_prod.name
+
         grn.lines.append(GoodsReceiptLine(
             id=str(_uuid.uuid4())[:12],
-            **ln.model_dump(),
+            **line_data,
         ))
 
     db.add(grn)

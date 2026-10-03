@@ -45,6 +45,7 @@ from . import (
     pos,
     physical_stock,
     product_identity,
+    product_resolution,
     purchase,
     reporting_governance,
     reports,

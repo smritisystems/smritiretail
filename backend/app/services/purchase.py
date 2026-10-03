@@ -288,96 +288,88 @@ class PurchaseService:
         tax_total = Decimal("0.00")
         item_rows = []
 
-        for item in req.items:
+        from .product_resolution_service import ProductResolutionService
+        from ..schemas.product_resolution import TransactionLineItemInput
+
+        for idx, item in enumerate(req.items):
+            line_no = idx + 1
             clean_item_code = (item.code or "").strip()
             clean_prod_id = (item.product_id or "").strip()
-            # Validate product is in this tenant (matching by id, code, or barcode)
-            stmt = select(Product).where(
-                (Product.id == clean_prod_id) | (Product.code == clean_prod_id) | (Product.code.ilike(clean_item_code)) | (Product.barcode == clean_item_code),
-                Product.is_deleted == False,
+
+            line_input = TransactionLineItemInput(
+                line_no=line_no,
+                product_id=clean_prod_id or None,
+                code=clean_item_code or None,
+                sku=clean_item_code or None,
+                barcode=clean_item_code if (clean_item_code and clean_item_code.isdigit()) else None,
+                quantity=item.quantity,
             )
-            if self.tenant.company_id:
-                stmt = stmt.where(
-                    (Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None))
+            res = await ProductResolutionService.validate_line(
+                session=self.db,
+                company_id=self.tenant.company_id,
+                line=line_input,
+                allow_inactive=False,
+            )
+            if not res.success:
+                err = res.error_detail
+                status_code = 404 if res.code == "PRODUCT_NOT_FOUND" else 400
+                ident_val = clean_item_code or clean_prod_id
+                raise HTTPException(
+                    status_code=status_code,
+                    detail={
+                        "code": res.code or "PRODUCT_NOT_FOUND",
+                        "title": err.title if err else "Product Not Found",
+                        "explanation": err.explanation if err else f"Product '{ident_val}' was not found in Product List.",
+                        "suggested_action": err.suggested_action if err else "Please add the product to Product List before continuing.",
+                        "identifier": ident_val,
+                        "line_no": line_no,
+                    },
                 )
-            res = await self.db.execute(stmt)
-            product = res.scalars().first()
+
+            # Ensure we have a persistent Product row reference for transactional foreign keys
+            product = await self.db.get(Product, res.product_id) if res.product_id else None
             if not product:
-                # Fallback: check by id or code in items table (Universal Item Master)
-                from ..models.item_master import Item
-                item_stmt = select(Item).where(
-                    (Item.id == clean_prod_id) | (Item.item_code.ilike(clean_prod_id)) | (Item.item_code.ilike(clean_item_code)) | (Item.identity_code == clean_item_code),
-                    Item.is_deleted == False,
+                p_stmt = select(Product).where(
+                    (Product.id == res.product_id) | (Product.code == res.sku) | (Product.item_id == res.item_id),
+                    Product.is_deleted == False,
                 )
                 if self.tenant.company_id:
-                    item_stmt = item_stmt.where(
-                        (Item.company_id == self.tenant.company_id) | (Item.company_id.is_(None))
-                    )
-                item_res = await self.db.execute(item_stmt)
-                db_item = item_res.scalars().first()
-                if db_item:
-                    res_p = await self.db.execute(
-                        select(Product).where(
-                            (Product.item_id == db_item.id) | (Product.code == db_item.item_code),
-                            Product.is_deleted == False,
-                        )
-                    )
-                    product = res_p.scalars().first()
-                    if not product:
-                        # Barcodes in Universal Item Master are normalized in item_barcodes table
-                        from ..models.item_master import ItemBarcode
-                        bc_stmt = select(ItemBarcode.barcode).where(
-                            ItemBarcode.item_id == db_item.id,
-                            ItemBarcode.is_deleted == False,
-                        ).order_by(ItemBarcode.is_primary.desc())
-                        bc_res = await self.db.execute(bc_stmt)
-                        resolved_barcode = bc_res.scalars().first() or db_item.item_code
+                    p_stmt = p_stmt.where((Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None)))
+                product = (await self.db.execute(p_stmt)).scalars().first()
 
-                        product = Product(
-                            id=f"prd_{db_item.id[:20]}",
-                            item_id=db_item.id,
-                            code=db_item.item_code,
-                            name=db_item.item_name,
-                            category=db_item.category or "GENERAL",
-                            barcode=resolved_barcode,
-                            hsn_code=db_item.hsn_code or "6109",
-                            company_id=self.tenant.company_id,
-                            branch_id=eff_branch_id,
-                            price=Decimal("0.00"),
-                            cost_price=Decimal(str(item.cost_price or 0.00)),
-                            stock=0,
-                            reserved_stock=Decimal("0.0000"),
-                        )
-                        self.db.add(product)
-                        await self.db.flush()
-
-            if not product and (clean_item_code or clean_prod_id):
-                # Fallback 2: auto-provision catalog product row for order line item
-                import re
-                code_base = re.sub(r'[^A-Za-z0-9_-]', '', clean_item_code or clean_prod_id) or f"SKU-{uuid.uuid4().hex[:8].upper()}"
-                prod_id = f"prd_{uuid.uuid4().hex[:16]}"
+            if not product and res.item_id:
+                # Synchronize legacy Product bridge record linked directly to canonical item_id
                 product = Product(
-                    id=prod_id,
-                    code=code_base,
-                    name=item.name or code_base,
-                    category="GENERAL",
-                    barcode=code_base,
-                    hsn_code="6109",
-                    price=Decimal(str(item.cost_price or 0.00)),
+                    id=f"prd_{res.item_id[:20]}",
+                    item_id=res.item_id,
+                    item_variant_id=res.variant_id,
+                    code=res.sku or clean_item_code,
+                    name=res.name or item.name or clean_item_code,
+                    category=res.category or "GENERAL",
+                    barcode=res.barcode or clean_item_code,
+                    hsn_code=res.hsn_code or "6109",
+                    company_id=self.tenant.company_id,
+                    branch_id=eff_branch_id,
+                    price=res.selling_price,
                     cost_price=Decimal(str(item.cost_price or 0.00)),
                     stock=0,
                     reserved_stock=Decimal("0.0000"),
-                    company_id=self.tenant.company_id,
-                    branch_id=eff_branch_id,
                 )
                 self.db.add(product)
                 await self.db.flush()
 
             if not product:
+                ident_val = clean_item_code or clean_prod_id
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Product '{item.code}' was not found in your inventory. "
-                           f"Please verify the product and try again.",
+                    detail={
+                        "code": "PRODUCT_NOT_FOUND",
+                        "title": "Product Not Found",
+                        "explanation": f"Product '{ident_val}' was not found in Product List.",
+                        "suggested_action": "Please add the product to Product List before continuing.",
+                        "identifier": ident_val,
+                        "line_no": line_no,
+                    },
                 )
 
             tax_amt  = (item.cost_price * item.quantity * item.gst_rate / 100).quantize(Decimal("0.01"))

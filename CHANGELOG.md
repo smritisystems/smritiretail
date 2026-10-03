@@ -28,6 +28,44 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.54.0] - 2026-10-03 — SMRITI Global Product Resolution & Validation Standard
+
+> **Branch:** `smritiNX` | **Area:** Catalog / Master Data / POS Billing / Procurement / Transaction Validation
+> **Implementation Plan:** `docs/implementation/inventory/Product_Resolution_And_Validation_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/catalog/Product_Resolution_And_Validation_Standard_v1.0.md`
+
+### Added
+- **Centralized Product Resolution Engine** (`backend/app/services/product_resolution_service.py`):
+  - Authoritative product lookup gateway resolving across `items`, `item_variants`, `item_barcodes`, with automated fallback to legacy `products` and `legacy_id_mappings`.
+  - Enforces priority cascade: Product ID -> Barcode -> SKU.
+  - Multi-tenant boundary isolation enforcing strict `company_id` matching on tenant items while allowing global master catalog items (`company_id IS NULL`).
+  - Quarantine state detection returning `PRODUCT_QUARANTINED` for records marked for review (`REQUIRES_REVIEW`).
+  - Atomic multi-line validation (`validate_transaction_lines`, `enforce_transaction_lines`) rejecting and rolling back 100% of a transaction if any single line identifier cannot be authoritatively resolved.
+  - Audit logging to `CanonicalTelemetrySink` (`backend/app/logs/canonical_resolution_telemetry.jsonl`).
+- **Product Resolution Contracts** (`backend/app/schemas/product_resolution.py`):
+  - Pydantic V2 schemas for `ProductResolutionResult`, `ProductResolutionErrorDetail`, `TransactionLineItemInput`, and `TransactionValidationResult` complying with SMRITI Human-Readable Error Policy (HREP).
+- **Product Resolution REST API Router** (`backend/app/api/v1/product_resolution.py`):
+  - `POST /api/v1/products/resolve` & `GET /api/v1/products/resolve` for single product resolution.
+  - `POST /api/v1/products/validate-lines` for atomic batch line validation.
+- **Automated Verification Test Suite** (`backend/tests/test_global_product_resolution.py`):
+  - 8 comprehensive test cases verifying canonical resolution, legacy fallback, unknown product rejection, inactive/quarantined handling, tenant isolation, atomic transaction validation, and REST API contracts (8/8 passed green).
+
+### Changed
+- **Procurement & Purchase Order Hardening** (`backend/app/services/purchase.py`):
+  - Eradicated rogue dummy item creation (`Product(id=..., code=item.sku or f"SKU-{uuid4()}")`).
+  - Integrated `ProductResolutionService.validate_line()` requiring valid catalog items before PO submission.
+- **POS Billing & Scan Resolution** (`backend/app/services/billing_catalog_service.py`, `backend/app/api/v1/billing.py`):
+  - Replaced ad-hoc product query with `ProductResolutionService.resolve()`.
+- **Headless Billing & GRN Enforcement** (`backend/app/services/headless_billing.py`, `backend/app/api/v1/grn.py`):
+  - Enforced atomic line resolution via `ProductResolutionService.enforce_transaction_lines()`.
+- **Warehouse & Barcode Label Engines** (`backend/app/services/inventory_wms.py`, `backend/app/services/barcodes_engine.py`):
+  - Enforced catalog resolution and active status validation before stock movement or label generation.
+- **POS Cashier Billing Terminal** (`src/components/billing/BillingTerm.tsx`):
+  - Eradicated `"SKU-GEN"` dummy placeholder items.
+  - Integrated asynchronous resolution via `/api/v1/products/resolve`.
+  - Added `productNotFoundState` modal with RBAC-gated `[ Add Product ]` and `[ Scan Again ]` buttons.
+  - Added `productInactiveState` modal with clear HREP explanations and remediation guidance.
+
 ## [6.53.0] - 2026-10-03 — SMRITI Procurement Phase 2.11: End-to-End Procurement Lifecycle Audit (PO to GRN to AP GL), 1-Click Receiving Wiring & Multi-Surface Reports Studio
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / General Ledger / Multi-Surface Verification
