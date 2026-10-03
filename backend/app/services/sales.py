@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.1 (Phase 2 — Sales UPDATE/DELETE/CANCEL)
+Version      : 6.69.0
 Created      : 2026-07-11
-Modified     : 2026-07-15 (Phase 2)
+Modified     : 2026-10-03
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -193,8 +193,16 @@ class SalesService:
             customer_name=invoice_in.customer_name or "Walk-in Customer",
             customer_phone=getattr(invoice_in, "customer_phone", None),
             customer_gstin=invoice_in.customer_gstin,
+            billed_party_gstin_id=getattr(invoice_in, "billed_party_gstin_id", None),
             billing_address=invoice_in.billing_address,
+            billing_location_id=getattr(invoice_in, "billing_location_id", None),
+            billing_store_code=getattr(invoice_in, "billing_store_code", None),
             shipping_address=invoice_in.shipping_address,
+            delivery_location_id=getattr(invoice_in, "delivery_location_id", None),
+            delivery_store_code=getattr(invoice_in, "delivery_store_code", None),
+            delivery_gstin=getattr(invoice_in, "delivery_gstin", None),
+            delivery_location_snapshot=getattr(invoice_in, "delivery_location_snapshot", None),
+            dispatch_from_location_id=getattr(invoice_in, "dispatch_from_location_id", None),
             place_of_supply=invoice_in.place_of_supply_code or invoice_in.pos_state,
             reverse_charge=False,
             notes=getattr(invoice_in, "remarks", None),

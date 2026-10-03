@@ -4,8 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.26.0
+ * Version      : 6.69.0
  * Created      : 2026-09-04
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -117,7 +118,7 @@ async def ensure_seed_companies_and_groups():
             if not c:
                 session.add(Company(
                     id=cid,
-                    company_code=cid,
+                    company_code=cid.replace("-", ""),
                     name=f"Company {cid}",
                     is_active=True,
                     is_deleted=False,
@@ -145,20 +146,32 @@ async def ensure_seed_companies_and_groups():
             ))
         wh = await session.get(Warehouse, "WH-MAIN")
         if not wh:
-            session.add(Warehouse(
+            wh = Warehouse(
                 id="WH-MAIN", code="WH-TEST-MAIN", name="Main Test Warehouse",
+                city="Mumbai", state="Maharashtra", pincode="400001",
                 company_id="COMP-001", is_active=True, is_deleted=False
-            ))
+            )
+            session.add(wh)
+        else:
+            wh.city = "Mumbai"
+            wh.state = "Maharashtra"
+            wh.pincode = "400001"
+            session.add(wh)
         p = await session.get(Product, "P-TEST-001")
         if not p:
-            session.add(Product(
+            p = Product(
                 id="P-TEST-001", code="P-TEST-001", name="Test Widget",
                 price=Decimal("100.00"), mrp=Decimal("120.00"),
                 category="General",
                 barcode="BAR-P-TEST-001",
-                company_id="COMP-001", tracking_mode="No-stock",
+                stock=10000,
+                company_id="COMP-001", tracking_mode="Standard",
                 is_active=True, is_deleted=False
-            ))
+            )
+            session.add(p)
+        else:
+            p.stock = 10000
+            session.add(p)
         await session.commit()
 
 

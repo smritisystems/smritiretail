@@ -4,25 +4,36 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 6.69.0
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-10-03
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import os
+import sys
+from pathlib import Path
+from urllib.parse import urlparse
 import psycopg2
 
-conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/postgres")
+backend_dir = Path(__file__).resolve().parent.parent / "backend"
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 2781))
+
+conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/postgres")
 cur = conn.cursor()
 cur.execute("SELECT datname FROM pg_database WHERE datistemplate = false;")
 dbs = [r[0] for r in cur.fetchall()]
-print("PostgreSQL Databases:", dbs)
+print(f"PostgreSQL Databases (Port {_PG_PORT}):", dbs)
 
 for d in dbs:
     try:
-        c = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{d}")
+        c = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{d}")
         cu = c.cursor()
         cu.execute("SELECT version_num FROM alembic_version;")
         row = cu.fetchone()

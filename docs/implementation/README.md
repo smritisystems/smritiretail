@@ -4,9 +4,9 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.18.0
+  Version      : 6.69.0
   Created      : 2026-07-11
-  Modified     : 2026-09-02
+  Modified     : 2026-10-03
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -16,6 +16,7 @@
 
 This directory contains formal, version-controlled implementation plans for SMRITI Retail OS modules and core system enhancements.
 
+| 2026-10-03 | v6.69.0 | **[Sales: Corporate B2B Billing Fields Wiring & Sales Invoice Snapshot Immutability Plan](./sales/Sales_Invoice_B2B_Corporate_Fields_Wiring_Plan_v6.69.0.md)** | `backend/app/schemas/canonical_posting.py`, `backend/app/services/canonical_sales_writer.py`, `backend/app/services/sales.py`, `backend/tests/test_b2b_sales_wiring.py`, `backend/tests/test_customer_identity_duplicate.py` | Completed | [Walkthrough](../walkthrough/sales/Sales_Invoice_B2B_Corporate_Fields_Wiring_v6.69.0.md) |
 | 2026-10-03 | v6.69.0 | **[Foundation: Auxiliary Workspaces Phase 5 Wiring Plan](./foundation/Auxiliary_Workspaces_Phase5_Wiring_Plan_v6.69.0.md)** | `src/components/shell/TabRenderer.tsx`, `src/components/itemMaster/ItemMasterWs.tsx`, `src/components/launchpad/launchpadCatalog.ts`, `src/components/SupplierDashTab.tsx`, `src/components/BulkImportSection.tsx`, `src/components/billing/propos/ProPosWs.tsx`, `src/components/global/document/DocStudioScreen.tsx` | Completed | [Walkthrough](../walkthrough/foundation/Domain_Modals_Phase5_Auxiliary_Workspaces_v6.69.0.md) |
 | 2026-10-03 | v6.68.0 | **[Foundation: SMRITI Domain Modals Phase 4 Comprehensive Wiring Plan](./foundation/Domain_Modals_Phase4_Comprehensive_Wiring_Plan_v6.68.0.md)** | `src/components/CrmStudioTab.tsx`, `src/components/ReportDesignerTab.tsx`, `src/components/billing/BillingWorkspace.tsx`, `src/components/promotions/SmritiSalesPromotionsStudio.tsx`, `src/components/wms/WmsStudioTab.tsx`, `src/components/PurchaseStudioTab.tsx`, `src/components/compliance/EWayBillManagementTab.tsx`, `src/components/staff/StaffMasterWs.tsx`, `src/components/itemMaster/ItemMasterWs.tsx`, `src/components/security/SecurityAccessShell.tsx`, `src/components/shell/TabRenderer.tsx` | Completed | [Walkthrough](../walkthrough/foundation/Domain_Modals_Phase4_Comprehensive_Wiring_v6.68.0.md) |
 | 2026-10-03 | v6.67.0 | **[Foundation: SMRITI Domain Modals Phase 3 API-Backed Wiring Plan](./foundation/Domain_Modals_Phase3_API_Backed_Wiring_Plan_v6.67.0.md)** | `src/components/wms/WmsStudioTab.tsx`, `src/components/ReportDesignerTab.tsx`, `src/components/billing/BillingWorkspace.tsx`, `src/components/sales/DispatchInvoicingStudioTab.tsx`, `src/components/security/SecurityAccessShell.tsx` | Completed | [Walkthrough](../walkthrough/foundation/Domain_Modals_Phase3_API_Backed_Wiring_v6.67.0.md) |

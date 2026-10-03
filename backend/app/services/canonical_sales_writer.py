@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.26.0
+Version      : 6.69.0
 Created      : 2026-09-08
-Modified     : 2026-09-08
+Modified     : 2026-10-03
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Canonical Sales Posting Writer & Universal Financial Engine (Phase 2C Step 2)
@@ -34,11 +34,12 @@ from ..core.gst_engine import (
     calculate_line_item_tax,
     round_currency,
     extract_state_code_from_gstin,
+    validate_gstin,
     GST_STATE_CODES,
 )
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.pos import Shift
-from ..models.crm import Customer, CustomerGroup, CustomerCreditLedgerEntry
+from ..models.crm import Customer, CustomerGroup, CustomerCreditLedgerEntry, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
 from ..models.pricing import CustomerPriceTier
 from ..models.item_master import ItemBarcode
 from ..models.inventory import Product, Warehouse
@@ -351,6 +352,164 @@ class CanonicalSalesPostingWriter:
                                 db_customer.id,
                             )
 
+        # 3.5 B2B Customer Registrations & Delivery Locations Validation
+        resolved_customer_id = db_customer.id if db_customer else req.customer_id
+
+        billing_loc_record = None
+        snapshot_billing_store_code = getattr(req, "billing_store_code", None)
+        snapshot_billing_address = req.billing_address
+        if getattr(req, "billing_location_id", None):
+            b_stmt = select(CustomerBillingLocation).filter(
+                CustomerBillingLocation.id == req.billing_location_id,
+                CustomerBillingLocation.is_deleted == False,
+            )
+            billing_loc_record = (await session.execute(b_stmt)).scalars().first()
+            if not billing_loc_record:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Billing location '{req.billing_location_id}' not found."
+                )
+            if billing_loc_record.company_id != company_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cross-company billing location access is prohibited."
+                )
+            if billing_loc_record.branch_id and billing_loc_record.branch_id != (branch_id or "MAIN"):
+                raise HTTPException(status_code=403, detail="Cross-branch billing location access is prohibited.")
+            if billing_loc_record.customer_id != resolved_customer_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Billing location does not belong to the selected customer."
+                )
+            if billing_loc_record.status != "ACTIVE":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Selected billing location is inactive."
+                )
+            if not snapshot_billing_store_code:
+                snapshot_billing_store_code = billing_loc_record.billing_store_code
+            if not snapshot_billing_address:
+                parts = [billing_loc_record.address_line1, billing_loc_record.address_line2, billing_loc_record.city, f"{billing_loc_record.state} - {billing_loc_record.pincode}"]
+                snapshot_billing_address = ", ".join(p for p in parts if p)
+
+        billed_reg_record = None
+        if getattr(req, "billed_party_gstin_id", None):
+            reg_stmt = select(CustomerGSTRegistration).filter(
+                CustomerGSTRegistration.id == req.billed_party_gstin_id,
+                CustomerGSTRegistration.is_deleted == False,
+            )
+            billed_reg_record = (await session.execute(reg_stmt)).scalars().first()
+            if not billed_reg_record:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Billed GST registration '{req.billed_party_gstin_id}' not found."
+                )
+            if billed_reg_record.company_id != company_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cross-company GST registration access is prohibited."
+                )
+            if billed_reg_record.branch_id and billed_reg_record.branch_id != (branch_id or "MAIN"):
+                raise HTTPException(status_code=403, detail="Cross-branch GST registration access is prohibited.")
+            if billed_reg_record.customer_id != resolved_customer_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Billed GST registration does not belong to the selected customer."
+                )
+            if not billed_reg_record.is_active:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Selected Billed GST registration is inactive."
+                )
+            req.customer_gstin = billed_reg_record.gstin
+
+        delivery_loc_record = None
+        delivery_store_code = getattr(req, "delivery_store_code", None)
+        delivery_gstin = getattr(req, "delivery_gstin", None)
+        delivery_location_snapshot = getattr(req, "delivery_location_snapshot", None)
+
+        if getattr(req, "delivery_location_id", None):
+            loc_stmt = select(CustomerDeliveryLocation).filter(
+                CustomerDeliveryLocation.id == req.delivery_location_id,
+                CustomerDeliveryLocation.is_deleted == False,
+            )
+            delivery_loc_record = (await session.execute(loc_stmt)).scalars().first()
+            if not delivery_loc_record:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Delivery location '{req.delivery_location_id}' not found."
+                )
+            if delivery_loc_record.company_id != company_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cross-company delivery location access is prohibited."
+                )
+            if delivery_loc_record.branch_id and delivery_loc_record.branch_id != (branch_id or "MAIN"):
+                raise HTTPException(status_code=403, detail="Cross-branch delivery location access is prohibited.")
+            if delivery_loc_record.customer_id != resolved_customer_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Delivery location does not belong to the selected customer."
+                )
+            if not delivery_loc_record.is_active:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Selected delivery location is inactive."
+                )
+
+            if delivery_loc_record.gst_registration_id:
+                linked_reg_stmt = select(CustomerGSTRegistration).filter(
+                    CustomerGSTRegistration.id == delivery_loc_record.gst_registration_id,
+                    CustomerGSTRegistration.is_deleted == False,
+                )
+                linked_reg = (await session.execute(linked_reg_stmt)).scalars().first()
+                if linked_reg:
+                    if linked_reg.company_id != company_id:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Delivery location linked GST registration belongs to a different company."
+                        )
+                    if linked_reg.branch_id and linked_reg.branch_id != (branch_id or "MAIN"):
+                        raise HTTPException(status_code=403, detail="Delivery location linked GST registration belongs to a different branch.")
+                    if linked_reg.customer_id != resolved_customer_id:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Delivery location linked GST registration does not belong to the selected customer."
+                        )
+
+            eff_del_gstin = req.delivery_gstin or delivery_loc_record.gstin
+            if eff_del_gstin:
+                val_ok, del_st_code, _ = validate_gstin(eff_del_gstin)
+                if not val_ok:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Delivery GSTIN '{eff_del_gstin}' is invalid."
+                    )
+                if del_st_code != delivery_loc_record.state_code:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Delivery GSTIN state '{del_st_code}' does not match delivery location state '{delivery_loc_record.state_code}'."
+                    )
+
+            delivery_store_code = delivery_loc_record.store_code
+            delivery_gstin = req.delivery_gstin or delivery_loc_record.gstin
+            if not delivery_location_snapshot:
+                delivery_location_snapshot = {
+                    "id": delivery_loc_record.id,
+                    "store_code": delivery_loc_record.store_code,
+                    "location_name": delivery_loc_record.location_name,
+                    "address_line1": delivery_loc_record.address_line1,
+                    "address_line2": delivery_loc_record.address_line2,
+                    "city": delivery_loc_record.city,
+                    "state_code": delivery_loc_record.state_code,
+                    "state_name": delivery_loc_record.state,
+                    "pincode": delivery_loc_record.pincode,
+                    "delivery_gstin": delivery_gstin,
+                    "contact_person": delivery_loc_record.contact_person,
+                    "phone": delivery_loc_record.phone,
+                    "metadata_json": delivery_loc_record.metadata_json,
+                }
+
         # 4. Resolve Interstate / Tax Jurisdiction
         from ..models.tenant import Company
         branch_state_code = "27"  # Default Maharashtra
@@ -368,15 +527,29 @@ class CanonicalSalesPostingWriter:
         res_br = await session.execute(q_branch)
         branch_obj = res_br.scalars().first()
 
-        customer_state_code = branch_state_code
-        if req.customer_gstin:
+        pos_state_code = None
+        pos_state_name = None
+        if delivery_loc_record:
+            pos_state_code = delivery_loc_record.state_code
+            pos_state_name = delivery_loc_record.state or GST_STATE_CODES.get(pos_state_code, "Delivery State")
+        elif req.place_of_supply:
+            pos_state_code = req.place_of_supply[:2]
+            pos_state_name = GST_STATE_CODES.get(pos_state_code, "Transaction POS")
+        elif billed_reg_record:
+            pos_state_code = billed_reg_record.state_code
+            pos_state_name = billed_reg_record.state_name or GST_STATE_CODES.get(pos_state_code, "Billed State")
+        elif req.customer_gstin:
             extracted_sc = extract_state_code_from_gstin(req.customer_gstin)
             if extracted_sc:
-                customer_state_code = extracted_sc
-        elif req.place_of_supply:
-            customer_state_code = req.place_of_supply[:2]
+                pos_state_code = extracted_sc
+                pos_state_name = GST_STATE_CODES.get(pos_state_code, "Customer State")
 
-        is_interstate = (customer_state_code != branch_state_code)
+        if not pos_state_code:
+            pos_state_code = branch_state_code
+            pos_state_name = GST_STATE_CODES.get(branch_state_code, "Home State")
+
+        customer_state_code = pos_state_code
+        is_interstate = (pos_state_code != branch_state_code)
 
         # 5. Dual-Key Item Resolution & Statutory Tax Calculation via HeadlessBillingCore
         from .headless_billing import HeadlessBillingCore
@@ -520,14 +693,16 @@ class CanonicalSalesPostingWriter:
             customer_id=db_customer.id if db_customer else req.customer_id,
             customer_name=req.customer_name or (db_customer.name if db_customer else "Walk-in Customer"),
             customer_gstin=req.customer_gstin or (getattr(db_customer, "gst_number", None) or getattr(db_customer, "gstin", None) if db_customer else None),
-            billing_address=req.billing_address or (getattr(db_customer, "address", None) if db_customer else None),
-            shipping_address=req.shipping_address or req.billing_address,
+            billed_party_gstin_id=getattr(req, "billed_party_gstin_id", None),
+            billing_address=snapshot_billing_address or (getattr(db_customer, "address", None) if db_customer else None),
+            shipping_address=req.shipping_address or snapshot_billing_address,
             billing_location_id=req.billing_location_id,
-            billing_store_code=req.billing_store_code,
+            billing_store_code=snapshot_billing_store_code,
             delivery_location_id=req.delivery_location_id,
-            delivery_store_code=req.delivery_store_code,
-            delivery_gstin=req.delivery_gstin,
-            delivery_location_snapshot=req.delivery_location_snapshot,
+            delivery_store_code=delivery_store_code,
+            sis_code=delivery_store_code,
+            delivery_gstin=delivery_gstin,
+            delivery_location_snapshot=delivery_location_snapshot,
             warehouse_id=warehouse_id,
             dispatch_from_location_id=dispatch_from_location_id,
             dispatch_from_snapshot=dispatch_from_snapshot,
@@ -543,7 +718,8 @@ class CanonicalSalesPostingWriter:
             rounding_amount=round_off,
             is_interstate=is_interstate,
             reverse_charge=req.reverse_charge,
-            place_of_supply_code=req.place_of_supply or customer_state_code,
+            place_of_supply_code=pos_state_code,
+            pos_state=pos_state_name,
             payment_mode=(req.payment_mode or ("SPLIT" if len(req.tenders) > 1 else (req.tenders[0].tender_type if req.tenders else "CREDIT"))).upper(),
             status="Submitted",
             po_reference=req.po_reference_no,

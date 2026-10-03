@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.26.0
+Version      : 6.69.0
 Created      : 2026-09-08
-Modified     : 2026-09-08
+Modified     : 2026-10-03
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Canonical Sales Posting Contract Schema (Phase 2C Step 1)
@@ -95,6 +95,7 @@ class CanonicalPostingRequest(BaseModel):
     customer_name: Optional[str] = Field("Walk-in Customer", description="Billing customer name")
     customer_phone: Optional[str] = Field(None, description="Customer phone number")
     customer_gstin: Optional[str] = Field(None, description="Customer GSTIN for B2B invoices")
+    billed_party_gstin_id: Optional[str] = Field(None, description="Customer GST Registration ID")
     billing_address: Optional[str] = Field(None, description="Registered billing address")
     billing_location_id: Optional[str] = Field(None, description="Registered billing location identifier")
     billing_store_code: Optional[str] = Field(None, description="Registered billing store code")
