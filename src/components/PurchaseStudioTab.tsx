@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 6.65.0
  * Created      : 2026-07-10
- * Modified     : 2026-10-01
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Purchase Studio — Generation + Workspace (Phase B)
@@ -23,6 +23,7 @@ import React, { useState } from "react";
 import { PoGenerateTab } from "./purchase/PoGenerateTab.tsx";
 import { PoSizewiseTab } from "./purchase/PoSizewiseTab.tsx";
 import { POWorkspaceTab } from "./purchase/POWorkspaceTab.tsx";
+import { AutoPOModal } from "./procurement/AutoPOModal.tsx";
 import { Product } from "../types.ts";
 
 type TopLevelView = "generate" | "workspace";
@@ -48,6 +49,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
 }) => {
   // ── Top-level view: Generate vs Workspace ────────────────────────────────
   const [topView, setTopView] = useState<TopLevelView>("generate");
+  const [showAutoPOModal, setShowAutoPOModal] = useState<boolean>(false);
 
   // ── Generation sub-mode (persisted) ─────────────────────────────────────
   const [poMode, setPoMode] = useState<"standard" | "sizewise">(() => {
@@ -158,18 +160,31 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           )}
         </div>
 
-        {/* Right: Keyboard hints (only in generate view) */}
-        {topView === "generate" && (
-          <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-            <span>
-              Press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">F2</kbd> to search items
-            </span>
-            <span>·</span>
-            <span>
-              <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">Ctrl+S</kbd> to save draft
-            </span>
-          </div>
-        )}
+        {/* Right: Keyboard hints & Tools */}
+        <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+          <button
+            type="button"
+            id="purchase-studio-autopo-btn"
+            onClick={() => setShowAutoPOModal(true)}
+            className="px-2.5 py-1 rounded text-xs font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1.5"
+            title="Open Automated Reorder & Stock Deficit Purchase Order Generator"
+          >
+            <span className="material-symbols-outlined text-[14px]">auto_mode</span>
+            Auto-PO Generator
+          </button>
+          {topView === "generate" && (
+            <>
+              <span className="hidden sm:inline">·</span>
+              <span className="hidden sm:inline">
+                Press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">F2</kbd> items
+              </span>
+              <span className="hidden sm:inline">·</span>
+              <span className="hidden sm:inline">
+                <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">Ctrl+S</kbd> save
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Content Area ─────────────────────────────────────────────────── */}
@@ -206,6 +221,15 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           />
         )}
       </div>
+
+      {/* Auto-PO Reorder Modal */}
+      {showAutoPOModal && (
+        <AutoPOModal
+          isOpen={showAutoPOModal}
+          onClose={() => setShowAutoPOModal(false)}
+          onNotification={onNotification}
+        />
+      )}
     </div>
   );
 };

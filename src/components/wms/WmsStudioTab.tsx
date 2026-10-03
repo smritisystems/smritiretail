@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.65.0
  * Created      : 2026-08-22
- * Modified     : 2026-08-22
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -16,6 +16,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { ENTERPRISE_BILLING_SUITE_VERSION_LABEL } from "../../config/version.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
+import { StockExpiryModal } from "../warehouse/StockExpiryModal.tsx";
+import { SmartReplenishmentModal } from "../inventory/SmartReplenishmentModal.tsx";
 import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { 
@@ -173,6 +175,8 @@ export const WmsStudioTab: React.FC<{
   const [viewingEwayBill, setViewingEwayBill] = useState<any | null>(null);
   const [transferStagingItems, setTransferStagingItems] = useState<StockTransferItem[]>([]);
   const [isGlobalTransferImportOpen, setIsGlobalTransferImportOpen] = useState(false);
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
+  const [showReplenishModal, setShowReplenishModal] = useState(false);
 
   const fetchWmsData = async () => {
     setLoading(true);
@@ -642,6 +646,28 @@ export const WmsStudioTab: React.FC<{
               Stock Audit & Recon
             </button>
           </div>
+
+          <button
+            type="button"
+            id="wms-stock-expiry-btn"
+            onClick={() => setShowExpiryModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Inspect Batch Expiry, Quarantines & Recalls"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Stock Expiry</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-smart-replenish-btn"
+            onClick={() => setShowReplenishModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Smart Replenishment Engine & Safety Stock Matrix"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Smart Replenish</span>
+          </button>
 
           <button
             onClick={fetchWmsData}
@@ -1695,6 +1721,22 @@ export const WmsStudioTab: React.FC<{
           existingRowCount={transferStagingItems.length}
           onCommit={handleGlobalTransferImportCommit}
         />
+
+        {showExpiryModal && (
+          <StockExpiryModal
+            isOpen={showExpiryModal}
+            onClose={() => setShowExpiryModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showReplenishModal && (
+          <SmartReplenishmentModal
+            isOpen={showReplenishModal}
+            onClose={() => setShowReplenishModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
       </div>
     </div>
   );

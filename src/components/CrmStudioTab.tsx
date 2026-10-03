@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 6.65.0
  * Created      : 2026-07-13
- * Modified     : 2026-08-25
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : CRM Studio (Fiori Horizon Inspired Light Theme)
@@ -36,10 +36,14 @@ import {
   Minus,
   Star,
   Loader2,
-  X
+  X,
+  CreditCard,
+  UserCheck
 } from "lucide-react";
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { Customer360LoyaltyModal } from "./crm/Customer360LoyaltyModal.tsx";
+import { CustomerCreditModal } from "./crm/CustomerCreditModal.tsx";
 
 
 export interface CrmStudioTabProps {
@@ -52,6 +56,8 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [showLoyalty360Modal, setShowLoyalty360Modal] = useState<boolean>(false);
+  const [showCreditModal, setShowCreditModal] = useState<boolean>(false);
 
   // Seed Data
   const [leads, setLeads] = useState([
@@ -128,6 +134,26 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
         </div>
 
         <div className="flex items-center space-x-2 text-xs">
+          <button 
+            type="button"
+            id="crm-studio-cust360-btn"
+            onClick={() => setShowLoyalty360Modal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Customer 360 & Loyalty Tier Engine"
+          >
+            <UserCheck size={13} className="text-amber-600" />
+            <span>Customer 360</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-credit-btn"
+            onClick={() => setShowCreditModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Customer Credit Limits & Aging Ledger"
+          >
+            <CreditCard size={13} className="text-sky-600" />
+            <span>Credit &amp; Aging</span>
+          </button>
           <button 
             onClick={() => recordAuditAction("EXPORT", "crm", "export", "Exported lead pipeline report")}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer"
@@ -279,6 +305,20 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
           )}
         </motion.div>
       </SmritiScrollArea>
+
+      {showLoyalty360Modal && (
+        <Customer360LoyaltyModal
+          isOpen={showLoyalty360Modal}
+          onClose={() => setShowLoyalty360Modal(false)}
+        />
+      )}
+
+      {showCreditModal && (
+        <CustomerCreditModal
+          isOpen={showCreditModal}
+          onClose={() => setShowCreditModal(false)}
+        />
+      )}
     </div>
   );
 };

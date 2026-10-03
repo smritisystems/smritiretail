@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.1
+ * * Version    : 6.65.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-13
+ * * Modified   : 2026-10-03
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -38,6 +38,10 @@ interface BulkImportSectionProps {
   onNotification: (title: string, message: string, type?: "success" | "error") => void;
 }
 
+/**
+ * @deprecated Superseded by `src/components/ItemMasterStudio.tsx` and `src/components/gridInput/GlobalGridImportModal.tsx`
+ * which provide dynamic column mapping, canonical attribute schema validation, and multi-mode resolution.
+ */
 export const BulkImportSection: React.FC<BulkImportSectionProps> = ({ 
   onRefreshProducts, 
   onNotification 
@@ -228,6 +232,11 @@ export const BulkImportSection: React.FC<BulkImportSectionProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Deprecation notice banner */}
+      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300">
+        <span>⚠️ <strong>Notice:</strong> BulkImportSection is superseded by <strong>Item Master Studio</strong> &amp; <strong>Global Grid Import Modal</strong>.</span>
+        <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 uppercase px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 font-bold">SUPERSEDED</span>
+      </div>
       
       {/* Dynamic Selector Header */}
       <div className="bg-theme-surface-1 p-5 rounded-2xl border border-theme-divider flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
