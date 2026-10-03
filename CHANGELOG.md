@@ -28,6 +28,18 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.56.1] - 2026-10-03 — Global Grid Input Standard: Attribute-Aware Bulk Import Excel Paste
+
+> **Branch:** `smritiNX` | **Area:** Catalog / Item Master / Bulk Spreadsheet Importer
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/catalog/Global_Grid_Import_Rollout_v1.0.md`
+
+### Added
+- **Attribute-Aware Bulk Importer (`BulkImportSection.tsx`)**:
+  - Integrated `GridInputEngine.parseDelimitedText` to support direct clipboard paste (`Ctrl+V` and "Paste from Excel" button) from Microsoft Excel and Google Sheets.
+  - Automatically matches source columns against dynamic attribute group headers (e.g. `Attr_Color`, `Attr_Size`, `Price`, `MRP`) with positional fallback.
+  - Clears previous validation errors and enables 1-click validation of pasted item batches.
+
 ## [6.56.0] - 2026-10-03 — Global Grid Import Standard Rollout: Physical Stock Audit & Barcode Label Studio
 
 > **Branch:** `smritiNX` | **Area:** Physical Inventory Audit / Barcode Printing Studio / Grid Engine
