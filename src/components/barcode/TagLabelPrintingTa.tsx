@@ -33,6 +33,10 @@ import { PurchBrowseDlg } from "../purchase/PurchBrowseDlg.tsx";
 import { SearchableMultiSelect } from "./SearchableMultiSel.tsx";
 import { ThermalBarcodeSvg } from "./ThermalBarcodeSvg.tsx";
 import { parsePTFileContent, SAMPLE_PT_FILE_RECORDS } from "./ptFileParser.ts";
+import { GridInputEngine } from "../../services/gridInput/gridInputEngine.ts";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
+import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
+import { ParsedGridRow, GridInputParseResult } from "../../services/gridInput/types.ts";
 import { 
   queryTransactionItems, 
   queryPurchaseOrderItems, 
@@ -183,6 +187,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [pdtFileName, setPdtFileName] = useState<string>("PDT_IMPORT_2026.csv");
   const [pdtRows, setPdtRows] = useState<LabelPrintRow[]>([]);
   const pdtFileInputRef = useRef<HTMLInputElement>(null);
+  const [isGlobalImportOpen, setIsGlobalImportOpen] = useState<boolean>(false);
 
   // Modals state
   const [isEditQtyModalOpen, setIsEditQtyModalOpen] = useState<boolean>(false);
@@ -797,7 +802,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     reader.readAsText(file);
   };
 
-  // PDT File Upload Handler
+  // PDT File Upload Handler (Centralized with GridInputEngine)
   const handlePdtFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -807,33 +812,39 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     reader.onload = (event) => {
       const text = event.target?.result as string;
       if (text) {
-        const lines = text.split("\n").filter(l => l.trim().length > 0);
+        const { matrix } = GridInputEngine.parseDelimitedText(text);
+        const { columnMappings, dataRows } = GridInputEngine.mapColumns(matrix, GRID_PROFILES.BARCODE_PRINTING);
         const rows: LabelPrintRow[] = [];
         let sNo = 1;
-        lines.forEach((l, idx) => {
-          const parts = l.split(/[,;\t]/).map(p => p.trim());
-          if (parts.length >= 2) {
-            const barcode = parts[0];
-            const qty = parseFloat(parts[1]) || 1;
-            const rate = parseFloat(parts[2]) || 999;
-            const matched = products.find(p => p.barcode === barcode || p.code === barcode);
+        dataRows.forEach((cells, idx) => {
+          if (cells.length === 0 || cells.every(c => !c)) return;
+          const rowMap: Record<string, string> = {};
+          columnMappings.forEach(m => {
+            if (m.mappedFieldKey && cells[m.sourceIndex] !== undefined) {
+              rowMap[m.mappedFieldKey] = cells[m.sourceIndex].trim();
+            }
+          });
 
-            rows.push({
-              id: `pdt-row-${idx}`,
-              sNo: sNo++,
-              stockNo: matched?.code || barcode,
-              barcode: barcode,
-              brand: matched?.brand || "Beanstalk",
-              product: matched?.name || "PDT Item",
-              colour: matched?.color || "Standard",
-              style: matched?.styleCode || "Standard",
-              size: matched?.size || "Free",
-              mrp: matched?.mrp || rate,
-              sellingPrice: matched?.price || rate,
-              currentStock: matched?.stock || 0,
-              labelCount: qty
-            });
-          }
+          const barcode = rowMap["barcode"] || cells[0] || "";
+          const qty = parseFloat(rowMap["quantity"] || rowMap["labelCount"] || cells[1]) || 1;
+          const rate = parseFloat(rowMap["sellingPrice"] || rowMap["rate"] || rowMap["price"] || cells[2]) || 999;
+          const matched = products.find(p => p.barcode === barcode || p.code === barcode);
+
+          rows.push({
+            id: `pdt-row-${idx}`,
+            sNo: sNo++,
+            stockNo: matched?.code || rowMap["sku"] || rowMap["item_code"] || barcode,
+            barcode: barcode,
+            brand: matched?.brand || rowMap["brand"] || "Beanstalk",
+            product: matched?.name || rowMap["name"] || "PDT Item",
+            colour: matched?.color || rowMap["color"] || "Standard",
+            style: (matched as any)?.style_code || matched?.styleCode || rowMap["style"] || "Standard",
+            size: matched?.size || rowMap["size"] || "Free",
+            mrp: matched?.mrp || parseFloat(rowMap["mrp"]) || rate,
+            sellingPrice: matched?.price || rate,
+            currentStock: matched?.stock || 0,
+            labelCount: qty
+          });
         });
         setPdtRows(rows);
         setSelectedRowIds(new Set(rows.map(r => r.id)));
@@ -842,6 +853,32 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleGlobalImportCommit = (rows: ParsedGridRow[]) => {
+    const newRows: LabelPrintRow[] = rows.map((r, idx) => {
+      const matched = products.find(p => p.barcode === r.identifier || p.code === r.identifier);
+      return {
+        id: `global-import-${Date.now()}-${idx}`,
+        sNo: pdtRows.length + idx + 1,
+        stockNo: r.resolvedProduct?.sku || (r.mappedValues.sku as string) || (r.mappedValues.item_code as string) || matched?.code || r.identifier,
+        barcode: r.resolvedProduct?.barcode || (r.mappedValues.barcode as string) || matched?.barcode || r.identifier,
+        brand: r.resolvedProduct?.brand || (r.mappedValues.brand as string) || matched?.brand || "Beanstalk",
+        product: r.resolvedProduct?.name || (r.mappedValues.name as string) || matched?.name || "Imported Item",
+        colour: (r.resolvedProduct as any)?.color || (r.mappedValues.color as string) || matched?.color || "Standard",
+        style: (r.resolvedProduct as any)?.style_code || (r.mappedValues.style as string) || matched?.styleCode || "Standard",
+        size: (r.resolvedProduct as any)?.size || (r.mappedValues.size as string) || matched?.size || "Free",
+        mrp: r.resolvedProduct?.mrp ?? (Number(r.mappedValues.mrp) || matched?.mrp || 0),
+        sellingPrice: r.resolvedProduct?.sellingPrice ?? (Number(r.mappedValues.sellingPrice) || matched?.price || 0),
+        currentStock: (r.resolvedProduct as any)?.stock ?? matched?.stock ?? 0,
+        labelCount: r.quantity || 1,
+      };
+    });
+    setPdtRows(prev => [...prev, ...newRows]);
+    setSelectedRowIds(prev => new Set([...prev, ...newRows.map(nr => nr.id)]));
+    setSelectedPreviewIndex(0);
+    setIsGlobalImportOpen(false);
+    onNotification?.("Import Completed", `Imported ${newRows.length} items into label print queue`, "success");
   };
 
   // Clear Session & Criteria
@@ -1907,7 +1944,15 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                     />
                   </div>
                 </div>
-                <div className="flex shrink-0 pb-1">
+                <div className="flex shrink-0 pb-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsGlobalImportOpen(true)}
+                    className="bg-secondary text-on-secondary px-3 py-1.5 rounded text-xs font-bold hover:bg-secondary-container transition flex items-center gap-1.5 shadow-xs"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Global Import (Excel / CSV / Scan)</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleLoadResults}
@@ -2813,6 +2858,16 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
           </div>
         </div>
+      )}
+
+      {isGlobalImportOpen && (
+        <GlobalGridImportModal
+          isOpen={isGlobalImportOpen}
+          profile={GRID_PROFILES.BARCODE_PRINTING}
+          onClose={() => setIsGlobalImportOpen(false)}
+          onCommit={handleGlobalImportCommit}
+          title="Barcode Tag Printing Queue"
+        />
       )}
 
     </div>

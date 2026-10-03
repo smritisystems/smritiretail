@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.56.0] - 2026-10-03 — Global Grid Import Standard Rollout: Physical Stock Audit & Barcode Label Studio
+
+> **Branch:** `smritiNX` | **Area:** Physical Inventory Audit / Barcode Printing Studio / Grid Engine
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/catalog/Global_Grid_Import_Rollout_v1.0.md`
+
+### Added & Refactored
+- **Physical Stock Verification Audit (`PhysicalStockTab.tsx`)**:
+  - Integrated `GlobalGridImportModal` with `GRID_PROFILES.STOCK_MOVEMENT`.
+  - Added "Bulk Count Import (PDT / Excel / CSV)" action allowing store auditors and warehouse staff to paste hundreds of counts directly from Excel or drop handheld PDT export files.
+  - Automated session line resolution and matching against existing count lines with immediate quantity patch.
+- **Barcode Label Studio (`TagLabelPrintingTa.tsx`)**:
+  - Refactored `handlePdtFileUpload` to eliminate fragile ad-hoc splitting; now powered by `GridInputEngine.parseDelimitedText` and `GRID_PROFILES.BARCODE_PRINTING`.
+  - Added "Global Import (Excel / CSV / Scan)" modal action to ingest items directly from spreadsheet clipboards, delimited files, or scanner streams.
+
 ## [6.55.0] - 2026-10-03 — SMRITI Global Grid Input, Paste, Import & Product Resolution Standard
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Grid Engine / Clipboard / Import / Procurement / Item Master
