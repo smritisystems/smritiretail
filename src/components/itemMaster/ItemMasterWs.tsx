@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.68.0
+ * Version      : 6.69.0
  * Created      : 2026-08-21
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -39,6 +39,7 @@ import { CodeSelectDlg } from "./CodeSelectDlg.tsx";
 import { ReplaceDataDlg } from "./ReplaceDataDlg.tsx";
 import { VariantTplSec } from "../VariantTemplateSec.tsx";
 import { hydrateRoleGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
+import { BulkImportSection } from "../BulkImportSection.tsx";
 
 interface SmritiItemMasterWorkspaceProps {
   products?: Product[];
@@ -49,7 +50,7 @@ interface SmritiItemMasterWorkspaceProps {
   onClose?: () => void;
 }
 
-type WorkspaceNavTab = "catalog" | "spreadsheet" | "view_config" | "imports" | "attributes" | "image_config" | "variants";
+type WorkspaceNavTab = "catalog" | "spreadsheet" | "view_config" | "imports" | "bulk_sheet" | "attributes" | "image_config" | "variants";
 
 export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   products = [],
@@ -232,6 +233,19 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
 
           <button
             type="button"
+            onClick={() => setActiveNav("bulk_sheet")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+              activeNav === "bulk_sheet"
+                ? "bg-[#d4e0f8] dark:bg-[#0052cc] text-[#051a3e] dark:text-white shadow-xs"
+                : "text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054]"
+            }`}
+          >
+            <FileSpreadsheet size={15} />
+            <span>Attribute Bulk Sheet</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveNav("attributes")}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition ${
               activeNav === "attributes"
@@ -410,6 +424,15 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               currentUser={currentUser}
               onCancel={() => setActiveNav("catalog")}
             />
+          )}
+
+          {activeNav === "bulk_sheet" && (
+            <div className="h-full overflow-y-auto p-4 custom-scrollbar">
+              <BulkImportSection
+                onRefreshProducts={handleRefresh}
+                onNotification={(title, msg, type) => handleNotify(title, msg, type as any)}
+              />
+            </div>
           )}
 
           {activeNav === "attributes" && (

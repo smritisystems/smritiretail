@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.42.4
+ * Version      : 6.69.0
  * Created      : 2026-08-19
  * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -67,7 +67,11 @@ const REGISTERED_APP_TABS = [
   "wiki",
   "training-academy",
   "ewaybill-management",
-  "system-parameters"
+  "system-parameters",
+  "supplier-dashboard",
+  "propos-workspace",
+  "document-studio",
+  "bulk-import-sheet"
 ];
 
 describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {

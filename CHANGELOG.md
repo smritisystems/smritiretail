@@ -16,7 +16,7 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.68.0
+  * Version    : 6.69.0
   * Created    : 2026-07-11
   * Modified   : 2026-10-03
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -27,6 +27,30 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.69.0] - 2026-10-03 — UX & Foundation: Phase 5 Auxiliary Workspaces Routing & Catalog Wiring (100% Unreferenced Ws Elimination)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Shell Routing, Fiori Launchpad, Item Master, Vendor Master, ProPOS Billing & Universal Document Studio
+> **Implementation Plan:** `docs/implementation/foundation/Auxiliary_Workspaces_Phase5_Wiring_Plan_v6.69.0.md`
+> **Walkthrough:** `docs/walkthrough/foundation/Domain_Modals_Phase5_Auxiliary_Workspaces_v6.69.0.md`
+
+### Added
+- **Central Shell Routing for Auxiliary Workspaces (`src/components/shell/TabRenderer.tsx`)**:
+  - Wired `SupplierDashboardTab` (`src/components/SupplierDashTab.tsx`) with alias mapping for `supplier-dashboard`, `supplier_dashboard`, `supplier-dash`, and `menu-supplier-dashboard`.
+  - Wired `ProPosWs` (`src/components/billing/propos/ProPosWs.tsx`) with alias mapping for `propos-workspace`, `propos-ws`, `propos`, and `enterprise-billing-suite`.
+  - Wired `DocumentStudioScreen` (`src/components/global/document/DocStudioScreen.tsx`) with alias mapping for `document-studio`, `doc-studio`, `universal-doc-studio`, and `menu-doc-studio`.
+  - Wired `BulkImportSection` (`src/components/BulkImportSection.tsx`) with alias mapping for `bulk-import-sheet`, `bulk-import`, `attribute-import-sheet`, and `menu-bulk-import`.
+- **Item Master Workspace Integration (`src/components/itemMaster/ItemMasterWs.tsx`)**:
+  - Mounted `BulkImportSection` under a new dedicated workspace navigation tab (`"bulk_sheet"` - "Attribute Bulk Sheet") with sidebar quick access.
+- **Fiori Launchpad Discoverability (`src/components/launchpad/launchpadCatalog.ts`)**:
+  - Registered tiles for `supplier-dashboard`, `propos-workspace`, `document-studio`, and `bulk-import-sheet`.
+  - Updated test expectations in `src/tests/fioriLaunchpad.test.ts`.
+
+### Governance & Verification
+- **Audit Verification (`scripts/audit_pending_ux.py`)**:
+  - Total Modals/Dialogs: 89, Unreferenced Modals: **0**, Import-Only Modals: **0**.
+  - Total Tabs/Workspaces/Studios: 74, Unreferenced Tabs/Workspaces: **0** (100% resolution across the entire repository).
+- **Type Safety**: `npx tsc --noEmit` clean exit 0.
 
 ## [6.68.0] - 2026-10-03 — UX & Foundation: 100% Elimination of Orphaned Domain Modals & Unreferenced Workspaces Routing
 
