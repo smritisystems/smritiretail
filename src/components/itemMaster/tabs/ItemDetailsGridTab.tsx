@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.32.0
+ * Version      : 6.63.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -27,6 +27,7 @@ import { HeaderMappingEngine } from "../../../lib/headerMapping/HeaderMappingEng
 import { ColumnMappingResult } from "../../../lib/headerMapping/types";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { fetchGovernedLookupOptions, LookupOption } from "../../../services/itemMasterLookupGate.ts";
+import { GridInputEngine } from "../../../services/gridInput/gridInputEngine";
 
 // Singleton engine for item master column detection
 const _itemMasterEngine = new HeaderMappingEngine();
@@ -232,8 +233,8 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
   const handleAnalysePaste = () => {
     if (!pastedRawText.trim()) return;
 
-    const lines = pastedRawText.trim().split(/\r\n|\n|\r/);
-    const matrix = lines.map(l => l.split("\t"));
+    const parseResult = GridInputEngine.parseDelimitedText(pastedRawText);
+    const matrix = parseResult.matrix;
     if (matrix.length === 0) return;
 
     const headerInfo = _itemMasterEngine.detectHeaderRow(matrix);

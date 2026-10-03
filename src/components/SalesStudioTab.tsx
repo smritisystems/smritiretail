@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.27.3
+ * Version      : 6.63.0
  * Created      : 2026-07-10
- * Modified     : 2026-09-16
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -33,6 +33,7 @@ import { ProductImage } from "./common/ProductImage.tsx";
 import { CompanySelector } from "./layout/CompanySelector.tsx";
 import { formatDate, formatDateTime, formatCurrency, formatNumber, safeNumber } from "../utils/formatters.ts";
 import { normalizeSalesOrders, normalizeQuotations } from "../utils/normalizeSales.ts";
+import { GridInputEngine } from "../services/gridInput/gridInputEngine";
 import { isValidMobile } from "../utils/validators.ts";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SalesOrderFormPremium, SalesOrderFormData } from "./sales/SalesOrderFormPremium";
@@ -53,46 +54,9 @@ interface ParsedRow {
 }
 
 function parseCSV(text: string): string[][] {
-  const lines: string[][] = [];
-  let row: string[] = [];
-  let inQuotes = false;
-  let currentValue = "";
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const nextChar = text[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        currentValue += '"';
-        i++; // skip next quote
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      row.push(currentValue.trim());
-      currentValue = "";
-    } else if ((char === '\r' || char === '\n') && !inQuotes) {
-      row.push(currentValue.trim());
-      currentValue = "";
-      if (row.length > 0 || row.some(cell => cell !== "")) {
-        lines.push(row);
-      }
-      row = [];
-      if (char === '\r' && nextChar === '\n') {
-        i++; // skip \n
-      }
-    } else {
-      currentValue += char;
-    }
-  }
-  if (currentValue || row.length > 0) {
-    row.push(currentValue.trim());
-    if (row.some(cell => cell !== "")) {
-      lines.push(row);
-    }
-  }
-  return lines;
+  if (!text || !text.trim()) return [];
+  const parseResult = GridInputEngine.parseDelimitedText(text);
+  return parseResult.matrix;
 }
 
 function generateNextCustomerId(existing: Customer[], indexOffset: number = 0): string {

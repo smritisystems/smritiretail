@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.28.0
+ * Version      : 6.63.0
  * Created      : 2026-07-13
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Label Printing Section (Fiori Horizon Inspired Light Theme)
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { isQzTrayEnabled, dispatchToQzTray } from "../utils/qzTrayClient";
+import { GridInputEngine } from "../services/gridInput/gridInputEngine";
 
 export interface BarcodeLayoutElement {
   type: "text" | "barcode";
@@ -253,23 +254,21 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
     }
   };
 
-  // Case & whitespace tolerant column matching
+  // Case & whitespace tolerant column matching using SMRITI GridInputEngine
   const parseCsv = () => {
     if (!csvText.trim()) {
       onNotification("Empty Clipboard", "Please paste CSV or Tab-separated values first.", "error");
       return;
     }
 
-    const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-    if (lines.length < 2) {
+    const parseResult = GridInputEngine.parseDelimitedText(csvText);
+    const matrix = parseResult.matrix;
+    if (matrix.length < 2) {
       onNotification("Invalid Format", "Requires header row and at least one data row.", "error");
       return;
     }
 
-    // Detect delimiter: Comma or Tab
-    const headerLine = lines[0];
-    const delimiter = headerLine.includes("\t") ? "\t" : ",";
-    const rawHeaders = headerLine.split(delimiter).map(h => h.trim());
+    const rawHeaders = matrix[0].map(h => (h || "").trim());
     setParsedHeaders(rawHeaders);
 
     const headers = rawHeaders.map(h => h.toLowerCase().replace(/[\s_-]/g, ""));
@@ -289,8 +288,8 @@ export const LabelPrintingSection: React.FC<LabelPrintingSectionProps> = ({
     }
 
     const parsed: PrintableItem[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(delimiter).map(p => p.trim());
+    for (let i = 1; i < matrix.length; i++) {
+      const parts = matrix[i].map(p => (p || "").trim());
       if (parts.length < headers.length) continue;
 
       const code = parts[codeIdx];
