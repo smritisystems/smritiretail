@@ -50,6 +50,9 @@ import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel
 import type { TransactionAttachment } from "../../domain/attachment";
 import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
+import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles";
+import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -442,151 +445,9 @@ const StockLookupModal: React.FC<{
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// IMPORT PDT MODAL
+// GLOBAL GRID IMPORT INTEGRATION (SMRITI Standard v6.56.0)
+// Powered by GlobalGridImportModal & GridInputEngine
 // ═══════════════════════════════════════════════════════════════════════════════
-
-const ImportPDTModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onImport: (formData: Partial<SalesOrderFormData>) => void;
-}> = ({ isOpen, onClose, onImport }) => {
-  const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setLoading(true);
-    try {
-      const fileContent = await file.text();
-      // Parse JSON or CSV file content
-      let importedData: Partial<SalesOrderFormData> = {};
-      
-      if (file.name.endsWith('.json')) {
-        importedData = JSON.parse(fileContent);
-      } else if (file.name.endsWith('.csv')) {
-        // Basic CSV parsing - would need more robust handling in production
-        const lines = fileContent.split('\n');
-        // This is a simplified example
-        importedData = {
-          docPrefix: 'SO',
-          items: [],
-        };
-      }
-
-      onImport(importedData);
-      onClose();
-    } catch (err) {
-      console.error('Failed to import file:', err);
-      alert('Failed to import file. Please check the format and try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-sky-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Upload className="w-5 h-5 text-white" />
-                <h2 className="text-lg font-bold text-white">Import Transaction / PDT</h2>
-              </div>
-              <button onClick={onClose} className="text-white hover:bg-blue-800 p-1 rounded transition">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-slate-600">
-                Upload a JSON or CSV file with order details to import a transaction or previous sales order.
-              </p>
-
-              <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-500 hover:bg-blue-50/30 transition cursor-pointer group"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json,.csv"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  disabled={loading}
-                />
-                <div className="flex flex-col items-center gap-2">
-                  <Upload className="w-8 h-8 text-slate-400 group-hover:text-blue-500 transition" />
-                  <div>
-                    <p className="font-semibold text-slate-900">Click to upload</p>
-                    <p className="text-xs text-slate-500">or drag and drop</p>
-                  </div>
-                  <p className="text-xs text-slate-400">JSON or CSV files</p>
-                </div>
-              </div>
-
-              <div className="space-y-2 p-3 bg-slate-50 rounded-lg">
-                <p className="text-xs font-semibold text-slate-700 uppercase">Expected format:</p>
-                <pre className="text-xs text-slate-600 overflow-auto">
-{`{
-  "customerCode": "CUST001",
-  "customerName": "...",
-  "items": [
-    {"stockNo": "SKU001", ...}
-  ]
-}`}
-                </pre>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-slate-200 px-6 py-4 flex gap-2 justify-end">
-              <button
-                onClick={onClose}
-                disabled={loading}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={loading}
-                className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-bold transition disabled:opacity-50 inline-flex items-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Importing...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    Select File
-                  </>
-                )}
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RECALL TRANSACTION MODAL
@@ -1470,18 +1331,92 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
     }
   });
 
-  const handleImport = useCallback((importedData: Partial<SalesOrderFormData>) => {
-    setFormData((prev) => ({
-      ...prev,
-      ...importedData,
-      // Preserve certain fields
-      docPrefix: prev.docPrefix,
-      docDate: new Date().toISOString().split("T")[0],
-      docTime: new Date().toTimeString().slice(0, 5),
-    }));
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 3000);
-  }, []);
+  const handleGlobalImportCommit = useCallback(
+    (rows: ParsedGridRow[], mode: GridImportMode) => {
+      const newItems: SalesOrderItem[] = rows.map((r, idx) => {
+        const prod = r.resolvedProduct;
+        const qty = r.quantity || 1;
+        const rate = Number(r.rate ?? r.sellingPrice ?? prod?.sellingPrice ?? prod?.mrp ?? 0);
+        const discPercent = Number(r.discount ?? 0);
+        const taxPercent = Number(r.taxRate ?? prod?.taxRate ?? 18);
+
+        const sharedLine = calculateLineTotal({
+          id: `line-import-${Date.now()}-${idx}`,
+          productId: prod?.productId || `prod-${idx}`,
+          stockNo: prod?.sku || r.identifier,
+          barcode: prod?.barcode || r.identifier,
+          itemDescription: prod?.name || r.identifier || "Item",
+          qty: qty,
+          rate: rate,
+          value: qty * rate,
+          discPercent: discPercent,
+          discAmt: 0,
+          taxPercent: taxPercent,
+          taxAmount: 0,
+          total: 0,
+        });
+
+        return {
+          id: `item-${Date.now()}-${idx}`,
+          stockNo: prod?.sku || r.identifier,
+          barcode: prod?.barcode || r.identifier,
+          description: prod?.name || r.identifier || "Imported Item",
+          rate: rate,
+          quantity: qty,
+          value: sharedLine.value,
+          discPercent: discPercent,
+          discAmount: sharedLine.discAmt,
+          taxPercent: taxPercent,
+          taxAmount: sharedLine.taxAmount,
+          total: sharedLine.total,
+        };
+      });
+
+      if (mode === "REPLACE") {
+        handleItemsChange(newItems);
+      } else if (mode === "MERGE") {
+        const merged = [...(formData.items || [])];
+        newItems.forEach((newItem) => {
+          const existing = merged.find(
+            (m) =>
+              (m.barcode && m.barcode === newItem.barcode) ||
+              (m.stockNo && m.stockNo === newItem.stockNo)
+          );
+          if (existing) {
+            existing.quantity += newItem.quantity;
+            const recomputed = calculateLineTotal({
+              id: existing.id,
+              productId: existing.id,
+              stockNo: existing.stockNo,
+              barcode: existing.barcode,
+              itemDescription: existing.description,
+              qty: existing.quantity,
+              rate: existing.rate,
+              value: existing.quantity * existing.rate,
+              discPercent: existing.discPercent,
+              discAmt: 0,
+              taxPercent: existing.taxPercent,
+              taxAmount: 0,
+              total: 0,
+            });
+            existing.value = recomputed.value;
+            existing.discAmount = recomputed.discAmt;
+            existing.taxAmount = recomputed.taxAmount;
+            existing.total = recomputed.total;
+          } else {
+            merged.push(newItem);
+          }
+        });
+        handleItemsChange(merged);
+      } else {
+        // APPEND
+        handleItemsChange([...(formData.items || []), ...newItems]);
+      }
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    },
+    [formData.items, handleItemsChange]
+  );
 
   const handleRecall = useCallback((recalledData: Partial<SalesOrderFormData>) => {
     setFormData((prev) => ({
@@ -1865,9 +1800,10 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     type="button"
                     onClick={() => setShowImportModal(true)}
                     disabled={isAuditReadOnly}
-                    className={`rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-sky-700 ${isAuditReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                    className={`rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-sky-700 hover:bg-sky-100 transition ${isAuditReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                    title="Universal Grid Import (PDT, CSV, Excel Paste, Scanner)"
                   >
-                    Import
+                    Global Import
                   </button>
                 </div>
                 <div className="space-y-2">
@@ -1921,10 +1857,13 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         </div>
       </div>
 
-      <ImportPDTModal
+      <GlobalGridImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        onImport={handleImport}
+        profile={GRID_PROFILES.BILLING}
+        title="Sales Order Line Import & Resolution"
+        existingRowCount={(formData.items || []).length}
+        onCommit={handleGlobalImportCommit}
       />
       <RecallTransactionModal
         isOpen={showRecallModal}
