@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.28.0
+ * Version      : 6.68.0
  * Created      : 2026-09-16
- * Modified     : 2026-09-16
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -72,6 +72,8 @@ const SetupWizardTab = lazy(() => import("../SetupWizard/SetupWizardTab.tsx").th
 const MenuManagerStudioTab = lazy(() => import("../MenuManagerStudioTab.tsx").then(m => ({ default: m.MenuManagerStudioTab })));
 const BillingWorkspace = lazy(() => import("../billing/BillingWorkspace.tsx").then(m => ({ default: m.BillingWorkspace })));
 const DispatchInvoicingStudioTab = lazy(() => import("../sales/DispatchInvoicingStudioTab.tsx").then(m => ({ default: m.DispatchInvoicingStudioTab })));
+const CommunicatorStudioTab = lazy(() => import("../communicator/CommunicatorStudioTab.tsx").then(m => ({ default: m.CommunicatorStudioTab })));
+const SalesOrderTab = lazy(() => import("../sales/SalesOrderTab.tsx").then(m => ({ default: m.SalesOrderTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -177,6 +179,16 @@ export const mapModuleId = (id: string): string => {
     "dispatch-studio": "dispatch-studio",
     "dispatch": "dispatch-studio",
     "menu-dispatch-studio": "dispatch-studio",
+    "communicator": "communicator",
+    "communicator-studio": "communicator",
+    "messaging": "communicator",
+    "whatsapp": "communicator",
+    "menu-communicator": "communicator",
+    "sales-orders": "sales-orders",
+    "sales-order": "sales-orders",
+    "sales_orders": "sales-orders",
+    "sales_order": "sales-orders",
+    "menu-sales-orders": "sales-orders",
   };
   return map[id] || id;
 };
@@ -491,6 +503,14 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "b2b-dispatch-studio":
     case "dispatch":
       return <DispatchInvoicingStudioTab currentUser={currentUser} onNotification={addNotification} />;
+    case "communicator":
+    case "communicator-studio":
+    case "messaging":
+    case "whatsapp":
+      return <CommunicatorStudioTab onNotification={addNotification} />;
+    case "sales-orders":
+    case "sales-order":
+      return <SalesOrderTab onClose={() => setActiveTab("sales")} />;
     default:
       return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
   }

@@ -6,7 +6,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.65.0
+ * Version      : 6.68.0
  * Created      : 2026-07-10
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -24,6 +24,8 @@ import { PoGenerateTab } from "./purchase/PoGenerateTab.tsx";
 import { PoSizewiseTab } from "./purchase/PoSizewiseTab.tsx";
 import { POWorkspaceTab } from "./purchase/POWorkspaceTab.tsx";
 import { AutoPOModal } from "./procurement/AutoPOModal.tsx";
+import { ConsignmentStudioModal } from "./procurement/ConsignmentStudioModal.tsx";
+import { SupplierPaymentModal } from "./procurement/SupplierPaymentModal.tsx";
 import { Product } from "../types.ts";
 
 type TopLevelView = "generate" | "workspace";
@@ -50,6 +52,8 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   // ── Top-level view: Generate vs Workspace ────────────────────────────────
   const [topView, setTopView] = useState<TopLevelView>("generate");
   const [showAutoPOModal, setShowAutoPOModal] = useState<boolean>(false);
+  const [showConsignmentModal, setShowConsignmentModal] = useState<boolean>(false);
+  const [showSupplierPaymentModal, setShowSupplierPaymentModal] = useState<boolean>(false);
 
   // ── Generation sub-mode (persisted) ─────────────────────────────────────
   const [poMode, setPoMode] = useState<"standard" | "sizewise">(() => {
@@ -172,6 +176,26 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             <span className="material-symbols-outlined text-[14px]">auto_mode</span>
             Auto-PO Generator
           </button>
+          <button
+            type="button"
+            id="purchase-studio-consignment-btn"
+            onClick={() => setShowConsignmentModal(true)}
+            className="px-2.5 py-1 rounded text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition flex items-center gap-1.5 cursor-pointer"
+            title="Open Vendor Consignment Aging & Settlements Studio"
+          >
+            <span className="material-symbols-outlined text-[14px]">inventory_2</span>
+            Consignment
+          </button>
+          <button
+            type="button"
+            id="purchase-studio-supplier-pay-btn"
+            onClick={() => setShowSupplierPaymentModal(true)}
+            className="px-2.5 py-1 rounded text-xs font-medium bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1.5 cursor-pointer"
+            title="Open Supplier Invoices Aging & Payment Scheduling"
+          >
+            <span className="material-symbols-outlined text-[14px]">payments</span>
+            Payment Aging
+          </button>
           {topView === "generate" && (
             <>
               <span className="hidden sm:inline">·</span>
@@ -227,6 +251,24 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         <AutoPOModal
           isOpen={showAutoPOModal}
           onClose={() => setShowAutoPOModal(false)}
+          onNotification={onNotification}
+        />
+      )}
+
+      {/* Consignment Sourcing & Settlement Modal */}
+      {showConsignmentModal && (
+        <ConsignmentStudioModal
+          isOpen={showConsignmentModal}
+          onClose={() => setShowConsignmentModal(false)}
+          onNotification={onNotification}
+        />
+      )}
+
+      {/* Supplier Invoices Aging & Payment Modal */}
+      {showSupplierPaymentModal && (
+        <SupplierPaymentModal
+          isOpen={showSupplierPaymentModal}
+          onClose={() => setShowSupplierPaymentModal(false)}
           onNotification={onNotification}
         />
       )}

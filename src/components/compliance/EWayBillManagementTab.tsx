@@ -1,6 +1,23 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
+ * Organization : AITDL NETWORKS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 6.68.0
+ * Created      : 2026-09-18
+ * Modified     : 2026-10-03
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Target UI    : E-Way Bill & E-Invoice Compliance Operations
+ */
+
 import React, { useMemo, useState } from "react";
 import { CalendarRange, Check, Download, FileJson, Filter, LoaderCircle, RefreshCw, Send, Truck, X } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
+import { EInvoiceStudioModal } from "./EInvoiceStudioModal.tsx";
 
 type FilterMode = "selected" | "all" | "date_range" | "bill_range";
 type BatchResult = "GENERATED" | "PREVIEWED" | "SKIPPED" | "FAILED";
@@ -29,6 +46,7 @@ interface EWayBillManagementTabProps {
 const money = (value: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0);
 
 export const EWayBillManagementTab: React.FC<EWayBillManagementTabProps> = ({ onNotification }) => {
+  const [showEInvoiceModal, setShowEInvoiceModal] = useState<boolean>(false);
   const [mode, setMode] = useState<FilterMode>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -133,7 +151,19 @@ export const EWayBillManagementTab: React.FC<EWayBillManagementTabProps> = ({ on
             </div>
             <p className="mt-3 max-w-3xl text-sm text-slate-500">Prepare, review, export, and generate NIC v1.03 E-Way Bills from canonical sales invoices.</p>
           </div>
-          <button onClick={() => preview()} disabled={busy !== null} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold shadow-sm hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={15} className={busy === "preview" ? "animate-spin" : ""} /> Refresh set</button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              id="compliance-einvoice-studio-btn"
+              onClick={() => setShowEInvoiceModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#0c6572] bg-[#0c6572]/10 text-[#0c6572] px-3 py-2 text-sm font-semibold shadow-xs hover:bg-[#0c6572]/20 transition cursor-pointer"
+              title="Open NIC E-Invoice & IRN / QR Code Generation Studio"
+            >
+              <FileJson size={15} />
+              <span>E-Invoice Studio</span>
+            </button>
+            <button onClick={() => preview()} disabled={busy !== null} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold shadow-sm hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={15} className={busy === "preview" ? "animate-spin" : ""} /> Refresh set</button>
+          </div>
         </header>
 
         <section className="border-y border-slate-200 bg-white px-4 py-4 shadow-sm">
@@ -177,6 +207,14 @@ export const EWayBillManagementTab: React.FC<EWayBillManagementTabProps> = ({ on
         </section>
         {busy && <div className="fixed bottom-5 right-5 flex items-center gap-2 rounded-lg bg-[#132238] px-4 py-3 text-sm font-semibold text-white shadow-xl"><LoaderCircle size={16} className="animate-spin" /> {busy === "preview" ? "Preparing JSON preview..." : "Generating E-Way Bills..."}</div>}
       </div>
+
+      {showEInvoiceModal && (
+        <EInvoiceStudioModal
+          isOpen={showEInvoiceModal}
+          onClose={() => setShowEInvoiceModal(false)}
+          onNotification={(title, msg, type) => onNotification?.(title, msg, type)}
+        />
+      )}
     </div>
   );
 };

@@ -6,7 +6,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.67.0
+ * Version      : 6.68.0
  * Created      : 2026-07-10
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -31,13 +31,14 @@ import {
   ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2,
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
-  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight
+  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight, TrendingUp
 } from "lucide-react";
 import { SalesOrderA4 } from "./templates/SalesOrderA4";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SmritiReportEngine } from "./reports/SmritiReportEngine";
 import { ConsolidatedBalanceSheetModal } from "./reports/ConsolidatedBalanceSheetModal.tsx";
 import { ScheduleReportModal } from "./reports/ScheduleReportModal.tsx";
+import { PLDashboardModal } from "./finance/PLDashboardModal.tsx";
 
 // Types for drill down context
 interface DrilldownBreadcrumb {
@@ -84,6 +85,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   // Toolbar action modals
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
   const [showBalanceSheetModal, setShowBalanceSheetModal] = useState<boolean>(false);
+  const [showPLDashboardModal, setShowPLDashboardModal] = useState<boolean>(false);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [shareType, setShareType] = useState<"Email" | "WhatsApp">("Email");
 
@@ -832,6 +834,16 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             >
               <FileSpreadsheet size={13} className="text-blue-600" />
               <span>Balance Sheet</span>
+            </button>
+            <button
+              type="button"
+              id="reports-pnl-dashboard-btn"
+              onClick={() => setShowPLDashboardModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Inspect Branch Profit & Loss, COGS, Margins & Shrinkage"
+            >
+              <TrendingUp size={13} className="text-emerald-600" />
+              <span>Branch P&amp;L</span>
             </button>
             <button
               type="button"
@@ -3451,6 +3463,14 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         <ConsolidatedBalanceSheetModal
           isOpen={showBalanceSheetModal}
           onClose={() => setShowBalanceSheetModal(false)}
+        />
+      )}
+
+      {/* CANONICAL BRANCH PROFIT & LOSS DASHBOARD MODAL */}
+      {showPLDashboardModal && (
+        <PLDashboardModal
+          isOpen={showPLDashboardModal}
+          onClose={() => setShowPLDashboardModal(false)}
         />
       )}
 

@@ -16,7 +16,7 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 6.66.0
+ * * Version    : 6.68.0
  * * Created    : 2026-09-14
  * * Modified   : 2026-10-03
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -57,7 +57,9 @@ import {
   RefreshCw,
   Printer,
   BarChart3,
-  X
+  X,
+  Boxes,
+  TrendingDown
 } from "lucide-react";
 import {
   SmritiSalesPromotionService,
@@ -70,6 +72,8 @@ import {
   SMRITI_PROMOTION_RECIPES
 } from "../../services/smritiSalesPromotionService";
 import PricingStudioModal from "../pricing/PricingStudioModal";
+import { BundlingModal } from "../pricing/BundlingModal.tsx";
+import { MarkdownPlanningModal } from "../pricing/MarkdownPlanningModal.tsx";
 import { withCapability } from "../../types/architecture";
 
 interface Props {
@@ -92,6 +96,8 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
   const [filterLevel, setFilterLevel] = useState<"ALL" | SmritiPromoLevel>("ALL");
   const [syncStatus, setSyncStatus] = useState<"IDLE" | "SYNCING" | "SYNCHRONIZED" | "LOCAL_CACHE">("IDLE");
   const [showPricingStudioModal, setShowPricingStudioModal] = useState<boolean>(false);
+  const [showBundlingModal, setShowBundlingModal] = useState<boolean>(false);
+  const [showMarkdownModal, setShowMarkdownModal] = useState<boolean>(false);
 
   // Builder State
   const [selectedRecipe, setSelectedRecipe] = useState<string | null>(null);
@@ -526,6 +532,28 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
           >
             <Sliders className="h-3.5 w-3.5 text-indigo-500" />
             <span>Pricing Studio</span>
+          </button>
+          <button
+            type="button"
+            id="promotions-bundling-btn"
+            onClick={() => setShowBundlingModal(true)}
+            title="Configure Fixed Price Bundles, Combos & Buy X Get Y Schemes"
+            aria-label="Open Bundling Studio"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 shadow-xs transition-all cursor-pointer"
+          >
+            <Boxes className="h-3.5 w-3.5 text-violet-500" />
+            <span>Bundles</span>
+          </button>
+          <button
+            type="button"
+            id="promotions-markdown-btn"
+            onClick={() => setShowMarkdownModal(true)}
+            title="Configure Seasonal Markdown Planning & Sell-Through Rules"
+            aria-label="Open Markdown Planning Studio"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 shadow-xs transition-all cursor-pointer"
+          >
+            <TrendingDown className="h-3.5 w-3.5 text-amber-500" />
+            <span>Markdown</span>
           </button>
           <button
             onClick={() => window.print()}
@@ -1604,6 +1632,24 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
         onClose={() => setShowPricingStudioModal(false)}
         onNotification={onNotification}
       />
+
+      {/* Product Bundling & Combo Deals Modal */}
+      {showBundlingModal && (
+        <BundlingModal
+          isOpen={showBundlingModal}
+          onClose={() => setShowBundlingModal(false)}
+          onNotification={onNotification}
+        />
+      )}
+
+      {/* Seasonal Markdown Planning Modal */}
+      {showMarkdownModal && (
+        <MarkdownPlanningModal
+          isOpen={showMarkdownModal}
+          onClose={() => setShowMarkdownModal(false)}
+          onNotification={onNotification}
+        />
+      )}
     </div>
   );
 };

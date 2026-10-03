@@ -6,7 +6,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.66.0
+ * Version      : 6.68.0
  * Created      : 2026-07-13
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -40,7 +40,9 @@ import {
   CreditCard,
   UserCheck,
   Headphones,
-  History
+  History,
+  PieChart,
+  Award
 } from "lucide-react";
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
@@ -48,6 +50,8 @@ import { Customer360LoyaltyModal } from "./crm/Customer360LoyaltyModal.tsx";
 import { CustomerCreditModal } from "./crm/CustomerCreditModal.tsx";
 import { ComplaintCRMModal } from "./crm/ComplaintCRMModal.tsx";
 import { LoyaltyLedgerModal } from "./crm/LoyaltyLedgerModal.tsx";
+import { CustomerSegmentationModal } from "./crm/CustomerSegmentationModal.tsx";
+import { LoyaltyTierModal } from "./crm/LoyaltyTierModal.tsx";
 
 
 export interface CrmStudioTabProps {
@@ -64,6 +68,8 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
   const [showCreditModal, setShowCreditModal] = useState<boolean>(false);
   const [showComplaintsModal, setShowComplaintsModal] = useState<boolean>(false);
   const [showLoyaltyLedgerModal, setShowLoyaltyLedgerModal] = useState<boolean>(false);
+  const [showSegmentationModal, setShowSegmentationModal] = useState<boolean>(false);
+  const [showLoyaltyTierModal, setShowLoyaltyTierModal] = useState<boolean>(false);
 
   // Seed Data
   const [leads, setLeads] = useState([
@@ -179,6 +185,26 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
           >
             <History size={13} className="text-purple-600" />
             <span>Points Ledger</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-segmentation-btn"
+            onClick={() => setShowSegmentationModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 text-teal-600 hover:bg-teal-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open AI RFM Customer Micro-Cohort Segmentation"
+          >
+            <PieChart size={13} className="text-teal-600" />
+            <span>RFM Segments</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-tiers-btn"
+            onClick={() => setShowLoyaltyTierModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Loyalty Tier Progression Matrix & Rules"
+          >
+            <Award size={13} className="text-emerald-600" />
+            <span>Tier Matrix</span>
           </button>
           <button 
             onClick={() => recordAuditAction("EXPORT", "crm", "export", "Exported lead pipeline report")}
@@ -357,6 +383,20 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
         <LoyaltyLedgerModal
           isOpen={showLoyaltyLedgerModal}
           onClose={() => setShowLoyaltyLedgerModal(false)}
+        />
+      )}
+
+      {showSegmentationModal && (
+        <CustomerSegmentationModal
+          isOpen={showSegmentationModal}
+          onClose={() => setShowSegmentationModal(false)}
+        />
+      )}
+
+      {showLoyaltyTierModal && (
+        <LoyaltyTierModal
+          isOpen={showLoyaltyTierModal}
+          onClose={() => setShowLoyaltyTierModal(false)}
         />
       )}
     </div>
