@@ -1,12 +1,12 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.116.0
+ * Version      : 6.65.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -54,6 +54,10 @@ function buildSampleJobs(): PrintJob[] {
   return [j1p, j2];
 }
 
+/**
+ * @deprecated Superseded by `src/components/LabelPrintingSec.tsx` which provides the canonical
+ * full-page barcode designer, batch generator, ESC/POS thermal rastering, and printer driver pipeline.
+ */
 export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({ isOpen, onClose, onNotification }) => {
   const [jobs, setJobs] = useState<PrintJob[]>(buildSampleJobs);
   const [selectedId, setSelectedId] = useState(jobs[0]?.jobId ?? "");
@@ -95,6 +99,12 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({ isOpen, onClos
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
       <div className="flex flex-col w-full max-w-5xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Deprecation notice banner */}
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2 flex items-center justify-between text-xs text-amber-300">
+          <span>⚠️ <strong>Notice:</strong> This modal preview is superseded by the canonical <strong>Label Printing Studio</strong> (<code>LabelPrintingSec.tsx</code>).</span>
+          <span className="font-mono text-[10px] text-amber-400/80 uppercase px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">SUPERSEDED</span>
+        </div>
+
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">

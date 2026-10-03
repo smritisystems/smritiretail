@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.65.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -44,6 +44,10 @@ interface SmritiProPosWorkspaceProps {
   initialTab?: ProPosActiveTab;
 }
 
+/**
+ * @deprecated Superseded by `src/components/billing/BillingWorkspace.tsx` which provides the canonical
+ * unified POS terminal, holding carts, multi-pay, split-tender, and offline queue architecture.
+ */
 export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
   products = [],
   profiles = [],
@@ -64,6 +68,12 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
   return (
     <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden font-sans">
       
+      {/* Deprecation notice banner */}
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300">
+        <span>⚠️ <strong>Notice:</strong> ProPosWs is superseded by the canonical <strong>Enterprise Billing Workspace</strong> (<code>BillingWorkspace.tsx</code>).</span>
+        <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 uppercase px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 font-bold">SUPERSEDED</span>
+      </div>
+
       {/* Primary ProPOS Workspace Top App Header */}
       <header className="bg-white dark:bg-[#131b2e] border-b border-[#c4c5d5] dark:border-[#444653] flex justify-between items-center px-6 h-12 shrink-0 z-20 shadow-2xs">
         

@@ -28,6 +28,31 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.65.0] - 2026-10-03 — Foundation & UX: High-Value Domain Modals Wiring & Legacy Prototype Retirement
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Purchase Studio, WMS Studio, CRM Studio & Barcode
+> **Implementation Plan:** `docs/implementation/foundation/Domain_Modals_Wiring_And_Legacy_UX_Retirement_Plan_v6.65.0.md`
+> **Walkthrough:** `docs/walkthrough/foundation/Domain_Modals_Wiring_And_Legacy_UX_Retirement_v6.65.0.md`
+
+### Added
+- **Purchase Studio Automated Reorder & Stock Deficit Generator (`AutoPOModal.tsx`)**:
+  - Wired `AutoPOModal` directly into `src/components/PurchaseStudioTab.tsx` with dedicated `#purchase-studio-autopo-btn` action button in the studio toolbar.
+  - Enables buyers to run reorder calculations, economic order quantity (EOQ) estimates, and generate PO drafts without leaving Purchase Studio.
+- **WMS Studio Stock Expiry & Smart Replenishment Modals (`StockExpiryModal.tsx`, `SmartReplenishmentModal.tsx`)**:
+  - Wired `StockExpiryModal` and `SmartReplenishmentModal` into `src/components/wms/WmsStudioTab.tsx` with `#wms-stock-expiry-btn` and `#wms-smart-replenish-btn` action buttons.
+  - Enables warehouse operators to monitor near-expiry batches, issue quarantines, review recall logs, and calculate safety-stock replenishment matrices directly alongside multi-godown stock tables.
+- **CRM Studio Customer 360 & Accounts Receivable Credit Aging Modals (`Customer360LoyaltyModal.tsx`, `CustomerCreditModal.tsx`)**:
+  - Wired `Customer360LoyaltyModal` and `CustomerCreditModal` into `src/components/CrmStudioTab.tsx` with `#crm-studio-cust360-btn` and `#crm-studio-credit-btn` action buttons.
+  - Gives CRM teams access to complete loyalty tier progression, purchase history, and overdue credit aging buckets (1–30d, 31–60d, 61–90d, >90d).
+
+### Deprecated
+- **Legacy Barcode Printing Prototype (`src/components/warehouse/LabelPrintModal.tsx`)**:
+  - Formally annotated with `@deprecated` referencing the canonical full-page barcode designer `src/components/LabelPrintingSec.tsx`. Added top-edge amber notice banner inside the component.
+- **Legacy POS Shell (`src/components/billing/propos/ProPosWs.tsx`)**:
+  - Formally annotated with `@deprecated` referencing the canonical `src/components/billing/BillingWorkspace.tsx`. Added top-edge amber notice banner inside the component.
+- **Legacy Bulk Import Section (`src/components/BulkImportSection.tsx`)**:
+  - Formally annotated with `@deprecated` referencing canonical `ItemMasterStudio.tsx` and `GlobalGridImportModal.tsx`. Added top-edge amber notice banner inside the component.
+
 ## [6.64.1] - 2026-10-03 — Foundation & Backend: Complete Frontend-Backend API Parity & Reconciliation Wiring
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Purchase 3-Way Matching, CRM Loyalty & Localization
