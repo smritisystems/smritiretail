@@ -463,3 +463,40 @@ class PurchaseJurisdictionConfigResponse(BaseModel):
     is_active:     bool
 
     model_config = {"from_attributes": True}
+
+
+# ─────────────────────────── 3-Way Matching Reconciliation ───────────────────────────
+
+class ThreeWayMatchingLine(BaseModel):
+    item_code: str
+    po_qty: Decimal = Decimal("0")
+    grn_accepted_qty: Decimal = Decimal("0")
+    invoice_qty: Decimal = Decimal("0")
+    po_rate: Decimal = Decimal("0")
+    invoice_rate: Decimal = Decimal("0")
+    status: Optional[str] = "MATCHED"
+
+
+class ThreeWayMatchingCommitRequest(BaseModel):
+    po_no: str
+    grn_no: str
+    vendor_invoice_no: str
+    vendor_gstin: Optional[str] = None
+    reconciliation_status: Optional[str] = "MATCHED"
+    total_po_value: Optional[Decimal] = Decimal("0")
+    total_grn_value: Optional[Decimal] = Decimal("0")
+    total_invoice_value: Optional[Decimal] = Decimal("0")
+    variance_amount: Optional[Decimal] = Decimal("0")
+    lines: Optional[List[ThreeWayMatchingLine]] = []
+
+
+class ThreeWayMatchingCommitResponse(BaseModel):
+    reconciliation_id: str
+    status: str = "COMMITTED"
+    ap_voucher_no: str
+    po_no: str
+    grn_no: str
+    vendor_invoice_no: str
+    variance_amount: Decimal = Decimal("0")
+    reconciliation_status: str
+    message: str = "3-Way match reconciliation committed successfully."

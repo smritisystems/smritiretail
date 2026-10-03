@@ -347,11 +347,14 @@ _ROUTER_REGISTRY = [
     (crm_reports,           "",                      ["CRM Reports"]),
     (crm_cge,               "/crm-growth",           ["CRM & Commercial Growth Engine"]),
     (loyalty,               "",                      ["Loyalty Studio"]),
+    (loyalty,               "/crm",                  ["CRM Loyalty Studio"]),
 
     # --- POS ---
     (pos,                   "",                      ["POS Shift"]),
 
     # --- Masters & Configuration ---
+    (localization,                          "",                      ["Control Plane Reference Data & Localization"]),
+    (localization.localization_core_router, "",                      ["Localization Core"]),
     (master_lookup,         "/masters",              ["Masters"]),
     (master_lookup,         "",                      ["Master Lookups Adapter"]),
     (masters,               "/masters",              ["Masters"]),
