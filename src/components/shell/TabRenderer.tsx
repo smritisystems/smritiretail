@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.68.0
+ * Version      : 6.69.0
  * Created      : 2026-09-16
  * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -74,6 +74,10 @@ const BillingWorkspace = lazy(() => import("../billing/BillingWorkspace.tsx").th
 const DispatchInvoicingStudioTab = lazy(() => import("../sales/DispatchInvoicingStudioTab.tsx").then(m => ({ default: m.DispatchInvoicingStudioTab })));
 const CommunicatorStudioTab = lazy(() => import("../communicator/CommunicatorStudioTab.tsx").then(m => ({ default: m.CommunicatorStudioTab })));
 const SalesOrderTab = lazy(() => import("../sales/SalesOrderTab.tsx").then(m => ({ default: m.SalesOrderTab })));
+const SupplierDashboardTab = lazy(() => import("../SupplierDashTab.tsx").then(m => ({ default: m.SupplierDashboardTab })));
+const ProPosWs = lazy(() => import("../billing/propos/ProPosWs.tsx").then(m => ({ default: m.ProPosWs })));
+const DocumentStudioScreen = lazy(() => import("../global/document/DocStudioScreen.tsx").then(m => ({ default: m.DocumentStudioScreen })));
+const BulkImportSection = lazy(() => import("../BulkImportSection.tsx").then(m => ({ default: m.BulkImportSection })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -189,6 +193,23 @@ export const mapModuleId = (id: string): string => {
     "sales_orders": "sales-orders",
     "sales_order": "sales-orders",
     "menu-sales-orders": "sales-orders",
+    "supplier-dashboard": "supplier-dashboard",
+    "supplier_dashboard": "supplier-dashboard",
+    "supplier-dash": "supplier-dashboard",
+    "menu-supplier-dashboard": "supplier-dashboard",
+    "propos": "propos-workspace",
+    "propos-workspace": "propos-workspace",
+    "propos-ws": "propos-workspace",
+    "enterprise-billing-suite": "propos-workspace",
+    "menu-propos": "propos-workspace",
+    "document-studio": "document-studio",
+    "doc-studio": "document-studio",
+    "universal-doc-studio": "document-studio",
+    "menu-doc-studio": "document-studio",
+    "bulk-import-sheet": "bulk-import-sheet",
+    "bulk-import": "bulk-import-sheet",
+    "attribute-import-sheet": "bulk-import-sheet",
+    "menu-bulk-import": "bulk-import-sheet",
   };
   return map[id] || id;
 };
@@ -511,6 +532,52 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "sales-orders":
     case "sales-order":
       return <SalesOrderTab onClose={() => setActiveTab("sales")} />;
+    case "supplier-dashboard":
+    case "supplier_dashboard":
+    case "supplier-dash":
+      return <SupplierDashboardTab currentUser={currentUser} onNotification={addNotification} />;
+    case "propos-workspace":
+    case "propos":
+    case "propos-ws":
+    case "enterprise-billing-suite":
+      return (
+        <ProPosWs
+          products={products}
+          profiles={profiles}
+          shifts={shifts}
+          onRefreshData={fetchSystemState}
+          onNotification={addNotification}
+        />
+      );
+    case "document-studio":
+    case "doc-studio":
+    case "universal-doc-studio":
+      return (
+        <DocumentStudioScreen
+          config={{
+            documentType: "SALES_INVOICE",
+            title: "Universal Document Studio",
+            subtitle: "Sales Invoice, Delivery Challan & Procurement Document Editor",
+            partyType: "Customer",
+            defaultWarehouse: "Main Central Warehouse",
+            apiEndpoint: "/api/v1/invoices",
+            primaryActionLabel: "Save & Post Invoice",
+            showGstBreakdown: true,
+            enableBatchTracking: true,
+            enableSalesperson: true,
+          }}
+          onNotification={addNotification}
+        />
+      );
+    case "bulk-import-sheet":
+    case "bulk-import":
+    case "attribute-import-sheet":
+      return (
+        <BulkImportSection
+          onRefreshProducts={fetchSystemState}
+          onNotification={addNotification}
+        />
+      );
     default:
       return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
   }

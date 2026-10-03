@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.42.4
+ * Version      : 6.69.0
  * Created      : 2026-08-20
  * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -514,6 +514,46 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["MANAGER", "SYSADMIN"],
     accentColor: "emerald",
+  },
+  {
+    id: "supplier-dashboard",
+    title: "Supplier 360 Dashboard",
+    subtitle: "Consolidated vendor overview, party master records, open PO ledger & supplier turnaround metrics",
+    icon: "storefront",
+    tag: "Suppliers",
+    badgeType: "primary",
+    group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "propos-workspace",
+    title: "Enterprise Billing Suite (ProPOS)",
+    subtitle: "Classic modular POS billing, daily reports register, EOD Z-reports & commission builder",
+    icon: "point_of_sale",
+    tag: "ProPOS",
+    badgeType: "info",
+    group: "Retail Operations",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "document-studio",
+    title: "Universal Document Studio",
+    subtitle: "Interactive document designer, tax invoice, delivery challan & purchase order layout compiler",
+    icon: "description",
+    tag: "Doc Studio",
+    badgeType: "primary",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "bulk-import-sheet",
+    title: "Attribute Bulk Sheet Importer",
+    subtitle: "Attribute-aware spreadsheet intake, bespoke header mapping & validated catalog ingestion",
+    icon: "file_spreadsheet",
+    tag: "Import",
+    badgeType: "warning",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
   },
 ];
 /**
