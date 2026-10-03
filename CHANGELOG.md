@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.57.1] - 2026-10-03 — Global Grid Import Standard Rollout: WMS Stock Transfer Orders (STO)
+
+> **Branch:** `smritiNX` | **Area:** Warehouse Management System (WMS) / Logistics / Stock Transfer Orders
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/wms/Global_Grid_Import_WMS_STO_v1.0.md`
+
+### Added
+- **WMS Studio (`WmsStudioTab.tsx`)**:
+  - Integrated centralized `GlobalGridImportModal` with `GRID_PROFILES.STOCK_MOVEMENT` for Stock Transfer Order (STO) generation.
+  - Implemented multi-item transfer staging table (`transferStagingItems: StockTransferItem[]`) removing single-item STO initiation restriction.
+  - Added "Fast Import" action in the STO creation card supporting batch ingestion from Excel, Google Sheets, CSV, PDT terminal files, and hardware barcode scanners.
+  - Added sequential single-item staging button (`+ Add Item to List`) with batch, quantity, and product ID controls.
+  - Implemented `handleGlobalTransferImportCommit` supporting `APPEND`, `MERGE` (quantity summing), and `REPLACE` staging modes.
+  - Upgraded `handleCreateTransfer` to dispatch multi-line transfer orders via `POST /api/v1/wms/transfers`.
+
 ## [6.57.0] - 2026-10-03 — Global Grid Import Standard Rollout: POS Counter Billing & Sales Order Studio
 
 > **Branch:** `smritiNX` | **Area:** Point-of-Sale / Counter Billing / Commercial Sales Orders

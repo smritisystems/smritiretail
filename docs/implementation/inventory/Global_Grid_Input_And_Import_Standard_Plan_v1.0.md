@@ -88,6 +88,12 @@ Spreadsheet (Ctrl+V) / CSV / TSV / TXT / Scanner
 - `src/components/ExcelGridEntrySec.tsx`
 - `src/components/barcode/ptFileParser.ts`
 - `src/components/purchase/GrnCsvImportModal.tsx`
+- `src/components/barcode/TagLabelPrintingTa.tsx`
+- `src/components/inventory/PhysicalStockTab.tsx`
+- `src/components/items/BulkImportSection.tsx`
+- `src/components/billing/ProPosBillingTerm.tsx`
+- `src/components/sales/SalesOrderFormPremium.tsx`
+- `src/components/wms/WmsStudioTab.tsx`
 
 ## 10. Dependencies
 - Zero external frontend dependencies added (vanilla TSV/CSV parsing without heavy third-party bundles).
@@ -114,17 +120,29 @@ Git revert of affected components restores previous module-specific parsers. No 
 ## 15. Documentation Impact
 - Update `docs/implementation/README.md`.
 - Create `docs/walkthrough/catalog/Global_Grid_Input_And_Import_Standard_v1.0.md`.
+- Create `docs/walkthrough/catalog/Global_Grid_Import_Rollout_v1.0.md`.
+- Create `docs/walkthrough/sales/Global_Grid_Import_POS_And_Sales_Order_v1.0.md`.
+- Create `docs/walkthrough/wms/Global_Grid_Import_WMS_STO_v1.0.md`.
 - Update `docs/walkthrough/README.md`.
-- Record `[6.55.0]` in `CHANGELOG.md`.
+- Record entries in `CHANGELOG.md` (`[6.55.0]`, `[6.56.0]`, `[6.56.1]`, `[6.57.0]`, `[6.57.1]`).
 
 ## 16. Deployment Plan
-Shipped in version `6.55.0` via standard Git pull and Vite build.
+Shipped in versions `6.55.0` through `6.57.1` via standard Git pull and Vite build.
 
 ## 17. Status
-Completed — All 19 tests in `globalGridInputEngine.test.ts`, 5 tests in `test_batch_product_resolution.py`, and 94 regression tests green.
+Completed — All phases rolled out:
+- Phase 30 (v6.55.0): Core Standard & Initial Migration
+- Phase 31 (v6.56.0): Barcode Label Studio & Physical Stock Count
+- Phase 31.1 (v6.56.1): Item Master Bulk Spreadsheet Paste
+- Phase 32 (v6.57.0): POS Counter Billing & Sales Order Studio
+- Phase 32.1 (v6.57.1): WMS Studio Stock Transfer Orders (STO) Multi-Item Staging & Fast Import
 
 ## 18. Related ADRs
 - `docs/architecture/ADR_GLOBAL_PRODUCT_RESOLUTION.md`
 
 ## 19. Related Walkthroughs
 - `docs/walkthrough/catalog/Global_Grid_Input_And_Import_Standard_v1.0.md`
+- `docs/walkthrough/catalog/Global_Grid_Import_Rollout_v1.0.md`
+- `docs/walkthrough/sales/Global_Grid_Import_POS_And_Sales_Order_v1.0.md`
+- `docs/walkthrough/wms/Global_Grid_Import_WMS_STO_v1.0.md`
+
