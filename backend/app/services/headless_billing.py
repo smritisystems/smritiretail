@@ -164,47 +164,75 @@ class HeadlessBillingCore:
                     detail=f"SMRITI-PRICE-001: Selling price (₹{rate:,.2f}) cannot exceed statutory MRP (₹{Decimal(str(item.mrp)):,.2f}) for item '{item.name or item.code}'.",
                 )
 
+            # Centralized Product Resolution & Validation
+            from .product_resolution_service import ProductResolutionService
+            from ..schemas.product_resolution import TransactionLineItemInput
+
+            line_res = await ProductResolutionService.validate_line(
+                session=session,
+                company_id=company_id,
+                line=TransactionLineItemInput(
+                    line_no=line_no,
+                    product_id=item.product_id,
+                    variant_id=item.variant_id,
+                    item_id=item.item_id,
+                    code=item.code,
+                    sku=item.code,
+                    barcode=item.code,
+                    quantity=qty,
+                    is_fee_line=item.is_fee_line,
+                ),
+                allow_inactive=False,
+            )
+            if not line_res.success and not item.is_fee_line:
+                err = line_res.error_detail
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": line_res.code or "PRODUCT_NOT_FOUND",
+                        "title": err.title if err else "Product Not Found",
+                        "explanation": f"Line {line_no}: {err.explanation if err else 'Product identity resolution failed.'}",
+                        "suggested_action": err.suggested_action if err else "Please add the product to Product List before continuing.",
+                        "line_no": line_no,
+                        "identifier": item.code or item.product_id or item.variant_id,
+                    },
+                )
+
             # Dual-Key Item Identity Resolution
             identity = await CanonicalTransactionWriter.resolve_dual_key_for_line(
                 session=session,
                 company_id=company_id,
-                variant_id=item.variant_id,
-                item_id=item.item_id,
-                product_id=item.product_id,
+                variant_id=item.variant_id or line_res.variant_id,
+                item_id=item.item_id or line_res.item_id,
+                product_id=item.product_id or line_res.product_id,
                 code_or_barcode=item.code,
                 is_fee_line=item.is_fee_line,
             )
 
-            if not identity.is_valid and not item.is_fee_line:
-                # Direct product table fallback for unmapped legacy products
-                q_prod = select(Product).where(
-                    Product.company_id == company_id,
-                    Product.is_deleted == False,
-                    (
-                        (Product.id == (item.product_id or item.code))
-                        | (Product.code == item.code)
-                        | (Product.barcode == item.code)
-                    ),
+            if not identity.is_valid and not item.is_fee_line and line_res.success:
+                identity = DualKeyWriteIdentity(
+                    canonical_variant_id=line_res.variant_id,
+                    canonical_item_id=line_res.item_id,
+                    legacy_product_id=line_res.product_id,
+                    sku=line_res.sku,
+                    name=line_res.name,
+                    line_type="PHYSICAL_INVENTORY",
+                    is_valid=True,
+                    is_quarantined=False,
+                    is_consistent=(line_res.product_id is not None and line_res.variant_id is not None),
                 )
-                res_prod = await session.execute(q_prod)
-                direct_prod = res_prod.scalars().first()
-                if direct_prod:
-                    identity = DualKeyWriteIdentity(
-                        canonical_variant_id=None,
-                        canonical_item_id=None,
-                        legacy_product_id=direct_prod.id,
-                        sku=direct_prod.sku or direct_prod.code,
-                        name=direct_prod.name,
-                        line_type="PHYSICAL_INVENTORY",
-                        is_valid=True,
-                        is_quarantined=False,
-                        is_consistent=False,
-                    )
 
-            if not identity.is_valid:
+            if not identity.is_valid and not item.is_fee_line:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Line {line_no}: {identity.error_message or 'Item identity resolution failed.'}",
+                    detail={
+                        "code": identity.error_code or "PRODUCT_NOT_FOUND",
+                        "title": "Product Validation Failed",
+                        "explanation": f"Line {line_no}: {identity.error_message or 'Item identity resolution failed.'}",
+                        "suggested_action": "Please verify product identity before submitting transaction.",
+                        "line_no": line_no,
+                        "identifier": item.code or item.product_id,
+                    },
                 )
 
             # Determine Tax Inclusivity via 5-tier statutory hierarchy:

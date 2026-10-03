@@ -91,6 +91,7 @@ from .api.v1 import (
     pdt,
     pricing,
     product_identity,
+    product_resolution,
     promotions,
     psv,
     purchase,
@@ -310,6 +311,7 @@ _ROUTER_REGISTRY = [
     (assignments,           "",                      ["Assignments"]),
 
     # --- Inventory & Products ---
+    (product_resolution,    "",                      ["Product Resolution & Validation Engine"]),
     (inventory,             "/inventory",            ["Inventory"]),
     (inventory,             "/products",             ["Inventory"]),             # LEGACY alias — deprecate at v4.0
     (inventory,             "/inventory/products",   ["Inventory"]),             # LEGACY alias — deprecate at v4.0

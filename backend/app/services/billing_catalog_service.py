@@ -426,40 +426,42 @@ class BillingCatalogService:
         barcode: str,
     ) -> Optional[BillingProductItem]:
         """
-        Fast Barcode / Code resolver for barcode scanner guns.
+        Fast Barcode / Code resolver for barcode scanner guns backed by ProductResolutionService.
         """
+        from .product_resolution_service import ProductResolutionService
+
         code_clean = barcode.strip()
 
-        # 1. Check canonical showcase items first
+        # 1. Authoritative Catalog Resolution
+        res = await ProductResolutionService.resolve_by_barcode(
+            session=session,
+            company_id=company_id,
+            barcode=code_clean,
+            allow_inactive=False,
+        )
+        if res.success:
+            return BillingProductItem(
+                id=str(res.product_id or res.variant_id or ""),
+                code=res.sku or "",
+                name=res.name or "",
+                category=res.category or "Others",
+                brand=res.brand,
+                mrp=res.mrp,
+                price=res.selling_price,
+                stock=0,
+                unit=res.uom or ("Pair" if (res.category or "").lower() in ["footwear", "socks"] else "Nos"),
+                barcode=res.barcode or code_clean,
+                image_url=None,
+                gst_rate=res.tax_rate,
+                hsn_code=res.hsn_code or "640411",
+                is_active=res.is_active,
+            )
+
+        # 2. Check canonical showcase items fallback for demo/reference terminals
         for item in CANONICAL_SHOWCASE_PRODUCTS:
             if (item.barcode and item.barcode.upper() == code_clean.upper()) or item.code.upper() == code_clean.upper():
                 return item
 
-        # 2. Check Database Product
-        stmt = select(Product).where(
-            Product.company_id == company_id,
-            Product.is_deleted == False,
-            (Product.barcode == code_clean) | (Product.code == code_clean) | (Product.sku == code_clean),
-        )
-        res = await session.execute(stmt)
-        p = res.scalars().first()
-        if p:
-            return BillingProductItem(
-                id=str(p.id),
-                code=p.code or "",
-                name=p.name or "",
-                category=p.category or "Others",
-                brand=p.brand,
-                mrp=Decimal(str(p.mrp or p.price or "0.00")),
-                price=Decimal(str(p.price or "0.00")),
-                stock=int(p.stock or 0),
-                unit="Pair" if (p.category or "").lower() in ["footwear", "socks"] else "Nos",
-                barcode=p.barcode,
-                image_url=p.primary_image_url,
-                gst_rate=Decimal(str(p.gst_percentage or "18.00")),
-                hsn_code=p.hsn_code or "640411",
-                is_active=bool(p.is_active if p.is_active is not None else True),
-            )
         return None
 
     @staticmethod

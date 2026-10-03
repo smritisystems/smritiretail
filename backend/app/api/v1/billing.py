@@ -100,9 +100,17 @@ async def scan_barcode(
         barcode=barcode,
     )
     if not item:
+        clean_bc = barcode.strip()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"SMRITI-BC-001: Item with barcode or code '{barcode}' not found.",
+            detail={
+                "code": "PRODUCT_NOT_FOUND",
+                "title": "Product Not Found",
+                "explanation": f"This product is not registered in Product List. Barcode '{clean_bc}' was not found in Product List.",
+                "suggested_action": "Please add the product to Product List before continuing.",
+                "identifier": clean_bc,
+                "identifier_type": "BARCODE",
+            },
         )
     return item
 

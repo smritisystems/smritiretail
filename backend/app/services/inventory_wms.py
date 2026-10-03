@@ -349,9 +349,29 @@ class InventoryWmsService:
             self.db.add(transfer)
             await self.db.flush()
 
+            from .product_resolution_service import ProductResolutionService
+            from ..schemas.product_resolution import TransactionLineItemInput
+
+            # Atomic Batch Validation of transfer items (Phase 5 & 6)
+            validation_lines = [
+                TransactionLineItemInput(
+                    line_no=idx + 1,
+                    product_id=it["product_id"],
+                    quantity=Decimal(str(it["quantity"])),
+                )
+                for idx, it in enumerate(items_in)
+            ]
+            resolved_lines = await ProductResolutionService.enforce_transaction_lines(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                lines=validation_lines,
+                allow_inactive=False,
+            )
+
             seen_items = set()
-            for it in items_in:
-                prod_id = it["product_id"]
+            for idx, it in enumerate(items_in):
+                res_prod = resolved_lines[idx]
+                prod_id = res_prod.product_id or it["product_id"]
                 batch = it["batch_no"]
                 qty = Decimal(str(it["quantity"]))
                 cost = Decimal(str(it.get("unit_cost", 0.0)))

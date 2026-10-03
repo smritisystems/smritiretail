@@ -90,7 +90,8 @@ import {
   Paperclip,
   Banknote,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  AlertTriangle
 } from "lucide-react";
 
 interface SmritiBillingTerminalProps {
@@ -472,6 +473,69 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [selectedItemProductMeta, setSelectedItemProductMeta] = useState<AutoPopulateProductResult | null>(null);
   const productDebounceRef = useRef<any>(null);
   const directBarcodeRef = useRef<HTMLInputElement>(null);
+
+  // Product Resolution & Validation Modal States
+  const [productNotFoundState, setProductNotFoundState] = useState<{
+    isOpen: boolean;
+    barcode: string;
+    message?: string;
+  }>({
+    isOpen: false,
+    barcode: "",
+    message: ""
+  });
+
+  const [productInactiveState, setProductInactiveState] = useState<{
+    isOpen: boolean;
+    barcode: string;
+    name?: string;
+    reason?: string;
+  }>({
+    isOpen: false,
+    barcode: "",
+    name: "",
+    reason: ""
+  });
+
+  const [isResolvingProduct, setIsResolvingProduct] = useState<boolean>(false);
+
+  const canAddProduct = useMemo(() => {
+    const role = (currentUser?.role || "").toUpperCase();
+    return ["SYSADMIN", "ADMIN", "MANAGER", "STORE_MANAGER"].includes(role);
+  }, [currentUser?.role]);
+
+  const handleScanAgain = () => {
+    setProductNotFoundState({ isOpen: false, barcode: "", message: "" });
+    setProductInactiveState({ isOpen: false, barcode: "", name: "", reason: "" });
+    setDirectEntry(prev => ({
+      ...prev,
+      barcode: "",
+      stockNo: "",
+      itemDescription: "",
+      rate: "",
+      qty: "1"
+    }));
+    setTimeout(() => {
+      if (activeItemSearchField === "barcode") {
+        directBarcodeRef.current?.focus();
+        directBarcodeRef.current?.select();
+      } else {
+        directStockNoRef.current?.focus();
+        directStockNoRef.current?.select();
+      }
+    }, 50);
+  };
+
+  const handleAddProductFromModal = () => {
+    const code = productNotFoundState.barcode;
+    setProductNotFoundState({ isOpen: false, barcode: "", message: "" });
+    onNotification?.(
+      "Register Product",
+      `Please register product with identifier '${code}' in Master Catalog before billing.`,
+      "info"
+    );
+    window.dispatchEvent(new CustomEvent("smriti:open-catalog", { detail: { barcode: code } }));
+  };
 
   const [showAddCustomerModal, setShowAddCustomerModal] = useState<boolean>(false);
   const [newCustName, setNewCustName] = useState<string>("");
@@ -1450,7 +1514,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         if (selected) {
           applyProductAutoPopulate(selected);
         } else {
-          handleCommitDirectEntry();
+          void handleCommitDirectEntry();
         }
         return;
       } else if (e.key === "Escape") {
@@ -1462,12 +1526,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     if (e.key === "Enter") {
       e.preventDefault();
-      handleCommitDirectEntry();
+      void handleCommitDirectEntry();
     }
   };
 
   // Commit Direct Entry Item to Table
-  const handleCommitDirectEntry = () => {
+  const handleCommitDirectEntry = async () => {
     if (!directEntry.stockNo && !directEntry.barcode && !directEntry.itemDescription) return;
 
     // Strict Quantity Validation
@@ -1490,21 +1554,75 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
 
-    const matched = products.find(p => 
-      p.code === directEntry.stockNo || 
-      p.barcode === directEntry.barcode || 
-      p.barcode === directEntry.stockNo
-    ) || selectedItemProductMeta;
+    const rawCode = (directEntry.barcode || directEntry.stockNo || "").trim();
+    if (!rawCode) {
+      onNotification?.("Product Required", "Please enter or scan a valid Stock No or Barcode.", "error");
+      return;
+    }
 
-    const rate = directRateNum > 0 ? directRateNum : Number((matched as any)?.sellingPrice || (matched as any)?.mrp || 0);
+    // Authoritative Central Resolution against Product List / Item Master
+    setIsResolvingProduct(true);
+    let resolvedItem: any = null;
+    try {
+      const resolveRes = await apiFetchV1<any>("/products/resolve", {
+        method: "POST",
+        body: JSON.stringify({
+          identifier: rawCode,
+          company_id: currentUser?.companyId || undefined,
+        })
+      });
+
+      if (resolveRes && resolveRes.success) {
+        resolvedItem = resolveRes;
+      } else {
+        const errCode = resolveRes?.error_code;
+        if (errCode === "PRODUCT_INACTIVE" || resolveRes?.status === "INACTIVE" || resolveRes?.disposition === "REQUIRES_REVIEW") {
+          setProductInactiveState({
+            isOpen: true,
+            barcode: rawCode,
+            name: resolveRes?.product_name || rawCode,
+            reason: resolveRes?.message || "This product is marked as inactive or under quarantine review and cannot be added to transactions."
+          });
+          return;
+        }
+        setProductNotFoundState({
+          isOpen: true,
+          barcode: rawCode,
+          message: resolveRes?.message || "This product is not registered in Product List. Please add the product to Product List before continuing."
+        });
+        return;
+      }
+    } catch (err: any) {
+      const errDetail = err?.data || err?.detail || {};
+      if (errDetail?.error_code === "PRODUCT_INACTIVE" || errDetail?.disposition === "REQUIRES_REVIEW") {
+        setProductInactiveState({
+          isOpen: true,
+          barcode: rawCode,
+          name: errDetail?.product_name || rawCode,
+          reason: errDetail?.message || "This product is marked as inactive or under quarantine review."
+        });
+        return;
+      }
+      setProductNotFoundState({
+        isOpen: true,
+        barcode: rawCode,
+        message: errDetail?.message || "This product is not registered in Product List. Please add the product to Product List before continuing."
+      });
+      return;
+    } finally {
+      setIsResolvingProduct(false);
+    }
+
+    const matched = resolvedItem;
+    const rate = directRateNum > 0 ? directRateNum : Number(matched.selling_price || matched.mrp || 0);
     const qty = directQtyNum;
 
     // Statutory MRP Ceiling Check: Selling price cannot exceed declared MRP
-    const effectiveMrp = Number((matched as any)?.mrp || 0);
+    const effectiveMrp = Number(matched.mrp || 0);
     if (effectiveMrp > 0 && rate > effectiveMrp) {
       onNotification?.(
         "Statutory Price Violation",
-        `Selling price (₹${rate.toFixed(2)}) cannot exceed statutory MRP (₹${effectiveMrp.toFixed(2)}) for item '${directEntry.itemDescription || (matched as any)?.name || directEntry.stockNo}'.`,
+        `Selling price (₹${rate.toFixed(2)}) cannot exceed statutory MRP (₹${effectiveMrp.toFixed(2)}) for item '${matched.product_name || rawCode}'.`,
         "error"
       );
       return;
@@ -1529,7 +1647,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
     // Discrete UoM Check: PCS/NOS/PAIR cannot have fractional decimals
-    const itemUom = (matched as any)?.uom || (matched as any)?.unit || "PCS";
+    const itemUom = matched.uom || "PCS";
     const discreteUoms = ["PCS", "PC", "NOS", "NO", "PAIR", "PRS", "BOX", "SET", "UNIT", "DOZ"];
     if (discreteUoms.includes(itemUom.toUpperCase()) && qty % 1 !== 0) {
       onNotification?.(
@@ -1542,16 +1660,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     const lineItem: SalesLineItem = {
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      productId: (matched as any)?.id,
-      stockNo: directEntry.stockNo || (matched as any)?.stockNo || (matched as any)?.code || "SKU-GEN",
-      barcode: directEntry.barcode || (matched as any)?.barcode || directEntry.stockNo,
-      itemDescription: directEntry.itemDescription || (matched as any)?.name || "Item " + (items.length + 1),
+      productId: matched.product_id,
+      stockNo: matched.sku || matched.barcode || rawCode,
+      barcode: matched.barcode || rawCode,
+      itemDescription: matched.product_name || directEntry.itemDescription || "Item " + (items.length + 1),
       qty,
       rate,
       value: rate * qty,
       discPercent: directDiscPctNum,
       discAmt: directDiscAmt,
-      taxPercent: (matched as any)?.gstPercentage || 18,
+      taxPercent: Number(matched.tax_rate ?? 18),
       taxAmount: 0,
       total: 0,
     };
@@ -1567,9 +1685,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           if (idx === existingIndex) {
             return {
               ...it,
-              stockNo: directEntry.stockNo || it.stockNo,
-              barcode: directEntry.barcode || it.barcode,
-              itemDescription: directEntry.itemDescription || it.itemDescription,
+              stockNo: matched.sku || it.stockNo,
+              barcode: matched.barcode || it.barcode,
+              itemDescription: matched.product_name || it.itemDescription,
               rate: computedLine.rate,
               qty: computedLine.qty,
               value: computedLine.value,
@@ -1668,8 +1786,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       const newLine: BillingLineItem = {
         id: computedLine.id,
         sNo: items.length + 1,
-        stockNo: computedLine.stockNo || "SKU-GEN",
-        barcode: computedLine.barcode || "",
+        stockNo: matched.sku || matched.barcode || rawCode,
+        barcode: matched.barcode || rawCode,
         itemDescription: computedLine.itemDescription,
         rate: computedLine.rate,
         qty: computedLine.qty,
@@ -1680,12 +1798,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         discAmt: Number(computedLine.discAmt ?? 0),
         total: computedLine.total,
         salesStaff: directEntry.staff,
-        productId: (matched as any)?.id,
-        hsnCode: (matched as any)?.hsnCode,
-        gstPercentage: Number(computedLine.taxPercent ?? 18),
+        productId: matched.product_id,
+        hsnCode: matched.hsn_code,
+        gstPercentage: Number(computedLine.taxPercent ?? matched.tax_rate ?? 18),
         taxAmount: Number(computedLine.taxAmount ?? 0),
-        brand: (matched as any)?.brand,
-        size: (matched as any)?.size
+        brand: matched.brand,
+        size: matched.size
       };
 
       setItems(prev => [...prev, newLine]);
@@ -3135,7 +3253,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 type="text"
                 value={directEntry.itemDescription}
                 onChange={e => setDirectEntry({ ...directEntry, itemDescription: e.target.value })}
-                onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
+                onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
                 placeholder="Item Description"
                 className="flex-1 bg-surface-container border-outline-variant h-8 text-xs rounded px-2 font-medium border focus:border-secondary outline-none truncate"
               />
@@ -3148,7 +3266,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 max="9999999.99"
                 value={directEntry.rate}
                 onChange={e => setDirectEntry({ ...directEntry, rate: e.target.value })}
-                onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
+                onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
                 placeholder="Rate"
                 className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
               />
@@ -3173,7 +3291,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   }
                   setDirectEntry(prev => ({ ...prev, qty: e.target.value }));
                 }}
-                onKeyDown={e => e.key === "Enter" && handleCommitDirectEntry()}
+                onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
                 placeholder="Qty"
                 className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
               />
@@ -3250,8 +3368,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {/* Add Button */}
               <button
                 type="button"
-                onClick={handleCommitDirectEntry}
-                className="h-8 w-8 bg-primary hover:bg-primary-container text-on-primary rounded flex items-center justify-center shadow-2xs shrink-0 cursor-pointer"
+                onClick={() => void handleCommitDirectEntry()}
+                disabled={isResolvingProduct}
+                className="h-8 w-8 bg-primary hover:bg-primary-container text-on-primary rounded flex items-center justify-center shadow-2xs shrink-0 cursor-pointer disabled:opacity-50"
                 title="Add Item (Enter)"
               >
                 <Plus size={16} />
@@ -3931,6 +4050,111 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         terminalId={(currentUser as any)?.terminalId || "COMMON"}
         companyCode={(currentUser as any)?.companyCode || currentUser?.companyId || "SMRITI"}
       />
+
+      {/* 9. Global Product Resolution: Product Not Found Modal */}
+      {productNotFoundState.isOpen && (
+        <div className="fixed inset-0 bg-scrim/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-surface border border-outline-variant rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-error/10 border-b border-error/20 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={18} className="text-error" />
+                <h3 className="font-bold text-sm text-error">⚠ Product Not Found</h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleScanAgain}
+                className="p-1 hover:bg-error/20 rounded text-error cursor-pointer"
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 flex flex-col gap-3">
+              <div className="bg-surface-container-low border border-outline-variant rounded p-3 text-center">
+                <div className="text-[11px] font-label-caps uppercase text-on-surface-variant font-bold">Scanned / Entered Identifier</div>
+                <div className="font-code-md font-bold text-base text-primary tracking-wider mt-1">
+                  {productNotFoundState.barcode}
+                </div>
+              </div>
+
+              <div className="text-xs text-on-surface leading-relaxed text-center">
+                {productNotFoundState.message || "This product is not registered in Product List. Please add the product to Product List before continuing."}
+              </div>
+            </div>
+
+            <div className="bg-surface-container-low px-4 py-3 border-t border-outline-variant flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleScanAgain}
+                className="bg-surface-container border border-outline-variant hover:bg-surface-container-high px-4 py-1.5 rounded text-xs font-semibold text-on-surface transition cursor-pointer"
+              >
+                Scan Again
+              </button>
+              {canAddProduct && (
+                <button
+                  type="button"
+                  onClick={handleAddProductFromModal}
+                  className="bg-primary hover:bg-primary-container text-on-primary px-4 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <Plus size={14} />
+                  Add Product
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 10. Global Product Resolution: Product Inactive / Quarantined Modal */}
+      {productInactiveState.isOpen && (
+        <div className="fixed inset-0 bg-scrim/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-surface border border-outline-variant rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-warning/10 border-b border-warning/20 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={18} className="text-warning-dark" />
+                <h3 className="font-bold text-sm text-warning-dark">⚠ Product Inactive / Under Review</h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleScanAgain}
+                className="p-1 hover:bg-warning/20 rounded text-warning-dark cursor-pointer"
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 flex flex-col gap-3">
+              <div className="bg-surface-container-low border border-outline-variant rounded p-3">
+                <div className="text-[11px] font-label-caps uppercase text-on-surface-variant font-bold">Identifier &amp; Product</div>
+                <div className="font-code-md font-bold text-sm text-primary mt-1">
+                  {productInactiveState.barcode}
+                </div>
+                {productInactiveState.name && (
+                  <div className="text-xs text-on-surface font-medium mt-0.5">
+                    {productInactiveState.name}
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs text-on-surface leading-relaxed">
+                {productInactiveState.reason || "This product is marked as inactive or under quarantine review. Transaction lines cannot be created for inactive products."}
+              </div>
+            </div>
+
+            <div className="bg-surface-container-low px-4 py-3 border-t border-outline-variant flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleScanAgain}
+                className="bg-primary hover:bg-primary-container text-on-primary px-4 py-1.5 rounded text-xs font-bold transition cursor-pointer"
+              >
+                Scan Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
