@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.25.0
+Version      : 6.69.0
 Created      : 2026-09-04
-Modified     : 2026-09-04
+Modified     : 2026-10-03
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -111,6 +111,7 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
             "DELETE FROM customer_billing_locations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
             "DELETE FROM customer_gst_registrations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
             "DELETE FROM customer_gst_registrations WHERE gstin IN ('27AAACR7015K1Z0', '07AAACR7015K1Z2', '06AAACR7015K1Z1', '27AAACT9999P1Z8', '29AAACE1111Q1Z9')",
+            "DELETE FROM customer_credit_ledger_entries WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
             "DELETE FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%'",
         ]:
             await session.execute(text(stmt))
@@ -123,7 +124,7 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
                 id="COMP-001",
                 name="SMRITI Retail Corp",
                 gst_number="27AAAAA0000A1Z5",
-                company_code="COMP-001",
+                company_code="COMP001",
                 is_active=True,
                 is_deleted=False
             )
@@ -134,7 +135,7 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
                 id="COMP-OTHER",
                 name="Unrelated Retail Ltd",
                 gst_number="29BBBBB0000B1Z6",
-                company_code="COMP-OTHER",
+                company_code="COMPOTHER",
                 is_active=True,
                 is_deleted=False
             )
@@ -147,6 +148,9 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
             code=f"WH-{suffix}",
             name=f"Central Warehouse {suffix}",
             company_id="COMP-001",
+            city="Mumbai",
+            state="Maharashtra",
+            pincode="400001",
             is_active=True,
             is_deleted=False
         )
@@ -175,7 +179,8 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
             hsn_code="8471",
             category="Electronics",
             barcode=f"BAR-{suffix}",
-            tracking_mode="No-stock",
+            stock=10000,
+            tracking_mode="Standard",
             company_id="COMP-001",
             is_active=True,
             is_deleted=False
@@ -411,6 +416,7 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
             "DELETE FROM customer_billing_locations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
             "DELETE FROM customer_gst_registrations WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
             "DELETE FROM customer_gst_registrations WHERE gstin IN ('27AAACR7015K1Z0', '07AAACR7015K1Z2', '06AAACR7015K1Z1', '27AAACT9999P1Z8', '29AAACE1111Q1Z9')",
+            "DELETE FROM customer_credit_ledger_entries WHERE customer_id IN (SELECT id FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%')",
             "DELETE FROM customers WHERE code LIKE 'CUST-RIL-%' OR code LIKE 'CUST-TATA-%' OR code LIKE 'CUST-FOREIGN-%'",
         ]:
             await session.execute(text(stmt))

@@ -28,6 +28,28 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.69.0] - 2026-10-03 — Sales & Compliance: Corporate B2B Billing Fields Wiring & Sales Invoice Snapshot Immutability (Phase 2C/2F)
+
+> **Branch:** `smritiNX` | **Area:** Sales Invoicing, Canonical Sales Posting Writer, CRM Corporate Billing & Duplicate Protection
+> **Implementation Plan:** `docs/implementation/sales/Sales_Invoice_B2B_Corporate_Fields_Wiring_Plan_v6.69.0.md`
+> **Walkthrough:** `docs/walkthrough/sales/Sales_Invoice_B2B_Corporate_Fields_Wiring_v6.69.0.md`
+
+### Added
+- **Canonical Posting B2B Contract Schema (`backend/app/schemas/canonical_posting.py`)**:
+  - Added `billed_party_gstin_id` to `CanonicalPostingRequest`.
+- **Sales Service Adapter Mapping (`backend/app/services/sales.py`)**:
+  - Propagated `billed_party_gstin_id`, `billing_location_id`, `billing_store_code`, `delivery_location_id`, `delivery_store_code`, `delivery_gstin`, `delivery_location_snapshot`, and `dispatch_from_location_id` into canonical posting request.
+- **Canonical Sales Posting Writer B2B Snapshot Engine (`backend/app/services/canonical_sales_writer.py`)**:
+  - Integrated `CustomerBillingLocation` lookups, tenant validation, and customer ownership enforcement.
+  - Implemented immutable billing address and billing store code snapshot capture on `SalesInvoice`.
+  - Added hierarchical Place of Supply (POS) state derivation (Delivery Location -> Explicit POS -> Billed Party GSTIN -> Customer GSTIN -> Home State).
+  - Populated `billed_party_gstin_id`, `billing_store_code`, `sis_code`, `delivery_gstin`, and `pos_state` on `SalesInvoice`.
+
+### Fixed
+- Hardened test fixtures in `backend/tests/test_customer_identity_duplicate.py` ensuring seed warehouse address and stock availability.
+- Added customer credit ledger cleanups in `backend/tests/test_b2b_sales_wiring.py`.
+- Dynamic PostgreSQL port resolution in `scripts/audit_all_dbs.py` and `scripts/audit_schema_drift.py`.
+
 ## [6.69.0] - 2026-10-03 — UX & Foundation: Phase 5 Auxiliary Workspaces Routing & Catalog Wiring (100% Unreferenced Ws Elimination)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Shell Routing, Fiori Launchpad, Item Master, Vendor Master, ProPOS Billing & Universal Document Studio
