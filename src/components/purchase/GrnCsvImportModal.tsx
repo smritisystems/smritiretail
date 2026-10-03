@@ -30,6 +30,8 @@ import {
   ArrowRight,
   Sparkles,
 } from "lucide-react";
+import { GridInputEngine } from "../../services/gridInput/gridInputEngine";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles";
 
 export interface ParsedGrnCsvRow {
   row_index: number;
@@ -90,101 +92,40 @@ export const GrnCsvImportModal: React.FC<GrnCsvImportModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Normalize and parse CSV or PDT string
+  // Normalize and parse CSV or PDT string using centralized GridInputEngine
   const parseInwardCsv = useCallback(
     (text: string): ParsedGrnCsvRow[] => {
-      const clean = text.replace(/^\uFEFF/, "").trim(); // strip UTF-8 BOM
-      if (!clean) return [];
+      const { matrix } = GridInputEngine.parseDelimitedText(text);
+      if (matrix.length === 0) return [];
 
-      const lines = clean
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0 && !l.startsWith("#"));
-
-      if (lines.length === 0) return [];
-
-      // Check if PDT tilde/pipe delimited (e.g. barcode~qty~rate or barcode|qty|rate)
-      const isPdt = lines[0].includes("~") || (!lines[0].includes(",") && lines[0].includes("|"));
-      const delimiter = isPdt ? (lines[0].includes("~") ? "~" : "|") : ",";
-
-      // Split into cells handling RFC 4180 quotes if CSV
-      const parseLine = (lineStr: string): string[] => {
-        if (delimiter !== ",") {
-          return lineStr.split(delimiter).map((c) => c.trim());
-        }
-        const cells: string[] = [];
-        let cur = "";
-        let inQuotes = false;
-        for (let i = 0; i < lineStr.length; i++) {
-          const char = lineStr[i];
-          if (char === '"') {
-            if (inQuotes && lineStr[i + 1] === '"') {
-              cur += '"';
-              i++;
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (char === "," && !inQuotes) {
-            cells.push(cur.trim());
-            cur = "";
-          } else {
-            cur += char;
-          }
-        }
-        cells.push(cur.trim());
-        return cells;
-      };
-
-      let headers: string[] = [];
-      let dataLines = lines;
-
-      // Check if first line contains textual column headers
-      const firstLineCells = parseLine(lines[0]);
-      const hasHeader = firstLineCells.some((c) =>
-        /^(barcode|sku|code|item|product|qty|quantity|rate|price|mrp|cost|name|description)/i.test(c)
+      const { columnMappings, dataRows } = GridInputEngine.mapColumns(
+        matrix,
+        GRID_PROFILES.PURCHASE
       );
-
-      if (hasHeader) {
-        headers = firstLineCells.map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ""));
-        dataLines = lines.slice(1);
-      } else {
-        // Positional defaults: [barcode, sku, name, qty, rate, mrp, gst]
-        headers = ["barcode", "sku", "name", "qty", "rate", "mrp", "gst"];
-      }
-
-      // Column index lookups
-      const findColIdx = (patterns: string[]): number => {
-        return headers.findIndex((h) => patterns.some((p) => h.includes(p)));
-      };
-
-      const idxBarcode = findColIdx(["barcode", "ean", "upc"]);
-      const idxSku = findColIdx(["sku", "code", "itemcode", "prodcode", "article", "style"]);
-      const idxName = findColIdx(["name", "product", "desc", "item", "title"]);
-      const idxSize = findColIdx(["size", "dim"]);
-      const idxColor = findColIdx(["color", "colour", "shade"]);
-      const idxQty = findColIdx(["qty", "quantity", "received", "inward", "units", "shipped"]);
-      const idxDamage = findColIdx(["damage", "damaged", "shortage", "reject"]);
-      const idxRate = findColIdx(["rate", "invoice", "price", "cost", "buying", "unitprice"]);
-      const idxMrp = findColIdx(["mrp", "retail"]);
-      const idxGst = findColIdx(["gst", "tax"]);
 
       const results: ParsedGrnCsvRow[] = [];
 
-      dataLines.forEach((lineStr, lineIdx) => {
-        const cells = parseLine(lineStr);
+      dataRows.forEach((cells, lineIdx) => {
         if (cells.length === 0 || cells.every((c) => !c)) return;
 
-        const barcode = idxBarcode >= 0 ? cells[idxBarcode] || "" : "";
-        let sku = idxSku >= 0 ? cells[idxSku] || "" : "";
-        let name = idxName >= 0 ? cells[idxName] || "" : "";
-        const size = idxSize >= 0 ? cells[idxSize] || "M" : "M";
-        const color = idxColor >= 0 ? cells[idxColor] || "Standard" : "Standard";
+        const rowMap: Record<string, string> = {};
+        columnMappings.forEach((m) => {
+          if (m.mappedFieldKey && cells[m.sourceIndex] !== undefined) {
+            rowMap[m.mappedFieldKey] = cells[m.sourceIndex].trim();
+          }
+        });
 
-        const qtyReceived = Math.max(0, Number(idxQty >= 0 ? cells[idxQty] : 1) || 0);
-        const qtyDamaged = Math.max(0, Number(idxDamage >= 0 ? cells[idxDamage] : 0) || 0);
-        const invRate = Number(idxRate >= 0 ? cells[idxRate] : 0) || 0;
-        const mrp = Number(idxMrp >= 0 ? cells[idxMrp] : 0) || (invRate > 0 ? invRate * 1.5 : 0);
-        const gstRate = Number(idxGst >= 0 ? cells[idxGst] : 18) || 18;
+        const barcode = rowMap["barcode"] || "";
+        let sku = rowMap["sku"] || rowMap["item_code"] || "";
+        let name = rowMap["name"] || "";
+        const size = rowMap["size"] || "M";
+        const color = rowMap["color"] || "Standard";
+
+        const qtyReceived = Math.max(0, Number(rowMap["quantity"] || rowMap["received_qty"] || 1) || 0);
+        const qtyDamaged = Math.max(0, Number(rowMap["damaged_qty"] || 0) || 0);
+        const invRate = Number(rowMap["costPrice"] || rowMap["rate"] || rowMap["price"] || 0) || 0;
+        const mrp = Number(rowMap["mrp"] || 0) || (invRate > 0 ? invRate * 1.5 : 0);
+        const gstRate = Number(rowMap["taxRate"] || rowMap["gst"] || 18) || 18;
 
         // Auto fallback if sku empty
         if (!sku && barcode) {

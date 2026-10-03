@@ -377,43 +377,61 @@ async def _lookup_catalog(
     except Exception:
         pass
 
-    sql = text("""
-        SELECT
-            p.id                            AS product_id,
-            p.name                          AS item_name,
-            COALESCE(p.code, p.sku, '')     AS sku,
-            p.barcode                       AS barcode,
-            COALESCE(p.mrp, 0)              AS catalog_mrp,
-            COALESCE(p.price, p.mrp, 0)     AS catalog_selling_price,
-            COALESCE(p.gst_percentage, 0)   AS gst_rate,
-            COALESCE(p.hsn_code, '')        AS hsn_code,
-            COALESCE(p.stock, 0)            AS available_stock,
-            'PCS'                           AS uom,
-            COALESCE(p.brand, '')           AS brand,
-            COALESCE(p.color, '')           AS color,
-            COALESCE(p.size, '')            AS size_variant
-        FROM products p
-        WHERE (p.company_id = CAST(:company_id AS VARCHAR) OR CAST(:company_id AS VARCHAR) IS NULL)
-          AND p.is_deleted = FALSE
-          AND (
-            p.barcode = :identifier
-            OR :identifier = ANY(p.secondary_barcodes)
-            OR p.code = :identifier
-            OR p.sku = :identifier
-            OR (CAST(:sku_hint AS VARCHAR) IS NOT NULL AND (p.code = CAST(:sku_hint AS VARCHAR) OR p.sku = CAST(:sku_hint AS VARCHAR)))
-          )
-        LIMIT 1
-    """)
-    try:
-        res = await db.execute(sql, {
-            "company_id": company_id,
-            "identifier": identifier,
-            "sku_hint": sku_hint,
-        })
-        row = res.mappings().first()
-        return dict(row) if row else None
-    except Exception:
-        return None
+async def _lookup_catalog(
+    db: AsyncSession,
+    company_id: str,
+    identifier: str,
+    sku_hint: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Centralized catalog lookup routed through authoritative ProductResolutionService.
+    Supports canonical items, variants, barcodes, and legacy catalog fallback.
+    """
+    from ...services.product_resolution_service import ProductResolutionService
+
+    # 1. Primary resolution by identifier
+    res = await ProductResolutionService.resolve(
+        session=db,
+        company_id=company_id,
+        identifier=identifier,
+        allow_inactive=False,
+    )
+
+    # 2. Secondary resolution by sku_hint if not found
+    if not res.success and sku_hint and sku_hint.strip() and sku_hint.strip() != identifier:
+        res = await ProductResolutionService.resolve(
+            session=db,
+            company_id=company_id,
+            identifier=sku_hint.strip(),
+            identifier_type="SKU",
+            allow_inactive=False,
+        )
+
+    if res.success:
+        stock_val = 99999
+        if res.product and "stock" in res.product and res.product["stock"] is not None:
+            try:
+                stock_val = int(res.product["stock"])
+            except Exception:
+                stock_val = 99999
+
+        return {
+            "product_id": res.product_id or res.variant_id,
+            "item_name": res.name or "",
+            "sku": res.sku or "",
+            "barcode": res.barcode or identifier,
+            "catalog_mrp": float(res.mrp or 0),
+            "catalog_selling_price": float(res.selling_price or res.mrp or 0),
+            "gst_rate": float(res.tax_rate or 0),
+            "hsn_code": res.hsn_code or "",
+            "available_stock": stock_val,
+            "uom": res.uom or "PCS",
+            "brand": res.brand or "",
+            "color": (res.product.get("color") if res.product else "") or "",
+            "size_variant": (res.product.get("size") if res.product else "") or "",
+        }
+
+    return None
 
 
 # ---------------------------------------------------------------------------
