@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.46.0
+ * Version      : 6.69.0
  * Created      : 2026-09-23
- * Modified     : 2026-09-28
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Frontend Architecture Tests — Canonical Field Registry SSOT
@@ -30,9 +30,9 @@ import {
 describe("SMRITI Canonical Field Registry Frontend SSOT", () => {
   it("should export authoritative CFOC constants and valid SHA-256 fingerprint", () => {
     expect(CFOC_REGISTRY_VERSION).toBe("3.46.0");
-    expect(CFOC_REGISTRY_FIELDS).toBe(137);
+    expect(CFOC_REGISTRY_FIELDS).toBe(147);
     expect(CFOC_REGISTRY_FINGERPRINT).toMatch(/^[a-f0-9]{64}$/);
-    expect(CFOC_REGISTRY_FINGERPRINT).toBe("3a0cc10a49a52a367f8cae0c6e2cf7c35bb188719aef404b96cde30b6d8a10d0");
+    expect(CFOC_REGISTRY_FINGERPRINT).toBe("2ac971144155d554098f21fdd4dda339fa4d72655dbcba53e37a11e3856f0436");
   });
 
   it("should enforce runtime immutability on CANONICAL_FIELDS (frozen)", () => {
@@ -44,7 +44,7 @@ describe("SMRITI Canonical Field Registry Frontend SSOT", () => {
   });
 
   it("should contain all canonical fields registered", () => {
-    expect(Object.keys(CANONICAL_FIELDS).length).toBe(137);
+    expect(Object.keys(CANONICAL_FIELDS).length).toBe(147);
   });
 
   it("should resolve customer.mobile with authoritative metadata", () => {
