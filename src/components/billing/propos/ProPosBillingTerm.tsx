@@ -85,8 +85,12 @@ import {
   CreditCard,
   Coins,
   Tag,
-  Settings
+  Settings,
+  ClipboardList
 } from "lucide-react";
+import { GlobalGridImportModal } from "../../gridInput/GlobalGridImportModal.tsx";
+import { GRID_PROFILES } from "../../../services/gridInput/gridProfiles.ts";
+import type { ParsedGridRow, GridImportMode } from "../../../services/gridInput/types.ts";
 import type { CustomerBillingLocationDTO, CustomerDeliveryLocationDTO } from "../types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { useF2Screen } from "../../../context/F2DispatcherContext.tsx";
@@ -867,6 +871,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [showReturnModal, setShowReturnModal] = useState<boolean>(false);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [showCsvImportModal, setShowCsvImportModal] = useState<boolean>(false);
+  const [showGlobalGridImportModal, setShowGlobalGridImportModal] = useState<boolean>(false);
+  const [globalImportInitialText, setGlobalImportInitialText] = useState<string>("");
   const [showCustomerBrowseModal, setShowCustomerBrowseModal] = useState<boolean>(false);
   const [showSmritiItemSearchModal, setShowSmritiItemSearchModal] = useState<boolean>(false);
   const [showF6PromoModal, setShowF6PromoModal] = useState<boolean>(false);
@@ -1602,6 +1608,148 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     }
   };
 
+  // Global Grid Import Callback (Excel / Sheets Paste, PDT, Scanner)
+  const handleGlobalGridImportCommit = (rows: ParsedGridRow[], mode: GridImportMode) => {
+    const validDbItems = rows.filter(r => r.resolvedProduct?.productId && r.resolvedProduct.productId.trim() !== "");
+    const rejectedCount = rows.length - validDbItems.length;
+
+    if (validDbItems.length === 0) {
+      onNotification?.(
+        "Import Blocked",
+        "No database-verified items found. Only barcodes or SKUs present in the database can be added to billing.",
+        "error"
+      );
+      return;
+    }
+
+    const isReliance = SmritiSalesPromotionService.isRelianceCustomer(customer);
+    if (isReliance) {
+      SmritiSalesPromotionService.ensureReliance4376Promotion();
+    }
+
+    const converted: ProPosCartItem[] = validDbItems.map((r, idx) => {
+      const prod = r.resolvedProduct!;
+      const catalogMrp = Number(r.mrp ?? prod.mrp ?? 0);
+      let unitPrice = Number(r.rate ?? r.sellingPrice ?? prod.sellingPrice ?? catalogMrp);
+      let discCode = "GridImp";
+      let discPct = Number(r.discount ?? 0);
+
+      if (catalogMrp > 0 && unitPrice < catalogMrp && discPct === 0) {
+        discPct = Math.round(((catalogMrp - unitPrice) / catalogMrp) * 100 * 100) / 100;
+      }
+
+      let promoDesc: string | undefined = undefined;
+      let promoBadge: string | undefined = undefined;
+
+      if (isReliance) {
+        discCode = "REL_RET_4376";
+        discPct = 43.76;
+        unitPrice = catalogMrp > 0 ? Math.round(catalogMrp * (1 - 0.4376) * 100) / 100 : unitPrice;
+        promoDesc = "Reliance Retail Trade Concession (43.76% on MRP)";
+        promoBadge = "43.76% [REL_RET_4376]";
+      }
+
+      const discAmt = catalogMrp > 0
+        ? Math.round(((catalogMrp * discPct) / 100) * r.quantity * 100) / 100
+        : Math.max(0, (catalogMrp - unitPrice) * r.quantity);
+
+      const isInc = taxMode === "inclusive";
+      const gst = calculateGST({
+        unitPrice: unitPrice,
+        quantity: r.quantity,
+        discountAmount: 0,
+        gstRate: prod.taxRate || 5.00,
+        isTaxInclusive: isInc,
+        isInterstate: isInterstate,
+      });
+
+      return {
+        id: `grid-${Date.now()}-${idx}`,
+        productId: prod.productId!,
+        itemNo: (mode === "REPLACE" ? 0 : cartItems.length) + idx + 1,
+        sku: prod.sku || r.identifier,
+        barcode: prod.barcode || r.identifier,
+        name: prod.name || r.identifier,
+        size: "—",
+        color: "—",
+        brand: prod.brand || "—",
+        salesStaff: salesStaff,
+        qty: r.quantity,
+        mrp: catalogMrp,
+        unitPrice: unitPrice,
+        discCode: discCode,
+        discQty: r.quantity,
+        discountPct: discPct,
+        discountAmt: discAmt,
+        promoDescription: promoDesc,
+        promoBadge: promoBadge,
+        taxPct: prod.taxRate || 5.00,
+        taxAmt: gst.taxAmount,
+        taxableValue: gst.taxableValue,
+        cgstAmount: gst.cgstAmount,
+        sgstAmount: gst.sgstAmount,
+        hsnCode: prod.hsnCode,
+        isTaxInclusive: isInc,
+        lineTotal: gst.totalAmount,
+      };
+    });
+
+    if (mode === "REPLACE") {
+      setCartItems(converted);
+    } else if (mode === "MERGE") {
+      setCartItems(prev => {
+        const merged = [...prev];
+        converted.forEach(newItem => {
+          const existing = merged.find(m => (m.barcode && m.barcode === newItem.barcode) || (m.sku && m.sku === newItem.sku));
+          if (existing) {
+            existing.qty += newItem.qty;
+            const recomputedGst = calculateGST({
+              unitPrice: existing.unitPrice,
+              quantity: existing.qty,
+              discountAmount: 0,
+              gstRate: existing.taxPct,
+              isTaxInclusive: existing.isTaxInclusive ?? (taxMode === "inclusive"),
+              isInterstate: isInterstate,
+            });
+            existing.taxAmt = recomputedGst.taxAmount;
+            existing.taxableValue = recomputedGst.taxableValue;
+            existing.cgstAmount = recomputedGst.cgstAmount;
+            existing.sgstAmount = recomputedGst.sgstAmount;
+            existing.lineTotal = recomputedGst.totalAmount;
+          } else {
+            merged.push(newItem);
+          }
+        });
+        return merged.map((it, idx) => ({ ...it, itemNo: idx + 1 }));
+      });
+    } else {
+      // APPEND
+      setCartItems(prev => [...prev, ...converted].map((it, idx) => ({ ...it, itemNo: idx + 1 })));
+    }
+
+    if (rejectedCount > 0) {
+      onNotification?.(
+        "Imported with Exclusions",
+        `${converted.length} database-verified item(s) added. ${rejectedCount} unverified item(s) were excluded.`,
+        "warning"
+      );
+    } else {
+      onNotification?.("Items Imported", `${converted.length} database-verified item(s) added to bill.`, "success");
+    }
+  };
+
+  // Cart Table Clipboard Paste (Ctrl+V with multi-line or delimited text)
+  const handleCartTablePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData("text");
+    if (!text || !text.trim()) return;
+
+    if (text.includes("\n") || text.includes("\t") || text.includes(",")) {
+      e.preventDefault();
+      setGlobalImportInitialText(text);
+      setShowGlobalGridImportModal(true);
+    }
+  };
+
   // Remove Item from Grid
   const handleRemoveItem = (id: string) => {
     setCartItems(prev => prev.filter(it => it.id !== id).map((it, idx) => ({ ...it, itemNo: idx + 1 })));
@@ -2201,6 +2349,19 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => {
+              setGlobalImportInitialText("");
+              setShowGlobalGridImportModal(true);
+            }}
+            className="px-2 py-0.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-100 border border-indigo-500/30 rounded text-[11px] font-bold flex items-center gap-1 transition"
+            title="Global Grid Import & Resolution (Excel Paste, PDT, CSV, Scanner)"
+          >
+            <ClipboardList size={12} className="text-indigo-300" />
+            <span>Fast Import</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowCsvImportModal(true)}
             className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-[11px] font-bold flex items-center gap-1 transition"
             title="Import from Barcode Scanner or CSV [Alt+I]"
@@ -2378,7 +2539,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         <div className="flex-1 bg-white dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-lg overflow-hidden flex flex-col shadow-xs">
 
           {/* Top: Item Details Grid (10 Rows) */}
-          <div className="overflow-auto flex-1 bg-white dark:bg-[#131b2e]">
+          <div 
+            onPaste={handleCartTablePaste}
+            className="overflow-auto flex-1 bg-white dark:bg-[#131b2e]"
+          >
             <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[1020px]">
               <thead className="bg-[#edeae1] dark:bg-[#252836] sticky top-0 z-10 border-b border-[#c4c5d5] dark:border-[#444653] text-[11px] font-bold text-[#444653] dark:text-[#bec6e0]">
                 <tr className="h-7">
@@ -2946,6 +3110,16 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         onClose={() => setShowCsvImportModal(false)}
         customer={customer}
         onImportConfirmed={handleCsvImportConfirmed}
+      />
+
+      <GlobalGridImportModal
+        isOpen={showGlobalGridImportModal}
+        onClose={() => setShowGlobalGridImportModal(false)}
+        profile={GRID_PROFILES.BILLING}
+        title="Billing Items Fast Import & Resolution"
+        existingRowCount={cartItems.length}
+        initialRawText={globalImportInitialText}
+        onCommit={handleGlobalGridImportCommit}
       />
 
       {showSettlementModal && (

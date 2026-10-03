@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.57.0] - 2026-10-03 — Global Grid Import Standard Rollout: POS Counter Billing & Sales Order Studio
+
+> **Branch:** `smritiNX` | **Area:** Point-of-Sale / Counter Billing / Commercial Sales Orders
+> **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
+> **Walkthrough:** `docs/walkthrough/sales/Global_Grid_Import_POS_And_Sales_Order_v1.0.md`
+
+### Added
+- **Counter POS Billing Terminal (`ProPosBillingTerm.tsx`)**:
+  - Integrated `GlobalGridImportModal` with `GRID_PROFILES.BILLING` and batch resolution (`POST /api/v1/products/batch-resolve`).
+  - Added "Fast Import" action button in the POS sub-header quick utilities ribbon.
+  - Implemented `handleCartTablePaste` intercepting clipboard paste (`Ctrl+V`) on the 10-row cart table container when multi-line or delimited text is detected, pre-populating and opening `GlobalGridImportModal`.
+  - Added `handleGlobalGridImportCommit` with line-level GST calculation, Reliance retail discount concession rules (`43.76% off MRP`), and duplicate merge policies (`APPEND`, `MERGE`, `REPLACE`).
+- **Commercial Sales Order Studio (`SalesOrderFormPremium.tsx`)**:
+  - Replaced legacy stub `ImportPDTModal` (which previously only set an empty item array and used blocking browser alerts) with the centralized `GlobalGridImportModal`.
+  - Built `handleGlobalImportCommit` recalculating full transaction and line totals via `calculateLineTotal` across APPEND, MERGE, and REPLACE modes.
+  - Updated action panel with dedicated "Global Import" modal trigger button.
+- **Global Grid Import Modal (`GlobalGridImportModal.tsx`)**:
+  - Added support for `initialRawText` prop to allow auto-analyzing text passed from parent grid paste events.
+  - Replaced browser `alert()` popups with SMRITI HREP-compliant inline error banners in Step 1 and Step 3.
+
 ## [6.56.1] - 2026-10-03 — Global Grid Input Standard: Attribute-Aware Bulk Import Excel Paste
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Item Master / Bulk Spreadsheet Importer

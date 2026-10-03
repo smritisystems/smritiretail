@@ -49,6 +49,7 @@ export interface GlobalGridImportModalProps {
   title?: string;
   companyId?: string;
   existingRowCount?: number;
+  initialRawText?: string;
   onCommit: (rows: ParsedGridRow[], mode: GridImportMode) => void;
 }
 
@@ -62,6 +63,7 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
   title,
   companyId,
   existingRowCount = 0,
+  initialRawText,
   onCommit,
 }) => {
   const profile: GridInputProfile = useMemo(() => {
@@ -93,25 +95,8 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
   const [isResolving, setIsResolving] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [inputError, setInputError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Reset when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setCurrentStep("INPUT");
-      setActiveTab("PASTE");
-      setRawText("");
-      setScannerBuffer([]);
-      setScannerInputVal("");
-      setRawMatrix([]);
-      setColumnMappings([]);
-      setParsedRows([]);
-      setImportMode(profile.defaultImportMode);
-      setDuplicatePolicy(profile.defaultDuplicatePolicy);
-    }
-  }, [isOpen, profile]);
-
-  if (!isOpen) return null;
 
   // Process raw text into matrix and mapping
   const processRawInput = (textToProcess: string) => {
@@ -121,10 +106,11 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
     );
 
     if (matrix.length === 0) {
-      alert("No data detected. Please paste or enter rows.");
+      setInputError("No data detected. Please paste rows or select a file.");
       return;
     }
 
+    setInputError(null);
     setRawMatrix(matrix);
 
     const mappingRes = GridInputEngine.mapColumns(matrix, profile);
@@ -141,6 +127,33 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
       setCurrentStep("MAPPING");
     }
   };
+
+  // Reset or initialize when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep("INPUT");
+      setActiveTab("PASTE");
+      setInputError(null);
+      setScannerBuffer([]);
+      setScannerInputVal("");
+      setRawMatrix([]);
+      setColumnMappings([]);
+      setParsedRows([]);
+      setImportMode(profile.defaultImportMode);
+      setDuplicatePolicy(profile.defaultDuplicatePolicy);
+
+      if (initialRawText && initialRawText.trim()) {
+        setRawText(initialRawText);
+        setTimeout(() => {
+          processRawInput(initialRawText);
+        }, 50);
+      } else {
+        setRawText("");
+      }
+    }
+  }, [isOpen, profile, initialRawText]);
+
+  if (!isOpen) return null;
 
   // Build grid rows and trigger batch product resolution
   const executeBuildAndResolve = async (
@@ -307,7 +320,7 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
       : parsedRows;
 
     if (rowsToCommit.length === 0) {
-      alert("No valid rows available to commit.");
+      setInputError("No valid rows available to commit. Please review unverified or invalid rows.");
       return;
     }
 
@@ -426,6 +439,21 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
           {/* STEP 1: INPUT DATA */}
           {currentStep === "INPUT" && (
             <div className="space-y-4">
+              {inputError && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 text-rose-300 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{inputError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInputError(null)}
+                    className="text-rose-400 hover:text-white text-xs px-2 py-0.5"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               {/* Source Tabs */}
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <div className="flex items-center gap-2">
@@ -729,6 +757,21 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
           {/* STEP 3: PREVIEW & VALIDATION */}
           {currentStep === "PREVIEW" && (
             <div className="space-y-4">
+              {inputError && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 text-rose-300 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{inputError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInputError(null)}
+                    className="text-rose-400 hover:text-white text-xs px-2 py-0.5"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               {/* Metric Cards */}
               <div className="grid grid-cols-4 gap-3">
                 <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
