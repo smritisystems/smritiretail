@@ -15,6 +15,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { ENTERPRISE_BILLING_SUITE_VERSION_LABEL } from "../../config/version.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
+import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
+import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { 
   Warehouse, 
   ArrowRightLeft, 
@@ -168,6 +171,8 @@ export const WmsStudioTab: React.FC<{
   // E-Way Bill & Delivery Challan Modal State
   const [viewingChallan, setViewingChallan] = useState<any | null>(null);
   const [viewingEwayBill, setViewingEwayBill] = useState<any | null>(null);
+  const [transferStagingItems, setTransferStagingItems] = useState<StockTransferItem[]>([]);
+  const [isGlobalTransferImportOpen, setIsGlobalTransferImportOpen] = useState(false);
 
   const fetchWmsData = async () => {
     setLoading(true);
@@ -213,6 +218,69 @@ export const WmsStudioTab: React.FC<{
     });
   }, [batchStocks, selectedWarehouseFilter, searchQuery]);
 
+  // Handle Global Grid Import for Transfers
+  const handleGlobalTransferImportCommit = (rows: ParsedGridRow[], mode: GridImportMode) => {
+    const converted: StockTransferItem[] = rows.map((r, idx) => {
+      const prod = r.resolvedProduct;
+      return {
+        id: `sto-import-${Date.now()}-${idx}`,
+        product_id: prod?.productId || prod?.sku || r.identifier,
+        batch_no: r.batch || "BATCH-DEFAULT",
+        quantity: r.quantity || 1,
+        unit_cost: r.rate ?? prod?.costPrice ?? 0,
+      };
+    });
+
+    if (mode === "REPLACE") {
+      setTransferStagingItems(converted);
+    } else if (mode === "MERGE") {
+      setTransferStagingItems((prev) => {
+        const merged = [...prev];
+        converted.forEach((newItem) => {
+          const existing = merged.find(
+            (m) => m.product_id === newItem.product_id && m.batch_no === newItem.batch_no
+          );
+          if (existing) {
+            existing.quantity += newItem.quantity;
+          } else {
+            merged.push(newItem);
+          }
+        });
+        return merged;
+      });
+    } else {
+      // APPEND
+      setTransferStagingItems((prev) => [...prev, ...converted]);
+    }
+
+    onNotification?.(
+      "Items Staged",
+      `Staged ${converted.length} line(s) for Stock Transfer Order.`,
+      "success"
+    );
+  };
+
+  // Add single item into staged list
+  const handleAddSingleItemToTransfer = () => {
+    if (!transferProductId || !transferBatchNo || transferQty <= 0) {
+      onNotification?.("Validation Error", "Please provide product, batch, and positive quantity.", "error");
+      return;
+    }
+    setTransferStagingItems((prev) => [
+      ...prev,
+      {
+        id: `sto-single-${Date.now()}`,
+        product_id: transferProductId,
+        batch_no: transferBatchNo,
+        quantity: transferQty,
+      },
+    ]);
+    setTransferProductId("");
+    setTransferBatchNo("");
+    setTransferQty(1);
+    onNotification?.("Item Added", "Item added to transfer staging list.", "success");
+  };
+
   // Handle Transfer Creation
   const handleCreateTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,9 +288,20 @@ export const WmsStudioTab: React.FC<{
       onNotification?.("Validation Error", "Source and destination warehouses must be different.", "error");
       return;
     }
-    if (!transferProductId || !transferBatchNo || transferQty <= 0) {
-      onNotification?.("Validation Error", "Please provide product, batch, and positive quantity.", "error");
-      return;
+
+    let itemsToSubmit: StockTransferItem[] = [...transferStagingItems];
+    if (itemsToSubmit.length === 0) {
+      if (!transferProductId || !transferBatchNo || transferQty <= 0) {
+        onNotification?.("Validation Error", "Please add items to the transfer or import via Fast Import.", "error");
+        return;
+      }
+      itemsToSubmit = [
+        {
+          product_id: transferProductId,
+          batch_no: transferBatchNo,
+          quantity: transferQty,
+        },
+      ];
     }
 
     try {
@@ -235,16 +314,23 @@ export const WmsStudioTab: React.FC<{
           dest_warehouse_id: destWh,
           transporter_name: transporter || "Internal Fleet",
           vehicle_number: vehicleNo || "MH-04-TR-1000",
-          items: [
-            {
-              product_id: transferProductId,
-              batch_no: transferBatchNo,
-              quantity: transferQty,
-            },
-          ],
+          items: itemsToSubmit.map((it) => ({
+            product_id: it.product_id,
+            batch_no: it.batch_no,
+            quantity: it.quantity,
+            unit_cost: it.unit_cost || 0,
+          })),
         }),
       });
-      onNotification?.("Transfer Created", "Stock Transfer Order generated in DRAFT state.", "success");
+      onNotification?.(
+        "Transfer Created",
+        `Stock Transfer Order with ${itemsToSubmit.length} line(s) generated in DRAFT state.`,
+        "success"
+      );
+      setTransferStagingItems([]);
+      setTransferProductId("");
+      setTransferBatchNo("");
+      setTransferQty(1);
       fetchWmsData();
     } catch (err: any) {
       onNotification?.("Transfer Error", err.message || "Failed creating transfer", "error");
@@ -688,9 +774,20 @@ export const WmsStudioTab: React.FC<{
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Create Transfer Form */}
             <div className="bg-theme-surface-1 p-5 rounded-xl border border-theme-divider h-fit space-y-4">
-              <div className="flex items-center space-x-2 border-b border-theme-divider pb-3">
-                <ArrowRightLeft className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-sm font-bold text-theme-text-primary">Initiate Stock Transfer (STO)</h3>
+              <div className="flex items-center justify-between border-b border-theme-divider pb-3">
+                <div className="flex items-center space-x-2">
+                  <ArrowRightLeft className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-sm font-bold text-theme-text-primary">Initiate Stock Transfer (STO)</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsGlobalTransferImportOpen(true)}
+                  className="px-2.5 py-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Import Transfer Lines from Excel, PDT, or Scanner"
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                  <span>Fast Import</span>
+                </button>
               </div>
 
               <form onSubmit={handleCreateTransfer} className="space-y-3.5">
@@ -769,11 +866,58 @@ export const WmsStudioTab: React.FC<{
                   </div>
                 </div>
 
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddSingleItemToTransfer}
+                    className="flex-1 py-1.5 px-3 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    + Add Item to List
+                  </button>
+                </div>
+
+                {transferStagingItems.length > 0 && (
+                  <div className="space-y-2 border border-theme-divider/70 rounded-xl p-3 bg-theme-surface-2/40">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-theme-text-primary uppercase tracking-wider text-[10px]">
+                        Staged Items ({transferStagingItems.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setTransferStagingItems([])}
+                        className="text-[11px] text-rose-400 hover:underline cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto divide-y divide-theme-divider/40 text-xs font-mono">
+                      {transferStagingItems.map((item, idx) => (
+                        <div key={idx} className="py-1.5 flex items-center justify-between text-xs">
+                          <div className="truncate flex-1 pr-2">
+                            <span className="text-theme-body font-semibold">{item.product_id}</span>
+                            <span className="text-theme-muted text-[10px] ml-1.5">({item.batch_no})</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-emerald-400">{item.quantity} units</span>
+                            <button
+                              type="button"
+                              onClick={() => setTransferStagingItems((prev) => prev.filter((_, i) => i !== idx))}
+                              className="text-rose-400 hover:text-rose-300 p-0.5 cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   className="w-full mt-2 py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
                 >
-                  Create Transfer Order (STO)
+                  Create Transfer Order (STO) {transferStagingItems.length > 0 ? `(${transferStagingItems.length} Items)` : ""}
                 </button>
               </form>
             </div>
@@ -1542,6 +1686,15 @@ export const WmsStudioTab: React.FC<{
             </div>
           </div>
         )}
+
+        <GlobalGridImportModal
+          isOpen={isGlobalTransferImportOpen}
+          onClose={() => setIsGlobalTransferImportOpen(false)}
+          profile={GRID_PROFILES.STOCK_MOVEMENT}
+          title="Stock Transfer Items Fast Import & Resolution"
+          existingRowCount={transferStagingItems.length}
+          onCommit={handleGlobalTransferImportCommit}
+        />
       </div>
     </div>
   );
