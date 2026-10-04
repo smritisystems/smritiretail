@@ -63,5 +63,7 @@ from . import (
     loyalty,
     lifecycle,
     tds_compliance,
+    gift_cards,
+    einvoice,
 )
 

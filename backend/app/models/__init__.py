@@ -278,3 +278,7 @@ from .kpi_definition import KPIDefinition
 from .transaction_integrity import TransactionIdempotencyRecord
 
 
+
+# Gift Cards, Gift Vouchers & E-Invoice Studio (v3.119.0 - 3.120.0, 2026-10-04)
+from .gift_cards import GiftCard, GiftCardTransaction, GiftVoucher
+from .einvoice import EInvoice, EInvoiceBatch
