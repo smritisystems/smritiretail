@@ -4,18 +4,35 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.122.0
+ * Version      : 3.122.1
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-04
+ * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.122.1 (2026-10-04):
+ *   - Replaced AutoPOEngine mock (ITEMS[]) with live apiFetchV1 calls:
+ *     GET /purchase/reorder-suggestions, POST /purchase/reorder-suggestions/convert.
  */
 
-import React, { useState, useMemo } from "react";
-import AutoPOEngine, {
-  StockItem, ReorderBreach, AutoPurchaseOrder, AutoPOStatus, BreachSeverity,
-} from "../../utils/autoPOEngine";
+import React, { useState, useEffect, useCallback } from "react";
+import { apiFetchV1 } from "../../lib/apiFetchV1";
+
+interface ReorderSuggestion {
+  suggestion_id?: string;
+  sku: string;
+  product_name: string;
+  branch_code?: string;
+  supplier_id?: string;
+  supplier_name?: string;
+  current_stock: number;
+  reorder_point: number;
+  reorder_qty: number;
+  unit_cost?: number;
+  lead_time_days?: number;
+  severity?: string;
+}
 
 interface AutoPOModalProps {
   isOpen: boolean;
@@ -23,204 +40,136 @@ interface AutoPOModalProps {
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info") => void;
 }
 
-const STATUS_STYLE: Record<AutoPOStatus, string> = {
-  DRAFT:        "text-slate-300 bg-slate-700/20 border-slate-600/30",
-  SUBMITTED:    "text-amber-300 bg-amber-500/15 border-amber-500/25",
-  ACKNOWLEDGED: "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
-  CANCELLED:    "text-rose-300 bg-rose-500/15 border-rose-500/25",
-};
-
-const SEVERITY_STYLE: Record<BreachSeverity, string> = {
+const SEVERITY_STYLE: Record<string, string> = {
   CRITICAL: "text-rose-400 bg-rose-500/10 border-rose-500/20",
   LOW:      "text-amber-400 bg-amber-500/10 border-amber-500/20",
   NORMAL:   "text-sky-400 bg-sky-500/10 border-sky-500/20",
 };
 
-const fmt  = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-
-const ITEMS: StockItem[] = [
-  { sku: "MED-PARA-500",  productName: "Paracetamol 500mg",  branchCode: "BR-MUM-01", supplierId: "SUP-001", supplierName: "PharmaCo",    currentStock: 0,   reorderPoint: 50,  reorderQty: 200, supplierMOQ: 100, unitCost: 12,  leadTimeDays: 3 },
-  { sku: "MED-AMOX-250",  productName: "Amoxicillin 250mg",  branchCode: "BR-MUM-01", supplierId: "SUP-001", supplierName: "PharmaCo",    currentStock: 20,  reorderPoint: 50,  reorderQty: 100, supplierMOQ: 50,  unitCost: 28,  leadTimeDays: 3 },
-  { sku: "FAB-DENIM-BLU", productName: "Denim Blue 1m",      branchCode: "BR-MUM-01", supplierId: "SUP-002", supplierName: "FabricWorld", currentStock: 80,  reorderPoint: 100, reorderQty: 300, supplierMOQ: 200, unitCost: 180, leadTimeDays: 7 },
-  { sku: "FAB-SILK-RED",  productName: "Silk Red 1m",        branchCode: "BR-MUM-01", supplierId: "SUP-002", supplierName: "FabricWorld", currentStock: 5,   reorderPoint: 40,  reorderQty: 100, supplierMOQ: 50,  unitCost: 450, leadTimeDays: 7 },
-  { sku: "ACC-BELT-BRN",  productName: "Leather Belt Brown", branchCode: "BR-MUM-01", supplierId: "SUP-003", supplierName: "AccessoCo",  currentStock: 200, reorderPoint: 50,  reorderQty: 150, supplierMOQ: 100, unitCost: 320, leadTimeDays: 5 },  // No breach
-];
+const fmt = (n: number) => `\u20b9${(n ?? 0).toLocaleString("en-IN")}`;
 
 export const AutoPOModal: React.FC<AutoPOModalProps> = ({ isOpen, onClose, onNotification }) => {
-  const breaches = useMemo(() => AutoPOEngine.detectBreaches(ITEMS), []);
-  const [pos, setPOs] = useState<AutoPurchaseOrder[]>(() => AutoPOEngine.consolidatePOs(breaches));
-  const [selectedPOId, setSelectedPOId]   = useState(pos[0]?.poId ?? "");
-  const [activeTab, setActiveTab]         = useState<"LINES" | "BREACHES">("BREACHES");
+  const [breaches, setBreaches]       = useState<ReorderSuggestion[]>([]);
+  const [selected, setSelected]       = useState<ReorderSuggestion[]>([]);
+  const [loading, setLoading]         = useState(false);
+  const [converting, setConverting]   = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [filterSupplier, setFilterSupplier] = useState("ALL");
 
-  const selected = pos.find((p) => p.poId === selectedPOId);
-  const summary  = useMemo(() => AutoPOEngine.poSummary(pos), [pos]);
+  const load = useCallback(async () => {
+    if (!isOpen) return;
+    setLoading(true); setError(null);
+    try {
+      const data = await apiFetchV1<ReorderSuggestion[]>("/purchase/reorder-suggestions");
+      setBreaches(data ?? []);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load reorder suggestions.");
+      onNotification?.("Error", "Could not load stock breach data.", "error");
+    } finally { setLoading(false); }
+  }, [isOpen]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const suppliers = Array.from(new Set(breaches.map((b) => b.supplier_name).filter(Boolean)));
+  const displayed = filterSupplier === "ALL" ? breaches : breaches.filter((b) => b.supplier_name === filterSupplier);
+
+  const toggleSelect = (sku: string) => {
+    setSelected((prev) =>
+      prev.find((s) => s.sku === sku) ? prev.filter((s) => s.sku !== sku) : [...prev, breaches.find((b) => b.sku === sku)!]
+    );
+  };
+
+  const handleConvert = async () => {
+    if (!selected.length) { onNotification?.("No Items", "Select at least one breach to convert.", "info"); return; }
+    setConverting(true);
+    try {
+      const result = await apiFetchV1("/purchase/reorder-suggestions/convert", {
+        method: "POST",
+        body: JSON.stringify({ skus: selected.map((s) => s.sku) }),
+      });
+      onNotification?.("PO Created", `Purchase order raised for ${selected.length} item(s).`, "success");
+      setSelected([]);
+      await load();
+    } catch (e: any) {
+      onNotification?.("Error", e?.message ?? "PO conversion failed.", "error");
+    } finally { setConverting(false); }
+  };
+
+  const totalValue = selected.reduce((s, b) => s + (b.unit_cost ?? 0) * b.reorder_qty, 0);
 
   if (!isOpen) return null;
 
-  const update = (updated: AutoPurchaseOrder) =>
-    setPOs((prev) => prev.map((p) => p.poId === updated.poId ? updated : p));
-
-  const handleSubmit = () => {
-    if (!selected) return;
-    try { update(AutoPOEngine.submit(selected, "PURCHASE-MGR")); onNotification?.("Submitted", selected.poNo, "info"); }
-    catch (e: any) { onNotification?.("Error", e.message, "error"); }
-  };
-
-  const handleAck = () => {
-    if (!selected) return;
-    try { update(AutoPOEngine.acknowledge(selected)); onNotification?.("Acknowledged", selected.poNo, "success"); }
-    catch (e: any) { onNotification?.("Error", e.message, "error"); }
-  };
-
-  const handleCancel = () => {
-    if (!selected) return;
-    try { update(AutoPOEngine.cancel(selected, "Budget hold")); onNotification?.("Cancelled", selected.poNo, "error"); }
-    catch (e: any) { onNotification?.("Error", e.message, "error"); }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="flex flex-col w-full max-w-5xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
+      <div className="flex flex-col w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-lime-500/10 border border-lime-500/20 flex items-center justify-center text-2xl">ðŸ¤–</div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-amber-400 text-2xl">inventory_2</span>
+            </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Purchase Order Auto-Generation Engine</h2>
-              <p className="text-xs text-slate-400">Reorder Breach Detection · MOQ Enforcement · PO Consolidation</p>
+              <h2 className="text-base font-bold text-slate-100">Auto Purchase Order</h2>
+              <p className="text-xs text-slate-400">Stock breach detection - automatic PO generation</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {(["BREACHES", "LINES"] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === tab ? "bg-lime-500/20 text-lime-300 border border-lime-500/30" : "text-slate-400 hover:text-slate-200"}`}>
-                {tab === "BREACHES" ? `Breaches (${breaches.length})` : "PO Lines"}
-              </button>
-            ))}
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 ml-2"><span className="material-symbols-outlined text-lg">close</span></button>
-          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
         </div>
 
-        {/* Summary strip */}
-        <div className="flex items-center gap-5 px-6 py-2.5 border-b border-slate-800 bg-slate-950/40 text-xs overflow-x-auto">
-          {[
-            { label: "Auto-POs",   value: summary.totalPOs },
-            { label: "Total Value",value: fmt(summary.totalValue), style: "text-lime-400 font-black" },
-            { label: "Total Qty",  value: summary.totalQty },
-            ...Object.entries(summary.byStatus).map(([s, c]) => ({ label: s, value: c, style: STATUS_STYLE[s as AutoPOStatus].split(" ")[0] })),
-          ].map((m) => (
-            <div key={m.label} className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-slate-600">{m.label}:</span>
-              <span className={`font-mono font-bold ${m.style ?? "text-slate-300"}`}>{m.value}</span>
+        {error && <div className="px-6 py-2 bg-rose-950/40 border-b border-rose-800/40 text-xs text-rose-300">{error}</div>}
+
+        <div className="flex items-center gap-4 px-6 py-3 border-b border-slate-800 bg-slate-950/30 text-xs">
+          <select value={filterSupplier} onChange={(e) => setFilterSupplier(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500/60">
+            <option value="ALL">All Suppliers</option>
+            {suppliers.map((s) => <option key={s!} value={s!}>{s}</option>)}
+          </select>
+          <span className="text-slate-500">Breaches: <strong className="text-slate-200">{displayed.length}</strong></span>
+          <span className="text-slate-500">Selected: <strong className="text-amber-400">{selected.length}</strong></span>
+          {loading && <span className="text-slate-500 animate-pulse ml-auto">Loading...</span>}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {displayed.length === 0 && !loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-500 gap-2">
+              <span className="material-symbols-outlined text-4xl">check_circle</span>
+              <p className="text-sm">No stock breaches detected.</p>
             </div>
-          ))}
-        </div>
-
-        <div className="flex flex-1 overflow-hidden">
-          {/* PO sidebar */}
-          <div className="w-52 border-r border-slate-800 overflow-y-auto bg-slate-950/30 p-3 space-y-2">
-            {pos.map((po) => (
-              <button key={po.poId} onClick={() => { setSelectedPOId(po.poId); setActiveTab("LINES"); }}
-                className={`w-full text-left p-3 rounded-xl border transition-all ${selectedPOId === po.poId ? "bg-lime-950/20 border-lime-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
-                <p className="text-[10px] font-mono font-bold text-slate-200 truncate">{po.poNo}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{po.supplierName}</p>
-                <p className="text-xs font-black font-mono text-lime-400 mt-1">{fmt(po.totalValue)}</p>
-                <div className="flex gap-1 mt-1.5 flex-wrap">
-                  <span className={`text-[8px] font-bold px-1 py-0.5 rounded-full border ${STATUS_STYLE[po.status]}`}>{po.status}</span>
-                  <span className="text-[8px] text-slate-500">{po.totalLines} SKU · {po.totalQty} units</span>
+          ) : displayed.map((b) => {
+            const isSelected = !!selected.find((s) => s.sku === b.sku);
+            const sev = b.severity ?? (b.current_stock === 0 ? "CRITICAL" : "NORMAL");
+            return (
+              <div key={b.sku} onClick={() => toggleSelect(b.sku)}
+                className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${isSelected ? "border-amber-500/40 bg-amber-950/10" : "border-slate-700/50 bg-slate-800/20 hover:border-slate-600"}`}>
+                <input type="checkbox" checked={isSelected} readOnly className="accent-amber-500" />
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-slate-100">{b.product_name}</p>
+                  <p className="text-[10px] text-slate-500">{b.sku} - {b.supplier_name ?? "—"}</p>
                 </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            {activeTab === "BREACHES" && (
-              <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Reorder Point Breaches — {breaches.length} item(s)</p>
-                {breaches.map((b) => (
-                  <div key={b.sku} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${b.severity === "CRITICAL" ? "bg-rose-950/15 border-rose-500/25" : b.severity === "LOW" ? "bg-amber-950/10 border-amber-500/20" : "bg-sky-950/10 border-sky-500/20"}`}>
-                    <div>
-                      <p className="text-xs font-bold text-slate-200">{b.productName}</p>
-                      <p className="text-[10px] text-slate-500">{b.sku} · {b.supplierName} · lead {b.leadTimeDays}d</p>
-                    </div>
-                    <div className="flex items-center gap-4 text-right">
-                      <div>
-                        <p className="text-[9px] text-slate-500">Stock / ROP</p>
-                        <p className="text-xs font-mono font-bold text-slate-300">{b.currentStock} / {b.reorderPoint}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-slate-500">Order Qty</p>
-                        <p className="text-xs font-mono font-bold text-lime-400">{b.suggestedQty}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-slate-500">Line Total</p>
-                        <p className="text-xs font-mono font-bold text-emerald-400">{fmt(b.lineTotal)}</p>
-                      </div>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${SEVERITY_STYLE[b.severity]}`}>{b.severity}</span>
-                    </div>
-                  </div>
-                ))}
+                <div className="grid grid-cols-4 gap-4 text-xs text-right">
+                  <div><p className="font-mono text-rose-400 font-bold">{b.current_stock}</p><p className="text-slate-600">Current</p></div>
+                  <div><p className="font-mono text-slate-300">{b.reorder_point}</p><p className="text-slate-600">Reorder Pt</p></div>
+                  <div><p className="font-mono text-amber-400 font-bold">{b.reorder_qty}</p><p className="text-slate-600">Order Qty</p></div>
+                  <div><p className="font-mono text-teal-400">{fmt((b.unit_cost ?? 0) * b.reorder_qty)}</p><p className="text-slate-600">Value</p></div>
+                </div>
+                <span className={`text-[9px] font-bold px-2 py-1 rounded-full border ${SEVERITY_STYLE[sev] ?? ""}`}>{sev}</span>
               </div>
-            )}
-
-            {activeTab === "LINES" && selected && (
-              <>
-                <div className="flex items-start justify-between flex-wrap gap-3">
-                  <div>
-                    <p className="text-lg font-bold font-mono text-slate-100">{selected.poNo}</p>
-                    <p className="text-xs text-slate-400">{selected.supplierName} · {selected.branchCode}</p>
-                    {selected.expectedDelivery && <p className="text-[10px] text-slate-500">Expected: {selected.expectedDelivery}</p>}
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[selected.status]}`}>{selected.status}</span>
-                    {selected.status === "DRAFT"     && <button onClick={handleSubmit} className="px-3 py-1.5 text-xs font-bold text-white bg-amber-700 hover:bg-amber-600 rounded-xl">Submit to Supplier</button>}
-                    {selected.status === "SUBMITTED" && <button onClick={handleAck}   className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 rounded-xl">Mark Acknowledged</button>}
-                    {["DRAFT","SUBMITTED"].includes(selected.status) && <button onClick={handleCancel} className="px-3 py-1.5 text-xs font-bold text-rose-300 border border-rose-500/30 hover:bg-rose-950/30 rounded-xl">Cancel</button>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "Total SKUs",  value: selected.totalLines, color: "text-slate-300" },
-                    { label: "Total Qty",   value: selected.totalQty,   color: "text-lime-400 font-black" },
-                    { label: "Total Value", value: fmt(selected.totalValue), color: "text-emerald-400 font-black" },
-                  ].map((m) => (
-                    <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-3 text-center">
-                      <div className={`font-bold font-mono ${m.color}`}>{m.value}</div>
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">{m.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden text-xs">
-                  <table className="w-full text-left border-collapse">
-                    <thead><tr className="text-slate-500 uppercase text-[10px] border-b border-slate-800 bg-slate-950/60">
-                      <th className="py-2 px-3">Product</th>
-                      <th className="py-2 px-3 text-right">Stock / ROP</th>
-                      <th className="py-2 px-3 text-right">Order Qty</th>
-                      <th className="py-2 px-3 text-right">Unit Cost</th>
-                      <th className="py-2 px-3 text-right">Line Total</th>
-                    </tr></thead>
-                    <tbody className="divide-y divide-slate-800/40 font-mono">
-                      {selected.lines.map((l) => (
-                        <tr key={l.lineId}>
-                          <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku}</p></td>
-                          <td className="py-2 px-3 text-right text-slate-500">{l.currentStock} / {l.reorderPoint}</td>
-                          <td className="py-2 px-3 text-right font-bold text-lime-400">{l.orderedQty}</td>
-                          <td className="py-2 px-3 text-right text-slate-400">{fmt(l.unitCost)}</td>
-                          <td className="py-2 px-3 text-right font-bold text-emerald-400">{fmt(l.lineTotal)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
+            );
+          })}
         </div>
 
-        <div className="flex items-center justify-end px-6 py-3 border-t border-slate-800 bg-slate-950/80">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">Close</button>
+        <div className="flex items-center justify-between px-6 py-3 border-t border-slate-800 bg-slate-950/80">
+          <div className="text-xs text-slate-400">
+            Selected value: <span className="font-mono font-bold text-amber-400">{fmt(totalValue)}</span>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">Cancel</button>
+            <button onClick={handleConvert} disabled={!selected.length || converting}
+              className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+              {converting ? "Creating PO..." : `Convert to PO (${selected.length})`}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -228,4 +177,3 @@ export const AutoPOModal: React.FC<AutoPOModalProps> = ({ isOpen, onClose, onNot
 };
 
 export default AutoPOModal;
-
