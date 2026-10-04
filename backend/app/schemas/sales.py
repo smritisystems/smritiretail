@@ -106,7 +106,10 @@ class SalesInvoiceBase(BaseModel):
     delivery_location_snapshot: Optional[dict] = Field(None,              validation_alias=AliasChoices("delivery_location_snapshot", "deliveryLocationSnapshot"))
     # Transaction-level Place of Supply state code (e.g. '27', '06') — stored explicitly
     # so it remains correct even when customer GSTIN differs from delivery GSTIN.
-    place_of_supply_code:     Optional[str]  = Field(None, max_length=2,   validation_alias=AliasChoices("place_of_supply_code",     "placeOfSupplyCode"))
+    # max_length=20: accommodates canonical 2-char GST state code ('27') and legacy
+    # 'NN-StateName' display format ('18-Assam') present in existing invoice records.
+    # ORM column is String(50). Canonical writes should use 2-char numeric code only.
+    place_of_supply_code:     Optional[str]  = Field(None, max_length=20,  validation_alias=AliasChoices("place_of_supply_code",     "placeOfSupplyCode"))
     po_reference:             Optional[str]  = Field(None, max_length=100, validation_alias=AliasChoices("po_reference",            "poReference", "po_number", "poNumber"))
     customer_po_id:           Optional[str]  = Field(None, max_length=50, validation_alias=AliasChoices("customer_po_id", "customerPoId"))
     customer_po_number_snapshot: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("customer_po_number_snapshot", "customerPoNumberSnapshot"))
