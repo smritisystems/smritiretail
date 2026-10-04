@@ -572,3 +572,177 @@ async def test_unauthenticated_cannot_list_roles():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         res = await client.get("/api/v1/roles/")
     assert res.status_code == 401, f"Expected 401 for unauthenticated list, got {res.status_code}"
+
+# ===========================================================================
+# Phase 1F — SEC-RBAC-001 Security Regression Tests (Scenarios N–R)
+# ===========================================================================
+
+def _make_wildcard_custom_role(role_id: str, company_id: str = COMP_A) -> str:
+    """Insert a custom (non-system) role with ["*"] permissions for test use."""
+    _ctrl_exec("""
+        INSERT INTO roles (id, uuid, name, description, permissions_json, is_system,
+                           company_id, is_active, is_deleted, created_at, modified_at)
+        VALUES (%s, %s, %s, 'P1F wildcard test', '["*"]', false, %s, true, false, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET is_deleted = false, permissions_json = '["*"]',
+                                        company_id = %s;
+    """, (role_id, str(uuid.uuid4()), f"P1F-Wild-{role_id[:8]}", company_id, company_id))
+    return role_id
+
+
+def _bind_user_role_id(user_id: str, role_id: str):
+    """Directly set role_id on a user."""
+    _ctrl_exec("UPDATE users SET role_id = %s WHERE id = %s;", (role_id, user_id))
+
+
+def _unbind_user_role_id(user_id: str, original_role_id: str):
+    """Restore user's original role_id after a test."""
+    _ctrl_exec("UPDATE users SET role_id = %s WHERE id = %s;", (original_role_id, user_id))
+
+
+# ---------------------------------------------------------------------------
+# N. MANAGER bound to wildcard role_id is REJECTED by require_role(SYSADMIN)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_N_manager_wildcard_role_rejected_on_sysadmin_endpoint(manager_a_token):
+    """
+    Phase 1F SEC-RBAC-001 Scenario N:
+    A MANAGER bound to a custom wildcard role must NOT be admitted to a
+    SYSADMIN-only endpoint (GET /api/v1/companies).
+    """
+    wildcard_rid = "p1f-test-n-wildcard-role"
+    _make_wildcard_custom_role(wildcard_rid, COMP_A)
+    original_rid = "role-manager"
+    _bind_user_role_id("usr-manager", wildcard_rid)
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            res = await client.get(
+                "/api/v1/control-center/companies",
+                headers={"Authorization": f"Bearer {manager_a_token}"}
+            )
+        assert res.status_code == 403, (
+            f"SEC-RBAC-001 STILL OPEN: MANAGER with wildcard role_id admitted to "
+            f"require_role(SYSADMIN). Expected 403, got {res.status_code}: {res.text}"
+        )
+    finally:
+        _unbind_user_role_id("usr-manager", original_rid)
+        _delete_test_role(wildcard_rid)
+
+
+# ---------------------------------------------------------------------------
+# O. SYSADMIN bound to wildcard role_id is still ADMITTED
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_O_sysadmin_wildcard_role_still_admitted(sysadmin_token):
+    """
+    Phase 1F SEC-RBAC-001 Scenario O:
+    SYSADMIN user bound to wildcard role_id must still be admitted.
+    Phase 1F fix must not regress SYSADMIN access.
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get(
+            "/api/v1/control-center/companies",
+            headers={"Authorization": f"Bearer {sysadmin_token}"}
+        )
+    assert res.status_code == 200, (
+        f"SYSADMIN regression: Expected 200, got {res.status_code}: {res.text}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# P. MANAGER PUT /roles/{id} with ["*"] ? 403
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_P_manager_cannot_write_wildcard_to_role(manager_a_token):
+    """
+    Phase 1F SEC-RBAC-001 Scenario P:
+    MANAGER updating a custom role with permissions=["*"] must receive 403.
+    """
+    rid = "p1f-test-p-custom-role"
+    _insert_test_role(rid, "P1F-Test-P-Role", COMP_A, is_system=False)
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            res = await client.put(
+                f"/api/v1/roles/{rid}",
+                json={"permissions": ["*"]},
+                headers={"Authorization": f"Bearer {manager_a_token}"}
+            )
+        assert res.status_code == 403, (
+            f"SEC-RBAC-001 STILL OPEN: MANAGER wrote ['*'] to a role. "
+            f"Expected 403, got {res.status_code}: {res.text}"
+        )
+        assert "SMRITI-AUTH-003" in res.json().get("detail", ""), (
+            f"Expected SMRITI-AUTH-003, got: {res.json()}"
+        )
+    finally:
+        _delete_test_role(rid)
+
+
+# ---------------------------------------------------------------------------
+# Q. MANAGER PUT /roles/{id} with scoped perms ? 200
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_Q_manager_can_write_scoped_perms_to_role(manager_a_token):
+    """
+    Phase 1F SEC-RBAC-001 Scenario Q:
+    MANAGER updating a custom role with non-wildcard permissions must succeed (200).
+    """
+    rid = "p1f-test-q-custom-role"
+    _insert_test_role(rid, "P1F-Test-Q-Role", COMP_A, is_system=False)
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            res = await client.put(
+                f"/api/v1/roles/{rid}",
+                json={"permissions": ["inventory.view", "sales_billing.NEW"]},
+                headers={"Authorization": f"Bearer {manager_a_token}"}
+            )
+        assert res.status_code == 200, (
+            f"MANAGER scoped-perm regression: Expected 200, got {res.status_code}: {res.text}"
+        )
+        data = res.json()
+        assert "*" not in data.get("permissions", [])
+        assert "inventory.view" in data.get("permissions", [])
+    finally:
+        _delete_test_role(rid)
+
+
+# ---------------------------------------------------------------------------
+# R. SYSADMIN PUT /roles/{id} with ["*"] ? 200 (unrestricted)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_R_sysadmin_can_write_wildcard_to_role():
+    """
+    Phase 1F SEC-RBAC-001 Scenario R:
+    SYSADMIN must still be able to set permissions=["*"] on any role.
+    """
+    sysadmin_comp_a_token = create_access_token(data={
+        "sub": "usr-sysadmin",
+        "username": "usr_sysadmin",
+        "role": UserRole.SYSADMIN.value,
+        "company_id": COMP_A,
+    })
+    rid = "p1f-test-r-custom-role"
+    _insert_test_role(rid, "P1F-Test-R-Role", COMP_A, is_system=False)
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            res = await client.put(
+                f"/api/v1/roles/{rid}",
+                json={"permissions": ["*"]},
+                headers={"Authorization": f"Bearer {sysadmin_comp_a_token}"}
+            )
+        assert res.status_code == 200, (
+            f"SYSADMIN wildcard write regression: Expected 200, got {res.status_code}: {res.text}"
+        )
+        data = res.json()
+        assert "*" in data.get("permissions", [])
+    finally:
+        _delete_test_role(rid)
