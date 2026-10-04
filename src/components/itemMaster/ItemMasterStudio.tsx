@@ -77,6 +77,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   const [previewResult, setPreviewResult] = useState<Record<string, any> | null>(null);
   const [previewErrors, setPreviewErrors] = useState<string[]>([]);
   const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
+  const [previewReport, setPreviewReport] = useState<any[]>([]); // per-row reconciliation report
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const [hasHeaderRow, setHasHeaderRow] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -434,7 +435,13 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         },
       });
 
-      setPreviewResult(previewResp);
+      setPreviewResult(previewResp?.summary ?? previewResp);
+
+      // Store per-row reconciliation report for the validation panel
+      const rowReport: any[] = Array.isArray(previewResp?.reconciliation_report)
+        ? previewResp.reconciliation_report
+        : [];
+      setPreviewReport(rowReport);
 
       // Collect all blocking errors from preview row results
       const blockingErrors: string[] = [];
@@ -489,6 +496,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         setRawText("");
         setPreviewResult(null);
         setPreviewWarnings([]);
+        setPreviewReport([]);
       } else {
         onNotification?.(
           "Import Failed",
@@ -945,6 +953,138 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
 
         </div>
       </div>
+
+      {/* ── Validation Report Panel ─────────────────────────────────────────── */}
+      {previewReport.length > 0 && (
+        <div className="mt-4 border border-[#c6c6cd] dark:border-[#45464d] rounded-lg overflow-hidden bg-white dark:bg-[#191c1e] shadow-sm">
+          {/* Panel Header */}
+          <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-4 py-2.5 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between">
+            <h3 className="text-xs font-bold text-[#191c1e] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[#515f74] text-base">fact_check</span>
+              Pre-Import Validation Report
+              <span className="font-normal text-[#515f74] normal-case tracking-normal">
+                — {previewReport.length} row{previewReport.length !== 1 ? 's' : ''} checked
+              </span>
+            </h3>
+            <div className="flex items-center gap-2 text-[11px]">
+              {(() => {
+                const blocked = previewReport.filter(r => r.action === 'BLOCK').length;
+                const dupes   = previewReport.filter(r => r.reconciliation_state === 'DUPLICATE_IN_FILE').length;
+                const skip    = previewReport.filter(r => r.action === 'SKIP').length;
+                const newRows = previewReport.filter(r => r.reconciliation_state === 'NEW').length;
+                const warned  = previewReport.filter(r => (r.warnings || []).length > 0 && r.action !== 'BLOCK').length;
+                return (
+                  <>
+                    {blocked > 0 && <span className="px-2 py-0.5 rounded bg-[#ffdad6] text-[#93000a] font-bold border border-[#ba1a1a]/30">{blocked} Blocked</span>}
+                    {dupes  > 0 && <span className="px-2 py-0.5 rounded bg-[#ffdad6] text-[#93000a] font-bold border border-[#ba1a1a]/30">{dupes} Duplicate</span>}
+                    {warned > 0 && <span className="px-2 py-0.5 rounded bg-[#fef08a] text-[#854d0e] font-bold border border-[#eab308]/40">{warned} Review Flag</span>}
+                    {skip   > 0 && <span className="px-2 py-0.5 rounded bg-[#e0e3e5] text-[#515f74] font-bold">{skip} Existing (Skip)</span>}
+                    {newRows> 0 && <span className="px-2 py-0.5 rounded bg-[#d1fae5] text-[#065f46] font-bold border border-[#10b981]/30">{newRows} New</span>}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Report Table */}
+          <div className="overflow-auto max-h-72">
+            <table className="w-full text-left border-collapse text-xs min-w-[640px]">
+              <thead className="sticky top-0 bg-[#f2f4f6] dark:bg-[#131b2e] z-10">
+                <tr className="border-b border-[#c6c6cd] dark:border-[#45464d]">
+                  <th className="px-3 py-2 font-bold text-[#515f74] w-10 text-center">#</th>
+                  <th className="px-3 py-2 font-bold text-[#515f74] w-28">Status</th>
+                  <th className="px-3 py-2 font-bold text-[#515f74] w-32">Action</th>
+                  <th className="px-3 py-2 font-bold text-[#515f74] w-36">Barcode / SKU</th>
+                  <th className="px-3 py-2 font-bold text-[#515f74]">Errors &amp; Warnings</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
+                {/* Sort: BLOCK first, then DUPLICATE, then WARN, then OK */}
+                {[...previewReport]
+                  .sort((a, b) => {
+                    const rank = (r: any) =>
+                      r.action === 'BLOCK' ? 0
+                      : r.reconciliation_state === 'DUPLICATE_IN_FILE' ? 1
+                      : (r.warnings || []).length > 0 ? 2
+                      : 3;
+                    return rank(a) - rank(b);
+                  })
+                  .map((row: any) => {
+                    const isBlocked = row.action === 'BLOCK';
+                    const isDupe    = row.reconciliation_state === 'DUPLICATE_IN_FILE';
+                    const isNew     = row.reconciliation_state === 'NEW';
+                    const isSkip    = row.action === 'SKIP';
+                    const hasWarns  = (row.warnings || []).length > 0;
+
+                    const rowBg = isBlocked || isDupe
+                      ? 'bg-[#fff8f7] dark:bg-[#93000a]/10'
+                      : hasWarns && !isBlocked
+                      ? 'bg-[#fefce8] dark:bg-[#713f12]/10'
+                      : 'hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133]';
+
+                    const statusBadge = isDupe
+                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#ffdad6] text-[#93000a] border border-[#ba1a1a]/30">DUPLICATE</span>
+                      : isBlocked
+                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#ffdad6] text-[#93000a] border border-[#ba1a1a]/30">BLOCKED</span>
+                      : isNew
+                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#d1fae5] text-[#065f46] border border-[#10b981]/30">NEW</span>
+                      : isSkip
+                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#e0e3e5] text-[#515f74]">EXISTS</span>
+                      : <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#e0e3e5] text-[#515f74]">{row.status}</span>;
+
+                    const actionLabel: Record<string, string> = {
+                      BLOCK: '🚫 Fix required',
+                      SKIP: '⏭ Will skip (already exists)',
+                      CREATE_ITEM_AND_VARIANT: '✅ Create item + variant',
+                      ATTACH_VARIANT_TO_STYLE: '✅ Attach variant to style',
+                    };
+
+                    return (
+                      <tr key={row.row_number} className={`transition ${rowBg}`}>
+                        <td className="px-3 py-2 text-center font-mono font-bold text-[#515f74] border-r border-[#eceef0] dark:border-[#2d3133]">
+                          {row.row_number}
+                        </td>
+                        <td className="px-3 py-2 border-r border-[#eceef0] dark:border-[#2d3133]">
+                          {statusBadge}
+                        </td>
+                        <td className="px-3 py-2 border-r border-[#eceef0] dark:border-[#2d3133] text-[11px] text-[#515f74] dark:text-[#bec6e0]">
+                          {actionLabel[row.action] ?? row.action}
+                        </td>
+                        <td className="px-3 py-2 border-r border-[#eceef0] dark:border-[#2d3133] font-mono text-[11px] text-[#191c1e] dark:text-[#dae2fd]">
+                          <div>{row.barcode || <span className="text-[#ba1a1a] italic">No barcode</span>}</div>
+                          {row.sku && <div className="text-[#76777d] text-[10px]">{row.sku}</div>}
+                        </td>
+                        <td className="px-3 py-2">
+                          {/* Errors */}
+                          {(row.errors || []).map((e: string, i: number) => (
+                            <div key={i} className="flex items-start gap-1.5 text-[#93000a] dark:text-[#ffdad6] mb-0.5">
+                              <span className="material-symbols-outlined text-[13px] mt-px shrink-0">error</span>
+                              <span>{e}</span>
+                            </div>
+                          ))}
+                          {/* Warnings / Review Flags */}
+                          {(row.warnings || []).map((w: string, i: number) => (
+                            <div key={i} className="flex items-start gap-1.5 text-[#854d0e] dark:text-[#fef08a] mb-0.5 text-[11px]">
+                              <span className="material-symbols-outlined text-[13px] mt-px shrink-0">flag</span>
+                              <span>{w}</span>
+                            </div>
+                          ))}
+                          {/* All OK */}
+                          {(row.errors || []).length === 0 && (row.warnings || []).length === 0 && (
+                            <span className="text-[#059669] flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                              Ready to import
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
     </div>
   );
