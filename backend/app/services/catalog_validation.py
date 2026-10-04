@@ -813,10 +813,10 @@ class IM001ControlledFieldValidator:
                 # Fail-closed enforcement on unseeded dimensions
                 if not db_values:
                     if is_mandatory:
+                        field_label = std_field.replace("_", " ").title()
                         msg = (
-                            f"IM-001-UNSEEDED [BLOCK]: Controlled field '{std_field}' is mandatory but has no "
-                            f"approved values seeded in System Master Lookup (dimension='{dim_code}'). "
-                            f"Status is NOT_READY. Master type must be seeded before import/creation can proceed."
+                            f"{field_label} is a required field but no approved values are set up in "
+                            f"System Master Lookup yet. Please seed '{dim_code}' master values before importing."
                         )
                         errors.append(msg)
                         field_failures.append({
@@ -827,9 +827,9 @@ class IM001ControlledFieldValidator:
                             "source": "System Master Lookup (DB)",
                         })
                     else:
+                        field_label = std_field.replace("_", " ").title()
                         warnings.append(
-                            f"IM-001-UNSEEDED [Advisory]: Field '{std_field}' has no approved values "
-                            f"in master_values (dimension='{dim_code}')."
+                            f"{field_label} has no approved values in the master list yet — value '{clean_val}' could not be verified."
                         )
                     continue
 
@@ -865,18 +865,30 @@ class IM001ControlledFieldValidator:
                 })
 
                 if is_mandatory:
-                    msg = (
-                        f"IM-001 [BLOCK]: Controlled field '{std_field}' value '{clean_val}' not found in "
-                        f"System Master Lookup (DB)"
-                        + (f" (near-match to '{near_match}', needs architect decision)." if near_match else ".")
-                    )
+                    field_label = std_field.replace("_", " ").title()
+                    if near_match:
+                        msg = (
+                            f"{field_label} \u201c{clean_val}\u201d is not in the approved list. "
+                            f"Did you mean \u201c{near_match}\u201d? Fix the spelling in your file and re-validate."
+                        )
+                    else:
+                        msg = (
+                            f"{field_label} \u201c{clean_val}\u201d is not recognised. "
+                            f"Check the System Master Lookup for the correct approved value."
+                        )
                     errors.append(msg)
                 else:
-                    msg = (
-                        f"IM-001 [Advisory]: Non-mandatory field '{std_field}' value '{clean_val}' "
-                        f"not found in System Master Lookup (DB)"
-                        + (f" (near-match to '{near_match}', needs architect decision)." if near_match else ".")
-                    )
+                    field_label = std_field.replace("_", " ").title()
+                    if near_match:
+                        msg = (
+                            f"{field_label} \u201c{clean_val}\u201d is not in the approved list. "
+                            f"Possible match: \u201c{near_match}\u201d \u2014 verify and correct if needed."
+                        )
+                    else:
+                        msg = (
+                            f"{field_label} \u201c{clean_val}\u201d is not in the approved list. "
+                            f"Verify the value against System Master Lookup."
+                        )
                     warnings.append(msg)
 
             results.append({
