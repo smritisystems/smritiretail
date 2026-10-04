@@ -28,7 +28,41 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
-## [Unreleased] - 2026-10-04 — Item Master 422 HREP Validation (v1.1.0)
+## [6.69.0] - 2026-10-04 — Universal Import Pre-Import Validation & Interactive Fix Studio
+
+> **Branch:** `smritiNX` | **Area:** Item Master, Universal Import, Catalog Governance, Validation
+> **Walkthrough:** `docs/walkthrough/catalog/Catalog_Universal_Import_Interactive_Fix_Panel_v6.69.0.md`
+
+### Added
+- **`src/components/itemMaster/ItemMasterStudio.tsx`**:
+  - Interactive Fix Panel replacing static report table.
+  - Per-row collapsible fix cards for all blocked and conflict rows (`BLOCK`, `DUPLICATE_IN_FILE`, `UNSEEDED_FAIL_CLOSED`).
+  - Strikethrough visual styling in red for rejected values.
+  - One-click "Use [Suggestion]" pill button pre-filled with fuzzy Levenshtein near-match.
+  - Live dropdown populated with DB-approved values for manual override.
+  - "Skip this row" button to cleanly exclude problematic rows without editing spreadsheets.
+  - "Re-validate with fixes" header button merging user overrides and re-running preview dry-run.
+  - Applied fix confirmation chips before final import commit.
+  - Clean state reset on successful commit.
+- **`backend/app/services/catalog_validation.py`**:
+  - Human-friendly validation messages with "Did you mean “X”? Fix the spelling in your file and re-validate."
+  - Structured `field_failures` metadata list embedded in response dict alongside text messages.
+- **`backend/app/api/v1/universal_import.py`**:
+  - Preview endpoint embeds `approved_values_map` (live dimensions) and row-level `field_failures`.
+- **`backend/app/core/item_master_validation.py`**:
+  - Extended `FIELD_LABELS`, `_DYN_LABEL_MAP`, and `FIELD_SECTIONS` with footwear controlled dimensions (`heel_type`, `upper_material`, `outsole_material`, `purchase_class`, `collection_type`).
+  - Ingestion of structured `field_failures` in `build_dynamic_attr_422_response()` to prevent fallback degradation to `style_code`.
+  - Preservation of standard `SMRITI-VAL-002` error code, `IM-001` governance reference, and field-level failure metadata.
+
+### Fixed
+- **Statutory GST Slabs in `smritisys` Control Plane**: Restored active status (`is_deleted = false, active = true`) on standard retail GST slabs (12%, 28%) in `master_values`.
+- **3-Tier Cascade Import Test**: Updated mock category from unapproved `"LADIES FOOTWEAR"` to DB-approved `"Footwear"` in `test_universal_import_item_master.py`.
+
+### Tests
+- **Backend Full Battery:** 17/17 pytest passed (6/6 in `test_unified_im001_governance.py`, 11/11 in `test_universal_import_item_master.py`).
+- **Frontend Build:** `npm run build` → 3,687 modules transformed, 0 errors, built in 1m 1s.
+
+## [6.68.0] - 2026-10-04 — Item Master 422 HREP Validation (v1.1.0)
 
 > **Branch:** `smritiNX` | **Area:** Item Master, Inventory, Validation
 > **Walkthrough:** `docs/walkthrough/ItemMaster_422_HREP_Validation_v1.0.0.md`
