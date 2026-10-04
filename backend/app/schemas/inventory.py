@@ -11,6 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import re
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from decimal import Decimal
@@ -56,14 +57,34 @@ class ProductBase(BaseModel):
     outsole_material: Optional[str] = Field(None, max_length=100)
     collection_type: Optional[str] = Field(None, max_length=100)
 
-    @field_validator("code", "name", "barcode", mode="before")
+    @field_validator("code", mode="before")
     @classmethod
-    def validate_non_blank_string(cls, v: Any, info: ValidationInfo) -> str:
+    def validate_sku_code(cls, v: Any, info: ValidationInfo) -> str:
         if v is None:
-            raise ValueError(f"{info.field_name} is required and cannot be blank.")
+            raise ValueError("SKU / Item Code is required.")
         s = str(v).strip()
         if not s:
-            raise ValueError(f"{info.field_name} is required and cannot be blank or whitespace-only.")
+            raise ValueError("SKU / Item Code is required.")
+        return s
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_product_name(cls, v: Any, info: ValidationInfo) -> str:
+        if v is None:
+            raise ValueError("Product Name is required.")
+        s = str(v).strip()
+        if not s:
+            raise ValueError("Product Name is required.")
+        return s
+
+    @field_validator("barcode", mode="before")
+    @classmethod
+    def validate_barcode(cls, v: Any, info: ValidationInfo) -> str:
+        if v is None:
+            raise ValueError("Barcode is required.")
+        s = str(v).strip()
+        if not s:
+            raise ValueError("Barcode is required.")
         return s
 
     @field_validator("hsn_code", mode="before")
@@ -72,28 +93,40 @@ class ProductBase(BaseModel):
         if v is None:
             return "0000"
         s = str(v).strip()
-        return s if s else "0000"
+        if not s:
+            return "0000"
+        # Accept '0000' as a legacy placeholder; otherwise enforce 6 or 8 digits
+        if s != "0000" and not re.fullmatch(r"\d{6}|\d{8}", s):
+            raise ValueError("HSN Code must contain a valid 6 or 8 digit value.")
+        return s
 
     @field_validator("mrp", "price", "gst_percentage", mode="before")
     @classmethod
     def validate_required_numeric(cls, v: Any, info: ValidationInfo) -> Decimal:
+        field = info.field_name
+        label_map = {
+            "mrp":            "Retail Price (MRP)",
+            "price":          "Retail Price",
+            "gst_percentage": "GST %",
+        }
+        label = label_map.get(field, field)
         if v is None:
-            raise ValueError(f"{info.field_name} is required and cannot be blank.")
+            raise ValueError(f"{label} is required.")
         if isinstance(v, str):
             v_clean = v.strip()
             if not v_clean:
-                raise ValueError(f"{info.field_name} is required and cannot be blank.")
+                raise ValueError(f"{label} is required.")
             try:
                 dec = Decimal(v_clean)
             except Exception:
-                raise ValueError(f"{info.field_name} must be a valid number.")
+                raise ValueError(f"{label} must be a valid number.")
         else:
             try:
                 dec = Decimal(str(v))
             except Exception:
-                raise ValueError(f"{info.field_name} must be a valid number.")
+                raise ValueError(f"{label} must be a valid number.")
         if dec < 0:
-            raise ValueError(f"{info.field_name} cannot be negative.")
+            raise ValueError(f"{label} cannot be negative.")
         return dec
 
     @field_validator("buying_price", "cost_price", mode="before")

@@ -28,6 +28,13 @@ import {
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { fetchGovernedLookupOptions, LookupOption } from "../../services/itemMasterLookupGate.ts";
+import {
+  ItemMasterValidationError,
+  parseItemMaster422Response,
+  focusFirstError,
+  buildValidationSummary,
+  type NormalizedValidationResult,
+} from "../../services/itemMasterValidationMapper.ts";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -208,6 +215,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   // General submission & error state
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Structured per-field validation errors from backend 422
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [fieldErrorOrder, setFieldErrorOrder] = useState<string[]>([]);
+  const [validationSummary, setValidationSummary] = useState<string | null>(null);
+
+  /** Clear all validation state (on successful save or close). */
+  const clearValidationState = () => {
+    setFormError(null);
+    setFieldErrors({});
+    setFieldErrorOrder([]);
+    setValidationSummary(null);
+  };
+
+  /** Get inline error message for a form field (undefined = no error). */
+  const getFieldError = (fieldKey: string): string | undefined => {
+    return fieldErrors[fieldKey] ?? fieldErrors[fieldKey.replace(/_/g, ".")];
+  };
 
   // ── Fetch Governed Lookups & Document Series on Mount ──
   useEffect(() => {
@@ -594,10 +618,29 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
 
       onSaved();
       handleClose();
-    } catch (err: any) {
-      const msg = err?.message || err?.detail || "Failed to create article.";
-      setFormError(msg);
-      onNotification?.("Creation Failed", msg, "error");
+    } catch (err: unknown) {
+      if (err instanceof ItemMasterValidationError) {
+        // Structured 422: populate per-field errors
+        const result = err.validation;
+        setFieldErrors(result.fieldErrors);
+        setFieldErrorOrder(result.fieldOrder);
+        setValidationSummary(result.summary);
+        setFormError(null); // replaced by structured summary
+        // Auto-focus first invalid field
+        setTimeout(() => focusFirstError(result.fieldOrder), 50);
+        onNotification?.(
+          "Validation Error",
+          result.summary,
+          "error"
+        );
+      } else {
+        // Non-422 / network error: show plain message
+        const msg = (err as Error)?.message || "Failed to create article.";
+        setFormError(msg);
+        setFieldErrors({});
+        setValidationSummary(null);
+        onNotification?.("Creation Failed", msg, "error");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -608,7 +651,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
     setName("");
     setSku("");
     setBrand("");
-    setFormError(null);
+    clearValidationState();
     onClose();
   };
 
@@ -707,7 +750,20 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
           </div>
         </div>
 
-        {/* Panel 10 Error Banner */}
+        {/* Validation Summary Banner (structured 422) */}
+        {validationSummary && (
+          <div className="bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900/60 px-6 py-2.5 flex items-center justify-between text-xs text-red-700 dark:text-red-300">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0 text-red-600" />
+              <span className="font-bold">{validationSummary}</span>
+            </div>
+            <button type="button" onClick={() => setValidationSummary(null)} className="hover:text-red-900">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* Plain Error Banner (network / server errors) */}
         {formError && (
           <div className="bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900/60 px-6 py-2.5 flex items-center justify-between text-xs text-red-700 dark:text-red-300">
             <div className="flex items-center gap-2">
@@ -793,12 +849,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     Article Number / SKU <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="im-field-code"
                     type="text"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
                     placeholder="e.g. ART-1001 / FT00123"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                      getFieldError("code") || getFieldError("sku")
+                        ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                        : "border-[#cbd5e1] dark:border-[#434654]"
+                    }`}
                   />
+                  {(getFieldError("code") || getFieldError("sku")) && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" />
+                      {getFieldError("code") || getFieldError("sku")}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -808,12 +875,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   Design / Style Name <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="im-field-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Running Shoe Pro"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                    getFieldError("name") || getFieldError("item_name")
+                      ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                      : "border-[#cbd5e1] dark:border-[#434654]"
+                  }`}
                 />
+                {(getFieldError("name") || getFieldError("item_name")) && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" />
+                    {getFieldError("name") || getFieldError("item_name")}
+                  </p>
+                )}
               </div>
 
               {/* 3-Column Attributes: Brand, Category, Gender */}
@@ -823,15 +901,26 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     Brand <span className="text-red-500">*</span>
                   </label>
                   <select
+                    id="im-field-brand"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                      getFieldError("brand")
+                        ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                        : "border-[#cbd5e1] dark:border-[#434654]"
+                    }`}
                   >
                     <option value="">Select Brand</option>
                     {brandOptions.map((b) => (
                       <option key={b.code || b.name} value={b.name}>{b.name}</option>
                     ))}
                   </select>
+                  {getFieldError("brand") && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" />
+                      {getFieldError("brand")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -839,15 +928,26 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     Category <span className="text-red-500">*</span>
                   </label>
                   <select
+                    id="im-field-category"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                      getFieldError("category")
+                        ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                        : "border-[#cbd5e1] dark:border-[#434654]"
+                    }`}
                   >
                     <option value="">Select Category</option>
                     {renderedCategoryOptions.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
+                  {getFieldError("category") && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" />
+                      {getFieldError("category")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -855,15 +955,26 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     Gender
                   </label>
                   <select
+                    id="im-field-gender"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                      getFieldError("gender")
+                        ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                        : "border-[#cbd5e1] dark:border-[#434654]"
+                    }`}
                   >
                     <option value="">Select Gender</option>
                     {genderOptions.map((g) => (
                       <option key={g.code || g.name} value={g.name}>{g.name}</option>
                     ))}
                   </select>
+                  {getFieldError("gender") && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" />
+                      {getFieldError("gender")}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -874,15 +985,26 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     Product Type <span className="text-red-500">*</span>
                   </label>
                   <select
+                    id="im-field-product_type"
                     value={productTypeItem}
                     onChange={(e) => setProductTypeItem(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                      getFieldError("product_type")
+                        ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                        : "border-[#cbd5e1] dark:border-[#434654]"
+                    }`}
                   >
                     <option value="">Select Product Type</option>
                     {productTypeOptions.map((p) => (
                       <option key={p.code || p.name} value={p.name}>{p.name}</option>
                     ))}
                   </select>
+                  {getFieldError("product_type") && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" />
+                      {getFieldError("product_type")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -925,12 +1047,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     HSN Code
                   </label>
                   <input
+                    id="im-field-hsn_code"
                     type="text"
                     value={hsnCode}
                     onChange={(e) => setHsnCode(e.target.value)}
                     placeholder="6403"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                      getFieldError("hsn_code")
+                        ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                        : "border-[#cbd5e1] dark:border-[#434654]"
+                    }`}
                   />
+                  {getFieldError("hsn_code") && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" />
+                      {getFieldError("hsn_code")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -938,12 +1071,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     Base MRP (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="im-field-mrp"
                     type="number"
                     value={baseMrp}
                     onChange={(e) => setBaseMrp(e.target.value)}
                     placeholder="2999.00"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                      getFieldError("mrp") || getFieldError("price")
+                        ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                        : "border-[#cbd5e1] dark:border-[#434654]"
+                    }`}
                   />
+                  {(getFieldError("mrp") || getFieldError("price")) && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" />
+                      {getFieldError("mrp") || getFieldError("price")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -951,12 +1095,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     Base Selling Price (₹)
                   </label>
                   <input
+                    id="im-field-selling_price"
                     type="number"
                     value={baseSellingPrice}
                     onChange={(e) => setBaseSellingPrice(e.target.value)}
                     placeholder="2499.00"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-[#111827] text-[#0f172a] dark:text-white font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
+                      getFieldError("selling_price")
+                        ? "border-red-400 dark:border-red-500 ring-1 ring-red-300"
+                        : "border-[#cbd5e1] dark:border-[#434654]"
+                    }`}
                   />
+                  {getFieldError("selling_price") && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" />
+                      {getFieldError("selling_price")}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1032,7 +1187,15 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
             <div className="col-span-12 lg:col-span-7 space-y-5">
               
               {/* Select Colors Chips */}
-              <div>
+              <div
+                id="im-field-color"
+                tabIndex={-1}
+                className={`rounded-xl p-3 transition ${
+                  getFieldError("color") || getFieldError("colour") || getFieldError("variant.color")
+                    ? "ring-2 ring-red-400 dark:ring-red-500 bg-red-50/40 dark:bg-red-950/20"
+                    : ""
+                }`}
+              >
                 <label className="text-xs font-bold text-[#0f172a] dark:text-white block mb-2">
                   Select Colors
                 </label>
@@ -1096,10 +1259,24 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     </button>
                   )}
                 </div>
+                {(getFieldError("color") || getFieldError("colour") || getFieldError("variant.color")) && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400 mt-2 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" />
+                    {getFieldError("color") || getFieldError("colour") || getFieldError("variant.color")}
+                  </p>
+                )}
               </div>
 
               {/* Select Sizes Chips */}
-              <div>
+              <div
+                id="im-field-size"
+                tabIndex={-1}
+                className={`rounded-xl p-3 transition ${
+                  getFieldError("size") || getFieldError("variant.size")
+                    ? "ring-2 ring-red-400 dark:ring-red-500 bg-red-50/40 dark:bg-red-950/20"
+                    : ""
+                }`}
+              >
                 <label className="text-xs font-bold text-[#0f172a] dark:text-white block mb-2">
                   Select Sizes
                 </label>
@@ -1159,6 +1336,12 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     </button>
                   )}
                 </div>
+                {(getFieldError("size") || getFieldError("variant.size")) && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400 mt-2 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" />
+                    {getFieldError("size") || getFieldError("variant.size")}
+                  </p>
+                )}
               </div>
 
               {/* 2D Variant Matrix Preview Table */}
@@ -1261,6 +1444,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                       Primary Barcode <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="im-field-barcode"
                       type="text"
                       value={activeVariant.barcode}
                       onChange={(e) => handleUpdateActiveVariant("barcode", e.target.value)}
