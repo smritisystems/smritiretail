@@ -126,6 +126,10 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [selectedSupplierLedger, setSelectedSupplierLedger] = useState<any>(null);
   const [stockValuationData, setStockValuationData] = useState<any>(null);
   const [genericReportData, setGenericReportData] = useState<any>(null);
+  // Phase 1E — RPT-ACCT-001 Monthly Accounts Summary
+  const [acctEnvelope, setAcctEnvelope] = useState<any>(null);
+  const [acctYear, setAcctYear]   = useState<number | "">("");
+  const [acctMonth, setAcctMonth] = useState<number | "">("");
   const [loadingReports, setLoadingReports] = useState<boolean>(false);
   const [reportRefreshKey, setReportRefreshKey] = useState<number>(0);
   const [soPreviewData, setSoPreviewData] = useState<any | null>(null);
@@ -245,6 +249,14 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         } else if (selectedReport.id === "RPT-SAL-015") {
           const data = await apiFetchV1(`/sales-reports/item-returns-live${params}`);
           setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-ACCT-001") {
+          // Phase 1E — Universal envelope endpoint; pass year/month only when both are set
+          const periodSuffix =
+            acctYear !== "" && acctMonth !== ""
+              ? `&year=${acctYear}&month=${acctMonth}`
+              : "";
+          const data = await apiFetchV1(`/reports/universal/RPT-ACCT-001?${periodSuffix}`);
+          setAcctEnvelope(data);
         } else {
           setGenericReportData(null);
         }
@@ -256,7 +268,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       }
     }
     loadReportsData();
-  }, [selectedReport, drillLevel, drillFilter, filters.startDate, filters.endDate, reportRefreshKey]);
+  }, [selectedReport, drillLevel, drillFilter, filters.startDate, filters.endDate, reportRefreshKey, acctYear, acctMonth]);
 
   // Debounced search query audit logging
   useEffect(() => {
@@ -3410,6 +3422,80 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
+            {/* ================================================================
+                RPT-ACCT-001 — Monthly Accounts Summary (Phase 1D.1 / 1E)
+                Full-envelope render: columns + rows + summary_cards + chart_config
+                from /reports/universal/RPT-ACCT-001 via SmritiReportEngine.
+                Year/month selectors replace the date-range bar for this report.
+                ================================================================ */}
+            {selectedReport.id === "RPT-ACCT-001" && (
+              <div className="p-4 space-y-4">
+                {/* Period selector bar */}
+                <div className="flex flex-wrap items-center gap-3 bg-theme-surface-2 border border-theme-border rounded-xl px-4 py-3">
+                  <span className="text-xs font-bold text-theme-muted uppercase tracking-wide flex items-center gap-1.5">
+                    <Calendar size={13} /> Period
+                  </span>
+                  <select
+                    id="acct-year-select"
+                    value={acctYear}
+                    onChange={(e) => setAcctYear(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="text-xs border border-theme-border rounded-lg px-2.5 py-1.5 bg-theme-surface-1 text-theme-body focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Previous Month</option>
+                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((yr) => (
+                      <option key={yr} value={yr}>{yr}</option>
+                    ))}
+                  </select>
+                  <select
+                    id="acct-month-select"
+                    value={acctMonth}
+                    onChange={(e) => setAcctMonth(e.target.value === "" ? "" : Number(e.target.value))}
+                    disabled={acctYear === ""}
+                    className="text-xs border border-theme-border rounded-lg px-2.5 py-1.5 bg-theme-surface-1 text-theme-body focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-40 cursor-pointer"
+                  >
+                    <option value="">-- Month --</option>
+                    {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                      <option key={i + 1} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                  {acctEnvelope?.parameters && (
+                    <span className="text-[10px] font-mono text-theme-muted border border-theme-border rounded px-2 py-0.5 ml-auto">
+                      Period: {acctEnvelope.rows?.[0]?.period_label ?? "—"}
+                      {" · Branch: "}{acctEnvelope.rows?.[0]?.branch_scope ?? "ALL"}
+                    </span>
+                  )}
+                </div>
+                {/* Engine */}
+                <SmritiReportEngine
+                  reportId={selectedReport.id}
+                  reportTitle={selectedReport.title}
+                  reportCategory="Accounts Summary"
+                  description={selectedReport.description}
+                  columns={(acctEnvelope?.columns ?? []).map((c: any) => ({
+                    key:        c.key,
+                    label:      c.label,
+                    datatype:   c.datatype as any,
+                    align:      c.align ?? "left",
+                    width:      c.width,
+                    isSummary:  ["currency", "number"].includes(c.datatype),
+                  }))}
+                  data={acctEnvelope?.rows ?? []}
+                  summaryMetrics={
+                    acctEnvelope?.summary_cards
+                      ? Object.fromEntries(
+                          acctEnvelope.summary_cards.map((sc: any) => [sc.label, sc.value])
+                        )
+                      : undefined
+                  }
+                  chartConfig={acctEnvelope?.chart_config ?? undefined}
+                  systemMessage={acctEnvelope?.system_message ?? undefined}
+                  isLoading={loadingReports}
+                  activeRole={activeRole}
+                  onNotification={(type, msg) => showNotification(type, msg)}
+                />
+              </div>
+            )}
+
             {/* Universal Report Engine for unhandled or generic operational datasets */}
             {![
               "RPT-SAL-001",
@@ -3435,6 +3521,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               "RPT-SO-005",
               "RPT-SO-006",
               "RPT-SO-007",
+              "RPT-ACCT-001",  // Phase 1E — handled by dedicated block above
             ].includes(selectedReport.id) && (
               <div className="p-4">
                 <SmritiReportEngine
