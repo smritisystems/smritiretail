@@ -69,6 +69,11 @@ FIELD_LABELS: dict[str, str] = {
     "gender":                  "Gender",
     "product_type":            "Product Type",
     "design_attribute":        "Design Attribute",
+    "heel_type":               "Heel Type",
+    "upper_material":          "Upper Material",
+    "outsole_material":        "Outsole Material",
+    "purchase_class":          "Purchase Class",
+    "collection_type":         "Collection Type",
 
     # ── Variant ──────────────────────────────────────────────────────────────
     "color":                   "Colour / Shade",
@@ -220,6 +225,21 @@ _DYN_LABEL_MAP: dict[str, tuple[str, str, str]] = {
     # HSN
     "hsn":             ("hsn_code", "HSN Code is required.", "Classification"),
     "hsn code":        ("hsn_code", "HSN Code is required.", "Classification"),
+    # Footwear Dimensions (IM-001)
+    "heel type":       ("heel_type", "Heel Type is not in the approved list. Please select an approved heel type.", "Basic Information"),
+    "heel_type":       ("heel_type", "Heel Type is not in the approved list. Please select an approved heel type.", "Basic Information"),
+    "heels":           ("heel_type", "Heel Type is not in the approved list. Please select an approved heel type.", "Basic Information"),
+    "upper material":  ("upper_material", "Upper Material is not in the approved list. Please select an approved upper material.", "Basic Information"),
+    "upper_material":  ("upper_material", "Upper Material is not in the approved list. Please select an approved upper material.", "Basic Information"),
+    "upper":           ("upper_material", "Upper Material is not in the approved list. Please select an approved upper material.", "Basic Information"),
+    "outsole material":("outsole_material", "Outsole Material is not in the approved list. Please select an approved outsole material.", "Basic Information"),
+    "outsole_material":("outsole_material", "Outsole Material is not in the approved list. Please select an approved outsole material.", "Basic Information"),
+    "outsole":         ("outsole_material", "Outsole Material is not in the approved list. Please select an approved outsole material.", "Basic Information"),
+    "gst rate percent":("gst_percentage", "GST % is not in the approved list.", "Tax"),
+    "gst rate":        ("gst_percentage", "GST % is not in the approved list.", "Tax"),
+    "gst":             ("gst_percentage", "GST % is not in the approved list.", "Tax"),
+    "purchase class":  ("purchase_class", "Purchase Class is not in the approved list.", "Basic Information"),
+    "collection type": ("collection_type", "Collection Type is not in the approved list.", "Basic Information"),
 }
 
 
@@ -237,6 +257,11 @@ FIELD_SECTIONS: dict[str, str] = {
     "gender":           "Basic Information",
     "product_type":     "Basic Information",
     "design_attribute": "Basic Information",
+    "heel_type":        "Basic Information",
+    "upper_material":   "Basic Information",
+    "outsole_material": "Basic Information",
+    "purchase_class":   "Basic Information",
+    "collection_type":  "Basic Information",
     "color":            "Variant",
     "colour":           "Variant",
     "size":             "Variant",
@@ -543,6 +568,27 @@ class ItemMasterValidationMapper:
         seen_fields: set[str] = set()
         field_errors: list[dict[str, str]] = []
 
+        # If field_failures is present (from IM-001 / Controlled Field validator), map directly
+        if isinstance(detail.get("field_failures"), list) and detail["field_failures"]:
+            for ff in detail["field_failures"]:
+                std_field = str(ff.get("field", "")).lower()
+                if std_field in seen_fields:
+                    continue
+                seen_fields.add(std_field)
+                bad_val = str(ff.get("value", ""))
+                near_match = ff.get("near_match")
+                label = FIELD_LABELS.get(std_field, std_field.replace("_", " ").title())
+                sec = FIELD_SECTIONS.get(std_field, "Basic Information")
+                if near_match:
+                    human_msg = f"{label} '{bad_val}' is not in the approved list. Did you mean '{near_match}'? Check the System Master Lookup for the correct approved value."
+                else:
+                    human_msg = f"{label} '{bad_val}' is not recognised. Check the System Master Lookup for the correct approved value."
+                field_errors.append({
+                    "field": std_field,
+                    "message": human_msg,
+                    "section": sec,
+                })
+
         for raw_err in raw_errors:
             field_key, human_msg, section = cls._parse_dynamic_attr_error(raw_err)
             if field_key in seen_fields:
@@ -562,7 +608,7 @@ class ItemMasterValidationMapper:
         summary = (
             f"Please correct {n} field{'s' if n != 1 else ''} before saving."
         )
-        return {
+        resp: dict[str, Any] = {
             "error": {
                 "code": "ITEM_MASTER_VALIDATION_ERROR",
                 "message": summary,
@@ -570,6 +616,14 @@ class ItemMasterValidationMapper:
                 "fields": field_errors,
             }
         }
+        if detail.get("code") == "SMRITI-VAL-002" or "im-001" in str(detail).lower() or detail.get("field_failures"):
+            resp["error"]["error_code"] = "SMRITI-VAL-002"
+            resp["error"]["reference_id"] = "IM-001"
+            if detail.get("field_failures"):
+                resp["error"]["field_failures"] = detail.get("field_failures")
+            if detail.get("suggested_action"):
+                resp["error"]["suggested_action"] = detail.get("suggested_action")
+        return resp
 
     @staticmethod
     def _parse_dynamic_attr_error(raw_err: str) -> tuple[str, str, str]:
@@ -580,9 +634,29 @@ class ItemMasterValidationMapper:
           "Style is required"                          → style_code, required msg
           "Article No is required"                     → style_code, required msg
           "Color contains invalid value(s): Pink"      → color, invalid msg
+          "Heel Type “X” is not in the approved list"  → heel_type, message
           "IM-001 [BLOCK]: Controlled field '...' ..." → safe fallback
         """
         raw_lower = raw_err.lower().strip()
+
+        # ── IM-001 / Controlled Field "is not in approved list" or "not recognised" ──
+        if "not in the approved list" in raw_lower or "not recognised" in raw_lower or "not found in system master lookup" in raw_lower:
+            import re as _re_cf
+            m_cf = _re_cf.match(r"^(.+?)\s+[“\"']([^”\"']+)[\"”']\s+is not", raw_err, _re_cf.IGNORECASE)
+            if m_cf:
+                label_part = m_cf.group(1).strip().lower()
+                for label_key, (fk, _, sec) in _DYN_LABEL_MAP.items():
+                    if label_key == label_part or label_key in label_part or label_part in label_key:
+                        return fk, raw_err, sec
+            m_cf2 = _re_cf.search(r"controlled field '([^']+)'", raw_err, _re_cf.IGNORECASE)
+            if m_cf2:
+                cf_name = m_cf2.group(1).lower().replace("_", " ")
+                for label_key, (fk, _, sec) in _DYN_LABEL_MAP.items():
+                    if label_key in cf_name or cf_name in label_key:
+                        return fk, raw_err, sec
+            for label_key, (fk, _, sec) in _DYN_LABEL_MAP.items():
+                if raw_lower.startswith(label_key):
+                    return fk, raw_err, sec
 
         # ── IM-001 governance block ───────────────────────────────────────────
         # e.g. "IM-001 [BLOCK]: Controlled field 'GST_RATE_PERCENT' value '12.0' not found"
