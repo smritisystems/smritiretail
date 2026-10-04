@@ -468,10 +468,11 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       // PHASE 2: Commit — all rows passed preview validation
       const commitResp = await apiFetchV1("/universal-import/commit", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           target: "ITEM_MASTER",
-          rows
-        })
+          rows,
+          idempotency_key: `im-studio-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        },
       });
 
       const saved = commitResp?.saved ?? commitResp?.created ?? 0;
