@@ -178,6 +178,26 @@ SMRITI_STUDIOS = {
             {"id": "RPT-OPS-006", "code": "RPT-OPS-006", "title": "Store-Wise SIS Tax Register", "description": "Consolidated store-by-store sales, units, and GST distribution across all SIS store locations.", "category": "Operations", "format": "Grid", "owner": "System", "drillDownEnabled": True},
         ],
     },
+    # ── Phase 1D / 1D.1: MIS Accounts Summary ── RPT-ACCT-001
+    "accounting_studio": {
+        "name": "Accounts Summary Studio",
+        "description": "Monthly financial position — sales revenue, purchase value, returns, net position, and quantity movement (units sold, returned, purchased).",
+        "icon": "account_balance",
+        "reports": [
+            {
+                "id":               "RPT-ACCT-001",
+                "code":             "RPT-ACCT-001",
+                "title":            "Monthly Accounts Summary",
+                "description":      "Period-wise (monthly) consolidated view of sales revenue, sales returns, net sales, purchase value, purchase bills payable, net position, and quantity metrics (sold, returned, purchased). Defaults to the previous calendar month; select any year/month to query historical periods.",
+                "category":         "Accounts Summary",
+                "format":           "Matrix",
+                "owner":            "System",
+                "drillDownEnabled": False,
+                "phase":            "1D.1",
+                "schema_version":   "2.0",
+            },
+        ],
+    },
 }
 
 @router.get("/studios")
