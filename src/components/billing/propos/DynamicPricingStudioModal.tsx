@@ -1,289 +1,159 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.86.0
+ * Version      : 3.112.1
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-04
+ * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.112.1 (2026-10-04):
+ *   - Replaced dynamicPricingEngine mock with live apiFetchV1 calls:
+ *     POST /pricing/resolve/bulk, GET /pricing/books.
  */
 
-import React, { useState, useMemo } from "react";
-import {
-  DynamicPricingEngine,
-  DynamicPricingRule,
-  PricingEvaluationItem,
-} from "../../../utils/dynamicPricingEngine";
+import React, { useState, useEffect, useCallback } from "react";
+import { apiFetchV1 } from "../../../lib/apiFetchV1";
+
+interface PriceBook {
+  book_id: string;
+  book_name: string;
+  is_default?: boolean;
+}
+
+interface BulkPriceResult {
+  sku: string;
+  base_price: number;
+  resolved_price: number;
+  discount_pct?: number;
+  applied_rule?: string;
+}
 
 interface DynamicPricingStudioModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyRules?: (rules: DynamicPricingRule[]) => void;
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info") => void;
 }
 
-export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps> = ({
-  isOpen,
-  onClose,
-  onApplyRules,
-  onNotification,
-}) => {
-  const [rules, setRules] = useState<DynamicPricingRule[]>([
-    {
-      id: "rule-hh-01",
-      name: "Afternoon Happy Hours (20% Off)",
-      code: "HAPPY-HOURS-20",
-      type: "HAPPY_HOURS",
-      startTime: "14:00",
-      endTime: "17:00",
-      daysOfWeek: [1, 2, 3, 4, 5], // Mon-Fri
-      discountPct: 20,
-      applicableCategories: ["Apparel", "Footwear"],
-      isStackable: false,
-      isActive: true,
-    },
-    {
-      id: "rule-weekend-02",
-      name: "Weekend Mega Saver (Flat ₹500 Off on ₹3000+)",
-      code: "WEEKEND-500",
-      type: "FLAT_DISCOUNT",
-      startTime: "00:00",
-      endTime: "23:59",
-      daysOfWeek: [0, 6], // Sun, Sat
-      flatDiscountAmt: 500,
-      minBillAmount: 3000,
-      isStackable: true,
-      isActive: true,
-    },
-  ]);
+const fmt = (n: number) => `\u20b9${(n ?? 0).toLocaleString("en-IN")}`;
 
-  const [simulatedHour, setSimulatedHour] = useState<number>(15); // 15:00 (3 PM)
-  const [simulatedDay, setSimulatedDay] = useState<number>(3); // Wednesday
+export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps> = ({ isOpen, onClose, onNotification }) => {
+  const [books, setBooks]         = useState<PriceBook[]>([]);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [results, setResults]     = useState<BulkPriceResult[]>([]);
+  const [resolving, setResolving] = useState(false);
+  const [skuInput, setSkuInput]   = useState("");
+  const [selectedBook, setSelectedBook] = useState("");
 
-  const sampleCart: PricingEvaluationItem[] = [
-    {
-      sku: "APP-POLO-NAVY-M",
-      category: "Apparel",
-      qty: 2,
-      unitPrice: 1200,
-      mrp: 1499,
-      lineTotal: 2400,
-      discountAmt: 0,
-    },
-    {
-      sku: "FTW-SNEAKER-WHT-8",
-      category: "Footwear",
-      qty: 1,
-      unitPrice: 2800,
-      mrp: 3499,
-      lineTotal: 2800,
-      discountAmt: 0,
-    },
-  ];
+  const load = useCallback(async () => {
+    if (!isOpen) return;
+    setLoading(true); setError(null);
+    try {
+      const data = await apiFetchV1<PriceBook[]>("/pricing/books");
+      setBooks(data ?? []);
+      const def = (data ?? []).find((b: PriceBook) => b.is_default);
+      if (def) setSelectedBook(def.book_id);
+    } catch (e: any) { setError(e?.message ?? "Failed to load price books."); }
+    finally { setLoading(false); }
+  }, [isOpen]);
 
-  const simulationDate = useMemo(() => {
-    const d = new Date(2026, 7, 26); // August 26, 2026 (Wednesday)
-    d.setHours(simulatedHour, 30, 0, 0);
-    return d;
-  }, [simulatedHour, simulatedDay]);
+  useEffect(() => { load(); }, [load]);
 
-  const evaluation = useMemo(() => {
-    return DynamicPricingEngine.evaluateCart(sampleCart, rules, simulationDate);
-  }, [sampleCart, rules, simulationDate]);
+  const handleBulkResolve = async () => {
+    const skus = skuInput.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    if (!skus.length) { onNotification?.("Validation", "Enter at least one SKU.", "info"); return; }
+    setResolving(true); setResults([]);
+    try {
+      const data = await apiFetchV1<{ items: BulkPriceResult[] }>("/pricing/resolve/bulk", {
+        method: "POST",
+        body: JSON.stringify({
+          items: skus.map((sku) => ({ sku, qty: 1 })),
+          book_id: selectedBook || undefined,
+        }),
+      });
+      setResults(data?.items ?? []);
+      onNotification?.("Resolved", `${(data?.items ?? []).length} SKU(s) priced.`, "success");
+    } catch (e: any) { onNotification?.("Error", e?.message ?? "Bulk resolution failed.", "error"); }
+    finally { setResolving(false); }
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="flex flex-col w-full max-w-4xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
+      <div className="flex flex-col w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <span className="material-symbols-outlined text-2xl">timer</span>
+            <div className="w-10 h-10 rounded-xl bg-lime-500/10 border border-lime-500/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-lime-400 text-2xl">auto_graph</span>
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100 flex items-center gap-3">
-                Dynamic Pricing & Happy Hours Rules Engine
-                <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
-                  {evaluation.appliedRules.length > 0 ? "PROMO ACTIVE" : "STANDARD PRICING"}
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400">Automated time-window and day-of-week promotional discounting</p>
+              <h2 className="text-base font-bold text-slate-100">Dynamic Pricing Studio</h2>
+              <p className="text-xs text-slate-400">Bulk price resolution · Rule-engine evaluation</p>
             </div>
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-          >
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
 
-        {/* Time Simulator HUD */}
-        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-950/30 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400 font-medium">Simulate Time:</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSimulatedHour(11)} // 11 AM (Off-peak)
-                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold border transition-all ${
-                  simulatedHour === 11
-                    ? "bg-slate-700 text-white border-slate-500"
-                    : "bg-slate-800/60 text-slate-400 border-slate-700 hover:text-slate-200"
-                }`}
-              >
-                11:00 AM (Morning)
-              </button>
-              <button
-                onClick={() => setSimulatedHour(15)} // 3 PM (Happy Hour)
-                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold border transition-all ${
-                  simulatedHour === 15
-                    ? "bg-amber-600/30 text-amber-300 border-amber-500/50"
-                    : "bg-slate-800/60 text-slate-400 border-slate-700 hover:text-slate-200"
-                }`}
-              >
-                03:30 PM (Happy Hour)
-              </button>
-              <button
-                onClick={() => setSimulatedHour(19)} // 7 PM (Evening)
-                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold border transition-all ${
-                  simulatedHour === 19
-                    ? "bg-slate-700 text-white border-slate-500"
-                    : "bg-slate-800/60 text-slate-400 border-slate-700 hover:text-slate-200"
-                }`}
-              >
-                07:00 PM (Evening)
-              </button>
+        {error && <div className="px-6 py-2 bg-rose-950/40 border-b border-rose-800/40 text-xs text-rose-300">{error}</div>}
+
+        <div className="flex gap-5 flex-1 overflow-hidden p-5">
+          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1.5">Price Book</label>
+              <select value={selectedBook} onChange={(e) => setSelectedBook(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-lime-500/60">
+                <option value="">Default</option>
+                {books.map((b) => <option key={b.book_id} value={b.book_id}>{b.book_name}</option>)}
+              </select>
             </div>
+            <div className="flex-1 flex flex-col">
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1.5">SKUs (one per line or comma-separated)</label>
+              <textarea value={skuInput} onChange={(e) => setSkuInput(e.target.value)}
+                placeholder={"SKU-001\nSKU-002\nSKU-003"}
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-lime-500/60 resize-none font-mono min-h-[120px]" />
+            </div>
+            <button onClick={handleBulkResolve} disabled={resolving || loading}
+              className="w-full px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-lime-600 hover:bg-lime-500 disabled:opacity-40 transition-all">
+              {resolving ? "Resolving..." : "Resolve Bulk Prices"}
+            </button>
           </div>
 
-          <div className="text-xs font-mono text-slate-400">
-            Current Simulated State:{" "}
-            <strong className="text-amber-400">
-              {simulatedHour}:30 Hrs ? {evaluation.appliedRules.join(", ") || "No Active Promos"}
-            </strong>
-          </div>
-        </div>
-
-        {/* Rules & Simulation View */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Active Rules List */}
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-              Configured Promotional Rules
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {rules.map((r) => {
-                const isActiveNow = DynamicPricingEngine.isRuleActiveAt(r, simulationDate);
-                return (
-                  <div
-                    key={r.id}
-                    className={`p-4 rounded-xl border transition-all ${
-                      isActiveNow
-                        ? "bg-amber-950/20 border-amber-500/40 shadow-lg shadow-amber-500/5"
-                        : "bg-slate-800/40 border-slate-700/60"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="font-bold text-slate-200 text-xs block">{r.name}</span>
-                        <span className="font-mono text-[10px] text-amber-400">{r.code}</span>
-                      </div>
-                      <span
-                        className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
-                          isActiveNow
-                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                            : "bg-slate-700/50 text-slate-400 border border-slate-600/30"
-                        }`}
-                      >
-                        {isActiveNow ? "TRIGGERED" : "INACTIVE"}
-                      </span>
+          <div className="flex-1 overflow-y-auto">
+            {results.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
+                <span className="material-symbols-outlined text-4xl">auto_graph</span>
+                <p className="text-sm">Enter SKUs and click Resolve to see dynamic pricing.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {results.map((r) => (
+                  <div key={r.sku} className="flex items-center justify-between p-4 bg-slate-800/20 border border-slate-700/50 rounded-xl text-xs gap-4">
+                    <div>
+                      <p className="font-mono font-bold text-slate-200">{r.sku}</p>
+                      {r.applied_rule && <p className="text-slate-500 text-[10px]">Rule: {r.applied_rule}</p>}
                     </div>
-
-                    <div className="flex items-center gap-4 mt-3 text-[11px] text-slate-400 font-mono">
-                      <span>
-                        Time: <strong className="text-slate-300">{r.startTime} - {r.endTime}</strong>
-                      </span>
-                      <span>
-                        Discount: <strong className="text-emerald-400">{r.discountPct ? `${r.discountPct}%` : `₹${r.flatDiscountAmt}`}</strong>
-                      </span>
+                    <div className="flex items-center gap-4 text-right">
+                      <div><p className="font-mono text-slate-400 line-through">{fmt(r.base_price)}</p><p className="text-slate-600 text-[10px]">Base</p></div>
+                      {(r.discount_pct ?? 0) > 0 && <div><p className="font-mono text-amber-400">-{r.discount_pct}%</p><p className="text-slate-600 text-[10px]">Discount</p></div>}
+                      <div><p className="font-mono font-black text-lime-400 text-base">{fmt(r.resolved_price)}</p><p className="text-slate-600 text-[10px]">Final</p></div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Live Cart Preview Breakdown */}
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-              Simulated POS Cart Valuation
-            </h3>
-            <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden text-xs">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] bg-slate-950/60">
-                    <th className="py-2 px-3">Item Details</th>
-                    <th className="py-2 px-3 text-right">Unit Price</th>
-                    <th className="py-2 px-3 text-right">Discount</th>
-                    <th className="py-2 px-3 text-right">Line Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {evaluation.evaluatedItems.map((item) => (
-                    <tr key={item.sku}>
-                      <td className="py-2.5 px-3 font-sans">
-                        <span className="text-slate-200 block font-medium">{item.sku}</span>
-                        <span className="text-[10px] text-slate-400">{item.category} ? Qty: {item.qty}</span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-slate-300">₹{item.unitPrice}</td>
-                      <td className="py-2.5 px-3 text-right text-emerald-400">
-                        {item.discountAmt > 0 ? `-₹${item.discountAmt}` : "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-bold text-slate-100">₹{item.lineTotal}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs font-mono">
-                <div className="flex items-center gap-4">
-                  <span>Gross: <strong className="text-slate-300">₹{evaluation.originalSubtotal}</strong></span>
-                  <span>Total Discount: <strong className="text-emerald-400">-₹{evaluation.totalDiscount}</strong></span>
-                </div>
-                <div className="text-sm font-bold text-slate-100">
-                  Payable Subtotal: <span className="text-amber-400">₹{evaluation.finalSubtotal}</span>
-                </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-slate-950/80 text-xs">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-          >
-            Close
-          </button>
-          <button
-            onClick={() => {
-              onApplyRules?.(rules);
-              onNotification?.("Pricing Engine Synchronized", "Dynamic pricing rules updated for active registers.", "success");
-              onClose();
-            }}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 shadow-lg shadow-amber-500/20 transition-all"
-          >
-            <span className="material-symbols-outlined text-sm">bolt</span>
-            <span>Apply Dynamic Pricing to Registers</span>
-          </button>
+        <div className="flex items-center justify-end px-6 py-3 border-t border-slate-800 bg-slate-950/80">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">Close</button>
         </div>
       </div>
     </div>
@@ -291,4 +161,3 @@ export const DynamicPricingStudioModal: React.FC<DynamicPricingStudioModalProps>
 };
 
 export default DynamicPricingStudioModal;
-

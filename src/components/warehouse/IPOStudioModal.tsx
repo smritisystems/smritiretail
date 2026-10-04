@@ -4,18 +4,30 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.105.0
+ * Version      : 3.117.1
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-04
+ * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.117.1 (2026-10-04):
+ *   - Replaced ipoEngine mock with GET/POST /wms/audits live API.
  */
 
-import React, { useState, useMemo } from "react";
-import IPOEngine, {
-  InterStorePO, IPOStatus, IPOLine,
-} from "../../utils/ipoEngine";
+import React, { useState, useEffect, useCallback } from "react";
+import { apiFetchV1 } from "../../lib/apiFetchV1";
+
+interface StockAudit {
+  audit_id: string;
+  audit_no?: string;
+  warehouse_id?: string;
+  status: string;
+  audit_date?: string;
+  variance_value?: number;
+  counted_items?: number;
+  notes?: string;
+}
 
 interface IPOStudioModalProps {
   isOpen: boolean;
@@ -23,293 +35,148 @@ interface IPOStudioModalProps {
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info") => void;
 }
 
-const STATUS_STYLE: Record<IPOStatus, string> = {
-  DRAFT:        "text-slate-400 bg-slate-700/30 border-slate-600/30",
-  SUBMITTED:    "text-blue-300 bg-blue-500/20 border-blue-500/30",
-  APPROVED:     "text-sky-300 bg-sky-500/20 border-sky-500/30",
-  PICKING:      "text-violet-300 bg-violet-500/20 border-violet-500/30",
-  DISPATCHED:   "text-indigo-300 bg-indigo-500/20 border-indigo-500/30",
-  AUTO_GRN:     "text-teal-300 bg-teal-500/20 border-teal-500/30",
-  CLOSED:       "text-emerald-300 bg-emerald-500/20 border-emerald-500/30",
-  DISPUTED:     "text-rose-300 bg-rose-500/20 border-rose-500/30",
-  CANCELLED:    "text-slate-500 bg-slate-800/30 border-slate-700/30",
+const STATUS_STYLE: Record<string, string> = {
+  DRAFT:      "text-slate-400 bg-slate-800/30 border-slate-700/30",
+  IN_PROGRESS:"text-amber-300 bg-amber-500/15 border-amber-500/25",
+  COMPLETED:  "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
+  CANCELLED:  "text-rose-300 bg-rose-500/15 border-rose-500/25",
 };
 
-const BRANCHES = ["BR-MUM-01", "BR-DEL-01", "BR-BLR-01", "BR-HYD-01"];
-
-function buildSampleIPOs(): InterStorePO[] {
-  // IPO 1: Dispatched, waiting for GRN
-  let ipo1 = IPOEngine.createIPO({
-    requestingBranch: "BR-DEL-01", fulfillingBranch: "BR-MUM-01",
-    requestedBy: "MGR-DEL-01",
-    lines: [
-      { sku: "FAB-COTTON-WHT", productName: "Cotton White 1m",    requestedQty: 100, unitCost: 120 },
-      { sku: "FAB-DENIM-BLU",  productName: "Denim Blue 1m",      requestedQty: 50,  unitCost: 250 },
-      { sku: "ACC-BELT-BRN",   productName: "Leather Belt Brown",  requestedQty: 30,  unitCost: 350 },
-    ],
-  });
-  ipo1 = IPOEngine.submit(ipo1, "MGR-DEL-01");
-  ipo1 = IPOEngine.approve(ipo1, "WH-MGR-MUM", [
-    { lineId: "IPOL-1", approvedQty: 100 },
-    { lineId: "IPOL-2", approvedQty: 50  },
-    { lineId: "IPOL-3", approvedQty: 30  },
-  ]);
-  ipo1 = IPOEngine.startPicking(ipo1, "PICKER-01");
-  ipo1 = IPOEngine.dispatch(ipo1, "DELHIVERY-8812", [
-    { lineId: "IPOL-1", pickedQty: 100 },
-    { lineId: "IPOL-2", pickedQty: 40  },
-    { lineId: "IPOL-3", pickedQty: 30  },
-  ], "PICKER-01");
-
-  // IPO 2: Draft — just created
-  const ipo2 = IPOEngine.createIPO({
-    requestingBranch: "BR-BLR-01", fulfillingBranch: "BR-MUM-01",
-    requestedBy: "MGR-BLR-01",
-    lines: [
-      { sku: "FAB-SILK-RED", productName: "Silk Red 1m",   requestedQty: 20, unitCost: 600 },
-      { sku: "ACC-SCARF-BLU", productName: "Blue Scarf",   requestedQty: 40, unitCost: 180 },
-    ],
-  });
-
-  // IPO 3: Closed with clean GRN
-  let ipo3 = IPOEngine.createIPO({
-    requestingBranch: "BR-HYD-01", fulfillingBranch: "BR-DEL-01",
-    requestedBy: "MGR-HYD-01",
-    lines: [{ sku: "FAB-LINEN-WHT", productName: "Linen White 1m", requestedQty: 60, unitCost: 200 }],
-  });
-  ipo3 = IPOEngine.submit(ipo3, "MGR-HYD-01");
-  ipo3 = IPOEngine.approve(ipo3, "WH-MGR-DEL", [{ lineId: "IPOL-1", approvedQty: 60 }]);
-  ipo3 = IPOEngine.startPicking(ipo3, "PICKER-DEL");
-  ipo3 = IPOEngine.dispatch(ipo3, "BLUEDART-5511", [{ lineId: "IPOL-1", pickedQty: 60 }], "PICKER-DEL");
-  ipo3 = IPOEngine.generateAutoGRN(ipo3, [{ lineId: "IPOL-1", receivedQty: 60 }], "RECV-HYD");
-  ipo3 = IPOEngine.close(ipo3, "MGR-HYD-01");
-
-  return [ipo1, ipo2, ipo3];
-}
-
 export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose, onNotification }) => {
-  const [orders, setOrders]   = useState<InterStorePO[]>(buildSampleIPOs);
-  const [selectedId, setSelectedId] = useState(orders[0]?.ipoId ?? "");
-  const [activeTab, setActiveTab]   = useState<"DETAIL" | "GRN">("DETAIL");
+  const [audits, setAudits]         = useState<StockAudit[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [showForm, setShowForm]     = useState(false);
+  const [form, setForm]             = useState({ warehouse_id: "", notes: "" });
 
-  const selected = orders.find((o) => o.ipoId === selectedId);
-  const update   = (o: InterStorePO) => setOrders((prev) => prev.map((x) => x.ipoId === o.ipoId ? x : x).map((x) => x.ipoId === o.ipoId ? o : x));
+  const load = useCallback(async () => {
+    if (!isOpen) return;
+    setLoading(true); setError(null);
+    try {
+      const data = await apiFetchV1<StockAudit[]>("/wms/audits");
+      setAudits(data ?? []);
+    } catch (e: any) { setError(e?.message ?? "Failed to load stock audits."); }
+    finally { setLoading(false); }
+  }, [isOpen]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async () => {
+    if (!form.warehouse_id) { onNotification?.("Validation", "Warehouse ID is required.", "info"); return; }
+    setSubmitting(true);
+    try {
+      const a = await apiFetchV1<StockAudit>("/wms/audits", {
+        method: "POST",
+        body: JSON.stringify({ warehouse_id: form.warehouse_id, notes: form.notes }),
+      });
+      if (a) {
+        setAudits((prev) => [a, ...prev]);
+        onNotification?.("Audit Created", `${a.audit_no ?? a.audit_id}`, "success");
+        setShowForm(false);
+        setForm({ warehouse_id: "", notes: "" });
+      }
+    } catch (e: any) { onNotification?.("Error", e?.message ?? "Audit creation failed.", "error"); }
+    finally { setSubmitting(false); }
+  };
+
+  const summary = {
+    total: audits.length,
+    completed: audits.filter((a) => a.status === "COMPLETED").length,
+    inProgress: audits.filter((a) => a.status === "IN_PROGRESS").length,
+    variance: audits.reduce((s, a) => s + (a.variance_value ?? 0), 0),
+  };
 
   if (!isOpen) return null;
 
-  const handleAction = (action: string) => {
-    if (!selected) return;
-    let o = selected;
-    if (action === "submit")   o = IPOEngine.submit(o, "STORE-MGR");
-    if (action === "approve")  o = IPOEngine.approve(o, "WH-MGR", o.lines.map((l) => ({ lineId: l.lineId, approvedQty: l.requestedQty })));
-    if (action === "pick")     o = IPOEngine.startPicking(o, "PICKER");
-    if (action === "dispatch") o = IPOEngine.dispatch(o, `LOG-${Date.now().toString().slice(-4)}`, o.lines.map((l) => ({ lineId: l.lineId, pickedQty: l.approvedQty })), "PICKER");
-    if (action === "grn")      { o = IPOEngine.generateAutoGRN(o, o.lines.map((l) => ({ lineId: l.lineId, receivedQty: l.dispatchedQty })), "RECV"); setActiveTab("GRN"); }
-    if (action === "close")    o = IPOEngine.close(o, "STORE-MGR");
-    update(o);
-    onNotification?.("IPO Updated", `${o.ipoNo} → ${o.status}`, "success");
-  };
-
-  const NEXT_ACTION: Partial<Record<IPOStatus, { label: string; action: string; color: string }>> = {
-    DRAFT:        { label: "Submit IPO",         action: "submit",   color: "bg-blue-600 hover:bg-blue-500" },
-    SUBMITTED:    { label: "Approve",            action: "approve",  color: "bg-sky-600 hover:bg-sky-500" },
-    APPROVED:     { label: "Start Picking",      action: "pick",     color: "bg-violet-600 hover:bg-violet-500" },
-    PICKING:      { label: "Mark Dispatched",    action: "dispatch", color: "bg-indigo-600 hover:bg-indigo-500" },
-    DISPATCHED:   { label: "Generate Auto-GRN",  action: "grn",      color: "bg-teal-600 hover:bg-teal-500" },
-    AUTO_GRN:     { label: "Close IPO",          action: "close",    color: "bg-emerald-600 hover:bg-emerald-500" },
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="flex flex-col w-full max-w-5xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
+      <div className="flex flex-col w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-              <span className="material-symbols-outlined text-2xl">swap_horiz</span>
+            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-orange-400 text-2xl">fact_check</span>
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Inter-Store Purchase Order (IPO) Studio</h2>
-              <p className="text-xs text-slate-400">Branch-to-Branch Requisition · Approval · Picking · Dispatch · Auto-GRN</p>
+              <h2 className="text-base font-bold text-slate-100">IPO / Stock Audit Studio</h2>
+              <p className="text-xs text-slate-400">Physical inventory verification - variance tracking</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {(["DETAIL", "GRN"] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === tab ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30" : "text-slate-400 hover:text-slate-200"}`}>
-                {tab === "GRN" ? "Auto-GRN" : "IPO Detail"}
-              </button>
-            ))}
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-2">
+            <button onClick={() => setShowForm((v) => !v)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 transition-all">
+              + New Audit
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* IPO sidebar */}
-          <div className="w-60 border-r border-slate-800 overflow-y-auto bg-slate-950/30 p-3 space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 pb-1">Purchase Orders ({orders.length})</p>
-            {orders.map((o) => (
-              <button key={o.ipoId} onClick={() => { setSelectedId(o.ipoId); setActiveTab("DETAIL"); }}
-                className={`w-full text-left p-3 rounded-xl border transition-all ${selectedId === o.ipoId ? "bg-indigo-950/20 border-indigo-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
-                <div className="text-xs font-mono font-bold text-slate-200">{o.ipoNo}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{o.requestingBranch} ← {o.fulfillingBranch}</div>
-                <div className="flex items-center justify-between mt-1.5">
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[o.status]}`}>{o.status.replace(/_/g, " ")}</span>
-                  {o.totalValue > 0 && <span className="text-[10px] font-mono text-slate-400">₹{o.totalValue.toLocaleString("en-IN")}</span>}
-                </div>
-              </button>
-            ))}
-          </div>
+        {error && <div className="px-6 py-2 bg-rose-950/40 border-b border-rose-800/40 text-xs text-rose-300">{error}</div>}
 
-          {selected && (
-            <div className="flex-1 overflow-y-auto p-5 space-y-5">
-              {activeTab === "DETAIL" && (
-                <>
-                  {/* Header */}
-                  <div className="flex items-start justify-between flex-wrap gap-3">
-                    <div>
-                      <p className="text-lg font-bold font-mono text-slate-100">{selected.ipoNo}</p>
-                      <p className="text-xs text-slate-400">{selected.requestingBranch} ← {selected.fulfillingBranch}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Requested by: {selected.requestedBy}</p>
-                      {selected.approvedBy && <p className="text-[10px] text-emerald-400">Approved by: {selected.approvedBy}</p>}
-                      {selected.dispatchRef && <p className="text-[10px] text-sky-400">Dispatch ref: {selected.dispatchRef}</p>}
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${STATUS_STYLE[selected.status]}`}>{selected.status.replace(/_/g, " ")}</span>
-                      {NEXT_ACTION[selected.status] && (
-                        <button onClick={() => handleAction(NEXT_ACTION[selected.status]!.action)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all ${NEXT_ACTION[selected.status]!.color}`}>
-                          {NEXT_ACTION[selected.status]!.label}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* KPIs */}
-                  <div className="grid grid-cols-4 gap-3">
-                    {[
-                      { label: "Requested Qty",  value: selected.totalRequestedQty,  color: "text-slate-300" },
-                      { label: "Dispatched Qty", value: selected.totalDispatchedQty, color: "text-indigo-400" },
-                      { label: "Fulfillment %",  value: `${selected.fulfillmentRate}%`, color: selected.fulfillmentRate >= 90 ? "text-emerald-400" : "text-amber-400" },
-                      { label: "Total Value",    value: `₹${selected.totalValue.toLocaleString("en-IN")}`, color: "text-violet-400" },
-                    ].map((m) => (
-                      <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-3 text-center">
-                        <div className={`text-base font-black font-mono ${m.color}`}>{m.value}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{m.label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Lines table */}
-                  <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden text-xs">
-                    <div className="px-4 py-2 border-b border-slate-800 bg-slate-950/60">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Order Lines ({selected.lines.length})</p>
-                    </div>
-                    <table className="w-full text-left border-collapse">
-                      <thead><tr className="text-slate-500 uppercase text-[10px] border-b border-slate-800">
-                        <th className="py-2 px-3">Product</th>
-                        <th className="py-2 px-3 text-right">Req</th>
-                        <th className="py-2 px-3 text-right">Approved</th>
-                        <th className="py-2 px-3 text-right">Dispatched</th>
-                        <th className="py-2 px-3 text-right">Value</th>
-                        <th className="py-2 px-3 text-center">Status</th>
-                      </tr></thead>
-                      <tbody className="divide-y divide-slate-800/40 font-mono">
-                        {selected.lines.map((l) => (
-                          <tr key={l.lineId}>
-                            <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku}</p></td>
-                            <td className="py-2 px-3 text-right text-slate-400">{l.requestedQty}</td>
-                            <td className="py-2 px-3 text-right text-sky-400">{l.approvedQty || "—"}</td>
-                            <td className="py-2 px-3 text-right text-indigo-400">{l.dispatchedQty || "—"}</td>
-                            <td className="py-2 px-3 text-right text-slate-200">₹{l.lineValue.toLocaleString("en-IN") || "—"}</td>
-                            <td className="py-2 px-3 text-center">
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
-                                l.lineStatus === "FULFILLED" ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/20" :
-                                l.lineStatus === "PARTIAL"   ? "text-amber-300 bg-amber-500/10 border-amber-500/20" :
-                                l.lineStatus === "PICKING"   ? "text-violet-300 bg-violet-500/10 border-violet-500/20" :
-                                "text-slate-400 bg-slate-700/20 border-slate-600/20"
-                              }`}>{l.lineStatus}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Audit trail */}
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Audit Trail</p>
-                    <div className="space-y-2">
-                      {[...selected.auditTrail].reverse().map((e) => (
-                        <div key={e.auditId} className="flex items-start gap-3 px-3 py-2.5 bg-slate-800/30 border border-slate-800/60 rounded-xl text-xs">
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border mt-0.5 flex-shrink-0 ${STATUS_STYLE[e.toStatus]}`}>{e.toStatus.replace(/_/g, " ")}</span>
-                          <div>
-                            <p className="text-[10px] text-slate-500 font-mono">{e.performedBy} · {new Date(e.timestamp).toLocaleString("en-IN")}</p>
-                            {e.note && <p className="text-slate-400 mt-0.5">{e.note}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {activeTab === "GRN" && (
-                selected.autoGRN ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                      <div>
-                        <p className="text-lg font-bold font-mono text-slate-100">{selected.autoGRN.grnNo}</p>
-                        <p className="text-xs text-slate-400">Receiving: {selected.autoGRN.receivingBranch} · Generated: {new Date(selected.autoGRN.generatedAt).toLocaleString("en-IN")}</p>
-                      </div>
-                      <span className={`text-sm font-black px-3 py-1.5 rounded-full border ${selected.autoGRN.hasVariance ? "text-rose-300 bg-rose-500/20 border-rose-500/30" : "text-emerald-300 bg-emerald-500/20 border-emerald-500/30"}`}>
-                        {selected.autoGRN.hasVariance ? "? Variance Detected" : "? Fully Received"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { label: "Total Dispatched", value: selected.autoGRN.totalDispatched, color: "text-indigo-400" },
-                        { label: "Total Received",   value: selected.autoGRN.totalReceived,   color: selected.autoGRN.hasVariance ? "text-amber-400" : "text-emerald-400" },
-                      ].map((m) => (
-                        <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 text-center">
-                          <div className={`text-xl font-black font-mono ${m.color}`}>{m.value}</div>
-                          <div className="text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">{m.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden text-xs">
-                      <table className="w-full text-left border-collapse">
-                        <thead><tr className="text-slate-500 uppercase text-[10px] border-b border-slate-800 bg-slate-950/60">
-                          <th className="py-2 px-3">Product</th>
-                          <th className="py-2 px-3 text-right">Dispatched</th>
-                          <th className="py-2 px-3 text-right">Received</th>
-                          <th className="py-2 px-3 text-right">Short</th>
-                          <th className="py-2 px-3 text-center">Variance</th>
-                        </tr></thead>
-                        <tbody className="divide-y divide-slate-800/40 font-mono">
-                          {selected.autoGRN.lines.map((l) => (
-                            <tr key={l.lineId}>
-                              <td className="py-2 px-3 font-sans text-slate-300 text-xs">{l.productName}<div className="text-[10px] text-slate-500">{l.sku}</div></td>
-                              <td className="py-2 px-3 text-right text-indigo-400">{l.dispatchedQty}</td>
-                              <td className="py-2 px-3 text-right text-emerald-400">{l.receivedQty}</td>
-                              <td className="py-2 px-3 text-right text-rose-400">{l.shortQty > 0 ? l.shortQty : "—"}</td>
-                              <td className="py-2 px-3 text-center">{l.hasVariance ? <span className="text-rose-400">?</span> : <span className="text-emerald-400">?</span>}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
-                    No GRN generated yet. Dispatch the IPO and confirm receipt to generate Auto-GRN.
-                  </div>
-                )
-              )}
+        <div className="grid grid-cols-4 gap-3 px-6 py-3 border-b border-slate-800 bg-slate-950/30 text-xs text-center">
+          {[
+            { label: "Total Audits",  value: summary.total,       color: "text-slate-300" },
+            { label: "In Progress",   value: summary.inProgress,  color: "text-amber-400" },
+            { label: "Completed",     value: summary.completed,   color: "text-emerald-400" },
+            { label: "Total Variance",value: `\u20b9${Math.abs(summary.variance).toLocaleString("en-IN")}`, color: summary.variance < 0 ? "text-rose-400" : "text-emerald-400" },
+          ].map((m) => (
+            <div key={m.label}>
+              <div className={`text-lg font-black font-mono ${m.color}`}>{m.value}</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">{m.label}</div>
             </div>
-          )}
+          ))}
+        </div>
+
+        {showForm && (
+          <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/40 space-y-3">
+            <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">New Stock Audit</p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Warehouse ID *</label>
+                <input value={form.warehouse_id} onChange={(e) => setForm((f) => ({ ...f, warehouse_id: e.target.value }))}
+                  placeholder="WH-MUM-01" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Notes</label>
+                <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Q3 2026 cycle count..." className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 transition-colors">Cancel</button>
+              <button onClick={handleCreate} disabled={submitting}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-40 transition-all">
+                {submitting ? "Creating..." : "Start Audit"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {audits.length === 0 && !loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-500 gap-2">
+              <span className="material-symbols-outlined text-4xl">fact_check</span>
+              <p className="text-sm">No audits found. Start one to track inventory accuracy.</p>
+            </div>
+          ) : audits.map((a) => (
+            <div key={a.audit_id} className="flex items-center justify-between p-4 bg-slate-800/20 border border-slate-700/50 rounded-xl text-xs gap-4">
+              <div>
+                <p className="font-bold text-slate-100 font-mono">{a.audit_no ?? a.audit_id}</p>
+                <p className="text-slate-500 mt-0.5">{a.warehouse_id ?? "—"} · {a.audit_date ?? "—"} · {a.counted_items ?? 0} items counted</p>
+                {a.notes && <p className="text-slate-600 text-[10px]">{a.notes}</p>}
+              </div>
+              <div className="flex items-center gap-3">
+                {a.variance_value != null && (
+                  <span className={`font-mono font-bold text-sm ${a.variance_value < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                    {a.variance_value > 0 ? "+" : ""}\u20b9{Math.abs(a.variance_value).toLocaleString("en-IN")}
+                  </span>
+                )}
+                <span className={`text-[9px] font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[a.status] ?? ""}`}>{a.status}</span>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="flex items-center justify-end px-6 py-3 border-t border-slate-800 bg-slate-950/80">
@@ -321,4 +188,3 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
 };
 
 export default IPOStudioModal;
-

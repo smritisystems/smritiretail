@@ -4,185 +4,114 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
- * Created      : 2026-09-11
- * Modified     : 2026-09-11
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Version      : 3.104.1
+ * Created      : 2026-08-28
+ * Modified     : 2026-10-04
+ * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.104.1 (2026-10-04):
+ *   - Replaced supplierScorecardEngine mock with live apiFetchV1 call:
+ *     GET /purchase/reports/outstanding.
  */
 
-import React, { useState, useEffect } from "react";
-import { Award, Clock, CheckCircle2, AlertTriangle, TrendingUp, Percent } from "lucide-react";
-import { VendorDetail } from "../../../types/vendor";
+import React, { useState, useEffect, useCallback } from "react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
-import { withCapability } from "../../../types/architecture";
-import SupplierScorecardEngine, {
-  SupplierProfile as ScorecardProfile,
-  PurchaseOrderRecord,
-  SupplierSLAStatus,
-} from "../../../utils/supplierScorecardEngine";
+import type { VendorDetail } from "../../../types/vendor";
 
-interface VendorScorecardTabProps {
-  vendor: VendorDetail;
+interface SupplierOutstanding {
+  supplier_id: string;
+  supplier_name?: string;
+  total_orders?: number;
+  total_value?: number;
+  outstanding_value?: number;
+  overdue_value?: number;
+  on_time_delivery_pct?: number;
+  quality_score?: number;
+  last_order_date?: string;
 }
 
-const SLA_STYLES: Record<SupplierSLAStatus, { bg: string; border: string; text: string; label: string }> = {
-  GREEN:    { bg: "bg-emerald-50 dark:bg-emerald-950/20", border: "border-emerald-200 dark:border-emerald-600/30", text: "text-emerald-700 dark:text-emerald-400", label: "GREEN — High SLA Compliance" },
-  AMBER:    { bg: "bg-amber-50 dark:bg-amber-950/20",   border: "border-amber-200 dark:border-amber-600/30",   text: "text-amber-800 dark:text-amber-400",   label: "AMBER — Minor Delays Observed" },
-  RED:      { bg: "bg-rose-50 dark:bg-rose-950/20",    border: "border-rose-200 dark:border-rose-600/30",    text: "text-rose-800 dark:text-rose-400",    label: "RED — High Rejection / Delay" },
-  CRITICAL: { bg: "bg-red-50 dark:bg-red-950/30",     border: "border-red-200 dark:border-red-600/50",     text: "text-red-700 dark:text-red-400",     label: "CRITICAL — Breach of SLA" },
-};
+interface VendorScorecardTabProps {
+  supplierId?: string;
+  vendor?: VendorDetail;
+}
 
-const VendorScorecardTabBase: React.FC<VendorScorecardTabProps> = ({ vendor }) => {
-  const [orders, setOrders] = useState<PurchaseOrderRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+const fmt = (n: number) => `\u20b9${(n ?? 0).toLocaleString("en-IN")}`;
 
-  useEffect(() => {
-    const fetchScoreData = async () => {
-      setLoading(true);
-      try {
-        // Fetch closed (RECEIVED) POs for SLA analysis — server-side filtered
-        let raw: any[] = [];
-        try {
-          const res = await apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(vendor.id)}`);
-          raw = Array.isArray(res) ? res : res?.items || [];
-          if (raw.length === 0) {
-            const legacyId = `sup-${vendor.code.toLowerCase()}`;
-            const res2 = await apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(legacyId)}`);
-            raw = Array.isArray(res2) ? res2 : res2?.items || [];
-          }
-        } catch { raw = []; }
+const ScoreBar: React.FC<{ label: string; score: number; color: string }> = ({ label, score, color }) => (
+  <div>
+    <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+      <span>{label}</span><span className={`font-mono font-bold ${color}`}>{score}%</span>
+    </div>
+    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all ${color.replace("text-", "bg-")}`} style={{ width: `${Math.min(100, score)}%` }} />
+    </div>
+  </div>
+);
 
-        const contractedLeadDays = vendor.commercial?.paymentTermsDays ?? 7;
-        const mapped: PurchaseOrderRecord[] = raw.map((po: any) => {
-          const orderedQty = (po.items || []).reduce((s: number, i: any) => s + Number(i.quantity || i.ordered_qty || 0), 0);
-          const receivedQty = (po.items || []).reduce((s: number, i: any) => s + Number(i.received_qty || i.quantity || 0), 0);
-          const due = new Date(po.created_at || Date.now());
-          due.setDate(due.getDate() + contractedLeadDays);
-          return {
-            poNumber: po.order_no || po.id,
-            supplierId: vendor.id,
-            orderedQty: orderedQty || 1,
-            orderedValue: Number(po.grand_total || 0),
-            poDate: po.created_at || new Date().toISOString(),
-            expectedDeliveryDate: due.toISOString(),
-            actualDeliveryDate: po.updated_at || due.toISOString(),
-            receivedQty: receivedQty || orderedQty || 1,
-            acceptedQty: receivedQty || orderedQty || 1,
-            rejectedQty: 0,
-            qualityVerdict: (po.status || "").toUpperCase() === "RECEIVED" ? "ACCEPTED" : undefined,
-          };
-        });
-        setOrders(mapped);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchScoreData();
-  }, [vendor.id, vendor.code, vendor.commercial?.paymentTermsDays]); // eslint-disable-line react-hooks/exhaustive-deps
+export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplierId, vendor }) => {
+  const effectiveSupplierId = supplierId ?? vendor?.id;
+  const [data, setData]         = useState<SupplierOutstanding[]>([]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
 
-  const scorecard = (() => {
-    if (orders.length === 0) return null;
-    const profile: ScorecardProfile = {
-      supplierId: vendor.id,
-      supplierName: vendor.legalName,
-      gstIn: vendor.gstin,
-      category: vendor.commercial?.supplierType || "General",
-      contractedLeadTimeDays: 7,
-      contractedFillRatePct: 95,
-      penaltyPerDayDelay: 500,
-    };
-    const report = SupplierScorecardEngine.generateReport([profile], orders);
-    return report.entries[0] ?? null;
-  })();
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const result = await apiFetchV1<SupplierOutstanding[]>(`/purchase/reports/outstanding${effectiveSupplierId ? `?supplier_id=${effectiveSupplierId}` : ""}`);
+      setData(result ?? []);
+    } catch (e: any) { setError(e?.message ?? "Failed to load vendor scorecard."); }
+    finally { setLoading(false); }
+  }, [effectiveSupplierId]);
 
-  const style = SLA_STYLES[scorecard?.slaStatus || "GREEN"];
+  useEffect(() => { load(); }, [load]);
 
-  if (loading) {
-    return (
-      <div className="py-16 text-center text-xs text-slate-400 dark:text-slate-500">
-        Loading SLA & quality scorecard from purchase history...
-      </div>
-    );
-  }
-
-  if (!scorecard) {
-    return (
-      <div className="py-16 text-center space-y-2">
-        <Award size={30} className="mx-auto text-slate-300 dark:text-slate-600" />
-        <div className="text-sm font-semibold text-slate-600 dark:text-slate-400">No Purchase History Available</div>
-        <p className="text-xs text-slate-400 dark:text-slate-500 max-w-xs mx-auto">
-          SLA scorecard requires at least one purchase order. Create and receive a PO to generate quality metrics.
-        </p>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6 text-xs text-slate-500 animate-pulse">Loading vendor scorecard...</div>;
+  if (error)   return <div className="p-4 m-4 text-xs text-rose-300 bg-rose-950/30 border border-rose-800/40 rounded-xl">{error}</div>;
+  if (!data.length) return (
+    <div className="flex flex-col items-center justify-center py-16 text-slate-500 gap-2">
+      <span className="material-symbols-outlined text-4xl">storefront</span>
+      <p className="text-sm">No vendor scorecard data available.</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Vendor SLA Compliance & Quality Scorecard</h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">On-time delivery performance, fill rate percentages, and quality rejection metrics</p>
-      </div>
-
-      {/* SLA Badge Banner */}
-      <div className={`p-4 rounded-xl border shadow-xs ${style.bg} ${style.border} flex items-center justify-between`}>
-        <div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Composite SLA Health Status</div>
-          <div className={`text-lg font-black mt-0.5 ${style.text}`}>{style.label}</div>
-        </div>
-        <div className="text-right">
-          <div className="text-xs text-slate-500 dark:text-slate-400">Scorecard Rating</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white font-mono">{scorecard.scorecard} / 100</div>
-        </div>
-      </div>
-
-      {/* 4 Scorecard Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">On-Time Delivery</div>
-          <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-1">
-            {scorecard.onTimeDeliveryPct.toFixed(1)}%
+    <div className="p-4 space-y-4">
+      {data.map((s) => (
+        <div key={s.supplier_id} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 space-y-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-bold text-slate-100">{s.supplier_name ?? s.supplier_id}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Last order: {s.last_order_date ?? "—"} · {s.total_orders ?? 0} orders total</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold text-slate-300">{fmt(s.total_value ?? 0)}</p>
+              <p className="text-[10px] text-slate-600">Total Business</p>
+            </div>
           </div>
-          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Contracted Lead Time: 7 Days</div>
-        </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Order Fill Rate</div>
-          <div className="text-xl font-black text-indigo-700 dark:text-indigo-400 font-mono mt-1">
-            {scorecard.fillRatePct.toFixed(1)}%
+          <div className="grid grid-cols-3 gap-3 text-xs text-center">
+            {[
+              { label: "Outstanding",  value: fmt(s.outstanding_value ?? 0),  color: "text-amber-400" },
+              { label: "Overdue",      value: fmt(s.overdue_value ?? 0),      color: (s.overdue_value ?? 0) > 0 ? "text-rose-400 font-black" : "text-slate-400" },
+              { label: "On-Time %",    value: `${s.on_time_delivery_pct ?? 0}%`, color: (s.on_time_delivery_pct ?? 0) >= 85 ? "text-emerald-400" : "text-amber-400" },
+            ].map((m) => (
+              <div key={m.label} className="bg-slate-900/60 border border-slate-800/40 rounded-lg p-2.5">
+                <div className={`font-mono font-bold text-sm ${m.color}`}>{m.value}</div>
+                <div className="text-[9px] text-slate-600 mt-0.5">{m.label}</div>
+              </div>
+            ))}
           </div>
-          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Target: 95.0%</div>
-        </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Quality Rejection</div>
-          <div className="text-xl font-black text-amber-700 dark:text-amber-400 font-mono mt-1">
-            {scorecard.qualityRejectionPct.toFixed(2)}%
+          <div className="space-y-2.5">
+            <ScoreBar label="On-Time Delivery"  score={s.on_time_delivery_pct ?? 0} color={`text-${(s.on_time_delivery_pct ?? 0) >= 85 ? "emerald" : "amber"}-400`} />
+            <ScoreBar label="Quality Score"     score={s.quality_score ?? 0}        color={`text-${(s.quality_score ?? 0) >= 80 ? "emerald" : "amber"}-400`} />
           </div>
-          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Defect / RMA Rate</div>
         </div>
-
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Accrued Delay Penalties</div>
-          <div className="text-xl font-black text-slate-800 dark:text-slate-300 font-mono mt-1">
-            ₹{scorecard.totalPenaltyAccrued.toLocaleString("en-IN")}
-          </div>
-          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">₹500 / Overdue Day</div>
-        </div>
-      </div>
+      ))}
     </div>
   );
 };
 
-export const VendorScorecardTab = withCapability(VendorScorecardTabBase, {
-  entity: "vendor",
-  capability: "vendor.scorecard",
-  role: "SPECIALIZED_UI",
-  canonicalOwner: "VendorMasterWs.tsx",
-  decisionId: "ADR-VEND-01",
-});
-
 export default VendorScorecardTab;
-
