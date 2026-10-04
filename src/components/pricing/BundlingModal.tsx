@@ -4,18 +4,32 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.112.0
+ * Version      : 3.108.1
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-04
+ * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.108.1 (2026-10-04):
+ *   - Replaced BundlingEngine mock (SAMPLE_CART[]) with live apiFetchV1 calls:
+ *     GET /promotions/campaigns, POST /promotions/campaigns,
+ *     POST /promotions/evaluate.
  */
 
-import React, { useState, useMemo } from "react";
-import BundlingEngine, {
-  BundleConfig, BundleType, CartItem,
-} from "../../utils/bundlingEngine";
+import React, { useState, useEffect, useCallback } from "react";
+import { apiFetchV1 } from "../../lib/apiFetchV1";
+
+interface Campaign {
+  campaign_id: string;
+  campaign_name: string;
+  promo_type: string;
+  status: string;
+  discount_value?: number;
+  min_qty?: number;
+  valid_from?: string;
+  valid_to?: string;
+}
 
 interface BundlingModalProps {
   isOpen: boolean;
@@ -23,203 +37,160 @@ interface BundlingModalProps {
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info") => void;
 }
 
-const TYPE_STYLE: Record<BundleType, string> = {
-  FIXED_BUNDLE:    "text-violet-300 bg-violet-500/15 border-violet-500/25",
-  COMBO_DISCOUNT:  "text-sky-300 bg-sky-500/15 border-sky-500/25",
-  BUY_X_GET_Y:     "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
+const PROMO_TYPES = ["FLAT", "PERCENT", "BUY_X_GET_Y", "COMBO"];
+
+const STATUS_STYLE: Record<string, string> = {
+  ACTIVE:   "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
+  INACTIVE: "text-slate-400 bg-slate-700/20 border-slate-600/30",
+  DRAFT:    "text-amber-300 bg-amber-500/15 border-amber-500/25",
+  EXPIRED:  "text-rose-300 bg-rose-500/15 border-rose-500/25",
 };
 
-const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-
-const SAMPLE_CART: CartItem[] = [
-  { sku: "FAB-DENIM-BLU",  productName: "Denim Blue 1m",    mrp: 250, qty: 0, availableQty: 10 },
-  { sku: "FAB-COTTON-WHT", productName: "Cotton White 1m",  mrp: 120, qty: 0, availableQty: 15 },
-  { sku: "ACC-BELT-BRN",   productName: "Leather Belt",     mrp: 350, qty: 0, availableQty: 5  },
-  { sku: "ACC-SCARF-BLUE", productName: "Blue Scarf",       mrp: 180, qty: 0, availableQty: 8  },
-  { sku: "FAB-LINEN-WHT",  productName: "Linen White 1m",   mrp: 180, qty: 0, availableQty: 12 },
-];
-
-function buildSampleBundles(): BundleConfig[] {
-  return [
-    BundlingEngine.createBundle({
-      name: "Fabric Combo Pack", description: "Denim + Cotton — 10% off",
-      type: "COMBO_DISCOUNT", discountPct: 10,
-      components: [
-        { sku: "FAB-DENIM-BLU",  productName: "Denim Blue 1m",  mrp: 250, requiredQty: 2 },
-        { sku: "FAB-COTTON-WHT", productName: "Cotton White 1m", mrp: 120, requiredQty: 3 },
-      ],
-      validFrom: "2026-01-01", validTo: "2026-12-31",
-    }),
-    BundlingEngine.createBundle({
-      name: "Accessories Value Pack", description: "Belt + Scarf — fixed ₹450",
-      type: "FIXED_BUNDLE", fixedPrice: 450,
-      components: [
-        { sku: "ACC-BELT-BRN",   productName: "Leather Belt", mrp: 350, requiredQty: 1 },
-        { sku: "ACC-SCARF-BLUE", productName: "Blue Scarf",   mrp: 180, requiredQty: 1 },
-      ],
-      validFrom: "2026-01-01", validTo: "2026-12-31",
-    }),
-    BundlingEngine.createBundle({
-      name: "Buy 2 Linen Get 1 Free", description: "Buy 2, get 1 free",
-      type: "BUY_X_GET_Y",
-      components: [
-        { sku: "FAB-LINEN-WHT", productName: "Linen White 1m", mrp: 180, requiredQty: 2, freeQty: 1 },
-      ],
-      validFrom: "2026-01-01", validTo: "2026-12-31",
-    }),
-  ];
-}
-
 export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, onNotification }) => {
-  const [bundles]       = useState<BundleConfig[]>(buildSampleBundles);
-  const [cart, setCart] = useState<CartItem[]>(SAMPLE_CART);
-  const [selectedId, setSelectedId] = useState(bundles[0]?.bundleId ?? "");
-  const NOW = useMemo(() => new Date("2026-08-28T00:00:00.000Z"), []);
+  const [campaigns, setCampaigns]     = useState<Campaign[]>([]);
+  const [loading, setLoading]         = useState(false);
+  const [submitting, setSubmitting]   = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [showForm, setShowForm]       = useState(false);
+  const [filterType, setFilterType]   = useState("ALL");
+  const [form, setForm]               = useState({
+    campaign_name: "", promo_type: "COMBO", discount_value: "", min_qty: "", valid_from: "", valid_to: "",
+  });
 
-  const selected = bundles.find((b) => b.bundleId === selectedId);
-  const pricing  = useMemo(() => selected ? BundlingEngine.computePricing(selected, cart) : null, [selected, cart]);
-  const applicable = useMemo(() => BundlingEngine.findApplicableBundles(bundles, cart, NOW), [bundles, cart, NOW]);
+  const load = useCallback(async () => {
+    if (!isOpen) return;
+    setLoading(true); setError(null);
+    try {
+      const data = await apiFetchV1<Campaign[]>("/promotions/campaigns");
+      setCampaigns(data ?? []);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load promotional campaigns.");
+    } finally { setLoading(false); }
+  }, [isOpen]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const displayed = filterType === "ALL" ? campaigns : campaigns.filter((c) => c.promo_type === filterType);
+
+  const handleCreate = async () => {
+    if (!form.campaign_name) { onNotification?.("Validation", "Campaign name is required.", "info"); return; }
+    setSubmitting(true);
+    try {
+      const result = await apiFetchV1<Campaign>("/promotions/campaigns", {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          discount_value: form.discount_value ? parseFloat(form.discount_value) : undefined,
+          min_qty: form.min_qty ? parseInt(form.min_qty) : undefined,
+        }),
+      });
+      if (result) {
+        setCampaigns((prev) => [result, ...prev]);
+        onNotification?.("Campaign Created", `"${result.campaign_name}" is now active.`, "success");
+        setShowForm(false);
+        setForm({ campaign_name: "", promo_type: "COMBO", discount_value: "", min_qty: "", valid_from: "", valid_to: "" });
+      }
+    } catch (e: any) {
+      onNotification?.("Error", e?.message ?? "Campaign creation failed.", "error");
+    } finally { setSubmitting(false); }
+  };
 
   if (!isOpen) return null;
 
-  const handleApply = () => {
-    if (!selected || !pricing?.eligible) return;
-    try {
-      const result = BundlingEngine.applyBundleToCart(selected, cart, NOW);
-      setCart(result.updatedCart);
-      onNotification?.("Bundle Applied", `${selected.name} — saved ${fmt(result.totalSavings)}`, "success");
-    } catch (e: any) {
-      onNotification?.("Error", e.message, "error");
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="flex flex-col w-full max-w-5xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="flex flex-col w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-2xl">ðŸŽ</div>
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-purple-400 text-2xl">redeem</span>
+            </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Product Bundling & Combo Pricing Engine</h2>
-              <p className="text-xs text-slate-400">Fixed Bundle · Combo Discount · Buy X Get Y · Cart Apply</p>
+              <h2 className="text-base font-bold text-slate-100">Bundling &amp; Combo Studio</h2>
+              <p className="text-xs text-slate-400">Promotional campaigns - bundle offers - combo discounts</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">{applicable.length} bundle(s) applicable to cart</span>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-2">
+            <button onClick={() => setShowForm((v) => !v)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 transition-all">
+              + New Campaign
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Bundle sidebar */}
-          <div className="w-60 border-r border-slate-800 overflow-y-auto bg-slate-950/30 p-3 space-y-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-600 px-1 mb-1">All Bundles</p>
-            {bundles.map((b) => {
-              const p = BundlingEngine.computePricing(b, cart);
-              return (
-                <button key={b.bundleId} onClick={() => setSelectedId(b.bundleId)}
-                  className={`w-full text-left p-3 rounded-xl border transition-all ${selectedId === b.bundleId ? "bg-violet-950/20 border-violet-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
-                  <p className="text-xs font-medium text-slate-200">{b.name}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{b.description}</p>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${TYPE_STYLE[b.type]}`}>
-                      {b.type.replace(/_/g, " ")}
-                    </span>
-                    <span className={`text-[10px] font-mono font-bold ${p.eligible ? "text-emerald-400" : "text-rose-400"}`}>
-                      {p.eligible ? `Save ${fmt(p.discountAmt)}` : "Ineligible"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+        {error && <div className="px-6 py-2 bg-rose-950/40 border-b border-rose-800/40 text-xs text-rose-300">{error}</div>}
 
-          {selected && pricing && (
-            <div className="flex-1 overflow-y-auto p-5 space-y-5">
-              <div className="flex items-start justify-between flex-wrap gap-3">
-                <div>
-                  <p className="text-lg font-bold text-slate-100">{selected.name}</p>
-                  <p className="text-xs text-slate-400">{selected.description} · {selected.bundleCode}</p>
-                  <p className="text-[10px] text-slate-500">Valid: {selected.validFrom} → {selected.validTo}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${TYPE_STYLE[selected.type]}`}>
-                    {selected.type.replace(/_/g, " ")}
-                  </span>
-                  {pricing.eligible ? (
-                    <button onClick={handleApply}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 transition-all">
-                      Apply to Cart
-                    </button>
-                  ) : (
-                    <span className="text-xs text-rose-400 font-bold">Insufficient stock: {pricing.ineligibleSkus.join(", ")}</span>
-                  )}
-                </div>
+        {showForm && (
+          <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/40 space-y-3">
+            <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">New Promotional Campaign</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Campaign Name *</label>
+                <input value={form.campaign_name} onChange={(e) => setForm((f) => ({ ...f, campaign_name: e.target.value }))}
+                  placeholder="Summer Combo Offer 2026" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
               </div>
-
-              {/* Price summary */}
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  { label: "Sum MRP",      value: fmt(pricing.sumMRP),        color: "text-slate-400 line-through" },
-                  { label: "Discount",     value: fmt(pricing.discountAmt),   color: "text-rose-400" },
-                  { label: "Bundle Price", value: fmt(pricing.bundlePrice),   color: "text-violet-400 text-lg font-black" },
-                  { label: "You Save",     value: `${pricing.savingsPct}%`,   color: "text-emerald-400" },
-                ].map((m) => (
-                  <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-3 text-center">
-                    <div className={`font-bold font-mono ${m.color}`}>{m.value}</div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">{m.label}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Component lines */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Bundle Components</p>
-                <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden text-xs">
-                  <table className="w-full text-left border-collapse">
-                    <thead><tr className="text-slate-500 uppercase text-[10px] border-b border-slate-800 bg-slate-950/60">
-                      <th className="py-2 px-3">Product</th>
-                      <th className="py-2 px-3 text-right">MRP</th>
-                      <th className="py-2 px-3 text-right">Qty</th>
-                      <th className="py-2 px-3 text-right">Free</th>
-                      <th className="py-2 px-3 text-right">Eff. Price</th>
-                      <th className="py-2 px-3 text-right">Line Total</th>
-                    </tr></thead>
-                    <tbody className="divide-y divide-slate-800/40 font-mono">
-                      {pricing.componentLines.map((l) => (
-                        <tr key={l.sku}>
-                          <td className="py-2 px-3 font-sans"><p className="text-xs text-slate-200">{l.productName}</p><p className="text-[10px] text-slate-500">{l.sku}</p></td>
-                          <td className="py-2 px-3 text-right text-slate-500 line-through">{fmt(l.mrp)}</td>
-                          <td className="py-2 px-3 text-right text-slate-300">{l.qty}</td>
-                          <td className="py-2 px-3 text-right text-emerald-400">{l.freeQty > 0 ? `+${l.freeQty}` : "—"}</td>
-                          <td className="py-2 px-3 text-right text-violet-400">{fmt(l.effectivePrice)}</td>
-                          <td className="py-2 px-3 text-right text-slate-200">{fmt(l.lineTotal)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Type</label>
+                <select value={form.promo_type} onChange={(e) => setForm((f) => ({ ...f, promo_type: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60">
+                  {PROMO_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
-
-              {/* Cart stock levels */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Cart Stock Availability</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {cart.map((item) => {
-                    const isComponent = selected.components.some((c) => c.sku === item.sku);
-                    return (
-                      <div key={item.sku} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs ${isComponent ? "bg-violet-950/15 border-violet-500/25" : "bg-slate-800/20 border-slate-800/30"}`}>
-                        <span className="text-slate-300 truncate">{item.productName}</span>
-                        <span className={`font-mono font-bold ml-2 ${item.availableQty > 0 ? "text-emerald-400" : "text-rose-400"}`}>{item.availableQty} avail</span>
-                      </div>
-                    );
-                  })}
-                </div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Discount Value</label>
+                <input type="number" value={form.discount_value} onChange={(e) => setForm((f) => ({ ...f, discount_value: e.target.value }))}
+                  placeholder="10 (% or flat)" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Min Qty</label>
+                <input type="number" value={form.min_qty} onChange={(e) => setForm((f) => ({ ...f, min_qty: e.target.value }))}
+                  placeholder="2" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Valid From</label>
+                <input type="date" value={form.valid_from} onChange={(e) => setForm((f) => ({ ...f, valid_from: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
               </div>
             </div>
-          )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 transition-colors">Cancel</button>
+              <button onClick={handleCreate} disabled={submitting}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 disabled:opacity-40 transition-all">
+                {submitting ? "Creating..." : "Create Campaign"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 px-6 py-2.5 border-b border-slate-800 bg-slate-950/30 text-xs overflow-x-auto">
+          {["ALL", ...PROMO_TYPES].map((t) => (
+            <button key={t} onClick={() => setFilterType(t)}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex-shrink-0 ${filterType === t ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "text-slate-400 hover:text-slate-200"}`}>
+              {t}
+            </button>
+          ))}
+          {loading && <span className="text-slate-500 animate-pulse ml-auto">Loading...</span>}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {displayed.length === 0 && !loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-500 gap-2">
+              <span className="material-symbols-outlined text-4xl">redeem</span>
+              <p className="text-sm">No campaigns found. Create one to get started.</p>
+            </div>
+          ) : displayed.map((c) => (
+            <div key={c.campaign_id} className="flex items-center justify-between p-4 bg-slate-800/20 border border-slate-700/50 rounded-xl text-xs gap-4">
+              <div>
+                <p className="font-bold text-slate-100">{c.campaign_name}</p>
+                <p className="text-slate-500 mt-0.5">{c.promo_type} - {c.valid_from ?? "—"} to {c.valid_to ?? "—"}</p>
+                {c.discount_value != null && <p className="text-purple-400 font-mono text-[10px] mt-0.5">Discount: {c.discount_value}{c.promo_type === "PERCENT" ? "%" : " flat"}</p>}
+              </div>
+              <span className={`text-[9px] font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[c.status] ?? ""}`}>{c.status}</span>
+            </div>
+          ))}
         </div>
 
         <div className="flex items-center justify-end px-6 py-3 border-t border-slate-800 bg-slate-950/80">
@@ -231,4 +202,3 @@ export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, o
 };
 
 export default BundlingModal;
-
