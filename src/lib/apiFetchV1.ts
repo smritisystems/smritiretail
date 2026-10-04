@@ -293,16 +293,42 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
   // ────────────────────────────────────────────────────────────────────────────
 
   if (!response.ok) {
+    let errorBody: unknown = null;
     let errorDetail = `Request failed with status ${response.status}`;
     try {
-      const errorJson = await response.json();
-      errorDetail = errorJson.detail || errorJson.error?.explanation || errorJson.message || JSON.stringify(errorJson);
+      errorBody = await response.json();
     } catch {
       try {
         errorDetail = await response.text();
       } catch {
         // noop
       }
+    }
+
+    // ── Structured Item Master 422 handling ───────────────────────────────────
+    // Import lazily to avoid circular deps — module is self-contained.
+    if (response.status === 422 && errorBody) {
+      const bodyObj = errorBody as Record<string, unknown>;
+      if (
+        bodyObj.error &&
+        typeof bodyObj.error === "object" &&
+        (bodyObj.error as Record<string, unknown>).code === "ITEM_MASTER_VALIDATION_ERROR"
+      ) {
+        const { parseItemMaster422Response, ItemMasterValidationError } =
+          await import("../services/itemMasterValidationMapper");
+        const normalized = parseItemMaster422Response(errorBody);
+        throw new ItemMasterValidationError(normalized);
+      }
+    }
+
+    // ── Fallback: plain Error for all other non-ok responses ──────────────────
+    if (errorBody) {
+      const b = errorBody as Record<string, unknown>;
+      errorDetail =
+        (b.detail as string | undefined) ||
+        ((b.error as Record<string, unknown> | undefined)?.explanation as string | undefined) ||
+        (b.message as string | undefined) ||
+        JSON.stringify(errorBody);
     }
     throw new Error(errorDetail);
   }

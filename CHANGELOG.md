@@ -28,6 +28,43 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [Unreleased] - 2026-10-04 — Item Master 422 HREP Validation (v1.1.0)
+
+> **Branch:** `smritiNX` | **Area:** Item Master, Inventory, Validation
+> **Walkthrough:** `docs/walkthrough/ItemMaster_422_HREP_Validation_v1.0.0.md`
+
+### Added
+- **`backend/app/core/item_master_validation.py`** (new): Centralized `ItemMasterValidationMapper` — single source of truth for all Item Master 422 field error translations. Includes `FIELD_LABELS`, `FIELD_SECTIONS`, `FIELD_REQUIRED_MESSAGES`, `_DYN_LABEL_MAP`, `build_422_response()`, `build_dynamic_attr_422_response()`, `_parse_dynamic_attr_error()`, `build_duplicate_sku_response()`, `build_duplicate_barcode_response()`, `is_item_master_endpoint()`. Version 1.1.0.
+- **`src/services/itemMasterValidationMapper.ts`** (new): Frontend 422 parser — `parseItemMaster422Response()`, `ItemMasterValidationError` (typed Error subclass), `focusFirstError()`, `buildValidationSummary()`, `FIELD_TO_ELEMENT_ID` registry. Color/size/size_system now map to real chip container DOM IDs (`im-field-color`, `im-field-size`). Version 1.1.0.
+- **`backend/app/tests/run_item_master_422_unit_tests.py`** (new): Standalone 37-test unit runner (Groups 1–10) that bypasses DB conftest.
+- **`backend/app/tests/test_item_master_422_validation.py`** (new): Formal pytest test file (65 tests, Groups 1–11 including dynamic attribute 422 mapper tests). Version 1.1.0.
+- **`src/tests/itemMaster422Validation.test.ts`** (new): Vitest test file (58 tests, 12 groups including chip container ID isolation tests and dynamic attribute 422 frontend contract group). Version 1.1.0.
+
+### Changed
+- **`backend/app/core/error_handlers.py`**: Added Path B intercept in `http_exception_handler` — HTTPException(422) on Item Master endpoints is now routed through `build_dynamic_attr_422_response()` and returns the same structured `ITEM_MASTER_VALIDATION_ERROR` contract as Pydantic validation errors. All other 422s fall through to the existing generic HREP handler. Scope: strictly Item Master paths.
+- **`backend/app/schemas/inventory.py`**: Per-field human-readable validators, HSN 6/8-digit regex, `label_map` for MRP/price/GST validators.
+- **`src/lib/apiFetchV1.ts`**: On 422 with `code === "ITEM_MASTER_VALIDATION_ERROR"`, throws typed `ItemMasterValidationError`; all other non-ok responses throw plain `Error`.
+- **`src/components/itemMaster/AddProductDrawer.tsx`**: (a) Color chip group container wrapped in `<div id="im-field-color" tabIndex={-1}>` with red ring on error and inline error paragraph below chips. (b) Size chip group container wrapped in `<div id="im-field-size" tabIndex={-1}>` with same treatment. (c) Full `fieldErrors` state, `validationSummary` banner, `getFieldError()` helper, inline red error text under each required field, auto-`focusFirstError` on submit failure.
+
+### Fixed
+- **Dynamic attribute 422 path** (`AttributesService.validate_product_attributes()`): Previously raised `HTTPException(422, detail=dict)` bypassing the `RequestValidationError` handler. Now intercepted by `http_exception_handler` Path B and converted to structured `ITEM_MASTER_VALIDATION_ERROR` response. Error strings like `"Style is required"`, `"Color contains invalid value(s): X"`, and `"IM-001 [BLOCK]: ..."` are all mapped to human-readable field-level messages — no internal text exposed.
+- **Chip-field focus UX**: Color and Size chip groups previously fell back to `im-field-barcode` as focus target (wrong UX). Now focus goes to the actual chip group container (`im-field-color`, `im-field-size`) which receives the red ring highlight and inline error. Barcode now maps exclusively to `im-field-barcode`.
+- **Generic fallback messages**: Unknown dynamic attribute labels no longer echo the raw label string (which could contain words like `"dynamic"`). Now returns a fixed generic safe business message.
+- **`item_master_validation.py` fallback**: Strings containing "constraint", "internal", "error", "exception", "pydantic", "sqlalchemy" produce `"<Label>: Please check and correct this value."` — no technical text leaks.
+
+### Tests
+- **Backend:** 65/65 pytest passed (Groups 1–11: missing fields, HSN, price/GST, duplicates, multiple errors, nested fields, unknown fields, endpoint matcher, schema messages, response contract, **dynamic attribute 422 mapper**)
+- **Frontend:** 58/58 Vitest passed (12 groups including chip container ID isolation, dynamic attribute 422 frontend contract, `FIELD_TO_ELEMENT_ID` coverage with barcode/color/size distinction)
+- **TypeScript:** `npx tsc --noEmit` → exit 0, 0 errors
+- **Live API T1–T4:** Verified with literal HTTP response bodies (T5a/T5b: stock not required confirmed; T6: skipped — no seeded products in integration DB)
+
+### Known Limitations
+- **T6 Duplicate SKU live:** Cannot be verified against live endpoint (GET /inventory returns HTTP 500 — pre-existing unrelated issue). Duplicate SKU/Barcode handling is covered by unit tests (Group 4 backend, Groups 6–7 frontend).
+- **Dynamic attribute live path:** `AttributesService.validate_product_attributes()` is only triggered when the product category has mandatory attribute definitions in the DB. No live test was run against this path; the mapper is verified at unit-test level only.
+- **Frontend UI smoke test:** No browser automation was run. Manual verification required for actual chip highlight and scroll-to-error behaviour.
+
+---
+
 ## [6.69.0] - 2026-10-03 — Sales & Compliance: Corporate B2B Billing Fields Wiring & Sales Invoice Snapshot Immutability (Phase 2C/2F)
 
 > **Branch:** `smritiNX` | **Area:** Sales Invoicing, Canonical Sales Posting Writer, CRM Corporate Billing & Duplicate Protection
