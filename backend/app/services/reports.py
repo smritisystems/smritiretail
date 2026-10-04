@@ -30,7 +30,7 @@ from ..models.sales import (
     SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem,
     SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation
 )
-from ..models.purchase import Supplier, PurchaseOrder, PurchaseReceipt, PurchaseBill
+from ..models.purchase import Supplier, PurchaseOrder, PurchaseReceipt, PurchaseReceiptItem, PurchaseBill
 from ..models.supplier_payment import SupplierPayment
 from ..models.report_schedule import ReportSchedule
 from ..models.crm import Customer, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
@@ -3180,31 +3180,36 @@ class ReportsService:
             raw_month = kwargs.get("month")
             yr  = int(raw_year)  if raw_year  else None
             mo  = int(raw_month) if raw_month else None
-            res = await self.monthly_accounts_summary(year=yr, month=mo)
+            res = await self.monthly_accounts_summary(year=yr, month=mo, branch_id=branch_id)
             columns = [
-                ReportColumnSchema(key="period_label",      label="PERIOD",                  datatype="text",     width=140),
-                ReportColumnSchema(key="invoice_count",     label="INVOICES",                 datatype="number",   align="right", width=100),
-                ReportColumnSchema(key="sales_revenue",     label="SALES REVENUE (\u20b9)",       datatype="currency", align="right", width=160),
-                ReportColumnSchema(key="sales_returns",     label="SALES RETURNS (\u20b9)",       datatype="currency", align="right", width=160),
-                ReportColumnSchema(key="net_sales",         label="NET SALES (\u20b9)",           datatype="currency", align="right", width=150),
-                ReportColumnSchema(key="purchase_receipts", label="GRN VALUE (\u20b9)",           datatype="currency", align="right", width=150),
-                ReportColumnSchema(key="purchase_bills",    label="PURCHASE BILLS (\u20b9)",      datatype="currency", align="right", width=160),
-                ReportColumnSchema(key="net_position",      label="NET POSITION (\u20b9)",        datatype="currency", align="right", width=160),
+                ReportColumnSchema(key="period_label",       label="PERIOD",                   datatype="text",     width=140),
+                ReportColumnSchema(key="invoice_count",      label="INVOICES",                  datatype="number",   align="right", width=100),
+                ReportColumnSchema(key="sold_qty",           label="SOLD QTY",                  datatype="number",   align="right", width=110),
+                ReportColumnSchema(key="sales_revenue",      label="SALES VALUE (\u20b9)",          datatype="currency", align="right", width=160),
+                ReportColumnSchema(key="returns_qty",        label="RETURNED QTY",              datatype="number",   align="right", width=110),
+                ReportColumnSchema(key="sales_returns",      label="RETURNS VALUE (\u20b9)",        datatype="currency", align="right", width=160),
+                ReportColumnSchema(key="net_sold_qty",       label="NET SOLD QTY",              datatype="number",   align="right", width=120),
+                ReportColumnSchema(key="net_sales",          label="NET SALES VALUE (\u20b9)",      datatype="currency", align="right", width=160),
+                ReportColumnSchema(key="purchased_qty",      label="PURCHASED QTY",             datatype="number",   align="right", width=120),
+                ReportColumnSchema(key="purchase_receipts",  label="PURCHASE VALUE (\u20b9)",       datatype="currency", align="right", width=160),
+                ReportColumnSchema(key="purchase_bills",     label="PURCHASE BILLS (\u20b9)",       datatype="currency", align="right", width=160),
+                ReportColumnSchema(key="net_position",       label="NET POSITION (\u20b9)",         datatype="currency", align="right", width=160),
             ]
             rows.append(res)
             summary_cards = [
-                ReportSummaryCardSchema(label="Period",           value=res["period_label"],    indicator="neutral", datatype="text"),
-                ReportSummaryCardSchema(label="Net Sales Revenue",value=res["net_sales"],        indicator="green",   datatype="currency"),
-                ReportSummaryCardSchema(label="Purchase Payable", value=res["purchase_bills"],   indicator="amber",   datatype="currency"),
-                ReportSummaryCardSchema(label="Net Position",     value=res["net_position"],     indicator="green" if res["net_position"] >= 0 else "red", datatype="currency"),
+                ReportSummaryCardSchema(label="Period",             value=res["period_label"],    indicator="neutral", datatype="text"),
+                ReportSummaryCardSchema(label="Net Sold Qty",       value=res["net_sold_qty"],    indicator="green",   datatype="number"),
+                ReportSummaryCardSchema(label="Net Sales Value",    value=res["net_sales"],       indicator="green",   datatype="currency"),
+                ReportSummaryCardSchema(label="Purchased Qty",      value=res["purchased_qty"],   indicator="blue",    datatype="number"),
+                ReportSummaryCardSchema(label="Purchase Value",     value=res["purchase_receipts"], indicator="amber",  datatype="currency"),
+                ReportSummaryCardSchema(label="Net Position",       value=res["net_position"],    indicator="green" if res["net_position"] >= 0 else "red", datatype="currency"),
             ]
-            if res["net_sales"] or res["purchase_bills"]:
+            if res["net_sales"] or res["purchase_receipts"]:
                 chart_config = ReportChartConfigSchema(
                     chart_type="bar",
-                    labels=["Sales Revenue", "Sales Returns", "Net Sales", "GRN Value", "Purchase Bills", "Net Position"],
-                    datasets=[{"name": res["period_label"], "data": [
-                        res["sales_revenue"], res["sales_returns"], res["net_sales"],
-                        res["purchase_receipts"], res["purchase_bills"], res["net_position"],
+                    labels=["Sold Qty", "Returns Qty", "Net Sold Qty", "Purchased Qty"],
+                    datasets=[{"name": res["period_label"] + " — Quantity", "data": [
+                        res["sold_qty"], res["returns_qty"], res["net_sold_qty"], res["purchased_qty"],
                     ]}]
                 )
 
@@ -3243,23 +3248,41 @@ class ReportsService:
         self,
         year: Optional[int] = None,
         month: Optional[int] = None,
+        branch_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Month-end financial summary: sales revenue, sales returns,
-        purchase receipts (GRN value), and purchase bills payable.
+        Month-end financial summary covering sold quantity, sold value,
+        purchase quantity, purchase value, returns, and derived net figures.
 
         Period defaults to the previous calendar month when year/month
-        are omitted.  Both must be supplied together or both omitted;
+        are omitted. Both must be supplied together or both omitted;
         a partial override raises ValueError.
 
         Returns a dict consumed by get_universal_report_envelope
         for RPT-ACCT-001.
 
-        Column mapping:
-            SalesInvoice    -> grand_total, date  (excl. Cancelled + deleted)
-            SalesReturn     -> grand_total, date  (excl. Cancelled + deleted)
-            PurchaseReceipt -> grand_total, created_at cast to Date
-            PurchaseBill    -> total_amount, bill_date (excl. CANCELLED + deleted)
+        Column mapping (all queries are independent scalars — no cross-table
+        JOINs, preserving cardinality and eliminating fan-out risk):
+
+            Sold Quantity   : SalesInvoiceItem.quantity       (via invoice_id join-free subquery)
+            Sold Value      : SalesInvoice.grand_total        (header aggregate)
+            Returns Qty     : SalesReturnItem.quantity        (via return_id join-free subquery)
+            Returns Value   : SalesReturn.grand_total         (header aggregate)
+            Purchased Qty   : PurchaseReceiptItem.quantity_received (item aggregate)
+            Purchase Value  : PurchaseReceipt.grand_total     (header aggregate)
+            Purchase Bills  : PurchaseBill.total_amount       (excl. CANCELLED + deleted)
+
+        Note: PurchaseReceipt has no .date column; date range uses
+        cast(created_at, Date). PurchaseReceiptItem date range is driven
+        by a correlated sub-select on the receipt's created_at.
+
+        Branch scope (opt-in):
+            branch_id omitted  -> company-wide consolidated figures.
+            branch_id supplied -> every header aggregate and every item
+            subquery is restricted to the tenant-validated branch
+            (self.tenant.branch_id, resolved and assignment-checked by
+            get_tenant_context). Primary-branch aliases MAIN / BR-001 /
+            BR-MAIN-001 are expanded, matching _tenant_filter.
         """
         # -- Resolve period -----------------------------------------------
         if (year is None) != (month is None):
@@ -3285,9 +3308,33 @@ class ReportsService:
             if self.tenant and self.tenant.company_id
             else None
         )
+        branch_ids: Optional[List[str]] = None
+        if branch_id:
+            scoped = (
+                self.tenant.branch_id
+                if self.tenant and self.tenant.branch_id
+                else branch_id
+            )
+            branch_ids = [scoped]
+            if scoped in {"MAIN", "BR-001", "BR-MAIN-001"}:
+                branch_ids = ["MAIN", "BR-001", "BR-MAIN-001"]
 
-        # -- Sales Revenue (excl. Cancelled) ------------------------------
-        inv_q = select(
+        def _scope(model) -> list:
+            conds = []
+            if company_id:
+                conds.append(model.company_id == company_id)
+            if branch_ids:
+                conds.append(model.branch_id.in_(branch_ids))
+            return conds
+
+        ZERO = Decimal("0.00")
+
+        # ================================================================
+        # MONETARY AGGREGATES (header tables — no item-level JOINs)
+        # ================================================================
+
+        # -- Sales Value: SalesInvoice.grand_total (excl. Cancelled + deleted) --
+        inv_val_q = select(
             func.coalesce(func.sum(SalesInvoice.grand_total), 0)
         ).where(
             SalesInvoice.date >= period_start,
@@ -3295,9 +3342,8 @@ class ReportsService:
             SalesInvoice.is_deleted == False,
             SalesInvoice.status != "Cancelled",
         )
-        if company_id:
-            inv_q = inv_q.where(SalesInvoice.company_id == company_id)
-        sales_revenue = Decimal(str((await self.db.execute(inv_q)).scalar() or 0))
+        inv_val_q = inv_val_q.where(*_scope(SalesInvoice))
+        sales_revenue = Decimal(str((await self.db.execute(inv_val_q)).scalar() or 0))
 
         # -- Invoice count ------------------------------------------------
         cnt_q = select(func.count(SalesInvoice.id)).where(
@@ -3306,12 +3352,11 @@ class ReportsService:
             SalesInvoice.is_deleted == False,
             SalesInvoice.status != "Cancelled",
         )
-        if company_id:
-            cnt_q = cnt_q.where(SalesInvoice.company_id == company_id)
+        cnt_q = cnt_q.where(*_scope(SalesInvoice))
         invoice_count = int((await self.db.execute(cnt_q)).scalar() or 0)
 
-        # -- Sales Returns (excl. Cancelled) ------------------------------
-        ret_q = select(
+        # -- Returns Value: SalesReturn.grand_total (excl. Cancelled + deleted) --
+        ret_val_q = select(
             func.coalesce(func.sum(SalesReturn.grand_total), 0)
         ).where(
             SalesReturn.date >= period_start,
@@ -3319,24 +3364,22 @@ class ReportsService:
             SalesReturn.is_deleted == False,
             SalesReturn.status != "Cancelled",
         )
-        if company_id:
-            ret_q = ret_q.where(SalesReturn.company_id == company_id)
-        sales_returns = Decimal(str((await self.db.execute(ret_q)).scalar() or 0))
+        ret_val_q = ret_val_q.where(*_scope(SalesReturn))
+        sales_returns = Decimal(str((await self.db.execute(ret_val_q)).scalar() or 0))
 
-        # -- Purchase Receipts (GRN value) --------------------------------
-        # PurchaseReceipt has no .date column; cast created_at to Date.
-        grn_q = select(
+        # -- Purchase Value: PurchaseReceipt.grand_total -----------------------
+        # PurchaseReceipt has no .date column; use cast(created_at, Date).
+        grn_val_q = select(
             func.coalesce(func.sum(PurchaseReceipt.grand_total), 0)
         ).where(
             cast(PurchaseReceipt.created_at, SADate) >= period_start,
             cast(PurchaseReceipt.created_at, SADate) <= period_end,
             PurchaseReceipt.is_deleted == False,
         )
-        if company_id:
-            grn_q = grn_q.where(PurchaseReceipt.company_id == company_id)
-        purchase_receipts = Decimal(str((await self.db.execute(grn_q)).scalar() or 0))
+        grn_val_q = grn_val_q.where(*_scope(PurchaseReceipt))
+        purchase_receipts = Decimal(str((await self.db.execute(grn_val_q)).scalar() or 0))
 
-        # -- Purchase Bills payable ---------------------------------------
+        # -- Purchase Bills payable: PurchaseBill.total_amount ----------------
         bill_q = select(
             func.coalesce(func.sum(PurchaseBill.total_amount), 0)
         ).where(
@@ -3345,14 +3388,84 @@ class ReportsService:
             PurchaseBill.is_deleted == False,
             PurchaseBill.status != "CANCELLED",
         )
-        if company_id:
-            bill_q = bill_q.where(PurchaseBill.company_id == company_id)
+        bill_q = bill_q.where(*_scope(PurchaseBill))
         purchase_bills = Decimal(str((await self.db.execute(bill_q)).scalar() or 0))
 
-        # -- Derived totals -----------------------------------------------
-        ZERO = Decimal("0.00")
-        net_sales    = (sales_revenue - sales_returns).quantize(ZERO, rounding=ROUND_HALF_UP)
-        net_position = (net_sales - purchase_bills).quantize(ZERO, rounding=ROUND_HALF_UP)
+        # ================================================================
+        # QUANTITY AGGREGATES (item tables — independent scalar subqueries,
+        # no cross-table JOINs to prevent fan-out / double-counting)
+        # ================================================================
+
+        # -- Sold Quantity: SalesInvoiceItem.quantity --------------------------
+        # Subquery: restrict to invoice IDs that fall in the period.
+        # Using a correlated scalar subquery avoids a JOIN that would fan out
+        # invoice header rows across item rows.
+        valid_inv_ids_sq = (
+            select(SalesInvoice.id)
+            .where(
+                SalesInvoice.date >= period_start,
+                SalesInvoice.date <= period_end,
+                SalesInvoice.is_deleted == False,
+                SalesInvoice.status != "Cancelled",
+                *_scope(SalesInvoice),
+            )
+            .scalar_subquery()
+        )
+        sold_qty_q = select(
+            func.coalesce(func.sum(SalesInvoiceItem.quantity), 0)
+        ).where(
+            SalesInvoiceItem.invoice_id.in_(valid_inv_ids_sq),
+            SalesInvoiceItem.is_deleted == False,
+        )
+        sold_qty = Decimal(str((await self.db.execute(sold_qty_q)).scalar() or 0))
+
+        # -- Returns Quantity: SalesReturnItem.quantity ------------------------
+        valid_ret_ids_sq = (
+            select(SalesReturn.id)
+            .where(
+                SalesReturn.date >= period_start,
+                SalesReturn.date <= period_end,
+                SalesReturn.is_deleted == False,
+                SalesReturn.status != "Cancelled",
+                *_scope(SalesReturn),
+            )
+            .scalar_subquery()
+        )
+        ret_qty_q = select(
+            func.coalesce(func.sum(SalesReturnItem.quantity), 0)
+        ).where(
+            SalesReturnItem.return_id.in_(valid_ret_ids_sq),
+            SalesReturnItem.is_deleted == False,
+        )
+        returns_qty = Decimal(str((await self.db.execute(ret_qty_q)).scalar() or 0))
+
+        # -- Purchased Quantity: PurchaseReceiptItem.quantity_received ---------
+        # PurchaseReceipt date is cast(created_at, Date); restrict receipt IDs
+        # to the period using a subquery on the header table.
+        valid_grn_ids_sq = (
+            select(PurchaseReceipt.id)
+            .where(
+                cast(PurchaseReceipt.created_at, SADate) >= period_start,
+                cast(PurchaseReceipt.created_at, SADate) <= period_end,
+                PurchaseReceipt.is_deleted == False,
+                *_scope(PurchaseReceipt),
+            )
+            .scalar_subquery()
+        )
+        purchased_qty_q = select(
+            func.coalesce(func.sum(PurchaseReceiptItem.quantity_received), 0)
+        ).where(
+            PurchaseReceiptItem.receipt_id.in_(valid_grn_ids_sq),
+            PurchaseReceiptItem.is_deleted == False,
+        )
+        purchased_qty = Decimal(str((await self.db.execute(purchased_qty_q)).scalar() or 0))
+
+        # ================================================================
+        # DERIVED TOTALS
+        # ================================================================
+        net_sales     = (sales_revenue - sales_returns).quantize(ZERO, rounding=ROUND_HALF_UP)
+        net_position  = (net_sales - purchase_bills).quantize(ZERO, rounding=ROUND_HALF_UP)
+        net_sold_qty  = (sold_qty - returns_qty).quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
 
         period_label = f"{_cal.month_name[month]} {year}"
 
@@ -3363,7 +3476,14 @@ class ReportsService:
             "period_start":      str(period_start),
             "period_end":        str(period_end),
             "company_id":        company_id,
+            "branch_scope":      ",".join(branch_ids) if branch_ids else "ALL",
             "invoice_count":     invoice_count,
+            # Quantity metrics
+            "sold_qty":          float(sold_qty.quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)),
+            "returns_qty":       float(returns_qty.quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)),
+            "net_sold_qty":      float(net_sold_qty),
+            "purchased_qty":     float(purchased_qty.quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)),
+            # Monetary metrics
             "sales_revenue":     float(sales_revenue.quantize(ZERO, rounding=ROUND_HALF_UP)),
             "sales_returns":     float(sales_returns.quantize(ZERO, rounding=ROUND_HALF_UP)),
             "net_sales":         float(net_sales),

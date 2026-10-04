@@ -401,26 +401,36 @@ CANONICAL_REPORT_REGISTRY: Dict[str, ReportRegistryEntry] = {
         name="Monthly Accounts Summary",
         studio=StudioType.MIS_STUDIO,
         description=(
-            "Month-end financial summary covering total sales revenue, sales returns, "
-            "purchase receipts, purchase bills payable, and net position. "
+            "Month-end financial summary covering sold quantity, sold value, purchase quantity, "
+            "purchase value, returns, and derived net figures. "
+            "Quantity sources: sales_invoice_items.quantity, sales_return_items.quantity, "
+            "purchase_receipt_items.quantity_received. "
+            "Value sources: sales_invoices.grand_total, sales_returns.grand_total, "
+            "purchase_receipts.grand_total, purchase_bills.total_amount. "
             "Period: previous calendar month by default; accepts year/month override. "
-            "Source tables: sales_invoices, sales_returns, purchase_receipts, purchase_bills."
+            "All aggregates are independent scalar queries with no cross-table JOINs."
         ),
         dimensions=["year", "month", "company_id", "branch_id"],
         measures=[
-            "MTR_SALES_REVENUE",
-            "MTR_SALES_RETURNS",
-            "MTR_NET_SALES",
-            "MTR_PURCHASE_VALUE",
-            "MTR_PURCHASE_BILLS",
-            "MTR_NET_POSITION",
+            # Quantity measures (item-level scalar subqueries)
+            "MTR_SOLD_QTY",          # SalesInvoiceItem.quantity
+            "MTR_RETURNS_QTY",       # SalesReturnItem.quantity
+            "MTR_NET_SOLD_QTY",      # sold_qty - returns_qty
+            "MTR_PURCHASED_QTY",     # PurchaseReceiptItem.quantity_received
+            # Monetary measures (header-level aggregates)
+            "MTR_SALES_REVENUE",     # SalesInvoice.grand_total
+            "MTR_SALES_RETURNS",     # SalesReturn.grand_total
+            "MTR_NET_SALES",         # sales_revenue - sales_returns
+            "MTR_PURCHASE_VALUE",    # PurchaseReceipt.grand_total
+            "MTR_PURCHASE_BILLS",    # PurchaseBill.total_amount
+            "MTR_NET_POSITION",      # net_sales - purchase_bills
         ],
         allowed_roles=["ACCOUNTANT", "ADMIN", "CEO", "Sysadmin"],
         drill_route="/reports/monthly-accounts",
         shoper_aliases=[],
-        contract_version="v1.0",
+        contract_version="v2.0",
         metric_version="v1.0",
-        schema_version="v1.0",
+        schema_version="v2.0",
         security_policy_version="v1.0",
         status=ReportContractStatus.ACTIVE,
     ),
