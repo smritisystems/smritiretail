@@ -754,6 +754,8 @@ async def get_universal_report(
     from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
     to_date: Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
     branch_id: Optional[str] = Query(default=None, description="Branch/Store filter"),
+    year: Optional[int] = Query(default=None, ge=2000, le=2100, description="Period year (RPT-ACCT-001)"),
+    month: Optional[int] = Query(default=None, ge=1, le=12, description="Period month 1-12 (RPT-ACCT-001)"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
@@ -763,11 +765,18 @@ async def get_universal_report(
     Returns (columns, rows, summary_cards, chart_config, system_message)
     Bridging CANONICAL_REPORT_REGISTRY and ReportsService.
     """
+    if (year is None) != (month is None):
+        raise HTTPException(
+            status_code=422,
+            detail="Please select both a year and a month for the report period, or leave both empty to use the previous month.",
+        )
+    period_kwargs = {"year": year, "month": month} if year is not None else {}
     return await ReportsService(db, tenant).get_universal_report_envelope(
         report_id=report_id,
         from_date=from_date,
         to_date=to_date,
         branch_id=branch_id,
+        **period_kwargs,
     )
 
 
