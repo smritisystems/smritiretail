@@ -84,6 +84,23 @@ SMRITI_STUDIOS = {
             {"id": "RPT-SAL-002", "code": "RPT-SAL-002", "title": "Sales Returns & Credit Notes Log",  "description": "Detailed log of product returns, reason analyses, and credit notes issued.",                 "category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-003", "code": "RPT-SAL-003", "title": "Top Selling Products Ledger",      "description": "Top performing items ranked by volume, revenue contributions, and margins.",                  "category": "Product Analysis","format": "Pivot",  "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-004", "code": "RPT-SAL-004", "title": "Salesperson Performance Index",    "description": "Individual sales staff conversions, target tracking, and commission calculations.",           "category": "Staff Analysis",  "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False},
+            {"id": "RPT-SAL-006", "code": "RPT-SAL-006", "title": "Top Selling Products Ledger",      "description": "Top performing items ranked by sales volume and revenue contribution for the period.",         "category": "Product Analysis","format": "Pivot",  "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-007", "code": "RPT-SAL-007", "title": "Day-wise Sales Register",          "description": "Day-by-day breakdown of invoices, quantities, amounts, and discount totals.",                "category": "Sales Summary",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-008", "code": "RPT-SAL-008", "title": "Salesperson Sales Ledger",         "description": "Per-salesperson invoice register with individual amounts, discounts, and commissions.",       "category": "Staff Analysis",  "format": "Grid",   "owner": "Admin",  "drillDownEnabled": True},
+            {"id": "RPT-SAL-009", "code": "RPT-SAL-009", "title": "Salesperson Summary",              "description": "Aggregated totals per salesperson: invoice count, gross sales, net sales, discount given.",   "category": "Staff Analysis",  "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False},
+            {"id": "RPT-SAL-010", "code": "RPT-SAL-010", "title": "Returned Bills Register",          "description": "All sales returns and credit notes with original invoice reference and return reason.",       "category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-011", "code": "RPT-SAL-011", "title": "Node-wise (Store-wise) Sales",     "description": "Branch or POS node breakdown of invoices, quantities, and net revenue.",                     "category": "Store Analysis",  "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-013", "code": "RPT-SAL-013", "title": "Bill-wise Items Detail (Live)",    "description": "Real-time expanded view of each invoice line with barcode, HSN, qty, rate, and net.",         "category": "Sales Detail",    "format": "Grid",   "owner": "System", "drillDownEnabled": False},
+            {"id": "RPT-SAL-014", "code": "RPT-SAL-014", "title": "Size-wise Sales Matrix",           "description": "Size-band pivot showing quantity sold and revenue per size across all products.",              "category": "Product Analysis","format": "Matrix", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-015", "code": "RPT-SAL-015", "title": "Item-wise Returns (Live)",         "description": "Product-level return register: quantity, value, and reason codes for all return transactions.","category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+        ],
+    },
+    "finance_studio": {
+        "name": "Finance & P&L Studio",
+        "description": "Daily P&L dashboard, gross margin tracking, discount analysis, and tax collection summary.",
+        "icon": "analytics",
+        "reports": [
+            {"id": "RPT-FIN-003", "code": "RPT-FIN-003", "title": "P&L Dashboard",                   "description": "Daily sales P&L: total revenue, gross margin, discount given, tax collected, average basket.", "category": "Profitability",   "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False},
         ],
     },
     "purchase_studio": {
