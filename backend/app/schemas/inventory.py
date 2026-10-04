@@ -95,10 +95,14 @@ class ProductBase(BaseModel):
         s = str(v).strip()
         if not s:
             return "0000"
-        # Accept '0000' as a legacy placeholder; otherwise enforce 6 or 8 digits
-        if s != "0000" and not re.fullmatch(r"\d{6}|\d{8}", s):
-            raise ValueError("HSN Code must contain a valid 6 or 8 digit value.")
+        # Normalise decimal HSN codes like '8471.30' → '847130'
+        if "." in s:
+            s = s.replace(".", "")
+        # Accept '0000' as legacy placeholder; otherwise enforce 4, 6, or 8 pure digits
+        if s != "0000" and not re.fullmatch(r"\d{4}|\d{6}|\d{8}", s):
+            raise ValueError("HSN Code must contain a valid 4, 6, or 8 digit value.")
         return s
+
 
     @field_validator("mrp", "price", "gst_percentage", mode="before")
     @classmethod
