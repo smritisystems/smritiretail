@@ -319,6 +319,36 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
         const normalized = parseItemMaster422Response(errorBody);
         throw new ItemMasterValidationError(normalized);
       }
+
+      // ── FastAPI standard 422: detail is a list of Pydantic validation errors ──
+      // Shape: { detail: [ { loc: ["body","field"] | ["body","rows",N,"field"], msg, type } ] }
+      // Convert to actionable "Row N → field: message" lines.
+      const detail = (bodyObj as any).detail;
+      if (Array.isArray(detail) && detail.length > 0) {
+        const lines: string[] = detail.map((err: any) => {
+          const loc: (string | number)[] = Array.isArray(err.loc) ? err.loc : [];
+          const msg: string = err.msg ?? "Validation error";
+          // Detect row index: loc = ["body", "rows", N, "field"] or ["response", "items", N, "field"]
+          const rowIdx = loc.findIndex((s) => s === "rows" || s === "items");
+          let prefix = "";
+          if (rowIdx !== -1 && typeof loc[rowIdx + 1] === "number") {
+            const rowNum = (loc[rowIdx + 1] as number) + 1; // 1-based for users
+            const field = loc.slice(rowIdx + 2).join(" → ") || "value";
+            prefix = `Row ${rowNum} → ${field}: `;
+          } else {
+            // Top-level field (e.g. body → idempotency_key)
+            const field = loc.filter((s) => s !== "body" && s !== "response").join(" → ") || "input";
+            prefix = `${field}: `;
+          }
+          // Strip Pydantic's "Value error, " prefix for cleaner display
+          const cleanMsg = msg.replace(/^Value error,\s*/i, "");
+          return `${prefix}${cleanMsg}`;
+        });
+        const summary = lines.length === 1
+          ? lines[0]
+          : `${lines.length} validation error(s):\n${lines.map((l, i) => `  ${i + 1}. ${l}`).join("\n")}`;
+        throw new Error(summary);
+      }
     }
 
     // ── Fallback: plain Error for all other non-ok responses ──────────────────

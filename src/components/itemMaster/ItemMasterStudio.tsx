@@ -428,10 +428,10 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       // PHASE 1: Preview — backend validates against IM-001 mandatory fields, lookup master, duplicates
       const previewResp = await apiFetchV1("/universal-import/preview", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           target: "ITEM_MASTER",
-          rows
-        })
+          rows,
+        },
       });
 
       setPreviewResult(previewResp);
@@ -497,8 +497,15 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         );
       }
     } catch (err: any) {
-      const msg = err?.message || "Unexpected error during import";
-      onNotification?.("Import Exception", msg, "error");
+      const raw: string = err?.message || "Unexpected error during import";
+      // Multi-line error messages (e.g. N validation errors from apiFetchV1) — show each as its own line
+      const lines = raw.split("\n").map((l: string) => l.trim()).filter(Boolean);
+      const title = lines.length > 1 ? `Import Errors (${lines.length - 1})` : "Import Error";
+      const body = lines.length > 1
+        ? lines.slice(1).join("\n") // numbered list lines already formatted by apiFetchV1
+        : raw;
+      onNotification?.(title, body, "error");
+      setPreviewErrors(lines.length > 1 ? lines.slice(1) : [raw]);
     } finally {
       setIsProcessing(false);
     }
