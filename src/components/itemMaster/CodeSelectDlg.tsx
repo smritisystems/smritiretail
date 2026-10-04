@@ -1,3 +1,4 @@
+// @deprecated 2026-10-04 — ORPHANED, NOT MOUNTED. Item Master utility dialog — never mounted in active app. Do not use; retained for git history only.
 /**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
