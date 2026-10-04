@@ -119,13 +119,19 @@ def upgrade():
         op.execute(
             sa.text(
                 """
-                INSERT INTO roles (id, uuid, name, description, permissions_json, is_system, is_deleted, created_at, modified_at)
-                VALUES (:id, :id, :name, :description, :permissions_json, :is_system, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (name) DO UPDATE SET
-                    description = EXCLUDED.description,
-                    permissions_json = EXCLUDED.permissions_json,
-                    modified_at = CURRENT_TIMESTAMP
-                """
+                 -- R-2 FIX (2026-10-04): Changed from ON CONFLICT (name) to ON CONFLICT (id).
+                 -- Migration v1516 dropped the global ix_roles_name unique index and replaced it
+                 -- with two partial indexes (uq_roles_system_name, uq_roles_company_name).
+                 -- ON CONFLICT (name) no longer has a backing unique constraint and would fail
+                 -- on a fresh-DB run. ON CONFLICT (id) is always safe because id is a stable
+                 -- explicit primary key supplied per row in ROLES_SEED.
+                 INSERT INTO roles (id, uuid, name, description, permissions_json, is_system, is_deleted, created_at, modified_at)
+                 VALUES (:id, :id, :name, :description, :permissions_json, :is_system, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                 ON CONFLICT (id) DO UPDATE SET
+                     description = EXCLUDED.description,
+                     permissions_json = EXCLUDED.permissions_json,
+                     modified_at = CURRENT_TIMESTAMP
+                 """
             ).bindparams(
                 id=r["id"],
                 name=r["name"],
