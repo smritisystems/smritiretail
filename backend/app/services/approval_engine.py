@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.16.1
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-10-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -43,9 +43,21 @@ class ApprovalEngine:
     role-based authorization checks, escalation workflows, and immutable decision audit trails.
     """
 
+    # R-3 Option B (Phase 1E, 2026-10-04): SALES_EXECUTIVE Architecture Note
+    # ------------------------------------------------------------------------
+    # "SALES_EXECUTIVE" appears below as a tier-2 approval level placeholder.
+    # It does NOT correspond to any value in the UserRole enum (auth.py), which
+    # currently contains: SYSADMIN, MANAGER, CASHIER, REPORT_USER, VIEWER.
+    # No user token can carry role="SALES_EXECUTIVE" from the auth system, so
+    # this dictionary entry is a RESERVED FUTURE TIER SLOT — never reachable
+    # via the current authentication pipeline.
+    # Decision: OPTION B — retain, document. Do not delete.
+    # Canonical operational role: "Sales Executive" (role-sales-executive, scoped perms).
+    # Wildcard seed: role-sales_executive (0 active users, seed artifact).
+    # ------------------------------------------------------------------------
     ROLE_HIERARCHY = {
         "CASHIER": 1,
-        "SALES_EXECUTIVE": 2,
+        "SALES_EXECUTIVE": 2,  # reserved future tier — not in UserRole enum
         "STORE_MANAGER": 3,
         "MANAGER": 3,
         "FINANCE_CONTROLLER": 4,

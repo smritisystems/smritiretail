@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.16.1
 Created      : 2026-07-12
-Modified     : 2026-07-12
+Modified     : 2026-10-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -37,6 +37,9 @@ class RoleResponse(BaseModel):
     description: Optional[str] = None
     permissions: List[str]
     isSystem: bool = Field(..., serialization_alias="isSystem")
+    # Phase 1E (R-4/R-5): company that owns this custom role.
+    # System roles (is_system=True) always return None here.
+    companyId: Optional[str] = Field(None, serialization_alias="companyId")
 
     model_config = {
         "from_attributes": True,

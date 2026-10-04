@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.25.0
+Version      : 3.25.1
 Created      : 2026-08-18
-Modified     : 2026-08-23
+Modified     : 2026-10-04
 Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -47,6 +47,12 @@ except ImportError:
 async def seed():
     async with async_session() as db:
         # 0. Ensure default system roles exist
+        # R-3 Option B (Phase 1E, 2026-10-04): SALES_EXECUTIVE is intentionally seeded here
+        # as role-sales_executive (id="role-sales_executive", permissions=["*"], is_system=True).
+        # This is an enum-alias seed artifact -- it does NOT correspond to a UserRole enum value.
+        # The canonical operational RBAC role for sales staff is role-sales-executive (scoped perms)
+        # seeded by Alembic migration v1335. No active users are assigned to role-sales_executive.
+        # Decision: OPTION B -- retain both roles, formally documented. Do not rename or delete.
         for r_name in ["SYSADMIN", "ADMIN", "MANAGER", "CASHIER", "SALES_EXECUTIVE"]:
             r_id = f"role-{r_name.lower()}"
             r = await db.get(Role, r_id)

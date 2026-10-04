@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.16.1
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-10-04
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -43,9 +43,18 @@ class UniversalSearchEngine:
     Documents, Warehouses, and Transactions with relevance ranking and fast POS scanning.
     """
 
+    # R-3 Option B (Phase 1E, 2026-10-04): SALES_EXECUTIVE Architecture Note
+    # ------------------------------------------------------------------------
+    # "SALES_EXECUTIVE" appears below as a domain-permission tier slot.
+    # It does NOT correspond to any value in the UserRole enum (auth.py).
+    # No live user token can carry role="SALES_EXECUTIVE"; this entry is a
+    # RESERVED FUTURE TIER SLOT — unreachable via the current auth pipeline.
+    # Decision: OPTION B — retain, document. Do not delete.
+    # Canonical operational role: "Sales Executive" (role-sales-executive, scoped perms).
+    # ------------------------------------------------------------------------
     DOMAIN_PERMISSIONS: Dict[str, Set[str]] = {
         "CASHIER": {"ITEMS", "BARCODES", "DOCUMENTS"},
-        "SALES_EXECUTIVE": {"ITEMS", "BARCODES", "DOCUMENTS", "PARTIES"},
+        "SALES_EXECUTIVE": {"ITEMS", "BARCODES", "DOCUMENTS", "PARTIES"},  # reserved future tier
         "STORE_MANAGER": {"ITEMS", "BARCODES", "DOCUMENTS", "PARTIES", "WAREHOUSES", "TRANSACTIONS"},
         "FINANCE_CONTROLLER": {"ITEMS", "BARCODES", "DOCUMENTS", "PARTIES", "WAREHOUSES", "TRANSACTIONS"},
         "DIRECTOR": {"ITEMS", "BARCODES", "DOCUMENTS", "PARTIES", "WAREHOUSES", "TRANSACTIONS"},
