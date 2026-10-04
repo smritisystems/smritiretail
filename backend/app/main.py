@@ -124,6 +124,8 @@ from .api.v1 import (
     kpi_registry,
     loyalty,
     tds_compliance,
+    gift_cards,
+    einvoice,
 )
 
 from .core.config import settings
@@ -348,6 +350,7 @@ _ROUTER_REGISTRY = [
     (crm_cge,               "/crm-growth",           ["CRM & Commercial Growth Engine"]),
     (loyalty,               "",                      ["Loyalty Studio"]),
     (loyalty,               "/crm",                  ["CRM Loyalty Studio"]),
+    (gift_cards,            "/gift-cards-engine",    ["Gift Cards & Vouchers"]),
 
     # --- POS ---
     (pos,                   "",                      ["POS Shift"]),
@@ -408,6 +411,7 @@ _ROUTER_REGISTRY = [
     (universal_import,      "/universal-import",     ["Universal Import"]),
     (sync,                  "/sync",                 ["Offline-First Synchronization"]),
     (integration,           "/integration",          ["Integration Hub & Audit"]),
+    (einvoice,              "/einvoice-studio",      ["E-Invoice & IRN Studio"]),
     (ecom,                  "",                      ["eCommerce / Omnichannel Engine"]),
 
     # --- Platform Infrastructure ---

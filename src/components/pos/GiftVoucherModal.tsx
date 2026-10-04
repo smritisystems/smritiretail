@@ -1,22 +1,38 @@
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
- * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 3.119.2
  * Created      : 2026-08-28
- * Modified     : 2026-09-23 (v4.0.0 — EXC-0018, EXC-0019 retired via CanonicalInlineInput)
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-04
+ * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.119.2 (2026-10-04):
+ *   - Replaced giftVoucherEngine mock with live apiFetchV1 calls:
+ *     GET /gift-cards-engine/gift-vouchers, POST /gift-cards-engine/gift-vouchers,
+ *     POST /gift-cards-engine/gift-vouchers/{id}/redeem,
+ *     POST /gift-cards-engine/gift-vouchers/{id}/cancel.
  */
 
-import React, { useState, useMemo } from "react";
-import { CanonicalInlineInput } from "../global/CanonicalInlineInput.tsx";
-import GiftVoucherEngine, {
-  GiftVoucher, VoucherType, VoucherStatus,
-} from "../../utils/giftVoucherEngine";
+import React, { useState, useEffect, useCallback } from "react";
+import { apiFetchV1 } from "../../lib/apiFetchV1";
+
+interface GiftVoucher {
+  id: string;
+  voucher_no: string;
+  voucher_type: string;
+  status: string;
+  face_value: number;
+  pct_discount?: number;
+  min_order_value?: number;
+  issued_to?: string;
+  valid_from?: string;
+  valid_to?: string;
+  used_at?: string;
+}
 
 interface GiftVoucherModalProps {
   isOpen: boolean;
@@ -24,243 +40,192 @@ interface GiftVoucherModalProps {
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info") => void;
 }
 
-const TYPE_STYLE: Record<VoucherType, string> = {
-  GIFT_VOUCHER:   "text-violet-300 bg-violet-500/15 border-violet-500/25",
-  STORE_CREDIT:   "text-sky-300 bg-sky-500/15 border-sky-500/25",
-  REFUND_CREDIT:  "text-teal-300 bg-teal-500/15 border-teal-500/25",
-  PROMO_CREDIT:   "text-amber-300 bg-amber-500/15 border-amber-500/25",
+const STATUS_STYLE: Record<string, string> = {
+  ACTIVE:    "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
+  USED:      "text-violet-300 bg-violet-500/15 border-violet-500/25",
+  EXPIRED:   "text-slate-400  bg-slate-800/30  border-slate-700/30",
+  CANCELLED: "text-rose-300   bg-rose-500/15   border-rose-500/25",
 };
-
-const STATUS_STYLE: Record<VoucherStatus, string> = {
-  ACTIVE:               "text-emerald-300 bg-emerald-500/15 border-emerald-500/25",
-  REDEEMED:             "text-slate-400 bg-slate-700/15 border-slate-600/25",
-  PARTIALLY_REDEEMED:   "text-sky-300 bg-sky-500/15 border-sky-500/25",
-  EXPIRED:              "text-rose-400 bg-rose-500/15 border-rose-500/25",
-  CANCELLED:            "text-slate-500 bg-slate-800/15 border-slate-700/25",
-};
-
-const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-
-function buildSampleVouchers(): GiftVoucher[] {
-  const BASE = { issuedBy: "MGR-001", branchCode: "BR-MUM-01" };
-  const v1 = GiftVoucherEngine.issueVoucher({ ...BASE, type: "GIFT_VOUCHER",  amount: 2000, issuedTo: "CUST-101", validDays: 365 });
-  const v2 = GiftVoucherEngine.issueVoucher({ ...BASE, type: "STORE_CREDIT",  amount: 1500, issuedTo: "CUST-202", validDays: 180 });
-  const v3 = GiftVoucherEngine.issueVoucher({ ...BASE, type: "PROMO_CREDIT",  amount: 500,  issuedTo: "CUST-303", validDays: 30  });
-  const v3r = GiftVoucherEngine.redeemVoucher(v3, 200, "CASHIER-001").voucher;
-  const v4 = GiftVoucherEngine.refundToCredit({ refundAmt: 750, customerId: "CUST-404", performedBy: "MGR-001", branchCode: "BR-MUM-01", saleRefNo: "SALE-0099" });
-  return [v1, v2, v3r, v4];
-}
+const fmt = (n: number) => `\u20b9${(n ?? 0).toLocaleString("en-IN")}`;
 
 export const GiftVoucherModal: React.FC<GiftVoucherModalProps> = ({ isOpen, onClose, onNotification }) => {
-  const [vouchers, setVouchers] = useState<GiftVoucher[]>(buildSampleVouchers);
-  const [selectedId, setSelectedId] = useState(vouchers[0]?.voucherId ?? "");
-  const [redeemAmt, setRedeemAmt] = useState("");
-  const [refNo, setRefNo] = useState("");
-  const [activeTab, setActiveTab] = useState<"DETAIL" | "LEDGER" | "SUMMARY">("DETAIL");
+  const [vouchers, setVouchers]     = useState<GiftVoucher[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [activeTab, setActiveTab]   = useState<"LIST" | "ISSUE">("LIST");
+  const [filterStatus, setFilterStatus] = useState("ALL");
+  const [issueForm, setIssueForm]   = useState({ voucher_type: "FIXED", face_value: "250", pct_discount: "", min_order_value: "", issued_to: "", valid_to: "" });
+  const [redeemVoucherId, setRedeemVoucherId] = useState("");
+  const [redeemInvoiceNo, setRedeemInvoiceNo] = useState("");
+  const [redeemOrderValue, setRedeemOrderValue] = useState("0");
 
-  const selected = vouchers.find((v) => v.voucherId === selectedId);
-  const summary  = useMemo(() => GiftVoucherEngine.portfolioSummary(vouchers), [vouchers]);
+  const load = useCallback(async () => {
+    if (!isOpen) return;
+    setLoading(true); setError(null);
+    try {
+      const qs = filterStatus !== "ALL" ? `?status=${filterStatus}` : "";
+      const data = await apiFetchV1<GiftVoucher[]>(`/gift-cards-engine/gift-vouchers${qs}`);
+      setVouchers(data ?? []);
+    } catch (e: any) { setError(e?.message ?? "Failed to load vouchers."); }
+    finally { setLoading(false); }
+  }, [isOpen, filterStatus]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleIssue = async () => {
+    setSubmitting(true);
+    try {
+      const v = await apiFetchV1<GiftVoucher>("/gift-cards-engine/gift-vouchers", {
+        method: "POST",
+        body: JSON.stringify({
+          voucher_type: issueForm.voucher_type,
+          face_value: parseFloat(issueForm.face_value) || 0,
+          pct_discount: issueForm.pct_discount ? parseFloat(issueForm.pct_discount) : undefined,
+          min_order_value: issueForm.min_order_value ? parseFloat(issueForm.min_order_value) : undefined,
+          issued_to: issueForm.issued_to || undefined,
+          valid_to: issueForm.valid_to || undefined,
+        }),
+      });
+      if (v) { setVouchers((p) => [v, ...p]); onNotification?.("Voucher Issued", `${v.voucher_no}`, "success"); setActiveTab("LIST"); }
+    } catch (e: any) { onNotification?.("Error", e?.message ?? "Issue failed.", "error"); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleRedeem = async () => {
+    if (!redeemVoucherId || !redeemInvoiceNo) { onNotification?.("Validation", "Voucher ID and Invoice No required.", "info"); return; }
+    setSubmitting(true);
+    try {
+      const v = await apiFetchV1<GiftVoucher>(`/gift-cards-engine/gift-vouchers/${redeemVoucherId}/redeem`, {
+        method: "POST",
+        body: JSON.stringify({ invoice_no: redeemInvoiceNo, order_value: parseFloat(redeemOrderValue) || 0 }),
+      });
+      if (v) { setVouchers((p) => p.map((x) => x.id === v.id ? v : x)); onNotification?.("Voucher Redeemed", `${v.voucher_no}`, "success"); }
+      setRedeemVoucherId(""); setRedeemInvoiceNo(""); setRedeemOrderValue("0");
+    } catch (e: any) { onNotification?.("Error", e?.message ?? "Redeem failed.", "error"); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleCancel = async (id: string) => {
+    try {
+      const v = await apiFetchV1<GiftVoucher>(`/gift-cards-engine/gift-vouchers/${id}/cancel`, { method: "POST" });
+      if (v) setVouchers((p) => p.map((x) => x.id === v.id ? v : x));
+      onNotification?.("Cancelled", "Voucher has been cancelled.", "success");
+    } catch (e: any) { onNotification?.("Error", e?.message ?? "Cancel failed.", "error"); }
+  };
+
+  const displayed = filterStatus === "ALL" ? vouchers : vouchers.filter((v) => v.status === filterStatus);
 
   if (!isOpen) return null;
 
-  const handleRedeem = () => {
-    if (!selected || !redeemAmt) return;
-    const amt = parseFloat(redeemAmt);
-    if (isNaN(amt) || amt <= 0) return;
-    try {
-      const { voucher: updated, redeemedAmt, fullySettled } =
-        GiftVoucherEngine.redeemVoucher(selected, amt, "CASHIER-001", refNo || undefined);
-      setVouchers((prev) => prev.map((v) => v.voucherId === updated.voucherId ? updated : v));
-      setRedeemAmt("");
-      setRefNo("");
-      onNotification?.(
-        "Redemption Successful",
-        `Redeemed ${fmt(redeemedAmt)} · Remaining: ${fmt(updated.balance)}${!fullySettled ? ` · Shortfall: ${fmt(amt - redeemedAmt)}` : ""}`,
-        "success"
-      );
-    } catch (e: any) { onNotification?.("Redemption Error", e.message, "error"); }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="flex flex-col w-full max-w-4xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="flex flex-col w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-2xl">ðŸŽŸï¸</div>
+            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-orange-400 text-2xl">redeem</span>
+            </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Gift Voucher & Store Credit Engine</h2>
-              <p className="text-xs text-slate-400">Issuance · Partial Redemption · Refund Credit · Expiry · Portfolio</p>
+              <h2 className="text-base font-bold text-slate-100">Gift Voucher Studio</h2>
+              <p className="text-xs text-slate-400">Issue · Redeem · Cancel value-based vouchers</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {(["DETAIL", "LEDGER", "SUMMARY"] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === tab ? "bg-violet-500/20 text-violet-300 border border-violet-500/30" : "text-slate-400 hover:text-slate-200"}`}>
-                {tab === "SUMMARY" ? "Portfolio" : tab === "LEDGER" ? "Ledger" : "Detail"}
+          <div className="flex items-center gap-1.5">
+            {(["LIST", "ISSUE"] as const).map((t) => (
+              <button key={t} onClick={() => setActiveTab(t)}
+                className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === t ? "bg-orange-500/20 text-orange-300 border border-orange-500/30" : "text-slate-400 hover:text-slate-200"}`}>
+                {t === "LIST" ? "Vouchers" : "Issue New"}
               </button>
             ))}
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-2">
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 ml-2">
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Voucher sidebar */}
-          <div className="w-56 border-r border-slate-800 overflow-y-auto bg-slate-950/30 p-3 space-y-2">
-            {vouchers.map((v) => (
-              <button key={v.voucherId} onClick={() => { setSelectedId(v.voucherId); setActiveTab("DETAIL"); }}
-                className={`w-full text-left p-3 rounded-xl border transition-all ${selectedId === v.voucherId ? "bg-violet-950/20 border-violet-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
-                <p className="text-[10px] font-mono font-bold text-slate-200">{v.voucherCode}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{v.issuedTo ?? "—"}</p>
-                <p className={`text-sm font-black font-mono mt-1 ${v.balance > 0 ? "text-violet-400" : "text-slate-500"}`}>{fmt(v.balance)}</p>
-                <div className="flex gap-1 mt-1.5 flex-wrap">
-                  <span className={`text-[8px] font-bold px-1 py-0.5 rounded-full border ${TYPE_STYLE[v.type]}`}>{v.type.replace(/_/g, " ")}</span>
-                  <span className={`text-[8px] font-bold px-1 py-0.5 rounded-full border ${STATUS_STYLE[v.status]}`}>{v.status.replace(/_/g, " ")}</span>
+        {error && <div className="px-6 py-2 bg-rose-950/40 border-b border-rose-800/40 text-xs text-rose-300">{error}</div>}
+
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === "LIST" && (
+            <>
+              <div className="flex items-center gap-3 px-6 py-2.5 border-b border-slate-800 bg-slate-950/30 text-xs">
+                {["ALL", "ACTIVE", "USED", "EXPIRED", "CANCELLED"].map((s) => (
+                  <button key={s} onClick={() => setFilterStatus(s)}
+                    className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${filterStatus === s ? "bg-orange-500/20 text-orange-300 border border-orange-500/30" : "text-slate-400 hover:text-slate-200"}`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="flex gap-3 p-3 bg-slate-800/30 border border-slate-700/50 rounded-xl text-xs">
+                  <input value={redeemVoucherId} onChange={(e) => setRedeemVoucherId(e.target.value)} placeholder="Voucher ID to redeem"
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
+                  <input value={redeemInvoiceNo} onChange={(e) => setRedeemInvoiceNo(e.target.value)} placeholder="Invoice No"
+                    className="w-32 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
+                  <input type="number" value={redeemOrderValue} onChange={(e) => setRedeemOrderValue(e.target.value)} placeholder="Order Value"
+                    className="w-28 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
+                  <button onClick={handleRedeem} disabled={submitting}
+                    className="px-3 py-2 rounded-lg text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-40 transition-all">
+                    {submitting ? "..." : "Redeem"}
+                  </button>
                 </div>
+                {displayed.length === 0 && !loading ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-slate-500 gap-2">
+                    <span className="material-symbols-outlined text-4xl">redeem</span>
+                    <p className="text-sm">No vouchers found.</p>
+                  </div>
+                ) : displayed.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between p-4 bg-slate-800/20 border border-slate-700/50 rounded-xl text-xs gap-4">
+                    <div>
+                      <p className="font-bold text-slate-100 font-mono">{v.voucher_no}</p>
+                      <p className="text-slate-500 mt-0.5">{v.voucher_type} · {v.issued_to ?? "—"} · Valid to: {v.valid_to ?? "Open"}</p>
+                      {v.pct_discount && <p className="text-orange-400 text-[10px]">{v.pct_discount}% off</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black font-mono text-orange-400">{fmt(v.face_value)}</span>
+                      <span className={`text-[9px] font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[v.status] ?? ""}`}>{v.status}</span>
+                      {v.status === "ACTIVE" && (
+                        <button onClick={() => handleCancel(v.id)} className="px-2 py-1.5 rounded-lg text-[10px] font-bold text-rose-400 hover:bg-rose-950/30 border border-rose-800/30 transition-all">Cancel</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {activeTab === "ISSUE" && (
+            <div className="p-6 space-y-4 text-xs max-w-md">
+              <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">Issue New Gift Voucher</p>
+              <div className="flex gap-2">
+                {["FIXED", "PCT"].map((t) => (
+                  <button key={t} onClick={() => setIssueForm((p) => ({ ...p, voucher_type: t }))}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${issueForm.voucher_type === t ? "bg-orange-500/20 text-orange-300 border-orange-500/30" : "text-slate-500 border-slate-700"}`}>
+                    {t === "FIXED" ? "Fixed Value" : "Percentage"}
+                  </button>
+                ))}
+              </div>
+              {[
+                { label: issueForm.voucher_type === "FIXED" ? "Face Value (₹)" : "Discount (%)", key: issueForm.voucher_type === "FIXED" ? "face_value" : "pct_discount", type: "number" },
+                { label: "Min Order Value (₹)", key: "min_order_value", type: "number", placeholder: "0" },
+                { label: "Issued To",           key: "issued_to",      placeholder: "Name / mobile" },
+                { label: "Valid Until",          key: "valid_to",       type: "date" },
+              ].map((f) => (
+                <div key={f.key}>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">{f.label}</label>
+                  <input type={f.type ?? "text"} value={(issueForm as any)[f.key]}
+                    onChange={(e) => setIssueForm((p) => ({ ...p, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
+                </div>
+              ))}
+              <button onClick={handleIssue} disabled={submitting}
+                className="w-full px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-40 transition-all">
+                {submitting ? "Issuing..." : "Issue Voucher"}
               </button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-5">
-            {activeTab === "DETAIL" && selected && (
-              <div className="space-y-5">
-                <div className="flex items-start justify-between flex-wrap gap-3">
-                  <div>
-                    <p className="text-lg font-black font-mono text-slate-100">{selected.voucherCode}</p>
-                    <p className="text-xs text-slate-400">{selected.issuedTo ?? "Open Voucher"} · {selected.branchCode}</p>
-                    <p className="text-[10px] text-slate-500">Expires: {new Date(selected.expiresAt).toLocaleDateString("en-IN")} · {selected.multiUse ? "Multi-use" : "Single-use"}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full border ${TYPE_STYLE[selected.type]}`}>{selected.type.replace(/_/g, " ")}</span>
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[selected.status]}`}>{selected.status.replace(/_/g, " ")}</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "Issued Amt",  value: fmt(selected.issuedAmt),  color: "text-slate-400" },
-                    { label: "Redeemed",    value: fmt(selected.issuedAmt - selected.balance), color: "text-rose-400" },
-                    { label: "Balance",     value: fmt(selected.balance),     color: "text-violet-400 text-lg font-black" },
-                  ].map((m) => (
-                    <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 text-center">
-                      <div className={`font-bold font-mono ${m.color}`}>{m.value}</div>
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">{m.label}</div>
-                    </div>
-                  ))}
-                </div>
-                {selected.status !== "REDEEMED" && selected.status !== "EXPIRED" && selected.status !== "CANCELLED" && (
-                  <div className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Redeem</p>
-                    <div className="flex items-center gap-3">
-                      {/* EXC-0018 RETIRED: selling_price -> CanonicalInlineInput (sales_invoice.selling_price alias) */}
-                      <CanonicalInlineInput
-                        fieldId="item.selling_price"
-                        canonicalKey="selling_price"
-                        fallbackLabel="Redeem Amount"
-                        type="number"
-                        placeholder="Amount"
-                        value={redeemAmt}
-                        onChange={(e) => setRedeemAmt(e.target.value)}
-                        className="w-32 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60"
-                      />
-                      {/* EXC-0019 RETIRED: reference_no -> CanonicalInlineInput (sales_invoice.invoice_no alias) */}
-                      <CanonicalInlineInput
-                        fieldId="sales_invoice.invoice_no"
-                        canonicalKey="invoice_no"
-                        fallbackLabel="Invoice Reference"
-                        type="text"
-                        placeholder="Invoice ref"
-                        value={refNo}
-                        onChange={(e) => setRefNo(e.target.value)}
-                        className="w-40 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60"
-                      />
-                      <button onClick={handleRedeem}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 transition-all">
-                        Redeem
-                      </button>
-                    </div>
-                    {redeemAmt && parseFloat(redeemAmt) > selected.balance && (
-                      <p className="text-[10px] text-amber-400">? Requested {fmt(parseFloat(redeemAmt))} exceeds balance — will clamp to {fmt(selected.balance)}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === "LEDGER" && selected && (
-              <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Transaction Ledger — {selected.voucherCode}</p>
-                <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden text-xs">
-                  <table className="w-full text-left border-collapse">
-                    <thead><tr className="text-slate-500 uppercase text-[10px] border-b border-slate-800 bg-slate-950/60">
-                      <th className="py-2 px-3">Kind</th>
-                      <th className="py-2 px-3 text-right">Amount</th>
-                      <th className="py-2 px-3 text-right">Balance After</th>
-                      <th className="py-2 px-3">Note</th>
-                      <th className="py-2 px-3">Time</th>
-                    </tr></thead>
-                    <tbody className="divide-y divide-slate-800/40 font-mono">
-                      {[...selected.ledger].reverse().map((t) => (
-                        <tr key={t.txnId}>
-                          <td className="py-2 px-3">
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
-                              t.kind === "ISSUE"   ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/20"
-                              : t.kind === "REDEEM"  ? "text-rose-300 bg-rose-500/10 border-rose-500/20"
-                              : t.kind === "ADJUST"  ? "text-sky-300 bg-sky-500/10 border-sky-500/20"
-                              : t.kind === "EXPIRE"  ? "text-slate-400 bg-slate-700/10 border-slate-600/20"
-                              : "text-amber-300 bg-amber-500/10 border-amber-500/20"
-                            }`}>{t.kind}</span>
-                          </td>
-                          <td className={`py-2 px-3 text-right ${t.amount >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{t.amount >= 0 ? "+" : ""}{fmt(t.amount)}</td>
-                          <td className="py-2 px-3 text-right text-slate-300">{fmt(t.balanceAfter)}</td>
-                          <td className="py-2 px-3 font-sans text-[10px] text-slate-400 max-w-[180px] truncate">{t.note}</td>
-                          <td className="py-2 px-3 text-[10px] text-slate-500">{new Date(t.timestamp).toLocaleTimeString("en-IN")}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "SUMMARY" && (
-              <div className="space-y-5">
-                <p className="text-sm font-bold text-slate-200">Portfolio Summary</p>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "Total Issued",   value: fmt(summary.totalIssued),   color: "text-slate-300" },
-                    { label: "Total Balance",  value: fmt(summary.totalBalance),  color: "text-violet-400 font-black" },
-                    { label: "Expiring (30d)", value: `${summary.expiringSoon30d} voucher(s)`, color: "text-amber-400" },
-                  ].map((m) => (
-                    <div key={m.label} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4 text-center">
-                      <div className={`font-bold font-mono ${m.color}`}>{m.value}</div>
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">{m.label}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Balance by Type</p>
-                    {Object.entries(summary.byType).map(([type, amt]) => (
-                      <div key={type} className="flex items-center justify-between px-3 py-2 border-b border-slate-800/40 text-xs">
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${TYPE_STYLE[type as VoucherType]}`}>{type.replace(/_/g, " ")}</span>
-                        <span className="font-mono text-slate-300">{fmt(amt)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Count by Status</p>
-                    {Object.entries(summary.byStatus).map(([status, count]) => (
-                      <div key={status} className="flex items-center justify-between px-3 py-2 border-b border-slate-800/40 text-xs">
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_STYLE[status as VoucherStatus]}`}>{status.replace(/_/g, " ")}</span>
-                        <span className="font-mono text-slate-300">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-end px-6 py-3 border-t border-slate-800 bg-slate-950/80">
@@ -272,4 +237,3 @@ export const GiftVoucherModal: React.FC<GiftVoucherModalProps> = ({ isOpen, onCl
 };
 
 export default GiftVoucherModal;
-
