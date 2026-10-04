@@ -258,9 +258,9 @@ async def preview_universal_import(
                 pricing_conflict = True
                 errors.append(f"SELLING_PRICE ({selling_val}) > MRP ({mrp_val})")
 
-
             # IM-001: Controlled Master Field Lookup Validation (batch mode — no per-row DB queries)
             im001_res = im001_batch[index - 1] if im001_batch else {}
+            row_field_failures = im001_res.get("field_failures", [])
             for err in im001_res.get("errors", []):
                 errors.append(err)
             for warn in im001_res.get("warnings", []):
@@ -401,6 +401,7 @@ async def preview_universal_import(
                 "action": action,
                 "errors": errors,
                 "warnings": row_consistency_warnings.get(index - 1, []),
+                "field_failures": row_field_failures,
                 "color": color,
                 "size": size,
                 "vendor_code": supplier_match.code.upper() if supplier_match else (vendor_code or None),
@@ -417,9 +418,21 @@ async def preview_universal_import(
         else:
             summary["status"] = "VALIDATION_ISSUES_FOUND"
 
+        # Load approved values for every controlled field so the UI can show fix dropdowns
+        approved_values_map: Dict[str, List[str]] = {}
+        try:
+            master_cache = await IM001ControlledFieldValidator._load_all_dimension_master_values(company_id)
+            for std_field, vals in master_cache.items():
+                if vals:
+                    approved_values_map[std_field] = vals
+        except Exception:
+            pass
+
         return {
             "target": "ITEM_MASTER",
             "summary": summary,
+            "reconciliation_report": reconciliation_report,
+            "approved_values_map": approved_values_map,
             "counts": {
                 "total": summary["total_rows"],
                 "valid": summary["valid_rows"],

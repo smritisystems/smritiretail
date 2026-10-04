@@ -78,7 +78,11 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   const [previewErrors, setPreviewErrors] = useState<string[]>([]);
   const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
   const [previewReport, setPreviewReport] = useState<any[]>([]); // per-row reconciliation report
+  const [approvedValuesMap, setApprovedValuesMap] = useState<Record<string, string[]>>({});
+  const [rowCorrections, setRowCorrections] = useState<Map<number, Record<string, string>>>(new Map());
+  const [skippedByUser, setSkippedByUser] = useState<Set<number>>(new Set());
   const [isValidating, setIsValidating] = useState<boolean>(false);
+
   const [hasHeaderRow, setHasHeaderRow] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
@@ -399,23 +403,38 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   // /api/v1/universal-import/commit. The legacy /products/ endpoint is decommissioned.
   // Style/article MUST come from the mapped field — never derived from SKU code.
 
-  const buildImportRows = useCallback(() => {
-    return parsedRows
-      .filter(r => !r.isSkipped)
-      .map((row, idx) => {
-        const obj: Record<string, any> = { rowNumber: idx + 1 };
-        row.tokens.forEach((val, colIdx) => {
-          const fieldKey = effectiveMapping.get(colIdx);
-          // Skip unmapped columns and blank values entirely — no fabricated defaults
-          if (!fieldKey || !val.trim()) return;
-          obj[fieldKey] = val.trim();
-        });
-        return obj;
-      });
-  }, [parsedRows, effectiveMapping]);
+  const buildImportRows = useCallback(
+    (
+      corrections?: Map<number, Record<string, string>>,
+      userSkips?: Set<number>
+    ) => {
+      return parsedRows
+        .filter(r => !r.isSkipped)
+        .map((row, idx) => {
+          const rowNum = idx + 1;
+          const obj: Record<string, any> = { rowNumber: rowNum };
+          row.tokens.forEach((val, colIdx) => {
+            const fieldKey = effectiveMapping.get(colIdx);
+            if (!fieldKey || !val.trim()) return;
+            obj[fieldKey] = val.trim();
+          });
+          // Merge user corrections from the fix panel
+          if (corrections?.has(rowNum)) {
+            Object.assign(obj, corrections.get(rowNum));
+          }
+          return obj;
+        })
+        // Exclude rows the user manually skipped via fix panel
+        .filter(obj => !(userSkips?.has(obj.rowNumber)));
+    },
+    [parsedRows, effectiveMapping]
+  );
 
-  const handlePreviewAndImport = async () => {
-    const rows = buildImportRows();
+  const handlePreviewAndImport = async (
+    corrections?: Map<number, Record<string, string>>,
+    userSkips?: Set<number>
+  ) => {
+    const rows = buildImportRows(corrections, userSkips);
     if (rows.length === 0) {
       onNotification?.("No Data", "Please paste valid rows before importing.", "error");
       return;
@@ -440,8 +459,15 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       // Store per-row reconciliation report for the validation panel
       const rowReport: any[] = Array.isArray(previewResp?.reconciliation_report)
         ? previewResp.reconciliation_report
+        : Array.isArray(previewResp?.rows)
+        ? previewResp.rows
         : [];
       setPreviewReport(rowReport);
+
+      // Store approved values map for fix dropdowns
+      if (previewResp?.approved_values_map && typeof previewResp.approved_values_map === 'object') {
+        setApprovedValuesMap(previewResp.approved_values_map);
+      }
 
       // Collect all blocking errors from preview row results
       const blockingErrors: string[] = [];
@@ -497,6 +523,9 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         setPreviewResult(null);
         setPreviewWarnings([]);
         setPreviewReport([]);
+        setRowCorrections(new Map());
+        setSkippedByUser(new Set());
+        setApprovedValuesMap({});
       } else {
         onNotification?.(
           "Import Failed",
@@ -954,137 +983,266 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
         </div>
       </div>
 
-      {/* ── Validation Report Panel ─────────────────────────────────────────── */}
-      {previewReport.length > 0 && (
-        <div className="mt-4 border border-[#c6c6cd] dark:border-[#45464d] rounded-lg overflow-hidden bg-white dark:bg-[#191c1e] shadow-sm">
-          {/* Panel Header */}
-          <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-4 py-2.5 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between">
-            <h3 className="text-xs font-bold text-[#191c1e] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
-              <span className="material-symbols-outlined text-[#515f74] text-base">fact_check</span>
-              Pre-Import Validation Report
-              <span className="font-normal text-[#515f74] normal-case tracking-normal">
-                — {previewReport.length} row{previewReport.length !== 1 ? 's' : ''} checked
-              </span>
-            </h3>
-            <div className="flex items-center gap-2 text-[11px]">
-              {(() => {
-                const blocked = previewReport.filter(r => r.action === 'BLOCK').length;
-                const dupes   = previewReport.filter(r => r.reconciliation_state === 'DUPLICATE_IN_FILE').length;
-                const skip    = previewReport.filter(r => r.action === 'SKIP').length;
-                const newRows = previewReport.filter(r => r.reconciliation_state === 'NEW').length;
-                const warned  = previewReport.filter(r => (r.warnings || []).length > 0 && r.action !== 'BLOCK').length;
-                return (
-                  <>
-                    {blocked > 0 && <span className="px-2 py-0.5 rounded bg-[#ffdad6] text-[#93000a] font-bold border border-[#ba1a1a]/30">{blocked} Blocked</span>}
-                    {dupes  > 0 && <span className="px-2 py-0.5 rounded bg-[#ffdad6] text-[#93000a] font-bold border border-[#ba1a1a]/30">{dupes} Duplicate</span>}
-                    {warned > 0 && <span className="px-2 py-0.5 rounded bg-[#fef08a] text-[#854d0e] font-bold border border-[#eab308]/40">{warned} Review Flag</span>}
-                    {skip   > 0 && <span className="px-2 py-0.5 rounded bg-[#e0e3e5] text-[#515f74] font-bold">{skip} Existing (Skip)</span>}
-                    {newRows> 0 && <span className="px-2 py-0.5 rounded bg-[#d1fae5] text-[#065f46] font-bold border border-[#10b981]/30">{newRows} New</span>}
-                  </>
-                );
-              })()}
+      {/* ── Interactive Validation & Fix Panel ───────────────────────────────── */}
+      {previewReport.length > 0 && (() => {
+        const blocked  = previewReport.filter(r => r.action === 'BLOCK' && !skippedByUser.has(r.row_number));
+        const dupes    = previewReport.filter(r => r.reconciliation_state === 'DUPLICATE_IN_FILE' && !skippedByUser.has(r.row_number));
+        const warned   = previewReport.filter(r => (r.warnings||[]).length > 0 && r.action !== 'BLOCK' && !skippedByUser.has(r.row_number));
+        const skipped  = previewReport.filter(r => r.action === 'SKIP');
+        const newRows  = previewReport.filter(r => r.reconciliation_state === 'NEW' && !skippedByUser.has(r.row_number));
+        const userSkips = previewReport.filter(r => skippedByUser.has(r.row_number));
+        const problemRows = [...blocked, ...dupes];
+
+        // Helper: apply a correction
+        const applyCorrection = (rowNum: number, fieldKey: string, value: string) => {
+          setRowCorrections(prev => {
+            const next = new Map(prev);
+            next.set(rowNum, { ...(next.get(rowNum) || {}), [fieldKey]: value });
+            return next;
+          });
+        };
+
+        // Helper: skip a row
+        const skipRow = (rowNum: number) => {
+          setSkippedByUser(prev => new Set([...prev, rowNum]));
+        };
+
+        // Re-validate handler: merge corrections into rows then re-run preview
+        const handleRevalidate = () => {
+          // Apply rowCorrections back into rawText (rebuild rows from parsedRows with overrides applied)
+          // We trigger handlePreviewAndImport with corrections merged via buildImportRows override
+          handlePreviewAndImport(rowCorrections, skippedByUser);
+        };
+
+        const FIELD_LABEL: Record<string, string> = {
+          BRAND_NAME: 'Brand Name', COLOR: 'Colour', SIZE: 'Size', GENDER: 'Gender',
+          MERCHANDISE_DEPARTMENT: 'Department', MERCHANDISE_CATEGORY: 'Category',
+          PRODUCT_TYPE: 'Product Type', HEEL_TYPE: 'Heel Type',
+          UPPER_MATERIAL: 'Upper Material', UOM: 'Unit of Measure',
+          DESIGN_ATTRIBUTE: 'Design / Sub-Category', OUTSOLE_MATERIAL: 'Outsole Material',
+          COLLECTION_TYPE: 'Collection Type', GST_RATE_PERCENT: 'GST %',
+        };
+
+        return (
+          <div className="mt-4 rounded-xl border border-[#c6c6cd] dark:border-[#45464d] bg-white dark:bg-[#191c1e] shadow-sm overflow-hidden">
+
+            {/* ── Panel Header ── */}
+            <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-4 py-3 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-xs font-bold text-[#191c1e] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
+                <span className="material-symbols-outlined text-[#515f74] text-base">fact_check</span>
+                Import Validation
+                <span className="font-normal text-[#515f74] normal-case tracking-normal ml-1">
+                  — {previewReport.length} rows checked
+                </span>
+              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                {blocked.length  > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#ffdad6] text-[#93000a] font-bold border border-[#ba1a1a]/30">🚫 {blocked.length} to fix</span>}
+                {dupes.length    > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#ffdad6] text-[#93000a] font-bold border border-[#ba1a1a]/30">🔁 {dupes.length} duplicate</span>}
+                {warned.length   > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#fef08a] text-[#854d0e] font-bold border border-[#eab308]/40">⚑ {warned.length} review</span>}
+                {userSkips.length > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#e0e3e5] text-[#515f74] font-bold">⏭ {userSkips.length} skipped</span>}
+                {skipped.length  > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#e0e3e5] text-[#515f74] font-bold">↩ {skipped.length} already exist</span>}
+                {newRows.length  > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#d1fae5] text-[#065f46] font-bold border border-[#10b981]/30">✅ {newRows.length} ready</span>}
+                {problemRows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleRevalidate}
+                    disabled={isProcessing}
+                    className="ml-2 px-3 py-1 bg-[#1565c0] hover:bg-[#0d47a1] text-white rounded-full text-[11px] font-bold flex items-center gap-1 transition disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">refresh</span>
+                    Re-validate with fixes
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Report Table */}
-          <div className="overflow-auto max-h-72">
-            <table className="w-full text-left border-collapse text-xs min-w-[640px]">
-              <thead className="sticky top-0 bg-[#f2f4f6] dark:bg-[#131b2e] z-10">
-                <tr className="border-b border-[#c6c6cd] dark:border-[#45464d]">
-                  <th className="px-3 py-2 font-bold text-[#515f74] w-10 text-center">#</th>
-                  <th className="px-3 py-2 font-bold text-[#515f74] w-28">Status</th>
-                  <th className="px-3 py-2 font-bold text-[#515f74] w-32">Action</th>
-                  <th className="px-3 py-2 font-bold text-[#515f74] w-36">Barcode / SKU</th>
-                  <th className="px-3 py-2 font-bold text-[#515f74]">Errors &amp; Warnings</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
-                {/* Sort: BLOCK first, then DUPLICATE, then WARN, then OK */}
-                {[...previewReport]
-                  .sort((a, b) => {
-                    const rank = (r: any) =>
-                      r.action === 'BLOCK' ? 0
-                      : r.reconciliation_state === 'DUPLICATE_IN_FILE' ? 1
-                      : (r.warnings || []).length > 0 ? 2
-                      : 3;
-                    return rank(a) - rank(b);
-                  })
-                  .map((row: any) => {
-                    const isBlocked = row.action === 'BLOCK';
-                    const isDupe    = row.reconciliation_state === 'DUPLICATE_IN_FILE';
-                    const isNew     = row.reconciliation_state === 'NEW';
-                    const isSkip    = row.action === 'SKIP';
-                    const hasWarns  = (row.warnings || []).length > 0;
+            {/* ── Problem Rows — Fix Cards ── */}
+            {problemRows.length > 0 && (
+              <div className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
+                {problemRows.map((row: any) => {
+                  const isDupe = row.reconciliation_state === 'DUPLICATE_IN_FILE';
+                  const corrections = rowCorrections.get(row.row_number) || {};
 
-                    const rowBg = isBlocked || isDupe
-                      ? 'bg-[#fff8f7] dark:bg-[#93000a]/10'
-                      : hasWarns && !isBlocked
-                      ? 'bg-[#fefce8] dark:bg-[#713f12]/10'
-                      : 'hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133]';
-
-                    const statusBadge = isDupe
-                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#ffdad6] text-[#93000a] border border-[#ba1a1a]/30">DUPLICATE</span>
-                      : isBlocked
-                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#ffdad6] text-[#93000a] border border-[#ba1a1a]/30">BLOCKED</span>
-                      : isNew
-                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#d1fae5] text-[#065f46] border border-[#10b981]/30">NEW</span>
-                      : isSkip
-                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#e0e3e5] text-[#515f74]">EXISTS</span>
-                      : <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#e0e3e5] text-[#515f74]">{row.status}</span>;
-
-                    const actionLabel: Record<string, string> = {
-                      BLOCK: '🚫 Fix required',
-                      SKIP: '⏭ Will skip (already exists)',
-                      CREATE_ITEM_AND_VARIANT: '✅ Create item + variant',
-                      ATTACH_VARIANT_TO_STYLE: '✅ Attach variant to style',
-                    };
-
-                    return (
-                      <tr key={row.row_number} className={`transition ${rowBg}`}>
-                        <td className="px-3 py-2 text-center font-mono font-bold text-[#515f74] border-r border-[#eceef0] dark:border-[#2d3133]">
-                          {row.row_number}
-                        </td>
-                        <td className="px-3 py-2 border-r border-[#eceef0] dark:border-[#2d3133]">
-                          {statusBadge}
-                        </td>
-                        <td className="px-3 py-2 border-r border-[#eceef0] dark:border-[#2d3133] text-[11px] text-[#515f74] dark:text-[#bec6e0]">
-                          {actionLabel[row.action] ?? row.action}
-                        </td>
-                        <td className="px-3 py-2 border-r border-[#eceef0] dark:border-[#2d3133] font-mono text-[11px] text-[#191c1e] dark:text-[#dae2fd]">
-                          <div>{row.barcode || <span className="text-[#ba1a1a] italic">No barcode</span>}</div>
-                          {row.sku && <div className="text-[#76777d] text-[10px]">{row.sku}</div>}
-                        </td>
-                        <td className="px-3 py-2">
-                          {/* Errors */}
-                          {(row.errors || []).map((e: string, i: number) => (
-                            <div key={i} className="flex items-start gap-1.5 text-[#93000a] dark:text-[#ffdad6] mb-0.5">
-                              <span className="material-symbols-outlined text-[13px] mt-px shrink-0">error</span>
-                              <span>{e}</span>
-                            </div>
-                          ))}
-                          {/* Warnings / Review Flags */}
-                          {(row.warnings || []).map((w: string, i: number) => (
-                            <div key={i} className="flex items-start gap-1.5 text-[#854d0e] dark:text-[#fef08a] mb-0.5 text-[11px]">
-                              <span className="material-symbols-outlined text-[13px] mt-px shrink-0">flag</span>
-                              <span>{w}</span>
-                            </div>
-                          ))}
-                          {/* All OK */}
-                          {(row.errors || []).length === 0 && (row.warnings || []).length === 0 && (
-                            <span className="text-[#059669] flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                              Ready to import
+                  return (
+                    <div key={row.row_number} className="px-4 py-3 bg-[#fff8f7] dark:bg-[#93000a]/10">
+                      {/* Row identity strip */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono font-bold text-white bg-[#ba1a1a] px-2 py-0.5 rounded">
+                            Row {row.row_number}
+                          </span>
+                          {isDupe
+                            ? <span className="text-[11px] font-bold text-[#93000a]">🔁 Duplicate barcode in your file</span>
+                            : <span className="text-[11px] font-bold text-[#93000a]">🚫 {row.errors?.length || 0} issue{(row.errors?.length || 0) !== 1 ? 's' : ''} to fix</span>
+                          }
+                          {row.barcode && (
+                            <span className="font-mono text-[10px] bg-[#f2f4f6] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[#515f74]">
+                              {row.barcode}
                             </span>
                           )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
+                          {row.sku && (
+                            <span className="font-mono text-[10px] text-[#76777d]">{row.sku}</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => skipRow(row.row_number)}
+                          className="text-[11px] px-2.5 py-1 rounded border border-[#c6c6cd] dark:border-[#45464d] text-[#515f74] hover:bg-[#eceef0] dark:hover:bg-[#2d3133] transition flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">block</span>
+                          Skip this row
+                        </button>
+                      </div>
+
+                      {/* Duplicate: no field-level fix possible */}
+                      {isDupe && (
+                        <p className="text-[11px] text-[#93000a] dark:text-[#ffdad6] ml-1">
+                          This barcode appears more than once in your file. Remove the duplicate row from your spreadsheet and re-validate.
+                        </p>
+                      )}
+
+                      {/* Fix cards for each field failure */}
+                      {!isDupe && (row.field_failures || []).map((ff: any, fi: number) => {
+                        const fieldLabel = FIELD_LABEL[ff.field] || ff.field.replace(/_/g, ' ');
+                        const approvedValues: string[] = approvedValuesMap[ff.field] || [];
+                        const currentSelection = corrections[ff.field] ?? (ff.near_match || '');
+
+                        return (
+                          <div key={fi} className="mt-2 p-3 rounded-lg border border-[#ffdad6] dark:border-[#ba1a1a]/40 bg-white dark:bg-[#1e1212]">
+                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-bold text-[#515f74] uppercase tracking-wide mb-1">{fieldLabel}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {/* Bad value badge */}
+                                  <span className="font-mono text-xs bg-[#ffdad6] text-[#93000a] px-2 py-0.5 rounded line-through decoration-[#ba1a1a]">
+                                    {ff.value}
+                                  </span>
+                                  <span className="text-[#515f74] text-[11px]">is not recognised.</span>
+                                </div>
+                                {ff.near_match && (
+                                  <p className="text-[11px] text-[#1565c0] dark:text-[#90caf9] mt-1 flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[13px]">lightbulb</span>
+                                    Closest match: <span className="font-bold font-mono ml-1">"{ff.near_match}"</span>
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Fix controls */}
+                              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                                {/* One-click suggestion */}
+                                {ff.near_match && (
+                                  <button
+                                    type="button"
+                                    onClick={() => applyCorrection(row.row_number, ff.field, ff.near_match)}
+                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 border transition ${
+                                      corrections[ff.field] === ff.near_match
+                                        ? 'bg-[#d1fae5] text-[#065f46] border-[#10b981] cursor-default'
+                                        : 'bg-[#e3f2fd] text-[#1565c0] border-[#1565c0]/30 hover:bg-[#bbdefb]'
+                                    }`}
+                                  >
+                                    {corrections[ff.field] === ff.near_match
+                                      ? <><span className="material-symbols-outlined text-[13px]">check_circle</span> Applied</>
+                                      : <><span className="material-symbols-outlined text-[13px]">auto_fix_high</span> Use "{ff.near_match}"</>
+                                    }
+                                  </button>
+                                )}
+
+                                {/* Dropdown picker */}
+                                {approvedValues.length > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <select
+                                      value={currentSelection}
+                                      onChange={e => applyCorrection(row.row_number, ff.field, e.target.value)}
+                                      className="text-xs border border-[#c6c6cd] dark:border-[#45464d] rounded px-2 py-1.5 bg-white dark:bg-[#2d3133] text-[#191c1e] dark:text-white outline-none focus:border-[#1565c0] transition cursor-pointer"
+                                    >
+                                      <option value="">— Select approved value —</option>
+                                      {approvedValues.map(v => (
+                                        <option key={v} value={v}>{v}</option>
+                                      ))}
+                                    </select>
+                                    {currentSelection && currentSelection !== ff.near_match && (
+                                      <button
+                                        type="button"
+                                        onClick={() => applyCorrection(row.row_number, ff.field, currentSelection)}
+                                        className="px-2 py-1.5 bg-[#1565c0] text-white rounded text-[11px] font-bold hover:bg-[#0d47a1] transition"
+                                      >
+                                        Apply
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Applied confirmation */}
+                            {corrections[ff.field] && (
+                              <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[#059669] dark:text-[#34d399]">
+                                <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                                Will replace <span className="font-mono line-through text-[#ba1a1a] mx-1">{ff.value}</span>
+                                with <span className="font-mono font-bold text-[#059669] ml-1">"{corrections[ff.field]}"</span>
+                                — click <strong>Re-validate with fixes</strong> above to confirm.
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Structural errors (barcode conflict, missing field, price) — no dropdown possible */}
+                      {!isDupe && (row.errors || [])
+                        .filter((e: string) => !(row.field_failures || []).some((ff: any) => e.includes(`"${ff.value}"`) || e.includes(ff.value)))
+                        .map((e: string, ei: number) => (
+                          <div key={ei} className="mt-2 p-2.5 rounded-lg border border-[#ffdad6] dark:border-[#ba1a1a]/40 bg-white dark:bg-[#1e1212] flex items-start gap-2">
+                            <span className="material-symbols-outlined text-[13px] text-[#ba1a1a] mt-px shrink-0">error</span>
+                            <p className="text-[11px] text-[#93000a] dark:text-[#ffdad6]">{e}</p>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── Warning Rows ── */}
+            {warned.length > 0 && (
+              <div className="border-t border-[#eceef0] dark:border-[#2d3133]">
+                <div className="px-4 py-2 bg-[#fef9c3] dark:bg-[#713f12]/20 flex items-center gap-2 text-[11px] text-[#854d0e] dark:text-[#fef08a] font-bold">
+                  <span className="material-symbols-outlined text-[14px]">warning</span>
+                  {warned.length} row{warned.length !== 1 ? 's' : ''} have review flags (CA / human sign-off recommended before committing)
+                </div>
+                <div className="divide-y divide-[#fef08a]/30">
+                  {warned.map((row: any) => (
+                    <div key={row.row_number} className="px-4 py-2.5 bg-[#fefce8] dark:bg-[#713f12]/10 flex items-start gap-3">
+                      <span className="text-[10px] font-mono font-bold text-white bg-[#ca8a04] px-2 py-0.5 rounded shrink-0 mt-0.5">
+                        Row {row.row_number}
+                      </span>
+                      <div>
+                        {(row.warnings || []).map((w: string, wi: number) => (
+                          <p key={wi} className="text-[11px] text-[#854d0e] dark:text-[#fef08a] flex items-start gap-1.5 mb-0.5">
+                            <span className="material-symbols-outlined text-[12px] mt-px shrink-0">flag</span>
+                            {w}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Ready Rows Summary ── */}
+            {(newRows.length > 0 || skipped.length > 0) && (
+              <div className="border-t border-[#eceef0] dark:border-[#2d3133] px-4 py-2.5 bg-[#f0fdf4] dark:bg-[#052e16]/30 flex items-center gap-3 text-[11px] text-[#065f46] dark:text-[#34d399]">
+                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                {newRows.length > 0 && <span className="font-bold">{newRows.length} new item{newRows.length !== 1 ? 's' : ''} ready to import</span>}
+                {newRows.length > 0 && skipped.length > 0 && <span className="text-[#515f74]">·</span>}
+                {skipped.length > 0 && <span className="text-[#515f74]">{skipped.length} already exist and will be skipped</span>}
+                {userSkips.length > 0 && <span className="text-[#515f74]">· {userSkips.length} manually skipped</span>}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
