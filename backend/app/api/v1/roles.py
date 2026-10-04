@@ -4,11 +4,17 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.2
+Version      : 3.16.3
 Created      : 2026-07-12
 Modified     : 2026-10-04
 Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+
+Changes v3.16.3 (2026-10-04 - Phase 1F SEC-RBAC-001):
+  - create_role: Non-SYSADMIN callers may no longer submit ["*"] in
+      permissions. Doing so raises 403 (SMRITI-AUTH-003).
+  - update_role: Same wildcard write prohibition for non-SYSADMIN callers.
+  - SYSADMIN callers remain unrestricted for both endpoints.
 
 Changes v3.16.2 (2026-10-04 - Phase 1E):
   - list_roles (R-4): Applies tenant-safe scoping.
@@ -127,6 +133,17 @@ async def create_role(
 
     company_id: Optional[str] = getattr(current_user, "company_id", None)
 
+    # SEC-RBAC-001 Phase 1F: Non-SYSADMIN callers must not create wildcard roles.
+    if not _is_sysadmin(current_user) and "*" in (req.permissions or []):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "SMRITI-AUTH-003: Permission denied. Your account does not have the authority "
+                "to create access roles with unrestricted wildcard permissions. "
+                "Please contact your system administrator."
+            )
+        )
+
     q = select(Role).where(
         Role.name.ilike(req.name),
         Role.company_id == company_id,
@@ -202,6 +219,18 @@ async def update_role(
         user_company = getattr(current_user, "company_id", None)
         if role.company_id != user_company:
             raise HTTPException(status_code=404, detail="Access role definition not found.")
+
+    # SEC-RBAC-001 Phase 1F: Non-SYSADMIN callers must not write wildcard permissions.
+    if not _is_sysadmin(current_user) and req.permissions is not None and "*" in req.permissions:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "SMRITI-AUTH-003: Permission denied. Your account does not have the authority "
+                "to assign unrestricted wildcard permissions to an access role. "
+                "Please contact your system administrator."
+            )
+        )
+
 
     if req.description is not None:
         role.description = req.description

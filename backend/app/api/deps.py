@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.27.3
+* Version    : 6.27.4
 * Created    : 2026-07-11
-* Modified   : 2026-09-16
+* Modified   : 2026-10-04
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 """
@@ -374,6 +374,14 @@ def require_role(*allowed_roles: UserRole) -> Callable:
     Returns a FastAPI dependency that raises 403 if the current user's role
     is not in the allowed set. Checked against role_id permissions table if set,
     falling back to enum role check.
+
+    Phase 1F (SEC-RBAC-001, 2026-10-04):
+    The wildcard shortcut ("*" in permissions_json) is ONLY applied when the
+    user's enum role is SYSADMIN.  A MANAGER or CASHIER bound to a role that
+    happens to carry ["*"] is NOT admitted through the wildcard path; their
+    access is decided solely by the normal enum fallback below.
+    This prevents non-SYSADMIN users from escalating to SYSADMIN-gated
+    endpoints via a wildcard custom or system role.
     """
     async def _guard(
         current_user: User = Depends(get_current_user),
@@ -389,7 +397,10 @@ def require_role(*allowed_roles: UserRole) -> Callable:
                         perms = json.loads(role_obj.permissions_json)
                     except Exception:
                         perms = []
-                if "*" in perms:
+                # SEC-RBAC-001 hardening: wildcard bypass is restricted to
+                # users whose ENUM role is SYSADMIN.  Non-SYSADMIN users bound
+                # to a wildcard role must still pass the enum check below.
+                if "*" in perms and current_user.role == UserRole.SYSADMIN:
                     return current_user
                 allowed_role_names = {r.value.upper() for r in allowed_roles}
                 role_name_normalized = role_obj.name.upper().replace(" ", "_")
