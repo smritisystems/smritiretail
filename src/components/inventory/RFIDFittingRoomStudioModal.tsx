@@ -1,4 +1,5 @@
-﻿/**
+// @deprecated 2026-10-04 — ORPHANED, NOT MOUNTED. RFID hardware integration — future IoT scope. Retained for git history only.
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
