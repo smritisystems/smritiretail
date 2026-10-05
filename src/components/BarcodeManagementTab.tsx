@@ -27,6 +27,7 @@ type BarcodeRecord = {
   item_code?: string | null;
   variant_sku?: string | null;
   item_name?: string | null;
+  is_primary?: boolean | null;
 };
 
 type BarcodeMetrics = {
@@ -397,7 +398,16 @@ export const BarcodeManagementTab: React.FC = () => {
               <tbody>
                 {records.map((record) => (
                   <tr key={record.id} onClick={() => record.status === "UNASSIGNED" && setSelectedId(record.id)} className={`border-t border-theme-divider ${record.status === "UNASSIGNED" ? "cursor-pointer hover:bg-theme-surface-2" : ""} ${selectedId === record.id ? "bg-emerald-400/10" : ""}`}>
-                    <td className="p-3 font-mono">{record.barcode}</td>
+                    <td className="p-3 font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <span>{record.barcode}</span>
+                        {record.is_primary ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PRIMARY</span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] bg-theme-surface-3 text-theme-muted border border-theme-divider">ADDITIONAL</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3"><div>{record.variant_sku || record.item_code || "Unassigned"}</div><div className="text-[10px] text-theme-muted">{record.item_name || "Awaiting assignment"}</div></td>
                     <td className="p-3 text-theme-muted">{record.source}</td>
                     <td className="p-3"><span className={`inline-flex px-2 py-1 rounded border text-[10px] ${statusStyles[record.status]}`}>{statusLabels[record.status]}</span></td>

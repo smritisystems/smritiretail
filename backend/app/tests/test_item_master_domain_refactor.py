@@ -115,7 +115,7 @@ async def test_physical_variant_identity_decoupled_from_mrp():
         )
 
         # 2. Ingest Batch 1: CREAM / Size 36 / MRP 1299
-        b1_barcode = f"7007{uuid.uuid4().hex[:9]}"
+        b1_barcode = f"7007{uuid.uuid4().hex[:9]}".upper()
         var1, pbe1, bc1 = await ItemDomainService.create_variant(
             session=session,
             req=ItemVariantCreateRequest(
@@ -135,7 +135,7 @@ async def test_physical_variant_identity_decoupled_from_mrp():
         assert bc1.price_book_entry_id == pbe1.id
 
         # 3. Ingest Batch 2: SAME Physical Variant (CREAM / Size 36) but NEW MRP 1499 and NEW Barcode
-        b2_barcode = f"7007{uuid.uuid4().hex[:9]}"
+        b2_barcode = f"7007{uuid.uuid4().hex[:9]}".upper()
         var2, pbe2, bc2 = await ItemDomainService.create_variant(
             session=session,
             req=ItemVariantCreateRequest(
@@ -226,27 +226,51 @@ async def test_governed_master_lookup_catalog():
 @pytest.mark.asyncio
 async def test_rest_api_item_domain_endpoints():
     """Gate 3: REST API contract testing via HTTP client."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Mock auth header for tests
-        headers = {"X-Tenant-Company": "COMP-001"}
+    from app.api.deps import get_current_user, get_company_db
+    from app.models.auth import User, UserRole
 
-        # 1. GET /api/v1/item-styles
-        res_styles = await client.get("/api/v1/item-styles?limit=5", headers=headers)
-        assert res_styles.status_code == 200
-        assert isinstance(res_styles.json(), list)
+    mock_user = User(
+        id="usr-super",
+        username="usr_super",
+        role=UserRole.SYSADMIN,
+        company_id="COMP-001",
+        branch_id="MAIN",
+        is_active=True,
+        is_deleted=False,
+    )
+    session_factory = get_company_sessionmaker("smriti001")
 
-        # 2. GET /api/v1/item-variants
-        res_vars = await client.get("/api/v1/item-variants?limit=5", headers=headers)
-        assert res_vars.status_code == 200
-        assert isinstance(res_vars.json(), list)
+    async def _test_get_db():
+        async with session_factory() as session:
+            yield session
 
-        # 3. GET /api/v1/item-barcodes
-        res_bc = await client.get("/api/v1/item-barcodes?limit=5", headers=headers)
-        assert res_bc.status_code == 200
-        assert isinstance(res_bc.json(), list)
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_company_db] = _test_get_db
 
-        # 4. GET /api/v1/item-domain/lookups
-        res_lookups = await client.get("/api/v1/item-domain/lookups", headers=headers)
-        assert res_lookups.status_code == 200
-        assert "dimensions" in res_lookups.json()
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            # Mock auth header for tests
+            headers = {"X-Tenant-Company": "COMP-001"}
+
+            # 1. GET /api/v1/item-styles
+            res_styles = await client.get("/api/v1/item-styles?limit=5", headers=headers)
+            assert res_styles.status_code == 200
+            assert isinstance(res_styles.json(), list)
+
+            # 2. GET /api/v1/item-variants
+            res_vars = await client.get("/api/v1/item-variants?limit=5", headers=headers)
+            assert res_vars.status_code == 200
+            assert isinstance(res_vars.json(), list)
+
+            # 3. GET /api/v1/item-barcodes
+            res_bc = await client.get("/api/v1/item-barcodes?limit=5", headers=headers)
+            assert res_bc.status_code == 200
+            assert isinstance(res_bc.json(), list)
+
+            # 4. GET /api/v1/item-domain/lookups
+            res_lookups = await client.get("/api/v1/item-domain/lookups", headers=headers)
+            assert res_lookups.status_code == 200
+            assert "dimensions" in res_lookups.json()
+    finally:
+        app.dependency_overrides.clear()

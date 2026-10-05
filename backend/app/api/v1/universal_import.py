@@ -710,9 +710,18 @@ async def commit_universal_import(
                 dept_raw = _text(row, "department", "Department", "MERCHANDISE_DEPARTMENT")
                 dept = dept_raw or None
                 brand = _text(row, "brand", "Brand", "BRAND_NAME")
-                hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN") or "64041990"
+                hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN")
+                if not hsn:
+                    flag_requires_review = True
+                    requires_review_reasons.append("Missing HSN code in source data.")
                 uom = _text(row, "uom", "UOM") or "PRS"
-                tax_rate = float(row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT", 18))) or 18)
+                tax_rate_raw = row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT")))
+                if tax_rate_raw is not None and str(tax_rate_raw).strip() != "":
+                    tax_rate = float(tax_rate_raw)
+                else:
+                    tax_rate = 0.0
+                    flag_requires_review = True
+                    requires_review_reasons.append("Missing GST tax rate in source data.")
                 buying_price = float(row.get("buyingPrice", row.get("buying_price", row.get("BUYING_PRICE", 0))) or 0)
                 cost_price = float(row.get("costPrice", row.get("cost_price", row.get("LANDED_COST_PRICE", 0))) or 0)
                 mrp = float(row.get("mrp", row.get("MRP", 0)) or 0)
@@ -896,7 +905,13 @@ async def commit_universal_import(
 
                 # 4. Create ItemVariant
                 if not clean_sku:
-                    clean_sku = f"{style_code}-{color}-{size}".upper() if (color and size) else f"{style_code}-VAR-{index}"
+                    # Rule 6: Where an official primary barcode exists when the variant is created/imported,
+                    # the initial SKU MAY be assigned from that primary barcode.
+                    if clean_barcode:
+                        clean_sku = clean_barcode
+                    else:
+                        # Rule 7: If no barcode exists, DO NOT invent a fake barcode. Use internal business SKU.
+                        clean_sku = f"{style_code}-{color}-{size}".upper() if (color and size) else f"{style_code}-VAR-{index}"
 
                 attrs = {
                     **footwear_nested_attrs,
@@ -978,6 +993,18 @@ async def commit_universal_import(
                             continue
                     else:
                         tax_inc = _text(row, "tax_inclusive_yn", "TAX_INCLUSIVE_YN").upper() == "Y" if _text(row, "tax_inclusive_yn", "TAX_INCLUSIVE_YN") else None
+                        
+                        # Rule 10 & 11: Exactly one primary barcode per variant
+                        existing_primary_bc = (await db.execute(
+                            select(ItemBarcode).where(
+                                ItemBarcode.company_id == company_id,
+                                ItemBarcode.variant_id == variant.id,
+                                ItemBarcode.is_primary == True,
+                                ItemBarcode.is_deleted == False
+                            )
+                        )).scalars().first()
+                        is_primary_flag = False if existing_primary_bc else True
+
                         barcode_entity = ItemBarcode(
                             id=f"bc_{uuid.uuid4().hex[:12]}",
                             company_id=company_id,
@@ -985,14 +1012,14 @@ async def commit_universal_import(
                             variant_id=variant.id,
                             barcode=clean_barcode,
                             barcode_type="EAN13" if len(clean_barcode) == 13 and clean_barcode.isdigit() else "CUSTOM",
-                            is_primary=True,
+                            is_primary=is_primary_flag,
                             is_tax_inclusive=tax_inc,
                         )
                         db.add(barcode_entity)
 
                 # 3b. Synchronize variant to products table (Requirement 8)
                 if variant:
-                    eff_branch = getattr(item, "branch_id", None) or "BR-MAIN-001"
+                    eff_branch = getattr(item, "branch_id", None) or "BR-001"
                     p_stmt = select(Product).where(
                         Product.company_id == company_id,
                         or_(
@@ -1026,9 +1053,9 @@ async def commit_universal_import(
                             price=variant.selling_price or item.selling_price or Decimal("0.00"),
                             cost_price=variant.cost_price or item.cost_price or Decimal("0.00"),
                             buying_price=item.buying_price,
-                            gst_percentage=item.tax_rate or Decimal("5.00"),
-                            hsn_code=variant.hsn_code or item.hsn_code or "64041990",
-                            barcode=clean_barcode or f"GEN-{variant.variant_sku}",
+                            gst_percentage=item.tax_rate,
+                            hsn_code=variant.hsn_code or item.hsn_code,
+                            barcode=clean_barcode or variant.variant_sku,
                             secondary_barcodes=sec_bc,
                             attributes=variant.attributes_json or item.attributes_json or {},
                             is_active=True,
