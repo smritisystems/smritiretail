@@ -163,6 +163,8 @@ class PurchaseReceiptItem(BaseEntity):
     mfg_date              = Column(Date,         nullable=True)
     expiry_date           = Column(Date,         nullable=True)
     mrp                   = Column(Numeric(15, 2), nullable=True)
+    batch_id              = Column(String(50),   ForeignKey("item_batches.id", ondelete="SET NULL"), nullable=True, index=True)
+    warehouse_location_id = Column(String(50),   ForeignKey("item_warehouse_locations.id", ondelete="SET NULL"), nullable=True, index=True)
     quantity_ordered      = Column(Numeric(10, 2), nullable=True)   # from PO (informational)
     quantity_received     = Column(Numeric(10, 2), nullable=False)  # actual received — drives stock
     quantity_damaged      = Column(Numeric(10, 2), nullable=False, default=0.00)
@@ -170,6 +172,10 @@ class PurchaseReceiptItem(BaseEntity):
     gst_rate              = Column(Numeric(5, 2),  nullable=False, default=18.00)
     tax_amount            = Column(Numeric(15, 2), nullable=False, default=0.00)
     line_total            = Column(Numeric(15, 2), nullable=False)
+
+    # Tracking Relationships (Phase 5)
+    batch                 = relationship("ItemBatch", foreign_keys=[batch_id], lazy="selectin")
+    warehouse_location    = relationship("ItemWarehouseLocation", foreign_keys=[warehouse_location_id], lazy="selectin")
 
 
 class PurchaseReorderConfig(BaseEntity):

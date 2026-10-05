@@ -28,6 +28,11 @@ from .barcode_resolver_svc import BarcodeResolverService
 from .variant_matrix_svc import VariantMatrixService
 from .item_pricing_svc import ItemPricingService
 from .item_tracking_svc import ItemTrackingService
+from .legacy_reconciliation_svc import LegacyProductReconciliationService
+from .item_review_triage_svc import ItemReviewTriageService
+from .item_pricing_sync_svc import ItemPricingSyncService
+from .item_attribute_sync_svc import ItemAttributeSyncService
+from .item_tracking_sync_svc import ItemTrackingSyncService
 
 
 class UniversalItemMasterService(
@@ -36,6 +41,11 @@ class UniversalItemMasterService(
     VariantMatrixService,
     ItemPricingService,
     ItemTrackingService,
+    LegacyProductReconciliationService,
+    ItemReviewTriageService,
+    ItemPricingSyncService,
+    ItemAttributeSyncService,
+    ItemTrackingSyncService,
 ):
     """
     Unified facade: inherits all sub-service capabilities.
@@ -56,4 +66,9 @@ __all__ = [
     "VariantMatrixService",
     "ItemPricingService",
     "ItemTrackingService",
+    "LegacyProductReconciliationService",
+    "ItemReviewTriageService",
+    "ItemPricingSyncService",
+    "ItemAttributeSyncService",
+    "ItemTrackingSyncService",
 ]

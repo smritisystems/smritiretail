@@ -469,7 +469,7 @@ class ItemCatalogService:
                             ItemBarcode.barcode == bc_clean,
                             ItemBarcode.is_deleted == False
                         )
-                        bc_obj = (await session.execute(bc_stmt)).scalar_one_or_none()
+                        bc_obj = (await session.execute(bc_stmt)).scalars().first()
 
                         # Rule 10 & 11: Exactly one primary barcode per variant
                         should_be_primary = False
@@ -543,7 +543,7 @@ class ItemCatalogService:
                             ItemBarcode.barcode == bc_clean,
                             ItemBarcode.is_deleted == False
                         )
-                        bc_obj = (await session.execute(bc_stmt)).scalar_one_or_none()
+                        bc_obj = (await session.execute(bc_stmt)).scalars().first()
                         if not bc_obj:
                             bc_obj = ItemBarcode(
                                 id=f"bc_{uuid.uuid4().hex[:12]}",
@@ -915,10 +915,11 @@ class ItemCatalogService:
                 if v_data.get("barcode"):
                     bc_val = str(v_data["barcode"]).strip().upper()
                     bc_stmt = select(ItemBarcode).where(
+                        ItemBarcode.company_id == (company_id or "COMP-001"),
                         ItemBarcode.barcode == bc_val,
                         ItemBarcode.is_deleted == False,
                     )
-                    bc_obj = (await session.execute(bc_stmt)).scalar_one_or_none()
+                    bc_obj = (await session.execute(bc_stmt)).scalars().first()
                     if not bc_obj:
                         bc_obj = ItemBarcode(
                             id=f"ibc_{uuid.uuid4().hex[:12]}",
@@ -939,10 +940,11 @@ class ItemCatalogService:
         if primary_barcode:
             bc_clean = str(primary_barcode).strip().upper()
             bc_stmt = select(ItemBarcode).where(
+                ItemBarcode.company_id == (company_id or "COMP-001"),
                 ItemBarcode.barcode == bc_clean,
                 ItemBarcode.is_deleted == False,
             )
-            bc_obj = (await session.execute(bc_stmt)).scalar_one_or_none()
+            bc_obj = (await session.execute(bc_stmt)).scalars().first()
             if not bc_obj:
                 bc_obj = ItemBarcode(
                     id=f"ibc_{uuid.uuid4().hex[:12]}",
@@ -1009,7 +1011,7 @@ class ItemCatalogService:
                 ItemBarcode.barcode == clean_bc,
                 ItemBarcode.is_deleted == False
             )
-        )).scalar_one_or_none()
+        )).scalars().first()
 
         if target_bc:
             if target_bc.variant_id and target_bc.variant_id != variant_id:
@@ -1071,7 +1073,7 @@ class ItemCatalogService:
                 ItemBarcode.barcode == clean_bc,
                 ItemBarcode.is_deleted == False
             )
-        )).scalar_one_or_none()
+        )).scalars().first()
 
         if existing:
             if existing.variant_id and existing.variant_id != variant_id:

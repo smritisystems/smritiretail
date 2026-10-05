@@ -116,6 +116,9 @@ class InventoryWmsService:
         reference_doc_type: Optional[str] = None,
         reference_doc_id: Optional[str] = None,
         user: Optional[str] = None,
+        batch_id: Optional[str] = None,
+        serial_id: Optional[str] = None,
+        location_id: Optional[str] = None,
     ) -> ProductBatchStock:
         """
         Atomically updates batch inventory, writes an audit StockMovement,
@@ -266,6 +269,9 @@ class InventoryWmsService:
             remarks=remarks,
             user=user,
             source_module="WMS",
+            batch_id=batch_id,
+            serial_id=serial_id,
+            location_id=location_id,
         )
         self.db.add(movement)
 

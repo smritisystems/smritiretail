@@ -153,6 +153,69 @@ export const FIELD_TO_ELEMENT_ID: Record<string, string> = {
   // ── Barcode (Step 2) ─────────────────────────────────────────────────────────
   "barcode":                 "im-field-barcode",
   "primary_barcode":         "im-field-barcode",
+
+  // ── Units & UOM (Phase 2) ──────────────────────────────────────────────────
+  "stock_uom":               "im-field-stock_uom",
+  "stock_uom_id":            "im-field-stock_uom",
+  "uom.stock_uom_id":        "im-field-stock_uom",
+  "sales_uom":               "im-field-sales_uom",
+  "sales_uom_id":            "im-field-sales_uom",
+  "purchase_uom":            "im-field-purchase_uom",
+  "purchase_uom_id":         "im-field-purchase_uom",
+  "conversion_factor":       "im-field-conversion_factor",
+  "uom.conversion_factor":   "im-field-conversion_factor",
+
+  // ── Tax Profile (Phase 2) ──────────────────────────────────────────────────
+  "hsn_sac_code":            "im-field-hsn_sac_code",
+  "tax.hsn_sac_code":        "im-field-hsn_sac_code",
+  "gst_rate":                "im-field-gst_rate",
+  "tax.gst_rate":            "im-field-gst_rate",
+  "tax_category":            "im-field-tax_category",
+  "tax_inclusive":           "im-field-tax_inclusive",
+  "sales_tax_rate":          "im-field-sales_tax_rate",
+  "purchase_tax_rate":       "im-field-purchase_tax_rate",
+  "tax_exempt":              "im-field-tax_exempt",
+
+  // ── Pricing & Commercial (Phase 2) ─────────────────────────────────────────
+  "dealer_price":            "im-field-dealer_price",
+  "wholesale_price":         "im-field-wholesale_price",
+  "minimum_selling_price":   "im-field-minimum_selling_price",
+  "maximum_discount_percent":"im-field-maximum_discount_percent",
+  "pricing.dealer_price":    "im-field-dealer_price",
+  "pricing.wholesale_price": "im-field-wholesale_price",
+  "pricing.minimum_selling_price": "im-field-minimum_selling_price",
+  "pricing.maximum_discount_percent": "im-field-maximum_discount_percent",
+
+  // ── Purchasing / Supplier (Phase 2) ────────────────────────────────────────
+  "preferred_supplier_id":   "im-field-preferred_supplier_id",
+  "supplier_item_code":      "im-field-supplier_item_code",
+  "minimum_purchase_qty":    "im-field-minimum_purchase_qty",
+  "purchase_cost":           "im-field-purchase_cost",
+  "last_purchase_price":     "im-field-last_purchase_price",
+  "purchase_lead_time":      "im-field-purchase_lead_time",
+  "purchasing.preferred_supplier_id": "im-field-preferred_supplier_id",
+  "purchasing.purchase_uom_id": "im-field-purchase_uom",
+  "purchasing.minimum_purchase_qty": "im-field-minimum_purchase_qty",
+
+  // ── Sales (Phase 2) ────────────────────────────────────────────────────────
+  "allow_discount":          "im-field-allow_discount",
+  "billable":                "im-field-billable",
+  "sales.selling_price":     "im-field-selling_price",
+  "sales.mrp":               "im-field-mrp",
+
+  // ── Inventory Policy (Phase 2) ─────────────────────────────────────────────
+  "minimum_stock":           "im-field-minimum_stock",
+  "reorder_level":           "im-field-reorder_level",
+  "reorder_quantity":        "im-field-reorder_quantity",
+  "maximum_stock":           "im-field-maximum_stock",
+  "safety_stock":            "im-field-safety_stock",
+  "lead_time":               "im-field-lead_time",
+  "inventory_policy.minimum_stock": "im-field-minimum_stock",
+  "inventory_policy.reorder_level": "im-field-reorder_level",
+  "inventory_policy.reorder_quantity": "im-field-reorder_quantity",
+  "inventory_policy.maximum_stock": "im-field-maximum_stock",
+  "inventory_policy.safety_stock": "im-field-safety_stock",
+  "inventory_policy.lead_time": "im-field-lead_time",
 };
 
 

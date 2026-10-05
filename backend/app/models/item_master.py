@@ -14,10 +14,14 @@ Classification: Internal
 
 from typing import Optional
 from decimal import Decimal
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey, Text, text, Date, UniqueConstraint, Index, Enum as SAEnum
+from datetime import datetime, timezone
+from sqlalchemy import (
+    Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey,
+    Text, text, Date, DateTime, UniqueConstraint, Index, CheckConstraint, Enum as SAEnum
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from ..db.base import BaseEntity
+from ..db.base import Base, BaseEntity
 
 
 class Item(BaseEntity):
@@ -29,6 +33,13 @@ class Item(BaseEntity):
     __tablename__ = "items"
     __table_args__ = (
         UniqueConstraint("company_id", "item_code", name="uq_items_company_item_code"),
+        CheckConstraint("NOT (is_batch_tracked = TRUE AND is_serial_tracked = TRUE)", name="chk_no_dual_tracking"),
+        CheckConstraint(
+            "(tracking_mode = 'BATCH' AND is_batch_tracked = TRUE AND is_serial_tracked = FALSE) OR "
+            "(tracking_mode = 'SERIAL' AND is_serial_tracked = TRUE AND is_batch_tracked = FALSE) OR "
+            "(tracking_mode = 'NONE' AND is_batch_tracked = FALSE AND is_serial_tracked = FALSE)",
+            name="chk_tracking_mode_matches_flags",
+        ),
     )
 
     item_code = Column(String(50), nullable=False, index=True)
@@ -40,6 +51,10 @@ class Item(BaseEntity):
     department = Column(String(100), nullable=True, index=True)
     brand = Column(String(100), nullable=True)
     style_code = Column(String(100), nullable=True, index=True)
+    # DEPRECATED (Phase 10 / ADR-0021): Color and Size are strictly variant-level attributes.
+    # In retail architecture, styles encompass multiple variations. Authoritative variation
+    # attributes reside in item_variants.color and item_variants.size.
+    # Retained for database schema compatibility; queries should read from ItemVariant.
     color = Column(String(50), nullable=True, index=True)
     size = Column(String(50), nullable=True, index=True)
     vendor_code = Column(String(100), nullable=True, index=True)
@@ -103,8 +118,8 @@ class Item(BaseEntity):
     primary_image_url = Column(String(512), nullable=True)
     tags = Column(ARRAY(String), server_default="{}")
     # tracking_type: Added by v1469 (cross-DB parity). Specifies item tracking mode
-    # (e.g. 'BATCH', 'SERIAL', 'SIMPLE'). Listed in STANDARD_MIGRATION_COLUMNS.
-    tracking_type = Column(String(50), nullable=True)
+    # ('BATCH', 'SERIAL', 'NONE'). Harmonized in Phase 11.
+    tracking_type = Column(String(50), nullable=False, default="NONE", server_default=text("'NONE'"))
     # tracking_mode: Added by v1517 (data integrity refactor).
     # Single canonical source of truth replacing dual boolean flags: NONE | BATCH | SERIAL | EXPIRY | IMEI.
     tracking_mode = Column(String(20), nullable=False, default="NONE", server_default=text("'NONE'"))
@@ -128,6 +143,7 @@ class ItemVariant(BaseEntity):
         UniqueConstraint("company_id", "variant_sku", name="uq_variants_company_sku"),
     )
 
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
     variant_sku = Column(String(100), nullable=False, index=True)
     variant_name = Column(String(255), nullable=False)
@@ -162,6 +178,12 @@ class ItemVariant(BaseEntity):
     barcodes = relationship("ItemBarcode", back_populates="variant", cascade="all, delete-orphan")
     batches = relationship("ItemBatch", back_populates="variant", cascade="all, delete-orphan")
     serials = relationship("ItemSerial", back_populates="variant", cascade="all, delete-orphan")
+    uom_setting = relationship("ItemUOMSetting", back_populates="variant", uselist=False, cascade="all, delete-orphan")
+    price_setting = relationship("ItemPrice", back_populates="variant", uselist=False, cascade="all, delete-orphan")
+    tax_profile = relationship("ItemTaxProfile", back_populates="variant", uselist=False, cascade="all, delete-orphan")
+    supplier_setting = relationship("ItemSupplierSetting", back_populates="variant", uselist=False, cascade="all, delete-orphan")
+    sales_setting = relationship("ItemSalesSetting", back_populates="variant", uselist=False, cascade="all, delete-orphan")
+    inventory_policy = relationship("ItemInventoryPolicy", back_populates="variant", uselist=False, cascade="all, delete-orphan")
 
 
 class ItemBarcode(BaseEntity):
@@ -180,6 +202,7 @@ class ItemBarcode(BaseEntity):
         ),
     )
 
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=True, index=True)
     variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), nullable=True, index=True)
     price_book_entry_id = Column(String(50), ForeignKey("price_book_entries.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -238,6 +261,7 @@ class ItemBatch(BaseEntity):
         UniqueConstraint("item_id", "batch_number", name="uq_item_batch_no"),
     )
 
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
     variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), nullable=True, index=True)
     batch_number = Column(String(100), nullable=False, index=True)
@@ -261,6 +285,7 @@ class ItemSerial(BaseEntity):
         UniqueConstraint("item_id", "serial_number", name="uq_item_serial_no"),
     )
 
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
     variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), nullable=True, index=True)
     serial_number = Column(String(100), nullable=False, index=True)
@@ -281,6 +306,7 @@ class ItemWarehouseLocation(BaseEntity):
         UniqueConstraint("item_id", "warehouse_id", name="uq_item_warehouse"),
     )
 
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
     warehouse_id = Column(String(50), nullable=False, index=True)
     location_bin = Column(String(50), nullable=True)
@@ -313,4 +339,222 @@ class LegacyIdMapping(BaseEntity):
     disposition = Column(String(50), nullable=False, default="MIGRATED")  # MIGRATED, CONFLICT_REVIEW, MERGED, RETIRED
     conflict_reason = Column(Text, nullable=True)
     audit_checksum = Column(String(64), nullable=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ITEM MASTER PHASE 2 EXTENSION ENTITIES
+# ══════════════════════════════════════════════════════════════════════════════
+
+class ItemUOMSetting(Base):
+    """
+    Authoritative variant UOM configuration.
+    Stock UOM is inventory truth. Purchase/Sales UOM and conversion factors are optional.
+    """
+    __tablename__ = "item_uom_settings"
+    __table_args__ = (
+        CheckConstraint("conversion_factor > 0", name="chk_ius_conversion_factor_positive"),
+        Index("idx_ius_company_id", "company_id"),
+    )
+
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), primary_key=True)
+    company_id = Column(String(50), nullable=False, index=True)
+    branch_id = Column(String(50), nullable=True)
+    stock_uom_id = Column(String(50), ForeignKey("uoms_ref.id", ondelete="RESTRICT"), nullable=False)
+    sales_uom_id = Column(String(50), ForeignKey("uoms_ref.id", ondelete="RESTRICT"), nullable=True)
+    purchase_uom_id = Column(String(50), ForeignKey("uoms_ref.id", ondelete="RESTRICT"), nullable=True)
+    conversion_factor = Column(Numeric(18, 6), nullable=False, default=Decimal("1.000000"), server_default=text("'1.000000'"))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    @property
+    def id(self) -> str:
+        return self.item_variant_id
+
+    # Relationships
+    variant = relationship("ItemVariant", back_populates="uom_setting")
+    stock_uom = relationship("UnitOfMeasurementRef", foreign_keys=[stock_uom_id])
+    sales_uom = relationship("UnitOfMeasurementRef", foreign_keys=[sales_uom_id])
+    purchase_uom = relationship("UnitOfMeasurementRef", foreign_keys=[purchase_uom_id])
+
+
+class ItemPrice(Base):
+    """
+    Authoritative Item Commercial Pricing Policy.
+    Decoupled from legacy item_variants columns, maintaining rich commercial parameters.
+    """
+    __tablename__ = "item_prices"
+    __table_args__ = (
+        CheckConstraint("selling_price >= 0", name="chk_ip_selling_price_non_neg"),
+        CheckConstraint("mrp >= 0", name="chk_ip_mrp_non_neg"),
+        CheckConstraint("maximum_discount_percent IS NULL OR (maximum_discount_percent >= 0 AND maximum_discount_percent <= 100)", name="chk_ip_discount_pct_range"),
+        Index("idx_ip_company_id", "company_id"),
+    )
+
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), primary_key=True)
+    company_id = Column(String(50), nullable=False, index=True)
+    branch_id = Column(String(50), nullable=True)
+    cost_price = Column(Numeric(15, 2), nullable=True, default=Decimal("0.00"), server_default=text("'0.00'"))
+    selling_price = Column(Numeric(15, 2), nullable=True, default=Decimal("0.00"), server_default=text("'0.00'"))
+    mrp = Column(Numeric(15, 2), nullable=True, default=Decimal("0.00"), server_default=text("'0.00'"))
+    dealer_price = Column(Numeric(15, 2), nullable=True)
+    wholesale_price = Column(Numeric(15, 2), nullable=True)
+    minimum_selling_price = Column(Numeric(15, 2), nullable=True)
+    maximum_discount_percent = Column(Numeric(5, 2), nullable=True, default=Decimal("0.00"), server_default=text("'0.00'"))
+    currency = Column(String(10), nullable=False, default="INR", server_default=text("'INR'"))
+    effective_from = Column(DateTime(timezone=True), nullable=True)
+    effective_to = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    @property
+    def id(self) -> str:
+        return self.item_variant_id
+
+    # Relationships
+    variant = relationship("ItemVariant", back_populates="price_setting")
+
+
+class ItemTaxProfile(Base):
+    """
+    Authoritative Item Tax Profile.
+    Statutory GST, HSN/SAC, tax inclusiveness and exemption policy.
+    """
+    __tablename__ = "item_tax_profiles"
+    __table_args__ = (
+        Index("idx_itp_company_id", "company_id"),
+        Index("idx_itp_hsn", "hsn_sac_code"),
+    )
+
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), primary_key=True)
+    company_id = Column(String(50), nullable=False, index=True)
+    branch_id = Column(String(50), nullable=True)
+    hsn_sac_code = Column(String(20), nullable=True, index=True)
+    tax_category = Column(String(50), nullable=True)
+    gst_rate = Column(Numeric(6, 2), nullable=True)
+    tax_inclusive = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    sales_tax_rate = Column(Numeric(6, 2), nullable=True)
+    purchase_tax_rate = Column(Numeric(6, 2), nullable=True)
+    tax_exempt = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    @property
+    def id(self) -> str:
+        return self.item_variant_id
+
+    # Relationships
+    variant = relationship("ItemVariant", back_populates="tax_profile")
+
+
+class ItemSupplierSetting(Base):
+    """
+    Authoritative variant purchasing & supplier configuration.
+    Links variant to preferred supplier, purchase UOM, and purchasing constraints.
+    """
+    __tablename__ = "item_supplier_settings"
+    __table_args__ = (
+        CheckConstraint("minimum_purchase_qty IS NULL OR minimum_purchase_qty > 0", name="chk_iss_min_purchase_qty"),
+        CheckConstraint("purchase_lead_time IS NULL OR purchase_lead_time >= 0", name="chk_iss_lead_time_non_neg"),
+        Index("idx_iss_company_id", "company_id"),
+        Index("idx_iss_supplier", "preferred_supplier_id"),
+    )
+
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), primary_key=True)
+    company_id = Column(String(50), nullable=False, index=True)
+    branch_id = Column(String(50), nullable=True)
+    preferred_supplier_id = Column(String(50), ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True, index=True)
+    supplier_item_code = Column(String(100), nullable=True)
+    purchase_uom_id = Column(String(50), ForeignKey("uoms_ref.id", ondelete="RESTRICT"), nullable=True)
+    minimum_purchase_qty = Column(Numeric(12, 4), nullable=True, default=Decimal("1.0000"), server_default=text("'1.0000'"))
+    purchase_cost = Column(Numeric(15, 2), nullable=True)
+    last_purchase_price = Column(Numeric(15, 2), nullable=True)
+    purchase_lead_time = Column(Integer, nullable=True, default=0, server_default=text("0"))
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    @property
+    def id(self) -> str:
+        return self.item_variant_id
+
+    # Relationships
+    variant = relationship("ItemVariant", back_populates="supplier_setting")
+    preferred_supplier = relationship("Supplier")
+    purchase_uom = relationship("UnitOfMeasurementRef")
+
+
+class ItemSalesSetting(Base):
+    """
+    Authoritative variant sales configuration.
+    Controls sales UOM, commercial selling pricing rules, and billable eligibility.
+    """
+    __tablename__ = "item_sales_settings"
+    __table_args__ = (
+        CheckConstraint("selling_price >= 0", name="chk_isales_selling_price_non_neg"),
+        CheckConstraint("maximum_discount_percent IS NULL OR (maximum_discount_percent >= 0 AND maximum_discount_percent <= 100)", name="chk_isales_discount_pct_range"),
+        Index("idx_isales_company_id", "company_id"),
+    )
+
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), primary_key=True)
+    company_id = Column(String(50), nullable=False, index=True)
+    branch_id = Column(String(50), nullable=True)
+    sales_uom_id = Column(String(50), ForeignKey("uoms_ref.id", ondelete="RESTRICT"), nullable=True)
+    selling_price = Column(Numeric(15, 2), nullable=True, default=Decimal("0.00"), server_default=text("'0.00'"))
+    mrp = Column(Numeric(15, 2), nullable=True, default=Decimal("0.00"), server_default=text("'0.00'"))
+    wholesale_price = Column(Numeric(15, 2), nullable=True)
+    minimum_selling_price = Column(Numeric(15, 2), nullable=True)
+    maximum_discount_percent = Column(Numeric(5, 2), nullable=True, default=Decimal("0.00"), server_default=text("'0.00'"))
+    allow_discount = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    billable = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    @property
+    def id(self) -> str:
+        return self.item_variant_id
+
+    # Relationships
+    variant = relationship("ItemVariant", back_populates="sales_setting")
+    sales_uom = relationship("UnitOfMeasurementRef")
+
+
+class ItemInventoryPolicy(Base):
+    """
+    Authoritative variant replenishment and inventory policy.
+    STRICT POLICY ONLY — ZERO PHYSICAL QUANTITY STORED IN THIS TABLE.
+    """
+    __tablename__ = "item_inventory_policies"
+    __table_args__ = (
+        CheckConstraint("minimum_stock >= 0", name="chk_iip_min_stock"),
+        CheckConstraint("reorder_level >= 0", name="chk_iip_reorder_level"),
+        CheckConstraint("reorder_quantity >= 0", name="chk_iip_reorder_qty"),
+        CheckConstraint("maximum_stock >= 0", name="chk_iip_max_stock"),
+        CheckConstraint("safety_stock >= 0", name="chk_iip_safety_stock"),
+        CheckConstraint("lead_time >= 0", name="chk_iip_lead_time"),
+        CheckConstraint("maximum_stock = 0 OR reorder_level <= maximum_stock", name="chk_iip_reorder_lte_max"),
+        Index("idx_iip_company_id", "company_id"),
+        Index("idx_iip_supplier", "preferred_supplier_id"),
+    )
+
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="CASCADE"), primary_key=True)
+    company_id = Column(String(50), nullable=False, index=True)
+    branch_id = Column(String(50), nullable=True)
+    minimum_stock = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"), server_default=text("'0.0000'"))
+    reorder_level = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"), server_default=text("'0.0000'"))
+    reorder_quantity = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"), server_default=text("'0.0000'"))
+    maximum_stock = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"), server_default=text("'0.0000'"))
+    safety_stock = Column(Numeric(12, 4), nullable=False, default=Decimal("0.0000"), server_default=text("'0.0000'"))
+    lead_time = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    preferred_supplier_id = Column(String(50), ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    @property
+    def id(self) -> str:
+        return self.item_variant_id
+
+    # Relationships
+    variant = relationship("ItemVariant", back_populates="inventory_policy")
+    preferred_supplier = relationship("Supplier")
 

@@ -768,6 +768,9 @@ class CanonicalSalesPostingWriter:
                 is_tax_inclusive=l.is_tax_inclusive,
                 salesperson_id=l.salesperson_id,
                 salesperson_name=l.salesperson_name,
+                batch_id=l.batch_id,
+                serial_id=l.serial_id,
+                warehouse_location_id=l.warehouse_location_id,
             )
             session.add(db_item)
 
@@ -845,6 +848,9 @@ class CanonicalSalesPostingWriter:
                         reference_doc_id=db_invoice.id,
                         remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
                         user=req.context.cashier_id,
+                        batch_id=ded.get("batch_id"),
+                        serial_id=ded.get("serial_id"),
+                        location_id=ded.get("warehouse_location_id"),
                     )
                 except HTTPException as he:
                     if req.context.allow_negative_stock:

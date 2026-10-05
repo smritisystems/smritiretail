@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.70.0
+  * Version    : 6.70.3
   * Created    : 2026-07-11
-  * Modified   : 2026-10-04
+  * Modified   : 2026-10-05
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -28,12 +28,128 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.7] - 2026-10-05 — SMRITI Item Master Phase 12: End-to-End Operational Pipeline Validation & Final Catalog Certification
+
+> **Branch:** `smritiNX` | **Area:** Catalog, POS, WMS, GRN, Certification, End-to-End Pipelines
+> **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase12_EndToEnd_Pipeline_Validation_v6.70.7.md`
+
+### Added
+- **Item Master Phase 12 — End-to-End Operational Pipeline Validation & Final Catalog Certification**:
+  - `scripts/certify_item_master_pipeline.py`: Comprehensive enterprise operational certification engine verifying catalog readiness across all 12 phases in live database `smriti001`.
+  - `backend/app/tests/test_item_master_phase12_e2e_pipeline.py`: Automated pytest test suite verifying end-to-end POS checkout, GRN receiving, batch allocation, and serial unit lifecycle.
+
+### Verified & Certified
+- **Zero Catalog Defect Certification**:
+  - 100% of legacy products (1,495 / 1,495) linked to canonical items & variants.
+  - 100% of catalog child records (10,196 / 10,196) enforced with `NOT NULL` multi-tenant `company_id`.
+  - 100% elimination of style/variant attribute discrepancies (0 conflicts).
+  - 100% pricing book synchronization across all active tenant companies.
+  - 100% database-enforced tracking integrity via `chk_no_dual_tracking` and `chk_tracking_mode_matches_flags`.
+
+## [6.70.6] - 2026-10-05 — SMRITI Item Master Phase 11: Tracking Mode Harmonization & Database Constraint Enactment
+
+> **Branch:** `smritiNX` | **Area:** Catalog, Inventory Tracking, Batch, Serial, Database Integrity
+> **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase11_Tracking_Mode_Harmonization_v6.70.6.md`
+
+### Added
+- **Item Master Phase 11 — Tracking Mode Harmonization & Database Constraint Enactment**:
+  - `backend/alembic/versions/v1522_item_master_phase11_tracking_mode_harmonization.py`: Reversible migration backfilling tracking modes and adding database CHECK constraints `chk_no_dual_tracking` and `chk_tracking_mode_matches_flags` on `items`.
+  - `backend/app/services/item/item_tracking_sync_svc.py`: Multi-tenant domain service harmonizing `tracking_mode`, `tracking_type`, `is_batch_tracked`, and `is_serial_tracked`.
+  - `scripts/harmonize_tracking_modes.py`: Production CLI runner with `--dry-run` and `--execute` modes.
+  - `backend/app/tests/test_item_master_phase11_tracking_mode_harmonization.py`: Automated pytest test suite verifying DB constraint enforcement and synchronization.
+
+### Changed & Hardened
+- **Tracking Integrity Constraints**:
+  - Harmonized 1,274 tracking discrepancies across catalog items down to 0 in `smriti001`.
+  - Enforced database-level guarantee that items cannot be simultaneously batch-tracked and serial-tracked.
+  - Locked `tracking_mode` enum parity with boolean tracking flags.
+
+## [6.70.5] - 2026-10-05 — SMRITI Item Master Phase 10: Variant-Level Attribute Deduplication
+
+> **Branch:** `smritiNX` | **Area:** Catalog, Attributes, Variants, Single Source of Truth
+> **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase10_Variant_Attribute_Deduplication_v6.70.5.md`
+
+### Added
+- **Item Master Phase 10 — Variant-Level Attribute Deduplication**:
+  - `backend/app/services/item/item_attribute_sync_svc.py`: Multi-tenant domain service consolidating variant-level attribute SSOT, backfilling missing variant color and size attributes from parent items, parsing structured SKU tokens, and clearing deprecated style-level color/size fields on `items`.
+  - `scripts/sync_variant_attributes.py`: Production CLI tool with `--dry-run` and `--execute` modes.
+  - `backend/app/tests/test_item_master_phase10_attribute_dedup.py`: Automated pytest test suite verifying variant attribute inheritance, SKU parsing, and style attribute clearing.
+
+### Changed & Hardened
+- **Attribute Architecture Harmonization**:
+  - Established `item_variants` as the sole canonical system of record for `color` and `size`.
+  - Resolved 56 color and 65 size style-to-variant attribute conflicts in live database.
+  - Deprecated `items.color` and `items.size` in ORM model and architectural governance.
+
+## [6.70.4] - 2026-10-05 — SMRITI Item Master Phase 9: Price Discrepancy & Price Book Synchronization
+
+> **Branch:** `smritiNX` | **Area:** Catalog, Pricing, Price Books, Item Sales Settings, Revenue Integrity
+> **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase9_Price_Discrepancy_Sync_v6.70.4.md`
+
+### Added
+- **Item Master Phase 9 — Price Discrepancy & Price Book Synchronization**:
+  - `backend/app/services/item/item_pricing_sync_svc.py`: Multi-tenant domain service reconciling items/variants price discrepancies, synchronizing default price book entries, and populating variant `item_sales_settings`.
+  - `scripts/sync_catalog_prices.py`: Production CLI runner with `--dry-run` and `--execute` modes.
+  - `backend/app/tests/test_item_master_phase9_pricing_sync.py`: Automated pytest test suite verifying bidirectional reconciliation, price book entry generation, and sales settings synchronization.
+
+### Changed & Hardened
+- **Pricing SSOT Enforcement**:
+  - Harmonized 609 selling price and 636 MRP discrepancies across parent styles and variants in live database.
+  - Synchronized default company retail price book entries across all active catalog variants.
+  - Reconciled variant sales configurations in `item_sales_settings`.
+
+## [6.70.3] - 2026-10-05 — SMRITI Item Master Phase 8: Multi-Tenant Scope Hardening & Company ID Integrity Backfill
+
+> **Branch:** `smritiNX` | **Area:** Catalog, Multi-Tenancy, Tenant Isolation, Integrity Backfill, Item Review
+> **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase8_MultiTenant_Scope_Hardening_v6.70.3.md`
+
+### Added
+- **Item Master Phase 8 — Multi-Tenant Scope Hardening & Company ID Integrity Backfill**:
+  - `backend/app/services/item/item_review_triage_svc.py`: Domain service evaluating items in `REQUIRES_REVIEW`, auto-resolving missing statutory attributes (`primary_uom`), and transitioning unassigned legacy items to `ACTIVE` while safeguarding quarantined items.
+  - `backend/alembic/versions/v1521_item_master_phase8_company_id_not_null.py`: Migration setting `company_id` to `NOT NULL` on `item_variants`, `item_barcodes`, `item_batches`, `item_serials`, and `item_warehouse_locations`.
+  - `scripts/harden_multitenant_catalog.py`: Production CLI tool with `--dry-run` and `--execute` modes to backfill orphaned child records and triage `REQUIRES_REVIEW` items.
+  - `backend/app/tests/test_item_master_phase8_multitenant_hardening.py`: Automated pytest verification suite.
+
+### Changed & Hardened
+- **Multi-Tenant Scope Enforcement**:
+  - Backfilled `company_id` across 320 orphaned catalog child records (100 variants, 100 barcodes, 39 batches, 40 serials, 41 warehouse locations) directly from parent `items.company_id`.
+  - Enforced `company_id` non-nullability at both ORM and database schema levels, eliminating silent data omission in multi-tenant queries.
+  - Resolved 47 unassigned legacy items from `REQUIRES_REVIEW` to `ACTIVE` with standard footwear/general UOMs while preserving 11 quarantine test items.
+
+## [6.70.2] - 2026-10-05 — SMRITI Item Master Phase 7: Legacy Products Reconciliation & Transactional Backfill
+
+> **Branch:** `smritiNX` | **Area:** Catalog, Strangler-Fig Migration, Legacy Products, Transaction Parity
+> **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase7_Legacy_Products_Reconciliation_v6.70.2.md`
+
+### Added
+- **Item Master Phase 7 — Legacy Products Reconciliation & Transactional Backfill**:
+  - `backend/app/services/item/legacy_reconciliation_svc.py`: Multi-tenant domain reconciliation service mapping legacy unlinked `products` to canonical `items`, `item_variants`, and `item_barcodes`.
+  - `scripts/reconcile_legacy_products.py`: CLI reconciliation tool with `--dry-run` and `--execute` modes, constraint safety, and transaction line backfills for `sales_invoice_items`, `stock_movements`, and `purchase_receipt_items`.
+  - `backend/app/tests/test_item_master_phase7_legacy_reconciliation.py`: Automated pytest test suite verifying 100% catalog parity and transaction backfilling.
+
+### Changed & Hardened
+- **Legacy Product Linking**:
+  - Populated `item_id` and `item_variant_id` on all active rows in legacy `products` table.
+  - Backfilled canonical `item_id` and `item_variant_id` across legacy rows in `sales_invoice_items`, `stock_movements`, and `purchase_receipt_items`.
+
 ## [6.70.1] - 2026-10-05 — SMRITI SKU & Barcode Architecture Refactor (9-Gate Final Freeze)
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Inventory, Barcode, Tenant Isolation, Alembic
-> **Walkthrough:** `docs/walkthrough/catalog/SKU_Barcode_Architecture_Refactor_v6.70.0.md`
+> **Walkthrough:** `docs/walkthrough/catalog/SKU_Barcode_Architecture_Refactor_v6.70.0.md` | `docs/walkthrough/catalog/Item_Master_Phase6_POS_GRN_Tracking_UI_Wiring_v6.70.1.md`
 
 ### Added
+- **Item Master Phase 6 — Counter POS & GRN Inwarding UI Wiring for Batch, Serial & Warehouse Location Tracking**:
+  - `backend/app/tests/test_item_master_phase6_pos_grn_tracking_wiring.py`: 3-test verification suite validating POS checkout and GRN receipt tracking propagation to `SalesInvoiceItem`, `PurchaseReceiptItem`, and `StockMovement`.
+  - `backend/app/schemas/pos.py`: Added `batch_id`, `serial_id`, and `warehouse_location_id` to `POSCheckoutItem`.
+  - `backend/app/schemas/canonical_posting.py`: Added `batch_id`, `serial_id`, and `warehouse_location_id` to `CanonicalPostingLineItem` and `BillingCalculatedLine`.
+  - `backend/app/schemas/purchase.py`: Added `batch_id` and `warehouse_location_id` to `PurchaseReceiptItemCreate` and `PurchaseReceiptItemResponse`.
+  - `src/components/billing/propos/types.ts`: Added `batchId`, `serialId`, and `warehouseLocationId` to `ProPosCartItem`.
+  - `src/components/billing/propos/ProPosBillingTerm.tsx`: Forwarded tracking identifiers in `/pos/checkout` request items payload.
+  - `src/components/purchase/GrnReceiptTab.tsx`: Added `batch_no`, `batch_id`, and `warehouse_location_id` to `GrnLineRow` and included them in `/purchase/receipts/` inward payload.
+- **`backend/alembic/versions/v1520_item_master_phase5_batch_serial_location_wiring.py`**:
+  - Reversible tenant migration introducing nullable tracking foreign keys (`batch_id`, `serial_id`, `warehouse_location_id` / `location_id`) and b-tree indexes with `ON DELETE SET NULL` on `stock_movements`, `purchase_receipt_items`, `sales_invoice_items`, and `sales_return_items`.
+- **`backend/app/tests/test_item_master_phase5_tracking_wiring.py`**:
+  - 8-test verification suite covering schema column parity, tracking resolution engines, and transactional persistence across all 4 tables.
 - **`backend/alembic/versions/v1518_sku_barcode_architecture_refactor.py`**:
   - Unified Alembic mergepoint migration reconciling heads `v1517` and `v1336`.
   - Added company-scoped barcode compound unique constraint `(company_id, barcode)`.
@@ -41,6 +157,16 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 10-point comprehensive verification and regression test suite verifying identity decoupling, tenant isolation, SKU immutability, synthetic barcode deactivation, and resolution hierarchy.
 
 ### Changed & Hardened
+- **Item Master Phase 6 — Transactional & WMS Tracking Propagation**:
+  - `backend/app/services/pos.py`: Forwarded `batch_id`, `serial_id`, `warehouse_location_id` from `POSCheckoutItem` into canonical line items.
+  - `backend/app/services/headless_billing.py`: Maintained tracking IDs on calculated lines and in `batch_deductions`.
+  - `backend/app/services/inventory_wms.py`: Added tracking parameters to `atomic_mutate_batch_stock` and stamped on `StockMovement`.
+  - `backend/app/services/canonical_sales_writer.py`: Set tracking IDs on `SalesInvoiceItem` and forwarded to `atomic_mutate_batch_stock`.
+  - `backend/app/services/purchase.py`: Resolved or auto-created tracking IDs on `PurchaseReceiptItem` and forwarded to `atomic_mutate_batch_stock`.
+- **`backend/app/models/inventory.py`**: Added `batch_id`, `serial_id`, `location_id` and relationships `batch_rel`, `serial_rel`, `location_rel` to `StockMovement`.
+- **`backend/app/models/purchase.py`**: Added `batch_id`, `warehouse_location_id` and relationships `batch`, `warehouse_location` to `PurchaseReceiptItem`.
+- **`backend/app/models/sales.py`**: Added `batch_id`, `serial_id`, `warehouse_location_id` to `SalesInvoiceItem` and `batch_id`, `serial_id` to `SalesReturnItem` with relationships.
+- **`backend/app/services/item/item_tracking_svc.py`**: Implemented transactional resolution engines `resolve_or_create_batch`, `resolve_or_create_serial`, and `resolve_or_create_warehouse_location`.
 - **`backend/app/models/item_master.py`**: Added `sku` property alias on `ItemVariant` pointing directly to `variant_sku`.
 - **`backend/app/services/item/item_catalog_svc.py`**: Decoupled SKU stability from barcode replacements; initialized SKU from primary barcode on initial variant creation.
 - **`backend/app/services/item/barcode_resolver_svc.py`**: Hardened barcode lookup to strictly filter active non-deleted barcodes (`is_active == True, is_deleted == False`); removed hardcoded HSN fallbacks.

@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.62.0
+ * Version      : 6.70.1
  * Created      : 2026-09-18
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-05
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -140,6 +140,9 @@ export interface GrnLineRow {
   trade_discount: number;  // Item trade discount per unit
   gst_rate: number;
   mrp?: number;
+  batch_no?: string;
+  batch_id?: string;
+  warehouse_location_id?: string;
 }
 
 /**
@@ -1485,6 +1488,9 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             mrp: r.mrp || undefined,
             landed_cost: landedCost,
             freight_allocated: allocatedAmount,
+            batch_no: r.batch_no || undefined,
+            batch_id: r.batch_id || undefined,
+            warehouse_location_id: r.warehouse_location_id || undefined,
           };
         }),
       };
