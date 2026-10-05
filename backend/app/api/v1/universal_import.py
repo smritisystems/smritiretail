@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 import openpyxl
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -989,6 +989,65 @@ async def commit_universal_import(
                             is_tax_inclusive=tax_inc,
                         )
                         db.add(barcode_entity)
+
+                # 3b. Synchronize variant to products table (Requirement 8)
+                if variant:
+                    eff_branch = getattr(item, "branch_id", None) or "BR-MAIN-001"
+                    p_stmt = select(Product).where(
+                        Product.company_id == company_id,
+                        or_(
+                            and_(Product.item_id == item.id, Product.item_variant_id == variant.id),
+                            Product.sku == variant.variant_sku,
+                            Product.code == variant.variant_sku
+                        ),
+                        Product.is_deleted == False
+                    )
+                    prod_obj = (await db.execute(p_stmt)).scalars().first()
+                    sec_bc = [f"{clean_barcode}D"] if clean_barcode and not clean_barcode.endswith("D") else []
+                    if not prod_obj:
+                        prod_obj = Product(
+                            id=f"prod_{uuid.uuid4().hex[:12]}",
+                            uuid=str(uuid.uuid4()),
+                            company_id=company_id,
+                            branch_id=eff_branch,
+                            code=variant.variant_sku,
+                            sku=variant.variant_sku,
+                            name=variant.variant_name or item.item_name,
+                            style_code=item.style_code or item.item_code,
+                            brand=item.brand,
+                            category=item.category or "Footwear",
+                            category_code=item.category_code,
+                            color=variant.color or (variant.attributes_json or {}).get("color"),
+                            size=variant.size or (variant.attributes_json or {}).get("size"),
+                            vendor_code=item.vendor_code,
+                            item_id=item.id,
+                            item_variant_id=variant.id,
+                            mrp=variant.mrp or item.mrp or Decimal("0.00"),
+                            price=variant.selling_price or item.selling_price or Decimal("0.00"),
+                            cost_price=variant.cost_price or item.cost_price or Decimal("0.00"),
+                            buying_price=item.buying_price,
+                            gst_percentage=item.tax_rate or Decimal("5.00"),
+                            hsn_code=variant.hsn_code or item.hsn_code or "64041990",
+                            barcode=clean_barcode or f"GEN-{variant.variant_sku}",
+                            secondary_barcodes=sec_bc,
+                            attributes=variant.attributes_json or item.attributes_json or {},
+                            is_active=True,
+                            is_deleted=False
+                        )
+                        db.add(prod_obj)
+                    else:
+                        prod_obj.item_id = item.id
+                        prod_obj.item_variant_id = variant.id
+                        if clean_barcode and not prod_obj.barcode:
+                            prod_obj.barcode = clean_barcode
+                        if sec_bc and not prod_obj.secondary_barcodes:
+                            prod_obj.secondary_barcodes = sec_bc
+                        if variant.mrp:
+                            prod_obj.mrp = variant.mrp
+                        if variant.selling_price:
+                            prod_obj.price = variant.selling_price
+                        if variant.cost_price:
+                            prod_obj.cost_price = variant.cost_price
 
                 # 4. Warehouse Location
                 wh_code = _text(row, "warehouse_code", "WAREHOUSE_CODE", "warehouse_id")

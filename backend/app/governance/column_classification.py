@@ -47,16 +47,21 @@ class DBColumnClassificationEntry:
 STANDARD_AUDIT_COLUMNS: Set[str] = {
     "created_at", "modified_at", "updated_at", "created_by", "updated_by",
     "deleted_at", "deleted_by", "tenant_id", "company_id", "branch_id",
+    # PO lifecycle audit columns
+    "submitted_by", "submitted_at", "confirmed_by", "confirmed_at",
+    "cancelled_by", "cancelled_at", "amended_by", "amended_at",
 }
 
 STANDARD_FRAMEWORK_COLUMNS: Set[str] = {
     "is_active", "is_deleted", "status", "version", "metadata", "is_system",
     "is_default", "flags", "state", "rule_snapshots", "priority", "required_role",
-    "workflow_status", "mode", "tracking_type", "is_tax_inclusive",
+    "workflow_status", "mode", "tracking_type", "tracking_mode", "is_tax_inclusive",
     # v4.0.0 additions: barcode and line-level framework flags
     "is_primary", "barcode_type",
     # v4.1.0 additions: item master workflow validation state columns (v1495)
     "validation_status", "validation_message",
+    # PO lifecycle reason & revision tracking
+    "cancellation_reason", "amend_revision",
 }
 
 STANDARD_TECHNICAL_FK_COLUMNS: Set[str] = {
@@ -69,7 +74,7 @@ STANDARD_TECHNICAL_FK_COLUMNS: Set[str] = {
     "parent_id", "template_id", "matrix_id", "series_id", "price_list_id",
     "item_variant_id", "size_scale_id", "parent_value_id",
     # v4.0.0 additions: barcode & line-level relations
-    "variant_id", "stock_take_id", "member_id", "reference_id",
+    "variant_id", "stock_take_id", "member_id", "reference_id", "parent_order_id",
 }
 
 STANDARD_MIGRATION_COLUMNS: Set[str] = {

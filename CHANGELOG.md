@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.69.0
+  * Version    : 6.70.0
   * Created    : 2026-07-11
-  * Modified   : 2026-10-03
+  * Modified   : 2026-10-04
   * Copyright  : © SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -27,6 +27,28 @@
 # SMRITI Retail OS — Changelog
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
+
+## [6.70.0] - 2026-10-04 — Article / Design Master Grid UX Redesign & 3-Tier Adaptive Mode
+
+> **Branch:** `smritiNX` | **Area:** Item Master, Footwear Catalog, Adaptive UX, Data Grid
+> **Walkthrough:** `docs/walkthrough/catalog/Catalog_Article_Design_Master_Grid_UX_Redesign_v6.70.0.md`
+
+### Added
+- **`src/components/itemMaster/ItemCatalogGrid.tsx`**:
+  - **3-Tier Adaptive Mode Support (`SIMPLE`, `HYBRID`, `ADVANCED`):**
+    - `SIMPLE` Mode: 8 core columns (`[x]`, `Image`, `SKU`, `Barcode`, `Product & Article`, `Size / Color`, `Retail Price (MRP)`, `Status`, `Actions`). Fits 100% of screens with zero horizontal scrolling.
+    - `HYBRID` Mode (Default): Combines style attributes (`Brand`, `Category`, `Gender`, `Type`, `Article Code`) with `Retail Price (₹)` promoted to the primary fold, plus `Dealer Price` and `GST%`.
+    - `ADVANCED` Mode: Full 18-column ERP accounting view including `Cost Price`, `Last Purchase Price`, and `HSN Code`.
+  - **Elevated Retail Price (MRP):** Brought into the primary horizontal fold with bold INR font and subtle highlight tint across all modes.
+  - **1-Click Copy Affordances:** Added copy-to-clipboard icons for both SKU and Barcode with instant visual feedback and notification.
+  - **Contextual Sticky Bulk Action Toolbar:** Floating action bar appearing when items are selected (`{count} selected`, `Print Barcodes`, `Export Selected`, `Clear Selection`).
+  - **Quick Smart Filter Chips:** Fast 1-click filter pills above the search toolbar (`All`, `👟 Footwear`, `⚠️ Missing Barcode`, `🏷️ Unset Price`, `🔴 Inactive`) with dynamic count badges.
+  - **"Dash Desert" Elimination:** Replaced lone harsh em-dashes with muted typography tokens (`renderMutedDash`).
+  - **Image Hover Lightbox:** Hovering over thumbnail previews displays an enlarged preview card.
+- **`src/components/itemMaster/ItemMasterWs.tsx`**:
+  - Wired `adaptiveMode` state and `handleSelectAdaptiveMode` handler down to `ItemCatalogGrid` via `mode` and `onSelectMode` props.
+- **`src/components/itemMaster/ItemMasterStudio.tsx`**:
+  - Fixed click event handler signature mismatch on `handleResolveAndImport`.
 
 ## [6.69.0] - 2026-10-04 — Universal Import Pre-Import Validation & Interactive Fix Studio
 

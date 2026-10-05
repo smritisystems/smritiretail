@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.69.0
  * Created      : 2026-08-21
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-04
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -390,6 +390,8 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               currentUser={currentUser}
               productCategory="Footwear"
               onAddNew={() => setIsAddDrawerOpen(true)}
+              mode={adaptiveMode}
+              onSelectMode={handleSelectAdaptiveMode}
             />
           )}
 

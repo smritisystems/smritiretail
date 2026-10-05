@@ -1,4 +1,4 @@
-﻿"""Add gift_cards, gift_card_transactions, gift_vouchers, e_invoices, e_invoice_batches tables
+"""Add gift_cards, gift_card_transactions, gift_vouchers, e_invoices, e_invoice_batches tables
 
 Revision ID: v1336_gift_cards_and_einvoice
 Revises: v1335_add_user_role_id_and_seed_roles
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "v1336_gift_cards_and_einvoice"
-down_revision = "v1335_add_user_role_id_and_seed_roles"
+down_revision = "v1335_seed_roles"
 branch_labels = None
 depends_on = None
 
