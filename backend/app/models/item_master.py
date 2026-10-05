@@ -104,6 +104,9 @@ class Item(BaseEntity):
     # tracking_type: Added by v1469 (cross-DB parity). Specifies item tracking mode
     # (e.g. 'BATCH', 'SERIAL', 'SIMPLE'). Listed in STANDARD_MIGRATION_COLUMNS.
     tracking_type = Column(String(50), nullable=True)
+    # tracking_mode: Added by v1517 (data integrity refactor).
+    # Single canonical source of truth replacing dual boolean flags: NONE | BATCH | SERIAL | EXPIRY | IMEI.
+    tracking_mode = Column(String(20), nullable=False, default="NONE", server_default=text("'NONE'"))
 
 
     # Relationships

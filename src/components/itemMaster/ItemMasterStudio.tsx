@@ -593,7 +593,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   };
 
   // Legacy stub kept to satisfy existing JSX button ref — delegates to new handler
-  const handleResolveAndImport = handlePreviewAndImport;
+  const handleResolveAndImport = () => { void handlePreviewAndImport(); };
 
 
   const handleSkipActiveConflict = () => {
