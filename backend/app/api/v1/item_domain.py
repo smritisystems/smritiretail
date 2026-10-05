@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.46.1
+Version      : 6.70.0
 Created      : 2026-09-28
-Modified     : 2026-09-28
+Modified     : 2026-10-05
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Domain API Gateway
@@ -27,6 +27,7 @@ from ...schemas.item_master import (
     ItemBarcodeCreateRequest,
     ItemBarcodeResponse,
     ItemLookupsResponse,
+    ItemReadinessResponse,
 )
 
 router = APIRouter()
@@ -164,6 +165,7 @@ async def create_item_variant(
     """
     Creates or resolves physical ItemVariant strictly governed by Style + Color + Size.
     MRP does NOT participate in variant identity. Pricing is recorded in the Pricing Domain.
+    Persists Phase 2 domain configurations (UOM, Pricing, Tax, Purchasing, Sales, Inventory Policy).
     """
     company_id = getattr(current_user, "company_id", "COMP-001")
     branch_id = getattr(current_user, "branch_id", None)
@@ -174,35 +176,68 @@ async def create_item_variant(
             company_id=company_id,
             branch_id=branch_id,
         )
-        return ItemVariantResponse(
-            id=variant.id,
-            style_id=variant.item_id,
-            variant_sku=variant.variant_sku,
-            variant_name=variant.variant_name,
-            color=variant.color,
-            size=variant.size,
-            hsn_code=variant.hsn_code,
-            tax_rate=float(variant.tax_rate) if variant.tax_rate is not None else None,
-            is_active=variant.is_active,
-            attributes_json=variant.attributes_json or {},
-            barcodes=[
-                ItemBarcodeResponse(
-                    id=b.id,
-                    style_id=b.item_id,
-                    variant_id=b.variant_id,
-                    barcode=b.barcode,
-                    barcode_type=b.barcode_type or "EAN13",
-                    barcode_purpose=b.barcode_purpose or "RETAIL",
-                    is_primary=b.is_primary or False,
-                    is_tax_inclusive=b.is_tax_inclusive,
-                    least_saleable_qty=float(b.least_saleable_qty or 1.0),
-                    price_book_entry_id=b.price_book_entry_id,
-                    status=b.status or "ASSIGNED",
-                )
-                for b in variant.barcodes
-                if not b.is_deleted
-            ],
+        loaded = await ItemDomainService.get_variant(db, variant.id, company_id=company_id)
+        return ItemVariantResponse(**ItemDomainService._serialize_variant_response(loaded or variant))
+    except BusinessLogicError as ble:
+        raise HTTPException(status_code=400, detail=ble.message)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/item-variants/{variant_id}", response_model=ItemVariantResponse, summary="Get Item Variant by ID or SKU")
+async def get_item_variant_details(
+    variant_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Fetches physical variant with all Phase 2 policies, barcodes, and readiness telemetry."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    variant = await ItemDomainService.get_variant(db, variant_id, company_id=company_id)
+    if not variant:
+        raise HTTPException(status_code=404, detail=f"Item variant '{variant_id}' not found.")
+    return ItemVariantResponse(**ItemDomainService._serialize_variant_response(variant))
+
+
+@router.get("/item-variants/{variant_id}/readiness", response_model=ItemReadinessResponse, summary="Get Item Variant Readiness Evaluation")
+async def get_item_variant_readiness(
+    variant_id: str,
+    require_barcode: bool = Query(False, description="Whether active primary barcode is mandatory for sale"),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Evaluates readiness of an ItemVariant, returning structured blocking reasons."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    try:
+        readiness = await ItemDomainService.get_variant_readiness(
+            session=db,
+            variant_id=variant_id,
+            company_id=company_id,
+            require_barcode=require_barcode,
         )
+        return ItemReadinessResponse(**readiness)
+    except BusinessLogicError as ble:
+        raise HTTPException(status_code=404, detail=ble.message)
+
+
+@router.put("/item-variants/{variant_id}/settings", response_model=ItemVariantResponse, summary="Update Item Variant Phase 2 Settings")
+async def update_item_variant_settings(
+    variant_id: str,
+    settings: Dict[str, Any],
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Updates Phase 2 domain settings (UOM, Pricing, Tax, Purchasing, Sales, Inventory Policy) for a variant."""
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    branch_id = getattr(current_user, "branch_id", None)
+    try:
+        updated = await ItemDomainService.save_variant_phase2_settings(
+            session=db,
+            variant_id=variant_id,
+            data=settings,
+            company_id=company_id,
+            branch_id=branch_id,
+        )
+        return ItemVariantResponse(**ItemDomainService._serialize_variant_response(updated))
     except BusinessLogicError as ble:
         raise HTTPException(status_code=400, detail=ble.message)
     except Exception as exc:

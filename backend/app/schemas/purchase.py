@@ -222,6 +222,8 @@ class PurchaseReceiptItemCreate(BaseModel):
     code:                  Optional[str] = None
     name:                  Optional[str] = None
     batch_no:              Optional[str] = None
+    batch_id:              Optional[str] = None
+    warehouse_location_id: Optional[str] = None
     mfg_date:              Optional[date] = None
     expiry_date:           Optional[date] = None
     mrp:                   Optional[Decimal] = None
@@ -261,6 +263,8 @@ class PurchaseReceiptItemCreate(BaseModel):
                 data["purchase_order_no"] = data.get("po_no") or data.get("purchase_order_no") or data.get("order_no")
             if not data.get("purchase_order_line_id"):
                 data["purchase_order_line_id"] = data.get("po_line_id") or data.get("purchase_order_item_id") or data.get("order_line_id")
+            if not data.get("warehouse_location_id") and data.get("location_id"):
+                data["warehouse_location_id"] = data.get("location_id")
         return data
 
 
@@ -274,6 +278,8 @@ class PurchaseReceiptItemResponse(BaseModel):
     code:                  str
     name:                  str
     batch_no:              Optional[str] = None
+    batch_id:              Optional[str] = None
+    warehouse_location_id: Optional[str] = None
     mfg_date:              Optional[date] = None
     expiry_date:           Optional[date] = None
     mrp:                   Optional[Decimal] = None

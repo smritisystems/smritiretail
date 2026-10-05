@@ -162,8 +162,16 @@ class SalesInvoiceItem(Base):
     salesperson_id = Column(String(50), nullable=True, index=True)
     salesperson_name = Column(String(255), nullable=True)
 
+    # Tracking Foreign Keys (Phase 5)
+    batch_id = Column(String(50), ForeignKey("item_batches.id", ondelete="SET NULL"), nullable=True, index=True)
+    serial_id = Column(String(50), ForeignKey("item_serials.id", ondelete="SET NULL"), nullable=True, index=True)
+    warehouse_location_id = Column(String(50), ForeignKey("item_warehouse_locations.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # Relationships
     invoice = relationship("SalesInvoice", back_populates="items")
+    batch = relationship("ItemBatch", foreign_keys=[batch_id], lazy="selectin")
+    serial = relationship("ItemSerial", foreign_keys=[serial_id], lazy="selectin")
+    warehouse_location = relationship("ItemWarehouseLocation", foreign_keys=[warehouse_location_id], lazy="selectin")
 
 
 class SalesQuotation(BaseEntity):
@@ -428,8 +436,14 @@ class SalesReturnItem(Base):
     tax_amount   = Column(Numeric(15, 2), default=0.00)
     total_amount = Column(Numeric(15, 2), nullable=False)
 
+    # Tracking Foreign Keys (Phase 5)
+    batch_id     = Column(String(50), ForeignKey("item_batches.id", ondelete="SET NULL"), nullable=True, index=True)
+    serial_id    = Column(String(50), ForeignKey("item_serials.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # Relationships
     sales_return = relationship("SalesReturn", back_populates="items")
+    batch        = relationship("ItemBatch", foreign_keys=[batch_id], lazy="selectin")
+    serial       = relationship("ItemSerial", foreign_keys=[serial_id], lazy="selectin")
 
 
 class InvoiceCustomerChangeLog(BaseEntity):

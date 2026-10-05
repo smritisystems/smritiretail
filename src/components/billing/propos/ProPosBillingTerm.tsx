@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.32.0
+ * Version      : 6.70.1
  * Created      : 2026-08-21
- * Modified     : 2026-09-17
+ * Modified     : 2026-10-05
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -1945,6 +1945,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             is_tax_inclusive: item.isTaxInclusive,
             salesperson_id: item.salesStaff || salesStaff,
             salesperson_name: item.salesStaff || salesStaff,
+            batch_id: item.batchId,
+            serial_id: item.serialId,
+            warehouse_location_id: item.warehouseLocationId,
           })),
         }),
       });

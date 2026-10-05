@@ -36,6 +36,7 @@ from ...models.item_master import (
     ItemBatch,
     ItemSerial,
     ItemVariant,
+    ItemWarehouseLocation,
 )
 from ...models.inventory import Product, ProductBatchStock
 from ...schemas.item_master import (
@@ -298,3 +299,164 @@ class ItemTrackingService:
             uom=item.primary_uom,
             is_active=item.status == "ACTIVE",
         )
+
+    # ───────────────────────────────────────────────────────────────────────────
+    # Phase 5: Transactional Tracking Resolution Engines
+    # ───────────────────────────────────────────────────────────────────────────
+
+    @classmethod
+    async def resolve_or_create_batch(
+        cls,
+        session: AsyncSession,
+        item_id: str,
+        batch_number: str,
+        variant_id: Optional[str] = None,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        mfg_date: Optional[Any] = None,
+        exp_date: Optional[Any] = None,
+        mrp: Optional[Decimal] = None,
+        cost_price: Optional[Decimal] = None,
+        auto_commit: bool = False,
+    ) -> ItemBatch:
+        """
+        Idempotently resolves an existing batch or creates a canonical ItemBatch.
+        Wired to stock_movements.batch_id, purchase_receipt_items.batch_id,
+        sales_invoice_items.batch_id, and sales_return_items.batch_id.
+        """
+        clean_batch_no = str(batch_number).strip().upper()
+        stmt = select(ItemBatch).where(
+            ItemBatch.item_id == item_id,
+            ItemBatch.batch_number == clean_batch_no,
+            ItemBatch.is_deleted == False,
+        )
+        if company_id:
+            stmt = stmt.where(or_(ItemBatch.company_id == company_id, ItemBatch.company_id.is_(None)))
+        existing = (await session.execute(stmt)).scalars().first()
+        if existing:
+            return existing
+
+        batch = ItemBatch(
+            id=f"batch_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=branch_id,
+            item_id=item_id,
+            variant_id=variant_id,
+            batch_number=clean_batch_no,
+            mfg_date=mfg_date,
+            exp_date=exp_date,
+            mrp=mrp or Decimal("0.00"),
+            cost_price=cost_price or Decimal("0.00"),
+            is_active=True,
+        )
+        session.add(batch)
+        if auto_commit:
+            await session.commit()
+        else:
+            await session.flush()
+        return batch
+
+    @classmethod
+    async def resolve_or_create_serial(
+        cls,
+        session: AsyncSession,
+        item_id: str,
+        serial_number: str,
+        variant_id: Optional[str] = None,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        warehouse_id: Optional[str] = None,
+        status: str = "AVAILABLE",
+        auto_commit: bool = False,
+    ) -> ItemSerial:
+        """
+        Idempotently resolves an existing unit serial or registers a new ItemSerial.
+        Wired to stock_movements.serial_id, sales_invoice_items.serial_id,
+        and sales_return_items.serial_id.
+        """
+        clean_serial = str(serial_number).strip().upper()
+        stmt = select(ItemSerial).where(
+            ItemSerial.item_id == item_id,
+            ItemSerial.serial_number == clean_serial,
+            ItemSerial.is_deleted == False,
+        )
+        if company_id:
+            stmt = stmt.where(or_(ItemSerial.company_id == company_id, ItemSerial.company_id.is_(None)))
+        existing = (await session.execute(stmt)).scalars().first()
+        if existing:
+            if status and existing.status != status:
+                existing.status = status
+                if auto_commit:
+                    await session.commit()
+            return existing
+
+        ser = ItemSerial(
+            id=f"ser_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=branch_id,
+            item_id=item_id,
+            variant_id=variant_id,
+            serial_number=clean_serial,
+            status=status,
+            warehouse_id=warehouse_id,
+            is_active=True,
+        )
+        session.add(ser)
+        if auto_commit:
+            await session.commit()
+        else:
+            await session.flush()
+        return ser
+
+    @classmethod
+    async def resolve_or_create_warehouse_location(
+        cls,
+        session: AsyncSession,
+        item_id: str,
+        warehouse_id: str,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        location_bin: Optional[str] = None,
+        min_reorder_level: Decimal = Decimal("0.00"),
+        max_capacity: Decimal = Decimal("0.00"),
+        reorder_quantity: Decimal = Decimal("0.00"),
+        auto_commit: bool = False,
+    ) -> ItemWarehouseLocation:
+        """
+        Idempotently resolves or creates an ItemWarehouseLocation for an item in a warehouse.
+        Wired to stock_movements.location_id, purchase_receipt_items.warehouse_location_id,
+        and sales_invoice_items.warehouse_location_id.
+        """
+        stmt = select(ItemWarehouseLocation).where(
+            ItemWarehouseLocation.item_id == item_id,
+            ItemWarehouseLocation.warehouse_id == warehouse_id,
+            ItemWarehouseLocation.is_deleted == False,
+        )
+        if company_id:
+            stmt = stmt.where(or_(ItemWarehouseLocation.company_id == company_id, ItemWarehouseLocation.company_id.is_(None)))
+        existing = (await session.execute(stmt)).scalars().first()
+        if existing:
+            if location_bin and existing.location_bin != location_bin:
+                existing.location_bin = location_bin
+                if auto_commit:
+                    await session.commit()
+            return existing
+
+        loc = ItemWarehouseLocation(
+            id=f"loc_{uuid.uuid4().hex[:12]}",
+            company_id=company_id,
+            branch_id=branch_id,
+            item_id=item_id,
+            warehouse_id=warehouse_id,
+            location_bin=location_bin,
+            min_reorder_level=min_reorder_level,
+            max_capacity=max_capacity,
+            reorder_quantity=reorder_quantity,
+            is_active=True,
+        )
+        session.add(loc)
+        if auto_commit:
+            await session.commit()
+        else:
+            await session.flush()
+        return loc

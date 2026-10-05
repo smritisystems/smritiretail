@@ -113,6 +113,74 @@ FIELD_LABELS: dict[str, str] = {
     # ── Barcode ──────────────────────────────────────────────────────────────
     "barcode":                 "Barcode",
     "primary_barcode":         "Primary Barcode",
+
+    # ── Units & UOM (Phase 2) ─────────────────────────────────────────────────
+    "stock_uom":               "Stock UOM",
+    "stock_uom_id":            "Stock UOM",
+    "sales_uom":               "Sales UOM",
+    "sales_uom_id":            "Sales UOM",
+    "purchase_uom":            "Purchase UOM",
+    "purchase_uom_id":         "Purchase UOM",
+    "conversion_factor":       "Conversion Factor",
+    "uom.stock_uom_id":        "Stock UOM",
+    "uom.sales_uom_id":        "Sales UOM",
+    "uom.purchase_uom_id":     "Purchase UOM",
+    "uom.conversion_factor":   "Conversion Factor",
+
+    # ── Commercial Pricing (Phase 2) ──────────────────────────────────────────
+    "dealer_price":            "Dealer Price",
+    "wholesale_price":         "Wholesale Price",
+    "minimum_selling_price":   "Minimum Selling Price",
+    "maximum_discount_percent":"Maximum Discount %",
+    "pricing.dealer_price":    "Dealer Price",
+    "pricing.wholesale_price": "Wholesale Price",
+    "pricing.minimum_selling_price": "Minimum Selling Price",
+    "pricing.maximum_discount_percent": "Maximum Discount %",
+
+    # ── Statutory Tax Profile (Phase 2) ───────────────────────────────────────
+    "hsn_sac_code":            "HSN/SAC Code",
+    "gst_rate":                "GST Rate %",
+    "tax_category":            "Tax Category",
+    "tax_inclusive":           "Tax Inclusive",
+    "sales_tax_rate":          "Sales Tax Rate %",
+    "purchase_tax_rate":       "Purchase Tax Rate %",
+    "tax_exempt":              "Tax Exempt",
+    "tax.hsn_sac_code":        "HSN/SAC Code",
+    "tax.gst_rate":            "GST Rate %",
+    "tax.tax_inclusive":       "Tax Inclusive",
+
+    # ── Purchasing / Supplier Settings (Phase 2) ──────────────────────────────
+    "preferred_supplier_id":   "Preferred Supplier",
+    "supplier_item_code":      "Supplier Item Code",
+    "minimum_purchase_qty":    "Minimum Purchase Qty",
+    "purchase_cost":           "Purchase Cost",
+    "last_purchase_price":     "Last Purchase Price",
+    "purchase_lead_time":      "Purchase Lead Time (Days)",
+    "purchasing.preferred_supplier_id": "Preferred Supplier",
+    "purchasing.purchase_uom_id": "Purchase UOM",
+    "purchasing.minimum_purchase_qty": "Minimum Purchase Qty",
+
+    # ── Sales Settings (Phase 2) ──────────────────────────────────────────────
+    "allow_discount":          "Allow Discount",
+    "billable":                "Billable Item",
+    "sales.selling_price":     "Selling Price",
+    "sales.mrp":               "Retail Price (MRP)",
+    "sales.allow_discount":    "Allow Discount",
+    "sales.billable":          "Billable Item",
+
+    # ── Inventory Policy (Phase 2) ────────────────────────────────────────────
+    "minimum_stock":           "Minimum Stock",
+    "reorder_level":           "Reorder Level",
+    "reorder_quantity":        "Reorder Quantity",
+    "maximum_stock":           "Maximum Stock",
+    "safety_stock":            "Safety Stock",
+    "lead_time":               "Lead Time (Days)",
+    "inventory_policy.minimum_stock": "Minimum Stock",
+    "inventory_policy.reorder_level": "Reorder Level",
+    "inventory_policy.reorder_quantity": "Reorder Quantity",
+    "inventory_policy.maximum_stock": "Maximum Stock",
+    "inventory_policy.safety_stock": "Safety Stock",
+    "inventory_policy.lead_time": "Lead Time (Days)",
 }
 
 # ---------------------------------------------------------------------------
@@ -141,12 +209,17 @@ FIELD_REQUIRED_MESSAGES: dict[str, str] = {
     "size":             "Size is required.",
     "size_system":      "Please select a Size System.",
     "hsn_code":         "HSN Code is required.",
+    "hsn_sac_code":     "A valid statutory HSN/SAC code is required.",
     "mrp":              "Retail Price (MRP) is required.",
     "price":            "Retail Price is required.",
+    "selling_price":    "Selling Price is required.",
     "gst_percentage":   "GST % is required.",
     "tax_rate":         "GST % is required.",
+    "gst_rate":         "GST % is required.",
     "barcode":          "Barcode is required.",
     "status":           "Product Status is required.",
+    "stock_uom":        "Please select a valid Stock UOM.",
+    "stock_uom_id":     "Please select a valid Stock UOM.",
 }
 
 # Messages for nested variant fields
@@ -288,6 +361,74 @@ FIELD_SECTIONS: dict[str, str] = {
     "is_billable_yn":   "System",
     "is_service_yn":    "System",
     "barcode":          "Barcode",
+
+    # ── Units & UOM (Phase 2) ─────────────────────────────────────────────────
+    "stock_uom":        "Units & UOM",
+    "stock_uom_id":     "Units & UOM",
+    "sales_uom":        "Units & UOM",
+    "sales_uom_id":     "Units & UOM",
+    "purchase_uom":     "Units & UOM",
+    "purchase_uom_id":  "Units & UOM",
+    "conversion_factor":"Units & UOM",
+    "uom.stock_uom_id": "Units & UOM",
+    "uom.sales_uom_id": "Units & UOM",
+    "uom.purchase_uom_id": "Units & UOM",
+    "uom.conversion_factor": "Units & UOM",
+
+    # ── Commercial Pricing (Phase 2) ──────────────────────────────────────────
+    "dealer_price":            "Pricing & Commercial",
+    "wholesale_price":         "Pricing & Commercial",
+    "minimum_selling_price":   "Pricing & Commercial",
+    "maximum_discount_percent":"Pricing & Commercial",
+    "pricing.dealer_price":    "Pricing & Commercial",
+    "pricing.wholesale_price": "Pricing & Commercial",
+    "pricing.minimum_selling_price": "Pricing & Commercial",
+    "pricing.maximum_discount_percent": "Pricing & Commercial",
+
+    # ── Statutory Tax Profile (Phase 2) ───────────────────────────────────────
+    "hsn_sac_code":            "Tax Profile",
+    "gst_rate":                "Tax Profile",
+    "tax_category":            "Tax Profile",
+    "tax_inclusive":           "Tax Profile",
+    "sales_tax_rate":          "Tax Profile",
+    "purchase_tax_rate":       "Tax Profile",
+    "tax_exempt":              "Tax Profile",
+    "tax.hsn_sac_code":        "Tax Profile",
+    "tax.gst_rate":            "Tax Profile",
+    "tax.tax_inclusive":       "Tax Profile",
+
+    # ── Purchasing / Supplier Settings (Phase 2) ──────────────────────────────
+    "preferred_supplier_id":   "Purchasing",
+    "supplier_item_code":      "Purchasing",
+    "minimum_purchase_qty":    "Purchasing",
+    "purchase_cost":           "Purchasing",
+    "last_purchase_price":     "Purchasing",
+    "purchase_lead_time":      "Purchasing",
+    "purchasing.preferred_supplier_id": "Purchasing",
+    "purchasing.purchase_uom_id": "Purchasing",
+    "purchasing.minimum_purchase_qty": "Purchasing",
+
+    # ── Sales Settings (Phase 2) ──────────────────────────────────────────────
+    "allow_discount":          "Sales",
+    "billable":                "Sales",
+    "sales.selling_price":     "Sales",
+    "sales.mrp":               "Sales",
+    "sales.allow_discount":    "Sales",
+    "sales.billable":          "Sales",
+
+    # ── Inventory Policy (Phase 2) ────────────────────────────────────
+    "minimum_stock":           "Inventory Policy",
+    "reorder_level":           "Inventory Policy",
+    "reorder_quantity":        "Inventory Policy",
+    "maximum_stock":           "Inventory Policy",
+    "safety_stock":            "Inventory Policy",
+    "lead_time":               "Inventory Policy",
+    "inventory_policy.minimum_stock": "Inventory Policy",
+    "inventory_policy.reorder_level": "Inventory Policy",
+    "inventory_policy.reorder_quantity": "Inventory Policy",
+    "inventory_policy.maximum_stock": "Inventory Policy",
+    "inventory_policy.safety_stock": "Inventory Policy",
+    "inventory_policy.lead_time": "Inventory Policy",
 }
 
 

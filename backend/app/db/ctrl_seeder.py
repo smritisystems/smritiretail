@@ -174,6 +174,8 @@ class ControlPlaneSeeder:
             {"id": "uom_box", "code": "BOX", "name": "Box", "category": "COUNT", "uqc_code": "BOX", "decimal_allowed": False},
             {"id": "uom_pac", "code": "PAC", "name": "Packets", "category": "COUNT", "uqc_code": "PAC", "decimal_allowed": False},
             {"id": "uom_doz", "code": "DOZ", "name": "Dozens", "category": "COUNT", "uqc_code": "DOZ", "decimal_allowed": False},
+            {"id": "uom_prs", "code": "PRS", "name": "Pairs", "category": "COUNT", "uqc_code": "PRS", "decimal_allowed": False},
+            {"id": "uom_pair", "code": "PAIR", "name": "Pair (Legacy Alias)", "category": "COUNT", "uqc_code": "PRS", "decimal_allowed": False},
         ]
         uom_count = 0
         for u in uoms:

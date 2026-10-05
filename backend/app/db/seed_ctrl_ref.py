@@ -147,6 +147,8 @@ def seed_control_reference_data():
                 ("uom_box", "BOX", "Box", "COUNT", "BOX", False, True),
                 ("uom_pac", "PAC", "Packets", "COUNT", "PAC", False, True),
                 ("uom_doz", "DOZ", "Dozens", "COUNT", "DOZ", False, True),
+                ("uom_prs", "PRS", "Pairs", "COUNT", "PRS", False, True),
+                ("uom_pair", "PAIR", "Pair (Legacy Alias)", "COUNT", "PRS", False, True),
             ]
             execute_values(
                 cur,

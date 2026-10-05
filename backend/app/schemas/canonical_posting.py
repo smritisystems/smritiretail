@@ -67,6 +67,9 @@ class CanonicalPostingLineItem(BaseModel):
     brand: Optional[str] = Field(None, description="Promotion brand identity")
     salesperson_id: Optional[str] = Field(None, description="Line-level attendant / salesperson ID")
     salesperson_name: Optional[str] = Field(None, description="Line-level attendant / salesperson name")
+    batch_id: Optional[str] = Field(None, description="Canonical item_batches.id")
+    serial_id: Optional[str] = Field(None, description="Canonical item_serials.id")
+    warehouse_location_id: Optional[str] = Field(None, description="Canonical item_warehouse_locations.id")
 
 
 class CanonicalTenderItem(BaseModel):
@@ -207,6 +210,9 @@ class BillingCalculatedLine(BaseModel):
     source_line_id: Optional[str] = None
     salesperson_id: Optional[str] = None
     salesperson_name: Optional[str] = None
+    batch_id: Optional[str] = None
+    serial_id: Optional[str] = None
+    warehouse_location_id: Optional[str] = None
 
 
 class BillingCalculationResult(BaseModel):

@@ -283,6 +283,9 @@ class POSCheckoutItem(BaseModel):
     is_tax_inclusive: Optional[bool] = None
     salesperson_id:   Optional[str] = None
     salesperson_name: Optional[str] = None
+    batch_id:         Optional[str] = None
+    serial_id:        Optional[str] = None
+    warehouse_location_id: Optional[str] = None
 
 
 class POSTenderItem(BaseModel):

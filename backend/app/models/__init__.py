@@ -113,6 +113,12 @@ from .item_master import (
     ItemVariant,
     ItemBarcode,
     BarcodeRegistryAudit,
+    ItemUOMSetting,
+    ItemPrice,
+    ItemTaxProfile,
+    ItemSupplierSetting,
+    ItemSalesSetting,
+    ItemInventoryPolicy,
 )
 
 # Canonical Pricing, Payment Ledger & Document Sequence Models (Slice 4)

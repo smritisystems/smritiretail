@@ -401,6 +401,87 @@ class ItemStyleResponse(BaseModel):
     barcode_count: Optional[int] = 0
 
 
+class ItemUOMSettingSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    stock_uom_id: str
+    stock_uom_code: Optional[str] = None
+    sales_uom_id: Optional[str] = None
+    sales_uom_code: Optional[str] = None
+    purchase_uom_id: Optional[str] = None
+    purchase_uom_code: Optional[str] = None
+    conversion_factor: float = 1.0
+
+
+class ItemPriceSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    cost_price: Optional[float] = 0.0
+    selling_price: Optional[float] = 0.0
+    mrp: Optional[float] = 0.0
+    dealer_price: Optional[float] = None
+    wholesale_price: Optional[float] = None
+    minimum_selling_price: Optional[float] = None
+    maximum_discount_percent: Optional[float] = 0.0
+    currency: str = "INR"
+    effective_from: Optional[str] = None
+    effective_to: Optional[str] = None
+    is_active: bool = True
+
+
+class ItemTaxProfileSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    hsn_sac_code: Optional[str] = None
+    tax_category: Optional[str] = None
+    gst_rate: Optional[float] = None
+    tax_inclusive: bool = True
+    sales_tax_rate: Optional[float] = None
+    purchase_tax_rate: Optional[float] = None
+    tax_exempt: bool = False
+
+
+class ItemSupplierSettingSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    preferred_supplier_id: Optional[str] = None
+    preferred_supplier_name: Optional[str] = None
+    supplier_item_code: Optional[str] = None
+    purchase_uom_id: Optional[str] = None
+    purchase_uom_code: Optional[str] = None
+    minimum_purchase_qty: Optional[float] = 1.0
+    purchase_cost: Optional[float] = None
+    last_purchase_price: Optional[float] = None
+    purchase_lead_time: Optional[int] = 0
+    is_active: bool = True
+
+
+class ItemSalesSettingSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    sales_uom_id: Optional[str] = None
+    sales_uom_code: Optional[str] = None
+    selling_price: Optional[float] = 0.0
+    mrp: Optional[float] = 0.0
+    wholesale_price: Optional[float] = None
+    minimum_selling_price: Optional[float] = None
+    maximum_discount_percent: Optional[float] = 0.0
+    allow_discount: bool = True
+    billable: bool = True
+
+
+class ItemInventoryPolicySchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    minimum_stock: float = 0.0
+    reorder_level: float = 0.0
+    reorder_quantity: float = 0.0
+    maximum_stock: float = 0.0
+    safety_stock: float = 0.0
+    lead_time: int = 0
+    preferred_supplier_id: Optional[str] = None
+
+
+class ItemReadinessResponse(BaseModel):
+    status: str
+    ready_for_sale: bool
+    blocking_reasons: List[Dict[str, str]] = Field(default_factory=list)
+
+
 class ItemVariantCreateRequest(BaseModel):
     style_id: str
     color: str
@@ -410,11 +491,18 @@ class ItemVariantCreateRequest(BaseModel):
     hsn_code: Optional[str] = None
     tax_rate: Optional[float] = None
     attributes_json: Dict[str, Any] = Field(default_factory=dict)
-    # Optional commercial price point to register in Pricing Domain
+    # Commercial price point
     mrp: Optional[float] = None
     selling_price: Optional[float] = None
     cost_price: Optional[float] = None
     primary_barcode: Optional[str] = None
+    # Phase 2 domain extensions
+    uom: Optional[Dict[str, Any]] = None
+    pricing: Optional[Dict[str, Any]] = None
+    tax: Optional[Dict[str, Any]] = None
+    purchasing: Optional[Dict[str, Any]] = None
+    sales: Optional[Dict[str, Any]] = None
+    inventory_policy: Optional[Dict[str, Any]] = None
 
 
 class ItemVariantResponse(BaseModel):
@@ -431,6 +519,14 @@ class ItemVariantResponse(BaseModel):
     is_active: bool = True
     attributes_json: Dict[str, Any] = Field(default_factory=dict)
     barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
+    # Phase 2 domain extensions
+    uom: Optional[ItemUOMSettingSchema] = None
+    pricing: Optional[ItemPriceSchema] = None
+    tax: Optional[ItemTaxProfileSchema] = None
+    purchasing: Optional[ItemSupplierSettingSchema] = None
+    sales: Optional[ItemSalesSettingSchema] = None
+    inventory_policy: Optional[ItemInventoryPolicySchema] = None
+    readiness: Optional[ItemReadinessResponse] = None
 
 
 class ItemBarcodeCreateRequest(BaseModel):

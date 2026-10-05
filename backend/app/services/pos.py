@@ -1247,6 +1247,9 @@ class POSService:
                     brand=item.brand,
                     salesperson_id=item.salesperson_id,
                     salesperson_name=item.salesperson_name,
+                    batch_id=item.batch_id,
+                    serial_id=item.serial_id,
+                    warehouse_location_id=item.warehouse_location_id,
                 )
             )
 

@@ -13,6 +13,7 @@
 
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text, UniqueConstraint
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
 
@@ -123,12 +124,20 @@ class StockMovement(BaseEntity):
     batch = Column(String(50), nullable=True)
     serial = Column(String(50), nullable=True)
     unit_cost = Column(Numeric(15, 2), nullable=True)
+    batch_id = Column(String(50), ForeignKey("item_batches.id", ondelete="SET NULL"), nullable=True, index=True)
+    serial_id = Column(String(50), ForeignKey("item_serials.id", ondelete="SET NULL"), nullable=True, index=True)
+    location_id = Column(String(50), ForeignKey("item_warehouse_locations.id", ondelete="SET NULL"), nullable=True, index=True)
     remarks = Column(Text, nullable=True)
     user = Column(String(100), nullable=True)
     device = Column(String(100), nullable=True)
     branch = Column(String(100), nullable=True)
     source_module = Column(String(50), nullable=True)
     approval = Column(String(50), nullable=True)
+
+    # Tracking Relationships (Phase 5)
+    batch_rel = relationship("ItemBatch", foreign_keys=[batch_id], lazy="selectin")
+    serial_rel = relationship("ItemSerial", foreign_keys=[serial_id], lazy="selectin")
+    location_rel = relationship("ItemWarehouseLocation", foreign_keys=[location_id], lazy="selectin")
 
 
 # RETIRED — Phase C (2026-09-16, v6.26.0)

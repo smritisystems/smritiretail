@@ -712,17 +712,61 @@ class PurchaseService:
             item_tech_id = IdentityEngine.generate_technical_id()
             batch_no = item.batch_no or f"BATCH-{receipt_no}-{idx:02d}"
 
+            # Phase 6: Resolve or preserve batch_id and warehouse_location_id
+            effective_batch_id = getattr(item, "batch_id", None)
+            effective_loc_id = getattr(item, "warehouse_location_id", None)
+            canonical_item_id = getattr(product, "item_id", None) or product.id
+
+            if not effective_batch_id and batch_no:
+                try:
+                    from .item.item_tracking_svc import ItemTrackingService
+                    b_obj = await ItemTrackingService.resolve_or_create_batch(
+                        session=self.db,
+                        item_id=canonical_item_id,
+                        batch_number=batch_no,
+                        company_id=self.tenant.company_id,
+                        branch_id=self.tenant.branch_id,
+                        mfg_date=item.mfg_date,
+                        exp_date=item.expiry_date,
+                        mrp=item.mrp,
+                        cost_price=item.cost_price,
+                        auto_commit=False,
+                    )
+                    if b_obj:
+                        effective_batch_id = b_obj.id
+                except Exception:
+                    pass
+
+            if not effective_loc_id and warehouse_id:
+                try:
+                    from .item.item_tracking_svc import ItemTrackingService
+                    l_obj = await ItemTrackingService.resolve_or_create_warehouse_location(
+                        session=self.db,
+                        item_id=canonical_item_id,
+                        warehouse_id=warehouse_id,
+                        company_id=self.tenant.company_id,
+                        branch_id=self.tenant.branch_id,
+                        auto_commit=False,
+                    )
+                    if l_obj:
+                        effective_loc_id = l_obj.id
+                except Exception:
+                    pass
+
             item_rows.append(PurchaseReceiptItem(
                 id=item_tech_id,
                 uuid=item_tech_id,
                 receipt_id=receipt_id,
                 product_id=item.product_id,
+                item_id=getattr(product, "item_id", None),
                 purchase_order_id=target_po.id if target_po else None,
                 purchase_order_no=target_po.order_no if target_po else None,
                 purchase_order_line_id=target_po_line.id if target_po_line else None,
                 code=item.code,
                 name=item.name,
                 batch_no=batch_no,
+                batch_id=effective_batch_id,
+                warehouse_location_id=effective_loc_id,
                 mfg_date=item.mfg_date,
                 expiry_date=item.expiry_date,
                 mrp=item.mrp,
@@ -873,6 +917,8 @@ class PurchaseService:
                 reference_doc_type="Purchase Receipt",
                 reference_doc_id=receipt_id,
                 remarks=f"Inward GRN receipt {receipt_no} from supplier {req.supplier_id}",
+                batch_id=item_row.batch_id,
+                location_id=item_row.warehouse_location_id,
             )
 
             # Atomically update / upsert ProductCostValuation for retail multi-valuation COGS

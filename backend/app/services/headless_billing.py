@@ -368,6 +368,9 @@ class HeadlessBillingCore:
                 source_line_id=item.source_line_id,
                 salesperson_id=getattr(item, "salesperson_id", None) or getattr(req, "salesperson_id", None) or getattr(req.context, "cashier_id", None),
                 salesperson_name=getattr(item, "salesperson_name", None) or getattr(req, "salesperson_name", None),
+                batch_id=getattr(item, "batch_id", None),
+                serial_id=getattr(item, "serial_id", None),
+                warehouse_location_id=getattr(item, "warehouse_location_id", None),
             )
             calculated_lines.append(line_res)
 
@@ -377,6 +380,9 @@ class HeadlessBillingCore:
                     "batch_no": item.batch_no or "DEFAULT",
                     "quantity": qty,
                     "line_no": line_no,
+                    "batch_id": getattr(item, "batch_id", None),
+                    "serial_id": getattr(item, "serial_id", None),
+                    "warehouse_location_id": getattr(item, "warehouse_location_id", None),
                 })
 
         # 6. Header Aggregation & Round-Off Delta
