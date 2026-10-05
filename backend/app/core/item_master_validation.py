@@ -639,28 +639,9 @@ class ItemMasterValidationMapper:
         """
         raw_lower = raw_err.lower().strip()
 
-        # ── IM-001 / Controlled Field "is not in approved list" or "not recognised" ──
-        if "not in the approved list" in raw_lower or "not recognised" in raw_lower or "not found in system master lookup" in raw_lower:
-            import re as _re_cf
-            m_cf = _re_cf.match(r"^(.+?)\s+[“\"']([^”\"']+)[\"”']\s+is not", raw_err, _re_cf.IGNORECASE)
-            if m_cf:
-                label_part = m_cf.group(1).strip().lower()
-                for label_key, (fk, _, sec) in _DYN_LABEL_MAP.items():
-                    if label_key == label_part or label_key in label_part or label_part in label_key:
-                        return fk, raw_err, sec
-            m_cf2 = _re_cf.search(r"controlled field '([^']+)'", raw_err, _re_cf.IGNORECASE)
-            if m_cf2:
-                cf_name = m_cf2.group(1).lower().replace("_", " ")
-                for label_key, (fk, _, sec) in _DYN_LABEL_MAP.items():
-                    if label_key in cf_name or cf_name in label_key:
-                        return fk, raw_err, sec
-            for label_key, (fk, _, sec) in _DYN_LABEL_MAP.items():
-                if raw_lower.startswith(label_key):
-                    return fk, raw_err, sec
-
         # ── IM-001 governance block ───────────────────────────────────────────
         # e.g. "IM-001 [BLOCK]: Controlled field 'GST_RATE_PERCENT' value '12.0' not found"
-        if "im-001" in raw_lower:
+        if "im-001" in raw_lower or "[block]" in raw_lower:
             # Extract which controlled field is mentioned
             import re as _re
             m = _re.search(r"controlled field '([^']+)'", raw_err, _re.IGNORECASE)
@@ -668,10 +649,29 @@ class ItemMasterValidationMapper:
                 controlled_field = m.group(1).lower().replace("_", " ")
                 # Try to map the controlled field name
                 for label_key, (fk, msg, sec) in _DYN_LABEL_MAP.items():
-                    if label_key in controlled_field or controlled_field in label_key:
+                    if label_key == controlled_field or label_key in controlled_field or controlled_field in label_key:
                         return fk, msg, sec
             # Safe fallback for unknown IM-001 fields
             return "style_code", "A required product attribute is not registered. Please check your product configuration under Settings → Master Lookup.", "Basic Information"
+
+        # ── Controlled Field "is not in approved list" or "not recognised" ──
+        if "not in the approved list" in raw_lower or "not recognised" in raw_lower or "not found in system master lookup" in raw_lower:
+            import re as _re_cf
+            m_cf = _re_cf.match(r"^(.+?)\s+[“\"']([^”\"']+)[\"”']\s+is not", raw_err, _re_cf.IGNORECASE)
+            if m_cf:
+                label_part = m_cf.group(1).strip().lower()
+                for label_key, (fk, msg, sec) in _DYN_LABEL_MAP.items():
+                    if label_key == label_part or label_key in label_part or label_part in label_key:
+                        return fk, msg, sec
+            m_cf2 = _re_cf.search(r"controlled field '([^']+)'", raw_err, _re_cf.IGNORECASE)
+            if m_cf2:
+                cf_name = m_cf2.group(1).lower().replace("_", " ")
+                for label_key, (fk, msg, sec) in _DYN_LABEL_MAP.items():
+                    if label_key in cf_name or cf_name in label_key:
+                        return fk, msg, sec
+            for label_key, (fk, msg, sec) in _DYN_LABEL_MAP.items():
+                if raw_lower.startswith(label_key):
+                    return fk, msg, sec
 
         # ── "<Label> is required" ─────────────────────────────────────────────
         if "is required" in raw_lower:

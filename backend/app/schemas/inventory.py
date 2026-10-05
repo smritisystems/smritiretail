@@ -100,7 +100,7 @@ class ProductBase(BaseModel):
             s = s.replace(".", "")
         # Accept '0000' as legacy placeholder; otherwise enforce 4, 6, or 8 pure digits
         if s != "0000" and not re.fullmatch(r"\d{4}|\d{6}|\d{8}", s):
-            raise ValueError("HSN Code must contain a valid 4, 6, or 8 digit value.")
+            raise ValueError("HSN Code must contain a valid 4, 6 or 8 digit value.")
         return s
 
 

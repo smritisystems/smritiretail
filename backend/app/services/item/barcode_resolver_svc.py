@@ -77,7 +77,11 @@ class BarcodeResolverService:
         # ── 1. Canonical ItemBarcode table ─────────────────────────────────
         stmt = (
             select(ItemBarcode)
-            .where(ItemBarcode.barcode == clean_bc, ItemBarcode.is_deleted == False)
+            .where(
+                ItemBarcode.barcode == clean_bc,
+                ItemBarcode.is_active == True,
+                ItemBarcode.is_deleted == False,
+            )
             .options(
                 selectinload(ItemBarcode.item),
                 selectinload(ItemBarcode.variant),
@@ -98,6 +102,7 @@ class BarcodeResolverService:
             tax_rate = float(
                 variant.tax_rate if variant and variant.tax_rate is not None else (item.tax_rate or 0.0)
             )
+            tax_amount = round(selling_price * (tax_rate / 100.0), 2)
 
             inv_buckets = await ItemTrackingService._compute_inventory_buckets(
                 session=session,
@@ -107,7 +112,24 @@ class BarcodeResolverService:
                 item_code=item.item_code,
                 variant_sku=variant.variant_sku if variant else None,
             )
-            tax_amount = round(selling_price * (tax_rate / 100.0), 2)
+            primary_bc_val = clean_bc if barcode_row.is_primary else None
+            if not primary_bc_val and variant:
+                p_bc = (await session.execute(
+                    select(ItemBarcode.barcode).where(
+                        ItemBarcode.variant_id == variant.id,
+                        ItemBarcode.is_primary == True,
+                        ItemBarcode.is_active == True,
+                        ItemBarcode.is_deleted == False
+                    )
+                )).scalar_one_or_none()
+                primary_bc_val = p_bc or clean_bc
+
+            v_color = variant.color if variant else item.color
+            v_size = variant.size if variant else item.size
+            if not v_color and variant and variant.attributes_json:
+                v_color = variant.attributes_json.get("color")
+            if not v_size and variant and variant.attributes_json:
+                v_size = variant.attributes_json.get("size")
 
             return {
                 "item_id": item.id,
@@ -116,6 +138,15 @@ class BarcodeResolverService:
                 "variant_id": variant.id if variant else None,
                 "variant_sku": variant.variant_sku if variant else item.item_code,
                 "variant_name": variant.variant_name if variant else None,
+                # Canonical API Contract Fields (Section 20)
+                "item_variant_id": variant.id if variant else None,
+                "sku": variant.variant_sku if variant else item.item_code,
+                "article_no": item.item_code,
+                "product": item.item_name,
+                "color": v_color,
+                "size": v_size,
+                "primary_barcode": primary_bc_val,
+                "matched_barcode": clean_bc,
                 "barcode": clean_bc,
                 "barcode_type": barcode_row.barcode_type or "EAN13",
                 "mrp": mrp,
@@ -128,7 +159,7 @@ class BarcodeResolverService:
                 "tax_treatment": "TAXABLE_EXCLUSIVE",
                 "tax_amount": tax_amount,
                 "effective_price_inclusive": round(selling_price + tax_amount, 2),
-                "hsn_code": (variant.hsn_code if variant else None) or item.hsn_code or "64041990",
+                "hsn_code": (variant.hsn_code if variant else None) or item.hsn_code,
                 "primary_uom": item.primary_uom or "PAIR",
                 "is_batch_tracked": item.is_batch_tracked,
                 "inventory": inv_buckets,
@@ -146,6 +177,7 @@ class BarcodeResolverService:
                 Product.barcode == clean_bc,
                 Product.secondary_barcodes.any(clean_bc),
             ),
+            Product.is_active == True,
             Product.is_deleted == False,
         )
         prod = (await session.execute(prod_stmt)).scalar_one_or_none()
@@ -227,7 +259,11 @@ class BarcodeResolverService:
             .join(ItemVariant, ItemVariant.item_id == Item.id)
             .outerjoin(
                 ItemBarcode,
-                and_(ItemBarcode.variant_id == ItemVariant.id, ItemBarcode.is_deleted == False),
+                and_(
+                    ItemBarcode.variant_id == ItemVariant.id,
+                    ItemBarcode.is_active == True,
+                    ItemBarcode.is_deleted == False
+                ),
             )
             .outerjoin(
                 CustomerArticleMapping,
@@ -298,7 +334,7 @@ class BarcodeResolverService:
                 "item_name": item.item_name,
                 "brand": item.brand,
                 "category": item.category,
-                "hsn_code": (cam.buyer_hsn if (cam and cam.buyer_hsn) else (item.hsn_code or "64041990")),
+                "hsn_code": (cam.buyer_hsn if (cam and cam.buyer_hsn) else item.hsn_code),
                 "tax_rate": pricing_eval["tax_rate"],
                 "tax_treatment": pricing_eval["tax_treatment"],
                 "tax_amount": pricing_eval["tax_amount"],
@@ -371,7 +407,11 @@ class BarcodeResolverService:
                 selectinload(ItemBarcode.item),
                 selectinload(ItemBarcode.variant),
             )
-            .where(ItemBarcode.barcode == q, ItemBarcode.is_deleted == False)
+            .where(
+                ItemBarcode.barcode == q,
+                ItemBarcode.is_active == True,
+                ItemBarcode.is_deleted == False
+            )
         )
         bc_match = (await session.execute(bc_stmt)).scalars().first()
         if bc_match and bc_match.item:
@@ -426,7 +466,7 @@ class BarcodeResolverService:
                 variant_id=variant.id if variant else None,
                 variant_sku=variant.variant_sku if variant else None,
                 barcode=bc_match.barcode,
-                hsn_code=(cam.buyer_hsn if (cam and cam.buyer_hsn) else (item.hsn_code or "64041990")),
+                hsn_code=(cam.buyer_hsn if (cam and cam.buyer_hsn) else item.hsn_code),
                 tax_rate=tax_rate_val, mrp=mrp_val, selling_price=selling_val,
                 cost_price=float(variant.cost_price if (variant and variant.cost_price and variant.cost_price > 0) else (item.cost_price or 0.00)),
                 effective_price=pricing_eval["effective_price"],
@@ -501,7 +541,7 @@ class BarcodeResolverService:
                 item_id=item.id, item_code=item.item_code, item_name=item.item_name,
                 variant_id=var_match.id, variant_sku=var_match.variant_sku,
                 barcode=primary_bc,
-                hsn_code=(cam.buyer_hsn if (cam and cam.buyer_hsn) else (item.hsn_code or "64041990")),
+                hsn_code=(cam.buyer_hsn if (cam and cam.buyer_hsn) else item.hsn_code),
                 tax_rate=tax_rate_val, mrp=mrp_val, selling_price=selling_val,
                 cost_price=float(var_match.cost_price if (var_match.cost_price and var_match.cost_price > 0) else (item.cost_price or 0.00)),
                 effective_price=pricing_eval["effective_price"],

@@ -67,7 +67,16 @@ def parse_po_item_master_excel(file_bytes: bytes) -> list[dict[str, Any]]:
         barcode = _text(row[header_index[REQUIRED_HEADERS["barcode"]]])
         color = _text(row[header_index[REQUIRED_HEADERS["color"]]])
         size = _text(row[header_index[REQUIRED_HEADERS["size"]]])
-        variant_sku = article_no or f"{style_article}-{color}-{size}".strip("-").upper()
+        # Rule 6: Where an official primary barcode exists when the variant is created/imported,
+        # the initial SKU MAY be assigned from that primary barcode.
+        if article_no:
+            variant_sku = article_no
+        elif barcode and barcode.strip():
+            variant_sku = barcode.strip().upper()
+        else:
+            # Rule 7: If no barcode exists, use internal business SKU
+            variant_sku = f"{style_article}-{color}-{size}".strip("-").upper()
+
         variant_key = (variant_sku, barcode)
         item = grouped.setdefault(
             style_article,
@@ -78,7 +87,7 @@ def parse_po_item_master_excel(file_bytes: bytes) -> list[dict[str, Any]]:
                 or style_article,
                 "category": "Footwear",
                 "style_code": style_article,
-                "hsn_code": _text(row[header_index[REQUIRED_HEADERS["hsn_code"]]]) or "64041990",
+                "hsn_code": _text(row[header_index[REQUIRED_HEADERS["hsn_code"]]]),
                 "tax_rate": _tax_percent(row[header_index[REQUIRED_HEADERS["igst"]]]),
                 "primary_uom": _text(row[header_index[REQUIRED_HEADERS["uom"]]]) or "PAIR",
                 "mrp": _number(row[header_index[REQUIRED_HEADERS["mrp"]]]),

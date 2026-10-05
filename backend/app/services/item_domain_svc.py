@@ -193,8 +193,8 @@ class ItemDomainService:
             department=req.department,
             brand=req.brand,
             vendor_code=req.vendor_code,
-            hsn_code=req.hsn_code or "64041990",
-            tax_rate=Decimal(str(req.tax_rate)),
+            hsn_code=req.hsn_code,
+            tax_rate=Decimal(str(req.tax_rate)) if req.tax_rate is not None else Decimal("0.00"),
             primary_uom=req.primary_uom or "PRS",
             least_saleable_qty=Decimal(str(req.least_saleable_qty or 1.0)),
             gender=req.gender,
@@ -345,8 +345,15 @@ class ItemDomainService:
 
         color_clean = req.color.strip().upper()
         size_clean = req.size.strip().upper()
-        sku = req.variant_sku or f"{style.item_code}-{color_clean}-{size_clean}"
-        sku = sku.strip().upper()
+        # Rule 6: Where an official primary barcode exists when the variant is created,
+        # the initial SKU MAY be assigned from that primary barcode.
+        if req.variant_sku and req.variant_sku.strip():
+            sku = req.variant_sku.strip().upper()
+        elif req.primary_barcode and req.primary_barcode.strip():
+            sku = req.primary_barcode.strip().upper()
+        else:
+            # Rule 7: If no barcode exists, use internally generated business SKU
+            sku = f"{style.item_code}-{color_clean}-{size_clean}".upper()
 
         # Check existing physical variant by (company_id, style_id, color, size)
         stmt_existing = select(ItemVariant).where(
@@ -406,7 +413,7 @@ class ItemDomainService:
                     id=f"pb-{uuid.uuid4().hex[:12]}",
                     company_id=company_id,
                     branch_id=branch_id,
-                    code="DEFAULT",
+                    code=f"DEFAULT-{company_id}"[:50],
                     name="Standard Retail Price Book",
                     currency="INR",
                     is_default=True,
@@ -419,25 +426,83 @@ class ItemDomainService:
             sp_val = Decimal(str(req.selling_price or req.mrp or 0.0))
             cost_val = Decimal(str(req.cost_price or 0.0))
 
-            pbe = PriceBookEntry(
-                id=f"pbe-{uuid.uuid4().hex[:12]}",
-                company_id=company_id,
-                branch_id=branch_id,
-                price_book_id=default_pb.id,
-                item_id=style.id,
-                variant_id=variant.id,
-                min_quantity=Decimal("1.0000"),
-                selling_price=sp_val,
-                mrp=mrp_val,
-                cost_price=cost_val,
-            )
-            session.add(pbe)
-            await session.flush()
-            created_pbe = pbe
+            target_pb = default_pb
+            existing_pbe = (await session.execute(
+                select(PriceBookEntry).where(
+                    PriceBookEntry.price_book_id == default_pb.id,
+                    PriceBookEntry.item_id == style.id,
+                    PriceBookEntry.variant_id == variant.id,
+                    PriceBookEntry.min_quantity == Decimal("1.0000"),
+                )
+            )).scalars().first()
+
+            if existing_pbe:
+                if existing_pbe.mrp == mrp_val:
+                    created_pbe = existing_pbe
+                else:
+                    # Physical variant reused with different MRP: create versioned price point
+                    ver_pb = PriceBook(
+                        id=f"pb-{uuid.uuid4().hex[:12]}",
+                        company_id=company_id,
+                        branch_id=branch_id,
+                        code=f"PB-{company_id[:16]}-{uuid.uuid4().hex[:8]}"[:50],
+                        name=f"Price Revision MRP {mrp_val}",
+                        currency="INR",
+                        is_default=False,
+                        status="ACTIVE",
+                    )
+                    session.add(ver_pb)
+                    await session.flush()
+                    target_pb = ver_pb
+
+                    pbe = PriceBookEntry(
+                        id=f"pbe-{uuid.uuid4().hex[:12]}",
+                        company_id=company_id,
+                        branch_id=branch_id,
+                        price_book_id=target_pb.id,
+                        item_id=style.id,
+                        variant_id=variant.id,
+                        min_quantity=Decimal("1.0000"),
+                        selling_price=sp_val,
+                        mrp=mrp_val,
+                        cost_price=cost_val,
+                    )
+                    session.add(pbe)
+                    await session.flush()
+                    created_pbe = pbe
+            else:
+                pbe = PriceBookEntry(
+                    id=f"pbe-{uuid.uuid4().hex[:12]}",
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    price_book_id=target_pb.id,
+                    item_id=style.id,
+                    variant_id=variant.id,
+                    min_quantity=Decimal("1.0000"),
+                    selling_price=sp_val,
+                    mrp=mrp_val,
+                    cost_price=cost_val,
+                )
+                session.add(pbe)
+                await session.flush()
+                created_pbe = pbe
 
         # Optional Primary Barcode Assignment
         if req.primary_barcode:
-            b_code = req.primary_barcode.strip()
+            b_code = req.primary_barcode.strip().upper()
+            # Rule 10 & 11: Demote existing primary barcodes for this variant
+            existing_primaries = (await session.execute(
+                select(ItemBarcode).where(
+                    ItemBarcode.company_id == company_id,
+                    ItemBarcode.variant_id == variant.id,
+                    ItemBarcode.is_primary == True,
+                    ItemBarcode.is_deleted == False
+                )
+            )).scalars().all()
+            for ep in existing_primaries:
+                if ep.barcode != b_code:
+                    ep.is_primary = False
+
             barcode_obj = ItemBarcode(
                 id=f"bar-{uuid.uuid4().hex[:12]}",
                 company_id=company_id,

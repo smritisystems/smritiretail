@@ -27,8 +27,8 @@ class ItemBarcodeItem(BaseModel):
 
 class ItemVariantItem(BaseModel):
     id: Optional[str] = None
-    variant_sku: str
-    variant_name: str
+    variant_sku: Optional[str] = None
+    variant_name: Optional[str] = None
     color: Optional[str] = None
     size: Optional[str] = None
     attributes_json: Dict[str, Any] = Field(default_factory=dict)
@@ -337,8 +337,8 @@ class ItemStyleCreateRequest(BaseModel):
     department: Optional[str] = None
     brand: Optional[str] = None
     vendor_code: Optional[str] = None
-    hsn_code: Optional[str] = "64041990"
-    tax_rate: float = 18.0
+    hsn_code: Optional[str] = None
+    tax_rate: Optional[float] = None
     primary_uom: str = "PRS"
     least_saleable_qty: float = 1.0
     gender: Optional[str] = None

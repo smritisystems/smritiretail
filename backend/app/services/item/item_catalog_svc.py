@@ -188,7 +188,7 @@ class ItemCatalogService:
         primary_barcode: Optional[str] = None,
         primary_uom: str = "PCS",
         item_type: str = "FINISHED_GOOD",
-        hsn_code: str = "64041990",
+        hsn_code: Optional[str] = None,
         brand: Optional[str] = None,
         is_batch_tracked: bool = False,
         variants_data: Optional[List[Dict[str, Any]]] = None,
@@ -406,9 +406,25 @@ class ItemCatalogService:
                 for v_data in req.variants:
                     v_sku = (v_data.variant_sku or "").strip().upper()
                     if not v_sku or v_sku == "AUTO":
-                        c_part = str(getattr(v_data, "color", None) or (v_data.attributes_json.get("color") if v_data.attributes_json else None) or "STD").strip().upper()
-                        s_part = str(getattr(v_data, "size", None) or (v_data.attributes_json.get("size") if v_data.attributes_json else None) or "STD").strip().upper()
-                        v_sku = f"{item.item_code}-{c_part}-{s_part}"
+                        # Rule 6: Where an official primary barcode exists when the variant is created/imported,
+                        # the initial SKU MAY be assigned from that primary barcode.
+                        primary_bc_cand = None
+                        if v_data.barcodes:
+                            for bc_c in v_data.barcodes:
+                                if getattr(bc_c, "is_primary", False) and bc_c.barcode and bc_c.barcode.strip():
+                                    primary_bc_cand = bc_c.barcode.strip().upper()
+                                    break
+                            if not primary_bc_cand and v_data.barcodes and v_data.barcodes[0].barcode:
+                                primary_bc_cand = v_data.barcodes[0].barcode.strip().upper()
+
+                        if primary_bc_cand:
+                            v_sku = primary_bc_cand
+                        else:
+                            # Rule 7: If no barcode exists, DO NOT invent a fake barcode. Use internal business SKU.
+                            c_part = str(getattr(v_data, "color", None) or (v_data.attributes_json.get("color") if v_data.attributes_json else None) or "STD").strip().upper()
+                            s_part = str(getattr(v_data, "size", None) or (v_data.attributes_json.get("size") if v_data.attributes_json else None) or "STD").strip().upper()
+                            v_sku = f"{item.item_code}-{c_part}-{s_part}"
+
                     # Check if variant already exists in company
                     var_stmt = select(ItemVariant).where(
                         ItemVariant.company_id == effective_company_id,
@@ -445,6 +461,7 @@ class ItemCatalogService:
                         await session.flush()
 
                     primary_bc = None
+                    has_primary_assigned = False
                     for bc in v_data.barcodes:
                         bc_clean = bc.barcode.strip().upper()
                         bc_stmt = select(ItemBarcode).where(
@@ -453,6 +470,14 @@ class ItemCatalogService:
                             ItemBarcode.is_deleted == False
                         )
                         bc_obj = (await session.execute(bc_stmt)).scalar_one_or_none()
+
+                        # Rule 10 & 11: Exactly one primary barcode per variant
+                        should_be_primary = False
+                        if (getattr(bc, "is_primary", False) or primary_bc is None) and not has_primary_assigned:
+                            should_be_primary = True
+                            has_primary_assigned = True
+                            primary_bc = bc_clean
+
                         if not bc_obj:
                             bc_obj = ItemBarcode(
                                 id=f"bc_{uuid.uuid4().hex[:12]}",
@@ -462,16 +487,22 @@ class ItemCatalogService:
                                 item_id=item.id,
                                 variant_id=variant.id,
                                 barcode=bc_clean,
-                                barcode_type=bc.barcode_type or "EAN13",
-                                is_primary=bc.is_primary,
+                                barcode_type=getattr(bc, "barcode_type", None) or ("EAN13" if len(bc_clean) == 13 and bc_clean.isdigit() else "CUSTOM"),
+                                is_primary=should_be_primary,
                                 is_tax_inclusive=getattr(bc, "is_tax_inclusive", None),
                                 is_active=True,
                                 is_deleted=False
                             )
                             session.add(bc_obj)
                             await session.flush()
-                        if bc.is_primary or primary_bc is None:
-                            primary_bc = bc_clean
+                        else:
+                            if bc_obj.variant_id != variant.id:
+                                raise HTTPException(
+                                    status_code=409,
+                                    detail=f"Barcode '{bc_clean}' is already assigned to another variant ({bc_obj.variant_id})."
+                                )
+                            if should_be_primary and not bc_obj.is_primary:
+                                bc_obj.is_primary = True
 
                     processed_variants.append((variant, primary_bc))
             else:
@@ -533,23 +564,8 @@ class ItemCatalogService:
                         if bc.is_primary or primary_bc is None:
                             primary_bc = bc_clean
                 else:
-                    placeholder_bc = cls.generate_placeholder_barcode()
-                    session.add(
-                        ItemBarcode(
-                            id=f"bc_{uuid.uuid4().hex[:12]}",
-                            uuid=str(uuid.uuid4()),
-                            company_id=effective_company_id,
-                            branch_id=branch_id,
-                            item_id=item.id,
-                            variant_id=variant.id,
-                            barcode=placeholder_bc,
-                            barcode_type="CUSTOM",
-                            is_primary=True,
-                            is_active=True,
-                            is_deleted=False
-                        )
-                    )
-                    primary_bc = placeholder_bc
+                    # RULE 7: If no barcode exists, DO NOT invent a fake barcode.
+                    primary_bc = None
 
                 processed_variants.append((variant, primary_bc))
 
@@ -577,23 +593,9 @@ class ItemCatalogService:
                     Product.is_deleted == False
                 )
                 if not p_bc:
-                    eff_bc = cls.generate_placeholder_barcode()
-                    auto_bc_obj = ItemBarcode(
-                        id=f"bc_{uuid.uuid4().hex[:12]}",
-                        uuid=str(uuid.uuid4()),
-                        company_id=effective_company_id,
-                        branch_id=branch_id,
-                        item_id=item.id,
-                        variant_id=var_item.id,
-                        barcode=eff_bc,
-                        barcode_type="CODE128_INTERNAL",
-                        is_primary=True,
-                        is_active=True,
-                        is_deleted=False
-                    )
-                    session.add(auto_bc_obj)
-                    await session.flush()
-                    p_bc = eff_bc
+                    # In Product compatibility projection, use variant SKU as fallback key
+                    # without polluting canonical item_barcodes registry.
+                    p_bc = var_item.variant_sku
 
                 prod_obj = (await session.execute(prod_stmt)).scalars().first()
                 if not prod_obj:
@@ -794,7 +796,7 @@ class ItemCatalogService:
 
         # Direct parameter workflow
         clean_code = (item_code or "").strip().upper()
-        clean_hsn = (hsn_code or "64041990").strip()
+        clean_hsn = hsn_code.strip() if hsn_code else None
         existing = await cls.get_item_by_code(session, clean_code) if clean_code else None
 
         if existing:
@@ -955,32 +957,143 @@ class ItemCatalogService:
                     is_deleted=False,
                 )
                 session.add(bc_obj)
-        else:
-            # Direct parameter callers also need a consistent provisional identity
-            # when no human-supplied barcode was provided.
-            placeholder_barcode = cls.generate_placeholder_barcode()
-            placeholder_stmt = select(ItemBarcode).where(
-                ItemBarcode.barcode == placeholder_barcode,
-                ItemBarcode.is_deleted == False,
-            )
-            placeholder_obj = (await session.execute(placeholder_stmt)).scalar_one_or_none()
-            if not placeholder_obj:
-                placeholder_obj = ItemBarcode(
-                    id=f"ibc_{uuid.uuid4().hex[:12]}",
-                    company_id=company_id or "COMP-001",
-                    branch_id=branch_id,
-                    item_id=item.id,
-                    variant_id=None,
-                    barcode=placeholder_barcode,
-                    barcode_type="CUSTOM",
-                    is_primary=True,
-                    is_active=True,
-                    is_deleted=False,
-                )
-                session.add(placeholder_obj)
-
         if commit:
             await session.commit()
         else:
             await session.flush()
         return await cls.get_item_by_code(session, clean_code)
+
+    @classmethod
+    async def replace_primary_barcode(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        variant_id: str,
+        new_barcode: str,
+        barcode_type: str = "EAN13",
+        user_id: Optional[str] = None
+    ) -> ItemBarcode:
+        """
+        Rule 9: Changing the primary barcode must NEVER automatically change SKU.
+        Demotes current primary barcode to additional (is_primary=False) and promotes
+        or creates new_barcode as is_primary=True.
+        """
+        clean_bc = new_barcode.strip().upper()
+        # Verify variant exists
+        var_stmt = select(ItemVariant).where(
+            ItemVariant.company_id == company_id,
+            ItemVariant.id == variant_id,
+            ItemVariant.is_deleted == False
+        )
+        variant = (await session.execute(var_stmt)).scalar_one_or_none()
+        if not variant:
+            raise HTTPException(status_code=404, detail=f"Variant '{variant_id}' not found.")
+
+        # Demote existing active primary barcodes for this variant
+        existing_primaries = (await session.execute(
+            select(ItemBarcode).where(
+                ItemBarcode.company_id == company_id,
+                ItemBarcode.variant_id == variant_id,
+                ItemBarcode.is_primary == True,
+                ItemBarcode.is_deleted == False
+            )
+        )).scalars().all()
+        for ep in existing_primaries:
+            if ep.barcode != clean_bc:
+                ep.is_primary = False
+
+        # Find or create new barcode
+        target_bc = (await session.execute(
+            select(ItemBarcode).where(
+                ItemBarcode.company_id == company_id,
+                ItemBarcode.barcode == clean_bc,
+                ItemBarcode.is_deleted == False
+            )
+        )).scalar_one_or_none()
+
+        if target_bc:
+            if target_bc.variant_id and target_bc.variant_id != variant_id:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Barcode '{clean_bc}' is already assigned to variant '{target_bc.variant_id}'."
+                )
+            target_bc.variant_id = variant_id
+            target_bc.item_id = variant.item_id
+            target_bc.is_primary = True
+            target_bc.is_active = True
+            target_bc.barcode_type = barcode_type
+        else:
+            target_bc = ItemBarcode(
+                id=f"bc_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id=company_id,
+                branch_id=variant.branch_id,
+                item_id=variant.item_id,
+                variant_id=variant_id,
+                barcode=clean_bc,
+                barcode_type=barcode_type,
+                is_primary=True,
+                is_active=True,
+                is_deleted=False
+            )
+            session.add(target_bc)
+
+        await session.flush()
+        # SKU remains variant.variant_sku unchanged! (Rule 9)
+        return target_bc
+
+    @classmethod
+    async def add_additional_barcode(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        variant_id: str,
+        barcode: str,
+        barcode_type: str = "EAN13",
+    ) -> ItemBarcode:
+        """
+        Rule 10: A variant may have multiple additional barcodes.
+        Rule 11: A barcode must belong to only ONE active variant.
+        """
+        clean_bc = barcode.strip().upper()
+        var_stmt = select(ItemVariant).where(
+            ItemVariant.company_id == company_id,
+            ItemVariant.id == variant_id,
+            ItemVariant.is_deleted == False
+        )
+        variant = (await session.execute(var_stmt)).scalar_one_or_none()
+        if not variant:
+            raise HTTPException(status_code=404, detail=f"Variant '{variant_id}' not found.")
+
+        existing = (await session.execute(
+            select(ItemBarcode).where(
+                ItemBarcode.company_id == company_id,
+                ItemBarcode.barcode == clean_bc,
+                ItemBarcode.is_deleted == False
+            )
+        )).scalar_one_or_none()
+
+        if existing:
+            if existing.variant_id and existing.variant_id != variant_id:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Barcode '{clean_bc}' is already assigned to another variant ({existing.variant_id})."
+                )
+            return existing
+
+        bc_obj = ItemBarcode(
+            id=f"bc_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id=company_id,
+            branch_id=variant.branch_id,
+            item_id=variant.item_id,
+            variant_id=variant_id,
+            barcode=clean_bc,
+            barcode_type=barcode_type,
+            is_primary=False,
+            is_active=True,
+            is_deleted=False
+        )
+        session.add(bc_obj)
+        await session.flush()
+        return bc_obj

@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.1] - 2026-10-05 — SMRITI SKU & Barcode Architecture Refactor (9-Gate Final Freeze)
+
+> **Branch:** `smritiNX` | **Area:** Catalog, Inventory, Barcode, Tenant Isolation, Alembic
+> **Walkthrough:** `docs/walkthrough/catalog/SKU_Barcode_Architecture_Refactor_v6.70.0.md`
+
+### Added
+- **`backend/alembic/versions/v1518_sku_barcode_architecture_refactor.py`**:
+  - Unified Alembic mergepoint migration reconciling heads `v1517` and `v1336`.
+  - Added company-scoped barcode compound unique constraint `(company_id, barcode)`.
+- **`backend/tests/test_sku_barcode_architecture_refactor.py`**:
+  - 10-point comprehensive verification and regression test suite verifying identity decoupling, tenant isolation, SKU immutability, synthetic barcode deactivation, and resolution hierarchy.
+
+### Changed & Hardened
+- **`backend/app/models/item_master.py`**: Added `sku` property alias on `ItemVariant` pointing directly to `variant_sku`.
+- **`backend/app/services/item/item_catalog_svc.py`**: Decoupled SKU stability from barcode replacements; initialized SKU from primary barcode on initial variant creation.
+- **`backend/app/services/item/barcode_resolver_svc.py`**: Hardened barcode lookup to strictly filter active non-deleted barcodes (`is_active == True, is_deleted == False`); removed hardcoded HSN fallbacks.
+- **`backend/app/services/item_domain_svc.py`**: Scoped default PriceBook code to tenant (`DEFAULT-{company_id}`); created versioned price points when physical variants are reused with different MRPs.
+- **`backend/app/api/v1/universal_import.py` & `backend/app/services/inventory.py`**: Eradicated hardcoded defaults for HSN (`64041990`), GST rate (`18.0`), and `"GEN-"` synthetic barcode prefixes.
+- **`src/components/BarcodeManagementTab.tsx`**: Displayed `PRIMARY` and `ADDITIONAL` badges and verified non-destructive barcode intake.
+
 ## [6.70.0] - 2026-10-04 — Article / Design Master Grid UX Redesign & 3-Tier Adaptive Mode
 
 > **Branch:** `smritiNX` | **Area:** Item Master, Footwear Catalog, Adaptive UX, Data Grid

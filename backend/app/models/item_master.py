@@ -12,8 +12,9 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+from typing import Optional
 from decimal import Decimal
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey, Text, text, Date, UniqueConstraint, Enum as SAEnum
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey, Text, text, Date, UniqueConstraint, Index, Enum as SAEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
@@ -151,6 +152,11 @@ class ItemVariant(BaseEntity):
         """Domain alias: item_id is style_id."""
         return self.item_id
 
+    @property
+    def sku(self) -> str:
+        """Canonical business identity alias for variant_sku per blueprint."""
+        return self.variant_sku
+
     # Relationships
     item = relationship("Item", back_populates="variants")
     barcodes = relationship("ItemBarcode", back_populates="variant", cascade="all, delete-orphan")
@@ -165,6 +171,13 @@ class ItemBarcode(BaseEntity):
     __tablename__ = "item_barcodes"
     __table_args__ = (
         UniqueConstraint("company_id", "barcode", name="uq_barcodes_company_barcode"),
+        Index(
+            "uq_barcodes_one_primary_per_variant",
+            "company_id",
+            "variant_id",
+            unique=True,
+            postgresql_where=text("is_primary = true AND is_deleted = false AND variant_id IS NOT NULL"),
+        ),
     )
 
     item_id = Column(String(50), ForeignKey("items.id", ondelete="CASCADE"), nullable=True, index=True)
@@ -173,6 +186,11 @@ class ItemBarcode(BaseEntity):
     barcode = Column(String(100), nullable=False, index=True)
     barcode_normalized = Column(String(100), nullable=True, index=True)
     barcode_type = Column(String(30), nullable=False, default="EAN13")  # EAN13, CODE128, UPC, QR, CUSTOM
+
+    @property
+    def item_variant_id(self) -> Optional[str]:
+        """Domain alias: variant_id is item_variant_id per canonical blueprint."""
+        return self.variant_id
     barcode_purpose = Column(String(20), nullable=False, default="RETAIL")
     encoding_standard = Column(String(20), nullable=False, default="NONE")
     is_primary = Column(Boolean, nullable=False, default=False)
