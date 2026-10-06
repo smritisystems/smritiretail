@@ -15,7 +15,7 @@ Classification: Internal — API v1 Controller
 # smriti_capability(entity="DATABRIDGE", capability="DATABRIDGE_CORE_FOUNDATION", role="ADAPTER", canonicalOwner="backend/app/services/databridge/service.py")
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import (
@@ -29,6 +29,7 @@ from ...models.auth import User
 from ...models.capability_template import TenantCapabilityBinding
 from ...services.databridge.service import DataBridgeService
 from ...services.databridge.async_engine import DataBridgeAsyncEngine
+from ...services.databridge.export_engine import DataBridgeExportEngine
 from ...services.databridge.exceptions import (
     DataBridgeEntitlementError,
     DataBridgeTenantIsolationError,
@@ -52,6 +53,9 @@ from ...services.databridge.models import (
     DataBridgeAsyncSubmitRequest,
     DataBridgeAsyncJobResponse,
     DataBridgeJobStatusResponse,
+    DataBridgeExportFormat,
+    DataBridgeExportRequest,
+    DataBridgeExportResponse,
 )
 
 
@@ -825,6 +829,85 @@ async def cancel_async_job(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=exc.message,
         ) from exc
+
+
+# ==============================================================================
+# PHASE 5 MULTI-FORMAT STREAMING EXPORT ENDPOINTS
+# ==============================================================================
+
+@router.get("/export/{entity_type}", tags=["SMRITI DataBridge"])
+async def export_entity_stream_get(
+    entity_type: DataBridgeEntityType,
+    format: DataBridgeExportFormat = Query(default=DataBridgeExportFormat.CSV),
+    limit: int = Query(default=50000, ge=1, le=100000),
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "READ")),
+    company_db: AsyncSession = Depends(get_company_db),
+) -> Response:
+    """
+    Streams exported records for any supported entity domain in CSV, JSON, SMRITI-X, or XLSX format.
+    """
+    try:
+        req = DataBridgeExportRequest(
+            entity_type=entity_type,
+            file_format=format,
+            limit=limit,
+        )
+        content_bytes, media_type, filename, sha256_hash = await DataBridgeExportEngine.export_dataset(
+            company_db=company_db,
+            company_id=tenant.company_id,
+            actor_id=current_user.id,
+            actor_role=current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+            req=req,
+        )
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-SMRITI-Checksum-SHA256": sha256_hash,
+            "X-SMRITI-Entity-Type": entity_type.value,
+        }
+        return Response(content=content_bytes, media_type=media_type, headers=headers)
+    except DataBridgeValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+    except DataBridgeTenantIsolationError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
+    except DataBridgeError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+
+
+@router.post("/export", tags=["SMRITI DataBridge"])
+async def export_entity_dataset_post(
+    req: DataBridgeExportRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "READ")),
+    company_db: AsyncSession = Depends(get_company_db),
+) -> Response:
+    """
+    Configured POST export generating streamed CSV, JSON, SMRITI-X, or XLSX binary data.
+    """
+    try:
+        content_bytes, media_type, filename, sha256_hash = await DataBridgeExportEngine.export_dataset(
+            company_db=company_db,
+            company_id=tenant.company_id,
+            actor_id=current_user.id,
+            actor_role=current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+            req=req,
+        )
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-SMRITI-Checksum-SHA256": sha256_hash,
+            "X-SMRITI-Entity-Type": req.entity_type.value,
+        }
+        return Response(content=content_bytes, media_type=media_type, headers=headers)
+    except DataBridgeValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+    except DataBridgeTenantIsolationError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
+    except DataBridgeError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
 
 
 

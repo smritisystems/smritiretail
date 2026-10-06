@@ -314,3 +314,39 @@ class DataBridgeJobStatusResponse(BaseModel):
     items_sample: List[DataBridgeResultItem] = Field(default_factory=list)
 
 
+# ==============================================================================
+# PHASE 5 MULTI-FORMAT STREAMING EXPORT CONTRACTS
+# ==============================================================================
+
+class DataBridgeExportFormat(str, Enum):
+    """Supported output formats for DataBridge streaming exports."""
+
+    CSV = "CSV"
+    JSON = "JSON"
+    SMRITI_X = "SMRITI_X"
+    XLSX = "XLSX"
+
+
+class DataBridgeExportRequest(BaseModel):
+    """Configuration payload for initiating a streaming data export."""
+
+    entity_type: DataBridgeEntityType
+    file_format: DataBridgeExportFormat = DataBridgeExportFormat.CSV
+    filters: Optional[Dict[str, Any]] = None
+    limit: Optional[int] = Field(default=50000, ge=1, le=100000)
+    include_audit_signature: bool = True
+
+
+class DataBridgeExportResponse(BaseModel):
+    """Summary metadata descriptor for an export operation."""
+
+    export_id: str
+    entity_type: str
+    file_format: str
+    total_exported_rows: int
+    file_size_bytes: int
+    compliance_sha256: str
+    download_filename: str
+    generated_at: str
+
+
