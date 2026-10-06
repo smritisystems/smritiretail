@@ -1115,6 +1115,8 @@ async def get_lookup_type_audit(
 # ---------------------------------------------------------------------------
 @router.get("/master/{entity_type}", summary="Universal Master Lookup Browse Adapter")
 @router.get("/master/{entity_type}/", summary="Universal Master Lookup Browse Adapter")
+@router.get("/universal/masters/{entity_type}", summary="Universal Master Lookup Browse Adapter")
+@router.get("/universal/masters/{entity_type}/", summary="Universal Master Lookup Browse Adapter")
 async def list_master_entities(
     entity_type: str,
     q: Optional[str] = Query(None, description="Search filter string across code, name, and attributes"),
@@ -1340,12 +1342,24 @@ async def list_master_entities(
                     })
 
         elif type_code == "color":
-            # Check Item.color and Product.color
-            c_stmt = select(Item.color).where(Item.color.isnot(None), Item.is_deleted == False).distinct()
+            # ItemVariant is the runtime authority per ADR-001 / R-01
+            effective_company_id = getattr(current_user, "company_id", None)
+            var_c_stmt = (
+                select(ItemVariant.color)
+                .where(
+                    ItemVariant.color.isnot(None),
+                    ItemVariant.color != "",
+                    ItemVariant.is_active == True,
+                    ItemVariant.is_deleted == False,
+                )
+                .distinct()
+            )
+            if effective_company_id:
+                var_c_stmt = var_c_stmt.where(ItemVariant.company_id == effective_company_id)
             if q and q.strip():
-                c_stmt = c_stmt.where(Item.color.ilike(f"%{q.strip()}%"))
-            c_res = await tenant_db.execute(c_stmt)
-            for c in c_res.scalars().all():
+                var_c_stmt = var_c_stmt.where(ItemVariant.color.ilike(f"%{q.strip()}%"))
+            var_c_res = await tenant_db.execute(var_c_stmt)
+            for c in var_c_res.scalars().all():
                 if c and c.strip() and c.strip() not in seen_codes:
                     seen_codes.add(c.strip())
                     rows.append({
@@ -1356,7 +1370,16 @@ async def list_master_entities(
                         "group": "Standard",
                         "status": "Active",
                     })
-            p_c_stmt = select(Product.color).where(Product.color.isnot(None), Product.is_deleted == False).distinct()
+
+            # Also check Product.color for legacy catalog compatibility
+            p_c_stmt = select(Product.color).where(
+                Product.color.isnot(None),
+                Product.color != "",
+                Product.is_deleted == False,
+                Product.is_active == True,
+            ).distinct()
+            if effective_company_id:
+                p_c_stmt = p_c_stmt.where(Product.company_id == effective_company_id)
             if q and q.strip():
                 p_c_stmt = p_c_stmt.where(Product.color.ilike(f"%{q.strip()}%"))
             p_c_res = await tenant_db.execute(p_c_stmt)
@@ -1373,12 +1396,24 @@ async def list_master_entities(
                     })
 
         elif type_code == "size":
-            # Check Item.size and Product.size
-            s_stmt = select(Item.size).where(Item.size.isnot(None), Item.is_deleted == False).distinct()
+            # ItemVariant is the runtime authority per ADR-001 / R-01
+            effective_company_id = getattr(current_user, "company_id", None)
+            var_s_stmt = (
+                select(ItemVariant.size)
+                .where(
+                    ItemVariant.size.isnot(None),
+                    ItemVariant.size != "",
+                    ItemVariant.is_active == True,
+                    ItemVariant.is_deleted == False,
+                )
+                .distinct()
+            )
+            if effective_company_id:
+                var_s_stmt = var_s_stmt.where(ItemVariant.company_id == effective_company_id)
             if q and q.strip():
-                s_stmt = s_stmt.where(Item.size.ilike(f"%{q.strip()}%"))
-            s_res = await tenant_db.execute(s_stmt)
-            for s in s_res.scalars().all():
+                var_s_stmt = var_s_stmt.where(ItemVariant.size.ilike(f"%{q.strip()}%"))
+            var_s_res = await tenant_db.execute(var_s_stmt)
+            for s in var_s_res.scalars().all():
                 if s and s.strip() and s.strip() not in seen_codes:
                     seen_codes.add(s.strip())
                     rows.append({
@@ -1389,7 +1424,16 @@ async def list_master_entities(
                         "sortOrder": 0,
                         "status": "Active",
                     })
-            p_s_stmt = select(Product.size).where(Product.size.isnot(None), Product.is_deleted == False).distinct()
+
+            # Also check Product.size for legacy catalog compatibility
+            p_s_stmt = select(Product.size).where(
+                Product.size.isnot(None),
+                Product.size != "",
+                Product.is_deleted == False,
+                Product.is_active == True,
+            ).distinct()
+            if effective_company_id:
+                p_s_stmt = p_s_stmt.where(Product.company_id == effective_company_id)
             if q and q.strip():
                 p_s_stmt = p_s_stmt.where(Product.size.ilike(f"%{q.strip()}%"))
             p_s_res = await tenant_db.execute(p_s_stmt)

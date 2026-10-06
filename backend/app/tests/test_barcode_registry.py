@@ -19,30 +19,34 @@ def test_barcode_detection_returns_hints_without_assignment():
     assert len(internal["candidates"]) > 1
 
 
+import uuid
+
 @pytest.mark.asyncio
 async def test_gs1_barcode_assigns_once_to_variant_sku(db_session):
+    suffix = uuid.uuid4().hex[:6].upper()
+    comp_id = f"COMP-GS1-{suffix}"
     item = Item(
-        id="itm-gs1-001", company_id="COMP-GS1-A", item_code="STYLE-GS1-001",
+        id=f"itm-gs1-{suffix}", company_id=comp_id, item_code=f"STYLE-GS1-{suffix}",
         item_name="GS1 Test Item", item_type="FINISHED_GOOD", category="TEST", status="ACTIVE",
-        tax_rate=18, primary_uom="PCS",
+        tax_rate=18, primary_uom="PCS", uom="PCS",
     )
     variant = ItemVariant(
-        id="var-gs1-001", company_id="COMP-GS1-A", item_id=item.id,
-        variant_sku="STYLE-GS1-001-BLUE-M", variant_name="Blue M", is_active=True,
+        id=f"var-gs1-{suffix}", company_id=comp_id, item_id=item.id,
+        variant_sku=f"STYLE-GS1-{suffix}-BLUE-M", variant_name="Blue M", is_active=True,
     )
     db_session.add_all([item, variant])
     await db_session.commit()
 
     record = await BarcodeRegistryService.intake(
-        db_session, "COMP-GS1-A", "BR-GS1-A", "user-gs1", " 8901234567890 ",
-        "EAN13", "GS1_IMPORT", "GS1-PORTAL-IMPORT-001",
+        db_session, comp_id, "BR-GS1-A", "user-gs1", " 8901234567890 ",
+        "EAN13", "GS1_IMPORT", f"GS1-PORTAL-IMPORT-{suffix}",
     )
     assert record.status == "UNASSIGNED"
     assert record.barcode_normalized == "8901234567890"
 
     assigned = await BarcodeRegistryService.assign(
-        db_session, "COMP-GS1-A", "BR-GS1-A", "user-gs1", record.id,
-        variant_sku="STYLE-GS1-001-BLUE-M",
+        db_session, comp_id, "BR-GS1-A", "user-gs1", record.id,
+        variant_sku=f"STYLE-GS1-{suffix}-BLUE-M",
         reason="GS1 barcode belongs to the variant stock number",
     )
     assert assigned.status == "ASSIGNED"
@@ -51,26 +55,29 @@ async def test_gs1_barcode_assigns_once_to_variant_sku(db_session):
 
     with pytest.raises(ValueError, match="Only UNASSIGNED"):
         await BarcodeRegistryService.assign(
-            db_session, "COMP-GS1-A", "BR-GS1-A", "user-gs1", record.id,
-            variant_sku="STYLE-GS1-001-BLUE-M",
+            db_session, comp_id, "BR-GS1-A", "user-gs1", record.id,
+            variant_sku=f"STYLE-GS1-{suffix}-BLUE-M",
         )
 
     with pytest.raises(ValueError, match="already exists"):
         await BarcodeRegistryService.intake(
-            db_session, "COMP-GS1-A", "BR-GS1-A", "user-gs1", "8901234567890",
+            db_session, comp_id, "BR-GS1-A", "user-gs1", "8901234567890",
             "EAN13", "GS1_IMPORT", None,
         )
 
 
 @pytest.mark.asyncio
 async def test_gs1_barcode_cannot_be_resolved_across_tenants(db_session):
+    suffix = uuid.uuid4().hex[:6].upper()
+    comp_a = f"COMP-GS1-{suffix}-A"
+    comp_b = f"COMP-GS1-{suffix}-B"
     record = await BarcodeRegistryService.intake(
-        db_session, "COMP-GS1-A", "BR-GS1-A", "user-gs1", "8901234567891",
+        db_session, comp_a, "BR-GS1-A", "user-gs1", "8901234567891",
         "EAN13", "GS1_IMPORT", None,
     )
 
     with pytest.raises(LookupError, match="not found"):
         await BarcodeRegistryService.assign(
-            db_session, "COMP-GS1-B", "BR-GS1-B", "user-other-tenant", record.id,
-            item_code="STYLE-GS1-001",
+            db_session, comp_b, "BR-GS1-B", "user-other-tenant", record.id,
+            item_code=f"STYLE-GS1-{suffix}",
         )

@@ -245,6 +245,7 @@ PRINT 1
         """
         now = datetime.now(timezone.utc)
         batch_id = f"lbl_{uuid.uuid4().hex[:12]}"
+        total_spooled = 0
         from .product_resolution_service import ProductResolutionService
         from ..schemas.product_resolution import TransactionLineItemInput
 

@@ -35,12 +35,15 @@ from app.schemas.item_master import (
 )
 
 
-def test_generated_placeholder_barcode_prefix_is_uppercase_s():
-    """Generated placeholder barcodes must start with the capital S prefix policy by default."""
-    barcode = UniversalItemMasterService.generate_placeholder_barcode()
-    assert barcode.startswith("S")
-    assert barcode[:1] == "S"
-    assert len(barcode) == 13  # 'S' + 12-char hex
+def test_generated_placeholder_barcode_prohibited_at_runtime():
+    """
+    [ADR-001 / R-01 MANDATORY COMPLIANCE]
+    Classified: Former synthetic placeholder barcode generator test.
+    Updated behavior: Runtime synthetic barcode generation is strictly prohibited.
+    Invoking generate_placeholder_barcode must raise RuntimeError.
+    """
+    with pytest.raises(RuntimeError, match="Synthetic barcode generation is prohibited"):
+        UniversalItemMasterService.generate_placeholder_barcode()
 
 
 def test_extract_vendor_article_codes_from_po_text_splits_style_and_article_tokens():
@@ -66,42 +69,34 @@ def test_vendor_code_allocator_stays_within_five_characters():
     assert allocate_next_vendor_code(used_first_block + [f"V-0{letter}{letter}" for letter in "A"]) == "V-0BB"
 
 
-def test_generated_placeholder_barcode_configurable_policy():
+@pytest.mark.asyncio
+async def test_missing_barcode_does_not_create_synthetic_barcode():
     """
-    Verifies the policy-aware placeholder barcode contract:
-    - Default prefix is 'S'
-    - Configurable explicit prefixes (GEN, SMRITI, SKU, VX, BRC)
-    - Bare token when prefix is empty or None and allow_no_prefix=True
-    - Canonical fallback to 'S' when prefix is empty and allow_no_prefix=False
-    - Sanitization of non-alphanumeric characters and uppercase normalization
+    [ADR-001 / R-01 MANDATORY COMPLIANCE]
+    Classified: Former configurable synthetic barcode policy test.
+    Updated behavior: Creating an item or generating matrix variants without barcodes
+    leaves barcodes unassigned/None; the system MUST NOT create fake/synthetic barcodes.
     """
-    # 1. Explicit prefixes
-    for pfx in ["GEN", "SMRITI", "SKU", "VX", "BRC"]:
-        bc = UniversalItemMasterService.generate_placeholder_barcode(prefix=pfx)
-        assert bc.startswith(pfx)
-        token_part = bc[len(pfx):]
-        assert len(token_part) == 12
-        assert token_part.isupper() or token_part.isalnum()
+    sessionmaker = get_company_sessionmaker("smriti001")
+    unique_suffix = uuid.uuid4().hex[:6].upper()
+    sku = f"NO-BC-{unique_suffix}"
 
-    # 2. Case normalization
-    bc_lower = UniversalItemMasterService.generate_placeholder_barcode(prefix="gen")
-    assert bc_lower.startswith("GEN")
+    req = ItemCreateRequest(
+        item_code=sku,
+        item_name=f"No Barcode Item {unique_suffix}",
+        item_type="FINISHED_GOOD",
+        category="APPAREL",
+        brand="SMRITI",
+        selling_price=500.0,
+    )
 
-    # 3. Unsafe character sanitation
-    bc_unsafe = UniversalItemMasterService.generate_placeholder_barcode(prefix="vx!@#$")
-    assert bc_unsafe.startswith("VX")
-
-    # 4. Bare token when prefix is empty/None and allow_no_prefix=True
-    bare_empty = UniversalItemMasterService.generate_placeholder_barcode(prefix="", allow_no_prefix=True)
-    assert len(bare_empty) == 12
-
-    bare_none = UniversalItemMasterService.generate_placeholder_barcode(prefix=None, allow_no_prefix=True)
-    assert len(bare_none) == 12
-
-    # 5. Canonical fallback to 'S' when prefix is empty and allow_no_prefix=False
-    fallback = UniversalItemMasterService.generate_placeholder_barcode(prefix="", allow_no_prefix=False)
-    assert fallback.startswith("S")
-    assert len(fallback) == 13
+    async with sessionmaker() as session:
+        item = await UniversalItemMasterService.create_item(session, req)
+        assert item is not None
+        reloaded = await UniversalItemMasterService.get_item_by_id(session, item.id)
+        assert len(reloaded.barcodes) == 0
+        for v in reloaded.variants:
+            assert len(v.barcodes) == 0
 
 
 def _get_auth_headers(role: str = "SYSADMIN") -> dict:
@@ -264,7 +259,7 @@ async def test_matrix_variant_generator_cartesian():
     async with sessionmaker() as session:
         item = await UniversalItemMasterService.create_item(session, req)
 
-        # 2. Generate 3 Sizes x 2 Colors = 6 Variants
+        # 2. Generate 3 Sizes x 2 Colors = 6 Variants (without fake barcodes)
         gen_req = MatrixVariantGenRequest(
             dimensions=[
                 MatrixVariantDimension(dimension_name="size", values=["S", "M", "L"]),
@@ -273,7 +268,6 @@ async def test_matrix_variant_generator_cartesian():
             base_mrp=999.0,
             base_selling_price=799.0,
             base_cost_price=350.0,
-            auto_generate_barcodes=True,
         )
 
         variants = await UniversalItemMasterService.generate_matrix_variants(session, item.id, gen_req)
@@ -287,6 +281,10 @@ async def test_matrix_variant_generator_cartesian():
         # Reload item and verify
         reloaded = await UniversalItemMasterService.get_item_by_id(session, item.id)
         assert len(reloaded.variants) >= 6
+
+        # ADR-001 / R-01: Barcodes must NOT be synthesized
+        for v in reloaded.variants:
+            assert len(v.barcodes) == 0
 
 
 @pytest.mark.asyncio
@@ -504,7 +502,7 @@ async def test_api_item_endpoints():
                 ],
                 "base_mrp": 1299.0,
                 "base_selling_price": 999.0,
-                "auto_generate_barcodes": True,
+                "auto_generate_barcodes": False,
             },
             headers=_get_auth_headers(),
         )

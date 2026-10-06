@@ -24,10 +24,13 @@ Founders
 Classification: Internal
 """
 
+import logging
 import uuid
 from typing import Optional, List, Any, Dict
 from decimal import Decimal
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_, func
@@ -43,6 +46,7 @@ from ..models.purchase import (
     PurchaseBill, PurchaseBillItem,
 )
 from ..models.inventory import Product, StockMovement
+from ..models.item_master import ItemVariant
 from ..models.workflow import WorkflowEvent
 from ..api.deps import TenantContext
 from ..schemas.purchase import (
@@ -377,12 +381,44 @@ class PurchaseService:
             subtotal  += item.cost_price * item.quantity
             tax_total += tax_amt
 
+            # Resolve variant_id with strict ambiguity guard (ADR-001 / R-01)
+            po_variant_id = getattr(item, "variant_id", None)
+            canonical_item_id = getattr(product, "item_id", None) or res.item_id
+            if not po_variant_id and canonical_item_id:
+                var_q = select(ItemVariant).where(
+                    ItemVariant.item_id == canonical_item_id,
+                    ItemVariant.company_id == self.tenant.company_id,
+                    ItemVariant.is_active == True,
+                    ItemVariant.is_deleted == False,
+                )
+                active_vars = (await self.db.execute(var_q)).scalars().all()
+                if len(active_vars) == 1:
+                    po_variant_id = active_vars[0].id
+                elif len(active_vars) > 1:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "AMBIGUOUS_ITEM_VARIANT",
+                            "title": "Ambiguous Item Variant",
+                            "explanation": (
+                                f"Item '{product.code or clean_item_code}' has {len(active_vars)} active variants. "
+                                "A specific variant_id must be provided; silent variant inference is prohibited."
+                            ),
+                            "suggested_action": "Select the specific variant (Size/Color) to include in this purchase order.",
+                            "line_no": line_no,
+                            "available_variants": [{"id": v.id, "sku": v.variant_sku} for v in active_vars],
+                        },
+                    )
+            elif not po_variant_id:
+                po_variant_id = res.variant_id or getattr(product, "item_variant_id", None)
+
             item_rows.append(PurchaseOrderItem(
                 id=IdentityEngine.generate_technical_id(),
                 uuid=IdentityEngine.generate_technical_id(),
                 order_id=po_id,
                 product_id=product.id,
                 item_id=getattr(product, "item_id", None),
+                variant_id=po_variant_id,
                 code=product.code or item.code,
                 name=product.name or item.name,
                 quantity=item.quantity,
@@ -711,47 +747,125 @@ class PurchaseService:
 
             item_tech_id = IdentityEngine.generate_technical_id()
             batch_no = item.batch_no or f"BATCH-{receipt_no}-{idx:02d}"
-
-            # Phase 6: Resolve or preserve batch_id and warehouse_location_id
             effective_batch_id = getattr(item, "batch_id", None)
-            effective_loc_id = getattr(item, "warehouse_location_id", None)
-            canonical_item_id = getattr(product, "item_id", None) or product.id
+            effective_loc_id = getattr(item, "warehouse_location_id", None) or getattr(item, "location_id", None)
 
-            if not effective_batch_id and batch_no:
-                try:
-                    from .item.item_tracking_svc import ItemTrackingService
-                    b_obj = await ItemTrackingService.resolve_or_create_batch(
-                        session=self.db,
-                        item_id=canonical_item_id,
-                        batch_number=batch_no,
-                        company_id=self.tenant.company_id,
-                        branch_id=self.tenant.branch_id,
-                        mfg_date=item.mfg_date,
-                        exp_date=item.expiry_date,
-                        mrp=item.mrp,
-                        cost_price=item.cost_price,
-                        auto_commit=False,
+            # Phase 6 & R-01: Resolve variant_id with strict ambiguity check
+            canonical_item_id = getattr(product, "item_id", None)
+            grn_variant_id = (
+                getattr(item, "variant_id", None)
+                or (getattr(target_po_line, "variant_id", None) if target_po_line else None)
+            )
+            if not grn_variant_id and canonical_item_id:
+                var_q = select(ItemVariant).where(
+                    ItemVariant.item_id == canonical_item_id,
+                    ItemVariant.company_id == self.tenant.company_id,
+                    ItemVariant.is_active == True,
+                    ItemVariant.is_deleted == False,
+                )
+                active_vars = (await self.db.execute(var_q)).scalars().all()
+                if len(active_vars) == 1:
+                    grn_variant_id = active_vars[0].id
+                elif len(active_vars) > 1:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "AMBIGUOUS_ITEM_VARIANT",
+                            "title": "Ambiguous Item Variant",
+                            "explanation": (
+                                f"Item '{product.code}' has {len(active_vars)} active variants. "
+                                "A specific variant_id must be provided; silent variant inference is prohibited."
+                            ),
+                            "suggested_action": "Specify the exact variant_id (Size/Color) being received in the GRN.",
+                            "line_no": idx,
+                            "available_variants": [{"id": v.id, "sku": v.variant_sku} for v in active_vars],
+                        },
                     )
-                    if b_obj:
-                        effective_batch_id = b_obj.id
-                except Exception:
-                    pass
+            elif not grn_variant_id:
+                grn_variant_id = getattr(product, "item_variant_id", None)
 
-            if not effective_loc_id and warehouse_id:
-                try:
-                    from .item.item_tracking_svc import ItemTrackingService
-                    l_obj = await ItemTrackingService.resolve_or_create_warehouse_location(
-                        session=self.db,
-                        item_id=canonical_item_id,
-                        warehouse_id=warehouse_id,
-                        company_id=self.tenant.company_id,
-                        branch_id=self.tenant.branch_id,
-                        auto_commit=False,
-                    )
-                    if l_obj:
-                        effective_loc_id = l_obj.id
-                except Exception:
-                    pass
+            # Phase 6 & R-01: Canonical Tracking Resolution vs Legacy Compatibility Path
+            # Product.item_id=None is a still-supported legacy compatibility path.
+            # When canonical_item_id is present, resolve canonical ItemBatch and ItemWarehouseLocation.
+            # When canonical_item_id is None, canonical ItemMaster entity tracking is bypassed
+            # because item_batches.item_id and item_warehouse_locations.item_id enforce items.id NOT NULL.
+            if canonical_item_id:
+                if not effective_batch_id and batch_no:
+                    try:
+                        from .item.item_tracking_svc import ItemTrackingService
+                        b_obj = await ItemTrackingService.resolve_or_create_batch(
+                            session=self.db,
+                            item_id=canonical_item_id,
+                            variant_id=grn_variant_id,
+                            batch_number=batch_no,
+                            company_id=self.tenant.company_id,
+                            branch_id=self.tenant.branch_id,
+                            mfg_date=item.mfg_date,
+                            exp_date=item.expiry_date,
+                            mrp=item.mrp,
+                            cost_price=item.cost_price,
+                            auto_commit=False,
+                        )
+                        if b_obj:
+                            effective_batch_id = b_obj.id
+                    except HTTPException:
+                        raise
+                    except Exception as exc:
+                        logger.error(
+                            f"[GRN BATCH RESOLUTION ERROR] Line {idx}: Failed to resolve or create batch '{batch_no}' "
+                            f"for item '{canonical_item_id}' (company '{self.tenant.company_id}'): {exc}",
+                            exc_info=True,
+                        )
+                        raise HTTPException(
+                            status_code=422,
+                            detail={
+                                "code": "BATCH_RESOLUTION_FAILED",
+                                "title": "Batch Tracking Resolution Failed",
+                                "explanation": f"Unable to resolve or create batch '{batch_no}' for product '{product.code}'.",
+                                "suggested_action": "Verify batch details and dates, or contact your system administrator.",
+                                "batch_no": batch_no,
+                                "error": str(exc),
+                            },
+                        ) from exc
+
+                if not effective_loc_id and warehouse_id:
+                    try:
+                        from .item.item_tracking_svc import ItemTrackingService
+                        l_obj = await ItemTrackingService.resolve_or_create_warehouse_location(
+                            session=self.db,
+                            item_id=canonical_item_id,
+                            warehouse_id=warehouse_id,
+                            company_id=self.tenant.company_id,
+                            branch_id=self.tenant.branch_id,
+                            auto_commit=False,
+                        )
+                        if l_obj:
+                            effective_loc_id = l_obj.id
+                    except HTTPException:
+                        raise
+                    except Exception as exc:
+                        logger.error(
+                            f"[GRN LOCATION RESOLUTION ERROR] Line {idx}: Failed to resolve or create warehouse location "
+                            f"for warehouse '{warehouse_id}' and item '{canonical_item_id}' (company '{self.tenant.company_id}'): {exc}",
+                            exc_info=True,
+                        )
+                        raise HTTPException(
+                            status_code=422,
+                            detail={
+                                "code": "WAREHOUSE_LOCATION_RESOLUTION_FAILED",
+                                "title": "Warehouse Location Resolution Failed",
+                                "explanation": f"Unable to resolve or create warehouse location for warehouse '{warehouse_id}' and product '{product.code}'.",
+                                "suggested_action": "Verify warehouse assignment or contact your system administrator.",
+                                "warehouse_id": warehouse_id,
+                                "error": str(exc),
+                            },
+                        ) from exc
+            else:
+                logger.info(
+                    f"[GRN LEGACY COMPATIBILITY] Line {idx}: Product '{product.code}' (id={product.id}) "
+                    "has no canonical item_id. Operating under still-supported legacy compatibility path "
+                    "(bypassing ItemBatch/ItemWarehouseLocation resolution as items.id FK is absent)."
+                )
 
             item_rows.append(PurchaseReceiptItem(
                 id=item_tech_id,
@@ -759,6 +873,7 @@ class PurchaseService:
                 receipt_id=receipt_id,
                 product_id=item.product_id,
                 item_id=getattr(product, "item_id", None),
+                variant_id=grn_variant_id,
                 purchase_order_id=target_po.id if target_po else None,
                 purchase_order_no=target_po.order_no if target_po else None,
                 purchase_order_line_id=target_po_line.id if target_po_line else None,
@@ -919,6 +1034,8 @@ class PurchaseService:
                 remarks=f"Inward GRN receipt {receipt_no} from supplier {req.supplier_id}",
                 batch_id=item_row.batch_id,
                 location_id=item_row.warehouse_location_id,
+                item_id=item_row.item_id,
+                variant_id=item_row.variant_id,
             )
 
             # Atomically update / upsert ProductCostValuation for retail multi-valuation COGS

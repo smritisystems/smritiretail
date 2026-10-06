@@ -29,6 +29,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select, or_, and_, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.item_master import (
@@ -225,6 +226,8 @@ class ItemTrackingService:
 
         batch = ItemBatch(
             id=f"batch_{uuid.uuid4().hex[:12]}",
+            company_id=item.company_id,
+            branch_id=item.branch_id,
             item_id=item.id,
             variant_id=b_data.variant_id or (item.variants[0].id if item.variants else None),
             batch_number=b_data.batch_number,
@@ -260,6 +263,8 @@ class ItemTrackingService:
         for s_data in serial_items:
             ser = ItemSerial(
                 id=f"ser_{uuid.uuid4().hex[:12]}",
+                company_id=item.company_id,
+                branch_id=item.branch_id,
                 item_id=item.id,
                 variant_id=s_data.variant_id or (item.variants[0].id if item.variants else None),
                 serial_number=s_data.serial_number,
@@ -324,6 +329,9 @@ class ItemTrackingService:
         Wired to stock_movements.batch_id, purchase_receipt_items.batch_id,
         sales_invoice_items.batch_id, and sales_return_items.batch_id.
         """
+        if not item_id:
+            return None
+
         clean_batch_no = str(batch_number).strip().upper()
         stmt = select(ItemBatch).where(
             ItemBatch.item_id == item_id,
@@ -331,7 +339,7 @@ class ItemTrackingService:
             ItemBatch.is_deleted == False,
         )
         if company_id:
-            stmt = stmt.where(or_(ItemBatch.company_id == company_id, ItemBatch.company_id.is_(None)))
+            stmt = stmt.where(ItemBatch.company_id == company_id)
         existing = (await session.execute(stmt)).scalars().first()
         if existing:
             return existing
@@ -349,12 +357,18 @@ class ItemTrackingService:
             cost_price=cost_price or Decimal("0.00"),
             is_active=True,
         )
-        session.add(batch)
-        if auto_commit:
-            await session.commit()
-        else:
-            await session.flush()
-        return batch
+        try:
+            async with session.begin_nested():
+                session.add(batch)
+                await session.flush()
+            if auto_commit:
+                await session.commit()
+            return batch
+        except IntegrityError:
+            existing = (await session.execute(stmt)).scalars().first()
+            if existing:
+                return existing
+            raise
 
     @classmethod
     async def resolve_or_create_serial(
@@ -374,6 +388,9 @@ class ItemTrackingService:
         Wired to stock_movements.serial_id, sales_invoice_items.serial_id,
         and sales_return_items.serial_id.
         """
+        if not item_id:
+            return None
+
         clean_serial = str(serial_number).strip().upper()
         stmt = select(ItemSerial).where(
             ItemSerial.item_id == item_id,
@@ -381,7 +398,7 @@ class ItemTrackingService:
             ItemSerial.is_deleted == False,
         )
         if company_id:
-            stmt = stmt.where(or_(ItemSerial.company_id == company_id, ItemSerial.company_id.is_(None)))
+            stmt = stmt.where(ItemSerial.company_id == company_id)
         existing = (await session.execute(stmt)).scalars().first()
         if existing:
             if status and existing.status != status:
@@ -401,12 +418,18 @@ class ItemTrackingService:
             warehouse_id=warehouse_id,
             is_active=True,
         )
-        session.add(ser)
-        if auto_commit:
-            await session.commit()
-        else:
-            await session.flush()
-        return ser
+        try:
+            async with session.begin_nested():
+                session.add(ser)
+                await session.flush()
+            if auto_commit:
+                await session.commit()
+            return ser
+        except IntegrityError:
+            existing = (await session.execute(stmt)).scalars().first()
+            if existing:
+                return existing
+            raise
 
     @classmethod
     async def resolve_or_create_warehouse_location(
@@ -427,13 +450,16 @@ class ItemTrackingService:
         Wired to stock_movements.location_id, purchase_receipt_items.warehouse_location_id,
         and sales_invoice_items.warehouse_location_id.
         """
+        if not item_id or not warehouse_id:
+            return None
+
         stmt = select(ItemWarehouseLocation).where(
             ItemWarehouseLocation.item_id == item_id,
             ItemWarehouseLocation.warehouse_id == warehouse_id,
             ItemWarehouseLocation.is_deleted == False,
         )
         if company_id:
-            stmt = stmt.where(or_(ItemWarehouseLocation.company_id == company_id, ItemWarehouseLocation.company_id.is_(None)))
+            stmt = stmt.where(ItemWarehouseLocation.company_id == company_id)
         existing = (await session.execute(stmt)).scalars().first()
         if existing:
             if location_bin and existing.location_bin != location_bin:
@@ -454,9 +480,15 @@ class ItemTrackingService:
             reorder_quantity=reorder_quantity,
             is_active=True,
         )
-        session.add(loc)
-        if auto_commit:
-            await session.commit()
-        else:
-            await session.flush()
-        return loc
+        try:
+            async with session.begin_nested():
+                session.add(loc)
+                await session.flush()
+            if auto_commit:
+                await session.commit()
+            return loc
+        except IntegrityError:
+            existing = (await session.execute(stmt)).scalars().first()
+            if existing:
+                return existing
+            raise

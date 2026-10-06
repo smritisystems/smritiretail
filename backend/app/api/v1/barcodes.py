@@ -70,23 +70,14 @@ async def get_placeholder_barcode(
     current_user: Any = Depends(get_current_user),
 ):
     """
-    Returns an authoritative service-governed placeholder barcode.
-    Policy rules:
-    - Default prefix is 'S' (e.g. S8A7F3D1B2C4E).
-    - Operators can override with explicit prefixes (GEN, SMRITI, SKU, VX, BRC).
-    - Setting prefix to empty string with allow_no_prefix=True returns a bare hex token.
+    [DISCONTINUED - ADR-001 / R-01]
+    Runtime synthetic barcode generation is discontinued.
+    Barcodes must be officially assigned or left unassigned.
     """
-    from ...services.item_master_svc import UniversalItemMasterService
-    barcode_val = UniversalItemMasterService.generate_placeholder_barcode(
-        prefix=prefix,
-        allow_no_prefix=allow_no_prefix,
+    raise HTTPException(
+        status_code=400,
+        detail="Synthetic placeholder barcode generation has been discontinued per SMRITI Item Master Governance (ADR-001/R-01). Official barcodes must be assigned or left unassigned.",
     )
-    return {
-        "barcode": barcode_val,
-        "prefix": prefix,
-        "is_placeholder": True,
-        "policy_default": "S",
-    }
 
 
 @router.post("/validate", response_model=BarcodeValidateResponse, summary="Validate Barcode Checksum")
@@ -110,6 +101,8 @@ async def compile_label(
     """Compiles product context into raw printer command streams (ZPL-II, TSPL, ESC/POS) scaled to DPI."""
     try:
         return BarcodesEngine.compile_label_stream(req)
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -132,6 +125,8 @@ async def dispatch_batch_print(
             req=req,
             created_by=user_id,
         )
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
