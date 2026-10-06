@@ -14,7 +14,7 @@ Classification: Internal — API v1 Controller
 
 # smriti_capability(entity="DATABRIDGE", capability="DATABRIDGE_CORE_FOUNDATION", role="ADAPTER", canonicalOwner="backend/app/services/databridge/service.py")
 
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,7 @@ from ...services.databridge.async_engine import DataBridgeAsyncEngine
 from ...services.databridge.export_engine import DataBridgeExportEngine
 from ...services.databridge.migration_engine import DataBridgeMigrationToolkit
 from ...services.databridge.schema_mapping_engine import DataBridgeSchemaMapper
+from ...services.databridge.connectors import DataBridgeConnectorOrchestrator
 from ...services.databridge.exceptions import (
     DataBridgeEntitlementError,
     DataBridgeTenantIsolationError,
@@ -64,6 +65,13 @@ from ...services.databridge.models import (
     DataBridgeTenantTransferResponse,
     DataBridgeSchemaDetectRequest,
     DataBridgeSchemaDetectResponse,
+    DataBridgeConnectorDescriptor,
+    DataBridgeConnectorTestRequest,
+    DataBridgeConnectorTestResponse,
+    DataBridgeConnectorPullRequest,
+    DataBridgeConnectorPullResponse,
+    DataBridgeConnectorPushRequest,
+    DataBridgeConnectorPushResponse,
 )
 
 
@@ -1003,6 +1011,80 @@ async def detect_schema_mapping_endpoint(
     Returns recommended field mappings, confidence scores, ambiguity flags, and missing required field reports.
     """
     return DataBridgeSchemaMapper.detect_schema(req)
+
+
+# ==============================================================================
+# PHASE 8 THIRD-PARTY CONNECTOR FRAMEWORK ENDPOINTS
+# ==============================================================================
+
+@router.get("/connectors", response_model=List[DataBridgeConnectorDescriptor], tags=["SMRITI DataBridge"])
+async def list_connectors_endpoint(
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "READ")),
+) -> List[DataBridgeConnectorDescriptor]:
+    """
+    Lists all available external enterprise connectors, supported entity domains, and configuration schemas.
+    """
+    return DataBridgeConnectorOrchestrator.list_connectors()
+
+
+@router.post("/connectors/test", response_model=DataBridgeConnectorTestResponse, tags=["SMRITI DataBridge"])
+async def test_connector_endpoint(
+    req: DataBridgeConnectorTestRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "READ")),
+) -> DataBridgeConnectorTestResponse:
+    """
+    Tests connectivity and validates credentials for a specific external connector.
+    """
+    try:
+        return await DataBridgeConnectorOrchestrator.test_connection(req)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/connectors/pull", response_model=DataBridgeConnectorPullResponse, tags=["SMRITI DataBridge"])
+async def pull_connector_endpoint(
+    req: DataBridgeConnectorPullRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "WRITE")),
+) -> DataBridgeConnectorPullResponse:
+    """
+    Pulls raw external records from connector (or parses provided payload)
+    and transforms them into canonical SMRITI DataBridge tabular rows ready for preview or ingestion.
+    """
+    try:
+        return await DataBridgeConnectorOrchestrator.pull_and_transform(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Connector pull failed: {str(exc)}") from exc
+
+
+@router.post("/connectors/push", response_model=DataBridgeConnectorPushResponse, tags=["SMRITI DataBridge"])
+async def push_connector_endpoint(
+    req: DataBridgeConnectorPushRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "WRITE")),
+) -> DataBridgeConnectorPushResponse:
+    """
+    Formats canonical SMRITI records into external vendor formats (e.g. TallyPrime XML, SAP B1 OData)
+    and dispatches outward synchronization payloads.
+    """
+    try:
+        return await DataBridgeConnectorOrchestrator.push_records(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Connector push failed: {str(exc)}") from exc
 
 
 

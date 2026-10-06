@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-E07BA0",
+  "entity": "databridge",
+  "capability": "databridge.migration_toolkit",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "migration_engine.py",
+  "target_file_path": "backend/app/services/databridge/migration_engine.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/migration_engine.py",
+  "content_hash": "3121e8f8988d9cc9ac51bcae84248e06c20e9e3f8bc38836ef2263b22270ebe6",
+  "git_commit": "76cffdcf16d8ad944eab68d2a4edf0952bcffe1a",
+  "issued_at": "2026-10-06T19:15:17.275501+00:00",
+  "expires_at": "2026-10-13T19:15:17.275501+00:00",
+  "status": "ISSUED"
+}

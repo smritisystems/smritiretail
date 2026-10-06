@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-62F8F4",
+  "entity": "databridge",
+  "capability": "databridge.catalog_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "variant_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/variant_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/variant_adapter.py",
+  "content_hash": "d337171ef28806d9b30a7ffe5e56c33bf73f06c83fa956c5bdaf722b9a308dfd",
+  "git_commit": "76cffdcf16d8ad944eab68d2a4edf0952bcffe1a",
+  "issued_at": "2026-10-06T19:15:18.222416+00:00",
+  "expires_at": "2026-10-13T19:15:18.222416+00:00",
+  "status": "ISSUED"
+}

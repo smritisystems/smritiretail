@@ -28,6 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.13] - 2026-10-06 — SMRITI Transaction DataBridge: External Third-Party Connector Framework & Bi-Directional Synchronizer (Phase 8)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Third-Party Connectors, TallyPrime, Shopify, SAP B1, Unicommerce
+> **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase8_Connector_Framework_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/foundation/DataBridge_Phase8_Connector_Framework_Plan_v1.0.0.md`
+
+### Added
+- **External Third-Party Connector Framework (`BaseDataBridgeConnector` & `DataBridgeConnectorOrchestrator`)**:
+  - Implemented decoupled, pluggable connector architecture under `backend/app/services/databridge/connectors/`.
+  - Built `TallyPrimeConnector`: Bi-directional XML DTD integration parsing `<ENVELOPE>` voucher daybooks with CGST/SGST ledger allocations, and serializing outbound SMRITI invoices into schema-valid Tally XML vouchers.
+  - Built `ShopifyConnector`: Ingests Shopify Admin API JSON for Products, Orders, and Customers; flattens hierarchical product variants and order line items with discounts and taxes into canonical tabular rows.
+  - Built `SAPB1Connector`: Normalizes SAP Business One Service Layer / DI-API OITM, OCRD, and OINV objects into canonical SMRITI rows.
+  - Built `UnicommerceConnector`: Ingests and normalizes Uniware multi-channel orders (Amazon, Flipkart, Myntra), channel partner metadata, shipping charges, and facility inventory adjustments.
+- **FastAPI Endpoints**:
+  - Mounted `GET /api/v1/databridge/connectors`, `POST /api/v1/databridge/connectors/test`, `POST /api/v1/databridge/connectors/pull`, and `POST /api/v1/databridge/connectors/push` in `backend/app/api/v1/databridge.py`.
+- **Automated Verification**:
+  - Added 7 authoritative verification test cases in `backend/tests/test_databridge_phase8_connectors.py` (`TC-CONN-001` through `007`).
+  - Verified 94/94 full regression tests green across Phases 1 through 8.
+
 ## [6.70.12] - 2026-10-06 — SMRITI Transaction DataBridge: Automated Schema Mapping Intelligence & Field Detection Engine (Phase 7)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Schema Intelligence, Field Detection, Content Profiling

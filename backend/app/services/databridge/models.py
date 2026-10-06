@@ -15,7 +15,8 @@ Classification: Internal — Foundation Service
 # smriti_capability(entity="DATABRIDGE", capability="DATABRIDGE_CORE_FOUNDATION", role="ADAPTER", canonicalOwner="backend/app/services/databridge/service.py")
 
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from enum import Enum
+from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field
 
 
@@ -460,4 +461,97 @@ class DataBridgeSchemaDetectResponse(BaseModel):
     analyzed_at: str
 
 
+# ==============================================================================
+# PHASE 8 THIRD-PARTY CONNECTOR FRAMEWORK CONTRACTS
+# ==============================================================================
 
+class DataBridgeConnectorType(str, Enum):
+    """Supported third-party connector types."""
+    TALLY_PRIME_XML = "TALLY_PRIME_XML"
+    SHOPIFY_REST = "SHOPIFY_REST"
+    SAP_B1_DIAPI = "SAP_B1_DIAPI"
+    UNICOMMERCE_API = "UNICOMMERCE_API"
+    CUSTOM_WEBHOOK = "CUSTOM_WEBHOOK"
+
+
+class DataBridgeConnectorConfig(BaseModel):
+    """Authentication and connection parameters for external connector."""
+    connector_type: DataBridgeConnectorType
+    endpoint_url: Optional[str] = None
+    api_key: Optional[str] = None
+    api_secret: Optional[str] = None
+    access_token: Optional[str] = None
+    company_code: Optional[str] = None
+    headers: Dict[str, str] = Field(default_factory=dict)
+    extra_params: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataBridgeConnectorDescriptor(BaseModel):
+    """Metadata describing a registered external connector."""
+    connector_type: DataBridgeConnectorType
+    name: str
+    version: str
+    description: str
+    supported_entities: List[str]
+    supports_pull: bool = True
+    supports_push: bool = True
+    config_schema: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataBridgeConnectorTestRequest(BaseModel):
+    """Request to test connector credentials/reachability."""
+    connector_type: DataBridgeConnectorType
+    config: DataBridgeConnectorConfig
+
+
+class DataBridgeConnectorTestResponse(BaseModel):
+    """Result of connector test execution."""
+    connector_type: str
+    is_successful: bool
+    status_message: str
+    latency_ms: float
+    tested_at: str
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataBridgeConnectorPullRequest(BaseModel):
+    """Request to pull and transform external records into canonical DataBridge rows."""
+    connector_type: DataBridgeConnectorType
+    entity_type: DataBridgeEntityType
+    config: DataBridgeConnectorConfig
+    params: Dict[str, Any] = Field(default_factory=dict)
+    raw_payload: Optional[Union[str, Dict[str, Any], List[Dict[str, Any]]]] = Field(
+        default=None, 
+        description="Optional pre-fetched raw payload (e.g. XML text or JSON) to parse without network call"
+    )
+
+
+class DataBridgeConnectorPullResponse(BaseModel):
+    """Result of connector pull and transformation."""
+    connector_type: str
+    entity_type: str
+    total_records_pulled: int
+    rows: List[Dict[str, Any]] = Field(default_factory=list)
+    pulled_at: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataBridgeConnectorPushRequest(BaseModel):
+    """Request to format and push canonical records to external format/system."""
+    connector_type: DataBridgeConnectorType
+    entity_type: DataBridgeEntityType
+    config: DataBridgeConnectorConfig
+    records: List[Dict[str, Any]] = Field(..., min_length=1)
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataBridgeConnectorPushResponse(BaseModel):
+    """Result of connector push / export transformation."""
+    connector_type: str
+    entity_type: str
+    total_records_pushed: int
+    payload_format: str  # "XML" | "JSON" | "HTTP_RESULT"
+    result_payload: Optional[str] = None
+    is_successful: bool = True
+    pushed_at: str
+    details: Dict[str, Any] = Field(default_factory=dict)

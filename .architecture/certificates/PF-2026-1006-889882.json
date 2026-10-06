@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-889882",
+  "entity": "databridge",
+  "capability": "databridge.core_foundation",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "service.py",
+  "target_file_path": "backend/app/services/databridge/service.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/service.py",
+  "content_hash": "452960ed0df5c8613e01bda6f63279c78e39a8550913dbaa6dd82096169587fa",
+  "git_commit": "76cffdcf16d8ad944eab68d2a4edf0952bcffe1a",
+  "issued_at": "2026-10-06T19:15:16.696175+00:00",
+  "expires_at": "2026-10-13T19:15:16.696175+00:00",
+  "status": "ISSUED"
+}

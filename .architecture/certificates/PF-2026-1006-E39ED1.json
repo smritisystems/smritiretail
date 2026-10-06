@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-E39ED1",
+  "entity": "databridge",
+  "capability": "databridge.connector_framework",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "base.py",
+  "target_file_path": "backend/app/services/databridge/connectors/base.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/connectors/base.py",
+  "content_hash": "030e7b0b8551b6bbfe141f0ad69949ce1ebe54bff247e602faa472998c6594a2",
+  "git_commit": "76cffdcf16d8ad944eab68d2a4edf0952bcffe1a",
+  "issued_at": "2026-10-06T19:15:17.520286+00:00",
+  "expires_at": "2026-10-13T19:15:17.520286+00:00",
+  "status": "ISSUED"
+}
