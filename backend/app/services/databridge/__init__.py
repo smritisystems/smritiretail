@@ -59,10 +59,16 @@ from .models import (
     DataBridgeRollbackResponse,
     DataBridgeTenantTransferRequest,
     DataBridgeTenantTransferResponse,
+    DataBridgeCandidateMatch,
+    DataBridgeColumnMapping,
+    DataBridgeSchemaDetectRequest,
+    DataBridgeMissingField,
+    DataBridgeSchemaDetectResponse,
 )
 from .async_engine import DataBridgeAsyncEngine
 from .export_engine import DataBridgeExportEngine
 from .migration_engine import DataBridgeMigrationToolkit
+from .schema_mapping_engine import DataBridgeSchemaMapper
 from .adapters import (
     BaseDataBridgeAdapter,
     DataBridgeItemAdapter,
@@ -76,6 +82,7 @@ __all__ = [
     "DataBridgeAsyncEngine",
     "DataBridgeExportEngine",
     "DataBridgeMigrationToolkit",
+    "DataBridgeSchemaMapper",
     "DataBridgeExportFormat",
     "DataBridgeExportRequest",
     "DataBridgeExportResponse",
@@ -83,6 +90,11 @@ __all__ = [
     "DataBridgeRollbackResponse",
     "DataBridgeTenantTransferRequest",
     "DataBridgeTenantTransferResponse",
+    "DataBridgeCandidateMatch",
+    "DataBridgeColumnMapping",
+    "DataBridgeSchemaDetectRequest",
+    "DataBridgeMissingField",
+    "DataBridgeSchemaDetectResponse",
     "DataBridgeError",
     "DataBridgeEntitlementError",
     "DataBridgeTenantIsolationError",

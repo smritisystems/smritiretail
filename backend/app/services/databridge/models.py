@@ -403,3 +403,61 @@ class DataBridgeTenantTransferResponse(BaseModel):
     executed_at: str
 
 
+# ==============================================================================
+# PHASE 7 SCHEMA MAPPING INTELLIGENCE CONTRACTS
+# ==============================================================================
+
+class DataBridgeCandidateMatch(BaseModel):
+    """Candidate field match with confidence score."""
+    field_key: str
+    field_label: str
+    score: float
+    reason: str
+
+
+class DataBridgeColumnMapping(BaseModel):
+    """Mapping recommendation for a single input spreadsheet column."""
+    source_header: str
+    source_index: int
+    mapped_field_key: Optional[str] = None
+    mapped_field_label: Optional[str] = None
+    confidence: str  # "EXACT" | "HIGH" | "MEDIUM" | "LOW" | "AMBIGUOUS" | "UNMAPPED"
+    confidence_score: float  # 0.0 to 1.0
+    is_required: bool = False
+    is_statutory: bool = False
+    is_ambiguous: bool = False
+    match_reason: str
+    candidates: List[DataBridgeCandidateMatch] = Field(default_factory=list)
+
+
+class DataBridgeSchemaDetectRequest(BaseModel):
+    """Payload to request automated schema mapping detection."""
+    entity_type: DataBridgeEntityType
+    headers: List[str] = Field(..., min_length=1, description="List of raw column headers from file")
+    sample_rows: Optional[List[Dict[str, Any]]] = Field(default=None, description="Optional 1-10 sample data rows for content-aware profiling")
+
+
+class DataBridgeMissingField(BaseModel):
+    """Details of a missing required or statutory field."""
+    field_key: str
+    field_label: str
+    is_statutory: bool = False
+    reason: str
+
+
+class DataBridgeSchemaDetectResponse(BaseModel):
+    """Report containing detected column mappings and missing field validation."""
+    entity_type: str
+    columns: List[DataBridgeColumnMapping] = Field(default_factory=list)
+    exact_count: int = 0
+    high_count: int = 0
+    medium_count: int = 0
+    low_count: int = 0
+    ambiguous_count: int = 0
+    unmapped_count: int = 0
+    missing_required_fields: List[DataBridgeMissingField] = Field(default_factory=list)
+    is_valid_for_import: bool = False
+    analyzed_at: str
+
+
+
