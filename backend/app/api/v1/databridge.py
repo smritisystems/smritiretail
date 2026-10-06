@@ -31,6 +31,7 @@ from ...services.databridge.service import DataBridgeService
 from ...services.databridge.async_engine import DataBridgeAsyncEngine
 from ...services.databridge.export_engine import DataBridgeExportEngine
 from ...services.databridge.migration_engine import DataBridgeMigrationToolkit
+from ...services.databridge.schema_mapping_engine import DataBridgeSchemaMapper
 from ...services.databridge.exceptions import (
     DataBridgeEntitlementError,
     DataBridgeTenantIsolationError,
@@ -61,6 +62,8 @@ from ...services.databridge.models import (
     DataBridgeRollbackResponse,
     DataBridgeTenantTransferRequest,
     DataBridgeTenantTransferResponse,
+    DataBridgeSchemaDetectRequest,
+    DataBridgeSchemaDetectResponse,
 )
 
 
@@ -981,6 +984,26 @@ async def replicate_tenant_dataset_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
     except DataBridgeError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+
+
+# ==============================================================================
+# PHASE 7 SCHEMA MAPPING INTELLIGENCE ENDPOINTS
+# ==============================================================================
+
+@router.post("/schema/detect", response_model=DataBridgeSchemaDetectResponse, tags=["SMRITI DataBridge"])
+async def detect_schema_mapping_endpoint(
+    req: DataBridgeSchemaDetectRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "READ")),
+) -> DataBridgeSchemaDetectResponse:
+    """
+    Analyzes raw spreadsheet column headers and optional sample rows.
+    Returns recommended field mappings, confidence scores, ambiguity flags, and missing required field reports.
+    """
+    return DataBridgeSchemaMapper.detect_schema(req)
+
 
 
 

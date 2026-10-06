@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.12] - 2026-10-06 — SMRITI Transaction DataBridge: Automated Schema Mapping Intelligence & Field Detection Engine (Phase 7)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Schema Intelligence, Field Detection, Content Profiling
+> **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase7_Schema_Mapping_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/foundation/DataBridge_Phase7_Schema_Mapping_Plan_v1.0.0.md`
+
+### Added
+- **Automated Schema Mapping Intelligence Engine (`DataBridgeSchemaMapper`)**:
+  - Implemented multi-tier server-side schema detection engine under `backend/app/services/databridge/schema_mapping_engine.py`.
+  - Built O(1) dictionary alias resolver across all 15 business retail entities.
+  - Implemented token-distance fuzzy string similarity (normalized Levenshtein and token Jaccard word overlap).
+  - Built statutory regex content profiler inspecting sample row data (15-digit GSTIN, 10-digit PAN, 10-digit Indian mobile, email, PIN code, barcode, dates), elevating match confidence up to 0.98.
+  - Implemented candidate ambiguity arbitration flagging competing fields when scores differ by $\le 0.06$.
+  - Added missing mandatory/statutory field validation report.
+- **FastAPI Endpoint**:
+  - Added `POST /api/v1/databridge/schema/detect` in `backend/app/api/v1/databridge.py`.
+- **Automated Verification**:
+  - Added 7 authoritative verification test cases in `backend/tests/test_databridge_phase7_schema_mapping.py` (`TC-MAP-001` through `007`).
+  - Verified 87/87 full regression tests green across Phases 1 through 7.
+
 ## [6.70.11] - 2026-10-06 — SMRITI Transaction DataBridge: Multi-Tenant Enterprise Data Migration & Rollback Toolkit (Phase 6)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Enterprise Migration, Reversible Rollback Engine

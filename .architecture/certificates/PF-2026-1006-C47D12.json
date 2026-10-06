@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-C47D12",
+  "entity": "databridge",
+  "capability": "databridge.party_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "supplier_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/supplier_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/supplier_adapter.py",
+  "content_hash": "f68e57d4250e7e4ec59600e231694b91ef4552e7cce69b46f379670d585afd0e",
+  "git_commit": "06410b21c84839ae929288109902a75ecdecfcc5",
+  "issued_at": "2026-10-06T16:46:26.346087+00:00",
+  "expires_at": "2026-10-13T16:46:26.346087+00:00",
+  "status": "ISSUED"
+}
