@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.11] - 2026-10-06 — SMRITI Transaction DataBridge: Multi-Tenant Enterprise Data Migration & Rollback Toolkit (Phase 6)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Enterprise Migration, Reversible Rollback Engine
+> **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase6_Migration_Rollback_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/foundation/DataBridge_Phase6_Migration_Rollback_Plan_v1.0.0.md`
+
+### Added
+- **Multi-Tenant Migration & Reversible Rollback Engine (`DataBridgeMigrationToolkit`)**:
+  - Implemented canonical rollback toolkit under `backend/app/services/databridge/migration_engine.py`.
+  - Enforced Statutory Immutability Doctrine prohibiting hard SQL DELETE queries and executing deterministic soft-deletions (`is_deleted = True`, `deleted_at = now()`, `deleted_by = actor_id`).
+  - Implemented downstream transaction locks preventing destructive rollbacks of entities referenced in active fiscal operations (`SMRITI-ROLLBACK-DOWNSTREAM-LOCKED`).
+  - Added non-mutating dry-run impact simulation (`dry_run = True`).
+  - Recorded tamper-evident chained WORM audit logs (`ComplianceImmutableAuditLog`, `DATABRIDGE_ROLLBACK_EXECUTED`).
+  - Implemented cross-tenant data replication via sealed SMRITI-X envelopes supporting `PREVIEW_ONLY` and `COMMIT` modes with automatic company scoping.
+- **FastAPI Endpoints**:
+  - Added `POST /api/v1/databridge/rollback` and `POST /api/v1/databridge/sync/tenant-transfer` in `backend/app/api/v1/databridge.py`.
+- **Automated Verification**:
+  - Added 7 authoritative verification test cases in `backend/tests/test_databridge_phase6_migration_rollback.py` (`TC-MIGR-001` through `007`).
+  - Verified 80/80 full regression tests green across Phases 1 through 6.
+
 ## [6.70.10] - 2026-10-06 — SMRITI Transaction DataBridge: Multi-Format Streaming Exporter & Strangler-Fig Legacy Migration (Phase 5)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Streaming Data Export, Strangler-Fig Pattern

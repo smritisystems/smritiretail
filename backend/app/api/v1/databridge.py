@@ -30,6 +30,7 @@ from ...models.capability_template import TenantCapabilityBinding
 from ...services.databridge.service import DataBridgeService
 from ...services.databridge.async_engine import DataBridgeAsyncEngine
 from ...services.databridge.export_engine import DataBridgeExportEngine
+from ...services.databridge.migration_engine import DataBridgeMigrationToolkit
 from ...services.databridge.exceptions import (
     DataBridgeEntitlementError,
     DataBridgeTenantIsolationError,
@@ -56,6 +57,10 @@ from ...services.databridge.models import (
     DataBridgeExportFormat,
     DataBridgeExportRequest,
     DataBridgeExportResponse,
+    DataBridgeRollbackRequest,
+    DataBridgeRollbackResponse,
+    DataBridgeTenantTransferRequest,
+    DataBridgeTenantTransferResponse,
 )
 
 
@@ -908,6 +913,75 @@ async def export_entity_dataset_post(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
     except DataBridgeError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+
+
+# ==============================================================================
+# PHASE 6 MIGRATION TOOLKIT & ROLLBACK ENDPOINTS
+# ==============================================================================
+
+@router.post("/rollback", response_model=DataBridgeRollbackResponse, tags=["SMRITI DataBridge"])
+async def rollback_import_batch_endpoint(
+    req: DataBridgeRollbackRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "EXECUTE")),
+    company_db: AsyncSession = Depends(get_company_db),
+) -> DataBridgeRollbackResponse:
+    """
+    Executes a deterministic rollback of newly created records for a batch or job.
+    Soft-deletes records adhering to the Statutory Immutability Doctrine and records chained WORM audit logs.
+    """
+    try:
+        actor_role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+        return await DataBridgeMigrationToolkit.execute_rollback(
+            company_db=company_db,
+            company_id=tenant.company_id,
+            actor_id=current_user.id,
+            actor_role=actor_role,
+            req=req,
+        )
+    except DataBridgePermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
+    except DataBridgeValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+    except DataBridgeTenantIsolationError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
+    except DataBridgeError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+
+
+@router.post("/sync/tenant-transfer", response_model=DataBridgeTenantTransferResponse, tags=["SMRITI DataBridge"])
+async def replicate_tenant_dataset_endpoint(
+    req: DataBridgeTenantTransferRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "EXECUTE")),
+    company_db: AsyncSession = Depends(get_company_db),
+) -> DataBridgeTenantTransferResponse:
+    """
+    Replicates data between tenant company databases using canonical SMRITI-X envelopes.
+    Supports preview-only validation or direct atomic commit.
+    """
+    try:
+        actor_role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+        return await DataBridgeMigrationToolkit.execute_tenant_transfer(
+            source_db=company_db,
+            target_db=company_db,
+            actor_id=current_user.id,
+            actor_role=actor_role,
+            req=req,
+        )
+    except DataBridgePermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
+    except DataBridgeValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+    except DataBridgeTenantIsolationError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
+    except DataBridgeError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+
 
 
 
