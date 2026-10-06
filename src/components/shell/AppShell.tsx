@@ -43,7 +43,7 @@ const mapModuleToContext = (moduleId: string): BusinessContext => {
   if (['stock-ledger', 'barcode', 'inventory', 'terms-engine'].includes(moduleId)) {
     return 'inventory';
   }
-  if (['item-master', 'item-create-grid', 'customer-master', 'masters', 'document-series'].includes(moduleId)) {
+  if (['item-master', 'item-create-grid', 'customer-master', 'masters', 'document-series', 'databridge', 'data-bridge'].includes(moduleId)) {
     return 'masters';
   }
   if (['report-designer', 'business-ledger', 'audit-logs', 'accounting-sync', 'data-exchange'].includes(moduleId)) {

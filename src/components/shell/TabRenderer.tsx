@@ -78,6 +78,7 @@ const SupplierDashboardTab = lazy(() => import("../SupplierDashTab.tsx").then(m 
 const ProPosWs = lazy(() => import("../billing/propos/ProPosWs.tsx").then(m => ({ default: m.ProPosWs })));
 const DocumentStudioScreen = lazy(() => import("../global/document/DocStudioScreen.tsx").then(m => ({ default: m.DocumentStudioScreen })));
 const BulkImportSection = lazy(() => import("../BulkImportSection.tsx").then(m => ({ default: m.BulkImportSection })));
+const DataBridgeWorkspace = lazy(() => import("../databridge/DataBridgeWorkspace.tsx").then(m => ({ default: m.DataBridgeWorkspace })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -210,6 +211,9 @@ export const mapModuleId = (id: string): string => {
     "bulk-import": "bulk-import-sheet",
     "attribute-import-sheet": "bulk-import-sheet",
     "menu-bulk-import": "bulk-import-sheet",
+    "databridge": "databridge",
+    "data-bridge": "databridge",
+    "menu-databridge": "databridge",
   };
   return map[id] || id;
 };
@@ -578,6 +582,9 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           onNotification={addNotification}
         />
       );
+    case "databridge":
+    case "data-bridge":
+      return <DataBridgeWorkspace currentUser={currentUser} onNotification={addNotification} />;
     default:
       return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
   }

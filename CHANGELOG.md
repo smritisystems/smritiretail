@@ -28,6 +28,100 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.9] - 2026-10-06 — SMRITI Transaction DataBridge: Party Masters, Procurement, Sales, Inventory Movement & High-Volume Async Queue (Phases 3A-3D, Phase 4)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Party Masters, Procurement, Sales, Inventory, Asynchronous Task Queue
+> **Walkthroughs:**
+> - `docs/walkthrough/foundation/DataBridge_Phase3A_Party_Adapters_v1.0.0.md`
+> - `docs/walkthrough/foundation/DataBridge_Phase3B_Procurement_Adapters_v1.0.0.md`
+> - `docs/walkthrough/foundation/DataBridge_Phase3C_Sales_Adapters_v1.0.0.md`
+> - `docs/walkthrough/foundation/DataBridge_Phase3D_Inventory_Adapters_v1.0.0.md`
+> - `docs/walkthrough/foundation/DataBridge_Phase4_Async_Queue_v1.0.0.md`
+> **Implementation Plans:**
+> - `docs/implementation/foundation/DataBridge_Phase3A_Party_Adapters_Implementation_Plan_v1.0.0.md`
+> - `docs/implementation/foundation/DataBridge_Phase3B_Procurement_Adapters_Implementation_Plan_v1.0.0.md`
+> - `docs/implementation/foundation/DataBridge_Phase3C_Sales_Adapters_Implementation_Plan_v1.0.0.md`
+> - `docs/implementation/foundation/DataBridge_Phase3D_Inventory_Adapters_Implementation_Plan_v1.0.0.md`
+> - `docs/implementation/foundation/DataBridge_Phase4_Async_Queue_Implementation_Plan_v1.0.0.md`
+
+### Added
+- **Party Masters Domain Adapters (Phase 3A)**:
+  - Canonical domain adapters for `CUSTOMER` and `SUPPLIER` under `backend/app/services/databridge/adapters/`.
+  - Commercial alias header mapping in `HeaderAliasRegistry.ts` for CRM and vendor fields.
+  - Statutory GSTIN verification using `app.core.gst_engine.validate_gstin`.
+  - Phone and code conflict detection (`SMRITI-CONFL-CUST-PHONE`, `SMRITI-CONFL-CUST-GSTIN`, `SMRITI-CONFL-SUPP-GSTIN`).
+  - Governed identity allocation via `IdentityEngine.allocate_internal` allocating canonical UUIDv7 IDs (`CRM-CUS-*`, `PUR-SUP-*`).
+  - REST endpoints `/customer/preview`, `/customer/commit`, `/supplier/preview`, `/supplier/commit`.
+- **Inward Procurement Documents Adapters (Phase 3B)**:
+  - Canonical domain adapters for `PURCHASE_ORDER`, `GOODS_RECEIPT_NOTE`, `PURCHASE_INVOICE`, `PURCHASE_DEBIT_NOTE`.
+  - Multi-line document aggregation (`group_rows`) by document identifiers (`order_no`, `receipt_no`, `bill_no`, `debit_note_no`).
+  - Missing master auto-resolution (`_resolve_or_create_supplier`, product auto-provisioning via `IdentityEngine.allocate_internal`).
+  - Statutory tax invariant validation (`taxable_amount + tax_amount == total_amount`).
+  - REST endpoints `/purchase-order/*`, `/grn/*`, `/purchase-invoice/*`, `/purchase-debit-note/*`.
+- **Outward Sales Documents Adapters (Phase 3C)**:
+  - Canonical domain adapters for `SALES_INVOICE`, `SALES_RETURN`, `SALES_ORDER`.
+  - Document grouping for multi-line retail and B2B invoices (`invoice_no`, `order_no`, `return_no`).
+  - Customer auto-resolution and provisioning via `IdentityEngine.allocate_internal`.
+  - Historical invoice stubbing for sales returns with legacy references.
+  - REST endpoints `/sales-invoice/*`, `/sales-order/*`, `/sales-return/*`.
+- **Physical Inventory Movement Adapters (Phase 3D)**:
+  - Canonical domain adapters for `STOCK_TRANSFER` and `STOCK_AUDIT`.
+  - Multi-line grouping by transfer number (`transfer_no`) and audit number (`audit_no`).
+  - Dual warehouse validation detecting same-warehouse conflict (`source_warehouse_id != dest_warehouse_id` raising `SMRITI-VAL-WAREHOUSE-SAME`).
+  - Automatic stock audit variance calculation (`variance_qty = counted_qty - system_qty`, `variance_value = variance_qty * unit_cost`).
+  - REST endpoints `/stock-transfer/*`, `/stock-audit/*`.
+- **High-Volume Asynchronous Import Engine & Chunked Queue (Phase 4)**:
+  - Canonical transactional outbox processing engine `DataBridgeAsyncEngine` (`backend/app/services/databridge/async_engine.py`).
+  - Asynchronous lifecycle states: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`.
+  - PostgreSQL tenant-level outbox staging via `IntegrationOutboxEvent` (`target_channel="DATABRIDGE_ASYNC_JOB"`).
+  - Non-blocking worker queue pump via `SELECT FOR UPDATE SKIP LOCKED`.
+  - Discrete chunk-by-chunk transaction commit cycles with progressive metrics reporting.
+  - Tamper-evident cryptographic WORM audit logging in `compliance_immutable_audit_logs`.
+  - 24-hour duplicate prevention with SHA-256 idempotency hashing.
+  - REST endpoints `/async/submit` (HTTP 202 Accepted), `/async/status/{job_id}`, `/async/process-next`, `/async/cancel/{job_id}`.
+  - Frontend threshold routing (>5,000 rows) with real-time polling in `DataBridgeWorkspace.tsx`.
+
+### Verified
+- Automated test coverage across all 7 DataBridge test suites (66/66 tests passing).
+- Zero database migrations, zero mutations of live tenant data.
+- Frontend TypeScript compiler check (`tsc --noEmit`): exit 0.
+- Architecture duplication CI gate (`npm run architecture:check`): 11/11 checks passed, 0 violations.
+
+## [6.70.8] - 2026-10-06 — SMRITI DataBridge v1.0: Enterprise Ingestion Foundation, Catalog Adapters, Workspace UX & Visual QA
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Catalog Adapters, Workspace UX, Visual QA
+> **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Visual_QA_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/foundation/DataBridge_Enterprise_Architecture_v1.0.0.md`
+
+### Added
+- **DataBridge Core Foundation (Phase 1)**:
+  - Registered enterprise capability `cap_databridge` (`DATABRIDGE`, `PLATFORM`) and mounted governed REST namespace `/api/v1/databridge`.
+  - Implemented `/status` and `/contract/ping` endpoints enforcing canonical 7-stage security chain: `AUTH` -> `TenantContext` -> `Capability Entitlement` -> `RBAC` -> `Company DB` -> `Operation` -> `WORM Audit`.
+  - Enforced strict tenant boundary isolation rejecting control plane `smritisys` sessions with `SMRITI-TENANT-001`.
+  - Cryptographic WORM audit logging via SHA-256 digests in `compliance_immutable_audit_logs`.
+- **Catalog Domain Ingestion Adapters (Phase 2)**:
+  - Implemented canonical catalog adapters (`ItemAdapter`, `VariantAdapter`, `BarcodeAdapter`, `PriceBookAdapter`) under `backend/app/services/databridge/adapters/`.
+  - Established unified 7-stage intake lifecycle: `normalize` -> `validate` -> `match` -> `diff` -> `classify` -> `preview` -> `commit`.
+  - Enforced 4-rule barcode immutability with strict cross-SKU clash rejection.
+  - Implemented in-memory zero-mutation preview engine with cryptographic payload digests and 30-minute expiry windows.
+  - Enforced mandatory explicit user confirmation (`confirmed=True`) and atomic transaction rollbacks on commit failures.
+- **Dedicated DataBridge Workspace & 8-Step Import Wizard**:
+  - Implemented primary workspace shell `DataBridgeWorkspace.tsx` adhering to "Power of an Enterprise ERP, Simplicity of WhatsApp".
+  - 8-Step intake wizard: Choose Data -> Select Entity -> Map Fields -> Validate -> Preview -> Review Issues -> Commit -> Result.
+  - Built Diff View Modal (`DiffViewModal.tsx`) with progressive disclosure highlighting changed attributes.
+  - Built Conflict & Issue Review Modal (`IssueReviewModal.tsx`) providing human-readable explanations ("Why this happened?", "What SMRITI found", "What you should do").
+  - Enforced Commit Guard (`CommitConfirmationModal.tsx`) hard-disabling imports when blocking errors or barcode clashes exist.
+  - Built Import History ledger (`DataBridgeHistoryView.tsx`) and pre-configured catalog CSV templates modal (`DataBridgeTemplatesModal.tsx`).
+  - Integrated into Fiori Launchpad under `DATA & CONFIG` (Shortcut: `F11`) and `masters` navigation context.
+
+### Verified & Certified
+- **Headless Visual QA & E2E Verification Suite**:
+  - Executed automated headless Playwright test suite (`scripts/capture_databridge_qa_screenshots.py`) with zero visual defects and zero unhandled console errors.
+  - Captured 18 high-resolution visual evidence screenshots across desktop (1920×1080, 1366×768), tablet (768×1024), and mobile (390×844) viewports.
+  - 25/25 backend Pytest tests passed green in `test_databridge_phase1.py` and `test_databridge_phase2_catalog.py`.
+  - 22/22 frontend Vitest tests passed green in `databridgeWorkspace.test.ts` and `fioriLaunchpad.test.ts`.
+  - Clean TypeScript compilation (`tsc --noEmit` exit 0) and 11/11 architecture duplication checks passed.
+
 ## [6.70.7-R01] - 2026-10-06 — SMRITI Item Master Phase R-01: Runtime Safety Hardening & Concurrency Protection
 
 > **Branch:** `smritiNX` | **Area:** Inventory, Item Master, Procurement, Barcodes, Concurrency Hardening

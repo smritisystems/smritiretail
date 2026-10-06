@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-82251F",
+  "entity": "databridge",
+  "capability": "databridge.async_engine",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "async_engine.py",
+  "target_file_path": "backend/app/services/databridge/async_engine.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/async_engine.py",
+  "content_hash": "d46d815d61bdfd53fe68f4e86b9fda98bafae9a90b800f3066981730a42b6a0e",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T15:13:27.350101+00:00",
+  "expires_at": "2026-10-13T15:13:27.350101+00:00",
+  "status": "ISSUED"
+}

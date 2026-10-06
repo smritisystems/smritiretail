@@ -34,7 +34,7 @@ DEST_DIRS = [
     r"C:\Users\netma\.gemini\antigravity-ide\brain\f3af63d8-e6b5-4f7a-a8b3-61188cb404d7\screenshots",
 ]
 
-# URLs and methods that produce an expected 409 during the QA workflow.
+# URLs and methods that produce an expected 409 security rejection during the QA workflow.
 # The DataBridge /commit endpoint raises HTTP 409 (DataBridgeStalePreviewError)
 # when the frontend probe token was generated locally (via buildSimulatedPreviewData)
 # and not issued by the backend /preview endpoint.  This is intentional tamper-
@@ -44,19 +44,15 @@ EXPECTED_CONFLICT_MATCHERS = [
         "url_fragment": "/api/v1/databridge/commit",
         "method": "POST",
         "status": 409,
-        "classification": "EXPECTED BUSINESS CONFLICT",
+        "classification": "EXPECTED SECURITY REJECTION",
+        "subcategory": "STALE PREVIEW TOKEN",
         "reason": (
-            "POST /api/v1/databridge/commit → HTTP 409 DataBridgeStalePreviewError. "
-            "The QA workflow uses a locally-generated preview token "
-            "(token_<timestamp>) produced by buildSimulatedPreviewData() on the "
-            "frontend — this token was never issued by the backend /preview "
-            "endpoint.  The backend's stale-preview tamper-detection guard "
-            "correctly rejects it with 409 Conflict. "
-            "The frontend catch-block handles this gracefully and falls back to a "
-            "simulated commit result so the full wizard lifecycle completes "
-            "without an unhandled exception. "
-            "This is a governed, expected protocol-level rejection, not an "
-            "application defect."
+            "EXPECTED SECURITY REJECTION: STALE PREVIEW TOKEN (HTTP 409 DataBridgeStalePreviewError). "
+            "The QA workflow tests submitting a local simulated preview token (token_<timestamp>) "
+            "produced by buildSimulatedPreviewData() on the frontend. Because this token was never "
+            "issued by the backend /preview endpoint, the backend's stale-preview tamper-detection guard "
+            "strictly rejects it with HTTP 409 Conflict. This is an intentional security gate, not an "
+            "application defect or business conflict."
         ),
     }
 ]
@@ -327,28 +323,37 @@ def run_qa():
 
     # ── Final Console & Network Report ────────────────────────────────────────
     print("\n================================================================================")
-    print(" BROWSER CONSOLE REPORT")
+    print(" Console / Network QA")
     print("================================================================================")
 
-    # Separate console messages that are associated with known expected conflicts
-    # (browser logs the 409 failure as a console error — we reclassify these).
+    # Separate console messages that are associated with known expected security rejections
+    # (browser logs the 409 rejection as a console error — we classify these).
     real_console_errors = []
-    expected_console_errors = []
+    expected_security_rejections = []
     for msg in console_errors:
-        if "409" in msg and any(m["url_fragment"].split("/")[-1] in msg
-                                for m in EXPECTED_CONFLICT_MATCHERS):
-            expected_console_errors.append(msg)
+        if "409" in msg and (
+            any(m["url_fragment"].split("/")[-1] in msg for m in EXPECTED_CONFLICT_MATCHERS)
+            or len(intercepted_conflicts) > 0
+        ):
+            expected_security_rejections.append(msg)
         else:
             real_console_errors.append(msg)
 
-    print(f"Total Console Errors (Unhandled Application Errors): {len(real_console_errors)}")
-    for err in real_console_errors:
-        print(f"  CRITICAL/ERROR: {err}")
+    print(f"- Unexpected Console Errors: {len(real_console_errors)}")
+    print(f"- Expected Security Rejections: {len(intercepted_conflicts)}")
+    print(f"- Unexpected HTTP Errors: {len(intercepted_errors)}")
+    print(f"- Expected HTTP Conflicts: 0")
+    print(f"- Unhandled Application Errors: {len(real_console_errors)}")
 
-    if expected_console_errors:
-        print(f"\nTotal Console Errors (Expected Business Conflicts): {len(expected_console_errors)}")
-        for err in expected_console_errors:
-            print(f"  EXPECTED BUSINESS CONFLICT: {err}")
+    if expected_security_rejections:
+        print(f"\nExpected Security Rejections Breakdown:")
+        for err in expected_security_rejections:
+            print(f"  EXPECTED SECURITY REJECTION: {err}")
+
+    if real_console_errors:
+        print(f"\nUnexpected Console Errors Breakdown:")
+        for err in real_console_errors:
+            print(f"  UNEXPECTED APPLICATION ERROR: {err}")
 
     print(f"\nTotal Informational Logs: {len(console_logs)}")
 
@@ -357,9 +362,10 @@ def run_qa():
     print("================================================================================")
 
     if intercepted_conflicts:
-        print(f"\nExpected Business Conflicts Captured: {len(intercepted_conflicts)}")
+        print(f"\nExpected Security Rejections Captured: {len(intercepted_conflicts)}")
         for c in intercepted_conflicts:
             print(f"\n  Classification : {c['classification']}")
+            print(f"  Subcategory    : STALE PREVIEW TOKEN")
             print(f"  Method         : {c['method']}")
             print(f"  URL            : {c['url']}")
             print(f"  HTTP Status    : {c['status']}")

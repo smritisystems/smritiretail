@@ -1,0 +1,316 @@
+"""
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 1.0.0
+Created      : 2026-10-06
+Modified     : 2026-10-06
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal — Foundation Service
+"""
+
+# smriti_capability(entity="DATABRIDGE", capability="DATABRIDGE_CORE_FOUNDATION", role="ADAPTER", canonicalOwner="backend/app/services/databridge/service.py")
+
+from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field
+
+
+class DataBridgeStatusResponse(BaseModel):
+    """Authoritative status response for SMRITI DataBridge capability."""
+
+    status: str = Field(default="ONLINE", description="Operational status: ONLINE | DEGRADED | MAINTENANCE")
+    capability_code: str = Field(default="DATABRIDGE", description="System capability code")
+    version: str = Field(default="1.0.0", description="DataBridge subsystem release version")
+    exchange_standard: str = Field(default="SMRITI-X v1.0", description="Canonical exchange standard")
+    supported_formats: List[str] = Field(
+        default=["JSON", "CSV", "XLSX"],
+        description="Supported data interchange formats"
+    )
+    tenant_id: str = Field(..., description="Tenant identity domain")
+    company_id: str = Field(..., description="Active business company ID")
+    branch_id: Optional[str] = Field(default=None, description="Active branch ID")
+    resolved_database: str = Field(..., description="Bound PostgreSQL tenant database")
+    entitlement_active: bool = Field(..., description="Whether capability subscription is active for this company")
+    server_time: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(),
+        description="Current server UTC timestamp"
+    )
+
+    model_config = {"frozen": True}
+
+
+class DataBridgeContractPingRequest(BaseModel):
+    """Foundation handshake and boundary verification request."""
+
+    echo_token: str = Field(default="SMRITI-DATABRIDGE-PING", min_length=1, max_length=128)
+    idempotency_key: Optional[str] = Field(default=None, max_length=150)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataBridgeContractPingResponse(BaseModel):
+    """Foundation handshake verification response with cryptographic proof."""
+
+    echo_token: str
+    status: str = "SUCCESS"
+    tenant_isolation_verified: bool = True
+    resolved_database: str
+    company_id: str
+    actor_id: str
+    compliance_sha256: str
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    model_config = {"frozen": True}
+
+
+class DataBridgeSecurityContext(BaseModel):
+    """Verified ingress execution context for DataBridge operations."""
+
+    tenant_id: str
+    company_id: str
+    branch_id: str
+    user_id: str
+    user_role: str
+    capability_code: str = "DATABRIDGE"
+    is_entitled: bool = True
+    authorized_permissions: List[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+
+class DataBridgeReconciliationSummary(BaseModel):
+    """Standardized summary block for all DataBridge import/export operations."""
+
+    total_rows: int = 0
+    valid_rows: int = 0
+    new_rows: int = 0
+    existing_match_rows: int = 0
+    existing_conflict_rows: int = 0
+    invalid_rows: int = 0
+    warning_rows: int = 0
+    status: str = "IDLE"  # IDLE, READY_FOR_IMPORT, COMMITTED, REJECTED
+
+
+# ==============================================================================
+# PHASE 2 CATALOG DOMAIN ADAPTER CONTRACTS
+# ==============================================================================
+
+from enum import Enum
+
+
+class DataBridgeClassification(str, Enum):
+    """Authoritative classification taxonomy for DataBridge operations."""
+
+    CREATE = "CREATE"
+    UPDATE = "UPDATE"
+    NO_CHANGE = "NO_CHANGE"
+    EXISTING_CONFLICT = "EXISTING_CONFLICT"
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    DEPENDENCY_ERROR = "DEPENDENCY_ERROR"
+
+
+class DataBridgeEntityType(str, Enum):
+    """Supported entity domains for DataBridge (Catalog, Party Masters, Transactions)."""
+
+    ITEM = "ITEM"
+    VARIANT = "VARIANT"
+    BARCODE = "BARCODE"
+    PRICEBOOK = "PRICEBOOK"
+    CATALOG_DOCUMENT = "CATALOG_DOCUMENT"
+    CUSTOMER = "CUSTOMER"
+    SUPPLIER = "SUPPLIER"
+    PURCHASE_ORDER = "PURCHASE_ORDER"
+    GOODS_RECEIPT_NOTE = "GOODS_RECEIPT_NOTE"
+    PURCHASE_INVOICE = "PURCHASE_INVOICE"
+    PURCHASE_DEBIT_NOTE = "PURCHASE_DEBIT_NOTE"
+    SALES_INVOICE = "SALES_INVOICE"
+    SALES_RETURN = "SALES_RETURN"
+    SALES_ORDER = "SALES_ORDER"
+    STOCK_TRANSFER = "STOCK_TRANSFER"
+    STOCK_AUDIT = "STOCK_AUDIT"
+
+
+class DataBridgeDiffField(BaseModel):
+    """Granular before/after comparison for a single attribute."""
+
+    old_value: Any = None
+    new_value: Any = None
+    is_different: bool = True
+
+
+class DataBridgeDiff(BaseModel):
+    """In-memory comparison diff of entity attributes."""
+
+    fields: Dict[str, DataBridgeDiffField] = Field(default_factory=dict)
+
+
+class DataBridgeConflict(BaseModel):
+    """Structured representation of a blocking business rule conflict."""
+
+    conflict_code: str
+    message: str
+    conflicting_entity: Optional[str] = None
+    conflicting_id: Optional[str] = None
+    severity: str = "BLOCK"
+
+
+class DataBridgeRow(BaseModel):
+    """Raw input row wrapped with extraction metadata."""
+
+    row_index: int
+    raw_data: Dict[str, Any]
+    normalized_data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataBridgeCandidate(BaseModel):
+    """Database resolution match candidate."""
+
+    row_index: int
+    entity_type: str
+    matched: bool
+    matched_id: Optional[str] = None
+    matched_identifier: Optional[str] = None
+    existing_record: Optional[Dict[str, Any]] = None
+
+
+class DataBridgeResultItem(BaseModel):
+    """Per-row preview and commit outcome object."""
+
+    row_index: int
+    record_id: Optional[str] = None
+    entity_type: str
+    classification: DataBridgeClassification
+    target_identifier: str
+    diff: Optional[DataBridgeDiff] = None
+    conflicts: List[DataBridgeConflict] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    normalized_data: Optional[Dict[str, Any]] = None
+
+
+class DataBridgeSummary(BaseModel):
+    """Aggregated counters for preview and commit evaluations."""
+
+    total_rows: int = 0
+    create_count: int = 0
+    update_count: int = 0
+    no_change_count: int = 0
+    conflict_count: int = 0
+    validation_error_count: int = 0
+    dependency_error_count: int = 0
+
+
+class DataBridgePreviewRequest(BaseModel):
+    """Unified catalog preview analysis request."""
+
+    entity_type: DataBridgeEntityType = DataBridgeEntityType.CATALOG_DOCUMENT
+    rows: List[Dict[str, Any]] = Field(default_factory=list, description="Heterogeneous row objects")
+    file_format: str = Field(default="JSON", description="JSON | CSV | XLSX | SMRITI-X")
+    idempotency_key: Optional[str] = Field(default=None, max_length=150)
+    dry_run: bool = True
+
+
+class DataBridgePreviewResponse(BaseModel):
+    """Full preview inspection report with diffs and conflicts."""
+
+    summary: DataBridgeSummary
+    can_commit: bool
+    blocking_reasons: List[str] = Field(default_factory=list)
+    items: List[DataBridgeResultItem] = Field(default_factory=list)
+    preview_token: str
+    expires_at: str
+    payload_sha256: str
+
+
+class DataBridgeCommitRequest(BaseModel):
+    """Atomic commit execution request requiring explicit user confirmation."""
+
+    entity_type: DataBridgeEntityType = DataBridgeEntityType.CATALOG_DOCUMENT
+    preview_token: str = Field(..., description="Cryptographically signed preview verification token")
+    confirmed: bool = Field(..., description="Explicit user confirmation flag (must be True)")
+    rows: List[Dict[str, Any]] = Field(default_factory=list, description="Exact payload matching preview token")
+    file_format: str = Field(default="JSON", description="JSON | CSV | XLSX | SMRITI-X")
+    idempotency_key: Optional[str] = Field(default=None, max_length=150)
+
+
+class DataBridgeCommitResponse(BaseModel):
+    """Authoritative outcome of an atomic commit transaction."""
+
+    status: str = "COMMITTED"
+    summary: DataBridgeSummary
+    committed_count: int = 0
+    execution_time_ms: float = 0.0
+    compliance_sha256: str
+    items: List[DataBridgeResultItem] = Field(default_factory=list)
+    idempotent_replay: bool = False
+
+
+class DataBridgeResult(BaseModel):
+    """Internal adapter batch processing result."""
+
+    status: str
+    items: List[DataBridgeResultItem]
+    summary: DataBridgeSummary
+
+
+# ==============================================================================
+# PHASE 4 ASYNCHRONOUS IMPORT ENGINE & CHUNKED QUEUE CONTRACTS
+# ==============================================================================
+
+class DataBridgeAsyncJobStatus(str, Enum):
+    """Execution status for high-volume asynchronous DataBridge outbox jobs."""
+
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class DataBridgeAsyncSubmitRequest(BaseModel):
+    """Submission payload for asynchronous chunked DataBridge ingestion (>5,000 rows)."""
+
+    entity_type: DataBridgeEntityType = DataBridgeEntityType.CATALOG_DOCUMENT
+    rows: List[Dict[str, Any]] = Field(default_factory=list, description="Raw rows payload")
+    chunk_size: int = Field(default=500, ge=1, le=5000, description="Processing chunk size")
+    file_format: str = Field(default="JSON", description="JSON | CSV | XLSX | SMRITI-X")
+    filename: Optional[str] = Field(default=None, description="Original uploaded filename")
+    idempotency_key: Optional[str] = Field(default=None, max_length=150)
+    preview_only: bool = Field(default=False, description="Whether to execute dry-run preview or atomic commit")
+
+
+class DataBridgeAsyncJobResponse(BaseModel):
+    """Immediate HTTP 202 Accepted response upon successfully staging an async job."""
+
+    job_id: str
+    status: str = "PENDING"
+    total_rows: int
+    chunk_size: int
+    entity_type: str
+    created_at: str
+    message: str = "DataBridge async import job submitted successfully."
+
+
+class DataBridgeJobStatusResponse(BaseModel):
+    """Progress, row metrics, and completion state for a background DataBridge job."""
+
+    job_id: str
+    status: str
+    entity_type: str
+    total_rows: int
+    processed_rows: int
+    committed_count: int
+    error_count: int
+    progress_percent: float
+    current_chunk: int
+    total_chunks: int
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    compliance_sha256: Optional[str] = None
+    error_message: Optional[str] = None
+    summary: Optional[DataBridgeSummary] = None
+    items_sample: List[DataBridgeResultItem] = Field(default_factory=list)
+
+

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-398304",
+  "entity": "databridge",
+  "capability": "databridge.workspace_ux",
+  "asset_type": "SPECIALIZED_UI",
+  "proposed_name": "DiffViewModal.tsx",
+  "target_file_path": "src/components/databridge/DiffViewModal.tsx",
+  "decision": "APPROVED",
+  "canonical_owner": "src/components/databridge/DataBridgeWorkspace.tsx",
+  "content_hash": "f654c09c5fe74833bf9d85903a944b99802231cc83758612f8b931a57c37147d",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T09:34:06.325045+00:00",
+  "expires_at": "2026-10-13T09:34:06.325045+00:00",
+  "status": "ISSUED"
+}

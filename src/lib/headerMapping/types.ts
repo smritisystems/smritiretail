@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.17.0
  * Created      : 2026-08-16
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-06
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,7 +14,7 @@
 
 export type ConfidenceLevel = 'EXACT' | 'HIGH' | 'MEDIUM' | 'LOW' | 'AMBIGUOUS' | 'UNMAPPED';
 
-export type MappingContext = 'ITEM_MASTER' | 'PURCHASE_ORDER' | 'GRN' | 'SALES_INVOICE';
+export type MappingContext = 'ITEM_MASTER' | 'PURCHASE_ORDER' | 'GRN' | 'SALES_INVOICE' | 'CUSTOMER' | 'SUPPLIER' | 'PURCHASE_INVOICE' | 'PURCHASE_DEBIT_NOTE' | 'SALES_RETURN' | 'SALES_ORDER' | 'STOCK_TRANSFER' | 'STOCK_AUDIT';
 
 export interface ConditionalTarget {
   target: string;

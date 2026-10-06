@@ -197,7 +197,8 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         items: [
           LAUNCHPAD_ITEM,
           { id: 'item-master', title: 'Item Master (Browse)', icon: 'inventory_2' },
-          { id: 'item-create-grid', title: 'Create Items (Excel Grid)', icon: 'grid_on', isNextBestAction: true },
+          { id: 'item-create-grid', title: 'Create Items (Excel Grid)', icon: 'grid_on' },
+          { id: 'databridge', title: 'SMRITI DataBridge', icon: 'dataset', isNextBestAction: true },
           { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
           { id: 'customer-master', title: 'Customer Master', icon: 'person_search' },
           { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
