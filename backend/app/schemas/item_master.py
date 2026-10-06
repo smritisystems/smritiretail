@@ -269,7 +269,7 @@ class MatrixVariantGenRequest(BaseModel):
     base_mrp: Optional[float] = None
     base_selling_price: Optional[float] = None
     base_cost_price: Optional[float] = None
-    auto_generate_barcodes: bool = True
+    auto_generate_barcodes: bool = False
 
 
 class ItemResolutionResponse(BaseModel):

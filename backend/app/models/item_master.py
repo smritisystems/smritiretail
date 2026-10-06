@@ -17,7 +17,7 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, String, Numeric, Boolean, Integer, BigInteger, ForeignKey,
-    Text, text, Date, DateTime, UniqueConstraint, Index, CheckConstraint, Enum as SAEnum
+    Text, text, Date, DateTime, UniqueConstraint, Index, CheckConstraint, Enum as SAEnum, Computed
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
@@ -163,15 +163,13 @@ class ItemVariant(BaseEntity):
     cost_price = Column(Numeric(15, 2), nullable=True, default=0.00)
     is_active = Column(Boolean, nullable=False, default=True)
 
+    # Canonical business identity (PostgreSQL GENERATED ALWAYS AS (variant_sku) STORED - Phase R-09)
+    sku = Column(String(100), Computed("variant_sku"), nullable=False, index=True)
+
     @property
     def style_id(self) -> str:
         """Domain alias: item_id is style_id."""
         return self.item_id
-
-    @property
-    def sku(self) -> str:
-        """Canonical business identity alias for variant_sku per blueprint."""
-        return self.variant_sku
 
     # Relationships
     item = relationship("Item", back_populates="variants")

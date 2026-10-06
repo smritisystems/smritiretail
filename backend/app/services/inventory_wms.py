@@ -119,6 +119,8 @@ class InventoryWmsService:
         batch_id: Optional[str] = None,
         serial_id: Optional[str] = None,
         location_id: Optional[str] = None,
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
     ) -> ProductBatchStock:
         """
         Atomically updates batch inventory, writes an audit StockMovement,
@@ -251,12 +253,16 @@ class InventoryWmsService:
 
         # 3. Create immutable StockMovement audit record
         sm_id = IdentityEngine.generate_technical_id()
+        eff_item_id = item_id or getattr(product, "item_id", None)
+        eff_variant_id = variant_id or getattr(product, "item_variant_id", None)
         movement = StockMovement(
             id=sm_id,
             uuid=sm_id,
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             product_id=product_id,
+            item_id=eff_item_id,
+            variant_id=eff_variant_id,
             product_name=product.name,
             sku=product.sku or product.code,
             quantity=abs(qty_delta_dec),

@@ -54,27 +54,15 @@ class VariantMatrixService:
         prefix: Optional[str] = "S",
         allow_no_prefix: bool = True,
     ) -> str:
-        """Return a system-generated placeholder barcode.
-
-        Policy rules:
-        - Default prefix is 'S' (e.g. S8A7F3D1B2C4E).
-        - If prefix is provided (e.g. GEN, SMRITI, SKU, VX, BRC), it is sanitized,
-          converted to uppercase, and prepended to a 12-char hex token.
-        - If prefix is None or empty (""):
-            - If allow_no_prefix is True: emits the bare 12-char uppercase hex token.
-            - If allow_no_prefix is False: defaults back to canonical 'S' prefix.
-        - Only alphanumeric prefixes (and underscores/hyphens) are permitted.
         """
-        raw_token = uuid.uuid4().hex[:12].upper()
-        if prefix is None or (isinstance(prefix, str) and not prefix.strip()):
-            if allow_no_prefix:
-                return raw_token
-            return f"S{raw_token}"
-
-        clean_pfx = re.sub(r"[^A-Za-z0-9_-]", "", str(prefix).strip()).upper()
-        if not clean_pfx:
-            return raw_token if allow_no_prefix else f"S{raw_token}"
-        return f"{clean_pfx}{raw_token}"
+        [DEPRECATED / PROHIBITED - ADR-001 / R-01]
+        Runtime synthetic barcode generation is strictly prohibited.
+        Official barcodes must be assigned or left unassigned.
+        """
+        raise RuntimeError(
+            "Synthetic barcode generation is prohibited under SMRITI Item Master Architecture (ADR-001/R-01). "
+            "Official barcodes must be assigned or left unassigned."
+        )
 
     @classmethod
     async def generate_matrix_variants(
@@ -85,7 +73,7 @@ class VariantMatrixService:
     ) -> List[ItemVariant]:
         """
         Matrix Variant Generator (Size x Color Cartesian product):
-        Generates unique SKU dimensions and primary barcodes automatically.
+        Generates unique SKU dimensions without synthetic barcodes per ADR-001/R-01.
         """
         from .item_catalog_svc import ItemCatalogService
 
@@ -108,7 +96,11 @@ class VariantMatrixService:
             # Check if variant exists
             existing_var = (
                 await session.execute(
-                    select(ItemVariant).where(ItemVariant.variant_sku == variant_sku)
+                    select(ItemVariant).where(
+                        ItemVariant.company_id == item.company_id,
+                        ItemVariant.variant_sku == variant_sku,
+                        ItemVariant.is_deleted == False,
+                    )
                 )
             ).scalars().first()
 
@@ -117,32 +109,37 @@ class VariantMatrixService:
                 selling_val = Decimal(str(req.base_selling_price if req.base_selling_price is not None else item.selling_price))
                 cost_val = Decimal(str(req.base_cost_price if req.base_cost_price is not None else item.cost_price))
 
+                # Extract first-class color and size from attributes if present
+                v_color = None
+                v_size = None
+                for k, v in attr_dict.items():
+                    if str(k).lower() == "color":
+                        v_color = str(v).strip()
+                    elif str(k).lower() == "size":
+                        v_size = str(v).strip()
+
                 var = ItemVariant(
                     id=f"var_{uuid.uuid4().hex[:12]}",
+                    uuid=str(uuid.uuid4()),
+                    company_id=item.company_id,
+                    branch_id=item.branch_id,
                     item_id=item.id,
                     variant_sku=variant_sku,
                     variant_name=variant_name,
+                    color=v_color,
+                    size=v_size,
                     attributes_json=attr_dict,
                     mrp=mrp_val,
                     selling_price=selling_val,
                     cost_price=cost_val,
                     is_active=True,
+                    is_deleted=False,
                 )
                 session.add(var)
                 await session.flush()
 
-                if req.auto_generate_barcodes:
-                    bc_val = cls.generate_placeholder_barcode()
-                    session.add(
-                        ItemBarcode(
-                            id=f"bc_{uuid.uuid4().hex[:12]}",
-                            item_id=item.id,
-                            variant_id=var.id,
-                            barcode=bc_val,
-                            barcode_type="CUSTOM",
-                            is_primary=True,
-                        )
-                    )
+                # ADR-001 / R-01: NO synthetic barcodes can be created at runtime.
+                # Barcode remains unassigned (None) until officially assigned.
 
                 created_variants.append(var)
                 item.variants.append(var)
@@ -179,7 +176,7 @@ class VariantMatrixService:
                         buying_price=item.buying_price,
                         gst_percentage=item.tax_rate,
                         hsn_code=var.hsn_code or item.hsn_code,
-                        barcode=bc_val if req.auto_generate_barcodes else None,
+                        barcode=var.variant_sku,
                         attributes=attr_dict,
                         is_active=True,
                         is_deleted=False

@@ -65,27 +65,15 @@ class ItemCatalogService:
         prefix: Optional[str] = "S",
         allow_no_prefix: bool = True,
     ) -> str:
-        """Return a system-generated placeholder barcode.
-
-        Policy rules:
-        - Default prefix is 'S' (e.g. S8A7F3D1B2C4E).
-        - If prefix is provided (e.g. GEN, SMRITI, SKU, VX, BRC), it is sanitized,
-          converted to uppercase, and prepended to a 12-char hex token.
-        - If prefix is None or empty (""):
-            - If allow_no_prefix is True: emits the bare 12-char uppercase hex token (e.g. 8A7F3D1B2C4E).
-            - If allow_no_prefix is False: defaults back to the canonical 'S' prefix.
-        - Only alphanumeric prefixes (and underscores/hyphens) are permitted; unsafe characters are stripped.
         """
-        raw_token = uuid.uuid4().hex[:12].upper()
-        if prefix is None or (isinstance(prefix, str) and not prefix.strip()):
-            if allow_no_prefix:
-                return raw_token
-            return f"S{raw_token}"
-
-        clean_pfx = re.sub(r"[^A-Za-z0-9_-]", "", str(prefix).strip()).upper()
-        if not clean_pfx:
-            return raw_token if allow_no_prefix else f"S{raw_token}"
-        return f"{clean_pfx}{raw_token}"
+        [DEPRECATED / PROHIBITED - ADR-001 / R-01]
+        Runtime synthetic barcode generation is strictly prohibited.
+        Official barcodes must be assigned or left unassigned.
+        """
+        raise RuntimeError(
+            "Synthetic barcode generation is prohibited under SMRITI Item Master Architecture (ADR-001/R-01). "
+            "Official barcodes must be assigned or left unassigned."
+        )
 
     @classmethod
     async def get_item_by_code(
@@ -394,6 +382,7 @@ class ItemCatalogService:
                     is_service_yn=getattr(req, "is_service_yn", False),
                     status="ACTIVE",
                     tracking_type=getattr(req, "tracking_type", "STANDARD") or "STANDARD",
+                    tracking_mode="BATCH" if req.is_batch_tracked else ("SERIAL" if req.is_serial_tracked else "NONE"),
                     is_active=True,
                     is_deleted=False
                 )
@@ -729,6 +718,9 @@ class ItemCatalogService:
                 session.add(
                     ItemBatch(
                         id=f"batch_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
                         item_id=item.id,
                         variant_id=b_data.variant_id or processed_variants[0][0].id,
                         batch_number=b_data.batch_number,
@@ -743,6 +735,9 @@ class ItemCatalogService:
                 session.add(
                     ItemWarehouseLocation(
                         id=f"loc_{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=effective_company_id,
+                        branch_id=branch_id,
                         item_id=item.id,
                         warehouse_id=loc.warehouse_id,
                         location_bin=loc.location_bin,

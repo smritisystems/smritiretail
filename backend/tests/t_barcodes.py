@@ -189,18 +189,114 @@ async def test_tspl_and_esc_pos_label_compilation():
 @pytest.mark.asyncio
 async def test_batch_label_print_dispatch_and_audit_history():
     """Verify multi-item batch label print dispatch and PostgreSQL PrintHistory audit logging."""
+    from app.models.item_master import Item, ItemVariant, ItemBarcode
     sessionmaker = get_company_sessionmaker("smriti001")
-    unique_suffix = uuid.uuid4().hex[:6]
-    bc1 = f"890{unique_suffix.upper()[:9].zfill(9)}1"
-    bc2 = f"890{unique_suffix.upper()[:9].zfill(9)}2"
+    unique_suffix = uuid.uuid4().hex[:6].upper()
+
+    # Official GS1 EAN-13 calculations
+    seed1 = f"890{uuid.uuid4().int % 1000000000:09d}"
+    bc1 = f"{seed1}{BarcodesEngine.calculate_ean13_check_digit(seed1)}"
+    seed2 = f"890{uuid.uuid4().int % 1000000000:09d}"
+    bc2 = f"{seed2}{BarcodesEngine.calculate_ean13_check_digit(seed2)}"
 
     async with sessionmaker() as session:
+        item1 = Item(
+            id=f"itm_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id="COMP-001",
+            branch_id="BR-001",
+            item_code=f"SHIRT-{unique_suffix}",
+            item_name="Formal Shirt",
+            category="APPAREL",
+            brand="SMRITI",
+            primary_uom="PCS",
+            uom="PCS",
+            selling_price=Decimal("999.00"),
+            mrp=Decimal("1200.00"),
+            cost_price=Decimal("600.00"),
+            tax_rate=Decimal("12.00"),
+            is_active=True,
+            status="ACTIVE",
+        )
+        variant1 = ItemVariant(
+            id=f"var_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id="COMP-001",
+            branch_id="BR-001",
+            item_id=item1.id,
+            variant_sku=f"SHIRT-{unique_suffix}-M",
+            variant_name="Formal Shirt M",
+            selling_price=Decimal("999.00"),
+            mrp=Decimal("1200.00"),
+            cost_price=Decimal("600.00"),
+            is_active=True,
+        )
+        barcode1 = ItemBarcode(
+            id=f"bc_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id="COMP-001",
+            item_id=item1.id,
+            variant_id=variant1.id,
+            barcode=bc1,
+            barcode_type="EAN13",
+            barcode_normalized=bc1,
+            is_primary=True,
+            status="ASSIGNED",
+            is_active=True,
+        )
+        item2 = Item(
+            id=f"itm_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id="COMP-001",
+            branch_id="BR-001",
+            item_code=f"TIE-{unique_suffix}",
+            item_name="Silk Tie",
+            category="ACCESSORIES",
+            brand="SMRITI",
+            primary_uom="PCS",
+            uom="PCS",
+            selling_price=Decimal("350.00"),
+            mrp=Decimal("450.00"),
+            cost_price=Decimal("200.00"),
+            tax_rate=Decimal("12.00"),
+            is_active=True,
+            status="ACTIVE",
+        )
+        variant2 = ItemVariant(
+            id=f"var_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id="COMP-001",
+            branch_id="BR-001",
+            item_id=item2.id,
+            variant_sku=f"TIE-{unique_suffix}-STD",
+            variant_name="Silk Tie Standard",
+            selling_price=Decimal("350.00"),
+            mrp=Decimal("450.00"),
+            cost_price=Decimal("200.00"),
+            is_active=True,
+        )
+        barcode2 = ItemBarcode(
+            id=f"bc_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id="COMP-001",
+            item_id=item2.id,
+            variant_id=variant2.id,
+            barcode=bc2,
+            barcode_type="EAN13",
+            barcode_normalized=bc2,
+            is_primary=True,
+            status="ASSIGNED",
+            is_active=True,
+        )
+        session.add_all([item1, variant1, barcode1, item2, variant2, barcode2])
+        await session.commit()
+
         req = BatchLabelPrintRequest(
             printer_language="ZPL",
             dpi=203,
             items=[
                 BatchLabelItem(
-                    item_code=f"ITM-1-{unique_suffix}",
+                    item_code=variant1.variant_sku,
                     item_name="Formal Shirt",
                     barcode=bc1,
                     mrp=Decimal("1200.00"),
@@ -208,7 +304,7 @@ async def test_batch_label_print_dispatch_and_audit_history():
                     quantity=3,
                 ),
                 BatchLabelItem(
-                    item_code=f"ITM-2-{unique_suffix}",
+                    item_code=variant2.variant_sku,
                     item_name="Silk Tie",
                     barcode=bc2,
                     mrp=Decimal("450.00"),
@@ -237,7 +333,9 @@ async def test_batch_label_print_dispatch_and_audit_history():
 @pytest.mark.asyncio
 async def test_api_barcodes_endpoints():
     """Verify REST API barcodes endpoints: generate, validate, compile, print/batch, and history."""
-    unique_suffix = uuid.uuid4().hex[:4]
+    from app.models.item_master import Item, ItemVariant, ItemBarcode
+    sessionmaker = get_company_sessionmaker("smriti001")
+    unique_suffix = uuid.uuid4().hex[:4].upper()
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -260,6 +358,55 @@ async def test_api_barcodes_endpoints():
         assert val_res.status_code == 200
         assert val_res.json()["is_valid"] == True
 
+        # Register official item and barcode in database for batch print
+        async with sessionmaker() as session:
+            item = Item(
+                id=f"itm_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id="COMP-001",
+                branch_id="BR-001",
+                item_code=f"STYLE-API-{unique_suffix}",
+                item_name="API Test Product",
+                category="APPAREL",
+                brand="SMRITI",
+                primary_uom="PCS",
+                uom="PCS",
+                selling_price=Decimal("799.00"),
+                mrp=Decimal("999.00"),
+                cost_price=Decimal("450.00"),
+                tax_rate=Decimal("12.00"),
+                is_active=True,
+                status="ACTIVE",
+            )
+            variant = ItemVariant(
+                id=f"var_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id="COMP-001",
+                branch_id="BR-001",
+                item_id=item.id,
+                variant_sku=f"STYLE-API-{unique_suffix}-M",
+                variant_name="API Test Product M",
+                selling_price=Decimal("799.00"),
+                mrp=Decimal("999.00"),
+                cost_price=Decimal("450.00"),
+                is_active=True,
+            )
+            barcode = ItemBarcode(
+                id=f"bc_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id="COMP-001",
+                item_id=item.id,
+                variant_id=variant.id,
+                barcode=bc_val,
+                barcode_type="EAN13",
+                barcode_normalized=bc_val,
+                is_primary=True,
+                status="ASSIGNED",
+                is_active=True,
+            )
+            session.add_all([item, variant, barcode])
+            await session.commit()
+
         # 3. Compile label
         cmp_res = await client.post(
             "/api/v1/barcodes/compile",
@@ -268,7 +415,7 @@ async def test_api_barcodes_endpoints():
                 "dpi": 203,
                 "width_mm": 50.0,
                 "height_mm": 25.0,
-                "item_code": f"ITM-API-{unique_suffix}",
+                "item_code": variant.variant_sku,
                 "item_name": "API Test Product",
                 "barcode": bc_val,
                 "mrp": 999.0,
@@ -287,7 +434,7 @@ async def test_api_barcodes_endpoints():
                 "dpi": 203,
                 "items": [
                     {
-                        "item_code": f"ITM-API-{unique_suffix}",
+                        "item_code": variant.variant_sku,
                         "item_name": "API Test Product",
                         "barcode": bc_val,
                         "mrp": 999.0,

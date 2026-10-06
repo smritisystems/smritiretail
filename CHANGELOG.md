@@ -28,6 +28,31 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.7-R01] - 2026-10-06 — SMRITI Item Master Phase R-01: Runtime Safety Hardening & Concurrency Protection
+
+> **Branch:** `smritiNX` | **Area:** Inventory, Item Master, Procurement, Barcodes, Concurrency Hardening
+> **Walkthrough:** `docs/walkthrough/inventory/Inventory_Item_Master_R01_Runtime_Safety_Hardening_v6.70.7.md`
+
+### Added
+- **Tracking Transaction Boundary & Concurrency Protection**:
+  - `backend/app/services/item/item_tracking_svc.py`: Encapsulated batch, serial, and warehouse location resolvers inside `session.begin_nested()` savepoints, ensuring concurrent worker collisions resolve safely to the existing canonical entity without escaping `IntegrityError` or corrupting outer transactions.
+  - `backend/tests/test_r01_tracking_concurrency.py`: 4-worker concurrent stress test battery verifying race condition resilience, identical ID resolution, usable caller transactions, and tenant isolation.
+- **Inward Procurement Variant Identity & Ambiguity Guard**:
+  - `backend/app/services/purchase.py`: Enforced strict variant propagation through PO → GRN → WMS `StockMovement`. Multi-variant items lacking explicit `variant_id` fail fast with HTTP 400 (`AMBIGUOUS_ITEM_VARIANT`), prohibiting blind inferences. Single-variant items infer deterministically.
+  - Replaced dangerous `except Exception: pass` blocks surrounding batch and location resolvers with structured diagnostic logging and HTTP 422 errors (`BATCH_RESOLUTION_FAILED`, `WAREHOUSE_LOCATION_RESOLUTION_FAILED`).
+  - Added explicit legacy compatibility path for `Product.item_id=None` preserving standard inventory movements while respecting `items.id` foreign keys.
+- **Runtime Synthetic Barcode Prohibition**:
+  - `backend/app/services/item/item_catalog_svc.py` & `variant_matrix_svc.py`: Decommissioned `generate_placeholder_barcode` in favor of strict `RuntimeError` raising per ADR-001/R-01. Defaulted `auto_generate_barcodes` to `False`.
+  - `backend/app/api/v1/barcodes.py`: Discontinued `/placeholder` endpoint with HTTP 400.
+  - `backend/app/api/v1/master_lookup.py`: Realigned color and size master entity lookups to query `ItemVariant` as primary authority with tenant scoping.
+
+### Verified & Certified
+- **Zero-Mutation Database Integrity**:
+  - Certified zero intentional production data remediations, deletions, backfills, or migrations during R-01.
+  - 100% of historical synthetic barcodes (542) remain preserved for Phase R-06.
+  - 100% green test passes across all relevant suites (94 / 94 tests passed, 0 unexpected failures).
+  - TypeScript compiler clean (`npx tsc --noEmit` exit 0).
+
 ## [6.70.7] - 2026-10-05 — SMRITI Item Master Phase 12: End-to-End Operational Pipeline Validation & Final Catalog Certification
 
 > **Branch:** `smritiNX` | **Area:** Catalog, POS, WMS, GRN, Certification, End-to-End Pipelines
