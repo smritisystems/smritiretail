@@ -52,8 +52,12 @@ from .models import (
     DataBridgeAsyncSubmitRequest,
     DataBridgeAsyncJobResponse,
     DataBridgeJobStatusResponse,
+    DataBridgeExportFormat,
+    DataBridgeExportRequest,
+    DataBridgeExportResponse,
 )
 from .async_engine import DataBridgeAsyncEngine
+from .export_engine import DataBridgeExportEngine
 from .adapters import (
     BaseDataBridgeAdapter,
     DataBridgeItemAdapter,
@@ -65,6 +69,10 @@ from .adapters import (
 __all__ = [
     "DataBridgeService",
     "DataBridgeAsyncEngine",
+    "DataBridgeExportEngine",
+    "DataBridgeExportFormat",
+    "DataBridgeExportRequest",
+    "DataBridgeExportResponse",
     "DataBridgeError",
     "DataBridgeEntitlementError",
     "DataBridgeTenantIsolationError",

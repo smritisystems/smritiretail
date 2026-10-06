@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.10] - 2026-10-06 — SMRITI Transaction DataBridge: Multi-Format Streaming Exporter & Strangler-Fig Legacy Migration (Phase 5)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Streaming Data Export, Strangler-Fig Pattern
+> **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase5_Export_Strangler_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/foundation/DataBridge_Phase5_Export_Strangler_Plan_v1.0.0.md`
+
+### Added
+- **Multi-Format Streaming Exporter Engine (`DataBridgeExportEngine`)**:
+  - Implemented high-performance, non-blocking streaming exporter under `backend/app/services/databridge/export_engine.py`.
+  - Supported 4 enterprise formats: RFC 4180 CSV with UTF-8 BOM (`\ufeff`), formatted JSON array, SMRITI-X sealed JSON package with SHA-256 integrity digest, and OpenXML Excel (`.xlsx`) binary generation via `openpyxl`.
+  - Unfolded all 15 business entities across Master Data, Party Masters, Procurement, Sales, and Inventory into flat tabular records.
+  - Implemented permanent WORM audit logging in `compliance_immutable_audit_logs`.
+- **FastAPI Streaming Endpoints**:
+  - Added `GET /api/v1/databridge/export/{entity_type}` and `POST /api/v1/databridge/export` in `backend/app/api/v1/databridge.py`.
+- **Strangler-Fig Legacy Migration**:
+  - Intercepted legacy `POST /api/v1/exchange/tasks/{id}/execute` to delegate extraction to `DataBridgeExportEngine.fetch_entity_records`.
+  - Emitted structured `SMRITI-DEPR-001` deprecation notices and `[SMRITI-DEPRECATION]` diagnostics.
+- **Automated Verification**:
+  - Added 7 end-to-end export test cases in `backend/tests/test_databridge_phase5_export.py`.
+
 ## [6.70.9] - 2026-10-06 — SMRITI Transaction DataBridge: Party Masters, Procurement, Sales, Inventory Movement & High-Volume Async Queue (Phases 3A-3D, Phase 4)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Party Masters, Procurement, Sales, Inventory, Asynchronous Task Queue
