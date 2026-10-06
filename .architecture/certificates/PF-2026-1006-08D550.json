@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-08D550",
+  "entity": "databridge",
+  "capability": "databridge.core_foundation",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "models.py",
+  "target_file_path": "backend/app/services/databridge/models.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/databridge/service.py",
+  "content_hash": "7012dd6093b23fe8240bf7527c59d1e5837a6e3c35c579e94b9e84d608a57bf5",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T13:11:09.280578+00:00",
+  "expires_at": "2026-10-13T13:11:09.280578+00:00",
+  "status": "ISSUED"
+}

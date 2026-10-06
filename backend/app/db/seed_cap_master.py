@@ -50,6 +50,7 @@ CAPABILITIES = [
     ("cap_search", "SEARCH", "Unified Global Search Engine", "PLATFORM", "Sub-millisecond fuzzy search across SKU catalog, customer records, invoices, and serial numbers.", [], True, True, "v1.0.0", "ACTIVE"),
     ("cap_integration", "INTEGRATION", "Transactional Outbox & Integrations", "PLATFORM", "Reliable event publishing, webhook delivery, and third-party accounting export pipelines.", [], False, True, "v1.0.0", "ACTIVE"),
     ("cap_audit", "AUDIT", "Immutable Audit Trail & Governance", "PLATFORM", "Tamper-evident audit logging, user action tracking, and data mutation snapshots.", [], True, True, "v1.0.0", "ACTIVE"),
+    ("cap_databridge", "DATABRIDGE", "SMRITI DataBridge Enterprise Integration Hub", "PLATFORM", "Enterprise data import/export, SMRITI-X canonical exchange, and cross-platform synchronization.", ["INVENTORY", "REPORTING"], False, False, "v1.0.0", "ACTIVE"),
 ]
 
 FLAGS = [

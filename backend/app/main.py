@@ -60,6 +60,7 @@ from .api.v1 import (
     crm_cge,
     crm_reports,
     database_manager,
+    databridge,
     dev_tracker,
     distribution,
     dispatch_invoicing,
@@ -405,6 +406,7 @@ _ROUTER_REGISTRY = [
     (kpi_registry,          "",                      ["KPI Registry"]),
 
     # --- Integration & Data ---
+    (databridge,            "/databridge",           ["SMRITI DataBridge"]),
     (exchange,              "/exchange",             ["Data Exchange Hub"]),
     (universal_import,      "/import",               ["Universal Import"]),
     (universal_import,      "/universal",            ["Universal Import"]),

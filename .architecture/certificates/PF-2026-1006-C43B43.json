@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-C43B43",
+  "entity": "databridge",
+  "capability": "databridge.catalog_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "barcode_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/barcode_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/base_adapter.py",
+  "content_hash": "0e9d19e4494e78cfd2158e7f609d5bcfe76e12fa3b8ce6c1e895f254854a43f6",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T11:37:07.034911+00:00",
+  "expires_at": "2026-10-13T11:37:07.034911+00:00",
+  "status": "ISSUED"
+}
