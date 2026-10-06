@@ -64,11 +64,28 @@ from .models import (
     DataBridgeSchemaDetectRequest,
     DataBridgeMissingField,
     DataBridgeSchemaDetectResponse,
+    DataBridgeConnectorType,
+    DataBridgeConnectorConfig,
+    DataBridgeConnectorDescriptor,
+    DataBridgeConnectorTestRequest,
+    DataBridgeConnectorTestResponse,
+    DataBridgeConnectorPullRequest,
+    DataBridgeConnectorPullResponse,
+    DataBridgeConnectorPushRequest,
+    DataBridgeConnectorPushResponse,
 )
 from .async_engine import DataBridgeAsyncEngine
 from .export_engine import DataBridgeExportEngine
 from .migration_engine import DataBridgeMigrationToolkit
 from .schema_mapping_engine import DataBridgeSchemaMapper
+from .connectors import (
+    BaseDataBridgeConnector,
+    TallyPrimeConnector,
+    ShopifyConnector,
+    SAPB1Connector,
+    UnicommerceConnector,
+    DataBridgeConnectorOrchestrator,
+)
 from .adapters import (
     BaseDataBridgeAdapter,
     DataBridgeItemAdapter,
@@ -83,6 +100,12 @@ __all__ = [
     "DataBridgeExportEngine",
     "DataBridgeMigrationToolkit",
     "DataBridgeSchemaMapper",
+    "BaseDataBridgeConnector",
+    "TallyPrimeConnector",
+    "ShopifyConnector",
+    "SAPB1Connector",
+    "UnicommerceConnector",
+    "DataBridgeConnectorOrchestrator",
     "DataBridgeExportFormat",
     "DataBridgeExportRequest",
     "DataBridgeExportResponse",
@@ -95,6 +118,15 @@ __all__ = [
     "DataBridgeSchemaDetectRequest",
     "DataBridgeMissingField",
     "DataBridgeSchemaDetectResponse",
+    "DataBridgeConnectorType",
+    "DataBridgeConnectorConfig",
+    "DataBridgeConnectorDescriptor",
+    "DataBridgeConnectorTestRequest",
+    "DataBridgeConnectorTestResponse",
+    "DataBridgeConnectorPullRequest",
+    "DataBridgeConnectorPullResponse",
+    "DataBridgeConnectorPushRequest",
+    "DataBridgeConnectorPushResponse",
     "DataBridgeError",
     "DataBridgeEntitlementError",
     "DataBridgeTenantIsolationError",
