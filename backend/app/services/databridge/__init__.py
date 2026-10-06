@@ -55,9 +55,14 @@ from .models import (
     DataBridgeExportFormat,
     DataBridgeExportRequest,
     DataBridgeExportResponse,
+    DataBridgeRollbackRequest,
+    DataBridgeRollbackResponse,
+    DataBridgeTenantTransferRequest,
+    DataBridgeTenantTransferResponse,
 )
 from .async_engine import DataBridgeAsyncEngine
 from .export_engine import DataBridgeExportEngine
+from .migration_engine import DataBridgeMigrationToolkit
 from .adapters import (
     BaseDataBridgeAdapter,
     DataBridgeItemAdapter,
@@ -70,9 +75,14 @@ __all__ = [
     "DataBridgeService",
     "DataBridgeAsyncEngine",
     "DataBridgeExportEngine",
+    "DataBridgeMigrationToolkit",
     "DataBridgeExportFormat",
     "DataBridgeExportRequest",
     "DataBridgeExportResponse",
+    "DataBridgeRollbackRequest",
+    "DataBridgeRollbackResponse",
+    "DataBridgeTenantTransferRequest",
+    "DataBridgeTenantTransferResponse",
     "DataBridgeError",
     "DataBridgeEntitlementError",
     "DataBridgeTenantIsolationError",

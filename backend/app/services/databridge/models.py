@@ -350,3 +350,56 @@ class DataBridgeExportResponse(BaseModel):
     generated_at: str
 
 
+# ==============================================================================
+# PHASE 6 MIGRATION TOOLKIT & ROLLBACK CONTRACTS
+# ==============================================================================
+
+class DataBridgeRollbackRequest(BaseModel):
+    """Execution payload for rolling back a bulk import batch or job."""
+
+    job_or_batch_id: str = Field(..., description="Job ID, batch ID, or filename of the operation to rollback")
+    entity_type: DataBridgeEntityType = Field(..., description="Target business entity to rollback")
+    reason: str = Field(..., min_length=5, description="Audited business justification for rollback")
+    dry_run: bool = Field(default=False, description="Simulate rollback without mutating database")
+    max_records: int = Field(default=50000, ge=1, le=100000)
+
+
+class DataBridgeRollbackResponse(BaseModel):
+    """Result report of a rollback operation."""
+
+    rollback_id: str
+    job_or_batch_id: str
+    entity_type: str
+    reverted_creates: int
+    reverted_updates: int
+    skipped_records: int
+    dry_run: bool
+    status: str  # "SIMULATED" or "COMPLETED"
+    affected_ids: List[str] = Field(default_factory=list)
+    compliance_sha256: str
+    executed_at: str
+
+
+class DataBridgeTenantTransferRequest(BaseModel):
+    """Payload for replicating data between tenant company databases."""
+
+    source_company_id: str = Field(..., description="Source company ID to export from")
+    target_company_id: str = Field(..., description="Target company ID to import into")
+    entity_types: List[DataBridgeEntityType] = Field(..., min_length=1)
+    transfer_mode: str = Field(default="PREVIEW_ONLY", description="PREVIEW_ONLY | COMMIT")
+    limit_per_entity: int = Field(default=5000, ge=1, le=50000)
+
+
+class DataBridgeTenantTransferResponse(BaseModel):
+    """Execution report for cross-tenant replication."""
+
+    transfer_id: str
+    source_company_id: str
+    target_company_id: str
+    transfer_mode: str
+    status: str  # "PREVIEWED" | "COMMITTED" | "FAILED"
+    entity_summaries: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    compliance_sha256: str
+    executed_at: str
+
+
