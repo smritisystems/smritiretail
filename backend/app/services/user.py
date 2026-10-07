@@ -122,9 +122,15 @@ class UserService:
 
     def _tenant_scope(self, query, tenant: TenantContext | None = None):
         active_tenant = tenant or self.tenant
-        if active_tenant and active_tenant.company_id:
+        if not active_tenant:
+            return query
+        # Global SYSADMIN manages users across all companies and branches
+        role = getattr(active_tenant, "role", None)
+        if role in (UserRole.SYSADMIN, "SYSADMIN"):
+            return query
+        if active_tenant.company_id:
             query = query.where(or_(User.company_id == active_tenant.company_id, User.role == UserRole.SYSADMIN))
-        if active_tenant and active_tenant.branch_id:
+        if active_tenant.branch_id:
             query = query.where(or_(User.branch_id == active_tenant.branch_id, User.role == UserRole.SYSADMIN))
         return query
 
@@ -543,21 +549,28 @@ class UserService:
         })
 
         # Resolve and validate company/branch from the authenticated tenant.
-        comp_id = self.tenant.company_id if self.tenant else None
-        branch_id = req.branchId or (self.tenant.branch_id if self.tenant else None)
-        if not comp_id or not branch_id:
-            if not branch_id:
-                raise HTTPException(status_code=400, detail="A company and branch context are required to create staff.")
-        if self.tenant and self.tenant.company_id and req.branchId and req.branchId != self.tenant.branch_id:
-            raise HTTPException(status_code=403, detail="Staff must be created in the active branch context.")
-        if branch_id:
-            br_q = select(Branch).where(Branch.id == branch_id)
-            if comp_id:
-                br_q = br_q.where(Branch.company_id == comp_id)
-            br_obj = (await self.db.execute(br_q)).scalars().first()
-            if not br_obj:
-                raise HTTPException(status_code=400, detail=f"Branch with ID '{branch_id}' does not exist in the active company.")
-            comp_id = br_obj.company_id
+        is_sysadmin_caller = (requesting_user is not None and requesting_user.role == UserRole.SYSADMIN)
+
+        if req.role == UserRole.SYSADMIN:
+            comp_id = None
+            branch_id = None
+        else:
+            comp_id = self.tenant.company_id if (self.tenant and not is_sysadmin_caller) else None
+            branch_id = req.branchId or (self.tenant.branch_id if self.tenant else None)
+            if not is_sysadmin_caller:
+                if not comp_id or not branch_id:
+                    if not branch_id:
+                        raise HTTPException(status_code=400, detail="A company and branch context are required to create staff.")
+                if self.tenant and self.tenant.company_id and req.branchId and req.branchId != self.tenant.branch_id:
+                    raise HTTPException(status_code=403, detail="Staff must be created in the active branch context.")
+            if branch_id:
+                br_q = select(Branch).where(Branch.id == branch_id)
+                if comp_id:
+                    br_q = br_q.where(Branch.company_id == comp_id)
+                br_obj = (await self.db.execute(br_q)).scalars().first()
+                if not br_obj:
+                    raise HTTPException(status_code=400, detail=f"Branch with ID '{branch_id}' does not exist.")
+                comp_id = br_obj.company_id
 
         allowed_br = json.dumps(req.allowedBranches) if req.allowedBranches else json.dumps([req.branch or "Andheri West, Mumbai"])
 
