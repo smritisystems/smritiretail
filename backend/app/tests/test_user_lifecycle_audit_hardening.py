@@ -387,3 +387,34 @@ class TestRelationalAssignmentAndAuditJournal:
         updated_user = await service.get_user(created.id)
         assert updated_user.role == UserRole.MANAGER
         assert updated_user.full_name == "Updated Directory Staff Member"
+
+    async def test_password_change_audit_journal(self, db_session, setup_test_context):
+        from app.schemas.user import PasswordChange
+        ctx = setup_test_context
+        service = UserService(db_session, tenant=ctx["tenant"])
+
+        create_req = StaffUserCreate(
+            username=f"pwd_test_{uuid.uuid4().hex[:5]}",
+            fullName="Password Test User",
+            role=UserRole.CASHIER,
+            password="InitialPassword123!",
+            branchId=ctx["branch"].id,
+        )
+        created = await service.create_staff_user(create_req, requesting_user=ctx["manager"])
+
+        # Change own password
+        pwd_change = PasswordChange(
+            current_password="InitialPassword123!",
+            new_password="NewSecurePassword456!",
+        )
+        await service.change_password(created.id, pwd_change)
+
+        # Verify audit log was recorded
+        q_aud = select(SmritiAuditLog).where(
+            SmritiAuditLog.changed_record_id == created.id,
+            SmritiAuditLog.change_type == "USER_PASSWORD_CHANGED",
+        )
+        aud_entry = (await db_session.execute(q_aud)).scalars().first()
+        assert aud_entry is not None
+        assert aud_entry.changed_table == "users"
+        assert aud_entry.change_reason == "User self-service password update"
