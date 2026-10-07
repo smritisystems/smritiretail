@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 1.1.0
 Created      : 2026-10-06
-Modified     : 2026-10-06
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal — Foundation Service
@@ -142,6 +142,10 @@ class SAPB1Connector(BaseDataBridgeConnector):
                 name = rec.get("ItemName") or rec.get("item_name") or ""
                 barcode = rec.get("BarCode") or rec.get("CodeBars") or ""
                 on_hand = float(rec.get("QuantityOnStock") or rec.get("OnHand") or 0.0)
+                var_id = rec.get("U_VariantID") or rec.get("variant_id")
+                itm_id = rec.get("U_ItemID") or rec.get("item_id")
+                color = rec.get("U_Color") or rec.get("color")
+                size = rec.get("U_Size") or rec.get("size")
                 
                 # Check price lists or top-level price
                 price = 0.0
@@ -154,6 +158,11 @@ class SAPB1Connector(BaseDataBridgeConnector):
 
                 transformed.append({
                     "sku": sku,
+                    "variant_sku": sku,
+                    "variant_id": var_id,
+                    "item_id": itm_id,
+                    "color": color,
+                    "size": size,
                     "item_name": name,
                     "barcode": barcode,
                     "mrp": price,
@@ -197,13 +206,24 @@ class SAPB1Connector(BaseDataBridgeConnector):
                         rate = float(line.get("Price") or 0.0)
                         tax = float(line.get("VatSum") or 0.0)
                         line_total = float(line.get("LineTotal") or (qty * rate))
+                        item_code = line.get("ItemCode") or f"SAP-{idx}"
+                        var_id = line.get("U_VariantID") or line.get("variant_id")
+                        itm_id = line.get("U_ItemID") or line.get("item_id")
+                        color = line.get("U_Color") or line.get("color")
+                        size = line.get("U_Size") or line.get("size")
 
                         transformed.append({
                             "invoice_number": doc_num,
                             "invoice_date": doc_date,
                             "customer_name": card_name,
                             "item_name": line.get("ItemDescription") or line.get("Dscription") or f"Item {idx}",
-                            "sku": line.get("ItemCode") or f"SAP-{idx}",
+                            "sku": item_code,
+                            "variant_sku": item_code,
+                            "item_code": item_code,
+                            "variant_id": var_id,
+                            "item_id": itm_id,
+                            "color": color,
+                            "size": size,
                             "quantity": qty,
                             "rate": rate,
                             "taxable_amount": line_total,
@@ -244,11 +264,21 @@ class SAPB1Connector(BaseDataBridgeConnector):
         }
 
         for r in records:
-            sap_payload["DocumentLines"].append({
-                "ItemCode": str(r.get("sku") or r.get("item_name") or ""),
+            line_data: Dict[str, Any] = {
+                "ItemCode": str(r.get("variant_sku") or r.get("item_code") or r.get("sku") or r.get("item_name") or ""),
+                "ItemDescription": str(r.get("item_name") or r.get("variant_sku") or r.get("sku") or ""),
                 "Quantity": float(r.get("quantity") or 1.0),
                 "Price": float(r.get("rate") or r.get("selling_price") or 0.0),
-            })
+            }
+            if r.get("variant_id"):
+                line_data["U_VariantID"] = str(r.get("variant_id"))
+            if r.get("item_id"):
+                line_data["U_ItemID"] = str(r.get("item_id"))
+            if r.get("color"):
+                line_data["U_Color"] = str(r.get("color"))
+            if r.get("size"):
+                line_data["U_Size"] = str(r.get("size"))
+            sap_payload["DocumentLines"].append(line_data)
 
         return DataBridgeConnectorPushResponse(
             connector_type=self.connector_type.value,
