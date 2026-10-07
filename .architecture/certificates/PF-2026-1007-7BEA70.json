@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-7BEA70",
+  "entity": "databridge",
+  "capability": "databridge.export_engine",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "export_engine.py",
+  "target_file_path": "backend/app/services/databridge/export_engine.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/export_engine.py",
+  "content_hash": "5ede5fe64c9d6b93a3cc51f960db5b9b76c23f81f1429478512a6c51ba9d8e80",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:33:45.450600+00:00",
+  "expires_at": "2026-10-14T09:33:45.450600+00:00",
+  "status": "ISSUED"
+}

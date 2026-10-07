@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-A07464",
+  "entity": "databridge",
+  "capability": "databridge.sales_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "sales_invoice_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/sales_invoice_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/sales_invoice_adapter.py",
+  "content_hash": "92f6708cfbf82e365ab497472aa849860a43c6aa72c4af90ce76e43a5bf0656d",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:39:07.372157+00:00",
+  "expires_at": "2026-10-14T09:39:07.372157+00:00",
+  "status": "ISSUED"
+}

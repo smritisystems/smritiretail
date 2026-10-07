@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-6C4B5D",
+  "entity": "databridge",
+  "capability": "databridge.catalog_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "pricebook_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/pricebook_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/pricebook_adapter.py",
+  "content_hash": "d1fd5cf65c4eb97c623350c8bb1fd4693f1a45ec7dd9198b58158031e45b517f",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:39:06.729260+00:00",
+  "expires_at": "2026-10-14T09:39:06.729260+00:00",
+  "status": "ISSUED"
+}

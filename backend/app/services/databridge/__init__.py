@@ -80,6 +80,7 @@ from .models import (
     DataBridgeInboundWebhookResponse,
     DataBridgeOutboundWebhookRequest,
     DataBridgeOutboundWebhookResponse,
+    DataBridgeProgressFrame,
 )
 from .async_engine import DataBridgeAsyncEngine
 from .export_engine import DataBridgeExportEngine
@@ -87,6 +88,7 @@ from .migration_engine import DataBridgeMigrationToolkit
 from .schema_mapping_engine import DataBridgeSchemaMapper
 from .scheduler_engine import DataBridgeScheduler
 from .webhook_dispatcher import DataBridgeWebhookDispatcher
+from .broadcaster import DataBridgeBroadcaster
 from .connectors import (
     BaseDataBridgeConnector,
     TallyPrimeConnector,
@@ -111,6 +113,7 @@ __all__ = [
     "DataBridgeSchemaMapper",
     "DataBridgeScheduler",
     "DataBridgeWebhookDispatcher",
+    "DataBridgeBroadcaster",
     "BaseDataBridgeConnector",
     "TallyPrimeConnector",
     "ShopifyConnector",
@@ -124,6 +127,7 @@ __all__ = [
     "DataBridgeInboundWebhookResponse",
     "DataBridgeOutboundWebhookRequest",
     "DataBridgeOutboundWebhookResponse",
+    "DataBridgeProgressFrame",
     "DataBridgeExportFormat",
     "DataBridgeExportRequest",
     "DataBridgeExportResponse",
