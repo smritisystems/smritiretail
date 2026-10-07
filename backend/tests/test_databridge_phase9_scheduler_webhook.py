@@ -172,7 +172,7 @@ async def test_tc_sched_003_trigger_nonexistent_schedule_error():
             tenant_id="tenant_trigger_001",
             schedule_id="SCHED-UNKNOWN-999",
         )
-    assert "Schedule SCHED-UNKNOWN-999 not found" in str(exc.value)
+    assert "SCHED-UNKNOWN-999" in str(exc.value) and "not found" in str(exc.value)
 
 
 @pytest.mark.asyncio

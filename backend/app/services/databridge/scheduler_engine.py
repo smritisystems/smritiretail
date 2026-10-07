@@ -82,10 +82,18 @@ class DataBridgeScheduler:
         return cls._to_response(sched_data)
 
     @classmethod
-    def list_schedules(cls, tenant_id: str) -> List[DataBridgeScheduleResponse]:
-        """Lists all registered schedules for a tenant."""
+    def list_schedules(
+        cls,
+        tenant_id: str,
+        connector_type: Optional[DataBridgeConnectorType] = None,
+    ) -> List[DataBridgeScheduleResponse]:
+        """Lists all registered schedules for a tenant, optionally filtered by connector_type."""
         tenant_store = cls._schedules.get(tenant_id, {})
-        return [cls._to_response(s) for s in tenant_store.values()]
+        schedules = list(tenant_store.values())
+        if connector_type:
+            c_val = connector_type.value if hasattr(connector_type, "value") else str(connector_type)
+            schedules = [s for s in schedules if s.get("connector_type") == c_val]
+        return [cls._to_response(s) for s in schedules]
 
     @classmethod
     def get_schedule(cls, tenant_id: str, schedule_id: str) -> Optional[DataBridgeScheduleResponse]:
@@ -140,11 +148,14 @@ class DataBridgeScheduler:
         sched["last_run_at"] = now.isoformat()
 
         try:
+            params = dict(sched.get("params", {}))
+            raw_payload = params.pop("raw_payload", None)
             pull_req = DataBridgeConnectorPullRequest(
                 connector_type=DataBridgeConnectorType(sched["connector_type"]),
                 entity_type=DataBridgeEntityType(sched["entity_type"]),
                 config=sched["config"],
-                params=sched.get("params", {}),
+                params=params,
+                raw_payload=raw_payload,
             )
 
             pull_res = await DataBridgeConnectorOrchestrator.pull_and_transform(pull_req)
@@ -162,7 +173,7 @@ class DataBridgeScheduler:
 
             return DataBridgeScheduleTriggerResponse(
                 schedule_id=schedule_id,
-                status="SUCCESS",
+                status="COMPLETED",
                 records_pulled=records_count,
                 job_id=job_id,
                 triggered_at=now.isoformat(),
