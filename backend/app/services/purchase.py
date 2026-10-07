@@ -193,10 +193,33 @@ class PurchaseService:
             )
         res = await self.db.execute(stmt)
         product = res.scalars().first()
+        if not product and self.tenant.company_id:
+            from .product_resolution_service import ProductResolutionService
+            resolved = await ProductResolutionService.resolve(
+                session=self.db,
+                company_id=self.tenant.company_id,
+                identifier=product_id,
+            )
+            if resolved and resolved.product_id:
+                p_stmt = select(Product).where(
+                    Product.id == resolved.product_id,
+                    Product.is_deleted == False,
+                )
+                if self.tenant.company_id:
+                    p_stmt = p_stmt.where(
+                        (Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None))
+                    )
+                p_res = await self.db.execute(p_stmt)
+                product = p_res.scalars().first()
+
         if not product:
             raise HTTPException(
                 status_code=404,
-                detail=f"Product '{product_id}' was not found in your inventory.",
+                detail={
+                    "code": "ITEM_NOT_FOUND",
+                    "title": "Item Not Found",
+                    "message": f"Item/SKU/Barcode '{product_id}' not found in Item Master. Please create the item in Item Master first.",
+                },
             )
         return product
 
@@ -750,12 +773,23 @@ class PurchaseService:
             effective_batch_id = getattr(item, "batch_id", None)
             effective_loc_id = getattr(item, "warehouse_location_id", None) or getattr(item, "location_id", None)
 
-            # Phase 6 & R-01: Resolve variant_id with strict ambiguity check
+            # Phase 2: Dual-Key Canonical Identity Resolution & Validation
             canonical_item_id = getattr(product, "item_id", None)
             grn_variant_id = (
                 getattr(item, "variant_id", None)
                 or (getattr(target_po_line, "variant_id", None) if target_po_line else None)
             )
+            if not canonical_item_id or not grn_variant_id:
+                from .product_resolution_service import ProductResolutionService
+                resolved_canon = await ProductResolutionService.resolve_by_product_id(
+                    session=self.db,
+                    company_id=self.tenant.company_id,
+                    product_id=product.id,
+                )
+                if resolved_canon and resolved_canon.item_id:
+                    canonical_item_id = canonical_item_id or resolved_canon.item_id
+                    grn_variant_id = grn_variant_id or resolved_canon.variant_id
+
             if not grn_variant_id and canonical_item_id:
                 var_q = select(ItemVariant).where(
                     ItemVariant.item_id == canonical_item_id,
@@ -784,95 +818,118 @@ class PurchaseService:
             elif not grn_variant_id:
                 grn_variant_id = getattr(product, "item_variant_id", None)
 
-            # Phase 6 & R-01: Canonical Tracking Resolution vs Legacy Compatibility Path
-            # Product.item_id=None is a still-supported legacy compatibility path.
-            # When canonical_item_id is present, resolve canonical ItemBatch and ItemWarehouseLocation.
-            # When canonical_item_id is None, canonical ItemMaster entity tracking is bypassed
-            # because item_batches.item_id and item_warehouse_locations.item_id enforce items.id NOT NULL.
-            if canonical_item_id:
-                if not effective_batch_id and batch_no:
-                    try:
-                        from .item.item_tracking_svc import ItemTrackingService
-                        b_obj = await ItemTrackingService.resolve_or_create_batch(
-                            session=self.db,
-                            item_id=canonical_item_id,
-                            variant_id=grn_variant_id,
-                            batch_number=batch_no,
-                            company_id=self.tenant.company_id,
-                            branch_id=self.tenant.branch_id,
-                            mfg_date=item.mfg_date,
-                            exp_date=item.expiry_date,
-                            mrp=item.mrp,
-                            cost_price=item.cost_price,
-                            auto_commit=False,
-                        )
-                        if b_obj:
-                            effective_batch_id = b_obj.id
-                    except HTTPException:
-                        raise
-                    except Exception as exc:
-                        logger.error(
-                            f"[GRN BATCH RESOLUTION ERROR] Line {idx}: Failed to resolve or create batch '{batch_no}' "
-                            f"for item '{canonical_item_id}' (company '{self.tenant.company_id}'): {exc}",
-                            exc_info=True,
-                        )
-                        raise HTTPException(
-                            status_code=422,
-                            detail={
-                                "code": "BATCH_RESOLUTION_FAILED",
-                                "title": "Batch Tracking Resolution Failed",
-                                "explanation": f"Unable to resolve or create batch '{batch_no}' for product '{product.code}'.",
-                                "suggested_action": "Verify batch details and dates, or contact your system administrator.",
-                                "batch_no": batch_no,
-                                "error": str(exc),
-                            },
-                        ) from exc
-
-                if not effective_loc_id and warehouse_id:
-                    try:
-                        from .item.item_tracking_svc import ItemTrackingService
-                        l_obj = await ItemTrackingService.resolve_or_create_warehouse_location(
-                            session=self.db,
-                            item_id=canonical_item_id,
-                            warehouse_id=warehouse_id,
-                            company_id=self.tenant.company_id,
-                            branch_id=self.tenant.branch_id,
-                            auto_commit=False,
-                        )
-                        if l_obj:
-                            effective_loc_id = l_obj.id
-                    except HTTPException:
-                        raise
-                    except Exception as exc:
-                        logger.error(
-                            f"[GRN LOCATION RESOLUTION ERROR] Line {idx}: Failed to resolve or create warehouse location "
-                            f"for warehouse '{warehouse_id}' and item '{canonical_item_id}' (company '{self.tenant.company_id}'): {exc}",
-                            exc_info=True,
-                        )
-                        raise HTTPException(
-                            status_code=422,
-                            detail={
-                                "code": "WAREHOUSE_LOCATION_RESOLUTION_FAILED",
-                                "title": "Warehouse Location Resolution Failed",
-                                "explanation": f"Unable to resolve or create warehouse location for warehouse '{warehouse_id}' and product '{product.code}'.",
-                                "suggested_action": "Verify warehouse assignment or contact your system administrator.",
-                                "warehouse_id": warehouse_id,
-                                "error": str(exc),
-                            },
-                        ) from exc
-            else:
-                logger.info(
-                    f"[GRN LEGACY COMPATIBILITY] Line {idx}: Product '{product.code}' (id={product.id}) "
-                    "has no canonical item_id. Operating under still-supported legacy compatibility path "
-                    "(bypassing ItemBatch/ItemWarehouseLocation resolution as items.id FK is absent)."
+            # Strict Phase 2 Gate: NO STOCK WITHOUT CANONICAL IDENTITY
+            if not canonical_item_id or not grn_variant_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "UNLINKED_PRODUCT_NOT_ALLOWED",
+                        "title": "Unlinked Product Prohibited",
+                        "message": f"Product '{product.code}' is not linked to canonical Item Master. Stock inward via GRN is prohibited.",
+                        "suggested_action": "Item/SKU/Barcode not found in Item Master. Please create the item in Item Master first.",
+                    },
                 )
+
+            # Validate cross-field mismatch if caller explicitly supplied item_id or variant_id
+            caller_item_id = getattr(item, "item_id", None)
+            caller_variant_id = getattr(item, "variant_id", None)
+            if caller_item_id and caller_item_id != canonical_item_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "PRODUCT_CANONICAL_MISMATCH",
+                        "title": "Product Item Mismatch",
+                        "message": f"Provided item_id '{caller_item_id}' does not match canonical item '{canonical_item_id}' for product '{product.id}'.",
+                    },
+                )
+            if caller_variant_id and grn_variant_id and caller_variant_id != grn_variant_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "PRODUCT_CANONICAL_MISMATCH",
+                        "title": "Product Variant Mismatch",
+                        "message": f"Provided variant_id '{caller_variant_id}' does not match canonical variant '{grn_variant_id}' for product '{product.id}'.",
+                    },
+                )
+
+            # Resolve canonical ItemBatch and ItemWarehouseLocation
+            if not effective_batch_id and batch_no:
+                try:
+                    from .item.item_tracking_svc import ItemTrackingService
+                    b_obj = await ItemTrackingService.resolve_or_create_batch(
+                        session=self.db,
+                        item_id=canonical_item_id,
+                        variant_id=grn_variant_id,
+                        batch_number=batch_no,
+                        company_id=self.tenant.company_id,
+                        branch_id=self.tenant.branch_id,
+                        mfg_date=item.mfg_date,
+                        exp_date=item.expiry_date,
+                        mrp=item.mrp,
+                        cost_price=item.cost_price,
+                        auto_commit=False,
+                    )
+                    if b_obj:
+                        effective_batch_id = b_obj.id
+                except HTTPException:
+                    raise
+                except Exception as exc:
+                    logger.error(
+                        f"[GRN BATCH RESOLUTION ERROR] Line {idx}: Failed to resolve or create batch '{batch_no}' "
+                        f"for item '{canonical_item_id}' (company '{self.tenant.company_id}'): {exc}",
+                        exc_info=True,
+                    )
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "code": "BATCH_RESOLUTION_FAILED",
+                            "title": "Batch Tracking Resolution Failed",
+                            "explanation": f"Unable to resolve or create batch '{batch_no}' for product '{product.code}'.",
+                            "suggested_action": "Verify batch details and dates, or contact your system administrator.",
+                            "batch_no": batch_no,
+                            "error": str(exc),
+                        },
+                    ) from exc
+
+            if not effective_loc_id and warehouse_id:
+                try:
+                    from .item.item_tracking_svc import ItemTrackingService
+                    l_obj = await ItemTrackingService.resolve_or_create_warehouse_location(
+                        session=self.db,
+                        item_id=canonical_item_id,
+                        warehouse_id=warehouse_id,
+                        company_id=self.tenant.company_id,
+                        branch_id=self.tenant.branch_id,
+                        auto_commit=False,
+                    )
+                    if l_obj:
+                        effective_loc_id = l_obj.id
+                except HTTPException:
+                    raise
+                except Exception as exc:
+                    logger.error(
+                        f"[GRN LOCATION RESOLUTION ERROR] Line {idx}: Failed to resolve or create warehouse location "
+                        f"for warehouse '{warehouse_id}' and item '{canonical_item_id}' (company '{self.tenant.company_id}'): {exc}",
+                        exc_info=True,
+                    )
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "code": "WAREHOUSE_LOCATION_RESOLUTION_FAILED",
+                            "title": "Warehouse Location Resolution Failed",
+                            "explanation": f"Unable to resolve or create warehouse location for warehouse '{warehouse_id}' and product '{product.code}'.",
+                            "suggested_action": "Verify warehouse assignment or contact your system administrator.",
+                            "warehouse_id": warehouse_id,
+                            "error": str(exc),
+                        },
+                    ) from exc
 
             item_rows.append(PurchaseReceiptItem(
                 id=item_tech_id,
                 uuid=item_tech_id,
                 receipt_id=receipt_id,
                 product_id=item.product_id,
-                item_id=getattr(product, "item_id", None),
+                item_id=canonical_item_id,
                 variant_id=grn_variant_id,
                 purchase_order_id=target_po.id if target_po else None,
                 purchase_order_no=target_po.order_no if target_po else None,
@@ -1396,12 +1453,27 @@ class PurchaseService:
             subtotal += cost_price * quantity
             tax_total += tax_amount
 
+            canonical_item_id = product.item_id
+            canonical_variant_id = product.item_variant_id
+            if not (canonical_item_id and canonical_variant_id):
+                from .product_resolution_service import ProductResolutionService
+                c_res = await ProductResolutionService.resolve_by_product_id(
+                    session=self.db,
+                    company_id=self.tenant.company_id,
+                    product_id=product.id,
+                )
+                if c_res.success and c_res.item_id and c_res.variant_id:
+                    canonical_item_id = c_res.item_id
+                    canonical_variant_id = c_res.variant_id
+
             poi_id = IdentityEngine.generate_technical_id()
             item_rows.append(PurchaseOrderItem(
                 id=poi_id,
                 uuid=poi_id,
                 order_id=order_id,
                 product_id=product.id,
+                item_id=canonical_item_id,
+                variant_id=canonical_variant_id,
                 code=product.code,
                 name=product.name,
                 quantity=quantity,
@@ -1694,12 +1766,28 @@ class PurchaseService:
             line_tot = (item.cost_price * item.quantity + tax_amt).quantize(Decimal("0.01"))
             subtotal += item.cost_price * item.quantity
             tax_total += tax_amt
+
+            canonical_item_id = getattr(item, "item_id", None) or getattr(product, "item_id", None)
+            canonical_variant_id = getattr(item, "variant_id", None) or getattr(product, "item_variant_id", None)
+            if not (canonical_item_id and canonical_variant_id):
+                from .product_resolution_service import ProductResolutionService
+                c_res = await ProductResolutionService.resolve_by_product_id(
+                    session=self.db,
+                    company_id=self.tenant.company_id,
+                    product_id=product.id,
+                )
+                if c_res.success and c_res.item_id and c_res.variant_id:
+                    canonical_item_id = canonical_item_id or c_res.item_id
+                    canonical_variant_id = canonical_variant_id or c_res.variant_id
+
             amend_poi_id = IdentityEngine.generate_technical_id()
             item_rows.append(PurchaseOrderItem(
                 id=amend_poi_id,
                 uuid=amend_poi_id,
                 order_id=new_po_id,
                 product_id=item.product_id,
+                item_id=canonical_item_id,
+                variant_id=canonical_variant_id,
                 code=item.code,
                 name=item.name,
                 quantity=item.quantity,

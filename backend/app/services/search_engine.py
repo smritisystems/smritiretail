@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.1
 Created      : 2026-08-25
-Modified     : 2026-10-04
+Modified     : 2026-10-07
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -75,152 +75,66 @@ class UniversalSearchEngine:
         req: BarcodeQuickScanRequest,
     ) -> BarcodeQuickScanResponse:
         """
-        Ultra-fast 4-tier scanner resolver for POS billing and inventory scanning.
-        Tier 1: ItemBarcode table match
-        Tier 2: ItemVariant SKU match
-        Tier 3: Item item_code match
+        Ultra-fast scanner resolver delegated to authoritative ProductResolutionService.
+        Guarantees strict tenant isolation, canonical hierarchy precedence, and preserves
+        the exact BarcodeQuickScanResponse schema contract for DistTaxInvoice.tsx and POS billing.
         """
         raw_code = req.barcode.strip()
+        if not raw_code:
+            return BarcodeQuickScanResponse(
+                found=False,
+                scan_type="NOT_FOUND",
+                barcode=raw_code,
+            )
 
-        # Tier 0: Master Identity Resolver (O(1) in-memory cache, Governed Identity Code, or Registered External Alias)
-        from .identity.resolver import IdentityResolver
-        id_res = await IdentityResolver.resolve(
+        from .product_resolution_service import ProductResolutionService
+
+        res = await ProductResolutionService.resolve(
             session=session,
-            identifier=raw_code,
             company_id=company_id,
-            use_cache=True,
+            identifier=raw_code,
         )
-        if id_res.found and id_res.entity_id and id_res.entity_type == "ITEM":
-            stmt_item = (
-                select(Item, ItemVariant)
-                .outerjoin(ItemVariant, Item.id == ItemVariant.item_id)
-                .where(
-                    Item.id == id_res.entity_id,
-                    Item.company_id == company_id,
-                    Item.is_deleted == False,
-                )
-            )
-            item_match = (await session.execute(stmt_item)).first()
-            if item_match:
-                item_row, var_row = item_match
-                selling_price = var_row.selling_price if var_row and var_row.selling_price else item_row.selling_price
-                mrp = var_row.mrp if var_row and var_row.mrp else item_row.mrp
-                sku = var_row.variant_sku if var_row else item_row.item_code
-                return BarcodeQuickScanResponse(
-                    found=True,
-                    scan_type="MASTER_IDENTITY_RESOLVER",
-                    item_id=item_row.id,
-                    item_code=item_row.item_code,
-                    item_name=item_row.item_name,
-                    variant_id=var_row.id if var_row else None,
-                    sku=sku,
-                    barcode=raw_code,
-                    uom=item_row.primary_uom or "PCS",
-                    mrp=mrp,
-                    selling_price=selling_price,
-                    hsn_sac=item_row.hsn_code,
-                    tax_rate=item_row.tax_rate or Decimal("18.00"),
-                    metadata={
-                        "brand": item_row.brand,
-                        "category": item_row.category,
-                        "identity_code": id_res.identity_code,
-                        "resolution_tier": id_res.resolution_tier,
-                    },
-                )
 
-        # Tier 1: Search ItemBarcode table
-        stmt_bc = (
-            select(ItemBarcode, Item, ItemVariant)
-            .join(Item, ItemBarcode.item_id == Item.id)
-            .outerjoin(ItemVariant, ItemBarcode.variant_id == ItemVariant.id)
-            .where(
-                ItemBarcode.company_id == company_id,
-                ItemBarcode.barcode == raw_code,
-                ItemBarcode.is_active == True,
-                ItemBarcode.is_deleted == False,
-            )
-        )
-        bc_match = (await session.execute(stmt_bc)).first()
-        if bc_match:
-            bc_row, item_row, var_row = bc_match
-            selling_price = var_row.selling_price if var_row and var_row.selling_price else item_row.selling_price
-            mrp = var_row.mrp if var_row and var_row.mrp else item_row.mrp
-            sku = var_row.variant_sku if var_row else item_row.item_code
+        if res.success:
+            if res.matched_by == "BARCODE":
+                scan_type = "EXACT_BARCODE"
+            elif res.matched_by in ("VARIANT_SKU", "SKU"):
+                scan_type = "SKU"
+            elif res.matched_by in ("ITEM_CODE", "CODE"):
+                scan_type = "ITEM_CODE"
+            elif res.matched_by == "LEGACY_PRODUCT":
+                scan_type = "LEGACY_PRODUCT"
+            else:
+                scan_type = res.matched_by or "EXACT_BARCODE"
+
+            item_code_val = None
+            if res.product:
+                item_code_val = res.product.get("item_code") or res.product.get("code") or res.sku
+            if not item_code_val:
+                item_code_val = res.sku
+
             return BarcodeQuickScanResponse(
                 found=True,
-                scan_type="EXACT_BARCODE",
-                item_id=item_row.id,
-                item_code=item_row.item_code,
-                item_name=item_row.item_name,
-                variant_id=var_row.id if var_row else None,
-                sku=sku,
-                barcode=bc_row.barcode,
-                uom=item_row.primary_uom or "PCS",
-                mrp=mrp,
-                selling_price=selling_price,
-                hsn_sac=item_row.hsn_code,
-                tax_rate=item_row.tax_rate or Decimal("18.00"),
-                metadata={"brand": item_row.brand, "category": item_row.category},
-            )
-
-        # Tier 2: Search ItemVariant SKU
-        stmt_sku = (
-            select(ItemVariant, Item)
-            .join(Item, ItemVariant.item_id == Item.id)
-            .where(
-                ItemVariant.company_id == company_id,
-                ItemVariant.variant_sku == raw_code,
-                ItemVariant.is_active == True,
-                ItemVariant.is_deleted == False,
-            )
-        )
-        sku_match = (await session.execute(stmt_sku)).first()
-        if sku_match:
-            var_row, item_row = sku_match
-            return BarcodeQuickScanResponse(
-                found=True,
-                scan_type="SKU",
-                item_id=item_row.id,
-                item_code=item_row.item_code,
-                item_name=item_row.item_name,
-                variant_id=var_row.id,
-                sku=var_row.variant_sku,
-                barcode=raw_code,
-                uom=item_row.primary_uom or "PCS",
-                mrp=var_row.mrp or item_row.mrp,
-                selling_price=var_row.selling_price or item_row.selling_price,
-                hsn_sac=item_row.hsn_code,
-                tax_rate=item_row.tax_rate or Decimal("18.00"),
-                metadata={"brand": item_row.brand, "category": item_row.category},
-            )
-
-        # Tier 3: Search Item by item_code
-        stmt_item = (
-            select(Item)
-            .where(
-                Item.company_id == company_id,
-                Item.item_code == raw_code,
-                Item.is_active == True,
-                Item.is_deleted == False,
-            )
-        )
-        item_row = (await session.execute(stmt_item)).scalars().first()
-        if item_row:
-            return BarcodeQuickScanResponse(
-                found=True,
-                scan_type="ITEM_CODE",
-                item_id=item_row.id,
-                item_code=item_row.item_code,
-                item_name=item_row.item_name,
-                variant_id=None,
-                sku=item_row.item_code,
-                barcode=raw_code,
-                uom=item_row.primary_uom or "PCS",
-                mrp=item_row.mrp,
-                selling_price=item_row.selling_price,
-                hsn_sac=item_row.hsn_code,
-                tax_rate=item_row.tax_rate or Decimal("18.00"),
-                metadata={"brand": item_row.brand, "category": item_row.category},
+                scan_type=scan_type,
+                item_id=res.item_id or res.product_id,
+                item_code=item_code_val,
+                item_name=res.name,
+                variant_id=res.variant_id,
+                sku=res.sku,
+                barcode=res.barcode or raw_code,
+                uom=res.uom or "NOS",
+                mrp=res.mrp,
+                selling_price=res.selling_price,
+                hsn_sac=res.hsn_code,
+                tax_rate=res.tax_rate,
+                current_stock=None,
+                metadata={
+                    "product_id": res.product_id,
+                    "brand": res.brand,
+                    "category": res.category,
+                    "resolution_source": res.resolution_source,
+                    "matched_by": res.matched_by,
+                },
             )
 
         return BarcodeQuickScanResponse(

@@ -18,6 +18,7 @@ import uuid as uuid_pkg
 from datetime import datetime, date as date_type, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple, Set
+from fastapi import HTTPException
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -454,8 +455,8 @@ class DataBridgeSalesReturnAdapter(BaseDataBridgeAdapter):
 
     async def _resolve_or_create_product(
         self, session: AsyncSession, it: Dict[str, Any], company_id: str, branch_id: Optional[str]
-    ) -> Tuple[str, str, str]:
-        """Resolves existing Product by code/barcode/id, or provisions a minimal Product."""
+    ) -> Tuple[str, str, str, Optional[str], Optional[str]]:
+        """Resolves existing Product by code/barcode/id with canonical identity, or provisions a shadow bridge."""
         raw_code = str(it.get("code") or "").strip()
         name = str(it.get("name") or raw_code).strip()
         price = it.get("price") or Decimal("0.00")
@@ -471,36 +472,74 @@ class DataBridgeSalesReturnAdapter(BaseDataBridgeAdapter):
             ),
         )
         p = (await session.execute(stmt)).scalars().first()
+        from app.services.product_resolution_service import ProductResolutionService
         if p:
-            return p.id, p.code, p.name
+            if not p.item_id:
+                res = await ProductResolutionService.resolve_by_product_id(
+                    session=session,
+                    company_id=company_id,
+                    product_id=p.id,
+                )
+                if not res or not res.item_id:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "code": "UNLINKED_PRODUCT_NOT_ALLOWED",
+                            "message": f"Product '{p.code}' is not linked to canonical Item Master. Sales returns are prohibited.",
+                        },
+                    )
+                return p.id, p.code, p.name, res.item_id, res.variant_id
+            return p.id, p.code, p.name, p.item_id, getattr(p, "item_variant_id", None)
 
-        # Auto-provision Product
+        # Attempt canonical resolution
+        canon_res = await ProductResolutionService.resolve(
+            session=session,
+            company_id=company_id,
+            identifier=raw_code,
+        )
+        if not canon_res or not canon_res.success or not canon_res.item_id:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "ITEM_NOT_FOUND",
+                    "message": f"Item/SKU/Barcode '{raw_code}' not found in Item Master. Sales returns for unknown items are prohibited.",
+                },
+            )
+
+        if canon_res.product_id:
+            cp = await session.get(Product, canon_res.product_id)
+            if cp:
+                return cp.id, cp.code, cp.name, canon_res.item_id, canon_res.variant_id
+
+        # Auto-provision transitional shadow Product bridge
         p_tech_id, p_id_code = await IdentityEngine.allocate_internal(
             session=session,
             entity_type="PRODUCT",
             group_code="PRD",
             company_id=company_id,
             branch_id=branch_id,
-            purpose="DATABRIDGE_AUTO_PROVISION",
+            purpose="DATABRIDGE_CANONICAL_BRIDGE",
         )
         code_to_use = raw_code or p_id_code
         new_p = Product(
             id=p_tech_id,
             code=code_to_use,
-            sku=code_to_use,
-            barcode=code_to_use,
-            name=name or code_to_use,
+            sku=canon_res.sku or code_to_use,
+            barcode=canon_res.barcode or code_to_use,
+            name=canon_res.name or name or code_to_use,
             category="General",
             price=price,
             cost_price=price,
             gst_percentage=it.get("gst_rate") or Decimal("18.00"),
+            item_id=canon_res.item_id,
+            item_variant_id=canon_res.variant_id,
             company_id=company_id,
             branch_id=branch_id,
             is_active=True,
         )
         session.add(new_p)
         await session.flush()
-        return new_p.id, new_p.code, new_p.name
+        return new_p.id, new_p.code, new_p.name, canon_res.item_id, canon_res.variant_id
 
     async def commit(
         self,
@@ -532,7 +571,7 @@ class DataBridgeSalesReturnAdapter(BaseDataBridgeAdapter):
 
             return_items: List[SalesReturnItem] = []
             for it in doc.get("items", []):
-                p_id, p_code, p_name = await self._resolve_or_create_product(session, it, company_id, branch_id)
+                p_id, p_code, p_name, item_id, variant_id = await self._resolve_or_create_product(session, it, company_id, branch_id)
                 tax_total += it["tax_amount"]
                 grand_total += it["total_amount"]
 
@@ -540,6 +579,8 @@ class DataBridgeSalesReturnAdapter(BaseDataBridgeAdapter):
                     company_id=company_id,
                     branch_id=branch_id,
                     product_id=p_id,
+                    item_id=item_id,
+                    variant_id=variant_id,
                     code=p_code,
                     name=p_name,
                     quantity=it["quantity"],

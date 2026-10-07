@@ -1243,6 +1243,8 @@ async def commit_universal_import(
                     company_id=company_id,
                     req=StockMovementRecordRequest(
                         product_id=resolved["product"].id,
+                        item_id=resolved["match"].get("item_id"),
+                        variant_id=resolved["match"].get("variant_id"),
                         quantity=float(resolved["quantity"]),
                         movement_type=movement_type,
                         reference_doc_type="UNIVERSAL_IMPORT",

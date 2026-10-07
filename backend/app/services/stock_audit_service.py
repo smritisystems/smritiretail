@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-22
-Modified     : 2026-08-22
+Modified     : 2026-10-07
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -245,23 +245,30 @@ class StockAuditService:
         if audit.status == "COMPLETED":
             raise HTTPException(status_code=400, detail="Cannot scan into a completed stock audit.")
 
-        # Find product by primary barcode, SKU, code, OR secondary barcodes array
-        p_res = await self.db.execute(
-            select(Product).where(
-                Product.company_id == self.tenant.company_id,
-                (Product.barcode == barcode_or_sku)
-                | (Product.sku == barcode_or_sku)
-                | (Product.code == barcode_or_sku)
-                | (Product.secondary_barcodes.any(barcode_or_sku)),
-                Product.is_deleted == False
-            )
+        # Authoritative product resolution via ProductResolutionService (removes raw SQL dependency)
+        from .product_resolution_service import ProductResolutionService
+        from decimal import Decimal
+
+        res = await ProductResolutionService.resolve(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            identifier=barcode_or_sku,
         )
-        product = p_res.scalar_one_or_none()
-        if not product:
+        if not res.success or not res.product_id:
             raise HTTPException(status_code=404, detail=f"Product with barcode/SKU '{barcode_or_sku}' not found.")
 
-        # Find matching items in audit for this product
-        candidate_items = [it for it in audit.items if it.product_id == product.id]
+        resolved_product_id = res.product_id
+        resolved_product_name = res.name or "Unknown Product"
+        resolved_barcode = res.barcode or barcode_or_sku
+
+        # Find matching items in audit for this product (checking product_id, variant_id, or item_id)
+        target_ids = {resolved_product_id}
+        if res.variant_id:
+            target_ids.add(res.variant_id)
+        if res.item_id:
+            target_ids.add(res.item_id)
+
+        candidate_items = [it for it in audit.items if it.product_id in target_ids]
         matched_item = None
 
         if batch_no:
@@ -287,7 +294,7 @@ class StockAuditService:
             item_ref = matched_item
         else:
             # Unlisted item found in warehouse during audit (Surplus)
-            unit_cost = float(getattr(product, 'cost_price', None) or getattr(product, 'price', 100.0) or 100.0)
+            unit_cost = float(res.cost_price if res.cost_price and res.cost_price > Decimal("0.00") else (res.selling_price or Decimal("100.00")))
             target_batch = batch_no or "BATCH-FOUND"
             new_item = StockAuditItem(
                 id=f"audi-{uuid.uuid4().hex[:12]}",
@@ -295,7 +302,7 @@ class StockAuditService:
                 company_id=self.tenant.company_id,
                 branch_id=self.tenant.branch_id,
                 audit_id=audit_id,
-                product_id=product.id,
+                product_id=resolved_product_id,
                 batch_no=target_batch,
                 system_qty=0.0,
                 counted_qty=qty_increment,
@@ -312,15 +319,17 @@ class StockAuditService:
         return {
             "status": "SCAN_RECORDED",
             "audit_id": audit_id,
-            "product_id": product.id,
-            "product_name": product.name,
-            "barcode": product.barcode,
+            "product_id": resolved_product_id,
+            "product_name": resolved_product_name,
+            "barcode": resolved_barcode,
             "batch_no": item_ref.batch_no,
             "system_qty": float(item_ref.system_qty),
             "counted_qty": float(item_ref.counted_qty),
             "variance_qty": float(item_ref.variance_qty),
             "variance_value": float(item_ref.variance_value),
-            "discrepancy_reason": item_ref.discrepancy_reason
+            "discrepancy_reason": item_ref.discrepancy_reason,
+            "canonical_item_id": res.item_id,
+            "canonical_variant_id": res.variant_id,
         }
 
     async def reconcile_and_post_discrepancies(
@@ -407,6 +416,20 @@ class StockAuditService:
                 
                 intervening_note = f" [Note: {len(intervening_txns)} intervening transactions post-snapshot, net delta: {net_intervening_delta:+.2f}]"
 
+            canonical_item_id = prod.item_id if prod else None
+            canonical_variant_id = prod.item_variant_id if prod else None
+
+            if prod and not (canonical_item_id and canonical_variant_id):
+                from .product_resolution_service import ProductResolutionService
+                c_res = await ProductResolutionService.resolve_by_product_id(
+                    session=self.db,
+                    company_id=self.tenant.company_id,
+                    product_id=prod.id,
+                )
+                if c_res.success and c_res.item_id and c_res.variant_id:
+                    canonical_item_id = c_res.item_id
+                    canonical_variant_id = c_res.variant_id
+
             if adj_qty < 0:
                 # Stock deficit / loss
                 loss_qty = abs(adj_qty)
@@ -420,6 +443,8 @@ class StockAuditService:
                     company_id=self.tenant.company_id,
                     branch_id=self.tenant.branch_id,
                     product_id=item.product_id,
+                    item_id=canonical_item_id,
+                    variant_id=canonical_variant_id,
                     product_name=prod_name,
                     sku=prod_sku,
                     movement_type="OUTWARD_LOSS",
@@ -461,6 +486,8 @@ class StockAuditService:
                     company_id=self.tenant.company_id,
                     branch_id=self.tenant.branch_id,
                     product_id=item.product_id,
+                    item_id=canonical_item_id,
+                    variant_id=canonical_variant_id,
                     product_name=prod_name,
                     sku=prod_sku,
                     movement_type="INWARD_SURPLUS",

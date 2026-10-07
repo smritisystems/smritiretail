@@ -82,11 +82,36 @@ class StockAccountingBoundaryService:
             if wh_match:
                 wh_id = wh_match
 
-        # Create immutable movement record
+        # Resolve Canonical Identity (Phase 2 Dual-Key Gate)
+        canonical_item_id = product.item_id
+        canonical_variant_id = product.item_variant_id
+
+        if not (canonical_item_id and canonical_variant_id):
+            from .product_resolution_service import ProductResolutionService
+            res = await ProductResolutionService.resolve_by_product_id(
+                session=session,
+                company_id=company_id,
+                product_id=product.id,
+            )
+            if res.success and res.item_id and res.variant_id:
+                canonical_item_id = res.item_id
+                canonical_variant_id = res.variant_id
+
+        req_item_id = getattr(req, "item_id", None)
+        req_variant_id = getattr(req, "variant_id", None)
+
+        if req_item_id and canonical_item_id and req_item_id != canonical_item_id:
+            raise ValueError(f"Provided item_id '{req_item_id}' does not match canonical item '{canonical_item_id}'.")
+        if req_variant_id and canonical_variant_id and req_variant_id != canonical_variant_id:
+            raise ValueError(f"Provided variant_id '{req_variant_id}' does not match canonical variant '{canonical_variant_id}'.")
+
+        # Create immutable movement record with dual-key canonical identity
         movement = StockMovement(
             id=f"sm_{uuid.uuid4().hex[:12]}",
             company_id=company_id,
             product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
             product_name=product.name,
             sku=product.sku or "SKU-UNKNOWN",
             quantity=Decimal(str(req.quantity)),

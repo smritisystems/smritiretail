@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.69.0
+Version      : 6.70.19
 Created      : 2026-07-11
-Modified     : 2026-10-03
+Modified     : 2026-10-07
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -141,7 +141,7 @@ _root_env_path = _root_dir / ".env"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SMRITI Retail OS"
-    VERSION: str = "6.70.17"
+    VERSION: str = "6.70.19"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     

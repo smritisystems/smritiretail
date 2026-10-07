@@ -749,9 +749,27 @@ class DispatchInvoicingEngine:
             db.add(sales_inv)
 
             # Add line items
+            from app.services.product_resolution_service import ProductResolutionService
             for it in unpivoted_items:
+                # Phase 2 Dual-Key Resolution & Architectural Boundary:
+                # Dispatch Invoicing Studio is an isolated non-stock commercial matrix billing utility
+                # (source_document_type="DISPATCH_STUDIO"). It generates SalesInvoice and E-Way bills for store logistics
+                # without mutating physical inventory or batch stock (no StockMovement created).
+                # Canonical keys are resolved and populated for audit and ledger parity where resolvable.
+                canon_res = await ProductResolutionService.resolve(
+                    session=db,
+                    company_id=company_id,
+                    identifier=it["code"],
+                )
+                canon_prod_id = canon_res.product_id if canon_res and canon_res.product_id else None
+                canon_item_id = canon_res.item_id if canon_res and canon_res.item_id else None
+                canon_var_id = canon_res.variant_id if canon_res and canon_res.variant_id else None
+
                 item_row = SalesInvoiceItem(
                     invoice_id=inv_id,
+                    product_id=canon_prod_id,
+                    item_id=canon_item_id,
+                    variant_id=canon_var_id,
                     code=it["code"],
                     name=it["name"],
                     quantity=it["quantity"],

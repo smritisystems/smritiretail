@@ -16,6 +16,7 @@ Classification: Internal — DataBridge Purchase Order Adapter
 
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple, Set
+from fastapi import HTTPException
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -534,26 +535,44 @@ class DataBridgePurchaseOrderAdapter(BaseDataBridgeAdapter):
                     or_(Product.code == code, Product.sku == code, Product.id == code),
                     Product.is_deleted == False,
                 )
-                p_id = (await session.execute(p_stmt)).scalars().first()
-                if not p_id:
-                    # Auto-provision Product record to satisfy foreign key constraint fk_poi_product_id
+                from app.services.product_resolution_service import ProductResolutionService
+                canon_res = await ProductResolutionService.resolve(
+                    session=session,
+                    company_id=company_id,
+                    identifier=code,
+                )
+                if not canon_res or not canon_res.success or not canon_res.item_id:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "code": "ITEM_NOT_FOUND",
+                            "message": f"Item/SKU/Barcode '{code}' not found in Item Master. Purchase orders for unknown items are prohibited.",
+                        },
+                    )
+
+                if canon_res.product_id:
+                    p_id = canon_res.product_id
+                else:
+                    # Canonical Item exists but lacks legacy Product bridge; create transitional shadow Product bridge
                     p_tech_id, p_id_code = await IdentityEngine.allocate_internal(
                         session=session,
                         entity_type="PRODUCT",
                         group_code="PRD",
                         company_id=company_id,
                         branch_id=branch_id or "BR-MAIN-001",
-                        purpose="DATABRIDGE_AUTO_PROVISION",
+                        purpose="DATABRIDGE_CANONICAL_BRIDGE",
                     )
                     new_prod = Product(
                         id=p_tech_id,
                         code=code or p_id_code,
-                        sku=code or p_id_code,
-                        barcode=code or p_id_code,
-                        name=it["name"] or code,
+                        sku=canon_res.sku or code or p_id_code,
+                        barcode=canon_res.barcode or code or p_id_code,
+                        name=canon_res.name or it["name"] or code,
                         category="General",
                         price=it["cost_price"],
                         cost_price=it["cost_price"],
+                        item_id=canon_res.item_id,
+                        item_variant_id=canon_res.variant_id,
                         company_id=company_id,
                         branch_id=branch_id or "BR-MAIN-001",
                     )
@@ -564,6 +583,8 @@ class DataBridgePurchaseOrderAdapter(BaseDataBridgeAdapter):
                 line_items_in.append(
                     PurchaseOrderItemCreate(
                         product_id=p_id,
+                        item_id=canon_res.item_id,
+                        variant_id=canon_res.variant_id,
                         code=code,
                         name=it["name"],
                         quantity=it["quantity"],
