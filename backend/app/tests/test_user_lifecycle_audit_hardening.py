@@ -332,3 +332,58 @@ class TestRelationalAssignmentAndAuditJournal:
             await service.deactivate_staff(created.id, ctx["manager"].id)
         assert exc_info.value.status_code == 400
         assert "active OPEN POS shift (shift-open-999)" in exc_info.value.detail
+
+    async def test_list_staff_role_normalization(self, db_session, setup_test_context):
+        ctx = setup_test_context
+        service = UserService(db_session, tenant=ctx["tenant"])
+
+        total_admins, admins = await service.list_staff(role_filter="admin", tenant=ctx["tenant"])
+        assert total_admins >= 1
+        assert any(u.role == UserRole.SYSADMIN for u in admins)
+
+        total_cashiers, cashiers = await service.list_staff(role_filter="cashier", tenant=ctx["tenant"])
+        assert all(u.role == UserRole.CASHIER for u in cashiers)
+
+    async def test_staff_directory_profile_synchronization(self, db_session, setup_test_context):
+        from app.api.v1.staff import update_staff_directory_profile
+        from app.schemas.user import StaffUserUpdate
+        ctx = setup_test_context
+        service = UserService(db_session, tenant=ctx["tenant"])
+
+        create_req = StaffUserCreate(
+            username=f"staff_dir_{uuid.uuid4().hex[:5]}",
+            fullName="Directory Staff Member",
+            role=UserRole.CASHIER,
+            password="StrongPassword123!",
+            branchId=ctx["branch"].id,
+        )
+        created = await service.create_staff_user(create_req, requesting_user=ctx["manager"])
+
+        # Non-SYSADMIN cannot change role via directory endpoint
+        with pytest.raises(HTTPException) as exc_info:
+            await update_staff_directory_profile(
+                user_id=created.id,
+                payload=StaffUserUpdate(role=UserRole.MANAGER),
+                tenant=ctx["tenant"],
+                control_db=db_session,
+                company_db=db_session,
+                current_user=ctx["manager"],
+            )
+        assert exc_info.value.status_code == 403
+
+        # SYSADMIN updates role and fullName
+        merged = await update_staff_directory_profile(
+            user_id=created.id,
+            payload=StaffUserUpdate(role=UserRole.MANAGER, fullName="Updated Directory Staff Member"),
+            tenant=ctx["tenant"],
+            control_db=db_session,
+            company_db=db_session,
+            current_user=ctx["sysadmin"],
+        )
+        assert merged["role"] == UserRole.MANAGER
+        assert merged["fullName"] == "Updated Directory Staff Member"
+
+        # Verify control_db was committed
+        updated_user = await service.get_user(created.id)
+        assert updated_user.role == UserRole.MANAGER
+        assert updated_user.full_name == "Updated Directory Staff Member"

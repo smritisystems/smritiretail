@@ -47,8 +47,9 @@ Remediate security gaps, administrative lockout vulnerabilities, and synchroniza
 3. `package.json` — Bumped version to `6.70.17`.
 4. `backend/app/core/config.py` — Bumped version to `6.70.17`.
 5. `src/config/version.ts` — Bumped version to `6.70.17`.
-6. `CHANGELOG.md` — Added `[6.70.17]` release notes.
-7. `docs/walkthrough/README.md` — Appended walkthrough index entry.
+6. `backend/app/api/v1/staff.py` — Synchronized `update_staff_directory_profile` with `control_db`, enforced SYSADMIN role modification guard, anti-lockout protection, and audit logging.
+7. `CHANGELOG.md` — Added `[6.70.17]` release notes.
+8. `docs/walkthrough/README.md` — Appended walkthrough index entry.
 
 ---
 
@@ -93,7 +94,7 @@ In enterprise retail environments, cashiers and branch managers must never have 
 ---
 
 ## 8. Tests Executed
-1. `pytest backend/app/tests/test_user_lifecycle_audit_hardening.py`:
+1. `pytest backend/app/tests/test_user_lifecycle_audit_hardening.py` (11/11 PASSED in 48.97s):
    - `test_prevent_non_sysadmin_creating_sysadmin`: PASSED
    - `test_sysadmin_can_create_sysadmin`: PASSED
    - `test_prevent_non_sysadmin_modifying_roles`: PASSED
@@ -103,6 +104,8 @@ In enterprise retail environments, cashiers and branch managers must never have 
    - `test_auto_enroll_assignments`: PASSED
    - `test_audit_logs_recorded_for_lifecycle_events`: PASSED
    - `test_active_pos_shift_blocks_deactivation`: PASSED
+   - `test_list_staff_role_normalization`: PASSED
+   - `test_staff_directory_profile_synchronization`: PASSED
 2. `pytest backend/app/tests/test_console_errors_remediation.py`: 16/16 PASSED
 3. `vitest run src/tests/universalImportEngine.test.ts`: 10/10 PASSED
 4. `python scripts/validate_version_ssot.py`: 100% Consistent at `6.70.17`
@@ -121,6 +124,8 @@ In enterprise retail environments, cashiers and branch managers must never have 
 | Relational Assignments | Auto-creates UCA and UBA | is_default = True | Done |
 | Active POS Shift Guard | Cashier deactivation blocked if shift open | HTTP 400 Bad Request | Done |
 | Audit Trail | Immutable log recorded | SmritiAuditLog entries present | Done |
+| Role Normalization | Case-insensitive and alias queries (admin -> SYSADMIN) | Matches canonical roles | Done |
+| Staff 360 Parity | Directory profile updates commit control-plane user | Role & status synced | Done |
 
 ---
 
