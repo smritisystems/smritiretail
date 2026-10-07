@@ -44,7 +44,7 @@ from ...models.staff_placement import StaffPlacementAssignment
 from ...models.staff_profile import StaffProfile
 from ...models.staff_profile_history import StaffProfileHistory
 from ...schemas.user import StaffUserUpdate
-from ...services.user import to_staff_response
+from ...services.user import UserService, to_staff_response
 from ...services.spif import SpifService
 
 router = APIRouter(prefix="/staff")
@@ -528,10 +528,50 @@ async def update_staff_directory_profile(
         "status": "status",
     }
     values = payload.model_dump(exclude_unset=True)
-    if "role" in values:
+    user_service = UserService(control_db, tenant)
+    control_user_updated = False
+    old_role = user.role
+    old_status = user.status
+
+    if "role" in values and values["role"] != user.role:
         if current_user.role != UserRole.SYSADMIN:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only a system administrator can change a staff access role.")
+        if user.role == UserRole.SYSADMIN and values["role"] != UserRole.SYSADMIN:
+            await user_service._assert_not_last_active_sysadmin(user.id, "demote")
         user.role = values["role"]
+        control_user_updated = True
+
+    if "fullName" in values and values["fullName"] != user.full_name:
+        user.full_name = values["fullName"]
+        control_user_updated = True
+
+    if "status" in values and values["status"] != user.status:
+        if values["status"] == "Inactive":
+            if current_user.id == user.id:
+                raise HTTPException(status_code=400, detail="You cannot deactivate your own operator account.")
+            if user.role == UserRole.SYSADMIN:
+                await user_service._assert_not_last_active_sysadmin(user.id, "deactivate")
+            await user_service._check_active_pos_shifts(user.id, user.company_id)
+            user.is_active = False
+            user.status = "Inactive"
+        elif values["status"] == "Active":
+            user.is_active = True
+            user.is_deleted = False
+            user.status = "Active"
+        control_user_updated = True
+
+    if control_user_updated:
+        user.modified_at = datetime.now(timezone.utc)
+        if old_status == "Inactive" and user.status == "Active":
+            await user_service._record_audit("USER_REACTIVATED", user.id, actor=current_user, reason="Staff directory account reactivated")
+        elif old_status == "Active" and user.status == "Inactive":
+            await user_service._record_audit("USER_DEACTIVATED", user.id, actor=current_user, reason="Staff directory account deactivated")
+        elif "role" in values and old_role != user.role:
+            await user_service._record_audit("USER_ROLE_CHANGED", user.id, actor=current_user, old_val=str(old_role), new_val=str(user.role), reason="Staff directory role updated")
+        else:
+            await user_service._record_audit("USER_UPDATED", user.id, actor=current_user, reason="Staff directory identity fields updated")
+        await control_db.commit()
+        await control_db.refresh(user)
     for source, target in field_map.items():
         if source in values:
             value = values[source]

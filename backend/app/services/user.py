@@ -758,7 +758,13 @@ class UserService:
         q = self._tenant_scope(q, tenant)
         
         if role_filter:
-            q = q.where(User.role == role_filter)
+            norm_role = role_filter.strip().upper()
+            if norm_role in ("ADMIN", "SYSADMIN"):
+                q = q.where(User.role == UserRole.SYSADMIN)
+            elif norm_role in UserRole.__members__:
+                q = q.where(User.role == UserRole[norm_role])
+            else:
+                q = q.where(User.role == role_filter)
         if status_filter:
             q = q.where(User.status == status_filter)
         if search:
