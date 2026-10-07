@@ -94,7 +94,7 @@ In enterprise retail environments, cashiers and branch managers must never have 
 ---
 
 ## 8. Tests Executed
-1. `pytest backend/app/tests/test_user_lifecycle_audit_hardening.py` (11/11 PASSED in 48.97s):
+1. `pytest backend/app/tests/test_user_lifecycle_audit_hardening.py` (12/12 PASSED in 47.26s):
    - `test_prevent_non_sysadmin_creating_sysadmin`: PASSED
    - `test_sysadmin_can_create_sysadmin`: PASSED
    - `test_prevent_non_sysadmin_modifying_roles`: PASSED
@@ -106,6 +106,7 @@ In enterprise retail environments, cashiers and branch managers must never have 
    - `test_active_pos_shift_blocks_deactivation`: PASSED
    - `test_list_staff_role_normalization`: PASSED
    - `test_staff_directory_profile_synchronization`: PASSED
+   - `test_password_change_audit_journal`: PASSED
 2. `pytest backend/app/tests/test_console_errors_remediation.py`: 16/16 PASSED
 3. `vitest run src/tests/universalImportEngine.test.ts`: 10/10 PASSED
 4. `python scripts/validate_version_ssot.py`: 100% Consistent at `6.70.17`
@@ -126,6 +127,7 @@ In enterprise retail environments, cashiers and branch managers must never have 
 | Audit Trail | Immutable log recorded | SmritiAuditLog entries present | Done |
 | Role Normalization | Case-insensitive and alias queries (admin -> SYSADMIN) | Matches canonical roles | Done |
 | Staff 360 Parity | Directory profile updates commit control-plane user | Role & status synced | Done |
+| Password Change Audit | Self-service & admin resets recorded | USER_PASSWORD_CHANGED logged | Done |
 
 ---
 

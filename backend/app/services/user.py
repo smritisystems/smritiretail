@@ -465,6 +465,12 @@ class UserService:
         user.hashed_password = hash_password(req.new_password)
         user.modified_at = datetime.now(timezone.utc)
         user.status = "Active"
+        await self._record_audit(
+            event_type="USER_PASSWORD_CHANGED",
+            record_id=user.id,
+            actor=user,
+            reason="User self-service password update",
+        )
         await self.db.commit()
 
     # ==================================================================
@@ -696,6 +702,8 @@ class UserService:
             await self._record_audit("USER_DEACTIVATED", user.id, actor=requesting_user, reason="Staff account deactivated via status update")
         elif req.role is not None and old_role != user.role:
             await self._record_audit("USER_ROLE_CHANGED", user.id, actor=requesting_user, old_val=str(old_role), new_val=str(user.role), reason="User role updated")
+        elif req.passwordHash is not None:
+            await self._record_audit("USER_PASSWORD_CHANGED", user.id, actor=requesting_user, reason="Staff password reset by manager")
         else:
             await self._record_audit("USER_UPDATED", user.id, actor=requesting_user, reason="Staff profile fields updated")
 
