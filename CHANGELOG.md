@@ -28,6 +28,33 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.22] - 2026-10-08 — SMRITI Legacy Deprecation Gateway & Structured Telemetry Logger (Phase 5 Option B Convergence)
+
+> **Branch:** `smritiNX` | **Area:** API Gateway, Telemetry, Observability, Legacy Deprecation, RFC 8594, Inventory Governance
+> **Walkthrough:** `docs/walkthrough/inventory/Legacy_Deprecation_Gateway_And_Telemetry_Phase5_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Legacy_Deprecation_Gateway_And_Telemetry_Phase5_Plan_v1.0.0.md`
+
+### Added
+- **RFC 8594 Legacy Deprecation Gateway Middleware (`LegacyDeprecationMiddleware`)**:
+  - Implemented ASGI middleware in `backend/app/middleware/legacy_deprecation_middleware.py` intercepting legacy product endpoints (`/api/v1/products`, `/api/v1/inventory/products`, `/api/v1/variants`).
+  - Emits standards-compliant headers: `Deprecation: @1798761600` (Unix epoch timestamp for 2027-01-01), `Sunset: Sat, 01 Jan 2028 00:00:00 GMT` (RFC 7231 HTTP-date), `Link: </api/v1/universal/items>; rel="successor-version"` (RFC 8288), and `X-Smriti-Warning: SMRITI-DEPR-002`.
+  - Excludes canonical endpoints (`/api/v1/product-identity`, `/api/v1/product-resolution`, `/api/v1/universal/*`).
+- **Durable Structured Telemetry Sink (`LegacyProductTelemetrySink`)**:
+  - Implemented thread-safe telemetry logger in `backend/app/services/legacy_product_telemetry.py` recording structured events to `backend/app/logs/legacy_deprecation_telemetry.jsonl`.
+  - Records `LEGACY_ENDPOINT_ACCESSED` on API invocations and `LEGACY_FALLBACK_INVOKED` on internal reader/exporter fallbacks.
+  - Implemented 60-second in-memory rate-limiting / deduplication window to protect disk I/O throughput under high-frequency barcode scanning loops.
+- **Administrative Governance Telemetry Endpoint**:
+  - Mounted `GET /api/v1/governance/legacy-telemetry/summary` in `backend/app/api/v1/governance.py` providing aggregated observability metrics across paths, callers, and tenants.
+- **Runtime Fallback Telemetry Hooks**:
+  - Connected `ReportsService.item_wise_sales` to record `LEGACY_FALLBACK_INVOKED` when processing unlinked legacy products lacking `variant_id`.
+  - Connected `DataBridgeExportEngine.sales_invoice` to record `LEGACY_FALLBACK_INVOKED` when exporting sales invoice lines lacking `variant_id`.
+- **Phase 5 Automated Verification Test Suite**:
+  - Created `backend/tests/test_phase5_legacy_deprecation_and_telemetry.py` with 9 comprehensive tests verifying RFC 8594 headers, sunset formats, non-deprecation on canonical endpoints, structured event recording, report fallback hooks, export engine hooks, rate-limiting deduplication, governance metric summaries, and complete Option B end-to-end convergence certification (9/9 passed).
+
+### Changed
+- **DataBridge Export Engine (`DataBridgeExportEngine`)**:
+  - Added chronological ordering `order_by(SalesInvoice.created_at.desc())` on `SALES_INVOICE` exports ensuring parity with other entities and guaranteed serialization of recent documents.
+
 ## [6.70.21] - 2026-10-08 — SMRITI External Connectors & Canonical Export Alignment (Phase 4 Dual-Key Architecture)
 
 > **Branch:** `smritiNX` | **Area:** DataBridge, Integrations, Connectors, Canonical Exports, Inventory Governance

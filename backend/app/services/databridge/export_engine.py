@@ -278,7 +278,7 @@ class DataBridgeExportEngine:
                     })
 
         elif entity_type == DataBridgeEntityType.SALES_INVOICE:
-            stmt = select(SalesInvoice).where(SalesInvoice.company_id == company_id).limit(limit)
+            stmt = select(SalesInvoice).where(SalesInvoice.company_id == company_id).order_by(SalesInvoice.created_at.desc()).limit(limit)
             invoices = (await company_db.execute(stmt)).scalars().all()
             for inv in invoices:
                 fk_col = getattr(SalesInvoiceItem, "invoice_id", getattr(SalesInvoiceItem, "sales_invoice_id", None))
@@ -290,6 +290,17 @@ class DataBridgeExportEngine:
                     itm_code = getattr(li, "code", getattr(li, "item_code", None)) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or "")
                     u_price = getattr(li, "price", getattr(li, "unit_price", 0.0))
                     n_amt = getattr(li, "total_amount", getattr(li, "net_amount", 0.0))
+                    if not getattr(li, "variant_id", None) and getattr(li, "product_id", None):
+                        try:
+                            from ..legacy_product_telemetry import LegacyProductTelemetrySink
+                            LegacyProductTelemetrySink.record_fallback_invoked(
+                                company_id=company_id,
+                                caller="DataBridgeExportEngine.sales_invoice",
+                                product_id=str(getattr(li, "product_id", "")),
+                                reason="VARIANT_ID_NULL",
+                            )
+                        except Exception:
+                            pass
                     records.append({
                         "invoice_no": inv.invoice_no,
                         "invoice_date": inv_date.isoformat() if inv_date else "",
