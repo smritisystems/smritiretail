@@ -85,6 +85,8 @@ class ReportsService:
             total_value += value
             lines.append(StockValuationLine(
                 product_id=p.id,
+                item_id=getattr(p, "item_id", None),
+                variant_id=getattr(p, "item_variant_id", None) or (str(p.variant_id) if getattr(p, "variant_id", None) else None),
                 code=p.code,
                 name=p.name,
                 stock=stock,
@@ -458,12 +460,14 @@ class ReportsService:
         )
 
     async def item_wise_sales(self, from_date=None, to_date=None):
-        """RPT-TAX-003 -- Shoper9 SR202200 Item-wise Sales."""
+        """RPT-TAX-003 -- Shoper9 SR202200 Item-wise Sales (Canonical Supremacy)."""
         from ..schemas.reports import ItemWiseSalesLine, ItemWiseSalesReport
         stmt = (
-            select(SalesInvoice, SalesInvoiceItem, Product)
+            select(SalesInvoice, SalesInvoiceItem, Product, ItemVariant, Item)
             .join(SalesInvoiceItem, SalesInvoiceItem.invoice_id == SalesInvoice.id)
             .outerjoin(Product, Product.id == SalesInvoiceItem.product_id)
+            .outerjoin(ItemVariant, ItemVariant.id == SalesInvoiceItem.variant_id)
+            .outerjoin(Item, Item.id == func.coalesce(ItemVariant.item_id, SalesInvoiceItem.item_id))
             .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
@@ -471,7 +475,8 @@ class ReportsService:
         rows = (await self.db.execute(stmt)).all()
         
         agg: Dict[str, dict] = {}
-        for inv, item, product in rows:
+        for inv, item, product, variant, item_obj in rows:
+            key = getattr(item, "variant_id", None) or getattr(item, "product_id", None) or getattr(item, "code", None) or "UNKNOWN"
             pid = getattr(item, "product_id", None) or getattr(item, "code", None) or "UNKNOWN"
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
             net = Decimal(str(getattr(item, "total_amount", None) or getattr(item, "amount", 0) or 0))
@@ -479,12 +484,20 @@ class ReportsService:
             disc = Decimal(str(getattr(item, "discount_amount", 0) or 0))
             gross = net + disc
             
-            if pid not in agg:
-                agg[pid] = {
-                    "code": getattr(item, "code", "") or getattr(item, "product_code", ""),
-                    "barcode": getattr(product, "barcode", None),
-                    "name": getattr(item, "name", "") or getattr(item, "product_name", pid),
-                    "hsn": getattr(item, "hsn_code", None),
+            p_code = (variant.variant_sku if variant and getattr(variant, "variant_sku", None) else None) or (item_obj.item_code if item_obj and getattr(item_obj, "item_code", None) else None) or (product.code if product else None) or getattr(item, "code", "") or getattr(item, "product_code", "")
+            p_name = (item_obj.item_name if item_obj and getattr(item_obj, "item_name", None) else None) or (product.name if product else None) or getattr(item, "name", "") or getattr(item, "product_name", pid)
+            barcode = (variant.barcode if variant and getattr(variant, "barcode", None) else None) or (getattr(product, "barcode", None) if product else None)
+            hsn = (getattr(variant, "hsn_code", None) if variant else None) or (getattr(item_obj, "hsn_code", None) if item_obj else None) or getattr(item, "hsn_code", None) or (getattr(product, "hsn_code", None) if product else None)
+            
+            if key not in agg:
+                agg[key] = {
+                    "product_id": pid,
+                    "item_id": getattr(item, "item_id", None) or (variant.item_id if variant else None),
+                    "variant_id": getattr(item, "variant_id", None),
+                    "code": p_code,
+                    "barcode": barcode,
+                    "name": p_name,
+                    "hsn": hsn,
                     "qty": Decimal("0.0000"),
                     "gross": Decimal("0.00"),
                     "disc": Decimal("0.00"),
@@ -492,15 +505,17 @@ class ReportsService:
                     "tax": Decimal("0.00"),
                     "rqty": Decimal("0.0000"),
                 }
-            agg[pid]["qty"] += qty
-            agg[pid]["gross"] += gross
-            agg[pid]["net"] += net
-            agg[pid]["tax"] += tax
-            agg[pid]["disc"] += disc
+            agg[key]["qty"] += qty
+            agg[key]["gross"] += gross
+            agg[key]["net"] += net
+            agg[key]["tax"] += tax
+            agg[key]["disc"] += disc
             
         lines = [
             ItemWiseSalesLine(
-                product_id=pid,
+                product_id=d["product_id"],
+                item_id=d["item_id"],
+                variant_id=d["variant_id"],
                 product_code=d["code"],
                 sku_code=d["code"],
                 barcode=d["barcode"],
@@ -513,7 +528,7 @@ class ReportsService:
                 tax_amount=d["tax"],
                 return_qty=d["rqty"],
             )
-            for pid, d in sorted(agg.items(), key=lambda x: -x[1]["net"])
+            for key, d in sorted(agg.items(), key=lambda x: -x[1]["net"])
         ]
         return ItemWiseSalesReport(
             from_date=str(from_date or ""),
@@ -653,12 +668,14 @@ class ReportsService:
             total_salespersons=len(lines),total_discount=sum(l.total_discount for l in lines),lines=lines)
 
     async def bill_wise_items(self, from_date=None, to_date=None):
-        """RPT-TAX-005 -- Shoper9 SR202000 Bill-wise Items Detail."""
+        """RPT-TAX-005 -- Shoper9 SR202000 Bill-wise Items Detail (Canonical Supremacy)."""
         from ..schemas.reports import BillWiseItemsLine, BillWiseItemsReport
         stmt = (
-            select(SalesInvoice, SalesInvoiceItem, Product)
+            select(SalesInvoice, SalesInvoiceItem, Product, ItemVariant, Item)
             .join(SalesInvoiceItem, SalesInvoiceItem.invoice_id == SalesInvoice.id)
             .outerjoin(Product, Product.id == SalesInvoiceItem.product_id)
+            .outerjoin(ItemVariant, ItemVariant.id == SalesInvoiceItem.variant_id)
+            .outerjoin(Item, Item.id == func.coalesce(ItemVariant.item_id, SalesInvoiceItem.item_id))
             .where(SalesInvoice.is_deleted == False, self._completed_invoice_filter())
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
@@ -673,7 +690,7 @@ class ReportsService:
         total_qty = Decimal("0.0000")
         total_amt = Decimal("0.00")
         
-        for inv, item, product in rows:
+        for inv, item, product, variant, item_obj in rows:
             unique_invs.add(inv.id)
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
             price = Decimal(str(getattr(item, "price", 0) or 0))
@@ -681,6 +698,10 @@ class ReportsService:
             tax_amt = Decimal(str(getattr(item, "tax_amount", 0) or 0))
             gst = Decimal(str(getattr(item, "gst_rate", 18.00) or 18.00))
             disc = Decimal(str(getattr(item, "disc_pct", 0) or 0))
+            
+            p_code = (variant.variant_sku if variant and getattr(variant, "variant_sku", None) else None) or (item_obj.item_code if item_obj and getattr(item_obj, "item_code", None) else None) or getattr(item, "code", "") or getattr(item, "product_code", "") or (product.code if product else "")
+            p_name = (item_obj.item_name if item_obj and getattr(item_obj, "item_name", None) else None) or (product.name if product else None) or getattr(item, "name", "") or getattr(item, "product_name", "")
+            barcode = (variant.barcode if variant and getattr(variant, "barcode", None) else None) or (getattr(product, "barcode", None) if product else None)
             
             total_qty += qty
             total_amt += line_tot
@@ -691,17 +712,19 @@ class ReportsService:
                     invoice_date=str(getattr(inv, "date", "") or ""),
                     customer_name=getattr(inv, "customer_name", None),
                     line_no=int(getattr(item, "line_no", None) or len(lines) + 1),
-                    product_code=getattr(item, "code", "") or getattr(item, "product_code", ""),
-                    sku_code=getattr(item, "code", "") or getattr(item, "product_code", ""),
-                    barcode=getattr(product, "barcode", None),
-                    product_name=getattr(item, "name", "") or getattr(item, "product_name", ""),
-                    hsn_code=getattr(item, "hsn_code", None),
+                    product_code=p_code,
+                    sku_code=p_code,
+                    barcode=barcode,
+                    product_name=p_name,
+                    hsn_code=getattr(item, "hsn_code", None) or (getattr(product, "hsn_code", None) if product else None),
                     quantity=qty,
                     unit_price=price,
                     discount=disc,
                     gst_rate=gst,
                     tax_amount=tax_amt,
                     line_total=line_tot,
+                    item_id=getattr(item, "item_id", None) or (variant.item_id if variant else None),
+                    variant_id=getattr(item, "variant_id", None),
                 )
             )
             
@@ -769,12 +792,15 @@ class ReportsService:
         )
 
     async def item_wise_returns(self, from_date=None, to_date=None):
-        """RPT-MRC-003 -- Shoper9 SR214100 Item-wise Sales Returns."""
+        """RPT-MRC-003 -- Shoper9 SR214100 Item-wise Sales Returns (Canonical Supremacy)."""
         from ..schemas.reports import ItemWiseReturnsLine, ItemWiseReturnsReport
         stmt = (
-            select(SalesReturn, SalesReturnItem, SalesInvoice)
+            select(SalesReturn, SalesReturnItem, SalesInvoice, ItemVariant, Item, Product)
             .join(SalesReturnItem, SalesReturnItem.return_id == SalesReturn.id)
             .outerjoin(SalesInvoice, SalesInvoice.id == SalesReturn.original_invoice_id)
+            .outerjoin(ItemVariant, ItemVariant.id == SalesReturnItem.variant_id)
+            .outerjoin(Item, Item.id == func.coalesce(ItemVariant.item_id, SalesReturnItem.item_id))
+            .outerjoin(Product, Product.id == SalesReturnItem.product_id)
             .where(SalesReturn.is_deleted == False, SalesReturn.status != "CANCELLED")
         )
         stmt = self._tenant_filter(stmt, SalesReturn)
@@ -788,11 +814,14 @@ class ReportsService:
         tot_qty = Decimal("0.0000")
         tot_amt = Decimal("0.00")
         
-        for ret, item, orig_inv in rows:
+        for ret, item, orig_inv, variant, item_obj, prod in rows:
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
             price = Decimal(str(getattr(item, "price", 0) or 0))
             amt = Decimal(str(getattr(item, "total_amount", None) or (qty * price) or 0))
             tax = Decimal(str(getattr(item, "tax_amount", 0) or 0))
+            
+            p_code = (variant.variant_sku if variant and getattr(variant, "variant_sku", None) else None) or (item_obj.item_code if item_obj and getattr(item_obj, "item_code", None) else None) or getattr(item, "code", "") or (prod.code if prod else "")
+            p_name = (item_obj.item_name if item_obj and getattr(item_obj, "item_name", None) else None) or (prod.name if prod else None) or getattr(item, "name", "")
             
             tot_qty += qty
             tot_amt += amt
@@ -802,13 +831,15 @@ class ReportsService:
                     return_number=getattr(ret, "return_no", None) or ret.id,
                     return_date=str(getattr(ret, "date", "") or ""),
                     original_inv_no=getattr(orig_inv, "invoice_no", None) or getattr(orig_inv, "invoice_number", None) or ret.original_invoice_id,
-                    product_code=getattr(item, "code", ""),
-                    product_name=getattr(item, "name", ""),
+                    product_code=p_code,
+                    product_name=p_name,
                     quantity=qty,
                     unit_price=price,
                     tax_amount=tax,
                     total_amount=amt,
                     reason=getattr(ret, "reason", None),
+                    item_id=getattr(item, "item_id", None) or (variant.item_id if variant else None),
+                    variant_id=getattr(item, "variant_id", None),
                 )
             )
             
@@ -1097,8 +1128,10 @@ class ReportsService:
         from ..schemas.reports import ArticleColorSizeMatrixRow, ArticleColorSizeMatrixReport
 
         stmt = (
-            select(SalesInvoiceItem, SalesInvoice)
+            select(SalesInvoiceItem, SalesInvoice, ItemVariant, Item)
             .join(SalesInvoice, SalesInvoice.id == SalesInvoiceItem.invoice_id)
+            .outerjoin(ItemVariant, ItemVariant.id == SalesInvoiceItem.variant_id)
+            .outerjoin(Item, Item.id == func.coalesce(ItemVariant.item_id, SalesInvoiceItem.item_id))
             .where(SalesInvoice.is_deleted == False)
         )
         stmt = self._tenant_filter(stmt, SalesInvoice)
@@ -1107,8 +1140,13 @@ class ReportsService:
         rows = (await self.db.execute(stmt)).all()
 
         agg: Dict[tuple, dict] = {}
-        for item, inv in rows:
-            art, col, sz = self._parse_article_color_size(item.code, item.name)
+        for item, inv, variant, item_obj in rows:
+            if variant and getattr(variant, "color", None) and getattr(variant, "size", None):
+                art = (item_obj.item_name if item_obj else None) or (item_obj.item_code if item_obj else None) or item.code
+                col = str(variant.color).strip().upper()
+                sz = str(variant.size).strip().upper()
+            else:
+                art, col, sz = self._parse_article_color_size(item.code, item.name)
             if article_filter and article_filter.upper() not in art.upper():
                 continue
             if color_filter and color_filter.upper() not in col.upper():
@@ -1907,14 +1945,20 @@ class ReportsService:
         if to_date:
             stmt = stmt.where(SalesOrder.date <= to_date)
         if product_id:
-            stmt = stmt.where((SalesOrderItem.product_id == product_id) | (SalesOrderItem.article_no == product_id) | (SalesOrderItem.code == product_id))
+            stmt = stmt.where(
+                (SalesOrderItem.product_id == product_id) |
+                (SalesOrderItem.variant_id == product_id) |
+                (SalesOrderItem.item_id == product_id) |
+                (SalesOrderItem.article_no == product_id) |
+                (SalesOrderItem.code == product_id)
+            )
 
         res = await self.db.execute(stmt)
         rows_db = res.all()
 
         prod_map: Dict[str, dict] = {}
         for item, order in rows_db:
-            key = f"{item.article_no or item.code}_{item.vendor_style or ''}_{item.color or ''}_{item.size or ''}"
+            key = f"{item.variant_id or item.article_no or item.code}_{item.vendor_style or ''}_{item.color or ''}_{item.size or ''}"
             qty = Decimal(str(item.quantity or "0.0000"))
             val = Decimal(str(item.total_amount or "0.00"))
             cost = Decimal(str(item.price or "0.00"))
@@ -1929,6 +1973,8 @@ class ReportsService:
             if key not in prod_map:
                 prod_map[key] = {
                     "product_id": item.product_id,
+                    "item_id": getattr(item, "item_id", None),
+                    "variant_id": getattr(item, "variant_id", None),
                     "article_no": item.article_no or item.code,
                     "vendor_style": item.vendor_style or item.code,
                     "name": item.name,
@@ -1965,6 +2011,8 @@ class ReportsService:
 
             lines.append(ProductWiseOrderedQuantityLine(
                 product_id=d["product_id"],
+                item_id=d.get("item_id"),
+                variant_id=d.get("variant_id"),
                 article_no=d["article_no"],
                 vendor_style=d["vendor_style"],
                 name=d["name"],

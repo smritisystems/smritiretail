@@ -15,7 +15,7 @@ Classification: Centralized Stock Synchronization & Source-of-Truth Engine
 from decimal import Decimal
 
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.inventory import Product, ProductBatchStock, StockMovement
@@ -128,12 +128,23 @@ class StockSynchronizer:
             )
             authoritative_stock = Decimal(str((await session.execute(sum_stmt)).scalar() or 0))
         else:
-            # Authoritative source: stock_movements ledger
-            moves_stmt = select(StockMovement).where(
+            # Authoritative source: stock_movements ledger with canonical variant matching
+            canon_var_id = getattr(product, "item_variant_id", None) or (str(product.variant_id) if getattr(product, "variant_id", None) else None)
+            moves_filter = [
                 StockMovement.company_id == company_id,
-                StockMovement.product_id == product_id,
                 StockMovement.is_deleted.is_(False),
-            )
+            ]
+            if canon_var_id:
+                moves_filter.append(
+                    or_(
+                        StockMovement.product_id == product_id,
+                        StockMovement.variant_id == canon_var_id,
+                    )
+                )
+            else:
+                moves_filter.append(StockMovement.product_id == product_id)
+
+            moves_stmt = select(StockMovement).where(*moves_filter).distinct()
             movements = (await session.execute(moves_stmt)).scalars().all()
 
             # Ensure unledgered initial product stock has an immutable OPENING_STOCK movement
@@ -174,6 +185,32 @@ class StockSynchronizer:
         product.stock = int(authoritative_stock)
         await session.flush()
         return authoritative_stock
+
+    @classmethod
+    async def sync_variant_stock_cache(
+        cls,
+        session: AsyncSession,
+        variant_id: str,
+        company_id: str,
+    ) -> Decimal:
+        """
+        Synchronizes stock cache for a specific canonical variant by resolving its
+        associated Product record and running canonical synchronization.
+        """
+        prod_res = await session.execute(
+            select(Product).where(
+                Product.company_id == company_id,
+                or_(
+                    Product.item_variant_id == variant_id,
+                    Product.id == variant_id,
+                ),
+                Product.is_deleted.is_(False),
+            )
+        )
+        product = prod_res.scalars().first()
+        if not product:
+            return Decimal("0.00")
+        return await cls.sync_product_stock_cache(session, product.id, company_id)
 
     @classmethod
     async def detect_stock_drift(
@@ -217,11 +254,22 @@ class StockSynchronizer:
                 auth_qty = Decimal(str((await session.execute(sum_stmt)).scalar() or 0))
             else:
                 sot = "MOVEMENT_LEDGER"
-                moves_stmt = select(StockMovement).where(
+                p_canon_var_id = getattr(p, "item_variant_id", None) or (str(p.variant_id) if getattr(p, "variant_id", None) else None)
+                moves_filter = [
                     StockMovement.company_id == company_id,
-                    StockMovement.product_id == p.id,
                     StockMovement.is_deleted.is_(False),
-                )
+                ]
+                if p_canon_var_id:
+                    moves_filter.append(
+                        or_(
+                            StockMovement.product_id == p.id,
+                            StockMovement.variant_id == p_canon_var_id,
+                        )
+                    )
+                else:
+                    moves_filter.append(StockMovement.product_id == p.id)
+
+                moves_stmt = select(StockMovement).where(*moves_filter).distinct()
                 movements = (await session.execute(moves_stmt)).scalars().all()
                 auth_qty = Decimal("0.00")
                 for m in movements:

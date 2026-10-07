@@ -15,7 +15,7 @@ Classification: Internal
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.inventory import Product, StockMovement
@@ -30,6 +30,7 @@ class PdtAnalyticsService:
     SMRITI Predictive Distribution Twin (PDT) Core Engine.
     Deterministic, postgres-backed inventory velocity, replenishment simulation,
     and days-of-cover projections derived authoritatively from StockMovement ledgers.
+    Supports canonical variant supremacy with legacy SKU fallback.
     """
 
     @classmethod
@@ -43,15 +44,18 @@ class PdtAnalyticsService:
         safety_stock: Decimal = Decimal("10.00")
     ) -> Dict[str, Any]:
         """
-        Calculates average daily sales velocity and days-of-stock-cover for a SKU.
+        Calculates average daily sales velocity and days-of-stock-cover for a SKU or canonical variant.
         """
         clean_sku = sku.strip()
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
-        # 1. Total Units Sold in Lookback Window
+        # 1. Total Units Sold in Lookback Window (Canonical Variant or SKU)
         sold_stmt = select(func.coalesce(func.sum(func.abs(StockMovement.quantity)), 0)).where(
             StockMovement.company_id == company_id,
-            StockMovement.sku == clean_sku,
+            or_(
+                StockMovement.sku == clean_sku,
+                StockMovement.variant_id == clean_sku,
+            ),
             StockMovement.movement_type.in_(["OUTWARD_SALE", "POS_SALE"]),
             StockMovement.created_at >= cutoff_date,
             StockMovement.is_deleted == False
@@ -66,7 +70,11 @@ class PdtAnalyticsService:
         # 3. Current Stock On Hand (from Product Master or Stock Movements)
         prod_stmt = select(Product).where(
             Product.company_id == company_id,
-            Product.sku == clean_sku,
+            or_(
+                Product.sku == clean_sku,
+                Product.code == clean_sku,
+                Product.item_variant_id == clean_sku,
+            ),
             Product.is_deleted == False
         )
         product = (await session.execute(prod_stmt)).scalar_one_or_none()
@@ -92,7 +100,10 @@ class PdtAnalyticsService:
         # 6. Data Freshness and Trend Detection
         last_sale_stmt = select(func.max(StockMovement.created_at)).where(
             StockMovement.company_id == company_id,
-            StockMovement.sku == clean_sku,
+            or_(
+                StockMovement.sku == clean_sku,
+                StockMovement.variant_id == clean_sku,
+            ),
             StockMovement.movement_type.in_(["OUTWARD_SALE", "POS_SALE"]),
             StockMovement.is_deleted == False
         )

@@ -31,6 +31,8 @@ class StockValuationLine(BaseModel):
     stock:        Decimal
     cost_price:   Decimal
     stock_value:  Decimal   # stock × cost_price
+    item_id:      Optional[str] = None
+    variant_id:   Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -131,6 +133,8 @@ class ItemWiseSalesLine(BaseModel):
     net_amount:   Decimal
     tax_amount:   Decimal
     return_qty:   Decimal = Decimal("0")
+    item_id:      Optional[str] = None
+    variant_id:   Optional[str] = None
 
 class ItemWiseSalesReport(BaseModel):
     """RPT-TAX-003 -- Shoper9 SR202200 Item-wise Sales."""
@@ -225,6 +229,8 @@ class BillWiseItemsLine(BaseModel):
     gst_rate:       Decimal = Decimal("18.00")
     tax_amount:     Decimal = Decimal("0.00")
     line_total:     Decimal
+    item_id:        Optional[str] = None
+    variant_id:     Optional[str] = None
 
 
 class BillWiseItemsReport(BaseModel):
@@ -275,6 +281,8 @@ class ItemWiseReturnsLine(BaseModel):
     tax_amount:      Decimal = Decimal("0.00")
     total_amount:    Decimal
     reason:          Optional[str] = None
+    item_id:         Optional[str] = None
+    variant_id:      Optional[str] = None
 
 
 class ItemWiseReturnsReport(BaseModel):
@@ -596,6 +604,8 @@ class CustomerWiseOrdersReport(BaseModel):
 
 class ProductWiseOrderedQuantityLine(BaseModel):
     product_id:         Optional[str] = None
+    item_id:            Optional[str] = None
+    variant_id:         Optional[str] = None
     article_no:         Optional[str] = None
     vendor_style:       Optional[str] = None
     name:               str

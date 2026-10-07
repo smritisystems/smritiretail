@@ -20,6 +20,7 @@ export interface PoItemLike {
   id?: string;
   product_id?: string;
   item_id?: string;
+  variant_id?: string;
   code?: string;
   name?: string;
   description?: string;
@@ -47,6 +48,7 @@ export interface PurchaseOrderLike {
 export interface ReceiptItemLike {
   product_id?: string;
   item_id?: string;
+  variant_id?: string;
   code?: string;
   quantity_received?: number;
   cost_price?: number;
@@ -147,7 +149,7 @@ export function calculatePoPendingInward(
     })
     .forEach((r) => {
       (r.items || []).forEach((it) => {
-        const key = (it.code || it.product_id || it.item_id || "").trim().toLowerCase();
+        const key = (it.variant_id || it.code || it.product_id || it.item_id || "").trim().toLowerCase();
         if (key) {
           const prev = priorInwardMap.get(key) || 0;
           priorInwardMap.set(key, prev + Math.max(0, Number(it.quantity_received || 0)));
@@ -171,13 +173,13 @@ export function calculatePoPendingInward(
     orderedQtyTotal += qtyOrdered;
     overReceivingAllowedQty += toleranceQty;
 
-    const key = (item.code || item.product_id || item.item_id || "").trim().toLowerCase();
+    const key = (item.variant_id || item.code || item.product_id || item.item_id || "").trim().toLowerCase();
     const previouslyReceived = key ? priorInwardMap.get(key) || 0 : 0;
 
     if (previouslyReceived > maxAllowedQty && !overReceivingDetected) {
       const excessQty = previouslyReceived - maxAllowedQty;
       overReceivingDetected = true;
-      overReceivingWarning = `Over-receiving detected: ${excessQty} units exceed PO qty + ${overReceivingTolerancePct}% tolerance on ${item.code || item.product_id || item.item_id || "line"}`;
+      overReceivingWarning = `Over-receiving detected: ${excessQty} units exceed PO qty + ${overReceivingTolerancePct}% tolerance on ${item.variant_id || item.code || item.product_id || item.item_id || "line"}`;
     }
 
     const linePendingQty = Math.max(0, qtyOrdered - previouslyReceived);
