@@ -28,6 +28,29 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.17] - 2026-10-07 — SMRITI User Lifecycle Security Hardening, Reactivation & Audit Governance
+
+> **Branch:** `smritiNX` | **Area:** Security, User Lifecycle, Staff 360, Locked Users, Audit Journal
+> **Walkthrough:** `docs/walkthrough/foundation/User_Lifecycle_Security_Hardening_And_Audit_Governance_v1.0.0.md`
+
+### Added
+- **Privilege Escalation Prevention (AUD-USR-01)**:
+  - Enforced strict role creation barrier in `backend/app/services/user.py::create_staff_user`: Non-SYSADMIN users (e.g. Managers) attempting to create a `SYSADMIN` profile receive HTTP 403 Forbidden (`"Access Denied: Only a SYSADMIN can create another SYSADMIN user."`).
+  - Enforced role update boundary in `update_staff_user`: Non-SYSADMIN callers cannot escalate or alter user roles (`HTTP 403 Forbidden`).
+- **Administrative Lockout Guard (AUD-USR-02)**:
+  - Implemented `_assert_not_last_active_sysadmin` helper in `UserService` preventing demotion or inactivation of the last active SYSADMIN account across `update_staff_user`, `update_user`, `deactivate_staff`, and `deactivate_user` (`HTTP 400 Bad Request`).
+  - Added self-deactivation prevention for operator profiles.
+- **Operator Reactivation & Inactive User Visibility (AUD-USR-03)**:
+  - Fixed soft-delete masking in `list_staff`: When filtering by `status="Inactive"`, queries include soft-deleted records so `LockedUsersView.tsx` accurately displays locked/deactivated operators.
+  - Enabled self-contained account reactivation via `update_staff_user`: Submitting `status="Active"` clears soft-deletion (`is_deleted = False`, `is_active = True`, `status = "Active"`).
+  - Added explicit dedicated endpoint `POST /api/v1/users/{user_id}/reactivate` in `backend/app/api/v1/users.py`.
+- **Relational Assignment Enrollment (AUD-USR-04)**:
+  - Implemented `_enroll_assignments()` in `UserService`, atomically inserting `UserCompanyAssignment` and `UserBranchAssignment` records with `is_default = True` during user creation and tenant updates.
+- **Active POS Shift Guard on Deactivation (AUD-USR-06)**:
+  - Implemented `_check_active_pos_shifts()` pre-flight check in `deactivate_staff` and `deactivate_user`, preventing operator deactivation if an active `OPEN` shift exists in the tenant register database.
+- **Immutable Audit Trail Journaling (AUD-USR-07)**:
+  - Integrated `_record_audit()` in `UserService`, recording tamper-evident audit events (`USER_CREATED`, `USER_UPDATED`, `USER_ROLE_CHANGED`, `USER_DEACTIVATED`, `USER_REACTIVATED`) into `smriti_audit_log` (`SmritiAuditLog`).
+
 ## [6.70.16] - 2026-10-07 — SMRITI Universal Import & Staff 360: Console Error Remediation & Input Hardening
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Item Master Studio, Staff 360, Input Validation, Error Interception

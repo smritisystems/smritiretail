@@ -45,6 +45,7 @@ router = APIRouter()
 )
 async def create_staff_user(
     req: StaffUserCreate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
@@ -52,7 +53,7 @@ async def create_staff_user(
     Create a new staff user profile.
     """
     service = UserService(db, tenant)
-    return await service.create_staff_user(req)
+    return await service.create_staff_user(req, requesting_user=current_user)
 
 
 @router.get(
@@ -146,6 +147,25 @@ async def deactivate_staff_user(
     service = UserService(db, tenant)
     await service.deactivate_staff(user_id, current_user.id, tenant=tenant)
     return {"success": True, "deletedId": user_id, "status": "Inactive"}
+
+
+@router.post(
+    "/{user_id}/reactivate",
+    response_model=StaffUserResponse,
+    dependencies=[Depends(require_permission("staff_mgmt", "EDIT"))],
+)
+async def reactivate_staff_user(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Explicitly restore/reactivate a previously locked or deactivated staff profile.
+    """
+    service = UserService(db, tenant)
+    update_req = StaffUserUpdate(status="Active")
+    return await service.update_staff_user(user_id, update_req, current_user, tenant=tenant)
 
 
 @router.put(
