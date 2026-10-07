@@ -28,6 +28,33 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.14] - 2026-10-06 — SMRITI Transaction DataBridge: Automated Background Pull Scheduler & Real-Time Webhook Dispatcher (Phase 9)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Background Schedulers, Real-Time Webhooks, HMAC-SHA256, CDC Broadcasting
+> **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase9_Scheduler_Webhook_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/foundation/DataBridge_Phase9_Scheduler_Webhook_Plan_v1.0.0.md`
+
+### Added
+- **Automated Background Pull Scheduler (`DataBridgeScheduler`)**:
+  - Implemented tenant-isolated recurring pull schedule registry under `backend/app/services/databridge/scheduler_engine.py`.
+  - Added interval calculation math (`next_run_at = now + timedelta(minutes=interval_minutes)`).
+  - Enforced lifecycle state tracking (`ACTIVE`, `PAUSED`, `RUNNING`, `FAILED`).
+  - Added on-demand manual trigger execution via `trigger_schedule()`, feeding into `DataBridgeConnectorOrchestrator.pull_and_transform()` and updating telemetry metrics (`last_status`, `last_run_at`, `last_records_count`).
+  - Added optional automatic submission to the transactional async queue (`auto_import_to_async_queue=True`).
+- **Real-Time Webhook Dispatcher (`DataBridgeWebhookDispatcher`)**:
+  - Implemented real-time intake engine with dual-encoding cryptographic HMAC-SHA256 signature verification supporting Base64 digests (Shopify `X-Shopify-Hmac-Sha256`) and Hexadecimal digests (Unicommerce `X-Unicommerce-Signature`, GitHub/standard `X-Smriti-Signature`, with optional `sha256=` prefix).
+  - Automated event topic and entity classification (`orders/create` -> `SALES_INVOICE`, `products/create` -> `ITEM`, `customers/create` -> `CUSTOMER`).
+  - Implemented outbound Change Data Capture (CDC) event dispatch engine with constant-time HMAC signing (`X-Smriti-Signature: sha256=...`).
+- **FastAPI Endpoints**:
+  - Mounted `POST /api/v1/databridge/schedules`: Register recurring sync schedule.
+  - Mounted `GET /api/v1/databridge/schedules`: List configured sync schedules with optional connector filter.
+  - Mounted `POST /api/v1/databridge/schedules/{schedule_id}/trigger`: Manually execute sync cycle on demand.
+  - Mounted `POST /api/v1/databridge/webhooks/inbound/{connector_type}`: Intake external webhooks with cryptographic HMAC validation.
+  - Mounted `POST /api/v1/databridge/webhooks/outbound/dispatch`: Cryptographically sign and broadcast CDC notifications.
+- **Automated Verification**:
+  - Added 9 authoritative verification test cases in `backend/tests/test_databridge_phase9_scheduler_webhook.py` (`TC-SCHED-001` through `003`, `TC-HOOK-001` through `005`, `TC-API-001`).
+  - Verified 103/103 full regression tests green across Phases 1 through 9.
+
 ## [6.70.13] - 2026-10-06 — SMRITI Transaction DataBridge: External Third-Party Connector Framework & Bi-Directional Synchronizer (Phase 8)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Third-Party Connectors, TallyPrime, Shopify, SAP B1, Unicommerce
