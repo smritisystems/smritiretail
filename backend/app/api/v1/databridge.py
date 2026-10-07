@@ -15,7 +15,7 @@ Classification: Internal — API v1 Controller
 # smriti_capability(entity="DATABRIDGE", capability="DATABRIDGE_CORE_FOUNDATION", role="ADAPTER", canonicalOwner="backend/app/services/databridge/service.py")
 
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import (
@@ -33,6 +33,8 @@ from ...services.databridge.export_engine import DataBridgeExportEngine
 from ...services.databridge.migration_engine import DataBridgeMigrationToolkit
 from ...services.databridge.schema_mapping_engine import DataBridgeSchemaMapper
 from ...services.databridge.connectors import DataBridgeConnectorOrchestrator
+from ...services.databridge.scheduler_engine import DataBridgeScheduler
+from ...services.databridge.webhook_dispatcher import DataBridgeWebhookDispatcher
 from ...services.databridge.exceptions import (
     DataBridgeEntitlementError,
     DataBridgeTenantIsolationError,
@@ -65,6 +67,7 @@ from ...services.databridge.models import (
     DataBridgeTenantTransferResponse,
     DataBridgeSchemaDetectRequest,
     DataBridgeSchemaDetectResponse,
+    DataBridgeConnectorType,
     DataBridgeConnectorDescriptor,
     DataBridgeConnectorTestRequest,
     DataBridgeConnectorTestResponse,
@@ -72,6 +75,12 @@ from ...services.databridge.models import (
     DataBridgeConnectorPullResponse,
     DataBridgeConnectorPushRequest,
     DataBridgeConnectorPushResponse,
+    DataBridgeScheduleCreateRequest,
+    DataBridgeScheduleResponse,
+    DataBridgeScheduleTriggerResponse,
+    DataBridgeInboundWebhookResponse,
+    DataBridgeOutboundWebhookRequest,
+    DataBridgeOutboundWebhookResponse,
 )
 
 
@@ -1085,6 +1094,117 @@ async def push_connector_endpoint(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Connector push failed: {str(exc)}") from exc
+
+
+# ==============================================================================
+# PHASE 9 BACKGROUND PULL SCHEDULER & REAL-TIME WEBHOOK DISPATCHER ENDPOINTS
+# ==============================================================================
+
+@router.post("/schedules", response_model=DataBridgeScheduleResponse, status_code=status.HTTP_201_CREATED, tags=["SMRITI DataBridge"])
+async def create_schedule_endpoint(
+    req: DataBridgeScheduleCreateRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "WRITE")),
+) -> DataBridgeScheduleResponse:
+    """
+    Registers a tenant-isolated recurring pull sync schedule for an external connector.
+    """
+    try:
+        return DataBridgeScheduler.create_schedule(tenant_id=tenant.company_id, req=req)
+    except DataBridgeTenantIsolationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.get("/schedules", response_model=List[DataBridgeScheduleResponse], tags=["SMRITI DataBridge"])
+async def list_schedules_endpoint(
+    connector_type: Optional[DataBridgeConnectorType] = Query(None, description="Filter by connector type"),
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "READ")),
+) -> List[DataBridgeScheduleResponse]:
+    """
+    Lists all configured background pull sync schedules for the authenticated tenant.
+    """
+    return DataBridgeScheduler.list_schedules(tenant_id=tenant.company_id, connector_type=connector_type)
+
+
+@router.post("/schedules/{schedule_id}/trigger", response_model=DataBridgeScheduleTriggerResponse, tags=["SMRITI DataBridge"])
+async def trigger_schedule_endpoint(
+    schedule_id: str,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "EXECUTE")),
+    company_db: AsyncSession = Depends(get_company_db),
+) -> DataBridgeScheduleTriggerResponse:
+    """
+    Manually triggers an on-demand pull execution cycle for a registered sync schedule.
+    """
+    try:
+        return await DataBridgeScheduler.trigger_schedule(
+            tenant_id=tenant.company_id,
+            schedule_id=schedule_id,
+            db_session=company_db,
+        )
+    except DataBridgeValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Trigger failed: {str(exc)}") from exc
+
+
+@router.post("/webhooks/inbound/{connector_type}", response_model=DataBridgeInboundWebhookResponse, tags=["SMRITI DataBridge"])
+async def inbound_webhook_endpoint(
+    connector_type: DataBridgeConnectorType,
+    request: Request,
+    tenant_id: str = Query("smriti001", description="Tenant company identifier"),
+    x_smriti_secret: Optional[str] = Header(None, alias="X-Smriti-Secret"),
+    company_db: Optional[AsyncSession] = Depends(get_company_db),
+) -> DataBridgeInboundWebhookResponse:
+    """
+    Intake endpoint for external webhooks (Shopify, Unicommerce, custom HTTP push).
+    Validates cryptographic HMAC-SHA256 signatures, transforms payload, and queues records.
+    """
+    try:
+        raw_body = await request.body()
+        headers = dict(request.headers)
+        return await DataBridgeWebhookDispatcher.process_inbound_webhook(
+            connector_type=connector_type,
+            raw_body=raw_body,
+            headers=headers,
+            secret=x_smriti_secret,
+            tenant_id=tenant_id,
+            db_session=company_db,
+        )
+    except DataBridgeValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Webhook processing failed: {str(exc)}") from exc
+
+
+@router.post("/webhooks/outbound/dispatch", response_model=DataBridgeOutboundWebhookResponse, tags=["SMRITI DataBridge"])
+async def dispatch_outbound_webhook_endpoint(
+    req: DataBridgeOutboundWebhookRequest,
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    _entitlement: TenantCapabilityBinding = Depends(require_databridge_entitlement),
+    _rbac: User = Depends(require_permission("databridge", "EXECUTE")),
+) -> DataBridgeOutboundWebhookResponse:
+    """
+    Cryptographically signs and dispatches an outbound Change Data Capture (CDC) webhook notification.
+    """
+    try:
+        return await DataBridgeWebhookDispatcher.dispatch_outbound_event(
+            req=req,
+            tenant_id=tenant.company_id,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Webhook dispatch failed: {str(exc)}") from exc
+
 
 
 

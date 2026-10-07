@@ -32,9 +32,10 @@ if env_file.exists():
 import pytest
 import openpyxl
 from fastapi import HTTPException
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, or_
 from app.db.session import get_company_sessionmaker
 from app.models.item_master import Item, ItemVariant, ItemBarcode, ItemWarehouseLocation
+from app.models.inventory import Product
 from app.models.pricing import PriceBook, PriceBookEntry
 from app.api.v1.universal_import import (
     preview_universal_import,
@@ -59,6 +60,7 @@ TEST_BARCODES = [f"8909999000{i:03d}" for i in range(1, 25)]
 async def cleanup_test_data():
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
+        await session.execute(delete(Product).where(or_(Product.barcode.in_(TEST_BARCODES), Product.style_code.in_(TEST_STYLES))))
         await session.execute(delete(ItemBarcode).where(ItemBarcode.barcode.in_(TEST_BARCODES)))
         sub = select(Item.id).where(Item.item_code.in_(TEST_STYLES))
         await session.execute(delete(PriceBookEntry).where(PriceBookEntry.item_id.in_(sub)))
@@ -69,6 +71,7 @@ async def cleanup_test_data():
         await session.commit()
     yield
     async with session_factory() as session:
+        await session.execute(delete(Product).where(or_(Product.barcode.in_(TEST_BARCODES), Product.style_code.in_(TEST_STYLES))))
         await session.execute(delete(ItemBarcode).where(ItemBarcode.barcode.in_(TEST_BARCODES)))
         sub = select(Item.id).where(Item.item_code.in_(TEST_STYLES))
         await session.execute(delete(PriceBookEntry).where(PriceBookEntry.item_id.in_(sub)))

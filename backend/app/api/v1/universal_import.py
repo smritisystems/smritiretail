@@ -684,6 +684,7 @@ async def commit_universal_import(
     purchase_items: List[PurchaseReceiptItemCreate] = []
     return_items: List[SalesReturnItemCreate] = []
     created_styles_map: Dict[str, Any] = {}
+    created_wh_locations: set = set()
     commit_row_warnings: Dict[int, List[str]] = {}
     commit_all_warnings: List[str] = []
     if target == "ITEM_MASTER":
@@ -697,6 +698,10 @@ async def commit_universal_import(
                 style_code = resolved["style_code"]
                 clean_barcode = (resolved.get("barcode") or "").strip().upper()
                 clean_sku = (resolved.get("sku") or "").strip().upper()
+
+                # Initialize review flag and reasons for this row
+                requires_review_reasons: List[str] = []
+                flag_requires_review: bool = False
 
                 # Explicit separation:
                 # 1. Flat Item columns: item_code, style_code, color, size, vendor_code, hsn_code, tax_rate, department, category, brand
@@ -769,10 +774,9 @@ async def commit_universal_import(
                 footwear_nested_attrs = {k: v for k, v in (row.get("attributes_json") or {}).items() if v is not None and str(v).strip()}
 
                 # Part 6: HSN / GST Soft Validation (Human Review Flag)
-                requires_review_reasons = []
                 upper_mat = (footwear_nested_attrs.get("upper_material") or "").strip().lower()
                 synthetic_keywords = ("synthetic", "rubber", "plastic", "pvc", "pu", "faux", "mesh", "textile", "canvas")
-                if any(kw in upper_mat for kw in synthetic_keywords) and hsn.strip().startswith("6403"):
+                if any(kw in upper_mat for kw in synthetic_keywords) and hsn and hsn.strip().startswith("6403"):
                     requires_review_reasons.append(
                         f"HSN/Material Mismatch Flag: Upper material '{upper_mat}' indicates synthetic/rubber/plastic "
                         f"but HSN code '{hsn}' belongs to chapter 6403 (leather-upper footwear). Flagged for human/CA sign-off (REQUIRES_REVIEW)."
@@ -1079,22 +1083,34 @@ async def commit_universal_import(
                 # 4. Warehouse Location
                 wh_code = _text(row, "warehouse_code", "WAREHOUSE_CODE", "warehouse_id")
                 reorder = row.get("reorder_level", row.get("REORDER_LEVEL"))
-                if wh_code and reorder is not None:
+                if wh_code and reorder is not None and (item.id, wh_code) not in created_wh_locations:
+                    created_wh_locations.add((item.id, wh_code))
                     try:
                         loc_stmt = select(ItemWarehouseLocation).where(
                             ItemWarehouseLocation.item_id == item.id,
-                            ItemWarehouseLocation.warehouse_id == wh_code,
                             ItemWarehouseLocation.is_deleted == False
                         )
-                        existing_loc = (await db.execute(loc_stmt)).scalars().first()
-                        if not existing_loc:
-                            db.add(ItemWarehouseLocation(
-                                id=f"loc_{uuid.uuid4().hex[:12]}",
-                                company_id=company_id,
-                                item_id=item.id,
-                                warehouse_id=wh_code,
-                                min_reorder_level=Decimal(str(reorder)),
-                            ))
+                        existing_locs = list((await db.execute(loc_stmt)).scalars().all())
+                        target_loc = next((l for l in existing_locs if l.warehouse_id == wh_code), None)
+                        if target_loc:
+                            target_loc.min_reorder_level = Decimal(str(reorder))
+                        else:
+                            # Update default placeholder location (e.g. auto-seeded by DB trigger with 0 reorder)
+                            placeholder_loc = next(
+                                (l for l in existing_locs if float(l.min_reorder_level or 0) == 0.0),
+                                None
+                            )
+                            if placeholder_loc:
+                                placeholder_loc.warehouse_id = wh_code
+                                placeholder_loc.min_reorder_level = Decimal(str(reorder))
+                            else:
+                                db.add(ItemWarehouseLocation(
+                                    id=f"loc_{uuid.uuid4().hex[:12]}",
+                                    company_id=company_id,
+                                    item_id=item.id,
+                                    warehouse_id=wh_code,
+                                    min_reorder_level=Decimal(str(reorder)),
+                                ))
                     except Exception:
                         pass
 
@@ -1311,14 +1327,24 @@ async def commit_universal_import(
         )
         db.add(audit)
         await db.commit()
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as error:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Universal import rolled back: {error}") from error
+    saved_count = sum(1 for r in results if r.get("status") in ("CREATED", "COMMITTED", "UPDATED_EXISTING_MATCH", "RECEIVED", "ADJUSTED", "PRINT_READY"))
+    skipped_count = sum(1 for r in results if r.get("status") == "SKIPPED_EXISTING_MATCH")
+    failed_count = sum(1 for r in results if r.get("status") in ("FAILED", "ERROR"))
     return {
         "success": True,
         "idempotent_replay": False,
         "idempotency_key": request.idempotency_key,
         "results": results,
+        "saved": saved_count,
+        "created": sum(1 for r in results if r.get("status") == "CREATED"),
+        "skipped": skipped_count,
+        "failed": failed_count,
         "warnings": commit_all_warnings if target == "ITEM_MASTER" else [],
     }
 
@@ -1343,6 +1369,9 @@ async def download_item_master_template(
         Warehouse.is_deleted == False
     ).order_by(Warehouse.code)
     wh_codes = [r[0] for r in (await db.execute(wh_stmt)).all() if r[0]]
+    if "WH-MAIN" in wh_codes:
+        wh_codes.remove("WH-MAIN")
+        wh_codes.insert(0, "WH-MAIN")
 
     # 2. Fetch live brands
     brand_stmt = select(Item.brand).where(
