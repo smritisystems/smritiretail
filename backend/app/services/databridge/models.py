@@ -637,3 +637,27 @@ class DataBridgeOutboundWebhookResponse(BaseModel):
     latency_ms: float
     signature: str
     delivered_at: str
+
+
+# ==============================================================================
+# PHASE 10 WEBSOCKET STREAMING & REAL-TIME PROGRESS TELEMETRY CONTRACTS
+# ==============================================================================
+
+class DataBridgeProgressFrame(BaseModel):
+    """Real-time progress telemetry frame streamed over WebSockets."""
+    job_id: str
+    tenant_id: str
+    entity_type: str
+    status: str
+    total_rows: int
+    processed_rows: int
+    committed_count: int
+    error_count: int
+    progress_percent: float
+    current_chunk_index: int = 0
+    total_chunks: int = 1
+    elapsed_ms: float = 0.0
+    estimated_remaining_ms: float = 0.0
+    latest_error_summary: Optional[str] = None
+    timestamp: str
+

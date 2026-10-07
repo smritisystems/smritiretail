@@ -28,6 +28,38 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.15] - 2026-10-07 — SMRITI Transaction DataBridge: Real-Time WebSocket Streaming & Progress Telemetry Server (Phase 10)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Real-Time WebSockets, Telemetry Broadcaster, Async Streaming, Client Hook
+> **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase10_WebSocket_Streaming_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/foundation/DataBridge_Phase10_WebSocket_Streaming_Plan_v1.0.0.md`
+
+### Added
+- **In-Memory Pub/Sub Telemetry Broadcaster (`DataBridgeBroadcaster`)**:
+  - Implemented singleton pub/sub broadcaster under `backend/app/services/databridge/broadcaster.py`.
+  - Added thread-safe connection tracking keyed by `f"{company_id}:{job_id}"` protected by an `asyncio.Lock`.
+  - Engineered automatic dead socket purging on transmission exceptions and explicit client disconnections.
+  - Added `broadcast_progress(company_id, job_id, frame)` delivering sub-second progress frames to all active subscribers.
+- **Telemetry Frame Contract (`DataBridgeProgressFrame`)**:
+  - Added `DataBridgeProgressFrame` model in `backend/app/services/databridge/models.py`.
+  - Added parity TypeScript interface `DataBridgeProgressFrame` in `src/components/databridge/databridgeTypes.ts`.
+- **Async Engine Telemetry Integration (`DataBridgeAsyncEngine`)**:
+  - Integrated `DataBridgeBroadcaster.get_instance().broadcast_progress()` in `process_job_chunks()` on each chunk completion and chunk failure.
+  - Dynamically calculates row counts (`processed_rows`, `committed_count`, `error_count`, `progress_percent`) in real time.
+- **FastAPI Native WebSocket Endpoint**:
+  - Mounted `@router.websocket("/ws/progress/{job_id}")` in `backend/app/api/v1/databridge.py`.
+  - Dispatches immediate state snapshot frame upon connection acceptance.
+  - Implemented bidirectional ping-pong heartbeat loop to maintain persistent connections across reverse proxies.
+  - Safely cleans up connection handles on `WebSocketDisconnect`.
+- **Frontend Streaming Consumer Hook (`useDataBridgeProgressStream`)**:
+  - Engineered React hook in `src/components/databridge/useDataBridgeProgressStream.ts`.
+  - Handles WebSocket lifecycle, reconnection with exponential backoff, and heartbeat pinging.
+  - Built automatic, transparent fallback to REST polling (`getAsyncJobStatus`) when WebSocket connections fail or are blocked.
+- **Automated Verification**:
+  - Added 7 authoritative verification test cases in `backend/tests/test_databridge_phase10_websocket.py` (`TC-WS-001` through `007`).
+  - Verified 110/110 full regression tests green across Phases 1 through 10.
+  - Verified 0 TypeScript errors (`tsc --noEmit`), zero database migrations, and 11/11 architecture duplication checks passed.
+
 ## [6.70.14] - 2026-10-06 — SMRITI Transaction DataBridge: Automated Background Pull Scheduler & Real-Time Webhook Dispatcher (Phase 9)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Background Schedulers, Real-Time Webhooks, HMAC-SHA256, CDC Broadcasting

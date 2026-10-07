@@ -14,8 +14,10 @@ Classification: Internal — API v1 Controller
 
 # smriti_capability(entity="DATABRIDGE", capability="DATABRIDGE_CORE_FOUNDATION", role="ADAPTER", canonicalOwner="backend/app/services/databridge/service.py")
 
+import json
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, Request, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, Request, Header, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import (
@@ -35,6 +37,7 @@ from ...services.databridge.schema_mapping_engine import DataBridgeSchemaMapper
 from ...services.databridge.connectors import DataBridgeConnectorOrchestrator
 from ...services.databridge.scheduler_engine import DataBridgeScheduler
 from ...services.databridge.webhook_dispatcher import DataBridgeWebhookDispatcher
+from ...services.databridge.broadcaster import DataBridgeBroadcaster
 from ...services.databridge.exceptions import (
     DataBridgeEntitlementError,
     DataBridgeTenantIsolationError,
@@ -81,6 +84,7 @@ from ...services.databridge.models import (
     DataBridgeInboundWebhookResponse,
     DataBridgeOutboundWebhookRequest,
     DataBridgeOutboundWebhookResponse,
+    DataBridgeProgressFrame,
 )
 
 
@@ -1204,6 +1208,85 @@ async def dispatch_outbound_webhook_endpoint(
         )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Webhook dispatch failed: {str(exc)}") from exc
+
+
+# ==============================================================================
+# PHASE 10 REAL-TIME WEBSOCKET STREAMING & TELEMETRY ENDPOINT
+# ==============================================================================
+
+@router.websocket("/ws/progress/{job_id}")
+async def databridge_progress_websocket_endpoint(
+    websocket: WebSocket,
+    job_id: str,
+    company_id: str = "smriti001",
+) -> None:
+    """
+    Persistent full-duplex WebSocket stream for real-time DataBridge async job progress.
+    Subscribers receive sub-second telemetry frames upon each chunk commit or status transition.
+    """
+    await websocket.accept()
+    await DataBridgeBroadcaster.subscribe(job_id=job_id, websocket=websocket)
+
+    # Dispatch immediate initial snapshot
+    initial_frame = None
+    try:
+        from ...db.session import get_company_sessionmaker
+        session_factory = get_company_sessionmaker(company_id)
+        async with session_factory() as session:
+            status_res = await DataBridgeAsyncEngine.get_job_status(
+                company_db=session,
+                company_id=company_id,
+                job_id=job_id,
+            )
+            initial_frame = DataBridgeProgressFrame(
+                job_id=job_id,
+                tenant_id=company_id,
+                entity_type=status_res.entity_type,
+                status=status_res.status,
+                total_rows=status_res.total_rows,
+                processed_rows=status_res.processed_rows,
+                committed_count=status_res.committed_count,
+                error_count=status_res.error_count,
+                progress_percent=status_res.progress_percent,
+                current_chunk_index=status_res.current_chunk,
+                total_chunks=status_res.total_chunks,
+                latest_error_summary=status_res.error_message,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            )
+    except Exception:
+        pass
+
+    if initial_frame is None:
+        initial_frame = DataBridgeProgressFrame(
+            job_id=job_id,
+            tenant_id=company_id,
+            entity_type="UNKNOWN",
+            status="PENDING",
+            total_rows=0,
+            processed_rows=0,
+            committed_count=0,
+            error_count=0,
+            progress_percent=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+
+    try:
+        await websocket.send_text(initial_frame.model_dump_json())
+    except Exception:
+        pass
+
+    try:
+        while True:
+            text = await websocket.receive_text()
+            if text == "ping":
+                await websocket.send_text(json.dumps({"type": "pong", "job_id": job_id}))
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        await DataBridgeBroadcaster.unsubscribe(job_id=job_id, websocket=websocket)
+
 
 
 

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-825315",
+  "entity": "databridge",
+  "capability": "databridge.schema_mapping_engine",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "schema_mapping_engine.py",
+  "target_file_path": "backend/app/services/databridge/schema_mapping_engine.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/schema_mapping_engine.py",
+  "content_hash": "d6fa693a3881f1f81722123adee240031bb2c160e82aafde1bb57fbbc4c530bb",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:39:05.224455+00:00",
+  "expires_at": "2026-10-14T09:39:05.224455+00:00",
+  "status": "ISSUED"
+}

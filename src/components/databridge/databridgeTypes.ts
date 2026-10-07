@@ -189,3 +189,22 @@ export interface DataBridgeJobStatusResponse {
   items_sample?: DataBridgeResultItem[];
 }
 
+export interface DataBridgeProgressFrame {
+  job_id: string;
+  tenant_id: string;
+  entity_type: string;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  total_rows: number;
+  processed_rows: number;
+  committed_count: number;
+  error_count: number;
+  progress_percent: number;
+  current_chunk_index: number;
+  total_chunks: number;
+  elapsed_ms?: number;
+  estimated_remaining_ms?: number;
+  latest_error_summary?: string | null;
+  timestamp: string;
+}
+
+

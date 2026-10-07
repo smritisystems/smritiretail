@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-A3C950",
+  "entity": "databridge",
+  "capability": "databridge.connector_framework",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "tally_connector.py",
+  "target_file_path": "backend/app/services/databridge/connectors/tally_connector.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/connectors/tally_connector.py",
+  "content_hash": "cd02ac4200fbba811b03d35da9e075ed7f6760d3a356328a70f43d7d6a327b9d",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:33:46.153391+00:00",
+  "expires_at": "2026-10-14T09:33:46.153391+00:00",
+  "status": "ISSUED"
+}

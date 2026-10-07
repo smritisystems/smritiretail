@@ -36,7 +36,9 @@ from .models import (
     DataBridgeClassification,
     DataBridgeResultItem,
     DataBridgeSummary,
+    DataBridgeProgressFrame,
 )
+from .broadcaster import DataBridgeBroadcaster
 from .service import DataBridgeService
 from .exceptions import (
     DataBridgeError,
@@ -404,6 +406,27 @@ class DataBridgeAsyncEngine:
             record.last_attempt_at = datetime.now(timezone.utc)
             await company_db.commit()
 
+            # Broadcast real-time telemetry frame to WebSocket subscribers
+            try:
+                frame = DataBridgeProgressFrame(
+                    job_id=job_id,
+                    tenant_id=company_id,
+                    entity_type=entity_type_str,
+                    status=payload.get("status", "PROCESSING"),
+                    total_rows=total_rows,
+                    processed_rows=payload.get("processed_rows", 0),
+                    committed_count=payload.get("committed_count", 0),
+                    error_count=payload.get("error_count", 0),
+                    progress_percent=float(payload.get("progress_percent", 0.0)),
+                    current_chunk_index=current_chunk,
+                    total_chunks=total_chunks,
+                    latest_error_summary=payload.get("error_message"),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                )
+                await DataBridgeBroadcaster.broadcast_progress(job_id, frame)
+            except Exception as ws_err:
+                logger.debug(f"[DataBridgeAsync] WebSocket telemetry broadcast skipped: {ws_err}")
+
         except Exception as exc:
             logger.exception(f"[DataBridgeAsync] Error executing chunk for job '{job_id}': {exc}")
             record.status = "FAILED"
@@ -413,6 +436,27 @@ class DataBridgeAsyncEngine:
             record.payload_json = dict(payload)
             record.last_attempt_at = datetime.now(timezone.utc)
             await company_db.commit()
+
+            try:
+                err_frame = DataBridgeProgressFrame(
+                    job_id=job_id,
+                    tenant_id=company_id,
+                    entity_type=entity_type_str,
+                    status="FAILED",
+                    total_rows=total_rows,
+                    processed_rows=payload.get("processed_rows", 0),
+                    committed_count=payload.get("committed_count", 0),
+                    error_count=payload.get("error_count", 0),
+                    progress_percent=float(payload.get("progress_percent", 0.0)),
+                    current_chunk_index=current_chunk,
+                    total_chunks=total_chunks,
+                    latest_error_summary=str(exc),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                )
+                await DataBridgeBroadcaster.broadcast_progress(job_id, err_frame)
+            except Exception:
+                pass
+
             raise
 
         return await cls.get_job_status(company_db, company_id, job_id)
