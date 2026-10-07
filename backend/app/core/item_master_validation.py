@@ -703,6 +703,10 @@ class ItemMasterValidationMapper:
         elif isinstance(detail.get("detail"), str) and "IM-001" in detail["detail"]:
             raw_errors = [detail["detail"]]
 
+        # Shape C: Single message in detail dict (e.g. from universal_import commit or direct raise)
+        elif isinstance(detail.get("message"), str):
+            raw_errors = [detail["message"]]
+
         if not raw_errors:
             return None
 
@@ -749,6 +753,10 @@ class ItemMasterValidationMapper:
         summary = (
             f"Please correct {n} field{'s' if n != 1 else ''} before saving."
         )
+        row_num = detail.get("row_number")
+        if row_num is not None:
+            summary = f"Row {row_num}: {summary}"
+
         resp: dict[str, Any] = {
             "error": {
                 "code": "ITEM_MASTER_VALIDATION_ERROR",
@@ -757,6 +765,9 @@ class ItemMasterValidationMapper:
                 "fields": field_errors,
             }
         }
+        if row_num is not None:
+            resp["error"]["row_number"] = row_num
+
         if detail.get("code") == "SMRITI-VAL-002" or "im-001" in str(detail).lower() or detail.get("field_failures"):
             resp["error"]["error_code"] = "SMRITI-VAL-002"
             resp["error"]["reference_id"] = "IM-001"
@@ -779,6 +790,10 @@ class ItemMasterValidationMapper:
           "IM-001 [BLOCK]: Controlled field '...' ..." → safe fallback
         """
         raw_lower = raw_err.lower().strip()
+
+        # ── IM-004 Article / Style code required ─────────────────────────────
+        if "article_style_code required" in raw_lower or "cannot derive style from sku" in raw_lower:
+            return "style_code", "Article / Style Code is required. Please provide a Style Code for each row.", "Basic Information"
 
         # ── IM-001 governance block ───────────────────────────────────────────
         # e.g. "IM-001 [BLOCK]: Controlled field 'GST_RATE_PERCENT' value '12.0' not found"
@@ -878,6 +893,8 @@ ITEM_MASTER_PATHS: tuple[str, ...] = (
     "/api/v1/item-barcodes",
     "/api/v1/universal/items",
     "/api/v1/universal/items/",
+    "/api/v1/universal-import",
+    "/api/v1/universal-import/",
 )
 
 

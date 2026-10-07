@@ -448,6 +448,7 @@ async def preview_universal_import(
                 "duplicate_skus": summary["duplicate_in_file_rows"],
             },
             "rows": reconciliation_report,
+            "row_results": reconciliation_report,
         }
 
     results: List[Dict[str, Any]] = []
@@ -462,7 +463,7 @@ async def preview_universal_import(
         results.append(result)
         counts[result["status"].lower()] = counts.get(result["status"].lower(), 0) + 1
 
-    return {"target": request.target, "counts": counts, "rows": results}
+    return {"target": request.target, "counts": counts, "rows": results, "row_results": results}
 
 
 @router.post("/commit", status_code=status.HTTP_200_OK, summary="Commit a universal import")
@@ -543,6 +544,7 @@ async def commit_universal_import(
                         "message": "ARTICLE_STYLE_CODE required — style/article column is missing or empty. Cannot derive style from SKU code."
                     }
                 )
+            style_code = style_code.strip().upper()
 
             # IM-001: Run controlled master field validation in commit path
             im001_res = await IM001ControlledFieldValidator.validate_row_controlled_fields(
@@ -833,7 +835,7 @@ async def commit_universal_import(
                 else:
                     item_stmt = select(Item).where(
                         Item.company_id == company_id,
-                        Item.item_code == style_code,
+                        func.upper(Item.item_code) == style_code,
                         Item.is_deleted == False
                     )
                     existing_item = (await db.execute(item_stmt)).scalars().first()
@@ -864,43 +866,52 @@ async def commit_universal_import(
                         if flag_requires_review:
                             item.status = "REQUIRES_REVIEW"
                     else:
-                        item = await UniversalItemMasterService.create_item(
-                            session=db,
-                            company_id=company_id,
-                            item_code=style_code,
-                            item_name=resolved["item_name"],
-                            category=cat,
-                            department=dept,
-                            brand=brand,
-                            style_code=style_code,
-                            color=color,
-                            size=size,
-                            vendor_code=resolved.get("vendor_code"),
-                            tax_rate=tax_rate,
-                            mrp=mrp,
-                            selling_price=selling_price,
-                            cost_price=cost_price,
-                            buying_price=buying_price if buying_price > 0 else None,
-                            primary_uom=uom,
-                            hsn_code=hsn,
-                            branch_id=getattr(current_user, "branch_id", None) or "BR-001",
-                            attributes_json=footwear_nested_attrs,
-                            primary_image_url=image_url,
-                            status=item_status,
-                            # ── v2.2 first-class fields ──────────────────────────────────────
-                            gender=v22_gender,
-                            purchase_class=v22_purchase_class,
-                            product_type=v22_product_type,
-                            design_attribute=v22_design_attr,
-                            heel_type=v22_heel_type,
-                            upper_material=v22_upper_material,
-                            outsole_material=v22_outsole,
-                            collection_type=v22_collection_type,
-                            is_inventory_yn=v22_is_inventory,
-                            is_billable_yn=v22_is_billable,
-                            is_service_yn=v22_is_service,
-                            commit=False,
-                        )
+                        try:
+                            item = await UniversalItemMasterService.create_item(
+                                session=db,
+                                company_id=company_id,
+                                item_code=style_code,
+                                item_name=resolved["item_name"],
+                                category=cat,
+                                department=dept,
+                                brand=brand,
+                                style_code=style_code,
+                                color=color,
+                                size=size,
+                                vendor_code=resolved.get("vendor_code"),
+                                tax_rate=tax_rate,
+                                mrp=mrp,
+                                selling_price=selling_price,
+                                cost_price=cost_price,
+                                buying_price=buying_price if buying_price > 0 else None,
+                                primary_uom=uom,
+                                hsn_code=hsn,
+                                branch_id=getattr(current_user, "branch_id", None) or "BR-001",
+                                attributes_json=footwear_nested_attrs,
+                                primary_image_url=image_url,
+                                status=item_status,
+                                # ── v2.2 first-class fields ──────────────────────────────────────
+                                gender=v22_gender,
+                                purchase_class=v22_purchase_class,
+                                product_type=v22_product_type,
+                                design_attribute=v22_design_attr,
+                                heel_type=v22_heel_type,
+                                upper_material=v22_upper_material,
+                                outsole_material=v22_outsole,
+                                collection_type=v22_collection_type,
+                                is_inventory_yn=v22_is_inventory,
+                                is_billable_yn=v22_is_billable,
+                                is_service_yn=v22_is_service,
+                                commit=False,
+                            )
+                        except ValueError as val_err:
+                            raise HTTPException(
+                                status_code=422,
+                                detail={
+                                    "row_number": row.get("rowNumber", index),
+                                    "message": str(val_err)
+                                }
+                            )
                         if flag_requires_review:
                             item.status = "REQUIRES_REVIEW"
                         if resolved.get("vendor_code"):

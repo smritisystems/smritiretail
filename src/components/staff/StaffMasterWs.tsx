@@ -301,12 +301,41 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   const photoUrl = selected.photo || "";
 
   const handleCreate = async () => {
-    if (!newStaff.fullName || !newStaff.username || !newStaff.password) {
+    if (!newStaff.fullName?.trim() || !newStaff.username?.trim() || !newStaff.password) {
       onNotification?.("Required Fields", "Name, username, and an explicit temporary password are required.", "error");
       return;
     }
+    const pwd = newStaff.password;
+    if (pwd.length < 8) {
+      onNotification?.("Password Policy", "Password must be at least 8 characters long.", "error");
+      return;
+    }
+    if (!/[A-Z]/.test(pwd)) {
+      onNotification?.("Password Policy", "Password must contain at least one uppercase letter (A-Z).", "error");
+      return;
+    }
+    if (!/[a-z]/.test(pwd)) {
+      onNotification?.("Password Policy", "Password must contain at least one lowercase letter (a-z).", "error");
+      return;
+    }
+    if (!/[0-9]/.test(pwd)) {
+      onNotification?.("Password Policy", "Password must contain at least one number (0-9).", "error");
+      return;
+    }
+    if (!/[!@#$%^&*()_\-+=\[\]{}|;:'",.<>/?`~]/.test(pwd)) {
+      onNotification?.("Password Policy", "Password must contain at least one special character (!@#$%^&*...).", "error");
+      return;
+    }
     try {
-      const created = await apiFetchV1<User>("/users/", { method: "POST", body: { fullName: newStaff.fullName, username: newStaff.username, role: newStaff.role, passwordHash: newStaff.password } });
+      const created = await apiFetchV1<User>("/users/", {
+        method: "POST",
+        body: {
+          fullName: newStaff.fullName.trim(),
+          username: newStaff.username.trim(),
+          role: newStaff.role,
+          passwordHash: newStaff.password,
+        },
+      });
       onNotification?.("Staff Created", `${newStaff.fullName} was added to Staff 360.`, "success");
       setNewStaff({ fullName: "", username: "", password: "", role: "CASHIER" });
       setShowNew(false);
@@ -639,7 +668,20 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-center gap-4">
                 {photoUrl ? (
-                  <img src={photoUrl} alt={`${displayValue(selected.fullName, "Staff")} profile`} className="h-20 w-20 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm" />
+                  <img
+                    src={photoUrl}
+                    alt={`${displayValue(selected.fullName, "Staff")} profile`}
+                    className="h-20 w-20 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      if (e.currentTarget.parentElement) {
+                        const fallback = document.createElement("div");
+                        fallback.className = "flex h-20 w-20 items-center justify-center rounded-xl bg-indigo-100 text-2xl font-black text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300";
+                        fallback.textContent = displayValue(selected.fullName, "S").charAt(0).toUpperCase();
+                        e.currentTarget.parentElement.appendChild(fallback);
+                      }
+                    }}
+                  />
                 ) : (
                   <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-indigo-100 text-2xl font-black text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                     {displayValue(selected.fullName, "S").charAt(0).toUpperCase()}
@@ -972,7 +1014,14 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
                 <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-3.5">
                   <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center shadow-xs">
                     {editDraft.photo ? (
-                      <img src={editDraft.photo} alt="Preview" className="h-full w-full object-cover" />
+                      <img
+                        src={editDraft.photo}
+                        alt="Preview"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
                     ) : (
                       <UserRound size={32} className="text-slate-400" />
                     )}
@@ -1295,7 +1344,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
             )}
           </div>
         )}<div className="mt-5 flex gap-1 overflow-x-auto">{STAFF_TABS.map((tab) => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === tab.id ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{tab.icon}{tab.label}</button>)}</div></div><div className="p-5">{renderTab()}</div></section>
-    {showNew && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h2 className="text-base font-black">Create Staff Account</h2><button title="Close" onClick={() => setShowNew(false)}>×</button></div><p className="mt-1 text-xs text-slate-500">An explicit temporary password is required. No default credentials are generated.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><input aria-label="Full name" placeholder="Full name" value={newStaff.fullName} onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Username" placeholder="Username" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Temporary password" type="password" placeholder="Temporary password" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><select aria-label="Role" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="CASHIER">CASHIER</option><option value="MANAGER">MANAGER</option><option value="ADMIN">ADMIN</option></select></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => setShowNew(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button onClick={handleCreate} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Create Staff</button></div></div></div>}
+    {showNew && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h2 className="text-base font-black">Create Staff Account</h2><button title="Close" onClick={() => setShowNew(false)}>×</button></div><p className="mt-1 text-xs text-slate-500">An explicit temporary password is required. No default credentials are generated.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><input aria-label="Full name" placeholder="Full name" value={newStaff.fullName} onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Username" placeholder="Username" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Temporary password" type="password" placeholder="Temporary password" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><select aria-label="Role" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="CASHIER">CASHIER</option><option value="MANAGER">MANAGER</option><option value="SYSADMIN">SYSADMIN</option><option value="REPORT_USER">REPORT_USER</option><option value="VIEWER">VIEWER</option></select><p className="text-[11px] text-slate-500 sm:col-span-2">Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special symbol (e.g. Staff@2026).</p></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => setShowNew(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button onClick={handleCreate} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Create Staff</button></div></div></div>}
     {showPrint && <StaffPrintModal isOpen={showPrint} onClose={() => setShowPrint(false)} staff={selected} />}
     {showCommissionModal && (
       <CommissionStudioModal
