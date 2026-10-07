@@ -59,6 +59,7 @@ export interface GrnLineItem {
   rowId: string;
   product_id: string;
   item_id?: string;
+  variant_id?: string;
   code: string;
   name: string;
   size?: string;
@@ -184,6 +185,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
   // Direct Entry Strip State
   const [entryStockNo, setEntryStockNo] = useState("");
+  const [entryProductId, setEntryProductId] = useState<string | null>(null);
+  const [entryItemId, setEntryItemId] = useState<string | null>(null);
+  const [entryVariantId, setEntryVariantId] = useState<string | null>(null);
   const [entryDescription, setEntryDescription] = useState("");
   const [entryDocQty, setEntryDocQty] = useState("1.00");
   const [entryActQty, setEntryActQty] = useState("1.00");
@@ -479,6 +483,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
     const item = grnLines[idx];
     if (item) {
       setEntryStockNo(item.code);
+      setEntryProductId(item.product_id || null);
+      setEntryItemId(item.item_id || null);
+      setEntryVariantId(item.variant_id || null);
       setEntryDescription(item.name);
       setEntryDocQty(item.quantity_ordered ? item.quantity_ordered.toFixed(2) : item.quantity_received.toFixed(2));
       setEntryActQty(item.quantity_received.toFixed(2));
@@ -517,6 +524,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       (r) => r.code.toLowerCase() === cleanCode || (r.product_id && r.product_id.toLowerCase() === cleanCode)
     );
     if (existing) {
+      setEntryProductId(existing.product_id);
+      setEntryItemId(existing.item_id || null);
+      setEntryVariantId(existing.variant_id || null);
       setEntryDescription(existing.name);
       setEntrySellingPrice((existing.mrp || 0).toFixed(2));
       setEntryPurchasePrice((existing.cost_price || existing.invoice_rate).toFixed(2));
@@ -530,12 +540,75 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       return;
     }
 
-    // 2. Query high-speed products search endpoint
+    // 2. Query authoritative canonical product resolution service
+    try {
+      const res = await apiFetchV1(`/product-resolution/resolve?identifier=${encodeURIComponent(code)}`);
+      if (res && res.success && res.product_id) {
+        if (!res.item_id) {
+          onNotification?.(
+            "Unlinked Product",
+            `Product '${res.code || code}' is not linked to canonical Item Master. Stock inward via GRN is prohibited.`,
+            "error"
+          );
+          setEntryProductId(null);
+          setEntryItemId(null);
+          setEntryVariantId(null);
+          setEntryDescription("");
+          stockInputRef.current?.focus();
+          return;
+        }
+        setEntryProductId(res.product_id);
+        setEntryItemId(res.item_id);
+        setEntryVariantId(res.variant_id || null);
+        setEntryDescription(res.name || `Item ${code}`);
+        const cost = Number(res.cost_price || 0);
+        const mrp = Number(res.selling_price || cost * 1.5);
+        const gst = Number(res.tax_rate || 18);
+        setEntryPurchasePrice(cost.toFixed(2));
+        setEntrySellingPrice(mrp.toFixed(2));
+        setEntryTaxRate(gst.toFixed(2));
+        setTelemetry({
+          currentBalance: res.current_stock || 0,
+          reservedStock: 0,
+          availableBalance: res.available_stock || 0,
+          lastPurchasePrice: cost,
+          stockNo: res.sku || res.code || code,
+        });
+        docQtyInputRef.current?.focus();
+        return;
+      }
+    } catch {
+      // Fallback to high-speed catalog check
+    }
+
+    // 3. Fallback: query catalog products search endpoint
     try {
       const res = await apiFetchV1(`/products/search?q=${encodeURIComponent(code)}&limit=5`);
       const items = Array.isArray(res) ? res : res?.items || [];
-      if (items.length > 0) {
-        const match = items[0];
+      const match = items.find((p: any) =>
+        (p.code && p.code.toLowerCase() === cleanCode) ||
+        (p.sku && p.sku.toLowerCase() === cleanCode) ||
+        (p.barcode && p.barcode.toLowerCase() === cleanCode) ||
+        (p.id && p.id.toLowerCase() === cleanCode)
+      ) || (items.length === 1 ? items[0] : null);
+
+      if (match && match.id) {
+        if (!match.item_id) {
+          onNotification?.(
+            "Unlinked Product",
+            `Product '${match.code || code}' is not linked to canonical Item Master. Stock inward via GRN is prohibited.`,
+            "error"
+          );
+          setEntryProductId(null);
+          setEntryItemId(null);
+          setEntryVariantId(null);
+          setEntryDescription("");
+          stockInputRef.current?.focus();
+          return;
+        }
+        setEntryProductId(match.id);
+        setEntryItemId(match.item_id);
+        setEntryVariantId(match.item_variant_id || match.variant_id || null);
         setEntryDescription(match.name || `Item ${code}`);
         const cost = Number(match.cost_price || match.buying_price || 100);
         const mrp = Number(match.mrp || match.price || cost * 1.5);
@@ -554,43 +627,36 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
         return;
       }
     } catch {
-      // Fallback
+      // Not found
     }
 
-    // 3. Fallback: inventory query
-    try {
-      const res = await apiFetchV1(`/inventory/?page=1&page_size=5&q=${encodeURIComponent(code)}`);
-      const items = Array.isArray(res) ? res : res?.items || [];
-      if (items.length > 0) {
-        const match = items[0];
-        setEntryDescription(match.name || `Item ${code}`);
-        const cost = Number(match.cost_price || match.purchase_price || 100);
-        const mrp = Number(match.mrp || cost * 1.5);
-        const gst = Number(match.gst_rate || 18);
-        setEntryPurchasePrice(cost.toFixed(2));
-        setEntrySellingPrice(mrp.toFixed(2));
-        setEntryTaxRate(gst.toFixed(2));
-        setTelemetry({
-          currentBalance: match.current_stock || 0,
-          reservedStock: match.reserved_stock || 0,
-          availableBalance: match.available_stock || 0,
-          lastPurchasePrice: cost,
-          stockNo: match.sku || match.code || code,
-        });
-      } else {
-        setEntryDescription(`New Inward SKU ${code}`);
-      }
-      docQtyInputRef.current?.focus();
-    } catch {
-      setEntryDescription(`Item ${code}`);
-      docQtyInputRef.current?.focus();
-    }
+    // STRICT IDENTITY GATE: If not found in Item Master, block GRN entry
+    setEntryProductId(null);
+    setEntryItemId(null);
+    setEntryVariantId(null);
+    setEntryDescription("");
+    onNotification?.(
+      "Item Not Found",
+      "Item/SKU/Barcode not found in Item Master. Please create the item in Item Master first.",
+      "error"
+    );
+    stockInputRef.current?.focus();
   };
 
   // Commit Direct Entry Row to Grid
   const handleCommitDirectEntry = () => {
     if (!entryStockNo.trim()) {
       onNotification?.("Validation", "Please enter a Stock No or Barcode.", "warning");
+      stockInputRef.current?.focus();
+      return;
+    }
+
+    if (!entryProductId || !entryItemId) {
+      onNotification?.(
+        "Validation",
+        "Item/SKU/Barcode not found in Item Master. Please create the item in Item Master first.",
+        "error"
+      );
       stockInputRef.current?.focus();
       return;
     }
@@ -612,6 +678,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       const updated = [...grnLines];
       updated[selectedRowIndex] = {
         ...updated[selectedRowIndex],
+        product_id: entryProductId || updated[selectedRowIndex].product_id,
+        item_id: entryItemId || updated[selectedRowIndex].item_id,
+        variant_id: entryVariantId || updated[selectedRowIndex].variant_id,
         code: entryStockNo.trim(),
         name: entryDescription || updated[selectedRowIndex].name,
         quantity_ordered: docQty,
@@ -631,10 +700,12 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       onNotification?.("Item Updated", `Updated row #${selectedRowIndex + 1} (${entryStockNo}).`, "info");
       setSelectedRowIndex(null);
     } else {
-      // Append new line
+      // Append new line with verified canonical identity
       const newLine: GrnLineItem = {
         rowId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        product_id: `prod-${entryStockNo.trim()}`,
+        product_id: entryProductId,
+        item_id: entryItemId,
+        variant_id: entryVariantId || undefined,
         code: entryStockNo.trim(),
         name: entryDescription || `Item ${entryStockNo.trim()}`,
         quantity_ordered: docQty,
@@ -656,6 +727,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
     // Reset direct entry inputs for next scan
     setEntryStockNo("");
+    setEntryProductId(null);
+    setEntryItemId(null);
+    setEntryVariantId(null);
     setEntryDescription("");
     setEntryDocQty("1.00");
     setEntryActQty("1.00");

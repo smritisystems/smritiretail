@@ -28,6 +28,42 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.19] - 2026-10-07 — SMRITI Global Stock Identity Gate & Dual-Key Transaction Write Convergence (Phase 2)
+
+> **Branch:** `smritiNX` | **Area:** Inventory, Procurement, Sales, Returns, DataBridge, Identity Governance
+> **Walkthrough:** `docs/walkthrough/inventory/Global_Stock_Identity_Dual_Key_Transaction_Convergence_Phase2_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Global_Stock_Identity_Dual_Key_Transaction_Convergence_Phase2_Plan_v1.0.0.md`
+
+### Added
+- **Global Stock Identity Gate ("NO STOCK WITHOUT CANONICAL IDENTITY")**:
+  - Implemented authoritative canonical identity gate `_resolve_canonical_identity()` in `InventoryService`, strictly rejecting unlinked products (`422 UNLINKED_PRODUCT_NOT_ALLOWED`) and cross-field identity collisions (`422 PRODUCT_CANONICAL_MISMATCH`).
+  - Added company-scoped canonical identity resolution to `PurchaseService._get_product()`, returning `404 ITEM_NOT_FOUND` on unknown items and prohibiting implicit shadow record fabrication.
+  - Added comprehensive automated test suite `backend/tests/test_phase2_transaction_dual_write.py` verifying 20/20 critical convergence scenarios across stock movements, purchases, returns, adjustments, transfers, audits, and external adapters.
+
+### Changed
+- **Dual-Key Transaction Write Convergence (Option B — Dual-Key Transitional Architecture)**:
+  - **Stock Ledger Writers**: Converged `InventoryService.update_stock()`, `record_movement()`, `transfer_stock()`, `adjust_stock()`, and `StockAccountingBoundaryService.record_stock_movement()` to populate `item_id` and `variant_id` alongside `product_id`.
+  - **Procurement Writers**: Converged `PurchaseService.create_purchase_receipt()`, `convert_reorder_suggestions_to_draft()`, and `amend_purchase_order()` to resolve canonical keys via `ProductResolutionService` and write dual keys to `PurchaseReceiptItem` and `PurchaseOrderItem`.
+  - **Sales & Returns Writers**: Converged `SalesService.update_sales_invoice()`, `convert_quotation_to_invoice()`, `create_sales_return()`, `update_sales_return()`, and `cancel_sales_invoice()` to preserve canonical identity onto `SalesInvoiceItem` and `SalesReturnItem` while propagating dual keys to `atomic_mutate_batch_stock`.
+  - **Stock Audit Reconciliation**: Converged `StockAuditService.reconcile_and_post_discrepancies()` to resolve canonical identity and stamp `item_id` and `variant_id` on discrepancy loss/surplus `StockMovement` records.
+  - **GRN Direct-Entry Terminal**: Secured `GrnDesktopTerminal.tsx` by removing `"New Inward SKU ${code}"` auto-creation; added strict server lookup via `/product-resolution/resolve` blocking unlinked or unknown items.
+  - **DataBridge Domain Adapters**: Secured `grn_adapter.py`, `purchase_order_adapter.py`, `sales_invoice_adapter.py`, `sales_order_adapter.py`, `sales_return_adapter.py`, `stock_audit_adapter.py`, and `stock_transfer_adapter.py` by requiring authoritative resolution through `ProductResolutionService` and blocking arbitrary auto-provisioning.
+  - **Zero Database Migration & Zero Backfill Guarantee**: Strict schema freeze maintained — zero Alembic migrations executed, legacy product-only historical rows preserved as-is.
+
+## [6.70.18] - 2026-10-07 — SMRITI Product Resolution Consolidation Phase 1 (Option B — Dual-Key Transitional Architecture)
+
+> **Branch:** `smritiNX` | **Area:** Catalog, Inventory, Search, WMS, Resolution Governance
+> **Walkthrough:** `docs/walkthrough/catalog/Product_Resolution_Consolidation_Phase1_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/catalog/Product_Resolution_Consolidation_Phase1_Plan_v1.0.0.md`
+
+### Changed
+- **Authoritative Resolver Consolidation**:
+  - Internally delegated `/api/v1/search/barcode-scan` (`UniversalSearchEngine.quick_barcode_scan`) to `ProductResolutionService.resolve()`, eliminating aborted SQL transactions from non-product scans while guaranteeing 100% contract parity for `BarcodeQuickScanResponse` and `DistTaxInvoice.tsx`.
+  - Internally delegated `/api/v1/universal/items/resolve` to `ProductResolutionService.resolve()`, mapping canonical item/variant matches to `ItemResolutionResponse` while preserving fallback to `UniversalItemMasterService` for specialized contract pricing and localized inventory buckets.
+  - Excised raw `products` SQL from `StockAuditService.scan_barcode_increment` in favor of `ProductResolutionService.resolve()`, supporting primary barcodes, secondary barcodes array, and variant SKUs across multi-tenant warehouse stock audits.
+- **Pre-Implementation Test Fixture Hardening**:
+  - Corrected `test_06_tenant_isolation` in `test_global_product_resolution.py` to enforce bidirectional isolation between explicit tenants (`comp_a` vs `comp_b`), respecting the database trigger enforcing `item_warehouse_locations.company_id NOT NULL` without weakening production schema constraints.
+
 ## [6.70.17] - 2026-10-07 — SMRITI User Lifecycle Security Hardening, Reactivation & Audit Governance
 
 > **Branch:** `smritiNX` | **Area:** Security, User Lifecycle, Staff 360, Locked Users, Audit Journal

@@ -1301,6 +1301,8 @@ class SalesService:
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
                     product_id=item.product_id,
+                    item_id=invoice_item.item_id,
+                    variant_id=invoice_item.variant_id,
                     code=item.code,
                     name=item.name,
                     quantity=item.quantity,
@@ -1601,11 +1603,27 @@ class SalesService:
                 item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
                 tax_total   += item_tax
                 grand_total += item_total
+                canonical_item_id = getattr(item, "item_id", None) or getattr(product, "item_id", None)
+                canonical_variant_id = getattr(item, "variant_id", None) or getattr(product, "item_variant_id", None)
+                if not (canonical_item_id and canonical_variant_id):
+                    from .product_resolution_service import ProductResolutionService
+                    c_res = await ProductResolutionService.resolve_by_product_id(
+                        session=self.db,
+                        company_id=self.tenant_ctx.company_id,
+                        product_id=product.id,
+                    )
+                    if c_res.success and c_res.item_id and c_res.variant_id:
+                        canonical_item_id = canonical_item_id or c_res.item_id
+                        canonical_variant_id = canonical_variant_id or c_res.variant_id
+
                 new_items.append(SalesInvoiceItem(
                     invoice_id=invoice.id,
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
-                    product_id=item.product_id, code=item.code, name=item.name,
+                    product_id=product.id,
+                    item_id=canonical_item_id,
+                    variant_id=canonical_variant_id,
+                    code=item.code, name=item.name,
                     quantity=item.quantity, price=item.price,
                     hsn_code=item.hsn_code, gst_rate=item.gst_rate,
                     tax_amount=item_tax, total_amount=item_total,
@@ -1674,6 +1692,8 @@ class SalesService:
                         reference_doc_type="Sales Invoice",
                         reference_doc_id=invoice.invoice_no,
                         remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
+                        item_id=item.item_id,
+                        variant_id=item.variant_id,
                     )
                 except Exception:
                     pass
@@ -1707,14 +1727,15 @@ class SalesService:
         # Authoritative GL Reversal Posting (Phase 1 Canonical Integrity)
         from .unified_ledger import UnifiedAccountingLedgerService
         try:
-            await UnifiedAccountingLedgerService.post_sales_cancellation_to_gl(
-                session=self.db,
-                company_id=self.tenant_ctx.company_id,
-                invoice_id=invoice.id,
-                branch_id=self.tenant_ctx.branch_id,
-                reason="Sales invoice cancellation",
-                cancelled_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
-            )
+            async with self.db.begin_nested():
+                await UnifiedAccountingLedgerService.post_sales_cancellation_to_gl(
+                    session=self.db,
+                    company_id=self.tenant_ctx.company_id,
+                    invoice_id=invoice.id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    reason="Sales invoice cancellation",
+                    cancelled_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
+                )
         except Exception as e:
             logger.warning("Notice during GL cancellation posting: %s", e)
 
@@ -1979,6 +2000,15 @@ class SalesService:
             await self.db.execute(
                 delete(SalesReturnItem).where(SalesReturnItem.return_id == sr.id)
             )
+            orig_inv_res = await self.db.execute(
+                select(SalesInvoice).options(selectinload(SalesInvoice.items)).where(
+                    SalesInvoice.id == sr.original_invoice_id,
+                    SalesInvoice.company_id == self.tenant_ctx.company_id,
+                )
+            )
+            orig_inv = orig_inv_res.scalars().first()
+            orig_inv_map = {it.product_id: it for it in orig_inv.items} if orig_inv else {}
+
             tax_total   = Decimal("0.00")
             grand_total = Decimal("0.00")
             for item in update_in.items:
@@ -1987,11 +2017,19 @@ class SalesService:
                 item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
                 tax_total   += item_tax
                 grand_total += item_total
+
+                inv_it = orig_inv_map.get(item.product_id)
+                ret_item_id = getattr(item, "item_id", None) or (inv_it.item_id if inv_it else None)
+                ret_variant_id = getattr(item, "variant_id", None) or (inv_it.variant_id if inv_it else None)
+
                 self.db.add(SalesReturnItem(
                     return_id=sr.id,
                     company_id=self.tenant_ctx.company_id,
                     branch_id=self.tenant_ctx.branch_id,
-                    product_id=item.product_id, code=item.code, name=item.name,
+                    product_id=item.product_id,
+                    item_id=ret_item_id,
+                    variant_id=ret_variant_id,
+                    code=item.code, name=item.name,
                     quantity=item.quantity, price=item.price,
                     gst_rate=item.gst_rate,
                     tax_amount=item_tax, total_amount=item_total,
@@ -2121,6 +2159,29 @@ class SalesService:
             line_price = Decimal(str(q_item.price))
             line_qty   = Decimal(str(q_item.quantity))
             line_total = line_price * line_qty
+            canonical_item_id = getattr(q_item, "item_id", None)
+            canonical_variant_id = getattr(q_item, "variant_id", None)
+            if not (canonical_item_id and canonical_variant_id):
+                p_res = await self.db.execute(select(Product).where(
+                    (Product.id == q_item.product_id) | (Product.code == q_item.product_id),
+                    Product.company_id == self.tenant_ctx.company_id,
+                    Product.is_deleted == False,
+                ))
+                product = p_res.scalars().first()
+                if product:
+                    canonical_item_id = product.item_id
+                    canonical_variant_id = product.item_variant_id
+                    if not (canonical_item_id and canonical_variant_id):
+                        from .product_resolution_service import ProductResolutionService
+                        c_res = await ProductResolutionService.resolve_by_product_id(
+                            session=self.db,
+                            company_id=self.tenant_ctx.company_id,
+                            product_id=product.id,
+                        )
+                        if c_res.success and c_res.item_id and c_res.variant_id:
+                            canonical_item_id = c_res.item_id
+                            canonical_variant_id = c_res.variant_id
+
             inv_item_id = IdentityEngine.generate_technical_id()
             inv_item = SalesInvoiceItem(
                 uuid         = inv_item_id,
@@ -2128,6 +2189,8 @@ class SalesService:
                 branch_id    = self.tenant_ctx.branch_id,
                 invoice_id   = invoice.id,
                 product_id   = q_item.product_id,
+                item_id      = canonical_item_id,
+                variant_id   = canonical_variant_id,
                 code         = q_item.code,
                 name         = q_item.name,
                 quantity     = line_qty,

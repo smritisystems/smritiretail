@@ -275,13 +275,13 @@ async def test_06_tenant_isolation(db_session: AsyncSession):
     """
     Test 6: Verify strict tenant boundary enforcement:
     Tenant B cannot resolve Tenant A's private product.
-    Shared catalog items (company_id=None) are accessible by all tenants.
+    Tenant A cannot resolve Tenant B's private product.
     """
     suffix = uuid.uuid4().hex[:6].upper()
     comp_a = f"TENANT_A_{suffix}"
     comp_b = f"TENANT_B_{suffix}"
     sku_a = f"SKU_A_{suffix}"
-    sku_shared = f"SKU_SHARED_{suffix}"
+    sku_b = f"SKU_B_{suffix}"
 
     # 1. Tenant A private product
     item_a = Item(id=f"itm_a_{suffix}", company_id=comp_a, item_code=f"CODE_A_{suffix}", item_name="Private Item A", is_active=True)
@@ -290,12 +290,12 @@ async def test_06_tenant_isolation(db_session: AsyncSession):
     var_a = ItemVariant(id=f"var_a_{suffix}", company_id=comp_a, item_id=item_a.id, variant_sku=sku_a, variant_name="Private Var A", is_active=True)
     db_session.add(var_a)
 
-    # 2. Shared product (company_id IS NULL)
-    item_s = Item(id=f"itm_s_{suffix}", company_id=None, item_code=f"CODE_S_{suffix}", item_name="Shared Master Item", is_active=True)
-    db_session.add(item_s)
+    # 2. Tenant B private product
+    item_b = Item(id=f"itm_b_{suffix}", company_id=comp_b, item_code=f"CODE_B_{suffix}", item_name="Private Item B", is_active=True)
+    db_session.add(item_b)
     await db_session.flush()
-    var_s = ItemVariant(id=f"var_s_{suffix}", company_id=None, item_id=item_s.id, variant_sku=sku_shared, variant_name="Shared Var S", is_active=True)
-    db_session.add(var_s)
+    var_b = ItemVariant(id=f"var_b_{suffix}", company_id=comp_b, item_id=item_b.id, variant_sku=sku_b, variant_name="Private Var B", is_active=True)
+    db_session.add(var_b)
 
     await db_session.commit()
 
@@ -316,19 +316,22 @@ async def test_06_tenant_isolation(db_session: AsyncSession):
     assert res_b_a.success is False
     assert res_b_a.code == "PRODUCT_NOT_FOUND"
 
-    # Both Tenant A and Tenant B can resolve sku_shared
-    res_a_s = await ProductResolutionService.resolve(
+    # Tenant A attempts to resolve sku_b -> PRODUCT_NOT_FOUND (Isolation guarantee)
+    res_a_b = await ProductResolutionService.resolve(
         session=db_session,
         company_id=comp_a,
-        identifier=sku_shared,
+        identifier=sku_b,
     )
-    assert res_a_s.success is True
-    res_b_s = await ProductResolutionService.resolve(
+    assert res_a_b.success is False
+    assert res_a_b.code == "PRODUCT_NOT_FOUND"
+
+    # Tenant B resolves sku_b -> SUCCESS
+    res_b = await ProductResolutionService.resolve(
         session=db_session,
         company_id=comp_b,
-        identifier=sku_shared,
+        identifier=sku_b,
     )
-    assert res_b_s.success is True
+    assert res_b.success is True
 
 
 @pytest.mark.asyncio

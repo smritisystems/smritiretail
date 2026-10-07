@@ -1478,6 +1478,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           return {
             product_id: r.product_id,
             item_id: r.item_id || undefined,
+            variant_id: (r as any).variant_id || undefined,
             code: r.code,
             name: r.name,
             quantity_ordered: r.quantity_ordered,

@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-23
-Modified     : 2026-08-25
+Modified     : 2026-10-07
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -349,7 +349,63 @@ async def resolve_item(
     db: AsyncSession = Depends(get_company_db),
     current_user: dict = Depends(get_current_user),
 ):
-    """Fast 5-tier scanner resolver with 5-bucket inventory, temporal contract pricing, and statutory GST slab validation."""
+    """
+    Authoritative item scanner resolver delegated internally to ProductResolutionService.
+    Preserves specialized contract pricing and inventory bucket resolution as fallback.
+    """
+    from ...services.product_resolution_service import ProductResolutionService
+    from decimal import Decimal
+
+    company_id = "COMP-001"
+    if isinstance(current_user, dict):
+        company_id = current_user.get("company_id", "COMP-001")
+    elif current_user:
+        company_id = getattr(current_user, "company_id", "COMP-001") or "COMP-001"
+
+    # Step 1: Authoritative canonical & legacy resolution via ProductResolutionService
+    res = await ProductResolutionService.resolve(
+        session=db,
+        company_id=company_id,
+        identifier=query,
+    )
+    if res.success:
+        item_code_val = ""
+        if res.product:
+            item_code_val = res.product.get("item_code") or res.product.get("code") or res.sku or ""
+        if not item_code_val:
+            item_code_val = res.sku or ""
+
+        if res.matched_by == "BARCODE":
+            matched_by = "BARCODE"
+        elif res.matched_by in ("VARIANT_SKU", "SKU"):
+            matched_by = "VARIANT_SKU"
+        elif res.matched_by in ("ITEM_CODE", "CODE"):
+            matched_by = "ITEM_CODE"
+        else:
+            matched_by = res.matched_by or "BARCODE"
+
+        return ItemResolutionResponse(
+            matched_by=matched_by,
+            item_id=res.item_id or res.product_id or "",
+            item_code=item_code_val,
+            item_name=res.name or "",
+            variant_id=res.variant_id,
+            variant_sku=res.sku,
+            barcode=res.barcode or query,
+            hsn_code=res.hsn_code,
+            tax_rate=float(res.tax_rate or Decimal("0.00")),
+            mrp=float(res.mrp or Decimal("0.00")),
+            selling_price=float(res.selling_price or Decimal("0.00")),
+            cost_price=float(res.cost_price or Decimal("0.00")),
+            primary_uom=res.uom or "NOS",
+            category=res.category,
+            brand=res.brand,
+            attributes_json=res.product.get("attributes_json") if res.product else None,
+            effective_price=float(res.selling_price or Decimal("0.00")),
+            currency=currency or "INR",
+        )
+
+    # Step 2: Fallback to UniversalItemMasterService for specialized buyer code/serial lookup
     parsed_date = None
     if as_of_date:
         try:
@@ -357,7 +413,7 @@ async def resolve_item(
             parsed_date = datetime.strptime(as_of_date, "%Y-%m-%d").date()
         except ValueError:
             pass
-    res = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(
+    fallback_res = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(
         session=db,
         query_str=query,
         customer_id=customer_id,
@@ -368,9 +424,9 @@ async def resolve_item(
         place_of_supply=place_of_supply,
         company_state=company_state,
     )
-    if not res:
+    if not fallback_res:
         raise HTTPException(status_code=404, detail=f"No item found matching '{query}'.")
-    return res
+    return fallback_res
 
 
 @router.get("/items/{item_id}", response_model=ItemResponse, summary="Get Universal Item details")

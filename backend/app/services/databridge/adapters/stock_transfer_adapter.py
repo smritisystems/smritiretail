@@ -18,6 +18,7 @@ import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -185,21 +186,65 @@ class DataBridgeStockTransferAdapter(BaseDataBridgeAdapter):
         res = await session.execute(q)
         all_prods = res.scalars().all()
 
+        matched_p = None
         for p in all_prods:
             if str(p.id).strip() == ref:
-                return p
+                matched_p = p
+                break
             if p.sku and str(p.sku).strip().lower() == ref.lower():
-                return p
+                matched_p = p
+                break
             if p.barcode and str(p.barcode).strip().lower() == ref.lower():
-                return p
+                matched_p = p
+                break
             if p.code and str(p.code).strip().lower() == ref.lower():
-                return p
+                matched_p = p
+                break
+
+        from app.services.product_resolution_service import ProductResolutionService
+        if matched_p:
+            if not matched_p.item_id:
+                res = await ProductResolutionService.resolve_by_product_id(
+                    session=session,
+                    company_id=company_id,
+                    product_id=matched_p.id,
+                )
+                if not res or not res.item_id:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "code": "UNLINKED_PRODUCT_NOT_ALLOWED",
+                            "message": f"Product '{matched_p.code}' is not linked to canonical Item Master. Stock transfer is prohibited.",
+                        },
+                    )
+            return matched_p
+
+        # Attempt authoritative canonical resolution
+        canon_res = await ProductResolutionService.resolve(
+            session=session,
+            company_id=company_id,
+            identifier=ref,
+        )
+        if not canon_res or not canon_res.success or not canon_res.item_id:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "ITEM_NOT_FOUND",
+                    "message": f"Item/SKU/Barcode '{ref}' not found in Item Master. Stock transfer for unknown items is prohibited.",
+                },
+            )
+
+        if canon_res.product_id:
+            cp = await session.get(Product, canon_res.product_id)
+            if cp:
+                return cp
 
         p_tech_id, p_id_code = await IdentityEngine.allocate_internal(
             session=session,
             entity_type="PRODUCT",
             group_code="PRD",
             company_id=company_id,
+            purpose="DATABRIDGE_CANONICAL_BRIDGE",
         )
         prod_id = p_tech_id or IdentityEngine.generate_technical_id()
         unit_cost = Decimal(str(item_data.get("unit_cost") or 100.0))
@@ -208,14 +253,16 @@ class DataBridgeStockTransferAdapter(BaseDataBridgeAdapter):
             uuid=prod_id,
             company_id=company_id,
             code=p_id_code or f"PRD-{ref.upper()[:20]}",
-            sku=ref.upper()[:100],
-            name=str(item_data.get("item_name") or f"Product {ref}")[:255],
+            sku=canon_res.sku or ref.upper()[:100],
+            name=str(canon_res.name or item_data.get("item_name") or f"Product {ref}")[:255],
             category="GENERAL",
-            barcode=ref.upper()[:100],
+            barcode=canon_res.barcode or ref.upper()[:100],
             cost_price=unit_cost,
             price=unit_cost * Decimal("1.25"),
             stock=0,
             mrp=unit_cost * Decimal("1.50"),
+            item_id=canon_res.item_id,
+            item_variant_id=canon_res.variant_id,
         )
         session.add(new_p)
         await session.flush()

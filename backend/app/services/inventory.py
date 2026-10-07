@@ -32,6 +32,61 @@ class InventoryService:
         self.db = db
         self.tenant_ctx = tenant_ctx
 
+    async def _resolve_canonical_identity(
+        self,
+        product: Product,
+        provided_item_id: Optional[str] = None,
+        provided_variant_id: Optional[str] = None,
+    ) -> tuple[str, str]:
+        """
+        Enforces Phase 2 Non-Negotiable Architecture Rule:
+        NO STOCK WITHOUT CANONICAL IDENTITY.
+        Resolves item_id and variant_id for product. Rejects unlinked products with 422.
+        Rejects mismatched item_id or variant_id with 422 PRODUCT_CANONICAL_MISMATCH.
+        """
+        canonical_item_id = product.item_id
+        canonical_variant_id = product.item_variant_id
+
+        if not (canonical_item_id and canonical_variant_id):
+            from .product_resolution_service import ProductResolutionService
+            res = await ProductResolutionService.resolve_by_product_id(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                product_id=product.id,
+            )
+            if res.success and res.item_id and res.variant_id:
+                canonical_item_id = res.item_id
+                canonical_variant_id = res.variant_id
+
+        if not (canonical_item_id and canonical_variant_id):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "UNLINKED_PRODUCT_NOT_ALLOWED",
+                    "message": f"Product '{product.id}' is not linked to canonical Item Master. Stock movements are strictly prohibited."
+                }
+            )
+
+        if provided_item_id and provided_item_id != canonical_item_id:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "PRODUCT_CANONICAL_MISMATCH",
+                    "message": f"Provided item_id '{provided_item_id}' does not match canonical item '{canonical_item_id}' for product '{product.id}'."
+                }
+            )
+
+        if provided_variant_id and provided_variant_id != canonical_variant_id:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "PRODUCT_CANONICAL_MISMATCH",
+                    "message": f"Provided variant_id '{provided_variant_id}' does not match canonical variant '{canonical_variant_id}' for product '{product.id}'."
+                }
+            )
+
+        return canonical_item_id, canonical_variant_id
+
     async def update_stock(
         self, 
         product_id: str, 
@@ -41,34 +96,47 @@ class InventoryService:
         reference_doc_id: str, 
         remarks: Optional[str] = None,
         unit_cost: Optional[float] = None,
-        source_module: str = "inventory"
-    ):
+        source_module: str = "inventory",
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+    ) -> Optional[StockMovement]:
         """
         Centralized method to update product stock and record the movement.
         movement_type: 'IN', 'OUT', 'ADJUSTMENT', 'TRANSFER'
+        Dual-key converged: writes product_id, item_id, variant_id.
         """
         stmt = select(Product).filter(
             Product.id == product_id,
             Product.is_deleted == False,
             Product.company_id == self.tenant_ctx.company_id,
-            Product.branch_id == self.tenant_ctx.branch_id
         )
+        if self.tenant_ctx.branch_id:
+            stmt = stmt.filter(
+                (Product.branch_id == self.tenant_ctx.branch_id) | (Product.branch_id.is_(None))
+            )
         res = await self.db.execute(stmt)
         product = res.scalars().first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
+        canonical_item_id, canonical_variant_id = await self._resolve_canonical_identity(
+            product=product,
+            provided_item_id=item_id,
+            provided_variant_id=variant_id,
+        )
+
         if product.tracking_mode == "No-stock":
-            return
+            return None
 
         # Stock is updated automatically by PostgreSQL trigger trg_inventory_state_reconciliation on StockMovement insert
         self.db.add(product)
 
-
-        # Create StockMovement record
+        # Create StockMovement record with dual-key canonical identity
         movement = StockMovement(
             id=IdentityEngine.generate_technical_id(),
             product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
             product_name=product.name,
             sku=product.sku or "",
             quantity=quantity,
@@ -83,6 +151,41 @@ class InventoryService:
             branch_id=self.tenant_ctx.branch_id,
         )
         self.db.add(movement)
+        return movement
+
+    async def record_movement(
+        self,
+        product_id: str,
+        quantity: float,
+        movement_type: str,
+        reference_doc_type: str,
+        reference_doc_id: str,
+        remarks: Optional[str] = None,
+        unit_cost: Optional[float] = None,
+        source_module: str = "inventory",
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+    ) -> StockMovement:
+        """
+        Authoritative single movement writer for inventory transactions.
+        Dual-key converged: commits and returns StockMovement with canonical identity.
+        """
+        movement = await self.update_stock(
+            product_id=product_id,
+            quantity=quantity,
+            movement_type=movement_type,
+            reference_doc_type=reference_doc_type,
+            reference_doc_id=reference_doc_id,
+            remarks=remarks,
+            unit_cost=unit_cost,
+            source_module=source_module,
+            item_id=item_id,
+            variant_id=variant_id,
+        )
+        await self.db.commit()
+        if movement:
+            await self.db.refresh(movement)
+        return movement
 
     async def create_product(self, product_in: ProductCreate) -> Product:
         # Multi-Tenant Isolation Enforcement (Blocker 5)
@@ -321,22 +424,34 @@ class InventoryService:
         from_warehouse: str,
         to_warehouse: str,
         quantity: float,
-        remarks: Optional[str] = None
+        remarks: Optional[str] = None,
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
     ) -> StockMovement:
         """
         Inter-warehouse stock transfer method.
         Records StockMovement and emits Transactional Outbox event.
+        Dual-key converged: writes product_id, item_id, variant_id.
         """
         stmt = select(Product).filter(
             Product.id == product_id,
             Product.is_deleted == False,
             Product.company_id == self.tenant_ctx.company_id,
-            Product.branch_id == self.tenant_ctx.branch_id
         )
+        if self.tenant_ctx.branch_id:
+            stmt = stmt.filter(
+                (Product.branch_id == self.tenant_ctx.branch_id) | (Product.branch_id.is_(None))
+            )
         res = await self.db.execute(stmt)
         product = res.scalars().first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
+
+        canonical_item_id, canonical_variant_id = await self._resolve_canonical_identity(
+            product=product,
+            provided_item_id=item_id,
+            provided_variant_id=variant_id,
+        )
 
         if product.tracking_mode != "No-stock" and product.stock < quantity:
             raise HTTPException(status_code=400, detail="Insufficient stock for transfer")
@@ -345,6 +460,8 @@ class InventoryService:
         movement = StockMovement(
             id=movement_id,
             product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
             product_name=product.name,
             sku=product.sku or "",
             quantity=quantity,
@@ -385,22 +502,34 @@ class InventoryService:
         self,
         product_id: str,
         new_quantity: float,
-        reason: Optional[str] = None
+        reason: Optional[str] = None,
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
     ) -> StockMovement:
         """
         Stock reconciliation & physical audit adjustment method.
         Computes delta, updates product.stock, records StockMovement and emits Outbox event.
+        Dual-key converged: writes product_id, item_id, variant_id.
         """
         stmt = select(Product).filter(
             Product.id == product_id,
             Product.is_deleted == False,
             Product.company_id == self.tenant_ctx.company_id,
-            Product.branch_id == self.tenant_ctx.branch_id
         )
+        if self.tenant_ctx.branch_id:
+            stmt = stmt.filter(
+                (Product.branch_id == self.tenant_ctx.branch_id) | (Product.branch_id.is_(None))
+            )
         res = await self.db.execute(stmt)
         product = res.scalars().first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
+
+        canonical_item_id, canonical_variant_id = await self._resolve_canonical_identity(
+            product=product,
+            provided_item_id=item_id,
+            provided_variant_id=variant_id,
+        )
 
         delta = new_quantity - float(product.stock)
         product.stock = int(new_quantity)
@@ -410,6 +539,8 @@ class InventoryService:
         movement = StockMovement(
             id=movement_id,
             product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
             product_name=product.name,
             sku=product.sku or "",
             quantity=delta,

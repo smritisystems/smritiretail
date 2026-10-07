@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-10-07
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -98,7 +98,10 @@ async def quick_barcode_scan(
     db: AsyncSession = Depends(get_company_db),
     current_user: Any = Depends(get_current_user),
 ):
-    """Resolves a raw scanner input to an authoritative Item/Variant with pricing and UOM metadata."""
+    """
+    Resolves raw scanner input to authoritative Item/Variant with pricing and UOM metadata.
+    Delegates internally to ProductResolutionService while preserving contract for DistTaxInvoice.tsx.
+    """
     try:
         company_id, _, _ = _extract_user_info(current_user)
         return await UniversalSearchEngine.quick_barcode_scan(
