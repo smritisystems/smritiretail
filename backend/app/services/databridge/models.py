@@ -553,5 +553,87 @@ class DataBridgeConnectorPushResponse(BaseModel):
     payload_format: str  # "XML" | "JSON" | "HTTP_RESULT"
     result_payload: Optional[str] = None
     is_successful: bool = True
-    pushed_at: str
     details: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ==============================================================================
+# PHASE 9 BACKGROUND PULL SCHEDULER & WEBHOOK DISPATCHER CONTRACTS
+# ==============================================================================
+
+class DataBridgeScheduleStatus(str, Enum):
+    """Lifecycle status of background connector sync schedule."""
+    ACTIVE = "ACTIVE"
+    PAUSED = "PAUSED"
+    RUNNING = "RUNNING"
+    FAILED = "FAILED"
+
+
+class DataBridgeScheduleCreateRequest(BaseModel):
+    """Payload to register a recurring connector pull schedule."""
+    name: str = Field(..., min_length=2, max_length=100)
+    connector_type: DataBridgeConnectorType
+    entity_type: DataBridgeEntityType
+    interval_minutes: int = Field(default=60, ge=5, le=10080, description="Sync interval in minutes (5m to 7 days)")
+    config: DataBridgeConnectorConfig
+    params: Dict[str, Any] = Field(default_factory=dict)
+    auto_import_to_async_queue: bool = Field(default=False, description="If True, automatically submits pulled rows to async queue")
+
+
+class DataBridgeScheduleResponse(BaseModel):
+    """Details of a registered connector sync schedule."""
+    schedule_id: str
+    tenant_id: str
+    name: str
+    connector_type: str
+    entity_type: str
+    interval_minutes: int
+    status: DataBridgeScheduleStatus
+    auto_import_to_async_queue: bool = False
+    last_run_at: Optional[str] = None
+    next_run_at: Optional[str] = None
+    last_status: Optional[str] = None
+    last_error: Optional[str] = None
+    last_records_count: int = 0
+    created_at: str
+
+
+class DataBridgeScheduleTriggerResponse(BaseModel):
+    """Result of manually triggering a pull sync schedule."""
+    schedule_id: str
+    status: str
+    records_pulled: int
+    job_id: Optional[str] = None
+    triggered_at: str
+    message: str
+
+
+class DataBridgeInboundWebhookResponse(BaseModel):
+    """Result of processing an inbound webhook event from external provider."""
+    connector_type: str
+    event_topic: str
+    status: str
+    records_ingested: int
+    entity_type: str
+    job_id: Optional[str] = None
+    processed_at: str
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataBridgeOutboundWebhookRequest(BaseModel):
+    """Payload to dispatch an outbound CDC webhook event."""
+    webhook_url: str
+    event_type: str
+    payload: Dict[str, Any]
+    secret: Optional[str] = None
+
+
+class DataBridgeOutboundWebhookResponse(BaseModel):
+    """Telemetry report of outbound webhook event delivery."""
+    delivery_id: str
+    event_type: str
+    target_url: str
+    is_delivered: bool
+    status_code: int
+    latency_ms: float
+    signature: str
+    delivered_at: str

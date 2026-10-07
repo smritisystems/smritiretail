@@ -86,8 +86,9 @@ class BarcodeResolverService:
                 selectinload(ItemBarcode.item),
                 selectinload(ItemBarcode.variant),
             )
+            .order_by(ItemBarcode.is_primary.desc())
         )
-        barcode_row = (await session.execute(stmt)).scalar_one_or_none()
+        barcode_row = (await session.execute(stmt)).scalars().first()
 
         if barcode_row and barcode_row.item:
             item = barcode_row.item
@@ -121,7 +122,7 @@ class BarcodeResolverService:
                         ItemBarcode.is_active == True,
                         ItemBarcode.is_deleted == False
                     )
-                )).scalar_one_or_none()
+                )).scalars().first()
                 primary_bc_val = p_bc or clean_bc
 
             v_color = variant.color if variant else item.color
@@ -180,7 +181,7 @@ class BarcodeResolverService:
             Product.is_active == True,
             Product.is_deleted == False,
         )
-        prod = (await session.execute(prod_stmt)).scalar_one_or_none()
+        prod = (await session.execute(prod_stmt)).scalars().first()
         if prod:
             mrp = float(prod.mrp or prod.price or 0.0)
             selling_price = float(prod.price or 0.0)
