@@ -17,7 +17,7 @@ from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_, cast, String
@@ -686,11 +686,22 @@ async def upload_standalone_image(
     }
 
 
+DEFAULT_PRODUCT_PLACEHOLDER_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">'
+    '<rect width="128" height="128" rx="16" fill="#1e293b"/>'
+    '<path d="M40 44h48v40H40z" fill="none" stroke="#64748b" stroke-width="4"/>'
+    '<circle cx="52" cy="56" r="6" fill="#64748b"/>'
+    '<path d="M44 80l14-16 10 10 12-14 8 10" fill="none" stroke="#64748b" stroke-width="4"/>'
+    '</svg>'
+)
+
+
 @router.get("/images/{filename}", include_in_schema=False)
 async def get_product_image(filename: str):
-    """Serve product image from the local SPIF static uploads folder."""
-    filepath = SpifService.get_image_path(filename)
+    """Serve product image from the local SPIF static uploads folder, falling back to a clean placeholder."""
+    clean_filename = os.path.basename(filename)
+    filepath = SpifService.get_image_path(clean_filename)
     if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Image not found")
+        return Response(content=DEFAULT_PRODUCT_PLACEHOLDER_SVG, media_type="image/svg+xml")
     return FileResponse(filepath, media_type="image/webp")
 

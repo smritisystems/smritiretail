@@ -28,6 +28,34 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.16] - 2026-10-07 — SMRITI Universal Import & Staff 360: Console Error Remediation & Input Hardening
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Item Master Studio, Staff 360, Input Validation, Error Interception
+> **Walkthrough:** `docs/walkthrough/foundation/Universal_Import_And_Staff_Console_Errors_Remediation_v1.0.0.md`
+
+### Fixed
+- **Universal Import Commit 500 Unhandled Rollback Error**:
+  - Eliminated server crash on `POST /api/v1/universal-import/commit` when uppercase/lowercase style codes exist in PostgreSQL database.
+  - Normalized style code lookup with `func.upper(Item.item_code) == style_code.strip().upper()`.
+  - Wrapped `UniversalItemMasterService.create_item()` in explicit `try...except ValueError` block, translating immutable item collisions and data constraint violations into structured HTTP 422 errors instead of tumbling into generic HTTP 500 exceptions.
+- **Universal Import Preview Validation Bypass & Repeated 422 Errors**:
+  - Synchronized frontend preview error consumption in `ItemMasterStudio.tsx` (`handlePreviewAndImport` and `handleRunPreviewOnly`) across `reconciliation_report`, `rows`, and `row_results`.
+  - Added bidirectional `row_results` alias to `preview_universal_import` return payload.
+  - Ensured rows with errors or invalid statuses halt execution before network commit is triggered.
+  - Added `/api/v1/universal-import` and `/api/v1/universal-import/` to `ITEM_MASTER_PATHS` in `backend/app/core/item_master_validation.py`, ensuring 422 errors are intercepted by `http_exception_handler` and formatted into standard `ITEM_MASTER_VALIDATION_ERROR` structures.
+- **Staff 360 Creation 400 Bad Request**:
+  - Replaced invalid `"ADMIN"` role option with canonical `"SYSADMIN"` in `StaffMasterWs.tsx` modal dropdown.
+  - Added `@field_validator("role", mode="before")` across `StaffUserCreate`, `StaffUserUpdate`, `UserCreate`, and `UserUpdate` to seamlessly alias `"ADMIN"` to `UserRole.SYSADMIN`.
+  - Added proactive 5-point client-side password policy validation in `handleCreate` (length, uppercase, lowercase, digit, special symbol) with clear notifications and explanatory helper text.
+- **Staff Photo 404 & Missing Media Resource Fallbacks**:
+  - Updated `get_staff_photo` in `backend/app/api/v1/staff.py` and `get_product_image` in `backend/app/api/v1/inventory.py` to stream clean fallback SVG avatars (`DEFAULT_STAFF_AVATAR_SVG`, `DEFAULT_PRODUCT_PLACEHOLDER_SVG`) with HTTP 200 OK when disk files are absent, eliminating console 404 resource errors.
+  - Added defensive `onError` image fallbacks in `StaffMasterWs.tsx`.
+  - Cleaned orphaned photo paths in PostgreSQL `smritisys.users` and `smriti001.staff_profiles`.
+- **Users Route Trailing Slash Parity & Docker 307 Redirection Hardening**:
+  - Registered `@router.post("")` and `@router.get("")` alongside `"/"` variants in `backend/app/api/v1/users.py`.
+  - Completely eliminated Starlette 307 temporary redirects to internal Docker hostnames (`smriti-api:8000`) which caused browser security policies to strip authorization headers and trigger 401 Unauthorized errors.
+
+
 ## [6.70.15] - 2026-10-07 — SMRITI Transaction DataBridge: Real-Time WebSocket Streaming & Progress Telemetry Server (Phase 10)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Real-Time WebSockets, Telemetry Broadcaster, Async Streaming, Client Hook

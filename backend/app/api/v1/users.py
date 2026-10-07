@@ -31,6 +31,13 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 @router.post(
+    "",
+    response_model=StaffUserResponse,
+    status_code=201,
+    dependencies=[Depends(require_permission("staff_mgmt", "CREATE"))],
+    include_in_schema=False,
+)
+@router.post(
     "/",
     response_model=StaffUserResponse,
     status_code=201,
@@ -48,6 +55,12 @@ async def create_staff_user(
     return await service.create_staff_user(req)
 
 
+@router.get(
+    "",
+    response_model=StaffUserListResponse,
+    dependencies=[Depends(require_permission("staff_mgmt", "VIEW"))],
+    include_in_schema=False,
+)
 @router.get(
     "/",
     response_model=StaffUserListResponse,

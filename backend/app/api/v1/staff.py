@@ -27,7 +27,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -664,13 +664,22 @@ async def delete_staff_photo(
     return {"success": True, "message": "Photo removed"}
 
 
+DEFAULT_STAFF_AVATAR_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">'
+    '<rect width="128" height="128" rx="64" fill="#1e293b"/>'
+    '<circle cx="64" cy="50" r="22" fill="#64748b"/>'
+    '<path d="M28 110c0-19.882 16.118-36 36-36s36 16.118 36 36z" fill="#64748b"/>'
+    '</svg>'
+)
+
+
 @router.get("/photos/{filename}", include_in_schema=False)
 async def get_staff_photo(filename: str):
-    """Serve staff photo from the local static uploads folder."""
+    """Serve staff photo from the local static uploads folder, falling back to a clean default avatar."""
     clean_filename = os.path.basename(filename)
     filepath = SpifService.get_image_path(clean_filename)
     if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Photo not found")
+        return Response(content=DEFAULT_STAFF_AVATAR_SVG, media_type="image/svg+xml")
     return FileResponse(filepath, media_type="image/webp")
 
 

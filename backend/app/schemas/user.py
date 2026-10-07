@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 """
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from ..models.auth import UserRole
 
 
@@ -103,6 +103,18 @@ class UserCreate(BaseModel):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
 
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
+
 
 class UserUpdate(BaseModel):
     """SYSADMIN updates an existing user's profile or tenant assignment."""
@@ -112,6 +124,18 @@ class UserUpdate(BaseModel):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
 
 
 class PasswordChange(BaseModel):
@@ -160,6 +184,18 @@ class StaffUserCreate(BaseModel):
     preferences: Optional[UserPreferencesSchema] = None
     notificationSettings: Optional[NotificationSettings] = None
 
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
+
 
 class StaffUserUpdate(BaseModel):
     fullName: Optional[str] = None
@@ -168,6 +204,18 @@ class StaffUserUpdate(BaseModel):
     status: Optional[str] = None
     employeeId: Optional[str] = None
     employeeCode: Optional[str] = None
+
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
     displayName: Optional[str] = None
     gender: Optional[str] = None
     dateOfBirth: Optional[str] = None

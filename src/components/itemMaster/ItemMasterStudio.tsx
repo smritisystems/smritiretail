@@ -457,11 +457,11 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       setPreviewResult(previewResp?.summary ?? previewResp);
 
       // Store per-row reconciliation report for the validation panel
-      const rowReport: any[] = Array.isArray(previewResp?.reconciliation_report)
-        ? previewResp.reconciliation_report
-        : Array.isArray(previewResp?.rows)
-        ? previewResp.rows
-        : [];
+      const rowReport: any[] = (
+        Array.isArray(previewResp?.reconciliation_report) ? previewResp.reconciliation_report :
+        Array.isArray(previewResp?.rows) ? previewResp.rows :
+        Array.isArray(previewResp?.row_results) ? previewResp.row_results : []
+      );
       setPreviewReport(rowReport);
 
       // Store approved values map for fix dropdowns
@@ -471,13 +471,13 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
 
       // Collect all blocking errors from preview row results
       const blockingErrors: string[] = [];
-      if (Array.isArray(previewResp?.row_results)) {
-        previewResp.row_results.forEach((rr: any) => {
-          if (Array.isArray(rr?.errors) && rr.errors.length > 0) {
-            rr.errors.forEach((e: string) => blockingErrors.push(`Row ${rr.row_number}: ${e}`));
-          }
-        });
-      }
+      rowReport.forEach((rr: any) => {
+        if (Array.isArray(rr?.errors) && rr.errors.length > 0) {
+          rr.errors.forEach((e: string) => blockingErrors.push(`Row ${rr.row_number || '?'}: ${e}`));
+        } else if (rr?.status === "INVALID" || rr?.action === "BLOCK" || rr?.reconciliation_state === "INVALID") {
+          blockingErrors.push(`Row ${rr.row_number || '?'}: Validation failed or row blocked.`);
+        }
+      });
 
       // Collect warnings (including HSN/synthetic mismatch review flags)
       const warnings: string[] = [];
@@ -564,14 +564,20 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         })
       });
       setPreviewResult(previewResp);
+      const rowReport: any[] = (
+        Array.isArray(previewResp?.reconciliation_report) ? previewResp.reconciliation_report :
+        Array.isArray(previewResp?.rows) ? previewResp.rows :
+        Array.isArray(previewResp?.row_results) ? previewResp.row_results : []
+      );
+      setPreviewReport(rowReport);
       const blockingErrors: string[] = [];
-      if (Array.isArray(previewResp?.row_results)) {
-        previewResp.row_results.forEach((rr: any) => {
-          if (Array.isArray(rr?.errors) && rr.errors.length > 0) {
-            rr.errors.forEach((e: string) => blockingErrors.push(`Row ${rr.row_number}: ${e}`));
-          }
-        });
-      }
+      rowReport.forEach((rr: any) => {
+        if (Array.isArray(rr?.errors) && rr.errors.length > 0) {
+          rr.errors.forEach((e: string) => blockingErrors.push(`Row ${rr.row_number || '?'}: ${e}`));
+        } else if (rr?.status === "INVALID" || rr?.action === "BLOCK" || rr?.reconciliation_state === "INVALID") {
+          blockingErrors.push(`Row ${rr.row_number || '?'}: Validation failed or row blocked.`);
+        }
+      });
       setPreviewErrors(blockingErrors);
       const warnings: string[] = [];
       if (Array.isArray(previewResp?.all_warnings)) {

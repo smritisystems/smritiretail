@@ -449,6 +449,8 @@ class TestEndpointMatcher:
     def test_universal_items_matches(self):
         assert is_item_master_endpoint("/api/v1/universal/items") is True
         assert is_item_master_endpoint("/api/v1/universal/items/abc-123/variants") is True
+        assert is_item_master_endpoint("/api/v1/universal-import") is True
+        assert is_item_master_endpoint("/api/v1/universal-import/commit") is True
 
     def test_sales_endpoint_does_not_match(self):
         assert is_item_master_endpoint("/api/v1/sales/") is False
