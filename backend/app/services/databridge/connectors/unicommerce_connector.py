@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 1.1.0
 Created      : 2026-10-06
-Modified     : 2026-10-06
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal — Foundation Service
@@ -145,9 +145,18 @@ class UnicommerceConnector(BaseDataBridgeConnector):
                 mrp = float(rec.get("mrp") or 0.0)
                 sp = float(rec.get("sellingPrice") or rec.get("price") or mrp)
                 hsn = rec.get("hsnCode") or "999999"
+                var_id = rec.get("variant_id") or rec.get("itemTypeId")
+                itm_id = rec.get("item_id") or rec.get("parentSku")
+                color = rec.get("color")
+                size = rec.get("size")
 
                 transformed.append({
                     "sku": sku,
+                    "variant_sku": sku,
+                    "variant_id": var_id,
+                    "item_id": itm_id,
+                    "color": color,
+                    "size": size,
                     "item_name": name,
                     "category": cat,
                     "brand": brand,
@@ -183,6 +192,10 @@ class UnicommerceConnector(BaseDataBridgeConnector):
                         shipping_fee = float(line.get("shippingCharges") or 0.0)
                         discount = float(line.get("discount") or 0.0)
                         taxable = (price * qty) - discount
+                        var_id = line.get("variant_id") or line.get("itemTypeId")
+                        itm_id = line.get("item_id") or line.get("parentSku")
+                        color = line.get("color")
+                        size = line.get("size")
 
                         transformed.append({
                             "invoice_number": order_code,
@@ -193,6 +206,12 @@ class UnicommerceConnector(BaseDataBridgeConnector):
                             "shipping_pincode": pincode,
                             "channel": channel,
                             "sku": sku,
+                            "variant_sku": sku,
+                            "item_code": sku,
+                            "variant_id": var_id,
+                            "item_id": itm_id,
+                            "color": color,
+                            "size": size,
                             "item_name": item_name,
                             "quantity": qty,
                             "rate": price,
@@ -236,11 +255,16 @@ class UnicommerceConnector(BaseDataBridgeConnector):
         """Serializes inventory or item records to Unicommerce format."""
         uni_items = []
         for r in records:
-            uni_items.append({
-                "skuCode": str(r.get("sku") or ""),
+            item_entry: Dict[str, Any] = {
+                "skuCode": str(r.get("variant_sku") or r.get("item_code") or r.get("sku") or ""),
                 "quantity": int(r.get("quantity") or r.get("opening_stock") or 0),
                 "facilityCode": config.company_code or "DEFAULT",
-            })
+            }
+            if r.get("variant_id"):
+                item_entry["variant_id"] = r.get("variant_id")
+            if r.get("item_id"):
+                item_entry["item_id"] = r.get("item_id")
+            uni_items.append(item_entry)
 
         payload = {"inventoryAdjustmentDTOList": uni_items}
         return DataBridgeConnectorPushResponse(

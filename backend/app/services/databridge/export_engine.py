@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 1.1.0
 Created      : 2026-10-06
-Modified     : 2026-10-06
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Canonical Enterprise Export Engine — DataBridge Phase 5
@@ -90,6 +90,7 @@ class DataBridgeExportEngine:
             items = (await company_db.execute(stmt)).scalars().all()
             for itm in items:
                 records.append({
+                    "item_id": itm.id,
                     "item_code": itm.item_code,
                     "item_name": itm.item_name,
                     "brand": itm.brand,
@@ -109,7 +110,10 @@ class DataBridgeExportEngine:
             variants = (await company_db.execute(stmt)).scalars().all()
             for v in variants:
                 records.append({
+                    "variant_id": v.id,
                     "variant_code": v.variant_code or v.sku,
+                    "variant_sku": getattr(v, "variant_sku", v.sku),
+                    "sku": v.sku,
                     "item_id": v.item_id,
                     "color": v.color,
                     "size": v.size,
@@ -183,30 +187,41 @@ class DataBridgeExportEngine:
             stmt = select(PurchaseOrder).where(PurchaseOrder.company_id == company_id).limit(limit)
             orders = (await company_db.execute(stmt)).scalars().all()
             for po in orders:
-                line_stmt = select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po.id)
+                fk_col = getattr(PurchaseOrderItem, "order_id", getattr(PurchaseOrderItem, "purchase_order_id", None))
+                line_stmt = select(PurchaseOrderItem).where(fk_col == po.id)
                 lines = (await company_db.execute(line_stmt)).scalars().all()
+                po_date = getattr(po, "order_date", getattr(po, "created_at", None))
+                po_tot = getattr(po, "total_amount", getattr(po, "grand_total", 0.0))
                 if not lines:
                     records.append({
                         "order_no": po.order_no,
-                        "order_date": po.order_date.isoformat() if po.order_date else "",
+                        "order_date": po_date.isoformat() if po_date else "",
                         "supplier_id": po.supplier_id,
                         "status": po.status,
-                        "total_amount": float(po.total_amount or 0.0),
+                        "total_amount": float(po_tot or 0.0),
+                        "product_id": None,
+                        "item_id": None,
+                        "variant_id": None,
                         "item_code": "",
                         "quantity": 0.0,
                         "unit_price": 0.0,
                         "line_total": 0.0,
                     })
                 for li in lines:
+                    itm_code = getattr(li, "code", getattr(li, "item_code", None)) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or "")
+                    u_price = getattr(li, "cost_price", getattr(li, "unit_price", 0.0))
                     records.append({
                         "order_no": po.order_no,
-                        "order_date": po.order_date.isoformat() if po.order_date else "",
+                        "order_date": po_date.isoformat() if po_date else "",
                         "supplier_id": po.supplier_id,
                         "status": po.status,
-                        "total_amount": float(po.total_amount or 0.0),
-                        "item_code": getattr(li, "item_code", str(li.product_id)),
+                        "total_amount": float(po_tot or 0.0),
+                        "product_id": getattr(li, "product_id", None),
+                        "item_id": getattr(li, "item_id", None),
+                        "variant_id": getattr(li, "variant_id", None),
+                        "item_code": itm_code,
                         "quantity": float(li.quantity or 0.0),
-                        "unit_price": float(li.unit_price or 0.0),
+                        "unit_price": float(u_price or 0.0),
                         "line_total": float(getattr(li, "line_total", 0.0) or 0.0),
                     })
 
@@ -214,93 +229,137 @@ class DataBridgeExportEngine:
             stmt = select(PurchaseReceipt).where(PurchaseReceipt.company_id == company_id).limit(limit)
             grns = (await company_db.execute(stmt)).scalars().all()
             for grn in grns:
-                line_stmt = select(PurchaseReceiptItem).where(PurchaseReceiptItem.purchase_receipt_id == grn.id)
+                fk_col = getattr(PurchaseReceiptItem, "receipt_id", getattr(PurchaseReceiptItem, "purchase_receipt_id", None))
+                line_stmt = select(PurchaseReceiptItem).where(fk_col == grn.id)
                 lines = (await company_db.execute(line_stmt)).scalars().all()
+                grn_date = getattr(grn, "receipt_date", getattr(grn, "created_at", None))
                 for li in lines:
+                    itm_code = getattr(li, "code", getattr(li, "item_code", None)) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or "")
+                    rec_qty = getattr(li, "quantity_received", getattr(li, "received_qty", 0.0))
+                    u_cost = getattr(li, "cost_price", getattr(li, "unit_cost", 0.0))
                     records.append({
                         "receipt_no": grn.receipt_no,
-                        "receipt_date": grn.receipt_date.isoformat() if grn.receipt_date else "",
+                        "receipt_date": grn_date.isoformat() if grn_date else "",
                         "supplier_id": grn.supplier_id,
                         "warehouse_id": getattr(grn, "warehouse_id", "WH-MAIN-001"),
-                        "item_code": getattr(li, "item_code", str(li.product_id)),
-                        "received_qty": float(li.received_qty or 0.0),
-                        "unit_cost": float(li.unit_cost or 0.0),
+                        "product_id": getattr(li, "product_id", None),
+                        "item_id": getattr(li, "item_id", None),
+                        "variant_id": getattr(li, "variant_id", None),
+                        "item_code": itm_code,
+                        "received_qty": float(rec_qty or 0.0),
+                        "unit_cost": float(u_cost or 0.0),
                     })
 
         elif entity_type == DataBridgeEntityType.PURCHASE_INVOICE:
             stmt = select(PurchaseBill).where(PurchaseBill.company_id == company_id).limit(limit)
             bills = (await company_db.execute(stmt)).scalars().all()
             for b in bills:
-                line_stmt = select(PurchaseBillItem).where(PurchaseBillItem.purchase_bill_id == b.id)
+                fk_col = getattr(PurchaseBillItem, "bill_id", getattr(PurchaseBillItem, "purchase_bill_id", None))
+                line_stmt = select(PurchaseBillItem).where(fk_col == b.id)
                 lines = (await company_db.execute(line_stmt)).scalars().all()
+                b_date = getattr(b, "bill_date", getattr(b, "created_at", None))
                 for li in lines:
+                    itm_code = getattr(li, "code", getattr(li, "item_code", None)) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or "")
+                    qty_val = getattr(li, "quantity", getattr(li, "qty", 0.0))
+                    tot_val = getattr(li, "total_amount", getattr(li, "total", 0.0))
                     records.append({
                         "bill_no": b.bill_no,
-                        "bill_date": b.bill_date.isoformat() if b.bill_date else "",
+                        "bill_date": b_date.isoformat() if b_date else "",
                         "supplier_id": b.supplier_id,
                         "total_amount": float(b.total_amount or 0.0),
                         "tax_amount": float(getattr(b, "tax_amount", 0.0) or 0.0),
-                        "item_code": getattr(li, "item_code", str(li.product_id)),
-                        "quantity": float(li.qty or 0.0),
+                        "product_id": getattr(li, "product_id", None),
+                        "item_id": getattr(li, "item_id", None),
+                        "variant_id": getattr(li, "variant_id", None),
+                        "item_code": itm_code,
+                        "quantity": float(qty_val or 0.0),
                         "rate": float(li.rate or 0.0),
-                        "line_total": float(li.total or 0.0),
+                        "line_total": float(tot_val or 0.0),
                     })
 
         elif entity_type == DataBridgeEntityType.SALES_INVOICE:
             stmt = select(SalesInvoice).where(SalesInvoice.company_id == company_id).limit(limit)
             invoices = (await company_db.execute(stmt)).scalars().all()
             for inv in invoices:
-                line_stmt = select(SalesInvoiceItem).where(SalesInvoiceItem.sales_invoice_id == inv.id)
+                fk_col = getattr(SalesInvoiceItem, "invoice_id", getattr(SalesInvoiceItem, "sales_invoice_id", None))
+                line_stmt = select(SalesInvoiceItem).where(fk_col == inv.id)
                 lines = (await company_db.execute(line_stmt)).scalars().all()
                 for li in lines:
+                    inv_date = getattr(inv, "invoice_date", getattr(inv, "date", None))
+                    tot_amt = getattr(inv, "total_amount", getattr(inv, "grand_total", 0.0))
+                    itm_code = getattr(li, "code", getattr(li, "item_code", None)) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or "")
+                    u_price = getattr(li, "price", getattr(li, "unit_price", 0.0))
+                    n_amt = getattr(li, "total_amount", getattr(li, "net_amount", 0.0))
                     records.append({
                         "invoice_no": inv.invoice_no,
-                        "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else "",
+                        "invoice_date": inv_date.isoformat() if inv_date else "",
                         "customer_id": inv.customer_id,
-                        "total_amount": float(inv.total_amount or 0.0),
-                        "tax_amount": float(getattr(inv, "tax_amount", 0.0) or 0.0),
-                        "payment_status": inv.payment_status,
-                        "item_code": getattr(li, "item_code", str(li.product_id)),
+                        "total_amount": float(tot_amt or 0.0),
+                        "tax_amount": float(getattr(inv, "tax_amount", getattr(inv, "tax_total", 0.0)) or 0.0),
+                        "payment_status": getattr(inv, "payment_status", getattr(inv, "status", "PAID")),
+                        "product_id": getattr(li, "product_id", None),
+                        "item_id": getattr(li, "item_id", None),
+                        "variant_id": getattr(li, "variant_id", None),
+                        "item_code": itm_code,
                         "quantity": float(li.quantity or 0.0),
-                        "unit_price": float(li.unit_price or 0.0),
-                        "net_amount": float(getattr(li, "net_amount", 0.0) or 0.0),
+                        "unit_price": float(u_price or 0.0),
+                        "net_amount": float(n_amt or 0.0),
                     })
 
         elif entity_type == DataBridgeEntityType.SALES_ORDER:
             stmt = select(SalesOrder).where(SalesOrder.company_id == company_id).limit(limit)
             orders = (await company_db.execute(stmt)).scalars().all()
             for so in orders:
-                line_stmt = select(SalesOrderItem).where(SalesOrderItem.sales_order_id == so.id)
+                fk_col = getattr(SalesOrderItem, "order_id", getattr(SalesOrderItem, "sales_order_id", None))
+                line_stmt = select(SalesOrderItem).where(fk_col == so.id)
                 lines = (await company_db.execute(line_stmt)).scalars().all()
                 for li in lines:
+                    so_date = getattr(so, "order_date", getattr(so, "date", None))
+                    tot_amt = getattr(so, "total_amount", getattr(so, "grand_total", 0.0))
+                    itm_code = getattr(li, "code", getattr(li, "item_code", None)) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or "")
+                    u_price = getattr(li, "price", getattr(li, "unit_price", 0.0))
+                    l_tot = getattr(li, "line_total", getattr(li, "total_amount", 0.0))
                     records.append({
                         "order_no": so.order_no,
-                        "order_date": so.order_date.isoformat() if so.order_date else "",
+                        "order_date": so_date.isoformat() if so_date else "",
                         "customer_id": so.customer_id,
-                        "total_amount": float(so.total_amount or 0.0),
-                        "item_code": getattr(li, "item_code", str(li.product_id)),
+                        "total_amount": float(tot_amt or 0.0),
+                        "product_id": getattr(li, "product_id", None),
+                        "item_id": getattr(li, "item_id", None),
+                        "variant_id": getattr(li, "variant_id", None),
+                        "item_code": itm_code,
                         "quantity": float(li.quantity or 0.0),
-                        "unit_price": float(li.unit_price or 0.0),
-                        "line_total": float(getattr(li, "line_total", 0.0) or 0.0),
+                        "unit_price": float(u_price or 0.0),
+                        "line_total": float(l_tot or 0.0),
                     })
 
         elif entity_type == DataBridgeEntityType.SALES_RETURN:
             stmt = select(SalesReturn).where(SalesReturn.company_id == company_id).limit(limit)
             returns = (await company_db.execute(stmt)).scalars().all()
             for ret in returns:
-                line_stmt = select(SalesReturnItem).where(SalesReturnItem.sales_return_id == ret.id)
+                fk_col = getattr(SalesReturnItem, "return_id", getattr(SalesReturnItem, "sales_return_id", None))
+                line_stmt = select(SalesReturnItem).where(fk_col == ret.id)
                 lines = (await company_db.execute(line_stmt)).scalars().all()
                 for li in lines:
+                    ret_date = getattr(ret, "return_date", getattr(ret, "date", None))
+                    tot_amt = getattr(ret, "total_amount", getattr(ret, "grand_total", 0.0))
+                    orig_inv = getattr(ret, "original_invoice_no", getattr(ret, "original_invoice_id", ""))
+                    itm_code = getattr(li, "code", getattr(li, "item_code", None)) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or "")
+                    u_price = getattr(li, "price", getattr(li, "unit_price", 0.0))
+                    ref_amt = getattr(li, "refund_amount", getattr(li, "total_amount", 0.0))
                     records.append({
                         "return_no": ret.return_no,
-                        "return_date": ret.return_date.isoformat() if ret.return_date else "",
+                        "return_date": ret_date.isoformat() if ret_date else "",
                         "customer_id": ret.customer_id,
-                        "original_invoice_no": ret.original_invoice_no,
-                        "total_amount": float(ret.total_amount or 0.0),
-                        "item_code": getattr(li, "item_code", str(li.product_id)),
+                        "original_invoice_no": orig_inv,
+                        "total_amount": float(tot_amt or 0.0),
+                        "product_id": getattr(li, "product_id", None),
+                        "item_id": getattr(li, "item_id", None),
+                        "variant_id": getattr(li, "variant_id", None),
+                        "item_code": itm_code,
                         "quantity": float(li.quantity or 0.0),
-                        "unit_price": float(li.unit_price or 0.0),
-                        "refund_amount": float(getattr(li, "refund_amount", 0.0) or 0.0),
+                        "unit_price": float(u_price or 0.0),
+                        "refund_amount": float(ref_amt or 0.0),
                     })
 
         elif entity_type == DataBridgeEntityType.STOCK_TRANSFER:
@@ -316,7 +375,10 @@ class DataBridgeExportEngine:
                         "source_warehouse_id": st.source_warehouse_id,
                         "dest_warehouse_id": st.dest_warehouse_id,
                         "status": st.status,
-                        "item_code": getattr(li, "item_code", str(li.product_id)),
+                        "product_id": getattr(li, "product_id", None),
+                        "item_id": getattr(li, "item_id", None),
+                        "variant_id": getattr(li, "variant_id", None),
+                        "item_code": getattr(li, "item_code", None) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or ""),
                         "quantity": float(li.quantity or 0.0),
                     })
 
@@ -331,7 +393,10 @@ class DataBridgeExportEngine:
                         "audit_no": sa.audit_no,
                         "audit_date": sa.audit_date.isoformat() if sa.audit_date else "",
                         "warehouse_id": sa.warehouse_id,
-                        "item_code": getattr(li, "item_code", str(li.product_id)),
+                        "product_id": getattr(li, "product_id", None),
+                        "item_id": getattr(li, "item_id", None),
+                        "variant_id": getattr(li, "variant_id", None),
+                        "item_code": getattr(li, "item_code", None) or str(getattr(li, "variant_id", None) or getattr(li, "product_id", "") or ""),
                         "system_qty": float(li.system_qty or 0.0),
                         "counted_qty": float(li.counted_qty or 0.0),
                         "variance_qty": float(li.variance_qty or 0.0),

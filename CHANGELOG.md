@@ -28,6 +28,35 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.21] - 2026-10-08 — SMRITI External Connectors & Canonical Export Alignment (Phase 4 Dual-Key Architecture)
+
+> **Branch:** `smritiNX` | **Area:** DataBridge, Integrations, Connectors, Canonical Exports, Inventory Governance
+> **Walkthrough:** `docs/walkthrough/inventory/External_Connectors_Canonical_Alignment_Phase4_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/External_Connectors_Canonical_Alignment_Phase4_Plan_v1.0.0.md`
+
+### Added
+- **Phase 4 Automated Verification Test Suite**:
+  - Added comprehensive automated test suite `backend/tests/test_phase4_external_connectors_canonical_alignment.py` verifying 9/9 critical connector and export scenarios across TallyPrime XML, Shopify REST, Unicommerce Multichannel, SAP B1 Service Layer, and universal DataBridge export formats (CSV, JSON, SMRITI_X, XLSX).
+- **Dual-Key Export Payloads & Defensive Accessors**:
+  - Export engine supports dual-key output schemas (`item_id`, `variant_id`, `variant_sku`, `product_id`) across single-entity and multi-line transactional entities (`ITEM`, `VARIANT`, `SALES_INVOICE`, `PURCHASE_ORDER`, `GOODS_RECEIPT_NOTE`, `PURCHASE_INVOICE`, `SALES_ORDER`, `SALES_RETURN`, `STOCK_TRANSFER`, `STOCK_AUDIT`).
+
+### Changed
+- **TallyPrime Connector (`TallyPrimeConnector`)**:
+  - Updated inbound XML parsing to extract `item_id`, `variant_id`, and `description` from voucher stock items.
+  - Updated normalized rows to preserve canonical `variant_sku`, `variant_id`, and `item_id`.
+  - Updated outbound voucher XML push serialization to prioritize `variant_sku` in `<STOCKITEMNAME>` and serialize `<ITEMID>`, `<VARIANTID>`, and `<BASICUSERDESCRIPTION>`.
+- **Shopify Connector (`ShopifyConnector`)**:
+  - Updated inbound catalog transformation to extract `variant_id`, `item_id`, `variant_sku`, and physical dimensions (`color` via `option1`, `size` via `option2`).
+  - Updated outbound push serialization (`supports_push=True`) to support canonical inventory level adjustments and variant updates with dual keys.
+- **Unicommerce Connector (`UnicommerceConnector`)**:
+  - Updated inbound order and item transformations to map `variant_id`, `item_id`, `variant_sku`, `color`, and `size`.
+  - Updated outbound push serialization for inventory adjustments to preserve dual keys (`item_id`, `variant_id`, `variant_sku`).
+- **SAP Business One Connector (`SAPB1Connector`)**:
+  - Updated inbound Item and DocumentLines transformations to extract `U_VariantID`, `U_ItemID`, `U_Color`, and `U_Size`.
+  - Updated outbound push serialization to inject user-defined fields (`U_VariantID`, `U_ItemID`, `U_Color`, `U_Size`) into SAP B1 document lines.
+- **Export Engine (`DataBridgeExportEngine`)**:
+  - Replaced legacy `product_id` supremacy with model-defensive dual-key extraction, supporting legacy products alongside modern items and variants without breaking downstream analytics or legacy integrations.
+
 ## [6.70.20] - 2026-10-08 — SMRITI Canonical Transaction Supremacy (Phase 3 Read-Path Convergence)
 
 > **Branch:** `smritiNX` | **Area:** Inventory, Reports, Procurement, Analytics, Identity Governance

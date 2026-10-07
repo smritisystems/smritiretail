@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 1.1.0
 Created      : 2026-10-06
-Modified     : 2026-10-06
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal — Foundation Service
@@ -53,7 +53,7 @@ class ShopifyConnector(BaseDataBridgeConnector):
                 DataBridgeEntityType.CUSTOMER.value,
             ],
             supports_pull=True,
-            supports_push=False,
+            supports_push=True,
             config_schema={
                 "endpoint_url": {
                     "type": "string",
@@ -148,8 +148,18 @@ class ShopifyConnector(BaseDataBridgeConnector):
                         barcode = v.get("barcode") or ""
                         inv_qty = float(v.get("inventory_quantity") or 0.0)
 
+                        color = v.get("option1") or v.get("color")
+                        size = v.get("option2") or v.get("size")
+                        variant_id = str(v.get("id")) if v.get("id") else v.get("variant_id")
+                        item_id = str(item.get("id")) if item.get("id") else item.get("item_id")
+
                         transformed.append({
                             "sku": sku,
+                            "variant_sku": sku,
+                            "variant_id": variant_id,
+                            "item_id": item_id,
+                            "color": color,
+                            "size": size,
                             "item_name": full_name,
                             "category": product_type or "E-Commerce",
                             "brand": vendor,
@@ -163,8 +173,13 @@ class ShopifyConnector(BaseDataBridgeConnector):
                         })
                 else:
                     # Single variant or top-level item
+                    sku = item.get("sku") or f"SPFY-{item.get('id', '')}"
+                    item_id = str(item.get("id")) if item.get("id") else item.get("item_id")
                     transformed.append({
-                        "sku": item.get("sku") or f"SPFY-{item.get('id', '')}",
+                        "sku": sku,
+                        "variant_sku": sku,
+                        "item_id": item_id,
+                        "variant_id": item.get("variant_id"),
                         "item_name": prod_title,
                         "category": product_type or "E-Commerce",
                         "brand": vendor,
@@ -206,6 +221,10 @@ class ShopifyConnector(BaseDataBridgeConnector):
                         for t in line.get("tax_lines", []):
                             tax_amt += float(t.get("price") or 0.0)
 
+                        line_sku = line.get("sku") or f"SPFY-LI-{line.get('id', idx)}"
+                        line_var_id = line.get("variant_id")
+                        line_prod_id = line.get("product_id")
+
                         transformed.append({
                             "invoice_number": order_no,
                             "invoice_date": inv_date,
@@ -215,7 +234,12 @@ class ShopifyConnector(BaseDataBridgeConnector):
                             "shipping_state": state,
                             "shipping_pincode": pincode,
                             "item_name": line.get("name") or line.get("title", f"Line {idx}"),
-                            "sku": line.get("sku") or f"SPFY-LI-{line.get('id', idx)}",
+                            "sku": line_sku,
+                            "variant_sku": line_sku,
+                            "item_code": line_sku,
+                            "product_id": line_prod_id,
+                            "variant_id": line_var_id,
+                            "item_id": line_prod_id,
                             "quantity": qty,
                             "rate": price,
                             "discount_amount": disc,
@@ -258,14 +282,33 @@ class ShopifyConnector(BaseDataBridgeConnector):
         records: List[Dict[str, Any]],
         params: Dict[str, Any],
     ) -> DataBridgeConnectorPushResponse:
-        # Push is not supported or mock
+        """Serializes catalog or inventory records into canonical Shopify variants payload."""
+        shopify_variants = []
+        for r in records:
+            var_payload: Dict[str, Any] = {
+                "sku": str(r.get("variant_sku") or r.get("sku") or r.get("item_code") or ""),
+                "price": str(r.get("rate") or r.get("selling_price") or "0.0"),
+            }
+            if r.get("variant_id"):
+                var_payload["id"] = r.get("variant_id")
+            if r.get("item_id"):
+                var_payload["product_id"] = r.get("item_id")
+            if r.get("quantity") is not None or r.get("opening_stock") is not None:
+                var_payload["inventory_quantity"] = int(r.get("quantity") or r.get("opening_stock") or 0)
+            if r.get("color"):
+                var_payload["option1"] = r.get("color")
+            if r.get("size"):
+                var_payload["option2"] = r.get("size")
+            shopify_variants.append(var_payload)
+
+        payload = {"variants": shopify_variants}
         return DataBridgeConnectorPushResponse(
             connector_type=self.connector_type.value,
             entity_type=entity_type.value,
-            total_records_pushed=0,
+            total_records_pushed=len(records),
             payload_format="JSON",
-            result_payload=None,
-            is_successful=False,
+            result_payload=json.dumps(payload, indent=2),
+            is_successful=True,
             pushed_at=datetime.now(timezone.utc).isoformat(),
-            details={"error": "Shopify connector currently supports pull ingestion only."},
+            details={"variants_formatted": len(shopify_variants)},
         )

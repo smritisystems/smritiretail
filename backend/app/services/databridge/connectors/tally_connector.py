@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 1.1.0
 Created      : 2026-10-06
-Modified     : 2026-10-06
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal — Foundation Service
@@ -172,11 +172,18 @@ class TallyPrimeConnector(BaseDataBridgeConnector):
             amount_raw = inv.findtext("AMOUNT", "0")
             amount = abs(float(amount_raw)) if amount_raw else 0.0
 
+            desc = inv.findtext("BASICUSERDESCRIPTION") or inv.findtext("DESCRIPTION", "")
+            item_id_val = inv.findtext("ITEMID") or inv.findtext("UDF:ITEMID", "")
+            variant_id_val = inv.findtext("VARIANTID") or inv.findtext("UDF:VARIANTID", "")
+
             item_dict = {
                 "item_name": inv.findtext("STOCKITEMNAME", ""),
                 "quantity": qty,
                 "rate": rate,
                 "amount": amount,
+                "description": desc,
+                "item_id": item_id_val or None,
+                "variant_id": variant_id_val or None,
             }
             vch["inventory_entries"].append(item_dict)
 
@@ -253,13 +260,25 @@ class TallyPrimeConnector(BaseDataBridgeConnector):
                         gross = float(item.get("amount", rate * qty))
                         net = gross + (cgst + sgst + igst if idx == 1 else 0.0)
 
+                        item_name = item.get("item_name", f"Item-{idx}")
+                        sku_val = item.get("variant_sku") or item.get("sku") or item_name
+                        var_id = item.get("variant_id")
+                        itm_id = item.get("item_id")
+                        color_val = item.get("color")
+                        size_val = item.get("size")
+
                         row = {
                             "invoice_number": inv_no,
                             "invoice_date": formatted_date,
                             "customer_name": customer_name,
                             "customer_gstin": customer_gstin,
-                            "item_name": item.get("item_name", f"Item-{idx}"),
-                            "sku": item.get("item_name", f"SKU-{idx}"),
+                            "item_name": item_name,
+                            "sku": sku_val,
+                            "variant_sku": sku_val,
+                            "variant_id": var_id,
+                            "item_id": itm_id,
+                            "color": color_val,
+                            "size": size_val,
                             "quantity": qty,
                             "rate": rate,
                             "taxable_amount": gross,
@@ -350,7 +369,14 @@ class TallyPrimeConnector(BaseDataBridgeConnector):
             total_amount = Decimal("0.0")
             for line in lines:
                 inv_entry = ET.SubElement(vch, "ALLINVENTORYENTRIES.LIST")
-                ET.SubElement(inv_entry, "STOCKITEMNAME").text = str(line.get("item_name") or line.get("sku") or "Item")
+                stock_item = str(
+                    line.get("variant_sku")
+                    or line.get("item_code")
+                    or line.get("item_name")
+                    or line.get("sku")
+                    or "Item"
+                )
+                ET.SubElement(inv_entry, "STOCKITEMNAME").text = stock_item
                 qty = line.get("quantity", 1)
                 rate = line.get("rate", 0)
                 amount = Decimal(str(line.get("net_amount") or line.get("taxable_amount") or (float(qty) * float(rate))))
@@ -360,6 +386,21 @@ class TallyPrimeConnector(BaseDataBridgeConnector):
                 ET.SubElement(inv_entry, "BILLEDQTY").text = f"{qty} Pcs"
                 ET.SubElement(inv_entry, "RATE").text = f"{rate}/Pcs"
                 ET.SubElement(inv_entry, "AMOUNT").text = f"-{amount}"
+
+                desc_parts = []
+                if line.get("color"):
+                    desc_parts.append(f"Color: {line.get('color')}")
+                if line.get("size"):
+                    desc_parts.append(f"Size: {line.get('size')}")
+                if line.get("variant_id"):
+                    desc_parts.append(f"VariantID: {line.get('variant_id')}")
+                if desc_parts:
+                    ET.SubElement(inv_entry, "BASICUSERDESCRIPTION").text = " | ".join(desc_parts)
+
+                if line.get("item_id"):
+                    ET.SubElement(inv_entry, "ITEMID").text = str(line.get("item_id"))
+                if line.get("variant_id"):
+                    ET.SubElement(inv_entry, "VARIANTID").text = str(line.get("variant_id"))
 
         xml_str = ET.tostring(envelope, encoding="utf-8")
         reparsed = minidom.parseString(xml_str)
