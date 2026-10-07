@@ -729,11 +729,21 @@ class PurchaseService:
                 if (target_po.status or "").upper() == "CANCELLED":
                     raise HTTPException(status_code=400, detail=f"Purchase Order '{target_po.order_no}' is cancelled and cannot be received.")
 
+                canonical_variant_id = getattr(item, "variant_id", None) or getattr(product, "item_variant_id", None) or (str(product.variant_id) if getattr(product, "variant_id", None) else None)
                 po_line_stmt = select(PurchaseOrderItem).where(
                     PurchaseOrderItem.order_id == target_po.id,
-                    PurchaseOrderItem.product_id == product.id,
                     PurchaseOrderItem.is_deleted == False,
                 )
+                if canonical_variant_id:
+                    po_line_stmt = po_line_stmt.where(
+                        or_(
+                            PurchaseOrderItem.variant_id == canonical_variant_id,
+                            PurchaseOrderItem.product_id == product.id,
+                        )
+                    )
+                else:
+                    po_line_stmt = po_line_stmt.where(PurchaseOrderItem.product_id == product.id)
+
                 po_line_res = await self.db.execute(po_line_stmt)
                 target_po_line = po_line_res.scalars().first()
                 if not target_po_line:
@@ -743,10 +753,18 @@ class PurchaseService:
                     PurchaseReceipt, PurchaseReceipt.id == PurchaseReceiptItem.receipt_id
                 ).where(
                     PurchaseReceiptItem.purchase_order_id == target_po.id,
-                    PurchaseReceiptItem.product_id == product.id,
                     PurchaseReceiptItem.is_deleted == False,
                     PurchaseReceipt.is_deleted == False,
                 )
+                if canonical_variant_id:
+                    received_stmt = received_stmt.where(
+                        or_(
+                            PurchaseReceiptItem.variant_id == canonical_variant_id,
+                            PurchaseReceiptItem.product_id == product.id,
+                        )
+                    )
+                else:
+                    received_stmt = received_stmt.where(PurchaseReceiptItem.product_id == product.id)
                 received_res = await self.db.execute(received_stmt)
                 already_received = Decimal(str(received_res.scalar() or Decimal("0.00")))
                 remaining_allowed = target_po_line.quantity - already_received
@@ -2124,7 +2142,11 @@ class PurchaseService:
         Return the last GRN (PurchaseReceiptItem) cost_price for supplier+product from DB.
         Falls back to last PurchaseOrderItem cost_price if no GRN exists,
         or product master cost_price/buying_price from database.
+        Canonical variant supremacy is enforced with fallback to product_id.
         """
+        prod = await self._get_product(product_id)
+        canon_var_id = getattr(prod, "item_variant_id", None) or (str(prod.variant_id) if getattr(prod, "variant_id", None) else None)
+
         # Try last GRN cost from DB
         receipt_stmt = (
             select(PurchaseReceiptItem)
@@ -2132,9 +2154,18 @@ class PurchaseService:
             .where(
                 PurchaseReceipt.is_deleted == False,
                 PurchaseReceipt.supplier_id == supplier_id,
-                PurchaseReceiptItem.product_id == product_id,
             )
         )
+        if canon_var_id:
+            receipt_stmt = receipt_stmt.where(
+                or_(
+                    PurchaseReceiptItem.variant_id == canon_var_id,
+                    PurchaseReceiptItem.product_id == product_id,
+                )
+            )
+        else:
+            receipt_stmt = receipt_stmt.where(PurchaseReceiptItem.product_id == product_id)
+
         if self.tenant.company_id:
             receipt_stmt = receipt_stmt.where(
                 or_(
@@ -2163,9 +2194,18 @@ class PurchaseService:
             .where(
                 PurchaseOrder.is_deleted == False,
                 PurchaseOrder.supplier_id == supplier_id,
-                PurchaseOrderItem.product_id == product_id,
             )
         )
+        if canon_var_id:
+            po_stmt = po_stmt.where(
+                or_(
+                    PurchaseOrderItem.variant_id == canon_var_id,
+                    PurchaseOrderItem.product_id == product_id,
+                )
+            )
+        else:
+            po_stmt = po_stmt.where(PurchaseOrderItem.product_id == product_id)
+
         if self.tenant.company_id:
             po_stmt = po_stmt.where(
                 or_(
@@ -2188,7 +2228,6 @@ class PurchaseService:
             }
 
         # Fallback 2: Check database Product Master (cost_price / buying_price)
-        prod = await self._get_product(product_id)
         if prod.cost_price and Decimal(str(prod.cost_price)) > Decimal("0.00"):
             return {
                 "supplier_id": supplier_id,

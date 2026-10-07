@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.19
+ * Version      : 6.70.20
  * Created      : 2026-08-20
- * Modified     : 2026-10-07
+ * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -14,7 +14,7 @@
 /**
  * Single source of truth for application version throughout the frontend UI.
  */
-export const APP_VERSION = "6.70.19";
+export const APP_VERSION = "6.70.20";
 export const APP_RELEASE_STAGE = "Production";
 export const APP_VERSION_LABEL = `v${APP_VERSION} ${APP_RELEASE_STAGE}`;
 export const APP_BUILD_NAME = "SMRITI Retail OS";

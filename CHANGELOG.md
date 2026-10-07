@@ -28,6 +28,37 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.20] - 2026-10-08 — SMRITI Canonical Transaction Supremacy (Phase 3 Read-Path Convergence)
+
+> **Branch:** `smritiNX` | **Area:** Inventory, Reports, Procurement, Analytics, Identity Governance
+> **Walkthrough:** `docs/walkthrough/inventory/Canonical_Transaction_Supremacy_Phase3_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Canonical_Transaction_Supremacy_Phase3_Plan_v1.0.0.md`
+
+### Added
+- **Canonical Read Supremacy Test Suite**:
+  - Added comprehensive automated test suite `backend/tests/test_phase3_canonical_read_supremacy.py` verifying 10/10 critical read-path convergence scenarios across stock valuation, item-wise sales, bill-wise items, returns, size/color matrix, PO fulfillment, supplier rates, stock cache synchronization, and velocity analytics.
+- **Dual-Key Pydantic Schema Extensions**:
+  - Non-breaking backward-compatible extensions to `StockValuationLine`, `ItemWiseSalesLine`, `BillWiseItemsLine`, `ItemWiseReturnsLine`, and `ProductWiseOrderedQuantityLine` exposing optional canonical `item_id` and `variant_id`.
+
+### Changed
+- **Downstream Read-Path Convergence (Option B — Dual-Key Transitional Architecture)**:
+  - **Reports Engine (`ReportsService`)**:
+    - `stock_valuation()`: Prioritized canonical variant identity from Product master, stamping `item_id` and `variant_id`.
+    - `item_wise_sales()`: Outerjoined `ItemVariant` and `Item`, grouping by `variant_id` first with fallback to `product_id`, surfacing canonical SKU and name.
+    - `bill_wise_items()`: Outerjoined canonical tables, surfacing canonical SKU, barcode, name, and dual keys.
+    - `item_wise_returns()`: Outerjoined canonical tables, reporting canonical SKU, name, and dual keys.
+    - `article_color_size_matrix()`: Extracted color and size directly from `ItemVariant` schema dimensions without relying on fragile regex string parsing.
+    - `product_wise_ordered_qty()`: Supported filtering by `variant_id` and `item_id` with dual-key output lines.
+  - **Procurement Order Fulfillment (`PurchaseService`)**:
+    - `create_purchase_receipt()`: Matched PO lines and prior received quantity by canonical `variant_id` first before falling back to `product_id`, preventing over-receipt discrepancies.
+    - `get_supplier_default_rate()`: Prioritized last GRN and last PO rate queries by canonical `variant_id` before `product_id`.
+  - **Inventory Synchronizers & Analytics**:
+    - `StockSynchronizer`: Aggregated `StockMovement` records matching canonical variant identity alongside legacy product ID, and added `sync_variant_stock_cache()`.
+    - `PdtAnalyticsService`: Supported querying SKU sales velocity, run-rate, and cover by canonical `variant_id`.
+    - `inventory_reports.py` & `sales_reports.py`: Surfaced canonical dual keys and prioritized variant dimensions on API endpoints.
+    - `grnPoEligibility.ts`: Frontend GRN pending inward matcher prioritizes `variant_id` matching keys.
+  - **Zero Database Migration & Zero Backfill Guarantee**: Strict schema freeze maintained — zero Alembic migrations executed, historical legacy transactions preserved as-is.
+
 ## [6.70.19] - 2026-10-07 — SMRITI Global Stock Identity Gate & Dual-Key Transaction Write Convergence (Phase 2)
 
 > **Branch:** `smritiNX` | **Area:** Inventory, Procurement, Sales, Returns, DataBridge, Identity Governance

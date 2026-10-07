@@ -26,7 +26,7 @@ from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, and_, text
+from sqlalchemy import func, and_, or_, text
 
 from ...api.deps import get_company_db, get_tenant_context, get_current_user, TenantContext
 from ...models.inventory import Product, StockMovement
@@ -130,6 +130,8 @@ async def stock_balance(
         total_items += 1
         lines.append({
             "product_id":   prod.id,
+            "item_id":      getattr(prod, "item_id", None),
+            "variant_id":   getattr(prod, "item_variant_id", None) or (str(prod.variant_id) if getattr(prod, "variant_id", None) else None),
             "product_code": getattr(prod, "sku", None) or getattr(prod, "code", prod.id),
             "product_name": prod.name,
             "category":     getattr(prod, "category", None) or "",
@@ -180,7 +182,13 @@ async def stock_movement_report(
     if movement_type:
         stmt = stmt.where(StockMovement.movement_type.ilike(f"%{movement_type}%"))
     if product_id:
-        stmt = stmt.where(StockMovement.product_id == product_id)
+        stmt = stmt.where(
+            or_(
+                StockMovement.product_id == product_id,
+                StockMovement.variant_id == product_id,
+                StockMovement.item_id == product_id,
+            )
+        )
     if warehouse:
         stmt = stmt.where(StockMovement.warehouse.ilike(f"%{warehouse}%"))
     stmt = stmt.order_by(StockMovement.created_at.desc()).limit(500)
@@ -202,6 +210,8 @@ async def stock_movement_report(
             "movement_id":     mv.id,
             "movement_type":   mt,
             "product_id":      mv.product_id,
+            "item_id":         getattr(mv, "item_id", None),
+            "variant_id":      getattr(mv, "variant_id", None),
             "product_name":    getattr(mv, "product_name", None) or "",
             "sku":             getattr(mv, "sku", None) or "",
             "quantity":        float(qty),
