@@ -25,7 +25,7 @@ Founders
 
 import json
 from dataclasses import dataclass
-from typing import Callable, Tuple, AsyncGenerator, Optional
+from typing import Callable, Tuple, AsyncGenerator, Optional, Union
 from fastapi import Depends, HTTPException, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,6 +57,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 class TenantContext:
     company_id: str
     branch_id: str
+    role: Optional[Union[UserRole, str]] = None
 
     @property
     def tenant_id(self) -> str:
@@ -269,11 +270,15 @@ async def get_tenant_context(
         branch = fallback_branch_res.scalars().first()
 
     if branch is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied: the selected branch does not belong to the selected company.",
-        )
-    target_branch = branch.id
+        if current_user.role == UserRole.SYSADMIN:
+            target_branch = canonical_branch or "BR-MAIN-001"
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: the selected branch does not belong to the selected company.",
+            )
+    else:
+        target_branch = branch.id
 
     if current_user.role != UserRole.SYSADMIN:
         # Header Tampering Security Check with normalized company IDs
@@ -329,6 +334,7 @@ async def get_tenant_context(
     return TenantContext(
         company_id=target_company,
         branch_id=target_branch,
+        role=current_user.role,
     )
 
 

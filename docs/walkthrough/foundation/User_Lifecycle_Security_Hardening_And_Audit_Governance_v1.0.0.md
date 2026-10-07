@@ -94,7 +94,7 @@ In enterprise retail environments, cashiers and branch managers must never have 
 ---
 
 ## 8. Tests Executed
-1. `pytest backend/app/tests/test_user_lifecycle_audit_hardening.py` (12/12 PASSED in 47.26s):
+1. `pytest backend/app/tests/test_user_lifecycle_audit_hardening.py` (12/12 PASSED):
    - `test_prevent_non_sysadmin_creating_sysadmin`: PASSED
    - `test_sysadmin_can_create_sysadmin`: PASSED
    - `test_prevent_non_sysadmin_modifying_roles`: PASSED
@@ -107,10 +107,35 @@ In enterprise retail environments, cashiers and branch managers must never have 
    - `test_list_staff_role_normalization`: PASSED
    - `test_staff_directory_profile_synchronization`: PASSED
    - `test_password_change_audit_journal`: PASSED
-2. `pytest backend/app/tests/test_console_errors_remediation.py`: 16/16 PASSED
-3. `vitest run src/tests/universalImportEngine.test.ts`: 10/10 PASSED
-4. `python scripts/validate_version_ssot.py`: 100% Consistent at `6.70.17`
-5. `npm run build`: Production bundle compiled in 45.02s with 0 errors.
+2. `pytest backend/app/tests/t_user_mgmt.py` (13/13 PASSED):
+   - `test_sysadmin_can_create_manager`: PASSED
+   - `test_cashier_cannot_create_user`: PASSED
+   - `test_create_duplicate_username_returns_400`: PASSED
+   - `test_sysadmin_can_list_users`: PASSED
+   - `test_cashier_cannot_list_users`: PASSED
+   - `test_sysadmin_can_get_any_user`: PASSED
+   - `test_user_can_get_own_profile`: PASSED
+   - `test_cashier_cannot_get_other_user`: PASSED
+   - `test_sysadmin_can_update_user_role`: PASSED
+   - `test_get_nonexistent_user_returns_404`: PASSED
+   - `test_sysadmin_can_deactivate_user`: PASSED
+   - `test_sysadmin_cannot_deactivate_self`: PASSED
+   - `test_change_own_password_valid`: PASSED
+3. `pytest backend/app/tests/t_staff_verify.py` (9/9 PASSED):
+   - `test_staff_user_response_schema_verification`: PASSED
+   - `test_staff_access_is_scoped_to_active_company_and_branch`: PASSED
+   - `test_staff_creation_requires_explicit_password`: PASSED
+   - `test_attendance_is_tenant_scoped_and_duplicate_dates_are_rejected`: PASSED
+   - `test_leave_requires_valid_dates_and_manager_decision`: PASSED
+   - `test_partner_staff_placement_validates_store_code_and_approval`: PASSED
+   - `test_internal_staff_placement_uses_target_branch_scope`: PASSED
+   - `test_internal_staff_placement_rejects_missing_branch`: PASSED
+   - `test_staff_placement_reassign_flow`: PASSED
+4. Combined Suite Run: `pytest backend/app/tests/test_user_lifecycle_audit_hardening.py backend/app/tests/t_user_mgmt.py backend/app/tests/t_staff_verify.py` (34/34 PASSED in 61.74s).
+5. `pytest backend/app/tests/test_console_errors_remediation.py`: 16/16 PASSED
+6. `vitest run src/tests/universalImportEngine.test.ts`: 10/10 PASSED
+7. `python scripts/validate_version_ssot.py`: 100% Consistent at `6.70.17`
+8. `npm run build`: Production bundle compiled in 45.02s with 0 errors.
 
 ---
 
