@@ -478,6 +478,17 @@ class ReportsService:
         for inv, item, product, variant, item_obj in rows:
             key = getattr(item, "variant_id", None) or getattr(item, "product_id", None) or getattr(item, "code", None) or "UNKNOWN"
             pid = getattr(item, "product_id", None) or getattr(item, "code", None) or "UNKNOWN"
+            if not getattr(item, "variant_id", None) and pid != "UNKNOWN":
+                try:
+                    from .legacy_product_telemetry import LegacyProductTelemetrySink
+                    LegacyProductTelemetrySink.record_fallback_invoked(
+                        company_id=getattr(self.tenant, "company_id", "DEFAULT"),
+                        caller="ReportsService.item_wise_sales",
+                        product_id=str(pid),
+                        reason="VARIANT_ID_NULL",
+                    )
+                except Exception:
+                    pass
             qty = Decimal(str(getattr(item, "quantity", 0) or 0))
             net = Decimal(str(getattr(item, "total_amount", None) or getattr(item, "amount", 0) or 0))
             tax = Decimal(str(getattr(item, "tax_amount", 0) or 0))

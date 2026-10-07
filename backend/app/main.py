@@ -135,6 +135,7 @@ from .core.error_handlers import register_error_handlers
 from .core.logging import logger
 from .db.session import verify_db_connectivity, verify_tenant_connectivity
 from .middleware.request_logger import RequestLoggerMiddleware
+from .middleware.legacy_deprecation_middleware import LegacyDeprecationMiddleware
 from .middleware.rate_limiter import limiter, SLOWAPI_AVAILABLE
 if SLOWAPI_AVAILABLE:
     from slowapi import _rate_limit_exceeded_handler
@@ -279,6 +280,9 @@ app.state.limiter = limiter
 if SLOWAPI_AVAILABLE:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)
+
+# 4. Register RFC 8594 Legacy Deprecation Gateway Middleware
+app.add_middleware(LegacyDeprecationMiddleware)
 
 
 # ============================================================

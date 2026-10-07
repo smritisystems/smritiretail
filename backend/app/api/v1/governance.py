@@ -514,3 +514,24 @@ async def create_promotion(
         "start_date": start_date.isoformat(),
         "end_date":   end_date.isoformat(),
     }
+
+
+# ---------------------------------------------------------------------------
+# GOV-008: Option B Legacy Telemetry Summary (Phase 5 Deprecation Gateway)
+# GET /api/v1/governance/legacy-telemetry/summary
+# ---------------------------------------------------------------------------
+
+@router.get("/legacy-telemetry/summary")
+async def get_legacy_telemetry_summary(
+    company_id: Optional[str] = Query(default=None, description="Filter by company"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user = Depends(get_current_user),
+):
+    """
+    Returns aggregated telemetry metrics of calls to legacy product endpoints
+    and runtime product fallbacks, supporting Option B migration governance.
+    """
+    _require_admin(current_user)
+    from ...services.legacy_product_telemetry import LegacyProductTelemetrySink
+    cid = company_id or (tenant.company_id if tenant else None)
+    return LegacyProductTelemetrySink.get_metrics_summary(company_id=cid)
