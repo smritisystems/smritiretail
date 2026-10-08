@@ -19,7 +19,8 @@ export type GridProfileId =
   | "PURCHASE"
   | "STOCK_MOVEMENT"
   | "BARCODE_PRINTING"
-  | "ITEM_MASTER";
+  | "ITEM_MASTER"
+  | "LOOKUP_VALUE";
 
 export type GridImportMode = "APPEND" | "MERGE" | "REPLACE";
 

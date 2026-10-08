@@ -28,6 +28,27 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.30] - 2026-10-08 — SMRITI System Lookups & Core Master Directory Clipboard Paste, CSV Import & Standard Presets Recommendation Engine (v6.70.0)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, System Lookups, Master Data, Clipboard Paste, CSV Import, Standard Catalogs
+> **Walkthrough:** `docs/walkthrough/foundation/System_Lookups_Import_Paste_And_Recommendation_Engine_v6.70.0.md`
+> **Implementation Plan:** `docs/implementation/foundation/System_Lookups_Import_Paste_And_Recommendation_Engine_Plan_v6.70.0.md`
+
+### Added
+- **System Lookups & Core Master Directory Clipboard Paste & CSV File Import**:
+  - Integrated `GlobalGridImportModal` directly into the `MasterMgmtTab.tsx` header actions via `[Import / Paste]`.
+  - Registered `LOOKUP_VALUE` profile in `GRID_PROFILES` with automatic column alias mappings (`code`, `name`, `description`, `active`, `vendorCode`, `values`).
+  - Supports direct Excel/Google Sheets copy-paste (auto-parsing tabs and newlines) as well as standard CSV/TSV file upload with column re-mapping.
+- **Industry Standard Master Presets & Recommendation Engine**:
+  - Engineered `lookupStandardPresets.ts` supplying pre-configured statutory and retail master values across 22+ categories (departments, designations, payment modes, banks, expense categories, currencies, GST slabs, UOMs, genders, product types, materials, sizes, and colors).
+  - Built `LookupRecommendModal.tsx` providing live item status tracking, search filtering, and 1-click `[Select All Missing]` and `[Apply & Ingest]` actions.
+- **FastAPI Core Atomic Batch Ingestion Endpoint**:
+  - Implemented `POST /api/v1/masters/lookup/{type_code}/bulk-values` supporting up to 500 items per request with multi-tenant company context and duplicate skipping.
+  - Generates immutable audit logs in compliance with SMRITI governance policies.
+- **Automated Verification Suites**:
+  - Created `src/tests/lookupImportRecommend.test.ts` certifying profile registration, catalog coverage, case-insensitivity, and deduplication logic (5/5 tests green).
+  - Certified 11/11 Vitest tests green across lookup and master suites; Launchpad registry validated (51/51 tiles).
+
 ## [6.70.29] - 2026-10-08 — SMRITI Print Labels Studio CSV/Raw Barcode Intake, Print Profiles & Session Audit Log (v6.49.0)
 
 > **Branch:** `smritiNX` | **Area:** Barcode, Thermal Printing, Hardware, Legacy Label Studio V2 Parity, CSV Intake, Print Profiles

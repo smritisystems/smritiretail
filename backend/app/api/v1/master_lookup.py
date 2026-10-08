@@ -35,7 +35,8 @@ from ...models.sales import SalesOrder, SalesOrderItem
 from ...models.size_groups import SizeGroup, SizeGroupValue
 from ...schemas.master_lookup import (
     MasterTypeCreate, MasterTypeResponse,
-    MasterValueCreate, MasterValueUpdate, MasterValueResponse
+    MasterValueCreate, MasterValueUpdate, MasterValueResponse,
+    MasterValueBulkCreate, MasterValueBulkResponse
 )
 from ...services.size_groups import normalize_size_group_payload
 from ...services.compliance_audit import ComplianceAuditService
@@ -812,6 +813,142 @@ async def create_lookup_value(
     await db.commit()
     await db.refresh(item)
     return item
+
+
+@router.post(
+    "/lookup/{type_code}/bulk-values",
+    response_model=MasterValueBulkResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def bulk_create_lookup_values(
+    type_code: str,
+    payload: MasterValueBulkCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MasterValueBulkResponse:
+    """
+    Bulk ingest master lookup values from CSV import, Excel clipboard paste, or standard presets.
+    """
+    q_type = select(MasterType).where(MasterType.code == type_code)
+    res_type = await db.execute(q_type)
+    master_type = res_type.scalar_one_or_none()
+    if not master_type:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Master type with code '{type_code}' not found."
+        )
+
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+    if not _is_sysadmin(current_user):
+        company_id = _require_company_context(current_user)
+
+    # Preload existing codes for this master type to detect duplicates efficiently
+    q_existing = select(MasterValue.code).where(
+        MasterValue.master_type_id == master_type.id,
+        MasterValue.is_deleted.is_(False),
+    )
+    if not _is_sysadmin(current_user):
+        q_existing = q_existing.where(MasterValue.company_id == company_id)
+        q_existing = q_existing.where(
+            (MasterValue.branch_id.is_(None)) | (MasterValue.branch_id == branch_id)
+        )
+    else:
+        q_existing = q_existing.where(MasterValue.company_id == company_id)
+        q_existing = q_existing.where(MasterValue.branch_id == branch_id)
+
+    res_existing = await db.execute(q_existing)
+    existing_codes = {str(code).strip().upper() for code in res_existing.scalars().all()}
+
+    created_items: List[MasterValue] = []
+    skipped_count = 0
+
+    for item_payload in payload.items:
+        code_clean = str(item_payload.code or "").strip().upper()
+        if not code_clean:
+            continue
+
+        if code_clean in existing_codes:
+            if payload.skip_existing:
+                skipped_count += 1
+                continue
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Master value with code '{code_clean}' already exists for this type."
+                )
+
+        data = item_payload.data or {}
+        if type_code == "size_group":
+            normalized = normalize_size_group_payload({
+                "code": code_clean,
+                "name": item_payload.name,
+                "data": data,
+                "active": item_payload.active,
+                "values": data.get("values"),
+                "category": data.get("category"),
+                "dimension": data.get("dimension"),
+                "description": data.get("description"),
+            })
+            data = {
+                **data,
+                "category": normalized["category"],
+                "dimension": normalized["dimension"],
+                "values": normalized["values"],
+            }
+            if normalized["description"]:
+                data["description"] = normalized["description"]
+
+        vendor_code = item_payload.vendorCode.strip().upper() if item_payload.vendorCode else None
+        if vendor_code and type_code != "style_article":
+            vendor_code = None
+
+        new_val = MasterValue(
+            master_type_id=master_type.id,
+            company_id=company_id,
+            branch_id=branch_id,
+            code=code_clean,
+            name=str(item_payload.name or code_clean).strip(),
+            vendor_code=vendor_code,
+            parent_value_id=item_payload.parent_value_id,
+            data=data,
+            active=item_payload.active if item_payload.active is not None else True,
+            sort_order=item_payload.sort_order or 0,
+            is_deleted=False,
+        )
+        db.add(new_val)
+        existing_codes.add(code_clean)
+        created_items.append(new_val)
+
+    if created_items:
+        await db.flush()
+        await _audit_master_value_change(
+            db,
+            current_user,
+            "BULK_IMPORT",
+            type_code,
+            str(master_type.id),
+            f"Bulk ingested {len(created_items)} lookup values into {type_code} ({skipped_count} skipped).",
+            after={
+                "type_code": type_code,
+                "count": len(created_items),
+                "codes": [item.code for item in created_items[:20]],
+            },
+        )
+        await db.commit()
+        for item in created_items:
+            await db.refresh(item)
+    else:
+        await db.commit()
+
+    return MasterValueBulkResponse(
+        total=len(payload.items),
+        created=len(created_items),
+        skipped=skipped_count,
+        items=created_items,
+    )
+
 
 
 @router.put(
