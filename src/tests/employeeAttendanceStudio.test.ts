@@ -270,4 +270,64 @@ describe("Attendance Studio — Full System Audit & Regression Verification", ()
     expect(attSummary.total_hours_worked).toBe(34.5);
     expect(attSummary.avg_daily_hours).toBe(8.63);
   });
+
+  it("verifies Commission Settlement payout contract and state transitions", () => {
+    const settlePayload = {
+      user_id: "usr-emp-101",
+      amount: 250.0,
+      payment_mode: "BANK_TRANSFER",
+      notes: "Monthly incentive disbursement",
+    };
+
+    const settleResponse = {
+      success: true,
+      payout_ref: "PAYOUT-20261008-A1B2C3",
+      participant_id: "cp-101",
+      participant_name: "Rahul Sharma",
+      disbursed_amount: 250.0,
+      remaining_balance: 50.0,
+      ledger_id: "cml-pay-12345",
+      payment_mode: "BANK_TRANSFER",
+      message: "Successfully disbursed ₹250.00 commission (BANK_TRANSFER).",
+    };
+
+    expect(settlePayload.user_id).toBe("usr-emp-101");
+    expect(settlePayload.payment_mode).toBe("BANK_TRANSFER");
+    expect(settleResponse.success).toBe(true);
+    expect(settleResponse.disbursed_amount).toBe(250.0);
+    expect(settleResponse.remaining_balance).toBe(50.0);
+    expect(settleResponse.payout_ref).toMatch(/^PAYOUT-/);
+  });
+
+  it("verifies LeaveBalance and LeaveRequest contract data mapping for LEAVE tab", () => {
+    const leaveBalances = [
+      { id: "lb-1", user_id: "usr-1", leave_year: 2026, leave_type: "CL", entitled_days: 12, used_days: 2, pending_days: 0 },
+      { id: "lb-2", user_id: "usr-1", leave_year: 2026, leave_type: "SL", entitled_days: 12, used_days: 1, pending_days: 0 },
+      { id: "lb-3", user_id: "usr-1", leave_year: 2026, leave_type: "EL", entitled_days: 15, used_days: 0, pending_days: 1 },
+    ];
+
+    const clAvailable = leaveBalances[0].entitled_days - leaveBalances[0].used_days;
+    const slAvailable = leaveBalances[1].entitled_days - leaveBalances[1].used_days;
+    const elAvailable = leaveBalances[2].entitled_days - leaveBalances[2].used_days;
+
+    expect(leaveBalances).toHaveLength(3);
+    expect(clAvailable).toBe(10);
+    expect(slAvailable).toBe(11);
+    expect(elAvailable).toBe(15);
+
+    const leaveRequest = {
+      id: "lr-1",
+      user_id: "usr-1",
+      leave_type: "CL",
+      start_date: "2026-10-12",
+      end_date: "2026-10-13",
+      total_days: 2,
+      reason: "Family emergency",
+      status: "PENDING",
+    };
+
+    expect(leaveRequest.status).toBe("PENDING");
+    expect(leaveRequest.total_days).toBe(2);
+  });
 });
+

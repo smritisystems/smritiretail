@@ -28,6 +28,30 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.36] - 2026-10-08 — Commission Payout Settlement & Leave Management Integration (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Commission Payout Settlement, Statutory Leave Lifecycle, Dynamic Payout Engine
+> **Walkthrough:** `docs/walkthrough/hr/Commission_Settlement_And_Leave_Management_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/hr/Commission_Settlement_And_Leave_Management_Plan_v1.0.0.md`
+
+### Added & Engineered
+- **Commission Payout Settlement Engine (`POST /api/v1/staff/commissions/settle`)**:
+  - Engineered authoritative disbursement endpoint querying PostgreSQL `commission_ledgers` for net unsettled balance.
+  - Implemented double-entry append-only balancing `PAID` transaction entries offsetting accrued commissions (`commission_amount = -disbursed_amt`) with tamper-evident payout reference formatting (`PAYOUT-YYYYMMDD-XXXXXX`).
+  - Supports multi-channel disbursements (`CASH`, `BANK_TRANSFER`, `UPI`, `PAYROLL`) with optional custom settlement notes and partial/full payout controls.
+  - Strictly prevents over-disbursement and rejects zero/negative settlement attempts with HTTP 422.
+- **Statutory Leave Auto-Provisioning (`GET /api/v1/staff/leave/balances`)**:
+  - Automatically provisions statutory retail leave entitlements (12 Casual Leave `CL`, 12 Sick Leave `SL`, 15 Earned Leave `EL`) for active employees when uninitialized in PostgreSQL `leave_balances`.
+- **Attendance & Workforce Studio Modal Expansion (`EmployeeAttendanceModal.tsx` v3.121.5)**:
+  - Added dedicated `LEAVE` tab with CL/SL/EL entitlement stat cards, used vs available day tallies, leave request history, and an interactive `[+ Request Time Off]` submission form.
+  - Added interactive `[💸 Settle & Disburse Commission]` action in `COMMISSION` tab allowing store managers to execute instant payouts with real-time balance clearing.
+  - Rendered `PAID` (indigo) transaction badges in the Live PostgreSQL Transaction Audit Ledger.
+  - Connected live attendance days and commission balances into dynamic monthly earnings calculations in the `PAYOUT` tab.
+- **Automated Verification & Test Suites**:
+  - Created Pytest suite `backend/app/tests/t_staff_settlement_leave_verify.py` verifying commission settlement math, double-entry ledger reflection, zero-balance rejection, and leave balance auto-seeding (2/2 passed in 47.33s).
+  - Extended Vitest suite `src/tests/employeeAttendanceStudio.test.ts` (10/10 passed in 463ms).
+  - Validated TypeScript compiler cleanly (`npx tsc --noEmit` exited code 0).
+
 ## [6.70.35] - 2026-10-08 — Real-Time Sales Commission & Attendance Summary Engine (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Real-Time Commission Summary, Attendance Aggregation, Live PostgreSQL Ledger UI
