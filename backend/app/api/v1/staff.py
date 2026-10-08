@@ -9,7 +9,7 @@ Founders
 * Jawahar Ramkripal Mallah   -- Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.70.35
+* Version    : 6.70.36
 * Created    : 2026-08-24
 * Modified   : 2026-10-08
 * Copyright  : (c) AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -25,6 +25,7 @@ import json
 import os
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse, Response
@@ -137,6 +138,15 @@ class LeaveRequestCreate(BaseModel):
 class LeaveDecision(BaseModel):
     status: str
     decision_reason: Optional[str] = None
+
+
+class CommissionSettleRequest(BaseModel):
+    user_id: Optional[str] = None
+    participant_id: Optional[str] = None
+    amount: Optional[float] = None
+    payment_mode: str = "CASH"
+    notes: Optional[str] = None
+
 
 
 class StaffPlacementCreate(BaseModel):
@@ -1019,6 +1029,7 @@ async def get_commissions_summary(
         func.coalesce(func.sum(case((CommissionLedger.gross_sales_amount < 0, CommissionLedger.gross_sales_amount), else_=0)), 0).label("returned_sales"),
         func.coalesce(func.sum(case((CommissionLedger.transaction_type == 'EARNED', CommissionLedger.commission_amount), else_=0)), 0).label("earned_comm"),
         func.coalesce(func.sum(case((CommissionLedger.transaction_type == 'REVERSED', CommissionLedger.commission_amount), else_=0)), 0).label("reversed_comm"),
+        func.coalesce(func.sum(case((CommissionLedger.transaction_type == 'PAID', CommissionLedger.commission_amount), else_=0)), 0).label("paid_comm"),
     ).where(and_(*conditions))
 
     agg_res = (await db.execute(agg_stmt)).fetchone()
@@ -1027,8 +1038,10 @@ async def get_commissions_summary(
     returned_sales = float(agg_res.returned_sales or 0) if agg_res else 0.0
     earned_comm = float(agg_res.earned_comm or 0) if agg_res else 0.0
     reversed_comm = float(agg_res.reversed_comm or 0) if agg_res else 0.0
+    paid_comm = float(agg_res.paid_comm or 0) if agg_res else 0.0
     net_sales = round(gross_sales + returned_sales, 2)
     net_comm = round(earned_comm + reversed_comm, 2)
+    unsettled_comm = round(earned_comm + reversed_comm + paid_comm, 2)
 
     ledger_stmt = select(CommissionLedger).where(and_(*conditions)).order_by(CommissionLedger.timestamp.desc()).limit(50)
     ledgers = (await db.execute(ledger_stmt)).scalars().all()
@@ -1061,8 +1074,121 @@ async def get_commissions_summary(
         "net_sales": net_sales,
         "earned_commission": earned_comm,
         "reversed_commission": abs(reversed_comm),
+        "paid_commission": abs(paid_comm),
         "net_commission": net_comm,
+        "unsettled_commission": max(0.0, unsettled_comm),
         "entries": entries,
+    }
+
+
+@router.post("/commissions/settle")
+async def settle_commission(
+    payload: CommissionSettleRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Settle & Disburse Accrued Employee Commissions.
+    Calculates current unsettled commission balance from PostgreSQL commission_ledgers
+    and appends an authoritative, immutable balancing 'PAID' ledger entry.
+    Restricted to SYSADMIN and MANAGER roles.
+    """
+    if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Store Managers and System Administrators may disburse and settle commissions."
+        )
+
+    # Resolve target participant
+    target_part: Optional[CommissionParticipant] = None
+    if payload.participant_id:
+        target_part = (await db.execute(
+            select(CommissionParticipant).where(
+                CommissionParticipant.company_id == tenant.company_id,
+                CommissionParticipant.id == payload.participant_id,
+                CommissionParticipant.is_deleted == False
+            )
+        )).scalars().first()
+    elif payload.user_id:
+        target_part = (await db.execute(
+            select(CommissionParticipant).where(
+                CommissionParticipant.company_id == tenant.company_id,
+                or_(CommissionParticipant.user_id == payload.user_id, CommissionParticipant.id == payload.user_id),
+                CommissionParticipant.is_deleted == False
+            )
+        )).scalars().first()
+
+    if not target_part:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active commission participant found for this staff member."
+        )
+
+    # Compute current unsettled balance
+    bal_stmt = select(
+        func.coalesce(func.sum(CommissionLedger.commission_amount), 0).label("balance")
+    ).where(
+        CommissionLedger.company_id == tenant.company_id,
+        CommissionLedger.participant_id == target_part.id,
+        CommissionLedger.is_deleted == False,
+    )
+    current_balance = float((await db.execute(bal_stmt)).scalar() or 0.0)
+
+    if current_balance <= 0.0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"No positive commission balance available to settle (current balance: ₹{current_balance:.2f})."
+        )
+
+    if payload.amount is not None:
+        if payload.amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Settlement amount must be greater than zero."
+            )
+        if payload.amount > current_balance:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Settlement amount (₹{payload.amount:.2f}) cannot exceed current accrued balance (₹{current_balance:.2f})."
+            )
+        disburse_amt = Decimal(str(round(payload.amount, 2)))
+    else:
+        disburse_amt = Decimal(str(round(current_balance, 2)))
+
+    payout_ref = f"PAYOUT-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    role = target_part.roles[0] if (target_part.roles and isinstance(target_part.roles, list)) else "SALESPERSON"
+
+    ledger_entry = CommissionLedger(
+        id=f"cml-pay-{uuid.uuid4().hex[:12]}",
+        company_id=tenant.company_id,
+        branch_id=tenant.branch_id,
+        participant_id=target_part.id,
+        participant_role=role,
+        transaction_type="PAID",
+        gross_sales_amount=Decimal("0.00"),
+        commission_amount=-disburse_amt,
+        reference_invoice_id=None,
+        reference_return_id=None,
+        narration=f"Disbursed via {payload.payment_mode} - Ref: {payout_ref}{(' - ' + payload.notes) if payload.notes else ''}",
+        timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+        created_by=current_user.id,
+    )
+    db.add(ledger_entry)
+    await db.commit()
+    await db.refresh(ledger_entry)
+
+    new_balance = round(current_balance - float(disburse_amt), 2)
+    return {
+        "success": True,
+        "payout_ref": payout_ref,
+        "participant_id": target_part.id,
+        "participant_name": target_part.person_name,
+        "disbursed_amount": float(disburse_amt),
+        "remaining_balance": new_balance,
+        "ledger_id": ledger_entry.id,
+        "payment_mode": payload.payment_mode,
+        "message": f"Successfully disbursed ₹{float(disburse_amt):.2f} commission ({payload.payment_mode}). Reference: {payout_ref}.",
     }
 
 
@@ -1486,6 +1612,35 @@ async def list_leave_balances(
         await _tenant_user(db, user_id, tenant)
         stmt = stmt.where(LeaveBalance.user_id == user_id)
     rows = (await db.execute(stmt.order_by(LeaveBalance.user_id, LeaveBalance.leave_type))).scalars().all()
+
+    # Auto-seed standard statutory retail leave entitlements (12 CL, 12 SL, 15 EL) if none exist for targeted user
+    if len(rows) == 0 and user_id:
+        defaults = [
+            ("CL", 12),
+            ("SL", 12),
+            ("EL", 15),
+        ]
+        created_rows = []
+        for l_type, entitled in defaults:
+            lb = LeaveBalance(
+                id=f"lb-{uuid.uuid4().hex[:12]}",
+                company_id=tenant.company_id,
+                branch_id=tenant.branch_id,
+                user_id=user_id,
+                leave_year=leave_year,
+                leave_type=l_type,
+                entitled_days=entitled,
+                used_days=0,
+                pending_days=0,
+                created_by=current_user.id,
+            )
+            db.add(lb)
+            created_rows.append(lb)
+        await db.commit()
+        for r in created_rows:
+            await db.refresh(r)
+        rows = created_rows
+
     return {"balances": rows, "total": len(rows), "leave_year": leave_year}
 
 

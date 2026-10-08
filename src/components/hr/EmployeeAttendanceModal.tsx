@@ -4,18 +4,18 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.121.4
+ * Version      : 3.121.5
  * Created      : 2026-08-28
  * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  *
- * Changelog v3.121.4 (2026-10-08):
- *   - Integrated GET /staff/commissions/summary querying PostgreSQL commission_ledgers.
- *   - Integrated GET /staff/attendance/summary providing period attendance KPI metrics.
- *   - Added live PostgreSQL Transaction Audit Ledger history in the Commission tab.
- *   - Replaced synthetic mockup with real-time POS sales volumes and commission clawbacks.
+ * Changelog v3.121.5 (2026-10-08):
+ *   - Added dedicated LEAVE tab with CL/SL/EL Statutory Balances and Leave Applications.
+ *   - Integrated POST /staff/commissions/settle with instant payout execution.
+ *   - Added Settle & Disburse Commission modal action with cash/bank/UPI options.
+ *   - Connected live PostgreSQL attendance & commission data to dynamic Payout tab.
  *
  * Changelog v3.121.3 (2026-10-08):
  *   - Added interactive Clock In / Clock Out action console with real-time shift status.
@@ -103,8 +103,31 @@ export interface CommissionSummary {
   net_sales: number;
   earned_commission: number;
   reversed_commission: number;
+  paid_commission?: number;
   net_commission: number;
+  unsettled_commission?: number;
   entries: CommissionLedgerEntry[];
+}
+
+export interface LeaveBalanceItem {
+  id: string;
+  user_id: string;
+  leave_year: number;
+  leave_type: string;
+  entitled_days: number;
+  used_days: number;
+  pending_days: number;
+}
+
+export interface LeaveRequestItem {
+  id: string;
+  user_id: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  reason?: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | string;
 }
 
 export interface AttendanceSummary {
@@ -145,12 +168,30 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
   const [attendance, setAttendance]         = useState<AttendanceRecord[]>([]);
   const [incentives, setIncentives]         = useState<IncentiveRecord[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [activeTab, setActiveTab]           = useState<"ATTENDANCE" | "COMMISSION" | "PAYOUT">("ATTENDANCE");
+  const [activeTab, setActiveTab]           = useState<"ATTENDANCE" | "COMMISSION" | "LEAVE" | "PAYOUT">("ATTENDANCE");
   const [loading, setLoading]               = useState(false);
   const [punchLoading, setPunchLoading]     = useState(false);
   const [error, setError]                   = useState<string | null>(null);
   const [commSummary, setCommSummary]       = useState<CommissionSummary | null>(null);
   const [attSummary, setAttSummary]         = useState<AttendanceSummary | null>(null);
+  const [leaveBalances, setLeaveBalances]   = useState<LeaveBalanceItem[]>([]);
+  const [leaveRequests, setLeaveRequests]   = useState<LeaveRequestItem[]>([]);
+
+  // Commission Settlement state
+  const [showSettleModal, setShowSettleModal] = useState(false);
+  const [settleAmount, setSettleAmount]       = useState<string>("");
+  const [settleMode, setSettleMode]           = useState<string>("CASH");
+  const [settleNotes, setSettleNotes]         = useState<string>("");
+  const [settleLoading, setSettleLoading]     = useState(false);
+
+  // Leave Request form state
+  const [showLeaveForm, setShowLeaveForm]     = useState(false);
+  const [leaveType, setLeaveType]             = useState<string>("CL");
+  const [leaveStartDate, setLeaveStartDate]   = useState<string>("");
+  const [leaveEndDate, setLeaveEndDate]       = useState<string>("");
+  const [leaveReason, setLeaveReason]         = useState<string>("");
+  const [leaveSubmitting, setLeaveSubmitting] = useState(false);
+
   const PERIOD = currentPeriod();
 
   const load = useCallback(async () => {
@@ -233,21 +274,104 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
 
   useEffect(() => { load(); }, [load]);
 
-  // Load real-time PostgreSQL commission ledger & attendance summary for selected employee
+  // Load real-time PostgreSQL commission ledger, attendance summary & leave balances
   useEffect(() => {
     if (!isOpen || !selectedUserId) return;
     let cancelled = false;
     Promise.all([
       apiFetchV1<CommissionSummary>(`/staff/commissions/summary?period=${PERIOD}&user_id=${selectedUserId}`).catch(() => null),
       apiFetchV1<AttendanceSummary>(`/staff/attendance/summary?period=${PERIOD}&user_id=${selectedUserId}`).catch(() => null),
-    ]).then(([comm, att]) => {
+      apiFetchV1<{ balances: LeaveBalanceItem[] }>(`/staff/leave/balances?user_id=${selectedUserId}`).catch(() => null),
+      apiFetchV1<{ requests: LeaveRequestItem[] }>(`/staff/leave/requests?user_id=${selectedUserId}`).catch(() => null),
+    ]).then(([comm, att, lvBal, lvReq]) => {
       if (!cancelled) {
         setCommSummary(comm);
         setAttSummary(att);
+        if (lvBal?.balances) setLeaveBalances(lvBal.balances);
+        if (lvReq?.requests) setLeaveRequests(lvReq.requests);
+        if (comm?.unsettled_commission != null) {
+          setSettleAmount(String(comm.unsettled_commission));
+        }
       }
     });
     return () => { cancelled = true; };
   }, [isOpen, selectedUserId, PERIOD]);
+
+  const handleSettleCommission = async () => {
+    if (!selectedUserId) return;
+    setSettleLoading(true);
+    try {
+      const amt = settleAmount ? parseFloat(settleAmount) : undefined;
+      const res = await apiFetchV1<{
+        success: boolean;
+        message: string;
+        disbursed_amount: number;
+        remaining_balance: number;
+        payout_ref: string;
+      }>("/staff/commissions/settle", {
+        method: "POST",
+        body: {
+          user_id: selectedUserId,
+          amount: amt,
+          payment_mode: settleMode,
+          notes: settleNotes,
+        },
+      });
+
+      if (res?.success) {
+        onNotification?.("Commission Disbursed", res.message, "success");
+        setShowSettleModal(false);
+        setSettleNotes("");
+        // Reload summary
+        const updatedSummary = await apiFetchV1<CommissionSummary>(
+          `/staff/commissions/summary?period=${PERIOD}&user_id=${selectedUserId}`
+        );
+        if (updatedSummary) {
+          setCommSummary(updatedSummary);
+          setSettleAmount(String(updatedSummary.unsettled_commission ?? 0));
+        }
+      }
+    } catch (err: any) {
+      onNotification?.("Settlement Error", err?.message || "Failed to disburse commission.", "error");
+    } finally {
+      setSettleLoading(false);
+    }
+  };
+
+  const handleCreateLeave = async () => {
+    if (!selectedUserId || !leaveStartDate || !leaveEndDate) return;
+    setLeaveSubmitting(true);
+    try {
+      const res = await apiFetchV1<{ id: string; status: string }>("/staff/leave/requests", {
+        method: "POST",
+        body: {
+          user_id: selectedUserId,
+          leave_type: leaveType,
+          start_date: leaveStartDate,
+          end_date: leaveEndDate,
+          reason: leaveReason,
+        },
+      });
+      if (res?.id) {
+        onNotification?.("Leave Applied", `Leave request (${leaveType}) submitted successfully.`, "success");
+        setShowLeaveForm(false);
+        setLeaveReason("");
+        setLeaveStartDate("");
+        setLeaveEndDate("");
+        // Refresh requests & balances
+        const [lvBal, lvReq] = await Promise.all([
+          apiFetchV1<{ balances: LeaveBalanceItem[] }>(`/staff/leave/balances?user_id=${selectedUserId}`).catch(() => null),
+          apiFetchV1<{ requests: LeaveRequestItem[] }>(`/staff/leave/requests?user_id=${selectedUserId}`).catch(() => null),
+        ]);
+        if (lvBal?.balances) setLeaveBalances(lvBal.balances);
+        if (lvReq?.requests) setLeaveRequests(lvReq.requests);
+      }
+    } catch (err: any) {
+      onNotification?.("Leave Error", err?.message || "Failed to submit leave request.", "error");
+    } finally {
+      setLeaveSubmitting(false);
+    }
+  };
 
   const handlePunch = useCallback(async (type: "AUTO" | "IN" | "OUT" = "AUTO") => {
     if (!selectedUserId) return;
@@ -308,10 +432,10 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {(["ATTENDANCE", "COMMISSION", "PAYOUT"] as const).map((tab) => (
+            {(["ATTENDANCE", "COMMISSION", "LEAVE", "PAYOUT"] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${activeTab === tab ? "bg-violet-500/20 text-violet-300 border border-violet-500/30" : "text-slate-400 hover:text-slate-200"}`}>
-                {tab === "COMMISSION" ? "Commission" : tab === "PAYOUT" ? "Payout" : "Attendance"}
+                {tab === "COMMISSION" ? "Commission" : tab === "PAYOUT" ? "Payout" : tab === "LEAVE" ? "Leave" : "Attendance"}
               </button>
             ))}
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 ml-2"><span className="material-symbols-outlined text-lg">close</span></button>
@@ -527,10 +651,88 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                             </span>
                           ) : null}
                         </div>
-                        <span className="text-[10px] text-slate-500">
-                          Net Accrued: <strong className="text-emerald-400 font-mono">{fmt(commSummary?.net_commission ?? 0)}</strong>
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] text-slate-400">
+                            Unsettled: <strong className="text-amber-400 font-mono">{fmt(commSummary?.unsettled_commission ?? commSummary?.net_commission ?? 0)}</strong>
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            Net Accrued: <strong className="text-emerald-400 font-mono">{fmt(commSummary?.net_commission ?? 0)}</strong>
+                          </span>
+                          {(commSummary?.unsettled_commission ?? 0) > 0 && (
+                            <button
+                              onClick={() => {
+                                setSettleAmount(String(commSummary?.unsettled_commission ?? 0));
+                                setShowSettleModal(true);
+                              }}
+                              className="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1"
+                            >
+                              <span>💸</span> Settle &amp; Disburse
+                            </button>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Settle Commission Popover / Card */}
+                      {showSettleModal && (
+                        <div className="p-4 bg-slate-900/90 border-b border-emerald-500/30 space-y-3 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wide">
+                              Disburse Employee Commission (PostgreSQL System-of-Record)
+                            </span>
+                            <button onClick={() => setShowSettleModal(false)} className="text-slate-400 hover:text-white text-xs">✕</button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="text-[10px] text-slate-400 uppercase font-semibold">Disbursement Amount</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={settleAmount}
+                                onChange={(e) => setSettleAmount(e.target.value)}
+                                className="w-full mt-1 px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-emerald-400 font-mono font-bold text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 uppercase font-semibold">Disbursement Channel</label>
+                              <select
+                                value={settleMode}
+                                onChange={(e) => setSettleMode(e.target.value)}
+                                className="w-full mt-1 px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-xs"
+                              >
+                                <option value="CASH">Cash in Hand</option>
+                                <option value="BANK_TRANSFER">Bank Direct Deposit</option>
+                                <option value="UPI">UPI Payment</option>
+                                <option value="PAYROLL">Include in Monthly Payroll</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 uppercase font-semibold">Payment Notes / Ref</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. UTR / Cash voucher #"
+                                value={settleNotes}
+                                onChange={(e) => setSettleNotes(e.target.value)}
+                                className="w-full mt-1 px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2 pt-1">
+                            <button
+                              onClick={() => setShowSettleModal(false)}
+                              className="px-3 py-1 text-slate-400 hover:text-slate-200 text-xs font-semibold"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              disabled={settleLoading || !settleAmount || parseFloat(settleAmount) <= 0}
+                              onClick={handleSettleCommission}
+                              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition-all"
+                            >
+                              {settleLoading ? "Recording Payout…" : `Confirm Payout (₹${settleAmount || "0"})`}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {commSummary?.entries && commSummary.entries.length > 0 ? (
                         <div className="max-h-60 overflow-y-auto">
@@ -558,6 +760,8 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
                                       entry.transaction_type === "EARNED"
                                         ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                        : entry.transaction_type === "PAID"
+                                        ? "text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
                                         : "text-rose-400 bg-rose-500/10 border-rose-500/20"
                                     }`}>
                                       {entry.transaction_type}
@@ -567,7 +771,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                                     {fmt(entry.gross_sales_amount)}
                                   </td>
                                   <td className={`py-2 px-3 text-right font-bold ${
-                                    entry.commission_amount >= 0 ? "text-emerald-400" : "text-rose-400"
+                                    entry.commission_amount >= 0 ? "text-emerald-400" : entry.transaction_type === "PAID" ? "text-indigo-400" : "text-rose-400"
                                   }`}>
                                     {entry.commission_amount >= 0 ? `+${fmt(entry.commission_amount)}` : `-${fmt(Math.abs(entry.commission_amount))}`}
                                   </td>
@@ -609,24 +813,199 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                   </div>
                 )}
 
-                {activeTab === "PAYOUT" && incentive && (
-                  <div className="space-y-3 text-xs">
-                    {[
-                      { label: "Base Salary",   value: fmt(incentive.base_salary ?? 0) },
-                      { label: "Earned Salary", value: fmt(incentive.earned_salary ?? 0), bold: true },
-                      { label: "Commission",    value: fmt(incentive.commission_amt) },
-                      { label: "Target Bonus",  value: fmt(incentive.target_bonus_amt) },
-                      { label: "Gross Payout",  value: fmt(incentive.gross_payout ?? 0), bold: true },
-                      { label: `LOP (${incentive.lop ?? 0}d)`, value: `-${fmt(Math.round(((incentive.lop ?? 0) / Math.max(incentive.working_days ?? 26, 1)) * (incentive.base_salary ?? 0) * 100) / 100)}`, neg: true },
-                      { label: "Net Payout",    value: fmt(incentive.net_payout ?? 0), bold: true, highlight: true },
-                    ].map((m) => (
-                      <div key={m.label} className={`flex items-center justify-between px-4 py-2.5 rounded-xl border ${m.highlight ? "bg-teal-950/20 border-teal-500/30" : "bg-slate-800/20 border-slate-700/60"}`}>
-                        <span className={m.highlight ? "text-teal-300 font-bold" : "text-slate-400"}>{m.label}</span>
-                        <span className={`font-mono font-bold ${m.highlight ? "text-teal-300" : (m as any).neg ? "text-rose-400" : m.bold ? "text-slate-200" : "text-slate-300"}`}>{m.value}</span>
+                {activeTab === "LEAVE" && (
+                  <div className="space-y-4">
+                    {/* Leave Balances Grid */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { type: "CL", label: "Casual Leave (CL)", color: "from-blue-600/20 to-sky-600/10 border-blue-500/30 text-blue-400" },
+                        { type: "SL", label: "Sick Leave (SL)", color: "from-emerald-600/20 to-teal-600/10 border-emerald-500/30 text-emerald-400" },
+                        { type: "EL", label: "Earned Leave (EL)", color: "from-violet-600/20 to-purple-600/10 border-violet-500/30 text-violet-400" },
+                      ].map((card) => {
+                        const bal = leaveBalances.find((b) => b.leave_type === card.type);
+                        const entitled = bal?.entitled_days ?? (card.type === "EL" ? 15 : 12);
+                        const used = bal?.used_days ?? 0;
+                        const available = Math.max(0, entitled - used);
+                        return (
+                          <div key={card.type} className={`bg-gradient-to-br ${card.color} border rounded-xl p-3.5 space-y-1`}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{card.label}</span>
+                              <span className={`text-base font-black font-mono ${card.color.split(" ").pop()}`}>{available}d left</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-700/40 font-mono">
+                              <span>Entitled: <strong>{entitled}d</strong></span>
+                              <span>Used: <strong className="text-rose-400">{used}d</strong></span>
+                              <span>Pending: <strong>{bal?.pending_days ?? 0}d</strong></span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Leave Request Action & Header */}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Leave Applications &amp; History</span>
+                      <button
+                        onClick={() => setShowLeaveForm((prev) => !prev)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                      >
+                        <span>+</span> {showLeaveForm ? "Cancel Request" : "Request Time Off"}
+                      </button>
+                    </div>
+
+                    {/* Inline Leave Request Form */}
+                    {showLeaveForm && (
+                      <div className="p-4 bg-slate-950/70 border border-violet-500/30 rounded-xl space-y-3 text-xs">
+                        <p className="text-[11px] font-bold text-violet-300 uppercase tracking-wide">Submit Leave Request</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-[10px] text-slate-500 uppercase font-semibold">Leave Type</label>
+                            <select
+                              value={leaveType}
+                              onChange={(e) => setLeaveType(e.target.value)}
+                              className="w-full mt-1 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-xs"
+                            >
+                              <option value="CL">Casual Leave (CL)</option>
+                              <option value="SL">Sick Leave (SL)</option>
+                              <option value="EL">Earned Leave (EL)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 uppercase font-semibold">Start Date</label>
+                            <input
+                              type="date"
+                              value={leaveStartDate}
+                              onChange={(e) => setLeaveStartDate(e.target.value)}
+                              className="w-full mt-1 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 uppercase font-semibold">End Date</label>
+                            <input
+                              type="date"
+                              value={leaveEndDate}
+                              onChange={(e) => setLeaveEndDate(e.target.value)}
+                              className="w-full mt-1 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-xs font-mono"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 uppercase font-semibold">Reason for Absence</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Family medical commitment, emergency"
+                            value={leaveReason}
+                            onChange={(e) => setLeaveReason(e.target.value)}
+                            className="w-full mt-1 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-xs"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-1">
+                          <button
+                            onClick={() => setShowLeaveForm(false)}
+                            className="px-3 py-1 text-slate-400 hover:text-slate-200 text-xs font-semibold"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            disabled={leaveSubmitting || !leaveStartDate || !leaveEndDate}
+                            onClick={handleCreateLeave}
+                            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition-all"
+                          >
+                            {leaveSubmitting ? "Submitting…" : "Confirm Request"}
+                          </button>
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Leave Requests Table */}
+                    <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden">
+                      <div className="px-4 py-2 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Leave History (PostgreSQL System-of-Record)</span>
+                        <span className="text-[10px] text-slate-500">{leaveRequests.length} Record{leaveRequests.length === 1 ? "" : "s"}</span>
+                      </div>
+                      {leaveRequests.length > 0 ? (
+                        <div className="max-h-60 overflow-y-auto">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="text-slate-500 uppercase text-[9px] border-b border-slate-800 bg-slate-900/30 font-semibold">
+                                <th className="py-2 px-3">Date Range</th>
+                                <th className="py-2 px-3">Type</th>
+                                <th className="py-2 px-3 text-right">Duration</th>
+                                <th className="py-2 px-3">Status</th>
+                                <th className="py-2 px-3">Reason</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/40 font-mono text-xs">
+                              {leaveRequests.map((req) => (
+                                <tr key={req.id} className="hover:bg-slate-800/30 transition-colors">
+                                  <td className="py-2 px-3 text-slate-300 whitespace-nowrap">
+                                    {req.start_date} → {req.end_date}
+                                  </td>
+                                  <td className="py-2 px-3 text-violet-300 font-bold font-sans">
+                                    {req.leave_type}
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-slate-200">
+                                    {req.total_days} day{req.total_days === 1 ? "" : "s"}
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                      req.status === "APPROVED"
+                                        ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                        : req.status === "REJECTED"
+                                        ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
+                                        : "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                    }`}>
+                                      {req.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-3 text-slate-400 font-sans text-[11px] truncate max-w-xs">
+                                    {req.reason || "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="py-8 text-center text-xs text-slate-500">
+                          No leave requests on record for this employee.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
+
+                {activeTab === "PAYOUT" && incentive && (() => {
+                  const baseSalary = profile.base_salary ?? 25000;
+                  const workingDays = incentive?.working_days ?? 26;
+                  const effectivePresent = attSummary ? (attSummary.present_days + attSummary.half_days * 0.5) : (incentive?.present_days ?? 26);
+                  const lopDays = Math.max(0, workingDays - effectivePresent);
+                  const earnedSalary = Math.round((baseSalary * (effectivePresent / Math.max(workingDays, 1))) * 100) / 100;
+                  const lopDeduction = Math.round((baseSalary * (lopDays / Math.max(workingDays, 1))) * 100) / 100;
+                  const commAmt = commSummary?.transaction_count ? commSummary.net_commission : (incentive?.commission_amt ?? 0);
+                  const bonusAmt = incentive?.target_bonus_amt ?? 0;
+                  const grossPayout = earnedSalary + commAmt + bonusAmt;
+                  const netPayout = grossPayout;
+
+                  return (
+                    <div className="space-y-3 text-xs">
+                      {[
+                        { label: "Base Salary",   value: fmt(baseSalary) },
+                        { label: "Earned Salary", value: fmt(earnedSalary), bold: true },
+                        { label: "Commission (Accrued)", value: fmt(commAmt) },
+                        { label: "Target Bonus",  value: fmt(bonusAmt) },
+                        { label: "Gross Payout",  value: fmt(grossPayout), bold: true },
+                        { label: `LOP (${lopDays}d)`, value: `-${fmt(lopDeduction)}`, neg: true },
+                        { label: "Net Payout",    value: fmt(netPayout), bold: true, highlight: true },
+                      ].map((m) => (
+                        <div key={m.label} className={`flex items-center justify-between px-4 py-2.5 rounded-xl border ${m.highlight ? "bg-teal-950/20 border-teal-500/30" : "bg-slate-800/20 border-slate-700/60"}`}>
+                          <span className={m.highlight ? "text-teal-300 font-bold" : "text-slate-400"}>{m.label}</span>
+                          <span className={`font-mono font-bold ${m.highlight ? "text-teal-300" : (m as any).neg ? "text-rose-400" : m.bold ? "text-slate-200" : "text-slate-300"}`}>{m.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </>
             ) : (
               <div className="flex items-center justify-center h-full text-slate-500 text-sm">
