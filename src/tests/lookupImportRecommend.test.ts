@@ -21,6 +21,7 @@ import {
   getLookupRecommendations,
   getMissingRecommendations,
 } from "../components/global/master/lookupStandardPresets.ts";
+import { generateSampleCsvContent } from "../services/gridInput/templateGenerator.ts";
 
 describe("System Lookups & Core Master Directory Import & Recommendation Suite", () => {
   it("registers LOOKUP_VALUE profile with correct configuration in GRID_PROFILES", () => {
@@ -135,5 +136,41 @@ describe("System Lookups & Core Master Directory Import & Recommendation Suite",
     expect(menShoes?.values).toContain("UK-6");
     expect(menShoes?.values).toContain("UK-10");
     expect(menShoes?.data?.dimension).toBe("size");
+  });
+
+  it("generateSampleCsvContent produces valid CSV headers and data rows for LOOKUP_VALUE", () => {
+    const profile = GRID_PROFILES["LOOKUP_VALUE"];
+    const csv = generateSampleCsvContent(profile);
+
+    expect(csv).toBeDefined();
+    const lines = csv.split("\r\n");
+    expect(lines.length).toBeGreaterThan(1);
+
+    // Verify header line
+    const headerLine = lines[0];
+    expect(headerLine).toBe("code,name,description,active,vendorCode,values");
+
+    // Verify data rows
+    const firstRow = lines[1];
+    expect(firstRow).toContain("UPI");
+    expect(firstRow).toContain("UPI / Instant QR");
+    expect(firstRow).toContain("true");
+
+    const secondRow = lines[2];
+    expect(secondRow).toContain("MENS");
+  });
+
+  it("generateSampleCsvContent handles other grid profiles like PURCHASE and ITEM_MASTER", () => {
+    const purchaseProfile = GRID_PROFILES["PURCHASE"];
+    const purchaseCsv = generateSampleCsvContent(purchaseProfile);
+    expect(purchaseCsv).toContain("barcode");
+    expect(purchaseCsv).toContain("sku");
+    expect(purchaseCsv).toContain("ART-101-BLK");
+
+    const itemProfile = GRID_PROFILES["ITEM_MASTER"];
+    const itemCsv = generateSampleCsvContent(itemProfile);
+    expect(itemCsv).toContain("code");
+    expect(itemCsv).toContain("name");
+    expect(itemCsv).toContain("OXFORD-01-42-BLK");
   });
 });

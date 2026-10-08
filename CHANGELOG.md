@@ -28,6 +28,21 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.31] - 2026-10-08 — Global Grid Import Blank Sample CSV Template Generator (v6.70.1)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Global Grid Import, CSV Template Generator, Master Lookups, Inward Grids
+> **Walkthrough:** `docs/walkthrough/foundation/GlobalGridImport_Sample_CSV_Template_Generator_v6.70.1.md`
+> **Implementation Plan:** `docs/implementation/foundation/GlobalGridImport_Sample_CSV_Template_Generator_Plan_v6.70.1.md`
+
+### Added
+- **Global Grid Import 1-Click Sample CSV Template Generator**:
+  - Engineered `templateGenerator.ts` providing deterministic, profile-aware CSV sample generation and instant in-memory browser download helpers (`generateSampleCsvContent`, `triggerCsvDownload`).
+  - Added `[Sample Template]` button in the top action toolbar of `GlobalGridImportModal.tsx` beside delimiter selectors.
+  - Added dedicated reference format helper card inside the `CSV / TSV / TXT File` upload tab with 1-click `[Download Sample CSV]`.
+  - Supports realistic sample records and column headers tailored to `LOOKUP_VALUE`, `PURCHASE`, `STOCK_MOVEMENT`, `BARCODE_PRINTING`, and `ITEM_MASTER`.
+- **Automated Verification**:
+  - Expanded `lookupImportRecommend.test.ts` certifying header alignment, sample row presence, and quotation escaping across grid profiles (7/7 tests green, 13/13 across suite).
+
 ## [6.70.30] - 2026-10-08 — SMRITI System Lookups & Core Master Directory Clipboard Paste, CSV Import & Standard Presets Recommendation Engine (v6.70.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, System Lookups, Master Data, Clipboard Paste, CSV Import, Standard Catalogs
