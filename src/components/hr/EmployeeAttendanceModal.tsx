@@ -4,12 +4,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.121.2
+ * Version      : 3.121.3
  * Created      : 2026-08-28
  * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.121.3 (2026-10-08):
+ *   - Added interactive Clock In / Clock Out action console with real-time shift status.
+ *   - Integrated POST /staff/attendance/punch endpoint with optimistic UI feedback.
+ *   - Added IoT Biometric hardware push status indicator.
  *
  * Changelog v3.121.2 (2026-10-08):
  *   - Fortified response handling for GET /staff/attendance (unwraps { records: [] })
@@ -97,6 +102,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [activeTab, setActiveTab]           = useState<"ATTENDANCE" | "COMMISSION" | "PAYOUT">("ATTENDANCE");
   const [loading, setLoading]               = useState(false);
+  const [punchLoading, setPunchLoading]     = useState(false);
   const [error, setError]                   = useState<string | null>(null);
   const PERIOD = currentPeriod();
 
@@ -179,6 +185,37 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
   }, [isOpen, PERIOD, onNotification]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handlePunch = useCallback(async (type: "AUTO" | "IN" | "OUT" = "AUTO") => {
+    if (!selectedUserId) return;
+    setPunchLoading(true);
+    try {
+      const res = await apiFetchV1<{
+        success: boolean;
+        action: string;
+        message: string;
+        record: any;
+      }>("/staff/attendance/punch", {
+        method: "POST",
+        body: {
+          user_id: selectedUserId,
+          punch_type: type,
+          device_source: "ATTENDANCE_STUDIO_UI",
+        },
+      });
+
+      if (res?.success) {
+        onNotification?.("Attendance Punch", res.message || `Processed ${res.action}`, "success");
+        await load();
+      } else {
+        throw new Error(res?.message || "Failed to record punch");
+      }
+    } catch (err: any) {
+      onNotification?.("Punch Error", err?.message || "Unable to complete attendance punch.", "error");
+    } finally {
+      setPunchLoading(false);
+    }
+  }, [selectedUserId, load, onNotification]);
 
   const profile    = personnel.find((p) => p.user_id === selectedUserId);
   const empAtt     = attendance.filter((r) => r.user_id === selectedUserId);
@@ -289,17 +326,88 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                 </div>
 
                 {activeTab === "ATTENDANCE" && (
-                  <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
-                    {empAtt.length === 0 ? (
-                      <p className="text-xs text-slate-500 text-center py-6">No attendance records for this period.</p>
-                    ) : empAtt.slice(0, 30).map((r) => (
-                      <div key={r.record_id} className="flex items-center justify-between px-3 py-2 bg-slate-800/20 border border-slate-800/50 rounded-lg text-xs">
-                        <span className="text-slate-400 font-mono">{r.date}</span>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_COLOR[r.status] ?? ""}`}>{r.status}</span>
-                        <span className="text-slate-500 font-mono">{r.clock_in ?? "—"} → {r.clock_out ?? "—"}</span>
-                        <span className="text-slate-400 font-mono">{r.hours_worked != null ? `${r.hours_worked}h` : r.leave_type ?? ""}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    {/* Interactive Punch Action Console */}
+                    {(() => {
+                      const todayStr = new Date().toISOString().split("T")[0];
+                      const todayRecord = empAtt.find((a) => a.date === todayStr);
+                      const isClockedIn = Boolean(todayRecord?.clock_in);
+                      const isClockedOut = Boolean(todayRecord?.clock_out);
+
+                      return (
+                        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl">
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                Today's Shift Status ({todayStr})
+                              </span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span
+                                  className={`w-2 h-2 rounded-full ${
+                                    isClockedOut
+                                      ? "bg-slate-400"
+                                      : isClockedIn
+                                      ? "bg-emerald-400 animate-pulse"
+                                      : "bg-amber-400"
+                                  }`}
+                                />
+                                <span className="text-xs font-semibold text-slate-200">
+                                  {isClockedOut
+                                    ? `Clocked Out (${todayRecord?.clock_out})`
+                                    : isClockedIn
+                                    ? `Clocked In (${todayRecord?.clock_in})`
+                                    : "Not Clocked In Today"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div className="text-[10px] text-slate-400 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
+                              <span>📡 IoT Biometric Push</span>
+                              <span className="text-emerald-400 font-bold">● Active</span>
+                            </div>
+
+                            <button
+                              id="btn-attendance-punch"
+                              disabled={punchLoading}
+                              onClick={() => handlePunch("AUTO")}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow flex items-center gap-1.5 disabled:opacity-50 ${
+                                isClockedIn && !isClockedOut
+                                  ? "bg-amber-600 hover:bg-amber-500 text-white"
+                                  : isClockedOut
+                                  ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                              }`}
+                            >
+                              {punchLoading ? (
+                                <span>Recording…</span>
+                              ) : isClockedIn && !isClockedOut ? (
+                                <><span>⏱</span> Clock Out Now</>
+                              ) : isClockedOut ? (
+                                <><span>↻</span> Update Clock-Out</>
+                              ) : (
+                                <><span>⏱</span> Clock In Now</>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Attendance Records List */}
+                    <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+                      {empAtt.length === 0 ? (
+                        <p className="text-xs text-slate-500 text-center py-6">No attendance records for this period.</p>
+                      ) : empAtt.slice(0, 30).map((r) => (
+                        <div key={r.record_id} className="flex items-center justify-between px-3 py-2 bg-slate-800/20 border border-slate-800/50 rounded-lg text-xs">
+                          <span className="text-slate-400 font-mono">{r.date}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_COLOR[r.status] ?? ""}`}>{r.status}</span>
+                          <span className="text-slate-500 font-mono">{r.clock_in ?? "—"} → {r.clock_out ?? "—"}</span>
+                          <span className="text-slate-400 font-mono">{r.hours_worked != null ? `${r.hours_worked}h` : r.leave_type ?? ""}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

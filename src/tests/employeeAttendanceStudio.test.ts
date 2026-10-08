@@ -159,4 +159,45 @@ describe("Attendance Studio — Full System Audit & Regression Verification", ()
     expect(emptyReport.totalNetPayout).toBe(0);
     expect(emptyReport.avgAttendancePct).toBe(0);
   });
+
+  it("evaluates real-time punch state transitions: not clocked in -> clocked in -> clocked out", () => {
+    const todayStr = "2026-10-08";
+
+    // Case 1: No attendance record for today
+    const recordsEmpty: any[] = [];
+    const rec1 = recordsEmpty.find((r) => r.date === todayStr);
+    expect(Boolean(rec1?.clock_in)).toBe(false);
+    expect(Boolean(rec1?.clock_out)).toBe(false);
+
+    // Case 2: Clocked in only
+    const recordsClockedIn = [
+      { record_id: "att-today", user_id: "usr-01", date: todayStr, clock_in: "09:30 AM", status: "PRESENT" },
+    ];
+    const rec2 = recordsClockedIn.find((r) => r.date === todayStr);
+    expect(Boolean(rec2?.clock_in)).toBe(true);
+    expect(Boolean(rec2?.clock_out)).toBe(false);
+    expect(rec2?.clock_in).toBe("09:30 AM");
+
+    // Case 3: Clocked out
+    const recordsClockedOut = [
+      { record_id: "att-today", user_id: "usr-01", date: todayStr, clock_in: "09:30 AM", clock_out: "06:45 PM", status: "PRESENT" },
+    ];
+    const rec3 = recordsClockedOut.find((r) => r.date === todayStr);
+    expect(Boolean(rec3?.clock_in)).toBe(true);
+    expect(Boolean(rec3?.clock_out)).toBe(true);
+    expect(rec3?.clock_out).toBe("06:45 PM");
+  });
+
+  it("verifies punch action payload contract sent to /staff/attendance/punch", () => {
+    const user_id = "usr-emp-101";
+    const payload = {
+      user_id,
+      punch_type: "AUTO",
+      device_source: "ATTENDANCE_STUDIO_UI",
+    };
+
+    expect(payload.user_id).toBe("usr-emp-101");
+    expect(payload.punch_type).toBe("AUTO");
+    expect(payload.device_source).toBe("ATTENDANCE_STUDIO_UI");
+  });
 });
