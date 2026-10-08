@@ -28,6 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.44] - 2026-10-09 — Employee Attendance Studio Payslip Null Safety (v6.70.44)
+
+> **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Attendance Studio, Payslip Print & Data Resilience
+> **Walkthrough:** `docs/walkthrough/hr/Employee_Attendance_Studio_Payslip_Null_Safety_v6.70.44.md`
+> **Plan:** `docs/implementation/hr/Employee_Attendance_Studio_Payslip_Null_Safety_Plan_v6.70.44.md`
+
+### Fixed & Hardened (Attendance Studio & Workforce Resilience)
+- **Salary Slip Printable Voucher Null Safety**:
+  - Remediated runtime React ErrorBoundary crash `TypeError: Cannot read properties of null (reading 'slice')` in `EmployeeAttendanceModal.tsx`.
+  - Coerced voucher reference generation with hierarchical fallback identity chain: `Ref: PSLIP-{PERIOD}-{String(profile.user_id || profile.emp_id || profile.full_name || "STAFF").slice(-6).toUpperCase()}`.
+  - Normalized personnel intake in `load()` with fallback identifier coalescence (`p.user_id || p.emp_id || p.id`).
+- **Personnel API Serialization Hardening**:
+  - In `backend/app/api/v1/staff.py` (`GET /api/v1/staff/personnel`), ensured unassigned commission participants safely resolve `user_id` to `participant.id`.
+- **Workforce Masking Helper Resilience**:
+  - In `src/components/staff/StaffMasterWs.tsx`, hardened `maskAccountNumber` and `maskAadhaarNumber` signatures (`val?: string | null`) with `String(val).trim()`.
+- **Unit & Regression Test Coverage**:
+  - Added null, undefined, and empty string regression assertions in `src/tests/employeeAttendanceStudio.test.ts` (12/12 passed).
+
 ## [6.70.43] - 2026-10-09 — Phase 5 Control Plane Navigation & Payment Mode Harmonization (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, UI Navigation Control Plane & Payment Mode Governance
