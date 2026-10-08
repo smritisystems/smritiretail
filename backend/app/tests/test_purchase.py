@@ -34,6 +34,7 @@ from app.main import app
 from app.models.auth import User, RefreshTokenBlacklist, UserRole
 from app.models.tenant import Company, Branch
 from app.models.inventory import Product, StockMovement, Warehouse
+from app.models.item_master import Item, ItemVariant, ItemBarcode
 from app.models.purchase import (
     Supplier, PurchaseOrder, PurchaseOrderItem,
     PurchaseReceipt, PurchaseReceiptItem,
@@ -121,6 +122,45 @@ async def _make_cashier(db_session, suffix: str, company_id: str, branch_id: str
 
 async def _make_product(db_session, suffix: str, company_id: str, branch_id: str,
                         stock: int = 10) -> Product:
+    item = Item(
+        id=f"item-pur-{suffix}",
+        item_code=f"PURCODE-{suffix}",
+        item_name=f"Purchase Product {suffix}",
+        company_id=company_id,
+        category="General",
+        hsn_code="6403",
+        tax_rate=Decimal("18.00"),
+        primary_uom="PCS",
+        uom="PCS",
+    )
+    db_session.add(item)
+    await db_session.flush()
+
+    variant = ItemVariant(
+        id=f"var-pur-{suffix}",
+        item_id=item.id,
+        variant_sku=f"PURCODE-{suffix}",
+        variant_name=f"Purchase Product {suffix}",
+        company_id=company_id,
+        selling_price=Decimal("100.00"),
+        mrp=Decimal("100.00"),
+        cost_price=Decimal("100.00"),
+        is_active=True,
+    )
+    db_session.add(variant)
+    await db_session.flush()
+
+    barcode_row = ItemBarcode(
+        id=f"bc-pur-{suffix}",
+        company_id=company_id,
+        item_id=item.id,
+        variant_id=variant.id,
+        barcode=f"PURBC-{suffix}",
+        is_primary=True,
+    )
+    db_session.add(barcode_row)
+    await db_session.flush()
+
     product = Product(
         id=f"prod-pur-{suffix}",
         code=f"PURCODE-{suffix}",
@@ -132,6 +172,8 @@ async def _make_product(db_session, suffix: str, company_id: str, branch_id: str
         stock=stock,
         category="General",
         barcode=f"PURBC-{suffix}",
+        item_id=item.id,
+        item_variant_id=variant.id,
         company_id=company_id,
         branch_id=branch_id,
     )

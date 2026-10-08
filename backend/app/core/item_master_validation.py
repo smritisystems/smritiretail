@@ -192,9 +192,10 @@ FIELD_LABELS: dict[str, str] = {
 
 # Default messages by field key (for "missing" / "value_error.missing")
 FIELD_REQUIRED_MESSAGES: dict[str, str] = {
-    "code":             "SKU / Item Code is required.",
-    "sku":              "SKU / Item Code is required.",
-    "item_code":        "SKU / Item Code is required.",
+    "code":             "SKU / Item Code is required or must be approved before saving.",
+    "sku":              "SKU / Item Code is required or must be approved before saving.",
+    "item_code":        "SKU / Item Code is required or must be approved before saving.",
+    "variant_sku":      "SKU / Item Code is required or must be approved before saving.",
     "style_code":       "Article / Design / Style / Model is required.",
     "article":          "Article / Design / Style / Model is required.",
     "name":             "Product Name is required.",

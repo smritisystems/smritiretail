@@ -23,7 +23,9 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     aliases: [
       "sku", "sku code", "item code", "item no", "item number", "item id",
       "product code", "product no", "product number", "style code", "style no",
-      "article code", "article no", "article number", "article", "style article code", "style/article code"
+      "product style code", "product style", "style product code",
+      "article code", "article no", "article number", "article", "style article code", "style/article code",
+      "common", "common code", "common no", "common sku", "matrix code", "variant sku"
     ],
     description: "Unique SKU or product style code identifier"
   },
@@ -126,7 +128,7 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     required: false,
     aliases: [
       "mrp", "maximum retail price", "retail price", "mrp price",
-      "plate rate or mrp"
+      "plate rate or mrp", "planned mrp", "target mrp", "list mrp", "max retail price"
     ],
     description: "Maximum Retail Price"
   },
@@ -146,7 +148,7 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     required: false,
     aliases: [
       "buy cost", "purchase cost", "cost price", "cost", "buying price",
-      "purchase rate"
+      "purchase rate", "landed cost", "landed cost price"
     ],
     description: "Purchase buy cost"
   },

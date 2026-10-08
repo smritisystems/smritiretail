@@ -179,9 +179,42 @@ async def create_item_variant(
         loaded = await ItemDomainService.get_variant(db, variant.id, company_id=company_id)
         return ItemVariantResponse(**ItemDomainService._serialize_variant_response(loaded or variant))
     except BusinessLogicError as ble:
+        if ble.code == "ITEM_MASTER_VALIDATION_ERROR":
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": {
+                        "code": "ITEM_MASTER_VALIDATION_ERROR",
+                        "message": "Please correct the highlighted fields.",
+                        "status": 422,
+                        "fields": [
+                            {
+                                "field": "sku",
+                                "message": ble.message,
+                            }
+                        ],
+                    }
+                },
+            )
+        if ble.code in ("SMRITI-SKU-COLLISION", "SMRITI-SYNTHETIC-BARCODE-PROHIBITED"):
+            raise HTTPException(status_code=409 if ble.code == "SMRITI-SKU-COLLISION" else 422, detail=ble.message)
         raise HTTPException(status_code=400, detail=ble.message)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/propose-sku", summary="Propose Candidate Internal SKU (Read-Only Proposal)")
+async def propose_internal_sku(
+    style_code: Optional[str] = Query(None, description="Optional style code"),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Proposes an internal candidate SKU (e.g. SMR-ITM-000184).
+    Zero persistence, zero counter burn. Requires explicit user approval before saving.
+    """
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    return await ItemDomainService.propose_sku(db, company_id=company_id, style_code=style_code)
 
 
 @router.get("/item-variants/{variant_id}", response_model=ItemVariantResponse, summary="Get Item Variant by ID or SKU")

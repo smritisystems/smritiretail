@@ -366,14 +366,16 @@ class PurchaseService:
 
             if not product and res.item_id:
                 # Synchronize legacy Product bridge record linked directly to canonical item_id
+                bc_val = (res.barcode or "").strip() or (res.sku or "").strip() or clean_item_code or f"PROD-{uuid.uuid4().hex[:8]}"
+                var_suffix = f"_{res.variant_id[-8:]}" if res.variant_id else f"_{uuid.uuid4().hex[:6]}"
                 product = Product(
-                    id=f"prd_{res.item_id[:20]}",
+                    id=f"prd_{res.item_id[:20]}{var_suffix}",
                     item_id=res.item_id,
                     item_variant_id=res.variant_id,
-                    code=res.sku or clean_item_code,
-                    name=res.name or item.name or clean_item_code,
+                    code=res.sku or clean_item_code or f"SKU{var_suffix}",
+                    name=res.name or item.name or clean_item_code or "Product",
                     category=res.category or "GENERAL",
-                    barcode=res.barcode or clean_item_code,
+                    barcode=bc_val,
                     hsn_code=res.hsn_code or "6109",
                     company_id=self.tenant.company_id,
                     branch_id=eff_branch_id,

@@ -71,7 +71,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
   const [showCodeSelectDlg, setShowCodeSelectDlg] = useState(false);
   const [showReplaceDataDlg, setShowReplaceDataDlg] = useState(false);
   const [adaptiveMode, setAdaptiveMode] = useState<"SIMPLE" | "HYBRID" | "ADVANCED">(() => {
-    return (localStorage.getItem("smriti_article_mode") as any) || "HYBRID";
+    return (localStorage.getItem("smriti_article_mode") as any) || "SIMPLE";
   });
 
   const handleSelectAdaptiveMode = (mode: "SIMPLE" | "HYBRID" | "ADVANCED") => {

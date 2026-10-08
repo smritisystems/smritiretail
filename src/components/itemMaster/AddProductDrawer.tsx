@@ -53,6 +53,8 @@ interface AddProductDrawerProps {
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   productType?: string;
   mode?: "SIMPLE" | "HYBRID" | "ADVANCED";
+  actionType?: "ADD" | "EDIT" | "DUPLICATE";
+  initialProduct?: any;
 }
 
 interface MatrixVariantItem {
@@ -106,9 +108,11 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   onSaved,
   onNotification,
   productType = "Footwear",
-  mode: initialMode = "HYBRID",
+  mode: initialMode = "SIMPLE",
+  actionType = "ADD",
+  initialProduct,
 }) => {
-  // Active operational mode (Simple, Hybrid, Advanced)
+  // Active operational mode (Simple default per specification)
   const [activeMode, setActiveMode] = useState<"SIMPLE" | "HYBRID" | "ADVANCED">(initialMode);
 
   useEffect(() => {
@@ -121,9 +125,15 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // ── Form State (Governed: ZERO Silent Hardcoding) ───────────────────────────
-  // 1. Basic Information
-  const [autoGenerateArticleNumber, setAutoGenerateArticleNumber] = useState(true);
+  // 1. Basic Information & SKU Identity Decision Tree
+  const [autoGenerateArticleNumber, setAutoGenerateArticleNumber] = useState(false);
   const [sku, setSku] = useState("");
+  const [articleCode, setArticleCode] = useState("");
+  const [skuSource, setSkuSource] = useState<"NONE" | "BARCODE" | "USER" | "GENERATED">("NONE");
+  const [proposedSku, setProposedSku] = useState<string | null>(null);
+  const [isProposingSku, setIsProposingSku] = useState(false);
+  const [hasTransactions, setHasTransactions] = useState(false);
+
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState("");
@@ -140,6 +150,12 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [simpleSizeSystem, setSimpleSizeSystem] = useState("UK");
   const [simpleBarcode, setSimpleBarcode] = useState("");
 
+  // Classification
+  const [description, setDescription] = useState("");
+  const [season, setSeason] = useState("");
+  const [collection, setCollection] = useState("");
+  const [tags, setTags] = useState("");
+
   // 2. Units & UOM
   const [stockUom, setStockUom] = useState("PRS");
   const [salesUom, setSalesUom] = useState("");
@@ -154,6 +170,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [wholesalePrice, setWholesalePrice] = useState("");
   const [minimumSellingPrice, setMinimumSellingPrice] = useState("");
   const [maximumDiscountPercent, setMaximumDiscountPercent] = useState("0");
+  const [lastPurchasePrice, setLastPurchasePrice] = useState("");
 
   // 4. Statutory Tax Profile (Zero silent hardcoded HSN/GST — user/master input)
   const [hsnCode, setHsnCode] = useState("");
@@ -175,6 +192,8 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [supplierItemCode, setSupplierItemCode] = useState("");
   const [minimumPurchaseQty, setMinimumPurchaseQty] = useState("1");
   const [purchaseCost, setPurchaseCost] = useState("");
+  const [purchaseLeadTime, setPurchaseLeadTime] = useState("");
+  const [purchaseTax, setPurchaseTax] = useState("");
   const [supplierPriority, setSupplierPriority] = useState<"PRIMARY" | "PREFERRED" | "SECONDARY">("PRIMARY");
   const [autoPo, setAutoPo] = useState(false);
   const [autoGrn, setAutoGrn] = useState(true);
@@ -183,7 +202,11 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [allowDiscount, setAllowDiscount] = useState(true);
   const [billable, setBillable] = useState(true);
 
-  // 8. Advanced Enterprise Policies
+  // 8. System Attributes
+  const [isInventoryItem, setIsInventoryItem] = useState(true);
+  const [isServiceItem, setIsServiceItem] = useState(false);
+
+  // 9. Advanced Enterprise Policies
   const [costingMethod, setCostingMethod] = useState<"FIFO" | "WEIGHTED_AVG" | "STANDARD">("FIFO");
   const [glAccount, setGlAccount] = useState("");
   const [externalId, setExternalId] = useState("");
@@ -203,6 +226,146 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [heelTypeOptions, setHeelTypeOptions] = useState<LookupOption[]>([]);
   const [upperMaterialOptions, setUpperMaterialOptions] = useState<LookupOption[]>([]);
   const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
+
+  // ── Unified Prefill for Add / Edit / Duplicate ───────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (initialProduct && (actionType === "EDIT" || actionType === "DUPLICATE")) {
+      const isEdit = actionType === "EDIT";
+      setName(initialProduct.name || initialProduct.item_name || "");
+      setBrand(initialProduct.brand || "");
+      setCategory(initialProduct.category || "");
+      setGender(initialProduct.gender || "");
+      setProductTypeItem(initialProduct.product_type || "");
+      setArticleCode(initialProduct.style_code || initialProduct.article_code || initialProduct.code || "");
+      setSimpleColor(initialProduct.color || "");
+      setSimpleSize(initialProduct.size || "");
+      setSimpleSizeSystem(initialProduct.size_system || "UK");
+      setUpperMaterial(initialProduct.upper_material || "");
+      setOutsoleMaterial(initialProduct.outsole_material || "");
+      setHeelType(initialProduct.heel_type || "");
+      setBaseMrp(initialProduct.mrp != null ? String(initialProduct.mrp) : "");
+      setBaseSellingPrice(initialProduct.selling_price != null ? String(initialProduct.selling_price) : (initialProduct.price != null ? String(initialProduct.price) : ""));
+      setBaseCostPrice(initialProduct.cost_price != null ? String(initialProduct.cost_price) : "");
+      setDealerPrice(initialProduct.dealer_price != null ? String(initialProduct.dealer_price) : "");
+      setWholesalePrice(initialProduct.wholesale_price != null ? String(initialProduct.wholesale_price) : "");
+      setMinimumSellingPrice(initialProduct.minimum_selling_price != null ? String(initialProduct.minimum_selling_price) : "");
+      setMaximumDiscountPercent(initialProduct.maximum_discount_percent != null ? String(initialProduct.maximum_discount_percent) : "0");
+      setHsnCode(initialProduct.hsn_code || "");
+      setGstRate(initialProduct.gst_percentage != null ? String(initialProduct.gst_percentage) : (initialProduct.tax_rate != null ? String(initialProduct.tax_rate) : "18"));
+      setStockUom(initialProduct.primary_uom || "PRS");
+      setSalesUom(initialProduct.sales_uom || "");
+      setPurchaseUom(initialProduct.purchase_uom || "");
+      setStatusVal(initialProduct.status || "ACTIVE");
+      setDescription(initialProduct.description || "");
+      setSeason(initialProduct.season || "");
+      setCollection(initialProduct.collection || "");
+      setTags(initialProduct.tags || "");
+      setLastPurchasePrice(initialProduct.last_purchase_price != null ? String(initialProduct.last_purchase_price) : "");
+
+      if (isEdit) {
+        const itemSku = initialProduct.sku || initialProduct.code || initialProduct.variant_sku || "";
+        setSku(itemSku);
+        setSimpleBarcode(initialProduct.barcode || "");
+        setSkuSource(itemSku ? "USER" : "NONE");
+        const hasTx = Boolean(
+          initialProduct.has_transactions ||
+          (initialProduct.transaction_count && initialProduct.transaction_count > 0) ||
+          (initialProduct.stock_movement_count && initialProduct.stock_movement_count > 0)
+        );
+        setHasTransactions(hasTx);
+      } else {
+        // DUPLICATE: Clear identity fields per policy
+        setSku("");
+        setSimpleBarcode("");
+        setSkuSource("NONE");
+        setHasTransactions(false);
+      }
+    } else if (actionType === "ADD") {
+      setSku("");
+      setSimpleBarcode("");
+      setArticleCode("");
+      setName("");
+      setBrand("");
+      setCategory("");
+      setGender("");
+      setProductTypeItem("");
+      setSimpleColor("");
+      setSimpleSize("");
+      setSimpleSizeSystem("UK");
+      setUpperMaterial("");
+      setOutsoleMaterial("");
+      setHeelType("");
+      setBaseMrp("");
+      setBaseSellingPrice("");
+      setBaseCostPrice("");
+      setDealerPrice("");
+      setWholesalePrice("");
+      setMinimumSellingPrice("");
+      setMaximumDiscountPercent("0");
+      setHsnCode("");
+      setGstRate("18");
+      setStockUom("PRS");
+      setSalesUom("");
+      setPurchaseUom("");
+      setStatusVal("ACTIVE");
+      setHasTransactions(false);
+      setSkuSource("NONE");
+      setProposedSku(null);
+    }
+  }, [isOpen, initialProduct, actionType]);
+
+  // ── SKU UI Decision Tree Handlers ──────────────────────────────────────────
+  // CASE 1: Primary Barcode entered & SKU is blank -> SKU = barcode (initial assignment)
+  const handleBarcodeChange = (val: string) => {
+    const clean = val.trim().toUpperCase();
+    setSimpleBarcode(clean);
+    if ((!sku || skuSource === "BARCODE") && clean) {
+      setSku(clean);
+      setSkuSource("BARCODE");
+    } else if (skuSource === "BARCODE" && !clean) {
+      setSku("");
+      setSkuSource("NONE");
+    }
+  };
+
+  // CASE 2: User explicitly modifies SKU
+  const handleSkuChange = (val: string) => {
+    if (hasTransactions) return; // STATE D: Immutability lock
+    setSku(val.trim().toUpperCase());
+    setSkuSource("USER");
+  };
+
+  // CASE 4: Generate candidate SKU proposal (Zero silent persistence)
+  const handleRequestGenerateSku = async () => {
+    setIsProposingSku(true);
+    try {
+      const res = await apiFetchV1<any>("/item-domain/propose-sku");
+      if (res?.proposed_sku) {
+        setProposedSku(res.proposed_sku);
+      } else {
+        onNotification?.("Proposal Error", "Unable to retrieve SKU candidate.", "error");
+      }
+    } catch (err: any) {
+      onNotification?.("Proposal Error", err?.message || "Failed to generate proposed SKU candidate.", "error");
+    } finally {
+      setIsProposingSku(false);
+    }
+  };
+
+  const handleApproveProposedSku = () => {
+    if (proposedSku) {
+      setSku(proposedSku);
+      setSkuSource("GENERATED");
+      setProposedSku(null);
+    }
+  };
+
+  // CASE 4 Cancel: No SKU persistence, remains blank
+  const handleCancelProposedSku = () => {
+    setProposedSku(null);
+  };
 
   // ── Authoritative Backend Article Numbering Preview ─────────────────────────
   useEffect(() => {
@@ -513,9 +676,54 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
         ? (simpleBarcode.trim() || null)
         : (activeVariant?.barcode.trim() || null);
 
+      if (actionType === "EDIT" && initialProduct?.id) {
+        const updatePayload: Record<string, any> = {
+          name: name.trim(),
+          brand: brand.trim() || null,
+          category: category.trim() || null,
+          gender: gender || null,
+          product_type: productTypeItem || null,
+          style_code: articleCode.trim() || null,
+          color: activeMode === "SIMPLE" ? (simpleColor.trim() || null) : (selectedColors[0] || null),
+          size: activeMode === "SIMPLE" ? (simpleSize.trim() || null) : (selectedSizes[0] || null),
+          price: parsedSelling,
+          mrp: parsedMrp,
+          selling_price: parsedSelling,
+          cost_price: parsedCost,
+          gst_percentage: parsedGst,
+          tax_rate: parsedGst,
+          hsn_code: hsnCode.trim() || null,
+          primary_uom: stockUom || "PRS",
+          status: statusVal,
+          is_active: statusVal === "ACTIVE",
+        };
+        // SKU and barcode can only be updated if no transaction activity
+        if (!hasTransactions && sku.trim()) {
+          updatePayload.sku = sku.trim();
+          updatePayload.code = sku.trim();
+        }
+        await apiFetchV1(`/inventory/${initialProduct.id}`, {
+          method: "PUT",
+          body: JSON.stringify(updatePayload),
+        });
+
+        onNotification?.(
+          "Item Updated",
+          `Item "${name}" updated successfully.`,
+          "success"
+        );
+        onSaved();
+        handleClose();
+        return;
+      }
+
+      const resolvedSku = sku.trim() || null;
       const articlePayload = {
         name: name.trim(),
-        code: autoGenerateArticleNumber ? "AUTO" : sku.trim(),
+        code: resolvedSku || (articleCode.trim() || "AUTO"),
+        sku: resolvedSku,
+        variant_sku: resolvedSku,
+        style_code: articleCode.trim() || null,
         auto_generate_article_number: autoGenerateArticleNumber,
         barcode: primaryBarcode,
         brand: brand.trim() || null,
@@ -536,6 +744,13 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
         status: statusVal,
         color: activeMode === "SIMPLE" ? (simpleColor.trim() || null) : (selectedColors[0] || null),
         size: activeMode === "SIMPLE" ? (simpleSize.trim() || null) : (selectedSizes[0] || null),
+        size_system: activeMode === "SIMPLE" ? simpleSizeSystem : "UK",
+        description: description.trim() || null,
+        season: season.trim() || null,
+        collection: collection.trim() || null,
+        tags: tags.trim() || null,
+        is_inventory_item: isInventoryItem,
+        is_service_item: isServiceItem,
 
         // Phase 2: Authoritative Domain Extension Payloads
         uom: {
@@ -697,7 +912,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
         <div className="flex items-center justify-between px-6 py-3.5 border-b border-[#e2e8f0] dark:border-[#2d3748] shrink-0 bg-[#f8fafc] dark:bg-[#131b2e]">
           <div className="flex items-center gap-3">
             <h2 className="text-base font-bold text-[#0f172a] dark:text-white flex items-center gap-2">
-              <span>Add Product / Item</span>
+              <span>{actionType === "EDIT" ? "Edit Product / Item" : actionType === "DUPLICATE" ? "Duplicate Product / Item" : "Add Product / Item"}</span>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold uppercase tracking-wide">
                 {activeMode} Mode
               </span>
@@ -841,12 +1056,114 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* 1. BASIC INFORMATION */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <Box size={14} className="text-blue-600" />
-                <span>1. Basic Product Identity</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Box size={14} className="text-blue-600" />
+                  <span>1. Basic Information</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Core Catalog Identity</span>
               </h3>
 
               <div className="grid grid-cols-2 gap-4">
+                {/* SKU / Item Code */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <span>SKU / Item Code</span>
+                      {hasTransactions && <Lock size={12} className="text-amber-500" />}
+                    </label>
+                    {!hasTransactions && !sku && !simpleBarcode && (
+                      <button
+                        type="button"
+                        onClick={handleRequestGenerateSku}
+                        disabled={isProposingSku}
+                        className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        {isProposingSku ? "Proposing..." : "[ Generate SKU ]"}
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    id="im-field-sku"
+                    type="text"
+                    value={sku}
+                    readOnly={hasTransactions}
+                    onChange={(e) => handleSkuChange(e.target.value)}
+                    placeholder="SKU Code"
+                    className={`w-full text-xs font-mono px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden uppercase ${
+                      hasTransactions
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-700"
+                        : fieldErrors["sku"] || fieldErrors["variant_sku"] || fieldErrors["code"]
+                        ? "border-red-500 ring-1 ring-red-500"
+                        : "border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                  />
+                  {/* SKU Helper & Status Indicators */}
+                  {hasTransactions ? (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                      <Lock size={10} /> SKU is locked because this item has transactional activity. Barcode can still be managed independently.
+                    </p>
+                  ) : skuSource === "BARCODE" ? (
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-semibold flex items-center gap-1">
+                      <Check size={11} /> SKU initialized from primary barcode.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Auto-filled from barcode when applicable.
+                    </p>
+                  )}
+                  {(fieldErrors["sku"] || fieldErrors["variant_sku"] || fieldErrors["code"]) && (
+                    <p className="text-[10px] text-red-500 mt-0.5">
+                      {fieldErrors["sku"] || fieldErrors["variant_sku"] || fieldErrors["code"]}
+                    </p>
+                  )}
+
+                  {/* Candidate SKU Proposal Banner (STATE B / C) */}
+                  {proposedSku && (
+                    <div className="mt-2 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-blue-700 dark:text-blue-300">Proposed SKU:</span>
+                        <span className="font-mono font-bold text-blue-900 dark:text-blue-100">{proposedSku}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleCancelProposedSku}
+                          className="px-2 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleApproveProposedSku}
+                          className="px-2.5 py-1 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded shadow-xs transition"
+                        >
+                          Approve SKU
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Primary Barcode */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Primary Barcode
+                  </label>
+                  <input
+                    id="im-field-barcode"
+                    type="text"
+                    value={simpleBarcode}
+                    onChange={(e) => handleBarcodeChange(e.target.value)}
+                    placeholder="Scan or enter official barcode"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 uppercase"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Manufacturer barcode. Zero synthetic barcodes generated.
+                  </p>
+                </div>
+
+                {/* Product Name */}
                 <div className="col-span-2">
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Product Name <span className="text-red-500">*</span>
@@ -866,6 +1183,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   )}
                 </div>
 
+                {/* Brand */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Brand <span className="text-red-500">*</span>
@@ -887,6 +1205,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   {fieldErrors["brand"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["brand"]}</p>}
                 </div>
 
+                {/* Category */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Category <span className="text-red-500">*</span>
@@ -908,20 +1227,67 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   {fieldErrors["category"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["category"]}</p>}
                 </div>
 
+                {/* Gender */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Article / Design Code
+                    Gender
+                  </label>
+                  <select
+                    id="im-field-gender"
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Gender</option>
+                    {genderOptions.map((g) => <option key={g.code} value={g.name}>{g.name}</option>)}
+                  </select>
+                </div>
+
+                {/* Product Type */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Product Type
+                  </label>
+                  <select
+                    id="im-field-product_type"
+                    value={productTypeItem}
+                    onChange={(e) => setProductTypeItem(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Product Type</option>
+                    {productTypeOptions.map((p) => <option key={p.code} value={p.name}>{p.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. DESIGN & VARIANT */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sliders size={14} className="text-cyan-600" />
+                  <span>2. Design &amp; Variant</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Physical Attributes</span>
+              </h3>
+
+              <div className="grid grid-cols-3 gap-4">
+                {/* Article / Design / Style / Model */}
+                <div className="col-span-3 sm:col-span-1">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Article / Style Code
                   </label>
                   <input
                     id="im-field-code"
                     type="text"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                    placeholder="Optional design code"
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                    value={articleCode}
+                    onChange={(e) => setArticleCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. ART-501"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 uppercase"
                   />
                 </div>
 
+                {/* Colour / Shade */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Colour / Shade
@@ -931,98 +1297,223 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     type="text"
                     value={simpleColor}
                     onChange={(e) => setSimpleColor(e.target.value)}
-                    placeholder="e.g. Black, Navy, Brown"
+                    placeholder="e.g. Black, Navy, Tan"
                     className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
+                {/* Size System (Default UK, NOT EU!) */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Size System
+                    Size System <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="im-field-size_system"
                     value={simpleSizeSystem}
                     onChange={(e) => setSimpleSizeSystem(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 font-semibold"
                   >
-                    <option value="UK">UK Size System</option>
-                    <option value="EU">EU Size System</option>
-                    <option value="US">US Size System</option>
-                    <option value="IND">India Size System</option>
+                    <option value="UK">UK (Standard)</option>
+                    <option value="EU">EU (European)</option>
+                    <option value="US">US (American)</option>
+                    <option value="IND">IND (Indian)</option>
+                    <option value="CM">CM (Centimeters)</option>
                   </select>
                 </div>
 
+                {/* Size */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Size
+                    Size <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="im-field-size"
                     type="text"
                     value={simpleSize}
                     onChange={(e) => setSimpleSize(e.target.value)}
-                    placeholder="e.g. 7, 8, 9, 10"
+                    placeholder="e.g. 7, 8, 9, 41"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Material / Upper Type */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Upper Material
+                  </label>
+                  <select
+                    value={upperMaterial}
+                    onChange={(e) => setUpperMaterial(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Material</option>
+                    {upperMaterialOptions.map((u) => <option key={u.code} value={u.name}>{u.name}</option>)}
+                  </select>
+                </div>
+
+                {/* Sole Type */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Sole Type
+                  </label>
+                  <input
+                    type="text"
+                    value={outsoleMaterial}
+                    onChange={(e) => setOutsoleMaterial(e.target.value)}
+                    placeholder="e.g. TPR, Rubber, PU"
                     className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
             </div>
 
-            {/* 2. IDENTITY & BARCODE */}
+            {/* 3. CLASSIFICATION */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <Tag size={14} className="text-indigo-600" />
-                <span>2. Identity &amp; Barcode</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Tag size={14} className="text-amber-600" />
+                  <span>3. Classification</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Catalog Organization</span>
               </h3>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                {/* HSN Code (Zero hardcoded defaults) */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Primary Barcode
+                    HSN Code
                   </label>
                   <input
-                    id="im-field-barcode"
+                    id="im-field-hsn_code"
                     type="text"
-                    value={simpleBarcode}
-                    onChange={(e) => setSimpleBarcode(e.target.value.toUpperCase())}
-                    placeholder="Scan or enter manufacturer barcode"
+                    value={hsnCode}
+                    onChange={(e) => setHsnCode(e.target.value)}
+                    placeholder="Official HSN (e.g. 6403)"
                     className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-[10px] text-slate-500 mt-0.5">Leave blank if no official barcode exists (no synthetic barcodes will be created).</p>
                 </div>
 
+                {/* Season */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Stock UOM <span className="text-red-500">*</span>
+                    Season
                   </label>
-                  <select
-                    id="im-field-stock_uom"
-                    value={stockUom}
-                    onChange={(e) => setStockUom(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 font-semibold"
-                  >
-                    {FOOTWEAR_UOMS.map((u) => (
-                      <option key={u.code} value={u.code}>
-                        {u.code} — {u.name}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    value={season}
+                    onChange={(e) => setSeason(e.target.value)}
+                    placeholder="e.g. SS26, AW26"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Collection */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Collection
+                  </label>
+                  <input
+                    type="text"
+                    value={collection}
+                    onChange={(e) => setCollection(e.target.value)}
+                    placeholder="e.g. Premium Heritage"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Tags */}
+                <div className="col-span-3">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Tags &amp; Keywords
+                  </label>
+                  <input
+                    type="text"
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                    placeholder="Comma-separated tags (e.g. formal, lightweight, breathable)"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="col-span-3">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Item specification notes..."
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* 3. COMMERCIAL PRICING */}
+            {/* 4. PRICING */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <DollarSign size={14} className="text-emerald-600" />
-                <span>3. Pricing &amp; Commercial</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign size={14} className="text-emerald-600" />
+                  <span>4. Pricing</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Commercial Parameters (No Defaults)</span>
               </h3>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                {/* Cost Price */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Retail Price (MRP ₹)
+                    Cost Price (₹)
+                  </label>
+                  <input
+                    id="im-field-cost_price"
+                    type="number"
+                    step="0.01"
+                    value={baseCostPrice}
+                    onChange={(e) => setBaseCostPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Dealer Price */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Dealer Price (₹)
+                  </label>
+                  <input
+                    id="im-field-dealer_price"
+                    type="number"
+                    step="0.01"
+                    value={dealerPrice}
+                    onChange={(e) => setDealerPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Retail / Selling Price */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Retail / Selling Price (₹)
+                  </label>
+                  <input
+                    id="im-field-selling_price"
+                    type="number"
+                    step="0.01"
+                    value={baseSellingPrice}
+                    onChange={(e) => setBaseSellingPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* MRP */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    MRP (₹)
                   </label>
                   <input
                     id="im-field-mrp"
@@ -1035,16 +1526,16 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   />
                 </div>
 
+                {/* Last Purchase Price */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Selling Price (₹)
+                    Last Purchase Price (₹)
                   </label>
                   <input
-                    id="im-field-selling_price"
                     type="number"
                     step="0.01"
-                    value={baseSellingPrice}
-                    onChange={(e) => setBaseSellingPrice(e.target.value)}
+                    value={lastPurchasePrice}
+                    onChange={(e) => setLastPurchasePrice(e.target.value)}
                     placeholder="0.00"
                     className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
@@ -1052,28 +1543,17 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               </div>
             </div>
 
-            {/* 4. STATUTORY TAX */}
+            {/* 5. TAX */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <Percent size={14} className="text-amber-600" />
-                <span>4. Statutory Tax Profile</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Percent size={14} className="text-indigo-600" />
+                  <span>5. Tax Profile</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Statutory Reference</span>
               </h3>
 
               <div className="grid grid-cols-3 gap-4 items-center">
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    HSN/SAC Code
-                  </label>
-                  <input
-                    id="im-field-hsn_code"
-                    type="text"
-                    value={hsnCode}
-                    onChange={(e) => setHsnCode(e.target.value)}
-                    placeholder="e.g. 6403, 6404"
-                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     GST Rate %
@@ -1082,11 +1562,25 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     id="im-field-gst_rate"
                     value={gstRate}
                     onChange={(e) => setGstRate(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 font-semibold"
                   >
                     {GST_RATES.map((g) => (
                       <option key={g.rate} value={g.rate}>{g.label}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Tax Category
+                  </label>
+                  <select
+                    value={taxCategory}
+                    onChange={(e) => setTaxCategory(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="GOODS">GOODS (Standard Retail)</option>
+                    <option value="SERVICES">SERVICES</option>
                   </select>
                 </div>
 
@@ -1105,21 +1599,406 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               </div>
             </div>
 
-            {/* 5. STATUS */}
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">Item Status</span>
-                <span className="text-[11px] text-slate-500">Draft items are preserved without blocking readiness rules.</span>
+            {/* 6. UNITS */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers size={14} className="text-teal-600" />
+                  <span>6. Units of Measurement (uoms_ref)</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Conversion Architecture</span>
+              </h3>
+
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Stock UOM <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="im-field-stock_uom"
+                    value={stockUom}
+                    onChange={(e) => setStockUom(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white font-semibold"
+                  >
+                    {FOOTWEAR_UOMS.map((u) => (
+                      <option key={u.code} value={u.code}>{u.code} — {u.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Sales UOM
+                  </label>
+                  <select
+                    id="im-field-sales_uom"
+                    value={salesUom}
+                    onChange={(e) => setSalesUom(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  >
+                    <option value="">Same as Stock UOM</option>
+                    {FOOTWEAR_UOMS.map((u) => (
+                      <option key={u.code} value={u.code}>{u.code}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Purchase UOM
+                  </label>
+                  <select
+                    id="im-field-purchase_uom"
+                    value={purchaseUom}
+                    onChange={(e) => setPurchaseUom(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  >
+                    <option value="">Same as Stock UOM</option>
+                    {FOOTWEAR_UOMS.map((u) => (
+                      <option key={u.code} value={u.code}>{u.code}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    UOM Conversion
+                  </label>
+                  <input
+                    id="im-field-conversion_factor"
+                    type="number"
+                    step="0.0001"
+                    value={conversionFactor}
+                    onChange={(e) => setConversionFactor(e.target.value)}
+                    placeholder="1.0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
               </div>
-              <select
-                value={statusVal}
-                onChange={(e) => setStatusVal(e.target.value)}
-                className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white font-semibold"
-              >
-                <option value="ACTIVE">ACTIVE (Ready for Sale)</option>
-                <option value="DRAFT">DRAFT (Work in progress)</option>
-                <option value="INACTIVE">INACTIVE</option>
-              </select>
+            </div>
+
+            {/* 7. INVENTORY POLICY */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BarChart3 size={14} className="text-purple-600" />
+                  <span>7. Inventory Policy</span>
+                </div>
+                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded">
+                  Policy Values Only (Stock quantity is transactional)
+                </span>
+              </h3>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Minimum Stock
+                  </label>
+                  <input
+                    id="im-field-minimum_stock"
+                    type="number"
+                    value={minimumStock}
+                    onChange={(e) => setMinimumStock(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Reorder Level
+                  </label>
+                  <input
+                    id="im-field-reorder_level"
+                    type="number"
+                    value={reorderLevel}
+                    onChange={(e) => setReorderLevel(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Reorder Quantity
+                  </label>
+                  <input
+                    id="im-field-reorder_quantity"
+                    type="number"
+                    value={reorderQuantity}
+                    onChange={(e) => setReorderQuantity(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Maximum Stock
+                  </label>
+                  <input
+                    id="im-field-maximum_stock"
+                    type="number"
+                    value={maximumStock}
+                    onChange={(e) => setMaximumStock(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Safety Stock
+                  </label>
+                  <input
+                    id="im-field-safety_stock"
+                    type="number"
+                    value={safetyStock}
+                    onChange={(e) => setSafetyStock(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Lead Time (Days)
+                  </label>
+                  <input
+                    id="im-field-lead_time"
+                    type="number"
+                    value={leadTime}
+                    onChange={(e) => setLeadTime(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 8. PURCHASING */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Truck size={14} className="text-blue-600" />
+                  <span>8. Purchasing Settings</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Procurement Configuration</span>
+              </h3>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Preferred Supplier
+                  </label>
+                  <select
+                    id="im-field-preferred_supplier_id"
+                    value={preferredSupplier}
+                    onChange={(e) => setPreferredSupplier(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  >
+                    <option value="">None / Open Market</option>
+                    {vendorOptions.map((v) => <option key={v.id} value={v.id}>{v.name} ({v.code})</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Supplier Item Code
+                  </label>
+                  <input
+                    id="im-field-supplier_item_code"
+                    type="text"
+                    value={supplierItemCode}
+                    onChange={(e) => setSupplierItemCode(e.target.value)}
+                    placeholder="Vendor catalog reference"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Min Purchase Qty
+                  </label>
+                  <input
+                    id="im-field-minimum_purchase_qty"
+                    type="number"
+                    value={minimumPurchaseQty}
+                    onChange={(e) => setMinimumPurchaseQty(e.target.value)}
+                    placeholder="1"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Purchase Cost (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={purchaseCost}
+                    onChange={(e) => setPurchaseCost(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Purchase Lead Time (Days)
+                  </label>
+                  <input
+                    type="number"
+                    value={purchaseLeadTime}
+                    onChange={(e) => setPurchaseLeadTime(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Purchase Tax %
+                  </label>
+                  <input
+                    type="number"
+                    value={purchaseTax}
+                    onChange={(e) => setPurchaseTax(e.target.value)}
+                    placeholder="Same as GST Rate"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 9. SALES */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag size={14} className="text-emerald-600" />
+                  <span>9. Sales Parameters</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Pricing Policies &amp; Permissions</span>
+              </h3>
+
+              <div className="grid grid-cols-4 gap-4 items-center">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Wholesale Price (₹)
+                  </label>
+                  <input
+                    id="im-field-wholesale_price"
+                    type="number"
+                    step="0.01"
+                    value={wholesalePrice}
+                    onChange={(e) => setWholesalePrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Min Selling Price (₹)
+                  </label>
+                  <input
+                    id="im-field-minimum_selling_price"
+                    type="number"
+                    step="0.01"
+                    value={minimumSellingPrice}
+                    onChange={(e) => setMinimumSellingPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Max Discount %
+                  </label>
+                  <input
+                    id="im-field-maximum_discount_percent"
+                    type="number"
+                    value={maximumDiscountPercent}
+                    onChange={(e) => setMaximumDiscountPercent(e.target.value)}
+                    placeholder="0"
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="pt-5 flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={allowDiscount}
+                      onChange={(e) => setAllowDiscount(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded-sm"
+                    />
+                    <span>Allow Discount</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={billable}
+                      onChange={(e) => setBillable(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded-sm"
+                    />
+                    <span>Billable</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* 10. SYSTEM */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={14} className="text-slate-600 dark:text-slate-400" />
+                  <span>10. System &amp; Lifecycle</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-normal">Readiness Gates</span>
+              </h3>
+
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={isInventoryItem}
+                      onChange={(e) => setIsInventoryItem(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded-sm"
+                    />
+                    <span>Inventory Item</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={isServiceItem}
+                      onChange={(e) => setIsServiceItem(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded-sm"
+                    />
+                    <span>Service Item</span>
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Product Status:
+                  </label>
+                  <select
+                    value={statusVal}
+                    onChange={(e) => setStatusVal(e.target.value)}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white font-semibold"
+                  >
+                    <option value="ACTIVE">ACTIVE (Ready for Sale)</option>
+                    <option value="DRAFT">DRAFT (Incomplete / Work In Progress)</option>
+                    <option value="INCOMPLETE">INCOMPLETE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         )}
