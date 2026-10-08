@@ -217,9 +217,16 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         apiFetchV1<any>(`/staff/incentives?period=${PERIOD}`).catch(() => ({ lines: [] })),
       ]);
 
-      const staffList: PersonnelProfile[] = Array.isArray(staff)
+      const rawStaff: any[] = Array.isArray(staff)
         ? staff
         : (staff as any)?.users || (staff as any)?.data || [];
+
+      const staffList: PersonnelProfile[] = rawStaff.map((p: any) => ({
+        ...p,
+        user_id: p.user_id || p.id || `staff-${Math.random().toString(36).slice(2, 7)}`,
+        full_name: p.full_name || p.person_name || "Staff Member",
+        emp_id: p.emp_id || p.id || p.user_id,
+      }));
 
       const rawAtt: any[] = Array.isArray(att)
         ? att
@@ -1185,7 +1192,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                       Salary Payslip
                     </span>
                     <p className="text-[11px] font-mono text-slate-600 mt-1">Period: <strong>{PERIOD}</strong></p>
-                    <p className="text-[10px] text-slate-400 font-mono">Ref: PSLIP-{PERIOD.replace("-", "")}-{profile.user_id.slice(-6).toUpperCase()}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">Ref: PSLIP-{PERIOD.replace("-", "")}-{String(profile.user_id || profile.emp_id || profile.full_name || "STAFF").slice(-6).toUpperCase()}</p>
                   </div>
                 </div>
 

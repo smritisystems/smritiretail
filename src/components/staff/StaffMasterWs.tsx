@@ -146,16 +146,16 @@ const storeCode = (location: { store_code?: string; storeCode?: string }) => loc
 const storeName = (location: { location_name?: string; locationName?: string }) => location.location_name || location.locationName || "Store name unavailable";
 const storeLabel = (location: { store_code?: string; storeCode?: string; location_name?: string; locationName?: string }) => `${storeCode(location)} · ${storeName(location)}`;
 
-const maskAccountNumber = (val?: string) => {
+const maskAccountNumber = (val?: string | null) => {
   if (!val) return "Not provided";
-  const clean = val.trim();
+  const clean = String(val).trim();
   if (clean.length <= 4) return clean;
   return `•••• •••• ${clean.slice(-4)}`;
 };
 
-const maskAadhaarNumber = (val?: string) => {
+const maskAadhaarNumber = (val?: string | null) => {
   if (!val) return "Not provided";
-  const clean = val.replace(/\s+/g, "");
+  const clean = String(val).replace(/\s+/g, "");
   if (clean.length <= 4) return clean;
   return `•••• •••• ${clean.slice(-4)}`;
 };
