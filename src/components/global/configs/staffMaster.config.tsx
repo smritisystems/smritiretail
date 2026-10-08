@@ -166,8 +166,17 @@ export const staffMasterConfig: MasterConfig<User> = {
         { label: "SYSADMIN", value: "SYSADMIN" },
         { label: "ADMIN", value: "ADMIN" },
         { label: "MANAGER", value: "MANAGER" },
+        { label: "STORE MANAGER", value: "STORE_MANAGER" },
+        { label: "BRANCH ADMIN", value: "BRANCH_ADMIN" },
+        { label: "INVENTORY MANAGER", value: "INVENTORY_MANAGER" },
+        { label: "PURCHASE EXECUTIVE", value: "PURCHASE_EXECUTIVE" },
+        { label: "SALES EXECUTIVE", value: "SALES_EXECUTIVE" },
         { label: "CASHIER", value: "CASHIER" },
-        { label: "SALES_EXECUTIVE", value: "SALES_EXECUTIVE" }
+        { label: "ACCOUNTANT", value: "ACCOUNTANT" },
+        { label: "AUDITOR", value: "AUDITOR" },
+        { label: "HR EXECUTIVE", value: "HR_EXECUTIVE" },
+        { label: "REPORT USER", value: "REPORT_USER" },
+        { label: "VIEWER", value: "VIEWER" }
       ],
       defaultValue: "CASHIER",
       colSpan: 1
@@ -220,8 +229,17 @@ export const staffMasterConfig: MasterConfig<User> = {
         { label: "SYSADMIN", value: "SYSADMIN" },
         { label: "ADMIN", value: "ADMIN" },
         { label: "MANAGER", value: "MANAGER" },
+        { label: "STORE MANAGER", value: "STORE_MANAGER" },
+        { label: "BRANCH ADMIN", value: "BRANCH_ADMIN" },
+        { label: "INVENTORY MANAGER", value: "INVENTORY_MANAGER" },
+        { label: "PURCHASE EXECUTIVE", value: "PURCHASE_EXECUTIVE" },
+        { label: "SALES EXECUTIVE", value: "SALES_EXECUTIVE" },
         { label: "CASHIER", value: "CASHIER" },
-        { label: "SALES_EXECUTIVE", value: "SALES_EXECUTIVE" }
+        { label: "ACCOUNTANT", value: "ACCOUNTANT" },
+        { label: "AUDITOR", value: "AUDITOR" },
+        { label: "HR EXECUTIVE", value: "HR_EXECUTIVE" },
+        { label: "REPORT USER", value: "REPORT_USER" },
+        { label: "VIEWER", value: "VIEWER" }
       ]
     },
     {

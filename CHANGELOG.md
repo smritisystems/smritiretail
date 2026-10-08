@@ -28,6 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.24] - 2026-10-08 — SMRITI Canonical 14 Core System Roles Convergence & Tattly Threads RBAC Integration
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Security, RBAC, Database Enum, Multi-Tenant Governance
+> **Walkthrough:** `docs/walkthrough/foundation/System_Core_Roles_And_Tattly_Threads_RBAC_v1.0.0.md`
+> **Implementation Plan:** None
+
+### Added
+- **Database Enum Parity across Control Plane and Tenants**:
+  - Executed migration script `backend/scripts/migrate_userrole_enum.py` extending PostgreSQL `userrole` type with all 14 core system role labels across `smritisys` and tenant databases `smriti001` through `smriti004`.
+- **System Core Roles Definition & Persistence Linkage**:
+  - Expanded `UserRole` in `backend/app/models/auth.py` with all 14 core system roles.
+  - Added `roleId` and `role_id` fields to `StaffUserCreate`, `StaffUserUpdate`, and `StaffUserResponse` schemas in `backend/app/schemas/user.py`.
+  - Implemented automatic canonical `role_id` resolution in `backend/app/services/user.py` mapping role enums to canonical role records in `roles` table.
+- **Hierarchical Role Inheritance & Purchasing Domain Authorization**:
+  - Enhanced `require_role` in `backend/app/api/deps.py` supporting role hierarchy inheritance (`ADMIN` -> `SYSADMIN`, `STORE_MANAGER`/`BRANCH_ADMIN` -> `MANAGER`, `SALES_EXECUTIVE` -> `CASHIER`).
+  - Granted `PURCHASE_EXECUTIVE` full purchase order, supplier, and GRN lifecycle authority in `backend/app/api/v1/purchase.py`.
+- **Frontend Role Management Parity**:
+  - Added all 14 core roles to `staffMaster.config.tsx` and modal dropdown selectors in `src/components/staff/StaffMasterWs.tsx`.
+
 ## [6.70.23] - 2026-10-08 — SMRITI Legacy Deprecation Telemetry Observability UI Workspace
 
 > **Branch:** `smritiNX` | **Area:** UI/UX, Observability, Telemetry, Gateway Governance, RFC 8594, Option B Post-Convergence

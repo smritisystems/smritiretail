@@ -66,13 +66,13 @@ router = APIRouter()
     response_model=SupplierResponse,
     status_code=201,
     include_in_schema=False,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))],
 )
 @router.post(
     "/suppliers/",
     response_model=SupplierResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))],
 )
 async def create_supplier(
     req: SupplierCreate,
@@ -196,10 +196,10 @@ async def get_next_order_number(
 
 @router.post("/orders", response_model=PurchaseOrderResponse, status_code=201,
              include_in_schema=False,
-             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
+             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))])
 @router.post("/orders/", response_model=PurchaseOrderResponse, status_code=201,
              summary="Create Purchase Order (Contract URL)",
-             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
+             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))])
 async def create_purchase_order_contract(
     order_in: PurchaseOrderCreate,
     db: AsyncSession = Depends(get_company_db),
@@ -223,7 +223,7 @@ async def get_purchase_order_contract(
 
 @router.post("/orders/{order_id}/cancel", response_model=dict, status_code=200,
              summary="Cancel Purchase Order (Contract URL)",
-             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
+             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))])
 async def cancel_purchase_order_contract(
     order_id: str,
     req: PurchaseOrderCancelRequest,
@@ -238,7 +238,7 @@ async def cancel_purchase_order_contract(
 
 @router.post("/orders/{order_id}/amend", response_model=PurchaseOrderResponse, status_code=201,
              summary="Amend Purchase Order (Contract URL)",
-             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))])
+             dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))])
 async def amend_purchase_order_contract(
     order_id: str,
     req: PurchaseOrderAmendRequest,
@@ -302,19 +302,19 @@ def _extract_attachments(notes: Optional[str]) -> Optional[List[Dict[str, Any]]]
     "/receipts",
     response_model=PurchaseReceiptResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE, UserRole.INVENTORY_MANAGER))],
 )
 @router.post(
     "/receipts/",
     response_model=PurchaseReceiptResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE, UserRole.INVENTORY_MANAGER))],
 )
 @router.post(
     "/purchase-receipts/",
     response_model=PurchaseReceiptResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE, UserRole.INVENTORY_MANAGER))],
 )
 async def create_purchase_receipt(
     req: PurchaseReceiptCreate,
@@ -607,7 +607,7 @@ async def get_receipt_item_cost_breakdown(
 @router.put(
     "/suppliers/{supplier_id}",
     response_model=SupplierResponse,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))],
 )
 async def update_supplier(
     supplier_id: str,
@@ -640,7 +640,7 @@ async def delete_supplier(
 
 @router.post(
     "/purchase-orders/{order_id}/cancel",
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))],
 )
 async def cancel_purchase_order(
     order_id: str,
@@ -661,7 +661,7 @@ async def cancel_purchase_order(
     "/purchase-orders/{order_id}/amend",
     response_model=PurchaseOrderResponse,
     status_code=201,
-    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))],
 )
 async def amend_purchase_order(
     order_id: str,
