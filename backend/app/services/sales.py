@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.69.0
+Version      : 6.70.34
 Created      : 2026-07-11
-Modified     : 2026-10-03
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -1451,6 +1451,21 @@ class SalesService:
                 branch_id=self.tenant_ctx.branch_id,
                 customer_id=orig_invoice.customer_id if orig_invoice else None,
                 return_total=grand_total,
+                creator=_ret_creator,
+            )
+
+            # Commission REVERSAL hook (atomic, pre-commit)
+            from .sales_hook import write_commission_reversal
+            await write_commission_reversal(
+                db=self.db,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                sales_return_id=db_sr.id,
+                return_no=db_sr.return_no,
+                orig_invoice_id=orig_invoice.id,
+                orig_invoice_no=orig_invoice.invoice_no,
+                return_total=grand_total,
+                orig_grand_total=Decimal(str(orig_invoice.grand_total or "0.00")),
                 creator=_ret_creator,
             )
 
