@@ -72,7 +72,8 @@ const REGISTERED_APP_TABS = [
   "propos-workspace",
   "document-studio",
   "bulk-import-sheet",
-  "databridge"
+  "databridge",
+  "legacy-telemetry"
 ];
 
 describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
