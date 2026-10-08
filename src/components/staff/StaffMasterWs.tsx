@@ -176,7 +176,8 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
     permanentAddress: "",
   });
   const [showNew, setShowNew] = useState(false);
-  const [newStaff, setNewStaff] = useState({ fullName: "", username: "", password: "", role: "CASHIER" });
+  const [creatingStaff, setCreatingStaff] = useState(false);
+  const [newStaff, setNewStaff] = useState({ fullName: "", username: "", email: "", password: "", role: "CASHIER" });
   const [attendance, setAttendance] = useState<Array<{ id: string; attendance_date: string; status: string; check_in_at?: string; check_out_at?: string }>>([]);
   const [attendanceFrom, setAttendanceFrom] = useState("");
   const [attendanceTo, setAttendanceTo] = useState("");
@@ -326,23 +327,28 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       onNotification?.("Password Policy", "Password must contain at least one special character (!@#$%^&*...).", "error");
       return;
     }
+    if (creatingStaff) return;
+    setCreatingStaff(true);
     try {
       const created = await apiFetchV1<User>("/users/", {
         method: "POST",
         body: {
           fullName: newStaff.fullName.trim(),
           username: newStaff.username.trim(),
+          email: newStaff.email?.trim() || undefined,
           role: newStaff.role,
           passwordHash: newStaff.password,
         },
       });
       onNotification?.("Staff Created", `${newStaff.fullName} was added to Staff 360.`, "success");
-      setNewStaff({ fullName: "", username: "", password: "", role: "CASHIER" });
+      setNewStaff({ fullName: "", username: "", email: "", password: "", role: "CASHIER" });
       setShowNew(false);
       setSelectedId(created.id);
       await loadStaff();
     } catch (error: any) {
       onNotification?.("Staff Creation Failed", error?.message || "Unable to create staff account.", "error");
+    } finally {
+      setCreatingStaff(false);
     }
   };
 
@@ -1344,7 +1350,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
             )}
           </div>
         )}<div className="mt-5 flex gap-1 overflow-x-auto">{STAFF_TABS.map((tab) => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === tab.id ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{tab.icon}{tab.label}</button>)}</div></div><div className="p-5">{renderTab()}</div></section>
-    {showNew && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h2 className="text-base font-black">Create Staff Account</h2><button title="Close" onClick={() => setShowNew(false)}>×</button></div><p className="mt-1 text-xs text-slate-500">An explicit temporary password is required. No default credentials are generated.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><input aria-label="Full name" placeholder="Full name" value={newStaff.fullName} onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Username" placeholder="Username" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Temporary password" type="password" placeholder="Temporary password" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><select aria-label="Role" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="CASHIER">CASHIER</option><option value="MANAGER">MANAGER</option><option value="SYSADMIN">SYSADMIN</option><option value="REPORT_USER">REPORT_USER</option><option value="VIEWER">VIEWER</option></select><p className="text-[11px] text-slate-500 sm:col-span-2">Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special symbol (e.g. Staff@2026).</p></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => setShowNew(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button onClick={handleCreate} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Create Staff</button></div></div></div>}
+    {showNew && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h2 className="text-base font-black">Create Staff Account</h2><button title="Close" onClick={() => setShowNew(false)}>×</button></div><p className="mt-1 text-xs text-slate-500">An explicit temporary password is required. No default credentials are generated.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><input aria-label="Full name" placeholder="Full name" value={newStaff.fullName} onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Username" placeholder="Username" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Email" placeholder="Email address (optional)" value={newStaff.email} onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Temporary password" type="password" placeholder="Temporary password" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><select aria-label="Role" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="CASHIER">CASHIER</option><option value="MANAGER">MANAGER</option><option value="SYSADMIN">SYSADMIN</option><option value="REPORT_USER">REPORT_USER</option><option value="VIEWER">VIEWER</option></select><p className="text-[11px] text-slate-500 sm:col-span-2">Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special symbol (e.g. Staff@2026).</p></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => setShowNew(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={creatingStaff} onClick={handleCreate} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{creatingStaff ? "Creating..." : "Create Staff"}</button></div></div></div>}
     {showPrint && <StaffPrintModal isOpen={showPrint} onClose={() => setShowPrint(false)} staff={selected} />}
     {showCommissionModal && (
       <CommissionStudioModal
