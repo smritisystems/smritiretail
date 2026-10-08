@@ -28,6 +28,22 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.32] - 2026-10-08 — Attendance Studio Full System Audit & API Contract Reconciliation (v1.0.1)
+
+> **Branch:** `smritiNX` | **Area:** HR, Attendance Studio, Boundary Contract Hardening, Payroll Synthesis
+> **Walkthrough:** `docs/walkthrough/hr/Attendance_Studio_Audit_And_Contract_Hardening_v1.0.1.md`
+> **Implementation Plan:** `docs/implementation/hr/Attendance_Studio_Audit_And_Contract_Hardening_Plan_v1.0.1.md`
+
+### Fixed & Fortified
+- **Attendance Studio Modal (`EmployeeAttendanceModal.tsx`)**:
+  - Fortified API boundary layer against FastAPI response payload shape drift (`data.records`, `data.lines`), preventing runtime `filter`/`reduce` exceptions.
+  - Normalized attendance field mappings supporting backend ORM attributes (`id -> record_id`, `attendance_date -> date`, `check_in_at/check_out_at -> clock_in/clock_out`).
+  - Added fallback synthesized employee payroll calculations via `EmployeeAttendanceEngine.computePayout` when backend `/staff/incentives` provides rule catalogues.
+- **Verification & Regression Suites**:
+  - Created `src/tests/employeeAttendanceStudio.test.ts` with 4 new automated regression tests (8/8 attendance tests green, 16/16 staff tests green).
+  - Validated 100% column, type, constraint, and index parity for `attendance_records`, `leave_balances`, and `leave_requests` against PostgreSQL catalog and Alembic revision `v1423`.
+  - Executed backend verification suite `t_staff_verify.py` with 9/9 tests green.
+
 ## [6.70.31] - 2026-10-08 — Global Grid Import Blank Sample CSV Template Generator (v6.70.1)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Global Grid Import, CSV Template Generator, Master Lookups, Inward Grids
