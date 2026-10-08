@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.46.0
+ * Version      : 6.46.2
  * Created      : 2026-10-08
  * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -15,6 +15,10 @@
 
 import { describe, it, expect } from "vitest";
 import { barcodeTransactionStore } from "../components/barcode/barcodeTransactionS.ts";
+import {
+  generateThermalLabelSvgString,
+  generateThermalSheetSvgString,
+} from "../components/barcode/PrintLabelsStudio.tsx";
 
 describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
   it("resolves Purchase Order records into printable studio rows with default PO quantities", () => {
@@ -112,5 +116,71 @@ describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
     const range = sampleRows.filter(r => r.barcode >= "890100000015" && r.barcode <= "890100000025");
     expect(range.length).toBe(1);
     expect(range[0].id).toBe("2");
+  });
+
+  it("generates valid standalone vector SVG string for single thermal label", () => {
+    const mockRow = {
+      id: "itm-1",
+      itemCode: "SHIRT-001",
+      product: "Casual Linen Shirt",
+      brand: "Smriti",
+      style: "Slim",
+      shade: "Blue",
+      size: "M",
+      barcode: "890100000001",
+      stock: 10,
+      printQty: 2,
+      mrp: 1499,
+      selected: true,
+    };
+
+    const svg = generateThermalLabelSvgString(mockRow, 50, 25);
+    expect(svg).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(svg).toContain('<svg xmlns="http://www.w3.org/2000/svg" width="50mm" height="25mm"');
+    expect(svg).toContain('SMRITI RETAIL');
+    expect(svg).toContain('CASUAL LINEN SHIRT');
+    expect(svg).toContain('890100000001');
+    expect(svg).toContain('SKU: SHIRT-001');
+    expect(svg).toContain('1,499');
+  });
+
+  it("generates multi-label vector SVG sheet string with template dimensions", () => {
+    const mockRows = [
+      {
+        id: "itm-1",
+        itemCode: "SHIRT-001",
+        product: "Casual Linen Shirt",
+        brand: "Smriti",
+        style: "Slim",
+        shade: "Blue",
+        size: "M",
+        barcode: "890100000001",
+        stock: 10,
+        printQty: 2,
+        mrp: 1499,
+        selected: true,
+      },
+      {
+        id: "itm-2",
+        itemCode: "JEANS-002",
+        product: "Denim Jeans",
+        brand: "Smriti",
+        style: "Regular",
+        shade: "Black",
+        size: "32",
+        barcode: "890100000002",
+        stock: 5,
+        printQty: 1,
+        mrp: 1999,
+        selected: true,
+      },
+    ];
+
+    const template = { id: "retail-50x25", name: "Retail 50 x 25 mm", widthMm: 50, heightMm: 25 };
+    const sheetSvg = generateThermalSheetSvgString(mockRows, template);
+    expect(sheetSvg).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
+    expect(sheetSvg).toContain('transform="translate(');
+    expect(sheetSvg).toContain('CASUAL LINEN SHIRT');
+    expect(sheetSvg).toContain('DENIM JEANS');
   });
 });

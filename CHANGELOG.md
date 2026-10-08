@@ -28,6 +28,29 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.26] - 2026-10-08 — SMRITI Print Labels Studio Server-Side Inward Document Intake, Vector SVG Export & Legacy Retirement (v6.46.2)
+
+> **Branch:** `smritiNX` | **Area:** Barcode, Hardware, Inward Logistics, Technical Debt Decommissioning
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_RemoteIntake_And_LegacyRetirement_v6.46.2.md`
+> **Implementation Plan:** `docs/implementation/inventory/Barcode_PrintLabelsStudio_MultiSource_And_Preview_Plan_v6.46.0.md`
+
+### Added
+- **Server-Side Inward Document Intake**:
+  - Connected asynchronous REST queries to `/api/v1/purchase/orders`, `/api/v1/purchase/receipts`, `/api/v1/sales/invoices`, and `/api/v1/wms/transfers` for live PO, GRN, sales return, and stock transfer intake.
+  - Implemented automatic local transaction store fallback (`barcodeTransactionStore`) ensuring seamless offline resilience when disconnected from the backend.
+- **Client-Side Deterministic Vector SVG Generator & Export**:
+  - Engineered standalone vector SVG string generator `generateThermalLabelSvgString` scaled at 203 DPI (8 dots/mm) with barcode rects and typography.
+  - Built `generateThermalSheetSvgString` multi-label grid generator with border outlines and margins.
+  - Added `downloadSvgFile` helper triggering instant browser `.svg` downloads.
+  - Mounted `Export Vector SVG` button in `Labels Print Sheet Preview` modal and quick `SVG` export button in the right sidebar single label preview card.
+- **Unit Test Suite Expansion**:
+  - Expanded `src/tests/printLabelsStudio.test.ts` to 10/10 passing tests verifying single label SVG generation, multi-label sheet SVG generation, and range filtering.
+
+### Removed
+- **Legacy Prototype Decommissioning**:
+  - Safely deleted orphaned, unmounted `src/components/LabelPrintingSec.tsx` (1,009 lines of dead code).
+  - Modernized `src/tests/auxiliaryGridIntake.test.ts` test describe block to `Barcode Label Delimited Text Parsing`.
+
 ## [6.70.25] - 2026-10-08 — SMRITI Print Labels Studio Multi-Source Inward Intake, Dynamic Layouts & Accurate SVG Preview
 
 > **Branch:** `smritiNX` | **Area:** Barcode, Hardware, Thermal Printing, Inward Logistics

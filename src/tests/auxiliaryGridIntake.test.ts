@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.63.0
+ * Version      : 6.46.2
  * Created      : 2026-10-03
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -59,7 +59,7 @@ describe("Auxiliary Ingestion Surfaces Grid Intake Harmonization", () => {
     });
   });
 
-  describe("3. LabelPrintingSec Delimited Text Parsing", () => {
+  describe("3. Barcode Label Delimited Text Parsing", () => {
     it("parses tag printing data with quotation marks and custom rates", () => {
       const tagData = `SKU,Item Name,Barcode,Selling Price,MRP,Size,Color,Qty\nSHIRT-001,"Premium Slim Fit Shirt, White",890100000001,999,1299,38,White,5\nTROUSER-002,"Chino Pants, Navy",890100000002,1499,1899,32,Navy,10`;
       const parseResult = GridInputEngine.parseDelimitedText(tagData);

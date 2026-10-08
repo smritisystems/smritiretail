@@ -155,15 +155,26 @@ Commit and push changes to `smritiNX` branch. Changes are immediately available 
 ---
 
 ## 17. Status
-**Completed** (Verified with 84/84 frontend tests, 23/23 backend tests, and 0 `tsc --noEmit` errors).
+**Completed** (v6.46.0 Initial Remediation -> v6.46.1 Advanced Filters & Hardware Dialog -> v6.46.2 Server-Side Inward Intake, Vector SVG Export & Legacy Retirement). Verified with 65/65 Vitest tests across 7 suites, 16/16 Pytest tests, and 0 `tsc --noEmit` errors.
 
 ---
 
-## 18. Related ADRs
+## 18. Phase 3 Addendum (v6.46.2): Remote Inward Intake, Vector SVG Export & Legacy Prototype Retirement
+- **Server-Side Inward Document Search:** Connected asynchronous backend API queries to `/api/v1/purchase/orders`, `/api/v1/purchase/receipts`, `/api/v1/sales/invoices`, and `/api/v1/wms/transfers` with seamless fallback to client `barcodeTransactionStore`.
+- **Client-Side Deterministic Vector SVG Generator:** Added `generateThermalLabelSvgString` (scaled at 203 DPI / 8 dots/mm) and `generateThermalSheetSvgString` with instant browser `.svg` downloads via `downloadSvgFile`.
+- **UI Export Controls:** Mounted `Export Vector SVG` button in `Labels Print Sheet Preview` modal and quick `SVG` export button in right sidebar single label preview card.
+- **Legacy Prototype Decommissioning:** Safely deleted orphaned, unmounted `src/components/LabelPrintingSec.tsx` (1,009 lines) and modernized `src/tests/auxiliaryGridIntake.test.ts`.
+- **Test Suite Expansion:** Expanded `src/tests/printLabelsStudio.test.ts` to 10/10 tests covering range filtering and SVG generation.
+
+---
+
+## 19. Related ADRs
 - `ADR-008`: Strangler-Fig Migration (FastAPI Sole System of Record)
 - `ADR-019`: Barcode Studio Component Architecture
+- `ADR-0042`: Thermal Printer Hardware Integration & QZ Tray Gateway
 
 ---
 
-## 19. Related Walkthroughs
+## 20. Related Walkthroughs
 - [`Barcode_PrintLabelsStudio_MultiSource_And_Preview_v6.46.0.md`](../walkthrough/barcode/Barcode_PrintLabelsStudio_MultiSource_And_Preview_v6.46.0.md)
+- [`Barcode_PrintLabelsStudio_RemoteIntake_And_LegacyRetirement_v6.46.2.md`](../walkthrough/barcode/Barcode_PrintLabelsStudio_RemoteIntake_And_LegacyRetirement_v6.46.2.md)

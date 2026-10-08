@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.46.0
+ * Version      : 6.46.2
  * Created      : 2026-09-26
  * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -20,9 +20,9 @@ import {
   Printer, Settings, HelpCircle, Search, Filter, ChevronDown, ChevronUp,
   CheckSquare, Square, Trash2, RefreshCcw, Eye, Package, ShoppingCart,
   Truck, BarChart2, ArrowLeftRight, MoreHorizontal, Zap, X,
-  Tag, Layers, AlertTriangle, Circle,
+  Tag, Layers, AlertTriangle, Circle, Download,
 } from 'lucide-react';
-import { apiFetchV1 } from '../../lib/apiFetch.ts';
+import { apiFetchV1 } from '../../lib/apiFetchV1.js';
 import { ThermalBarcodeSvg } from './ThermalBarcodeSvg.tsx';
 import { barcodeTransactionStore } from './barcodeTransactionS.ts';
 
@@ -82,6 +82,100 @@ const fmtINR = (n: number) =>
   '\u20b9' + n.toLocaleString('en-IN', { minimumFractionDigits: 0 });
 
 const PAGE_SIZE = 25;
+
+/**
+ * Deterministic XML/SVG string generator for thermal labels
+ */
+export function generateThermalLabelSvgString(row: StudioRow, widthMm: number = 50, heightMm: number = 25): string {
+  const widthPx = widthMm * 8;
+  const heightPx = heightMm * 8;
+  const barcodeVal = row.barcode || row.itemCode || '890100000001';
+  
+  const bars: { width: number; isBar: boolean }[] = [];
+  bars.push({ width: 2, isBar: true }, { width: 1, isBar: false }, { width: 2, isBar: true }, { width: 1, isBar: false });
+  for (let i = 0; i < barcodeVal.length; i++) {
+    const code = barcodeVal.charCodeAt(i);
+    const hash = (code * 11 + i * 17) % 128;
+    const bStr = hash.toString(2).padStart(6, '0');
+    for (const bit of bStr) {
+      bars.push({ width: bit === '1' ? 1.8 : 0.9, isBar: bit === '1' });
+    }
+    bars.push({ width: 0.9, isBar: false });
+  }
+  bars.push({ width: 2, isBar: true }, { width: 1, isBar: false }, { width: 2.5, isBar: true });
+
+  let curX = 0;
+  const totalBarWidth = bars.reduce((s, b) => s + b.width, 0) * 1.5;
+  const startX = Math.max(8, (widthPx - totalBarWidth) / 2);
+  const barSvgRects = bars.map(b => {
+    const x = startX + curX * 1.5;
+    curX += b.width;
+    if (!b.isBar) return '';
+    return `<rect x="${x.toFixed(1)}" y="${(heightPx * 0.42).toFixed(1)}" width="${(b.width * 1.5).toFixed(1)}" height="${(heightPx * 0.32).toFixed(1)}" fill="#000000"/>`;
+  }).filter(Boolean).join('\n    ');
+
+  const escapeXml = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const desc = [row.brand, row.style, row.size, row.shade].filter(Boolean).join(' • ');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${widthMm}mm" height="${heightMm}mm" viewBox="0 0 ${widthPx} ${heightPx}">
+  <rect width="${widthPx}" height="${heightPx}" fill="#ffffff"/>
+  <text x="${widthPx / 2}" y="${heightPx * 0.18}" font-family="Arial, sans-serif" font-size="14" font-weight="900" text-anchor="middle" fill="#000000">SMRITI RETAIL</text>
+  <text x="${widthPx / 2}" y="${heightPx * 0.29}" font-family="Arial, sans-serif" font-size="11" font-weight="700" text-anchor="middle" fill="#111827">${escapeXml(row.product.toUpperCase())}</text>
+  <text x="${widthPx / 2}" y="${heightPx * 0.38}" font-family="Arial, sans-serif" font-size="9" text-anchor="middle" fill="#4b5563">${escapeXml(desc)}</text>
+  <g>
+    ${barSvgRects}
+  </g>
+  <text x="${widthPx / 2}" y="${heightPx * 0.82}" font-family="monospace" font-size="10" font-weight="bold" text-anchor="middle" letter-spacing="2" fill="#000000">${escapeXml(barcodeVal)}</text>
+  <text x="14" y="${heightPx * 0.93}" font-family="monospace" font-size="10" font-weight="bold" fill="#374151">SKU: ${escapeXml(row.itemCode)}</text>
+  <text x="${widthPx - 14}" y="${heightPx * 0.93}" font-family="Arial, sans-serif" font-size="12" font-weight="900" text-anchor="end" fill="#000000">&#8377;${row.mrp.toLocaleString('en-IN')}</text>
+</svg>`;
+}
+
+/**
+ * Deterministic multi-label sheet SVG generator
+ */
+export function generateThermalSheetSvgString(items: StudioRow[], template: LabelTemplate): string {
+  const labelWidth = template.widthMm * 8;
+  const labelHeight = template.heightMm * 8;
+  const cols = items.length > 4 ? 3 : (items.length > 1 ? 2 : 1);
+  const rows = Math.ceil(items.length / cols);
+  const gap = 16;
+  const pad = 20;
+  const sheetWidth = cols * labelWidth + (cols - 1) * gap + pad * 2;
+  const sheetHeight = rows * labelHeight + (rows - 1) * gap + pad * 2;
+
+  const labelsSvg = items.map((itm, idx) => {
+    const col = idx % cols;
+    const row = Math.floor(idx / cols);
+    const x = pad + col * (labelWidth + gap);
+    const y = pad + row * (labelHeight + gap);
+    const labelXml = generateThermalLabelSvgString(itm, template.widthMm, template.heightMm);
+    const innerContent = labelXml.replace(/<\?xml.*?\?>/, '').replace(/<svg.*?>/, '').replace(/<\/svg>/, '');
+    return `<g transform="translate(${x}, ${y})">
+      <rect width="${labelWidth}" height="${labelHeight}" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+      ${innerContent}
+    </g>`;
+  }).join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${sheetWidth}" height="${sheetHeight}" viewBox="0 0 ${sheetWidth} ${sheetHeight}">
+  <rect width="${sheetWidth}" height="${sheetHeight}" fill="#f8fafc"/>
+  ${labelsSvg}
+</svg>`;
+}
+
+export function downloadSvgFile(svgString: string, filename: string): void {
+  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
@@ -218,21 +312,55 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
     setSearching(true);
     try {
       if (source === 'PURCHASE') {
-        const poItems = barcodeTransactionStore.getPurchaseOrders('', '', '');
-        const mapped: StudioRow[] = poItems.map((itm, i) => ({
-          id: itm.id || String(i),
-          itemCode: itm.stockNo,
-          product: itm.product,
-          brand: itm.brand || 'SMRITI',
-          style: itm.style || '',
-          shade: itm.colour || '',
-          size: itm.size || '',
-          barcode: itm.barcode,
-          stock: itm.currentStock || 0,
-          printQty: itm.labelCount || 1,
-          mrp: itm.mrp || itm.sellingPrice || 0,
-          selected: false,
-        }));
+        let mapped: StudioRow[] = [];
+        try {
+          const serverRes = await apiFetchV1<any>('/purchase/orders');
+          const serverOrders = Array.isArray(serverRes) ? serverRes : (serverRes?.items || serverRes?.orders || []);
+          if (serverOrders.length > 0) {
+            const extracted: StudioRow[] = [];
+            serverOrders.forEach((order: any, ordIdx: number) => {
+              const orderItems = order.items || [];
+              orderItems.forEach((itm: any, itemIdx: number) => {
+                extracted.push({
+                  id: itm.id || `po-${order.id || ordIdx}-${itemIdx}`,
+                  itemCode: itm.product_sku || itm.item_code || itm.stockNo || `SKU-${ordIdx}-${itemIdx}`,
+                  product: itm.product_name || itm.product || order.order_no || 'PO Item',
+                  brand: itm.brand || 'SMRITI',
+                  style: itm.style || '',
+                  shade: itm.shade || itm.color || itm.colour || '',
+                  size: itm.size || '',
+                  barcode: itm.barcode || itm.product_sku || '890100000001',
+                  stock: itm.current_stock || 0,
+                  printQty: itm.quantity || itm.ordered_qty || itm.poQty || 1,
+                  mrp: Number(itm.mrp || itm.unit_price || itm.sellingPrice || 0),
+                  selected: false,
+                });
+              });
+            });
+            if (extracted.length > 0) mapped = extracted;
+          }
+        } catch {
+          // Graceful fallback to client transaction store
+        }
+
+        if (mapped.length === 0) {
+          const poItems = barcodeTransactionStore.getPurchaseOrders('', '', '');
+          mapped = poItems.map((itm, i) => ({
+            id: itm.id || String(i),
+            itemCode: itm.stockNo,
+            product: itm.product,
+            brand: itm.brand || 'SMRITI',
+            style: itm.style || '',
+            shade: itm.colour || '',
+            size: itm.size || '',
+            barcode: itm.barcode,
+            stock: itm.currentStock || 0,
+            printQty: itm.labelCount || 1,
+            mrp: itm.mrp || itm.sellingPrice || 0,
+            selected: false,
+          }));
+        }
+
         const base = q ? mapped.filter(r =>
           r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
           r.product.toLowerCase().includes(q.toLowerCase()) ||
@@ -247,21 +375,55 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
       }
 
       if (source === 'GRN') {
-        const grnItems = barcodeTransactionStore.getTransactions('Purchase Inward (GRN)', '', '', '');
-        const mapped: StudioRow[] = grnItems.map((itm, i) => ({
-          id: itm.id || String(i),
-          itemCode: itm.stockNo,
-          product: itm.product,
-          brand: itm.brand || 'SMRITI',
-          style: itm.style || '',
-          shade: itm.colour || '',
-          size: itm.size || '',
-          barcode: itm.barcode,
-          stock: itm.currentStock || 0,
-          printQty: itm.labelCount || 1,
-          mrp: itm.mrp || itm.sellingPrice || 0,
-          selected: false,
-        }));
+        let mapped: StudioRow[] = [];
+        try {
+          const serverRes = await apiFetchV1<any>('/purchase/receipts');
+          const serverReceipts = Array.isArray(serverRes) ? serverRes : (serverRes?.items || serverRes?.receipts || []);
+          if (serverReceipts.length > 0) {
+            const extracted: StudioRow[] = [];
+            serverReceipts.forEach((receipt: any, rIdx: number) => {
+              const receiptItems = receipt.items || [];
+              receiptItems.forEach((itm: any, itemIdx: number) => {
+                extracted.push({
+                  id: itm.id || `grn-${receipt.id || rIdx}-${itemIdx}`,
+                  itemCode: itm.product_sku || itm.item_code || itm.stockNo || `GRN-${rIdx}-${itemIdx}`,
+                  product: itm.product_name || itm.product || receipt.receipt_no || 'GRN Item',
+                  brand: itm.brand || 'SMRITI',
+                  style: itm.style || '',
+                  shade: itm.shade || itm.color || itm.colour || '',
+                  size: itm.size || '',
+                  barcode: itm.barcode || itm.product_sku || '890100000001',
+                  stock: itm.current_stock || 0,
+                  printQty: itm.received_qty || itm.quantity || itm.labelCount || 1,
+                  mrp: Number(itm.mrp || itm.unit_price || itm.sellingPrice || 0),
+                  selected: false,
+                });
+              });
+            });
+            if (extracted.length > 0) mapped = extracted;
+          }
+        } catch {
+          // Graceful fallback to client transaction store
+        }
+
+        if (mapped.length === 0) {
+          const grnItems = barcodeTransactionStore.getTransactions('Purchase Inward (GRN)', '', '', '');
+          mapped = grnItems.map((itm, i) => ({
+            id: itm.id || String(i),
+            itemCode: itm.stockNo,
+            product: itm.product,
+            brand: itm.brand || 'SMRITI',
+            style: itm.style || '',
+            shade: itm.colour || '',
+            size: itm.size || '',
+            barcode: itm.barcode,
+            stock: itm.currentStock || 0,
+            printQty: itm.labelCount || 1,
+            mrp: itm.mrp || itm.sellingPrice || 0,
+            selected: false,
+          }));
+        }
+
         const base = q ? mapped.filter(r =>
           r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
           r.product.toLowerCase().includes(q.toLowerCase()) ||
@@ -275,21 +437,55 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
       }
 
       if (source === 'SALES') {
-        const salesItems = barcodeTransactionStore.getTransactions('Sales Return Inward', '', '', '');
-        const mapped: StudioRow[] = salesItems.map((itm, i) => ({
-          id: itm.id || String(i),
-          itemCode: itm.stockNo,
-          product: itm.product,
-          brand: itm.brand || 'SMRITI',
-          style: itm.style || '',
-          shade: itm.colour || '',
-          size: itm.size || '',
-          barcode: itm.barcode,
-          stock: itm.currentStock || 0,
-          printQty: itm.labelCount || 1,
-          mrp: itm.mrp || itm.sellingPrice || 0,
-          selected: false,
-        }));
+        let mapped: StudioRow[] = [];
+        try {
+          const serverRes = await apiFetchV1<any>('/sales/invoices');
+          const serverInvoices = Array.isArray(serverRes) ? serverRes : (serverRes?.items || serverRes?.invoices || []);
+          if (serverInvoices.length > 0) {
+            const extracted: StudioRow[] = [];
+            serverInvoices.forEach((inv: any, invIdx: number) => {
+              const invItems = inv.items || [];
+              invItems.forEach((itm: any, itemIdx: number) => {
+                extracted.push({
+                  id: itm.id || `inv-${inv.id || invIdx}-${itemIdx}`,
+                  itemCode: itm.product_sku || itm.item_code || itm.stockNo || `INV-${invIdx}-${itemIdx}`,
+                  product: itm.product_name || itm.product || inv.invoice_number || 'Sales Item',
+                  brand: itm.brand || 'SMRITI',
+                  style: itm.style || '',
+                  shade: itm.shade || itm.colour || '',
+                  size: itm.size || '',
+                  barcode: itm.barcode || itm.product_sku || '890100000001',
+                  stock: itm.current_stock || 0,
+                  printQty: itm.quantity || 1,
+                  mrp: Number(itm.mrp || itm.unit_price || itm.sellingPrice || 0),
+                  selected: false,
+                });
+              });
+            });
+            if (extracted.length > 0) mapped = extracted;
+          }
+        } catch {
+          // Graceful fallback
+        }
+
+        if (mapped.length === 0) {
+          const salesItems = barcodeTransactionStore.getTransactions('Sales Return Inward', '', '', '');
+          mapped = salesItems.map((itm, i) => ({
+            id: itm.id || String(i),
+            itemCode: itm.stockNo,
+            product: itm.product,
+            brand: itm.brand || 'SMRITI',
+            style: itm.style || '',
+            shade: itm.colour || '',
+            size: itm.size || '',
+            barcode: itm.barcode,
+            stock: itm.currentStock || 0,
+            printQty: itm.labelCount || 1,
+            mrp: itm.mrp || itm.sellingPrice || 0,
+            selected: false,
+          }));
+        }
+
         const base = q ? mapped.filter(r =>
           r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
           r.product.toLowerCase().includes(q.toLowerCase()) ||
@@ -303,21 +499,55 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
       }
 
       if (source === 'STOCK_TRANSFER') {
-        const stItems = barcodeTransactionStore.getTransactions('Stock Transfer Inward', '', '', '');
-        const mapped: StudioRow[] = stItems.map((itm, i) => ({
-          id: itm.id || String(i),
-          itemCode: itm.stockNo,
-          product: itm.product,
-          brand: itm.brand || 'SMRITI',
-          style: itm.style || '',
-          shade: itm.colour || '',
-          size: itm.size || '',
-          barcode: itm.barcode,
-          stock: itm.currentStock || 0,
-          printQty: itm.labelCount || 1,
-          mrp: itm.mrp || itm.sellingPrice || 0,
-          selected: false,
-        }));
+        let mapped: StudioRow[] = [];
+        try {
+          const serverRes = await apiFetchV1<any>('/wms/transfers');
+          const serverTransfers = Array.isArray(serverRes) ? serverRes : (serverRes?.items || serverRes?.transfers || []);
+          if (serverTransfers.length > 0) {
+            const extracted: StudioRow[] = [];
+            serverTransfers.forEach((tr: any, trIdx: number) => {
+              const trItems = tr.items || [];
+              trItems.forEach((itm: any, itemIdx: number) => {
+                extracted.push({
+                  id: itm.id || `tr-${tr.id || trIdx}-${itemIdx}`,
+                  itemCode: itm.product_sku || itm.item_code || itm.stockNo || `TR-${trIdx}-${itemIdx}`,
+                  product: itm.product_name || itm.product || tr.transfer_no || 'Transfer Item',
+                  brand: itm.brand || 'SMRITI',
+                  style: itm.style || '',
+                  shade: itm.shade || itm.colour || '',
+                  size: itm.size || '',
+                  barcode: itm.barcode || itm.product_sku || '890100000001',
+                  stock: itm.current_stock || 0,
+                  printQty: itm.quantity || itm.transfer_qty || 1,
+                  mrp: Number(itm.mrp || itm.unit_price || 0),
+                  selected: false,
+                });
+              });
+            });
+            if (extracted.length > 0) mapped = extracted;
+          }
+        } catch {
+          // Graceful fallback
+        }
+
+        if (mapped.length === 0) {
+          const stItems = barcodeTransactionStore.getTransactions('Stock Transfer Inward', '', '', '');
+          mapped = stItems.map((itm, i) => ({
+            id: itm.id || String(i),
+            itemCode: itm.stockNo,
+            product: itm.product,
+            brand: itm.brand || 'SMRITI',
+            style: itm.style || '',
+            shade: itm.colour || '',
+            size: itm.size || '',
+            barcode: itm.barcode,
+            stock: itm.currentStock || 0,
+            printQty: itm.labelCount || 1,
+            mrp: itm.mrp || itm.sellingPrice || 0,
+            selected: false,
+          }));
+        }
+
         const base = q ? mapped.filter(r =>
           r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
           r.product.toLowerCase().includes(q.toLowerCase()) ||
@@ -487,6 +717,29 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
     } catch (e: any) {
       onNotification?.('Print Failed', e?.message ?? 'Printer error', 'error');
     } finally { setPrinting(false); }
+  };
+
+  const handleExportSingleLabelSvg = () => {
+    if (!previewRow) {
+      onNotification?.('No Selection', 'Please select an item to export label SVG.', 'info');
+      return;
+    }
+    const svgStr = generateThermalLabelSvgString(previewRow, selectedTemplate.widthMm, selectedTemplate.heightMm);
+    const filename = `label_${previewRow.barcode || previewRow.itemCode}_${selectedTemplate.id}.svg`;
+    downloadSvgFile(svgStr, filename);
+    onNotification?.('Export Complete', `Downloaded vector label SVG: ${filename}`, 'success');
+  };
+
+  const handleExportSheetSvg = () => {
+    const itemsToExport = selectedRows.length > 0 ? selectedRows : (previewRow ? [previewRow] : rows.slice(0, 12));
+    if (itemsToExport.length === 0) {
+      onNotification?.('No Items', 'No items available to export SVG sheet.', 'info');
+      return;
+    }
+    const svgStr = generateThermalSheetSvgString(itemsToExport, selectedTemplate);
+    const filename = `labels_sheet_${selectedTemplate.id}_${Date.now()}.svg`;
+    downloadSvgFile(svgStr, filename);
+    onNotification?.('Export Complete', `Downloaded vector labels sheet SVG: ${filename}`, 'success');
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -845,7 +1098,24 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           <div className='p-4 border-b border-[#e2e8f0] dark:border-[#334155]'>
             <div className='flex items-center justify-between mb-3'>
               <span className='text-xs font-bold'>Label Preview</span>
-              <button type='button' className='text-[11px] text-[#00288e] font-bold hover:underline flex items-center gap-1'><Tag size={10} /> Change Template</button>
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={handleExportSingleLabelSvg}
+                  disabled={!previewRow}
+                  title='Export Label as Vector SVG'
+                  className='text-[11px] text-[#00288e] dark:text-[#a8b8ff] font-bold hover:underline flex items-center gap-1 disabled:opacity-40 disabled:no-underline'
+                >
+                  <Download size={11} /> SVG
+                </button>
+                <button
+                  type='button'
+                  onClick={onNavigateToDesigner}
+                  className='text-[11px] text-[#00288e] dark:text-[#a8b8ff] font-bold hover:underline flex items-center gap-1'
+                >
+                  <Tag size={10} /> Designer
+                </button>
+              </div>
             </div>
             {/* Simulated label card */}
             <div className='border-2 border-[#e2e8f0] dark:border-[#334155] rounded-xl overflow-hidden bg-white shadow-sm'>
@@ -1010,9 +1280,16 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                 <button
                   type='button'
                   onClick={() => setPreviewModalOpen(false)}
-                  className='px-4 py-2 text-xs font-bold border border-[#c4c5d5] dark:border-[#444653] rounded-xl hover:bg-[#f1f5f9] transition'
+                  className='px-4 py-2 text-xs font-bold border border-[#c4c5d5] dark:border-[#444653] rounded-xl hover:bg-[#f1f5f9] dark:hover:bg-[#334155] transition'
                 >
                   Close
+                </button>
+                <button
+                  type='button'
+                  onClick={handleExportSheetSvg}
+                  className='flex items-center gap-1.5 px-4 py-2 text-xs font-bold border border-[#00288e] dark:border-[#3b82f6] text-[#00288e] dark:text-[#60a5fa] hover:bg-[#dde1ff]/30 rounded-xl transition'
+                >
+                  <Download size={14} /> Export Vector SVG
                 </button>
                 <button
                   type='button'
