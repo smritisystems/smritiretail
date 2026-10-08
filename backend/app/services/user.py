@@ -497,6 +497,17 @@ class UserService:
         if existing:
             raise HTTPException(status_code=400, detail=f"Username '{req.username}' is already taken.")
 
+        # Resolve and check email uniqueness if provided
+        email_val = req.email.strip().lower() if req.email and req.email.strip() else None
+        if not email_val and req.username and "@" in req.username:
+            email_val = req.username.strip().lower()
+
+        if email_val:
+            eq = select(User).where(User.email == email_val, User.is_deleted == False)
+            existing_email = (await self.db.execute(eq)).scalars().first()
+            if existing_email:
+                raise HTTPException(status_code=400, detail=f"Email '{email_val}' is already registered to another account.")
+
         emp_id = req.employeeId or f"EMP-{random.randint(1000, 9999)}"
         emp_code = req.employeeCode or f"EMP-{random.randint(1000, 9999)}"
         display_name = req.displayName or (req.fullName.split(" ")[0] if req.fullName else "")
@@ -577,7 +588,7 @@ class UserService:
         user = User(
             id=f"usr-{uuid.uuid4().hex[:8]}",
             username=req.username,
-            email=req.email or "",
+            email=email_val,
             mobile=req.mobile or "0000000000",
             hashed_password=hashed,
             role=req.role,
@@ -692,10 +703,14 @@ class UserService:
         if req.displayName is not None: user.display_name = req.displayName
         if req.gender is not None: user.gender = req.gender
         if req.dateOfBirth is not None: user.date_of_birth = req.dateOfBirth
-        if req.mobile is not None: user.mobile = req.mobile
-        if req.alternateMobile is not None: user.alternate_mobile = req.alternateMobile
-        if req.email is not None: user.email = req.email
-        if req.emergencyContact is not None: user.emergency_contact = req.emergencyContact
+        if req.email is not None:
+            email_val = req.email.strip().lower() if req.email.strip() else None
+            if email_val and email_val != user.email:
+                eq = select(User).where(User.email == email_val, User.id != user.id, User.is_deleted == False)
+                existing_email = (await self.db.execute(eq)).scalars().first()
+                if existing_email:
+                    raise HTTPException(status_code=400, detail=f"Email '{email_val}' is already registered to another account.")
+            user.email = email_val
         if req.address is not None: user.address = req.address
         if req.city is not None: user.city = req.city
         if req.state is not None: user.state = req.state

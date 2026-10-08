@@ -160,7 +160,7 @@ class StaffUserCreate(BaseModel):
     dateOfBirth: Optional[str] = "1990-01-01"
     mobile: Optional[str] = "0000000000"
     alternateMobile: Optional[str] = ""
-    email: Optional[str] = ""
+    email: Optional[str] = None
     emergencyContact: Optional[str] = ""
     address: Optional[str] = ""
     city: Optional[str] = ""
@@ -184,6 +184,12 @@ class StaffUserCreate(BaseModel):
     preferences: Optional[UserPreferencesSchema] = None
     notificationSettings: Optional[NotificationSettings] = None
 
+    @field_validator("email", mode="before")
+    def sanitize_email(cls, v):
+        if not v or not isinstance(v, str) or not v.strip():
+            return None
+        return v.strip().lower()
+
     @field_validator("role", mode="before")
     def normalize_role(cls, v):
         if v is None:
@@ -192,6 +198,8 @@ class StaffUserCreate(BaseModel):
             cleaned = v.strip().upper()
             if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
                 return UserRole.SYSADMIN
+            if cleaned in ("SALES_EXECUTIVE", "SALES", "EXECUTIVE"):
+                return UserRole.CASHIER
             if cleaned in UserRole.__members__:
                 return UserRole[cleaned]
         return v
@@ -213,9 +221,17 @@ class StaffUserUpdate(BaseModel):
             cleaned = v.strip().upper()
             if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
                 return UserRole.SYSADMIN
+            if cleaned in ("SALES_EXECUTIVE", "SALES", "EXECUTIVE"):
+                return UserRole.CASHIER
             if cleaned in UserRole.__members__:
                 return UserRole[cleaned]
         return v
+
+    @field_validator("email", mode="before")
+    def sanitize_email(cls, v):
+        if not v or not isinstance(v, str) or not v.strip():
+            return None
+        return v.strip().lower()
     displayName: Optional[str] = None
     gender: Optional[str] = None
     dateOfBirth: Optional[str] = None
