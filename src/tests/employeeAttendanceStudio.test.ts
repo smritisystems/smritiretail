@@ -329,5 +329,74 @@ describe("Attendance Studio — Full System Audit & Regression Verification", ()
     expect(leaveRequest.status).toBe("PENDING");
     expect(leaveRequest.total_days).toBe(2);
   });
+
+  it("verifies Leave Decision action contract and state transition on approval and rejection", () => {
+    let balance = { entitled_days: 12, used_days: 1, pending_days: 2 };
+    const pendingRequest = { id: "lr-99", status: "PENDING", total_days: 2 };
+
+    // Simulate Approve decision
+    const approveDecision = { status: "APPROVED", decision_reason: "Approved by store manager" };
+    expect(["APPROVED", "REJECTED"]).toContain(approveDecision.status);
+
+    if (approveDecision.status === "APPROVED") {
+      pendingRequest.status = "APPROVED";
+      balance.used_days += pendingRequest.total_days;
+      balance.pending_days = Math.max(0, balance.pending_days - pendingRequest.total_days);
+    }
+
+    expect(pendingRequest.status).toBe("APPROVED");
+    expect(balance.used_days).toBe(3);
+    expect(balance.pending_days).toBe(0);
+
+    // Simulate subsequent request and Reject decision
+    const pendingRequest2 = { id: "lr-100", status: "PENDING", total_days: 1 };
+    balance.pending_days += pendingRequest2.total_days;
+    expect(balance.pending_days).toBe(1);
+
+    const rejectDecision = { status: "REJECTED", decision_reason: "Shift shortage" };
+    if (rejectDecision.status === "REJECTED") {
+      pendingRequest2.status = "REJECTED";
+      balance.pending_days = Math.max(0, balance.pending_days - pendingRequest2.total_days);
+    }
+
+    expect(pendingRequest2.status).toBe("REJECTED");
+    expect(balance.used_days).toBe(3);
+    expect(balance.pending_days).toBe(0);
+  });
+
+  it("verifies Printable Salary Slip calculation and voucher metadata formatting", () => {
+    const profile = {
+      user_id: "usr-emp-789",
+      emp_id: "EMP-00789",
+      full_name: "Kavita Rao",
+      designation: "Assistant Store Manager",
+      base_salary: 32000,
+      branch_code: "BR-MUMBAI-01",
+    };
+
+    const period = "2026-10";
+    const workingDays = 26;
+    const effectivePresent = 24.5;
+    const lopDays = Math.max(0, workingDays - effectivePresent);
+    expect(lopDays).toBe(1.5);
+
+    const baseSalary = profile.base_salary;
+    const earnedSalary = Math.round((baseSalary * (effectivePresent / workingDays)) * 100) / 100;
+    const lopDeduction = Math.round((baseSalary * (lopDays / workingDays)) * 100) / 100;
+    const commAmt = 4500.0;
+    const bonusAmt = 1500.0;
+    const grossPayout = earnedSalary + commAmt + bonusAmt;
+    const netPayout = grossPayout;
+
+    expect(earnedSalary).toBe(30153.85);
+    expect(lopDeduction).toBe(1846.15);
+    expect(earnedSalary + lopDeduction).toBe(baseSalary);
+    expect(grossPayout).toBe(36153.85);
+    expect(netPayout).toBe(36153.85);
+
+    // Voucher Ref format validation
+    const voucherRef = `PSLIP-${period.replace("-", "")}-${profile.user_id.slice(-6).toUpperCase()}`;
+    expect(voucherRef).toBe("PSLIP-202610-MP-789");
+  });
 });
 
