@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Core Domain Service
 """
 
+import re
 import uuid
 from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
@@ -524,15 +525,37 @@ class ItemDomainService:
 
         color_clean = req.color.strip().upper()
         size_clean = req.size.strip().upper()
-        # Rule 6: Where an official primary barcode exists when the variant is created,
-        # the initial SKU MAY be assigned from that primary barcode.
+
+        # Prohibit synthetic / placeholder barcodes
+        if req.primary_barcode and req.primary_barcode.strip():
+            raw_bc = req.primary_barcode.strip().upper()
+            if re.match(r"^(890GEN|ITM-|S\d{12})", raw_bc, re.IGNORECASE) or (len(raw_bc) == 36 and "-" in raw_bc):
+                raise BusinessLogicError(
+                    message="Synthetic or auto-generated placeholder barcodes are strictly prohibited.",
+                    code="SMRITI-SYNTHETIC-BARCODE-PROHIBITED",
+                )
+
+        # Mandatory SKU Decision Tree:
+        # Case 2: User explicitly provides SKU (takes precedence)
         if req.variant_sku and req.variant_sku.strip():
             sku = req.variant_sku.strip().upper()
+        # Case 1: Official primary barcode exists AND SKU is blank (Initial assignment from primary barcode)
         elif req.primary_barcode and req.primary_barcode.strip():
             sku = req.primary_barcode.strip().upper()
+        # Case 3: Neither barcode nor SKU exists (DO NOT silently generate SKU)
         else:
-            # Rule 7: If no barcode exists, use internally generated business SKU
-            sku = f"{style.item_code}-{color_clean}-{size_clean}".upper()
+            raise BusinessLogicError(
+                message="SKU / Item Code is required or must be approved before saving.",
+                code="ITEM_MASTER_VALIDATION_ERROR",
+            )
+
+        # SKU Uniqueness check within company scope
+        stmt_sku = select(ItemVariant).where(
+            ItemVariant.company_id == company_id,
+            ItemVariant.variant_sku == sku,
+            ItemVariant.is_deleted == False,
+        )
+        existing_sku_record = (await session.execute(stmt_sku)).scalars().first()
 
         # Check existing physical variant by (company_id, style_id, color, size)
         stmt_existing = select(ItemVariant).where(
@@ -558,8 +581,18 @@ class ItemDomainService:
         created_barcode = None
 
         if existing_variant:
+            if existing_sku_record and existing_sku_record.id != existing_variant.id:
+                raise BusinessLogicError(
+                    message=f"SKU '{sku}' is already registered for this company.",
+                    code="SMRITI-SKU-COLLISION",
+                )
             variant = existing_variant
         else:
+            if existing_sku_record:
+                raise BusinessLogicError(
+                    message=f"SKU '{sku}' is already registered for this company.",
+                    code="SMRITI-SKU-COLLISION",
+                )
             var_id = f"var-{uuid.uuid4().hex[:12]}"
             name = req.variant_name or f"{style.item_name} ({color_clean}/{size_clean})"
             attr_bag = dict(req.attributes_json)
@@ -1275,6 +1308,13 @@ class ItemDomainService:
             )
 
         b_clean = req.barcode.strip()
+        # Prohibit synthetic / placeholder barcodes
+        if re.match(r"^(890GEN|ITM-|S\d{12})", b_clean, re.IGNORECASE) or (len(b_clean) == 36 and "-" in b_clean):
+            raise BusinessLogicError(
+                message="Synthetic or auto-generated placeholder barcodes are strictly prohibited.",
+                code="SMRITI-SYNTHETIC-BARCODE-PROHIBITED",
+            )
+
         # Verify barcode uniqueness within company
         stmt_check = select(ItemBarcode).where(
             ItemBarcode.company_id == company_id,
@@ -1287,6 +1327,21 @@ class ItemDomainService:
                 message=f"Barcode '{b_clean}' is already registered in company catalog.",
                 code="SMRITI-BARCODE-COLLISION",
             )
+
+        # Enforce Rule: Only one active primary barcode per variant (Multiple primary barcodes rejected)
+        if req.is_primary:
+            stmt_prim = select(ItemBarcode).where(
+                ItemBarcode.company_id == company_id,
+                ItemBarcode.variant_id == variant.id,
+                ItemBarcode.is_primary == True,
+                ItemBarcode.is_deleted == False,
+            )
+            existing_prim = (await session.execute(stmt_prim)).scalars().first()
+            if existing_prim:
+                raise BusinessLogicError(
+                    message=f"Variant '{variant.id}' already has an active primary barcode ({existing_prim.barcode}). Multiple primary barcodes are not allowed.",
+                    code="SMRITI-PRIMARY-BARCODE-COLLISION",
+                )
 
         pbe_id = req.price_book_entry_id
         # If barcode-specific commercial price point provided, register it in Pricing Domain
@@ -1337,6 +1392,53 @@ class ItemDomainService:
             await session.refresh(barcode_obj)
 
         return barcode_obj
+
+    @classmethod
+    async def propose_sku(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        style_code: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Deterministic, collision-safe, tenant-aware SKU proposal engine (Case 4).
+        Zero persistence, zero counter burn. Candidate is only persisted after
+        explicit user approval on form submission.
+        """
+        stmt = select(ItemVariant.variant_sku).where(
+            ItemVariant.company_id == company_id,
+            ItemVariant.variant_sku.like("SMR-ITM-%"),
+            ItemVariant.is_deleted == False,
+        )
+        existing_skus = (await session.execute(stmt)).scalars().all()
+        highest_seq = 0
+        for s in existing_skus:
+            num_part = s.replace("SMR-ITM-", "")
+            if num_part.isdigit():
+                highest_seq = max(highest_seq, int(num_part))
+
+        next_cand = highest_seq + 1
+        candidate_sku = f"SMR-ITM-{str(next_cand).zfill(6)}"
+
+        # Validate collision-safe uniqueness within tenant/company scope
+        while True:
+            chk = await session.execute(
+                select(ItemVariant.id).where(
+                    ItemVariant.company_id == company_id,
+                    ItemVariant.variant_sku == candidate_sku,
+                    ItemVariant.is_deleted == False,
+                )
+            )
+            if not chk.scalars().first():
+                break
+            next_cand += 1
+            candidate_sku = f"SMR-ITM-{str(next_cand).zfill(6)}"
+
+        return {
+            "proposed_sku": candidate_sku,
+            "status": "PROPOSED",
+            "message": f"Proposed SKU: {candidate_sku}. Awaiting explicit user approval before persistence.",
+        }
 
     # ---------------------------------------------------------------------------
     # 4. Governed Master Lookups Domain Method

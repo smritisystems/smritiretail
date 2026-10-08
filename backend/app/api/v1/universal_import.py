@@ -15,6 +15,7 @@ Classification: Internal
 import difflib
 import hashlib
 import json
+import re
 import uuid
 from decimal import Decimal
 from io import BytesIO
@@ -232,24 +233,29 @@ async def preview_universal_import(
                 )
                 supplier_match = (await db.execute(sup_stmt)).scalars().first()
                 if not supplier_match:
-                    errors.append(f"Vendor code '{vendor_code}' does not match any registered Supplier in company {company_id}.")
+                    errors.append(f"Vendor code '{vendor_code}' does not match any registered Supplier in company {company_id}. Recommendation: Register supplier '{vendor_code}' under Master Data → Suppliers first, or leave the Vendor Code empty.")
 
-            if not barcode:
-                errors.append("Missing BARCODE_NO")
-            elif barcode in batch_barcodes:
-                duplicate_in_file = True
-                errors.append(f"Duplicate barcode within file: {barcode}")
+            if barcode:
+                if re.match(r"^(890GEN|ITM-|S\d{12})", barcode, re.IGNORECASE) or (len(barcode) == 36 and "-" in barcode):
+                    errors.append(f"Synthetic or placeholder barcode '{barcode}' is strictly prohibited.")
+                elif barcode in batch_barcodes:
+                    duplicate_in_file = True
+                    errors.append(f"Duplicate barcode within file: {barcode}")
 
             # IM-004: ARTICLE_STYLE_CODE is mandatory — never derive from SKU code.
             # If style is missing, BLOCK the row with an explicit error.
             if not style:
                 errors.append("ARTICLE_STYLE_CODE required — style/article column is missing or empty. Cannot derive style from SKU code.")
 
+            # SKU rules during import (v6.70.7):
+            # 1. Barcode exists + SKU blank -> initialize SKU from barcode.
+            # 2. SKU supplied -> use supplied SKU.
+            # 3. Neither supplied -> DO NOT silently generate SKU.
             if not sku:
-                if style and color and size:
-                    sku = f"{style}-{color}-{size}".upper()
+                if barcode:
+                    sku = barcode
                 else:
-                    errors.append("Missing SKU_CODE or Style/Color/Size")
+                    errors.append("Neither SKU nor Barcode supplied. Provide SKU/Barcode or approve generated SKU before import.")
             elif sku in batch_skus:
                 duplicate_in_file = True
                 errors.append(f"Duplicate SKU within file: {sku}")
@@ -591,7 +597,7 @@ async def commit_universal_import(
                 if not supplier_match:
                     raise HTTPException(
                         status_code=422,
-                        detail={"row_number": row.get("rowNumber", index), "message": f"Vendor code '{vendor_code}' does not match any registered Supplier in company {company_id}."}
+                        detail={"row_number": row.get("rowNumber", index), "message": f"Vendor code '{vendor_code}' does not match any registered Supplier in company {company_id}. Recommendation: Register supplier '{vendor_code}' under Master Data → Suppliers first, or leave the Vendor Code empty."}
                     )
                 resolved_vendor_code = supplier_match.code.upper()
 
@@ -918,15 +924,29 @@ async def commit_universal_import(
                             item.vendor_code = resolved["vendor_code"]
                     created_styles_map[style_code] = item
 
-                # 4. Create ItemVariant
+                # 4. Create ItemVariant SKU Resolution (v6.70.7)
+                if clean_barcode and (re.match(r"^(890GEN|ITM-|S\d{12})", clean_barcode, re.IGNORECASE) or (len(clean_barcode) == 36 and "-" in clean_barcode)):
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "row_number": row.get("rowNumber", index),
+                            "message": f"Synthetic or placeholder barcode '{clean_barcode}' is strictly prohibited."
+                        }
+                    )
+
                 if not clean_sku:
-                    # Rule 6: Where an official primary barcode exists when the variant is created/imported,
-                    # the initial SKU MAY be assigned from that primary barcode.
+                    # Rule 1: Barcode exists + SKU blank -> initialize SKU from barcode
                     if clean_barcode:
                         clean_sku = clean_barcode
                     else:
-                        # Rule 7: If no barcode exists, DO NOT invent a fake barcode. Use internal business SKU.
-                        clean_sku = f"{style_code}-{color}-{size}".upper() if (color and size) else f"{style_code}-VAR-{index}"
+                        # Rule 3: Neither supplied -> DO NOT silently generate SKU
+                        raise HTTPException(
+                            status_code=422,
+                            detail={
+                                "row_number": row.get("rowNumber", index),
+                                "message": "Neither SKU nor Barcode provided. Cannot silently generate SKU."
+                            }
+                        )
 
                 attrs = {
                     **footwear_nested_attrs,

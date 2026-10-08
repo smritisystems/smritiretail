@@ -26,6 +26,7 @@ import { FieldSelectTab } from "./tabs/FieldSelectViewTab.tsx";
 import { ItemDetailsGridTab } from "./tabs/ItemDetailsGridTab.tsx";
 import { ItemMasterStudio } from "./ItemMasterStudio.tsx";
 import { ItemSaveWarnDlg } from "./modals/ItemSaveWarnDlg.tsx";
+import { ItemMasterValidationAdvisorModal } from "./modals/ItemMasterValidationAdvisorModal.tsx";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
   validateItemMasterLookupOptionsDetailed,
@@ -38,7 +39,7 @@ const STORAGE_KEY_COMMON_FIELDS = "smriti_item_master_common_fields_v1";
 
 interface ItemEntryViewwProps {
   onRefreshProducts?: () => Promise<void>;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
   currentUser?: { role: string; name: string } | null;
   existingProducts?: Product[];
 }
@@ -122,6 +123,9 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
     pendingItems: []
   });
 
+  // Human-Readable Pre-Save Validation Advisor Modal state
+  const [isValidationAdvisorOpen, setIsValidationAdvisorOpen] = useState<boolean>(false);
+
   // Global Keyboard Shortcuts (Alt+1, Alt+2, Alt+3)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -186,10 +190,25 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
         const code = (item.stockNo || item.code || "").toString().trim();
         const barcode = (item.barcode || "").toString().trim();
         const name = (item.product || item.name || item.itemDescription || "").toString().trim();
-        const mrp = parseFloat(item.mrp);
-        const price = parseFloat(item.sellingPrice || item.price);
-        const buyingPrice = parseFloat(item.buyingPrice || item.buying_price || "0");
-        const costPrice = parseFloat(item.costPrice || item.cost_price || "0");
+        const rawMrp = parseFloat(String(item.mrp || "0"));
+        const rawPrice = parseFloat(String(item.sellingPrice || item.price || "0"));
+        // Smart fallback: if selling price is empty or 0, default to MRP
+        const price = !isNaN(rawPrice) && rawPrice > 0 ? rawPrice : (!isNaN(rawMrp) && rawMrp > 0 ? rawMrp : 0);
+        const mrp = !isNaN(rawMrp) && rawMrp > 0 ? rawMrp : (!isNaN(price) && price > 0 ? price : 0);
+
+        const rawBuyingPrice = parseFloat(String(item.buyingPrice || item.buying_price || "0"));
+        const rawCostPrice = parseFloat(String(item.costPrice || item.cost_price || "0"));
+        // Smart fallback: cost price and buying price mutually default each other
+        let costPrice = !isNaN(rawCostPrice) && rawCostPrice > 0
+          ? rawCostPrice
+          : (!isNaN(rawBuyingPrice) && rawBuyingPrice > 0 ? rawBuyingPrice : 0);
+        let buyingPrice = !isNaN(rawBuyingPrice) && rawBuyingPrice > 0
+          ? rawBuyingPrice
+          : (!isNaN(rawCostPrice) && rawCostPrice > 0 ? rawCostPrice : 0);
+        if (costPrice > buyingPrice) {
+          buyingPrice = costPrice;
+        }
+
         const gstRate = parseFloat(String(item.productTax || commonFieldValues.taxRate || "18").replace(/[^0-9.]/g, ""));
         const hsnCode = (item.hsnCode || commonFieldValues.hsnCode || "").toString().trim();
 
@@ -206,21 +225,20 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
         if (!code) missing.push("Stock No / SKU");
         if (!barcode) missing.push("Barcode");
         if (!name) missing.push("Product Name / Title");
-        if (isNaN(mrp) || mrp < 0 || item.mrp === "" || item.mrp === null || item.mrp === undefined) missing.push("MRP");
-        if (isNaN(price) || price < 0 || (item.sellingPrice === "" && item.price === "") || (item.sellingPrice === null && item.price === null)) missing.push("Selling Price");
+        if (isNaN(mrp) || mrp <= 0) missing.push("MRP (> 0)");
+        if (isNaN(price) || price <= 0) missing.push("Selling Price (> 0)");
+        if (mrp < price) missing.push(`Selling Price (${price}) exceeds MRP (${mrp})`);
         if (isNaN(gstRate) || gstRate < 0) missing.push("GST Tax Rate");
-        if (!hsnCode) missing.push("HSN Code");
+        if (!hsnCode) missing.push("HSN Code (GST Requirement)");
 
         if (!isNonStock) {
-          if (isNaN(buyingPrice) || buyingPrice <= 0) missing.push("Buying Price (> 0)");
+          if (isNaN(buyingPrice) || buyingPrice <= 0) missing.push("Buying / Cost Price (> 0)");
           if (isNaN(costPrice) || costPrice <= 0) missing.push("Cost Price (> 0)");
-          if (!isNaN(mrp) && !isNaN(price) && mrp < price) missing.push(`MRP >= Selling Price (${mrp} < ${price})`);
-          if (!isNaN(costPrice) && !isNaN(buyingPrice) && costPrice > buyingPrice) missing.push(`Cost Price <= Buying Price (${costPrice} > ${buyingPrice})`);
         }
 
         if (missing.length > 0) {
           failureCount++;
-          errors.push(`Row #${rowNum} invalid field(s): ${missing.join(", ")}`);
+          errors.push(`Row #${rowNum} missing: ${missing.join(", ")}`);
           continue;
         }
 
@@ -270,6 +288,18 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
           const errData = typeof res.json === "function" ? await res.json().catch(() => ({})) : res;
           let failMsg = errData.detail || `Save failure on Row #${rowNum}`;
           if (typeof failMsg === "object" && failMsg?.message) failMsg = failMsg.message;
+          if (typeof failMsg === "string") {
+            const lower = failMsg.toLowerCase();
+            if (lower.includes("vendor_code") || lower.includes("supplier")) {
+              failMsg = `Vendor code '${item.vendorCode}' is not registered in Master Data → Suppliers. Register supplier first or clear vendor code.`;
+            } else if (lower.includes("hsn")) {
+              failMsg = "HSN Code is required for GST statutory compliance. Standard 8-digit HSN code required.";
+            } else if (lower.includes("barcode")) {
+              failMsg = `Barcode '${barcode}' already exists or invalid format.`;
+            } else if (lower.includes("code") && lower.includes("unique")) {
+              failMsg = `SKU Code '${code}' already exists in catalogue.`;
+            }
+          }
           errors.push(`Row #${rowNum}: ${failMsg}`);
         }
       } catch (err: any) {
@@ -304,12 +334,48 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
     }
   };
 
+  const handleApplyFixesAndSave = (fixedRows: ItemMasterGridRow[]) => {
+    setRows(fixedRows);
+    setIsValidationAdvisorOpen(false);
+    const valid = fixedRows.filter(r => (r.product && r.product.trim()) || (r.stockNo && r.stockNo.trim()) || (r.barcode && r.barcode.trim()));
+    executeCommitItems(valid);
+  };
+
+  const handleApplyFixesToGridOnly = (fixedRows: ItemMasterGridRow[]) => {
+    setRows(fixedRows);
+    setIsValidationAdvisorOpen(false);
+    if (onNotification) {
+      onNotification(
+        "Recommendations Applied",
+        "Applied recommended HSN, SKUs, and pricing to grid. Please review and click OK / Save Items to commit.",
+        "success"
+      );
+    }
+  };
+
   const handleInitiateSave = () => {
-    const validRows = rows.filter(r => (r.product && r.product.trim()) || (r.stockNo && r.stockNo.trim()));
+    const validRows = rows.filter(r => (r.product && r.product.trim()) || (r.stockNo && r.stockNo.trim()) || (r.barcode && r.barcode.trim()));
     if (validRows.length === 0) {
       if (onNotification) {
         onNotification("No Data", "Please enter at least one product line item before saving.", "error");
       }
+      return;
+    }
+
+    // Pre-flight check: if any rows have critical missing fields (HSN code, Barcode, SKU, invalid price),
+    // open the Human Validation Advisor to guide the user and provide 1-click quick fixes
+    const hasCriticalIssues = validRows.some(r => {
+      const hsn = (r.hsnCode || commonFieldValues.hsnCode || "").toString().trim();
+      const code = (r.stockNo || r.code || "").toString().trim();
+      const barcode = (r.barcode || "").toString().trim();
+      const name = (r.product || r.itemDescription || "").toString().trim();
+      const mrp = parseFloat(String(r.mrp || 0));
+      const sp = parseFloat(String(r.sellingPrice || r.price || 0));
+      return !hsn || !code || !barcode || !name || isNaN(mrp) || mrp <= 0 || isNaN(sp) || sp <= 0 || mrp < sp;
+    });
+
+    if (hasCriticalIssues) {
+      setIsValidationAdvisorOpen(true);
       return;
     }
 
@@ -419,6 +485,7 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
             isSaving={isSaving}
             onNotification={onNotification}
             allAvailableFields={allAvailableFields}
+            onOpenValidationAdvisor={() => setIsValidationAdvisorOpen(true)}
           />
         )}
 
@@ -438,6 +505,17 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
         message={warningModalState.message}
         onConfirm={() => executeCommitItems(warningModalState.pendingItems)}
         onCancel={() => setWarningModalState({ isOpen: false, message: "", pendingItems: [] })}
+      />
+
+      {/* Human-Readable Pre-Save Validation Advisor Modal */}
+      <ItemMasterValidationAdvisorModal
+        isOpen={isValidationAdvisorOpen}
+        rows={rows}
+        commonFieldValues={commonFieldValues}
+        onClose={() => setIsValidationAdvisorOpen(false)}
+        onApplyFixesAndSave={handleApplyFixesAndSave}
+        onApplyFixesToGridOnly={handleApplyFixesToGridOnly}
+        isSaving={isSaving}
       />
 
     </div>

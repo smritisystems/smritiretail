@@ -331,10 +331,10 @@ const StockLookupModal: React.FC<{
   const loadItems = async (query = "") => {
     setLoading(true);
     try {
-      const data = await apiFetchV1("/inventory/items", {
-        params: query ? { search: query } : {},
+      const data = await apiFetchV1("/inventory/", {
+        params: query ? { q: query } : {},
       });
-      const rows = Array.isArray(data) ? data : data.data || [];
+      const rows = Array.isArray(data) ? data : (data?.items || data?.data || []);
       setItems(rows.map((item: any) => ({
         ...item,
         barcode: item.barcode || item.ean || item.item_barcode || "",

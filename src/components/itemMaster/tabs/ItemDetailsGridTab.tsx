@@ -40,8 +40,9 @@ interface ItemDetailsGridTabProps {
   onSaveRows: () => void;
   onCancel: () => void;
   isSaving?: boolean;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
   allAvailableFields?: ItemMasterFieldDefinition[];
+  onOpenValidationAdvisor?: () => void;
 }
 
 export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
@@ -53,7 +54,8 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
   onCancel,
   isSaving = false,
   onNotification,
-  allAvailableFields = ALL_AVAILABLE_ITEM_FIELDS
+  allAvailableFields = ALL_AVAILABLE_ITEM_FIELDS,
+  onOpenValidationAdvisor,
 }) => {
   const [frozenColsCount, setFrozenColsCount] = useState<number>(1);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
@@ -129,6 +131,55 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
       width: "120px"
     });
   }, [selectedFieldIds, fieldMap]);
+
+  // Compute live validation status for every row to guide non-technical users
+  const rowValidationStats = useMemo(() => {
+    let readyCount = 0;
+    let attentionCount = 0;
+    const activeRows = rows.filter(
+      (r) => (r.product && r.product.trim()) || (r.stockNo && r.stockNo.trim()) || (r.barcode && r.barcode.trim())
+    );
+
+    const map = new Map<string, { isValid: boolean; issues: string[]; summary: string }>();
+
+    activeRows.forEach((row) => {
+      const issues: string[] = [];
+      const hsn = (row.hsnCode || commonFieldValues.hsnCode || "").toString().trim();
+      const barcode = (row.barcode || "").toString().trim();
+      const sku = (row.stockNo || (row as any).code || "").toString().trim();
+      const name = (row.product || row.itemDescription || "").toString().trim();
+      const mrp = parseFloat(String(row.mrp || 0));
+      const sp = parseFloat(String(row.sellingPrice || (row as any).price || 0));
+
+      if (!hsn) issues.push("Missing HSN Code");
+      if (!barcode) issues.push("Missing Barcode");
+      if (!sku) issues.push("Missing SKU");
+      if (!name) issues.push("Missing Product Title");
+      if (isNaN(mrp) || mrp <= 0) issues.push("Missing MRP");
+      if (isNaN(sp) || sp <= 0) {
+        if (isNaN(mrp) || mrp <= 0) issues.push("Missing Price");
+      } else if (mrp > 0 && sp > mrp) {
+        issues.push("Selling Price > MRP");
+      }
+
+      const isValid = issues.length === 0;
+      if (isValid) readyCount++;
+      else attentionCount++;
+
+      map.set(row.id, {
+        isValid,
+        issues,
+        summary: isValid ? "Ready to save" : issues.join(" • ")
+      });
+    });
+
+    return {
+      activeCount: activeRows.length,
+      readyCount,
+      attentionCount,
+      map
+    };
+  }, [rows, commonFieldValues]);
 
   // Ensure there is at least one row on mount
   useEffect(() => {
@@ -286,7 +337,12 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
 
       // Smart auto-fill
       if (newRow.product && !newRow.itemDescription) newRow.itemDescription = newRow.product;
+      if (newRow.itemDescription && !newRow.product) newRow.product = newRow.itemDescription;
       if (newRow.mrp && !newRow.sellingPrice) newRow.sellingPrice = newRow.mrp;
+      if (newRow.costPrice && !(newRow as any).buyingPrice) (newRow as any).buyingPrice = newRow.costPrice;
+      if ((newRow as any).buyingPrice && !newRow.costPrice) newRow.costPrice = (newRow as any).buyingPrice;
+      if (commonFieldValues.hsnCode && !newRow.hsnCode) newRow.hsnCode = commonFieldValues.hsnCode;
+      if (commonFieldValues.brand && !newRow.brand) newRow.brand = commonFieldValues.brand;
 
       parsedRows.push(newRow);
     });
@@ -297,9 +353,9 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
       setSelectedRowIndex(0);
       if (onNotification) {
         onNotification(
-          "Imported Successfully",
-          `${parsedRows.length} rows imported with auto-detected column mapping.`,
-          "success"
+          "Draft Loaded into Grid",
+          `${parsedRows.length} rows loaded as Draft Preview. Please review and click 'OK / Save Items' below to save to database.`,
+          "info"
         );
       }
     }
@@ -324,6 +380,16 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
           }
         }
       });
+
+      // Smart auto-fill
+      if (newRow.product && !newRow.itemDescription) newRow.itemDescription = newRow.product;
+      if (newRow.itemDescription && !newRow.product) newRow.product = newRow.itemDescription;
+      if (newRow.mrp && !newRow.sellingPrice) newRow.sellingPrice = newRow.mrp;
+      if (newRow.costPrice && !(newRow as any).buyingPrice) (newRow as any).buyingPrice = newRow.costPrice;
+      if ((newRow as any).buyingPrice && !newRow.costPrice) newRow.costPrice = (newRow as any).buyingPrice;
+      if (commonFieldValues.hsnCode && !newRow.hsnCode) newRow.hsnCode = commonFieldValues.hsnCode;
+      if (commonFieldValues.brand && !newRow.brand) newRow.brand = commonFieldValues.brand;
+
       parsedRows.push(newRow);
     });
 
@@ -333,9 +399,9 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
       setSelectedRowIndex(0);
       if (onNotification) {
         onNotification(
-          "Pasted (Positional)",
-          `${parsedRows.length} rows imported in sequential column order.`,
-          "success"
+          "Draft Loaded into Grid",
+          `${parsedRows.length} rows loaded in sequential order as Draft Preview. Click 'OK / Save Items' to commit to database.`,
+          "info"
         );
       }
     }
@@ -416,6 +482,50 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
         </div>
       </div>
 
+      {/* ── Draft Preview & Pre-Flight Validation Banner ─────────────────── */}
+      {rowValidationStats.activeCount > 0 && (
+        <div className={`border-b px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 ${
+          rowValidationStats.attentionCount > 0
+            ? "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800"
+            : "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800"
+        }`}>
+          <div className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-100">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide shadow-xs ${
+              rowValidationStats.attentionCount > 0
+                ? "bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100"
+                : "bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100"
+            }`}>
+              Draft Preview
+            </span>
+            <span>
+              {rowValidationStats.attentionCount > 0 ? (
+                <>
+                  <strong className="text-amber-700 dark:text-amber-400">{rowValidationStats.attentionCount} row(s) need attention</strong> (missing HSN, barcode, or pricing). Unsaved rows cannot be transacted in POS.
+                </>
+              ) : (
+                <>
+                  <strong className="text-emerald-700 dark:text-emerald-400">All {rowValidationStats.readyCount} row(s) ready to save!</strong> Click <strong>OK / Save Items</strong> below to activate them for POS billing.
+                </>
+              )}
+            </span>
+          </div>
+          {onOpenValidationAdvisor && (
+            <button
+              type="button"
+              onClick={onOpenValidationAdvisor}
+              className={`px-3 py-1 font-semibold text-xs rounded transition shadow-xs flex items-center gap-1.5 cursor-pointer text-white ${
+                rowValidationStats.attentionCount > 0
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              <Sparkles size={13} />
+              {rowValidationStats.attentionCount > 0 ? "Inspect & Fix Issues (Guide)" : "Validation Advisor"}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Main Tactical Grid Table Container */}
       <div 
         ref={tableContainerRef} 
@@ -426,7 +536,7 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
           <thead className="bg-[#F4F5F7] dark:bg-slate-800 sticky top-0 z-30 shadow-xs">
             <tr className="border-b border-slate-300 dark:border-slate-700">
               {/* Row Index Column */}
-              <th className="w-12 px-3 py-2.5 border-r border-slate-300 dark:border-slate-700 text-center text-[11px] font-bold text-slate-500 uppercase sticky left-0 z-40 bg-[#F4F5F7] dark:bg-slate-800">
+              <th className="w-14 px-3 py-2.5 border-r border-slate-300 dark:border-slate-700 text-center text-[11px] font-bold text-slate-500 uppercase sticky left-0 z-40 bg-[#F4F5F7] dark:bg-slate-800">
                 #
               </th>
 
@@ -434,7 +544,7 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
               {activeColumns.map((col, idx) => {
                 const isFrozen = idx < frozenColsCount;
                 // Calculate sticky left offset
-                const leftOffset = isFrozen ? (idx === 0 ? 48 : 48 + 140 * idx) : undefined;
+                const leftOffset = isFrozen ? (idx === 0 ? 56 : 56 + 140 * idx) : undefined;
 
                 return (
                   <th
@@ -470,6 +580,7 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
           <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-800 text-xs">
             {rows.map((row, rIdx) => {
               const isSelected = selectedRowIndex === rIdx;
+              const rowStat = rowValidationStats.map.get(row.id);
 
               return (
                 <tr
@@ -481,11 +592,26 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
                       : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
                   }`}
                 >
-                  {/* Row Index Cell */}
-                  <td className={`px-3 py-2 text-center text-[11px] font-mono font-bold text-slate-500 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-20 ${
-                    isSelected ? "bg-blue-100/90 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200" : "bg-[#F4F5F7] dark:bg-slate-800"
+                  {/* Row Index Cell with Status Pill */}
+                  <td className={`px-2 py-2 text-center text-[11px] font-mono font-bold border-r border-slate-200 dark:border-slate-800 sticky left-0 z-20 ${
+                    isSelected ? "bg-blue-100/90 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200" : "bg-[#F4F5F7] dark:bg-slate-800 text-slate-500"
                   }`}>
-                    {rIdx + 1}
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{rIdx + 1}</span>
+                      {rowStat && (
+                        rowStat.isValid ? (
+                          <span
+                            className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 inline-block"
+                            title="Ready to save: All statutory and commercial fields valid"
+                          />
+                        ) : (
+                          <span
+                            className="w-2 h-2 rounded-full bg-red-500 shrink-0 inline-block animate-pulse cursor-help"
+                            title={`Action required: ${rowStat.summary}`}
+                          />
+                        )
+                      )}
+                    </div>
                   </td>
 
                   {/* Column Cells */}
