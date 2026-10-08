@@ -406,14 +406,23 @@ def require_role(*allowed_roles: UserRole) -> Callable:
                 # SEC-RBAC-001 hardening: wildcard bypass is restricted to
                 # users whose ENUM role is SYSADMIN.  Non-SYSADMIN users bound
                 # to a wildcard role must still pass the enum check below.
-                if "*" in perms and current_user.role == UserRole.SYSADMIN:
+                if "*" in perms and current_user.role in (UserRole.SYSADMIN, UserRole.ADMIN):
                     return current_user
                 allowed_role_names = {r.value.upper() for r in allowed_roles}
                 role_name_normalized = role_obj.name.upper().replace(" ", "_")
                 if role_obj.name.upper() in allowed_role_names or role_name_normalized in allowed_role_names:
                     return current_user
 
-        if current_user.role not in allowed_roles:
+        # Canonical role hierarchy inheritance
+        effective_roles = set(allowed_roles)
+        if UserRole.SYSADMIN in allowed_roles:
+            effective_roles.add(UserRole.ADMIN)
+        if UserRole.MANAGER in allowed_roles:
+            effective_roles.update({UserRole.STORE_MANAGER, UserRole.BRANCH_ADMIN, UserRole.ADMIN, UserRole.SYSADMIN})
+        if UserRole.CASHIER in allowed_roles:
+            effective_roles.add(UserRole.SALES_EXECUTIVE)
+
+        if current_user.role not in effective_roles:
             raise HTTPException(
                 status_code=403,
                 detail=(

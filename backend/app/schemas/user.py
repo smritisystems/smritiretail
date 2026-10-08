@@ -184,6 +184,9 @@ class StaffUserCreate(BaseModel):
     preferences: Optional[UserPreferencesSchema] = None
     notificationSettings: Optional[NotificationSettings] = None
 
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
+
     @field_validator("email", mode="before")
     def sanitize_email(cls, v):
         if not v or not isinstance(v, str) or not v.strip():
@@ -195,11 +198,9 @@ class StaffUserCreate(BaseModel):
         if v is None:
             return v
         if isinstance(v, str):
-            cleaned = v.strip().upper()
-            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+            cleaned = v.strip().upper().replace(" ", "_").replace("-", "_")
+            if cleaned in ("SYS_ADMIN", "SYSTEM_ADMIN", "SUPERADMIN", "SUPER_ADMIN"):
                 return UserRole.SYSADMIN
-            if cleaned in ("SALES_EXECUTIVE", "SALES", "EXECUTIVE"):
-                return UserRole.CASHIER
             if cleaned in UserRole.__members__:
                 return UserRole[cleaned]
         return v
@@ -208,6 +209,8 @@ class StaffUserCreate(BaseModel):
 class StaffUserUpdate(BaseModel):
     fullName: Optional[str] = None
     role: Optional[UserRole] = None
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
     passwordHash: Optional[str] = None
     status: Optional[str] = None
     employeeId: Optional[str] = None
@@ -218,11 +221,9 @@ class StaffUserUpdate(BaseModel):
         if v is None:
             return v
         if isinstance(v, str):
-            cleaned = v.strip().upper()
-            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+            cleaned = v.strip().upper().replace(" ", "_").replace("-", "_")
+            if cleaned in ("SYS_ADMIN", "SYSTEM_ADMIN", "SUPERADMIN", "SUPER_ADMIN"):
                 return UserRole.SYSADMIN
-            if cleaned in ("SALES_EXECUTIVE", "SALES", "EXECUTIVE"):
-                return UserRole.CASHIER
             if cleaned in UserRole.__members__:
                 return UserRole[cleaned]
         return v
@@ -313,6 +314,8 @@ class StaffUserResponse(BaseModel):
     performance: PerformanceMetrics
     preferences: UserPreferencesSchema
     notificationSettings: NotificationSettings
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

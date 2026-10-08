@@ -22,11 +22,20 @@ from ..db.base import Base
 
 
 class UserRole(str, PyEnum):
-    SYSADMIN    = "SYSADMIN"    # Global — manages all companies and users
-    MANAGER     = "MANAGER"     # Company/branch — full business access
-    CASHIER     = "CASHIER"     # POS — create sales invoices, read products/customers
-    REPORT_USER = "REPORT_USER" # Read-only with Print & Export permissions
-    VIEWER      = "VIEWER"      # Read-only on all business data
+    SYSADMIN           = "SYSADMIN"           # Global — root system administrator
+    ADMIN              = "ADMIN"              # Global / Company administrator
+    MANAGER            = "MANAGER"            # Company/branch — full business manager
+    STORE_MANAGER      = "STORE_MANAGER"      # Full operational store management
+    BRANCH_ADMIN       = "BRANCH_ADMIN"       # Branch-scoped administrator
+    INVENTORY_MANAGER  = "INVENTORY_MANAGER"  # Stock balance & catalog operations
+    PURCHASE_EXECUTIVE = "PURCHASE_EXECUTIVE" # Purchase orders, GRN, suppliers
+    SALES_EXECUTIVE    = "SALES_EXECUTIVE"    # Quotes, orders, CRM, counter sales
+    CASHIER            = "CASHIER"            # POS checkout billing & shifts
+    ACCOUNTANT         = "ACCOUNTANT"         # Ledger, tax & payment reconciliation
+    AUDITOR            = "AUDITOR"            # Compliance & audit verification
+    HR_EXECUTIVE       = "HR_EXECUTIVE"       # Staff, attendance & payroll
+    REPORT_USER        = "REPORT_USER"        # Analytical report viewing & export
+    VIEWER             = "VIEWER"             # General business read-only
 
 
 class User(Base):

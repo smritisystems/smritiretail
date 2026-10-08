@@ -111,7 +111,9 @@ def to_staff_response(user: User) -> StaffUserResponse:
         payment=payment,
         performance=performance,
         preferences=preferences,
-        notificationSettings=notifications
+        notificationSettings=notifications,
+        roleId=user.role_id,
+        role_id=user.role_id,
     )
 
 
@@ -585,6 +587,24 @@ class UserService:
 
         allowed_br = json.dumps(req.allowedBranches) if req.allowedBranches else json.dumps([req.branch or "Andheri West, Mumbai"])
 
+        role_to_id = {
+            UserRole.SYSADMIN: "role-sysadmin",
+            UserRole.ADMIN: "role-admin",
+            UserRole.MANAGER: "role-manager",
+            UserRole.STORE_MANAGER: "role-store-manager",
+            UserRole.BRANCH_ADMIN: "role-branch-admin",
+            UserRole.INVENTORY_MANAGER: "role-inventory-manager",
+            UserRole.PURCHASE_EXECUTIVE: "role-purchase-executive",
+            UserRole.SALES_EXECUTIVE: "role-sales-executive",
+            UserRole.CASHIER: "role-cashier",
+            UserRole.ACCOUNTANT: "role-accountant",
+            UserRole.AUDITOR: "role-auditor",
+            UserRole.HR_EXECUTIVE: "role-hr-executive",
+            UserRole.REPORT_USER: "role-report-user",
+            UserRole.VIEWER: "role-viewer",
+        }
+        assigned_role_id = req.role_id or req.roleId or role_to_id.get(req.role)
+
         user = User(
             id=f"usr-{uuid.uuid4().hex[:8]}",
             username=req.username,
@@ -592,6 +612,7 @@ class UserService:
             mobile=req.mobile or "0000000000",
             hashed_password=hashed,
             role=req.role,
+            role_id=assigned_role_id,
             is_active=True,
             is_deleted=False,
             company_id=comp_id,
@@ -676,7 +697,11 @@ class UserService:
         # Fields only editable by manager/admin
         if is_manager:
             if req.fullName is not None: user.full_name = req.fullName
-            if req.role is not None: user.role = req.role
+            if req.role is not None:
+                user.role = req.role
+                user.role_id = req.role_id or req.roleId or role_to_id.get(req.role, user.role_id)
+            elif req.role_id or req.roleId:
+                user.role_id = req.role_id or req.roleId
             if req.status is not None:
                 user.status = req.status
                 user.is_active = (req.status == "Active")
