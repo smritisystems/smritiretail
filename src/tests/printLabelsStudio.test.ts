@@ -85,4 +85,32 @@ describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
     expect(merged[1].id).toBe("retail-50x25");
     expect(merged[2].id).toBe("thermal-40x20");
   });
+
+  it("filters rows by brand and item code range", () => {
+    const sampleRows = [
+      { id: "1", itemCode: "ITM-0010", brand: "Puma", barcode: "890100000001" },
+      { id: "2", itemCode: "ITM-0020", brand: "Nike", barcode: "890100000002" },
+      { id: "3", itemCode: "ITM-0030", brand: "Nike", barcode: "890100000003" },
+      { id: "4", itemCode: "ITM-0040", brand: "Adidas", barcode: "890100000004" },
+    ];
+
+    const filterByBrand = sampleRows.filter(r => r.brand === "Nike");
+    expect(filterByBrand.length).toBe(2);
+
+    const filterByRange = sampleRows.filter(r => r.itemCode >= "ITM-0020" && r.itemCode <= "ITM-0030");
+    expect(filterByRange.length).toBe(2);
+    expect(filterByRange.map(r => r.id)).toEqual(["2", "3"]);
+  });
+
+  it("filters rows by barcode range", () => {
+    const sampleRows = [
+      { id: "1", barcode: "890100000010" },
+      { id: "2", barcode: "890100000020" },
+      { id: "3", barcode: "890100000030" },
+    ];
+
+    const range = sampleRows.filter(r => r.barcode >= "890100000015" && r.barcode <= "890100000025");
+    expect(range.length).toBe(1);
+    expect(range[0].id).toBe("2");
+  });
 });

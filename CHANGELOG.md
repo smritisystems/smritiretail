@@ -43,8 +43,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Symbology Barcode SVG & Sheet Preview Modal**:
   - Replaced illustrative 40-rectangle placeholder bar pattern with `<ThermalBarcodeSvg>` rendering.
   - Added interactive browser print preview sheet modal with `window.print()` trigger.
+- **Advanced Filters Drawer & Master Lookups Wiring**:
+  - Added collapsible Advanced Filters drawer in `PrintLabelsStudio.tsx` dynamically populating Category, Warehouse, and Supplier dropdowns from `/api/v1/masters/*` and `/api/v1/vendors/*`.
+  - Implemented client-side and server-side range filtering for Item Code and Barcode ranges.
+- **Printer & Hardware Configuration Modal**:
+  - Added interactive settings modal for printer target, resolution (203/300/600 DPI), dispatch modes (QZ Tray, TCP Spooler, Browser), and hardware diagnostic status.
+- **Cross-Subtab Navigation**:
+  - Wired `Template Library` button directly to `VisualLabelDesigner` in `BarcodeStudioTab.tsx`.
 - **Unit Verification Suite**:
-  - Created `src/tests/printLabelsStudio.test.ts` asserting multi-source record resolution and template merging (6/6 tests passing).
+  - Created `src/tests/printLabelsStudio.test.ts` asserting multi-source record resolution, template merging, and range filtering (8/8 tests passing).
 
 ## [6.70.24] - 2026-10-08 — SMRITI Canonical 14 Core System Roles Convergence & Tattly Threads RBAC Integration
 

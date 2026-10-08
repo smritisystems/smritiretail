@@ -106,6 +106,7 @@ export const BarcodeStudioTab: React.FC<BarcodeStudioTabProps> = ({
           <PrintLabelsStudio
             currentUser={currentUser}
             onNotification={onNotification}
+            onNavigateToDesigner={() => setSubTab("visual-designer")}
           />
         )}
 

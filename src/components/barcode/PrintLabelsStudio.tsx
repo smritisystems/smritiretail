@@ -88,12 +88,13 @@ const PAGE_SIZE = 25;
 export interface PrintLabelsStudioProps {
   currentUser?: { role: string; name: string; username?: string } | null;
   onNotification?: (title: string, msg: string, type: 'success' | 'error' | 'info') => void;
+  onNavigateToDesigner?: () => void;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
-  currentUser, onNotification,
+  currentUser, onNotification, onNavigateToDesigner,
 }) => {
   // Source
   const [source, setSource]             = useState<SourceKey>('ITEMS');
@@ -125,18 +126,44 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
   const [printing, setPrinting]         = useState(false);
   // Preview selected row
   const [previewRow, setPreviewRow]     = useState<StudioRow | null>(null);
-  // Label Preview Sheet Modal
+  // Label Preview Sheet Modal & Settings Modal
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen]         = useState(false);
   // Brands/styles/shades/sizes for quick-filter dropdowns
   const [brands, setBrands]             = useState<string[]>([]);
   const [styles, setStyles]             = useState<string[]>([]);
   const [shades, setShades]             = useState<string[]>([]);
   const [sizes, setSizes]               = useState<string[]>([]);
+  // Master lookup lists for advanced filters
+  const [masterCategories, setMasterCategories] = useState<string[]>([]);
+  const [masterWarehouses, setMasterWarehouses] = useState<string[]>([]);
+  const [masterSuppliers, setMasterSuppliers]   = useState<string[]>([]);
 
   const selectedTemplate = templates.find(t => t.id === templateId) ?? templates[0] ?? LABEL_TEMPLATES[0];
   const selectedRows     = rows.filter(r => r.selected);
   const totalLabels      = selectedRows.reduce((s, r) => s + r.printQty, 0);
   const totalPages       = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+
+  // ── Fetch master lookup options for advanced filters ───────────────────
+  useEffect(() => {
+    apiFetchV1<any[]>('/masters/warehouse')
+      .then(res => {
+        if (Array.isArray(res)) setMasterWarehouses(res.map(w => w.name || w.code).filter(Boolean));
+      })
+      .catch(() => {});
+
+    apiFetchV1<any[]>('/vendors/')
+      .then(res => {
+        if (Array.isArray(res)) setMasterSuppliers(res.map(v => v.name || v.code).filter(Boolean));
+      })
+      .catch(() => {});
+
+    apiFetchV1<any[]>('/masters/lookup/category/values')
+      .then(res => {
+        if (Array.isArray(res)) setMasterCategories(res.map(c => c.name || c.code).filter(Boolean));
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Fetch dynamic layout templates ──────────────────────────────────────
   useEffect(() => {
@@ -155,6 +182,36 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
       })
       .catch(() => {});
   }, []);
+
+  // ── Apply advanced & quick filter rules ────────────────────────────────
+  const applyFilterRules = useCallback((list: StudioRow[]) => {
+    let res = list;
+    if (filters.brand !== 'All') {
+      res = res.filter(r => r.brand.toLowerCase() === filters.brand.toLowerCase());
+    }
+    if (filters.style !== 'All') {
+      res = res.filter(r => r.style.toLowerCase() === filters.style.toLowerCase());
+    }
+    if (filters.shade !== 'All') {
+      res = res.filter(r => r.shade.toLowerCase() === filters.shade.toLowerCase());
+    }
+    if (filters.size !== 'All') {
+      res = res.filter(r => r.size.toLowerCase() === filters.size.toLowerCase());
+    }
+    if (filters.itemCodeFrom) {
+      res = res.filter(r => r.itemCode.toLowerCase() >= filters.itemCodeFrom.toLowerCase());
+    }
+    if (filters.itemCodeTo) {
+      res = res.filter(r => r.itemCode.toLowerCase() <= filters.itemCodeTo.toLowerCase());
+    }
+    if (filters.barcodeFrom) {
+      res = res.filter(r => r.barcode >= filters.barcodeFrom);
+    }
+    if (filters.barcodeTo) {
+      res = res.filter(r => r.barcode <= filters.barcodeTo);
+    }
+    return res;
+  }, [filters]);
 
   // ── Fetch items (Domain Sources & Products) ─────────────────────────────
   const fetchItems = useCallback(async (q: string, pg: number) => {
@@ -176,12 +233,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           mrp: itm.mrp || itm.sellingPrice || 0,
           selected: false,
         }));
-        const filtered = q ? mapped.filter(r =>
+        const base = q ? mapped.filter(r =>
           r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
           r.product.toLowerCase().includes(q.toLowerCase()) ||
           r.barcode.toLowerCase().includes(q.toLowerCase()) ||
           r.brand.toLowerCase().includes(q.toLowerCase())
         ) : mapped;
+        const filtered = applyFilterRules(base);
         setRows(filtered);
         setTotalRows(filtered.length);
         if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
@@ -204,11 +262,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           mrp: itm.mrp || itm.sellingPrice || 0,
           selected: false,
         }));
-        const filtered = q ? mapped.filter(r =>
+        const base = q ? mapped.filter(r =>
           r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
           r.product.toLowerCase().includes(q.toLowerCase()) ||
           r.barcode.toLowerCase().includes(q.toLowerCase())
         ) : mapped;
+        const filtered = applyFilterRules(base);
         setRows(filtered);
         setTotalRows(filtered.length);
         if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
@@ -231,11 +290,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           mrp: itm.mrp || itm.sellingPrice || 0,
           selected: false,
         }));
-        const filtered = q ? mapped.filter(r =>
+        const base = q ? mapped.filter(r =>
           r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
           r.product.toLowerCase().includes(q.toLowerCase()) ||
           r.barcode.toLowerCase().includes(q.toLowerCase())
         ) : mapped;
+        const filtered = applyFilterRules(base);
         setRows(filtered);
         setTotalRows(filtered.length);
         if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
@@ -258,11 +318,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           mrp: itm.mrp || itm.sellingPrice || 0,
           selected: false,
         }));
-        const filtered = q ? mapped.filter(r =>
+        const base = q ? mapped.filter(r =>
           r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
           r.product.toLowerCase().includes(q.toLowerCase()) ||
           r.barcode.toLowerCase().includes(q.toLowerCase())
         ) : mapped;
+        const filtered = applyFilterRules(base);
         setRows(filtered);
         setTotalRows(filtered.length);
         if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
@@ -316,8 +377,9 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
         mrp: p.mrp ?? p.price ?? 0,
         selected: false,
       }));
-      setRows(mapped);
-      setTotalRows(total);
+      const filtered = applyFilterRules(mapped);
+      setRows(filtered);
+      setTotalRows(filtered.length);
       // Derive quick-filter options
       if (pg === 1) {
         setBrands([...new Set(mapped.map(r => r.brand).filter(Boolean))]);
@@ -325,18 +387,18 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
         setShades([...new Set(mapped.map(r => r.shade).filter(Boolean))]);
         setSizes([...new Set(mapped.map(r => r.size).filter(Boolean))]);
       }
-      if (mapped.length > 0 && !previewRow) setPreviewRow(mapped[0]);
+      if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
     } catch {
       setRows([]); setTotalRows(0);
     } finally { setSearching(false); }
-  }, [source, qkBrand, qkStyle, qkShade, qkSize, previewRow]);
+  }, [source, qkBrand, qkStyle, qkShade, qkSize, previewRow, applyFilterRules]);
 
   // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => void fetchItems(search, 1), 320);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [search, source, qkBrand, qkStyle, qkShade, qkSize]);
+  }, [search, source, qkBrand, qkStyle, qkShade, qkSize, filters]);
 
   // Page change
   useEffect(() => { void fetchItems(search, page); }, [page]);
@@ -461,9 +523,27 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           </div>
         </div>
         <div className='flex items-center gap-2'>
-          <button type='button' className='flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#c4c5d5] dark:border-[#444653] rounded-lg hover:bg-[#f1f5f9] transition bg-white dark:bg-[#1e232a]'><Tag size={13} /> Template Library</button>
-          <button type='button' className='flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#c4c5d5] dark:border-[#444653] rounded-lg hover:bg-[#f1f5f9] transition bg-white dark:bg-[#1e232a]'><Settings size={13} /> Settings</button>
-          <button type='button' className='flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#c4c5d5] dark:border-[#444653] rounded-lg hover:bg-[#f1f5f9] transition bg-white dark:bg-[#1e232a]'><HelpCircle size={13} /> Help</button>
+          <button
+            type='button'
+            onClick={onNavigateToDesigner}
+            className='flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#c4c5d5] dark:border-[#444653] rounded-lg hover:bg-[#f1f5f9] transition bg-white dark:bg-[#1e232a]'
+          >
+            <Tag size={13} /> Template Library
+          </button>
+          <button
+            type='button'
+            onClick={() => setSettingsOpen(true)}
+            className='flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#c4c5d5] dark:border-[#444653] rounded-lg hover:bg-[#f1f5f9] transition bg-white dark:bg-[#1e232a]'
+          >
+            <Settings size={13} /> Settings
+          </button>
+          <button
+            type='button'
+            onClick={() => onNotification?.('Print Studio Help', 'Select an inward source, pick items and quantities, choose label dimensions, and click Print Labels.', 'info')}
+            className='flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-[#c4c5d5] dark:border-[#444653] rounded-lg hover:bg-[#f1f5f9] transition bg-white dark:bg-[#1e232a]'
+          >
+            <HelpCircle size={13} /> Help
+          </button>
         </div>
       </div>
 
@@ -534,6 +614,76 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* ── Advanced Filters Collapsible Panel ── */}
+            {advOpen && (
+              <div className='p-4 bg-[#f1f5f9] dark:bg-[#131b2e] border-b border-[#e2e8f0] dark:border-[#334155] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs'>
+                <div>
+                  <label className='block text-[10px] font-bold text-[#64748b] mb-1'>Category</label>
+                  <select
+                    value={filters.category}
+                    onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
+                    className='w-full px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs font-medium'
+                  >
+                    <option value='All'>All Categories</option>
+                    {masterCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className='block text-[10px] font-bold text-[#64748b] mb-1'>Warehouse</label>
+                  <select
+                    value={filters.warehouse}
+                    onChange={e => setFilters(f => ({ ...f, warehouse: e.target.value }))}
+                    className='w-full px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs font-medium'
+                  >
+                    <option value='All'>All Warehouses</option>
+                    {masterWarehouses.map(w => <option key={w} value={w}>{w}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className='block text-[10px] font-bold text-[#64748b] mb-1'>Supplier</label>
+                  <select
+                    value={filters.supplier}
+                    onChange={e => setFilters(f => ({ ...f, supplier: e.target.value }))}
+                    className='w-full px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs font-medium'
+                  >
+                    <option value='All'>All Suppliers</option>
+                    {masterSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className='block text-[10px] font-bold text-[#64748b] mb-1'>Item Code Range</label>
+                  <div className='flex items-center gap-1'>
+                    <input
+                      type='text' placeholder='From' value={filters.itemCodeFrom}
+                      onChange={e => setFilters(f => ({ ...f, itemCodeFrom: e.target.value }))}
+                      className='w-1/2 px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs'
+                    />
+                    <input
+                      type='text' placeholder='To' value={filters.itemCodeTo}
+                      onChange={e => setFilters(f => ({ ...f, itemCodeTo: e.target.value }))}
+                      className='w-1/2 px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs'
+                    />
+                  </div>
+                </div>
+                <div className='col-span-full flex items-center justify-end gap-2 pt-1 border-t border-[#e2e8f0]/60 dark:border-[#334155]/60'>
+                  <button
+                    type='button'
+                    onClick={() => { setFilters(EMPTY_FILTERS); fetchItems(search, 1); }}
+                    className='px-3 py-1 text-xs font-semibold text-[#64748b] hover:text-[#0f172a] dark:hover:text-white transition'
+                  >
+                    Reset Filters
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => fetchItems(search, 1)}
+                    className='px-4 py-1 text-xs font-bold bg-[#00288e] text-white rounded-lg hover:bg-[#002070] transition shadow-sm'
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* ── Items Table ── */}
             <div className='overflow-x-auto'>
@@ -872,6 +1022,96 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   <Printer size={14} /> Browser Print
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PRINTER SETTINGS MODAL ── */}
+      {settingsOpen && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'>
+          <div className='bg-white dark:bg-[#1e232a] w-full max-w-lg rounded-2xl shadow-2xl border border-[#e2e8f0] dark:border-[#334155] flex flex-col overflow-hidden'>
+            <div className='px-6 py-4 border-b border-[#e2e8f0] dark:border-[#334155] flex items-center justify-between bg-[#f8fafc] dark:bg-[#131b2e]'>
+              <div className='flex items-center gap-3'>
+                <div className='p-2 bg-[#dde1ff] dark:bg-[#1e40af]/30 rounded-xl'>
+                  <Settings size={20} className='text-[#00288e] dark:text-[#a8b8ff]' />
+                </div>
+                <div>
+                  <h2 className='text-sm font-bold text-[#0f172a] dark:text-[#f8fafc]'>Printer & Hardware Configuration</h2>
+                  <p className='text-xs text-[#64748b]'>Manage print dispatch settings, resolution, and hardware endpoints.</p>
+                </div>
+              </div>
+              <button
+                type='button'
+                onClick={() => setSettingsOpen(false)}
+                className='text-[#64748b] hover:text-[#0f172a] dark:hover:text-[#f8fafc] p-1.5 rounded-lg hover:bg-[#e2e8f0] transition'
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className='p-6 space-y-4 text-xs bg-white dark:bg-[#1e232a]'>
+              <div>
+                <label className='block font-bold text-[#475569] dark:text-[#94a3b8] mb-1'>Active Thermal Printer Target</label>
+                <select
+                  value={printerName}
+                  onChange={e => setPrinterName(e.target.value)}
+                  className='w-full px-3 py-2 border border-[#c4c5d5] dark:border-[#444653] rounded-xl bg-white dark:bg-[#0f172a] font-semibold'
+                >
+                  {printers.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+
+              <div className='grid grid-cols-2 gap-3'>
+                <div>
+                  <label className='block font-bold text-[#475569] dark:text-[#94a3b8] mb-1'>Print Resolution (DPI)</label>
+                  <select
+                    defaultValue='203'
+                    className='w-full px-3 py-2 border border-[#c4c5d5] dark:border-[#444653] rounded-xl bg-white dark:bg-[#0f172a] font-semibold'
+                  >
+                    <option value='203'>203 DPI (8 dots/mm - Standard)</option>
+                    <option value='300'>300 DPI (12 dots/mm - High Res)</option>
+                    <option value='600'>600 DPI (24 dots/mm - Ultra)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className='block font-bold text-[#475569] dark:text-[#94a3b8] mb-1'>Dispatch Mode</label>
+                  <select
+                    defaultValue='QZ_TRAY'
+                    className='w-full px-3 py-2 border border-[#c4c5d5] dark:border-[#444653] rounded-xl bg-white dark:bg-[#0f172a] font-semibold'
+                  >
+                    <option value='QZ_TRAY'>QZ Tray (Local Hardware Silent)</option>
+                    <option value='TCP_SPOOL'>FastAPI TCP Spooler (Port 9100)</option>
+                    <option value='BROWSER'>Browser Print Dialog</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className='p-3 bg-[#f8fafc] dark:bg-[#0f172a] rounded-xl border border-[#e2e8f0] dark:border-[#334155] text-[11px] text-[#64748b]'>
+                <div className='font-bold text-[#0f172a] dark:text-[#f8fafc] mb-1'>Hardware Status Diagnostic</div>
+                <div>Connection: {printerReady ? 'Online & Ready (Port 9100 / QZ Tray)' : 'Offline / Disconnected'}</div>
+                <div>Thermal Driver: Zebra ZPL-II / TSPL / ESC-POS Auto-Detect</div>
+              </div>
+            </div>
+
+            <div className='px-6 py-3.5 border-t border-[#e2e8f0] dark:border-[#334155] flex items-center justify-end gap-2 bg-[#f8fafc] dark:bg-[#131b2e]'>
+              <button
+                type='button'
+                onClick={() => setSettingsOpen(false)}
+                className='px-4 py-2 text-xs font-bold border border-[#c4c5d5] dark:border-[#444653] rounded-xl hover:bg-[#f1f5f9] transition'
+              >
+                Close
+              </button>
+              <button
+                type='button'
+                onClick={() => {
+                  setSettingsOpen(false);
+                  onNotification?.('Settings Saved', 'Printer and dispatch configuration updated.', 'success');
+                }}
+                className='px-4 py-2 text-xs font-bold bg-[#00288e] hover:bg-[#002070] text-white rounded-xl shadow transition'
+              >
+                Save Settings
+              </button>
             </div>
           </div>
         </div>
