@@ -4,10 +4,10 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.45.0
+ * Version      : 6.46.0
  * Created      : 2026-09-26
- * Modified     : 2026-09-26
- * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-08
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  * Source Module: Print Labels Studio - SMRITI Barcode Label Wizard
@@ -23,6 +23,8 @@ import {
   Tag, Layers, AlertTriangle, Circle,
 } from 'lucide-react';
 import { apiFetchV1 } from '../../lib/apiFetch.ts';
+import { ThermalBarcodeSvg } from './ThermalBarcodeSvg.tsx';
+import { barcodeTransactionStore } from './barcodeTransactionS.ts';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -64,10 +66,10 @@ const LABEL_TEMPLATES: LabelTemplate[] = [
 const SOURCES: { key: SourceKey; label: string; sub: string; Icon: React.FC<any> }[] = [
   { key: 'ITEMS',         label: 'Items',         sub: 'Manual',         Icon: Package },
   { key: 'ITEM_MASTER',   label: 'Item Master',   sub: '',               Icon: Layers },
-  { key: 'PURCHASE',      label: 'Purchase',      sub: '',               Icon: ShoppingCart },
-  { key: 'GRN',           label: 'GRN',           sub: '',               Icon: Truck },
-  { key: 'SALES',         label: 'Sales',         sub: '',               Icon: BarChart2 },
-  { key: 'STOCK_TRANSFER',label: 'Stock Transfer', sub: '',              Icon: ArrowLeftRight },
+  { key: 'PURCHASE',      label: 'Purchase',      sub: 'Orders',         Icon: ShoppingCart },
+  { key: 'GRN',           label: 'GRN',           sub: 'Inwards',        Icon: Truck },
+  { key: 'SALES',         label: 'Sales',         sub: 'Returns',        Icon: BarChart2 },
+  { key: 'STOCK_TRANSFER',label: 'Stock Transfer', sub: 'Inward',        Icon: ArrowLeftRight },
 ];
 
 const EMPTY_FILTERS: AdvancedFilters = {
@@ -109,30 +111,165 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
   const [qkStyle, setQkStyle]           = useState('All');
   const [qkShade, setQkShade]           = useState('All');
   const [qkSize, setQkSize]             = useState('All');
-  // Print Setup
+  // Templates (Dynamic + Presets)
+  const [templates, setTemplates]       = useState<LabelTemplate[]>(LABEL_TEMPLATES);
   const [templateId, setTemplateId]     = useState('retail-50x25');
   const [labelsPerItem, setLabelsPerItem] = useState(1);
+  // Printers (Dynamic + Defaults)
+  const [printers, setPrinters]         = useState<string[]>([
+    'Zebra ZD421 (USB)', 'Zebra ZT411 (Network)', 'Brother QL-820NWB', 'System Default'
+  ]);
   const [printerName, setPrinterName]   = useState('Zebra ZD421 (USB)');
   const [printerReady, setPrinterReady] = useState(true);
   // Printing
   const [printing, setPrinting]         = useState(false);
   // Preview selected row
   const [previewRow, setPreviewRow]     = useState<StudioRow | null>(null);
+  // Label Preview Sheet Modal
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
   // Brands/styles/shades/sizes for quick-filter dropdowns
   const [brands, setBrands]             = useState<string[]>([]);
   const [styles, setStyles]             = useState<string[]>([]);
   const [shades, setShades]             = useState<string[]>([]);
   const [sizes, setSizes]               = useState<string[]>([]);
 
-  const selectedTemplate = LABEL_TEMPLATES.find(t => t.id === templateId) ?? LABEL_TEMPLATES[0];
+  const selectedTemplate = templates.find(t => t.id === templateId) ?? templates[0] ?? LABEL_TEMPLATES[0];
   const selectedRows     = rows.filter(r => r.selected);
   const totalLabels      = selectedRows.reduce((s, r) => s + r.printQty, 0);
   const totalPages       = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
-  // ── Fetch items ─────────────────────────────────────────────────────────
+  // ── Fetch dynamic layout templates ──────────────────────────────────────
+  useEffect(() => {
+    apiFetchV1<any>('/barcode/layouts')
+      .then(res => {
+        if (Array.isArray(res) && res.length > 0) {
+          const custom: LabelTemplate[] = res.map((l: any) => ({
+            id: l.id,
+            name: `${l.name} (${Number(l.widthMm || 50)}x${Number(l.heightMm || 25)}mm)`,
+            widthMm: Number(l.widthMm || 50),
+            heightMm: Number(l.heightMm || 25),
+          }));
+          const existingIds = new Set(custom.map(c => c.id));
+          setTemplates([...custom, ...LABEL_TEMPLATES.filter(p => !existingIds.has(p.id))]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Fetch items (Domain Sources & Products) ─────────────────────────────
   const fetchItems = useCallback(async (q: string, pg: number) => {
     setSearching(true);
     try {
+      if (source === 'PURCHASE') {
+        const poItems = barcodeTransactionStore.getPurchaseOrders('', '', '');
+        const mapped: StudioRow[] = poItems.map((itm, i) => ({
+          id: itm.id || String(i),
+          itemCode: itm.stockNo,
+          product: itm.product,
+          brand: itm.brand || 'SMRITI',
+          style: itm.style || '',
+          shade: itm.colour || '',
+          size: itm.size || '',
+          barcode: itm.barcode,
+          stock: itm.currentStock || 0,
+          printQty: itm.labelCount || 1,
+          mrp: itm.mrp || itm.sellingPrice || 0,
+          selected: false,
+        }));
+        const filtered = q ? mapped.filter(r =>
+          r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
+          r.product.toLowerCase().includes(q.toLowerCase()) ||
+          r.barcode.toLowerCase().includes(q.toLowerCase()) ||
+          r.brand.toLowerCase().includes(q.toLowerCase())
+        ) : mapped;
+        setRows(filtered);
+        setTotalRows(filtered.length);
+        if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
+        return;
+      }
+
+      if (source === 'GRN') {
+        const grnItems = barcodeTransactionStore.getTransactions('Purchase Inward (GRN)', '', '', '');
+        const mapped: StudioRow[] = grnItems.map((itm, i) => ({
+          id: itm.id || String(i),
+          itemCode: itm.stockNo,
+          product: itm.product,
+          brand: itm.brand || 'SMRITI',
+          style: itm.style || '',
+          shade: itm.colour || '',
+          size: itm.size || '',
+          barcode: itm.barcode,
+          stock: itm.currentStock || 0,
+          printQty: itm.labelCount || 1,
+          mrp: itm.mrp || itm.sellingPrice || 0,
+          selected: false,
+        }));
+        const filtered = q ? mapped.filter(r =>
+          r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
+          r.product.toLowerCase().includes(q.toLowerCase()) ||
+          r.barcode.toLowerCase().includes(q.toLowerCase())
+        ) : mapped;
+        setRows(filtered);
+        setTotalRows(filtered.length);
+        if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
+        return;
+      }
+
+      if (source === 'SALES') {
+        const salesItems = barcodeTransactionStore.getTransactions('Sales Return Inward', '', '', '');
+        const mapped: StudioRow[] = salesItems.map((itm, i) => ({
+          id: itm.id || String(i),
+          itemCode: itm.stockNo,
+          product: itm.product,
+          brand: itm.brand || 'SMRITI',
+          style: itm.style || '',
+          shade: itm.colour || '',
+          size: itm.size || '',
+          barcode: itm.barcode,
+          stock: itm.currentStock || 0,
+          printQty: itm.labelCount || 1,
+          mrp: itm.mrp || itm.sellingPrice || 0,
+          selected: false,
+        }));
+        const filtered = q ? mapped.filter(r =>
+          r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
+          r.product.toLowerCase().includes(q.toLowerCase()) ||
+          r.barcode.toLowerCase().includes(q.toLowerCase())
+        ) : mapped;
+        setRows(filtered);
+        setTotalRows(filtered.length);
+        if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
+        return;
+      }
+
+      if (source === 'STOCK_TRANSFER') {
+        const stItems = barcodeTransactionStore.getTransactions('Stock Transfer Inward', '', '', '');
+        const mapped: StudioRow[] = stItems.map((itm, i) => ({
+          id: itm.id || String(i),
+          itemCode: itm.stockNo,
+          product: itm.product,
+          brand: itm.brand || 'SMRITI',
+          style: itm.style || '',
+          shade: itm.colour || '',
+          size: itm.size || '',
+          barcode: itm.barcode,
+          stock: itm.currentStock || 0,
+          printQty: itm.labelCount || 1,
+          mrp: itm.mrp || itm.sellingPrice || 0,
+          selected: false,
+        }));
+        const filtered = q ? mapped.filter(r =>
+          r.itemCode.toLowerCase().includes(q.toLowerCase()) ||
+          r.product.toLowerCase().includes(q.toLowerCase()) ||
+          r.barcode.toLowerCase().includes(q.toLowerCase())
+        ) : mapped;
+        setRows(filtered);
+        setTotalRows(filtered.length);
+        if (filtered.length > 0 && !previewRow) setPreviewRow(filtered[0]);
+        return;
+      }
+
+      // Default: ITEMS / ITEM_MASTER
       const params = new URLSearchParams({
         search: q, limit: String(PAGE_SIZE), offset: String((pg - 1) * PAGE_SIZE),
         ...(qkBrand !== 'All' && { brand: qkBrand }),
@@ -140,9 +277,31 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
         ...(qkShade !== 'All' && { shade: qkShade }),
         ...(qkSize  !== 'All' && { size: qkSize }),
       });
-      const res = await apiFetchV1<any>('/products?' + params.toString());
-      const list = Array.isArray(res) ? res : (res?.items ?? []);
-      const total = Array.isArray(res) ? res.length : (res?.total ?? res?.count ?? list.length);
+      let list: any[] = [];
+      let total = 0;
+      try {
+        const res = await apiFetchV1<any>('/products?' + params.toString());
+        list = Array.isArray(res) ? res : (res?.items ?? []);
+        total = Array.isArray(res) ? res.length : (res?.total ?? res?.count ?? list.length);
+      } catch {
+        // Mock / Offline master items fallback
+        const masterItems = barcodeTransactionStore.getMasterItemsByDate('', '', false);
+        list = masterItems.map(m => ({
+          id: m.id,
+          code: m.stockNo,
+          name: m.product,
+          brand: m.brand,
+          style: m.style,
+          shade: m.colour,
+          size: m.size,
+          barcode: m.barcode,
+          stock: m.currentStock,
+          mrp: m.mrp,
+          price: m.sellingPrice,
+        }));
+        total = list.length;
+      }
+
       const mapped: StudioRow[] = list.map((p: any, i: number) => ({
         id: p.id ?? String(i),
         itemCode: p.code ?? p.item_code ?? p.sku ?? '',
@@ -167,17 +326,17 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
         setSizes([...new Set(mapped.map(r => r.size).filter(Boolean))]);
       }
       if (mapped.length > 0 && !previewRow) setPreviewRow(mapped[0]);
-    } catch (e) {
+    } catch {
       setRows([]); setTotalRows(0);
     } finally { setSearching(false); }
-  }, [qkBrand, qkStyle, qkShade, qkSize, previewRow]);
+  }, [source, qkBrand, qkStyle, qkShade, qkSize, previewRow]);
 
   // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => void fetchItems(search, 1), 320);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [search, qkBrand, qkStyle, qkShade, qkSize]);
+  }, [search, source, qkBrand, qkStyle, qkShade, qkSize]);
 
   // Page change
   useEffect(() => { void fetchItems(search, page); }, [page]);
@@ -211,11 +370,15 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
     setPreviewRow(null);
   };
 
-  // ── Printer health check ───────────────────────────────────────────────
+  // ── Printer health check & dynamic settings ─────────────────────────────
   const checkPrinter = useCallback(async () => {
     try {
       const res = await apiFetchV1<any>('/barcode/printer-settings');
-      setPrinterName(res?.name ?? res?.printerName ?? 'Zebra ZD421 (USB)');
+      const pName = res?.name ?? res?.printerName ?? (res?.usb_target ? `USB: ${res.usb_target}` : res?.ip ? `Network: ${res.ip}:${res.port || 9100}` : null);
+      if (pName) {
+        setPrinterName(pName);
+        setPrinters(prev => prev.includes(pName) ? prev : [pName, ...prev]);
+      }
       setPrinterReady(true);
     } catch { setPrinterReady(false); }
   }, []);
@@ -258,7 +421,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      onNotification?.('Print Job Sent', totalLabels + ' labels dispatched to ' + printerName + '.', 'success');
+      onNotification?.('Print Job Sent', `${totalLabels} labels dispatched to ${printerName}.`, 'success');
     } catch (e: any) {
       onNotification?.('Print Failed', e?.message ?? 'Printer error', 'error');
     } finally { setPrinting(false); }
@@ -275,7 +438,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
         onChange={e => onChange(e.target.value)}
         className='appearance-none pl-2 pr-6 py-1.5 text-xs border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] outline-none cursor-pointer font-semibold'
       >
-        <option value='All'>{label} \u25be</option>
+        <option value='All'>{label} ▾</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
@@ -493,7 +656,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
               <div className='min-w-[180px]'>
                 <label className='flex items-center gap-1.5 text-[10px] font-bold text-[#64748b] uppercase mb-1.5'><Tag size={10} /> Label Template</label>
                 <select value={templateId} onChange={e => setTemplateId(e.target.value)} className='w-full px-2.5 py-2 text-xs border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-[#f8fafc] dark:bg-[#0f172a] outline-none focus:border-[#00288e] font-semibold'>
-                  {LABEL_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               {/* Labels Per Item */}
@@ -510,7 +673,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                 <label className='flex items-center gap-1.5 text-[10px] font-bold text-[#64748b] uppercase mb-1.5'><Printer size={10} /> Printer</label>
                 <div className='flex items-center gap-2'>
                   <select value={printerName} onChange={e => setPrinterName(e.target.value)} className='flex-1 px-2.5 py-2 text-xs border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-[#f8fafc] dark:bg-[#0f172a] outline-none focus:border-[#00288e] font-semibold'>
-                    <option>Zebra ZD421 (USB)</option><option>Zebra ZT411 (Network)</option><option>Brother QL-820NWB</option><option>System Default</option>
+                    {printers.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                   <div className={'flex items-center gap-1 text-[11px] font-bold shrink-0 ' + (printerReady ? 'text-[#16a34a]' : 'text-[#dc2626]')}>
                     <Circle size={8} className={printerReady ? 'fill-[#16a34a]' : 'fill-[#dc2626]'} />
@@ -544,16 +707,18 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                     <div className='text-[10px] text-[#475569] mt-0.5'>
                       {[previewRow.style, previewRow.shade, previewRow.size].filter(Boolean).join(' / ')}
                     </div>
-                    {/* SVG barcode placeholder */}
+                    {/* Accurate SVG Barcode Component */}
                     <div className='my-1.5 w-full flex justify-center'>
-                      {previewRow.barcode
-                        ? <svg viewBox='0 0 120 28' className='w-full max-w-[120px]' xmlns='http://www.w3.org/2000/svg'>
-                            {Array.from({ length: 40 }, (_, i) => (
-                              <rect key={i} x={i * 3} y={0} width={i % 3 === 0 ? 2 : 1} height={24} fill='#000' />
-                            ))}
-                            <text x='60' y='27' textAnchor='middle' fontSize='5' fontFamily='monospace' fill='#000'>{previewRow.barcode}</text>
-                          </svg>
-                        : <div className='text-[10px] text-[#94a3b8]'>No barcode</div>}
+                      {previewRow.barcode ? (
+                        <ThermalBarcodeSvg
+                          value={previewRow.barcode}
+                          widthMm={selectedTemplate.widthMm > 60 ? 50 : 36}
+                          heightMm={12}
+                          showText={true}
+                        />
+                      ) : (
+                        <div className='text-[10px] text-[#94a3b8] py-2'>No barcode assigned</div>
+                      )}
                     </div>
                     <div className='flex items-center justify-between w-full text-[10px]'>
                       <span>Size: {previewRow.size || '-'}</span>
@@ -588,7 +753,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
               <div className='flex items-center justify-between text-xs'>
                 <div className='flex items-center gap-2 text-[#64748b]'><Printer size={12} />Printer</div>
                 <div className='flex items-center gap-1.5'>
-                  <span className='font-bold text-[#0f172a] dark:text-[#f8fafc] text-[11px]'>{printerName.length > 16 ? printerName.slice(0, 16) + '\u2026' : printerName}</span>
+                  <span className='font-bold text-[#0f172a] dark:text-[#f8fafc] text-[11px]'>{printerName.length > 16 ? printerName.slice(0, 16) + '…' : printerName}</span>
                   <Circle size={7} className={printerReady ? 'fill-[#16a34a] text-[#16a34a]' : 'fill-[#dc2626] text-[#dc2626]'} />
                 </div>
               </div>
@@ -620,6 +785,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             <button
               id='printLabelsStudioPreview'
               type='button'
+              onClick={() => setPreviewModalOpen(true)}
               className='w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-bold text-sm border-2 border-[#c4c5d5] dark:border-[#444653] text-[#475569] hover:bg-[#f1f5f9] transition'
             >
               <Eye size={15} /> Preview Labels
@@ -628,8 +794,91 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
 
         </div>
       </div>
+
+      {/* ── BROWSER LABEL PRINT SHEET PREVIEW MODAL ── */}
+      {previewModalOpen && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'>
+          <div className='bg-white dark:bg-[#1e232a] w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl border border-[#e2e8f0] dark:border-[#334155] flex flex-col overflow-hidden'>
+            <div className='px-6 py-4 border-b border-[#e2e8f0] dark:border-[#334155] flex items-center justify-between bg-[#f8fafc] dark:bg-[#131b2e]'>
+              <div className='flex items-center gap-3'>
+                <div className='p-2 bg-[#dde1ff] dark:bg-[#1e40af]/30 rounded-xl'>
+                  <Eye size={20} className='text-[#00288e] dark:text-[#a8b8ff]' />
+                </div>
+                <div>
+                  <h2 className='text-sm font-bold text-[#0f172a] dark:text-[#f8fafc]'>Labels Print Sheet Preview</h2>
+                  <p className='text-xs text-[#64748b]'>
+                    Template: {selectedTemplate.name} ({selectedTemplate.widthMm}mm × {selectedTemplate.heightMm}mm) • {totalLabels > 0 ? totalLabels : (rows.length > 0 ? 1 : 0)} Labels
+                  </p>
+                </div>
+              </div>
+              <button
+                type='button'
+                onClick={() => setPreviewModalOpen(false)}
+                className='text-[#64748b] hover:text-[#0f172a] dark:hover:text-[#f8fafc] p-1.5 rounded-lg hover:bg-[#e2e8f0] transition'
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className='p-6 overflow-y-auto flex-1 bg-[#f1f5f9] dark:bg-[#0f172a]/60'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4'>
+                {(selectedRows.length > 0 ? selectedRows : (previewRow ? [previewRow] : rows.slice(0, 6))).map((r, i) => (
+                  <div
+                    key={`${r.id}-${i}`}
+                    className='bg-white text-black p-3.5 rounded-xl border border-gray-300 shadow-sm flex flex-col items-center text-center justify-between'
+                    style={{ minHeight: '140px' }}
+                  >
+                    <div className='w-full'>
+                      <div className='font-extrabold text-[12px] tracking-wide'>SMRITI RETAIL</div>
+                      <div className='font-bold text-[11px] mt-0.5 truncate'>{r.product}</div>
+                      <div className='text-[10px] text-gray-600 mt-0.5'>
+                        {[r.brand, r.style, r.size, r.shade].filter(Boolean).join(' • ')}
+                      </div>
+                    </div>
+                    <div className='my-2 w-full flex justify-center'>
+                      <ThermalBarcodeSvg
+                        value={r.barcode || r.itemCode || '890100000001'}
+                        widthMm={38}
+                        heightMm={12}
+                        showText={true}
+                      />
+                    </div>
+                    <div className='w-full flex items-center justify-between text-[11px] pt-1 border-t border-gray-200'>
+                      <span className='font-mono text-gray-500'>SKU: {r.itemCode}</span>
+                      <span className='font-extrabold text-[12px] text-black'>{fmtINR(r.mrp)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className='px-6 py-3.5 border-t border-[#e2e8f0] dark:border-[#334155] flex items-center justify-between bg-white dark:bg-[#1e232a]'>
+              <div className='text-xs text-[#64748b]'>
+                Target: <span className='font-bold text-[#0f172a] dark:text-[#f8fafc]'>{printerName}</span>
+              </div>
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={() => setPreviewModalOpen(false)}
+                  className='px-4 py-2 text-xs font-bold border border-[#c4c5d5] dark:border-[#444653] rounded-xl hover:bg-[#f1f5f9] transition'
+                >
+                  Close
+                </button>
+                <button
+                  type='button'
+                  onClick={() => { window.print(); }}
+                  className='flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#00288e] hover:bg-[#002070] text-white rounded-xl shadow transition'
+                >
+                  <Printer size={14} /> Browser Print
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default PrintLabelsStudio;
+
