@@ -29,6 +29,7 @@ import {
   Filter,
   Check,
   ShieldAlert,
+  Download,
 } from "lucide-react";
 import {
   GridInputProfile,
@@ -41,6 +42,10 @@ import {
 import { GRID_PROFILES } from "../../services/gridInput/gridProfiles";
 import { GridInputEngine } from "../../services/gridInput/gridInputEngine";
 import { ColumnMappingResult } from "../../lib/headerMapping/types";
+import {
+  generateSampleCsvContent,
+  triggerCsvDownload,
+} from "../../services/gridInput/templateGenerator";
 
 export interface GlobalGridImportModalProps {
   isOpen: boolean;
@@ -224,6 +229,16 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
     setScannerBuffer((prev) => [val, ...prev]);
     setScannerInputVal("");
     scannerInputRef.current?.focus();
+  };
+
+  // Sample Template Download Helper
+  const handleDownloadSampleCsv = () => {
+    const csvContent = generateSampleCsvContent(profile, {
+      typeCode: profile.profileId,
+      typeLabel: title || profile.label,
+    });
+    const filename = `${profile.profileId.toLowerCase()}_sample_template.csv`;
+    triggerCsvDownload(filename, csvContent);
   };
 
   // Clipboard Paste Helper
@@ -492,20 +507,32 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <span>Delimiter:</span>
-                  <select
-                    value={delimiterOverride}
-                    onChange={(e) => setDelimiterOverride(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs focus:ring-1 focus:ring-indigo-500"
+                <div className="flex items-center gap-2.5 text-xs text-slate-400">
+                  <button
+                    type="button"
+                    onClick={handleDownloadSampleCsv}
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white border border-slate-700 text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
+                    title={`Download blank sample CSV template for ${profile.label}`}
                   >
-                    <option value="">Auto-Detect (TSV, CSV, Pipe, Tilde)</option>
-                    <option value="&#9;">Tab (\t) — Excel / Google Sheets</option>
-                    <option value=",">Comma (,) — Standard CSV</option>
-                    <option value=";">Semicolon (;) — European CSV</option>
-                    <option value="|">Pipe (|) — PDT Format</option>
-                    <option value="~">Tilde (~) — PDT Format</option>
-                  </select>
+                    <Download className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Sample Template</span>
+                  </button>
+                  <div className="h-4 w-px bg-slate-800" />
+                  <div className="flex items-center gap-1.5">
+                    <span>Delimiter:</span>
+                    <select
+                      value={delimiterOverride}
+                      onChange={(e) => setDelimiterOverride(e.target.value)}
+                      className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="">Auto-Detect (TSV, CSV, Pipe, Tilde)</option>
+                      <option value="&#9;">Tab (\t) — Excel / Google Sheets</option>
+                      <option value=",">Comma (,) — Standard CSV</option>
+                      <option value=";">Semicolon (;) — European CSV</option>
+                      <option value="|">Pipe (|) — PDT Format</option>
+                      <option value="~">Tilde (~) — PDT Format</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -575,6 +602,28 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
                       className="hidden"
                       onChange={handleFileUpload}
                     />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
+                    <div className="flex items-center gap-2.5 text-slate-400">
+                      <div className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-200">Need a reference file format?</p>
+                        <p className="text-[11px] text-slate-400">
+                          Download a pre-formatted CSV template with standard column headers for {profile.label}.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDownloadSampleCsv}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 transition flex items-center gap-1.5 font-medium shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Download Sample CSV</span>
+                    </button>
                   </div>
 
                   {rawText && (
