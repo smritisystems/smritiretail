@@ -67,6 +67,8 @@ const PARENT_OVERRIDES: Record<string, string> = {
   "system-parameters": "system",
   "parameters-studio": "system",
   "store-policies": "system",
+  "legacy-migration": "system",
+  "legacy-telemetry": "system",
 
   // Reports
   "report-designer": "reports",

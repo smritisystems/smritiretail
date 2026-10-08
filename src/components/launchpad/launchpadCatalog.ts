@@ -517,6 +517,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "violet",
   },
   {
+    id: "legacy-telemetry",
+    title: "RFC 8594 API Telemetry",
+    subtitle: "Option B Dual-Key Observability: real-time monitoring of legacy route access, runtime fallbacks & 2028 Sunset tracking",
+    icon: "sensors",
+    tag: "Telemetry",
+    badgeType: "warning",
+    group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "amber",
+  },
+  {
     // Sprint 17 -- Shoper9 SR323400 MnuNo 350/351 parity
     id: "physical-stock",
     title: "Physical Stock Count",

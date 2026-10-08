@@ -412,3 +412,57 @@ async def test_tc_p5_009_end_to_end_option_b_convergence_certification(db_sessio
     assert row["product_id"] == prod.id
     assert row["item_id"] == prod.item_id
     assert row["variant_id"] == prod.item_variant_id
+
+
+@pytest.mark.asyncio
+async def test_tc_p5_010_governance_telemetry_events_endpoint_and_manager_auth(async_client: AsyncClient):
+    """
+    Test 10: GET /api/v1/governance/legacy-telemetry/events:
+    Verifies that the events endpoint correctly returns serialized event logs,
+    filters by type, and enforces role access (SYSADMIN, ADMIN, MANAGER allowed; others rejected).
+    """
+    from types import SimpleNamespace
+    from app.api.deps import get_current_user, get_tenant_context
+
+    # 1. Populate test events
+    LegacyProductTelemetrySink.record_endpoint_access(
+        path="/api/v1/products",
+        method="GET",
+        company_id="TEST-COMP",
+        force_write=True,
+    )
+    LegacyProductTelemetrySink.record_fallback_invoked(
+        company_id="TEST-COMP",
+        caller="TestRunner",
+        product_id="prod_test",
+        reason="VARIANT_ID_NULL",
+        force_write=True,
+    )
+
+    # 2. Test MANAGER access (allowed)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(role="MANAGER", username="manager_user")
+    app.dependency_overrides[get_tenant_context] = lambda: TenantContext(company_id="TEST-COMP", branch_id=None)
+
+    try:
+        resp = await async_client.get("/api/v1/governance/legacy-telemetry/events?limit=50")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "count" in data
+        assert "events" in data
+        assert data["count"] >= 2
+
+        # Filter by event_type
+        resp_filtered = await async_client.get("/api/v1/governance/legacy-telemetry/events?event_type=LEGACY_FALLBACK_INVOKED")
+        assert resp_filtered.status_code == 200
+        f_data = resp_filtered.json()
+        assert all(e["event_type"] == "LEGACY_FALLBACK_INVOKED" for e in f_data["events"])
+
+        # 3. Test Unauthorized Role (e.g. CASHIER -> 403 Forbidden)
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(role="CASHIER", username="cashier_user")
+        resp_unauth = await async_client.get("/api/v1/governance/legacy-telemetry/events")
+        assert resp_unauth.status_code == 403
+
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_tenant_context, None)
+
