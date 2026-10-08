@@ -28,6 +28,23 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.34] - 2026-10-08 — POS Real-Time Sales Commission Accrual & Return Reversal (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** HR & Workforce, Sales Commission Accrual, Return Reversal Hook, PostgreSQL Ledger
+> **Walkthrough:** `docs/walkthrough/hr/POS_Realtime_Commission_Accrual_And_Reversal_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/hr/POS_Realtime_Commission_Accrual_And_Reversal_Plan_v1.0.0.md`
+
+### Added & Engineered
+- **Real-Time POS Sales Commission Accrual Hook (`backend/app/services/sales_hook.py`)**:
+  - Implemented `write_commission_accrual()`: Aggregates line-level `salesperson_id` or header cashier tags, resolves or auto-provisions `commission_participants` records, evaluates active `commission_rules` (percentage, fixed, or 2% fallback), and inserts authoritative `EARNED` ledger entries into PostgreSQL `commission_ledgers`.
+  - Wired into `CanonicalSalesPostingWriter.post_sales_invoice` Step 12b atomically before database commit.
+- **Real-Time Sales Return Commission Reversal Hook (`backend/app/services/sales_hook.py`)**:
+  - Implemented `write_commission_reversal()`: Locates original invoice `EARNED` rows, computes proportional return ratio (`return_total / orig_grand_total`), and inserts offsetting `REVERSED` entries into PostgreSQL `commission_ledgers`.
+  - Wired into `SalesService.create_sales_return` atomically before credit note / return commit.
+- **Automated Verification & Test Suites**:
+  - Created Pytest suite `backend/app/tests/t_sales_commission_hook_verify.py` verifying accrual, proportional return clawback, and active percentage rule overrides (3/3 passed in 46.13s).
+  - Executed regression test suites: `backend/app/tests/t_staff_punch_verify.py` (2/2 passed), `src/tests/employeeAttendanceStudio.test.ts` (6/6 passed in 391ms), and TypeScript compiler check (`npx tsc --noEmit` exited 0 with 0 errors).
+
 ## [6.70.33] - 2026-10-08 — Interactive Punch Clocking & Biometric Device Webhook (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR, Attendance Punch Clocking, Biometric IoT Webhook, Shift Status UI

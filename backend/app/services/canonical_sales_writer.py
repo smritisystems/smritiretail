@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.69.0
+Version      : 6.70.34
 Created      : 2026-09-08
-Modified     : 2026-10-03
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Canonical Sales Posting Writer & Universal Financial Engine (Phase 2C Step 2)
@@ -916,6 +916,20 @@ class CanonicalSalesPostingWriter:
         db_invoice.paid_amount = total_paid
         db_invoice.balance_amount = max(Decimal("0.00"), net_rounded - total_paid)
         change_amount = max(Decimal("0.00"), total_paid - net_rounded)
+
+        # 12b. Real-Time POS Sales Commission Accrual Hook
+        from .sales_hook import write_commission_accrual
+        await write_commission_accrual(
+            db=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            invoice_id=db_invoice.id,
+            invoice_no=db_invoice.invoice_no,
+            grand_total=db_invoice.grand_total,
+            items=calculated_lines,
+            header_salesperson_id=req.context.cashier_id,
+            creator=req.context.cashier_id or "SYSTEM",
+        )
 
         # 13. Transactional Outbox Event Publication
         outbox_event = await OutboxService.record_event(
