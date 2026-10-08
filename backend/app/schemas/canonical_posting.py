@@ -35,7 +35,10 @@ class CanonicalPostingContext(BaseModel):
     idempotency_key: Optional[str] = Field(None, min_length=1, max_length=128, description="Mandatory idempotency key for transactions; optional for previews")
     client_invoice_no: Optional[str] = Field(None, description="Offline or client-generated invoice number")
     source_channel: str = Field("POS_RETAIL", description="POS_RETAIL, B2B_WHOLESALE, CUSTOMER_PO, SALES_ORDER, ECOMMERCE")
-    allow_negative_stock: bool = Field(False, description="Governed override allowing negative stock if permitted by store policy")
+    allow_negative_stock: bool = Field(
+        False,
+        description="DEPRECATED / NON-AUTHORITATIVE: Ignored for authorization. Negative stock permission is governed authoritatively by server-side SystemParameterService (SMRITI.STOCK.ALLOW_NEGATIVE_STOCK)."
+    )
     supervisor_override_code: Optional[str] = Field(None, description="Supervisor authorization code for price/credit override")
 
 

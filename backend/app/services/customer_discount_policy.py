@@ -27,7 +27,23 @@ async def resolve_customer_discount_policy(
     branch_id: Optional[str],
 ) -> CustomerDiscountPolicy:
     """Resolve the customer and discount entitlement in the active tenant scope."""
-    if not customer_id or customer_id == WALK_IN_CUSTOMER_ID:
+    walkin_code = WALK_IN_CUSTOMER_ID
+    if company_id:
+        try:
+            from .system_parameter import SystemParameterService
+            walkin_param = await SystemParameterService.resolve_parameter(
+                db=session,
+                param_code="SMRITI.POS.WALKIN_CUSTOMER_CODE",
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+            if walkin_param and walkin_param.effective_value:
+                walkin_code = str(walkin_param.effective_value).strip()
+        except Exception:
+            walkin_code = WALK_IN_CUSTOMER_ID
+
+    clean_cid = str(customer_id).strip().upper() if customer_id else ""
+    if not customer_id or clean_cid in (WALK_IN_CUSTOMER_ID.upper(), walkin_code.upper()):
         return CustomerDiscountPolicy(None, None, Decimal("0.00"), False)
 
     stmt = select(Customer).where(
@@ -56,14 +72,6 @@ async def resolve_customer_discount_policy(
 
     max_disc = Decimal(str(group.max_discount_percent or "0.00")) if group else Decimal("0.00")
     can_disc = bool(group and group.can_receive_discount)
-
-    # Contractual institutional entitlement for Reliance Retail Ltd.
-    c_name = (customer.name or "").upper()
-    c_code = (customer.code or "").upper()
-    c_id = (customer.id or "").upper()
-    if "RELIANCE" in c_name or "RIL" in c_code or c_code == "CUST-001" or "RIL" in c_id:
-        can_disc = True
-        max_disc = max(max_disc, Decimal("50.00"))
 
     return CustomerDiscountPolicy(
         customer=customer,

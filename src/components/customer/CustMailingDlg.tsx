@@ -21,10 +21,10 @@ import {
   ALL_INDIAN_CITIES,
   ALL_INDIAN_PINCODE_OPTIONS,
   INDIAN_STATE_CITY_PIN_DATA,
-  INDIAN_STATES,
   getCitySuggestionsForState,
   getPincodeSuggestionsForCity
 } from "../../constants/indianLocationData.ts";
+import { fetchCanonicalIndianStates } from "../../constants/indianStates.ts";
 
 interface SmritiCustomerMailingModalProps {
   isOpen: boolean;
@@ -108,18 +108,19 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
 
   useEffect(() => {
     if (!isOpen) return;
-    apiFetchV1<any[]>("/control/reference/states?country_code=IN")
+    fetchCanonicalIndianStates()
       .then((states) => {
         const records = Array.isArray(states) ? states : [];
         const names = records.map((state) => String(state.name)).filter(Boolean);
-        setReferenceStateCodes(Object.fromEntries(records.map((state) => [String(state.name), String(state.state_code || "")] )));
-        setReferenceStateNamesByCode(Object.fromEntries(records.map((state) => [String(state.state_code || "").toUpperCase(), String(state.name)])));
-        setReferenceStates(names.length > 0 ? names : INDIAN_STATES);
+        setReferenceStateCodes(Object.fromEntries(records.map((state) => [String(state.name), String(state.code || "")] )));
+        setReferenceStateNamesByCode(Object.fromEntries(records.map((state) => [String(state.code || "").toUpperCase(), String(state.name)])));
+        setReferenceStates(names);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.warn("Could not load canonical states_ref for customer mailing:", err);
         setReferenceStateCodes({});
         setReferenceStateNamesByCode({});
-        setReferenceStates(INDIAN_STATES);
+        setReferenceStates([]);
       });
   }, [isOpen]);
 
@@ -729,7 +730,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                     className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs font-semibold"
                   />
                   <datalist id="india-state-list">
-                    {(referenceStates.length > 0 ? referenceStates : INDIAN_STATES).map((state) => (
+                    {referenceStates.map((state) => (
                       <option key={state} value={state} />
                     ))}
                   </datalist>

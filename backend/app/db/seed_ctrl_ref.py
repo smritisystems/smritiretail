@@ -81,8 +81,10 @@ def seed_control_reference_data():
                 ("st_in_22", "ctry_in", "IN", "CG", "Chhattisgarh", "22", "STATE", True),
                 ("st_in_23", "ctry_in", "IN", "MP", "Madhya Pradesh", "23", "STATE", True),
                 ("st_in_24", "ctry_in", "IN", "GJ", "Gujarat", "24", "STATE", True),
+                ("st_in_25", "ctry_in", "IN", "DD", "Daman and Diu", "25", "UNION_TERRITORY", True),
                 ("st_in_26", "ctry_in", "IN", "DN", "Dadra & Nagar Haveli and Daman & Diu", "26", "UNION_TERRITORY", True),
                 ("st_in_27", "ctry_in", "IN", "MH", "Maharashtra", "27", "STATE", True),
+                ("st_in_28", "ctry_in", "IN", "AD", "Andhra Pradesh (Old)", "28", "STATE", True),
                 ("st_in_29", "ctry_in", "IN", "KA", "Karnataka", "29", "STATE", True),
                 ("st_in_30", "ctry_in", "IN", "GA", "Goa", "30", "STATE", True),
                 ("st_in_31", "ctry_in", "IN", "LD", "Lakshadweep", "31", "UNION_TERRITORY", True),
@@ -94,6 +96,7 @@ def seed_control_reference_data():
                 ("st_in_37", "ctry_in", "IN", "AP", "Andhra Pradesh", "37", "STATE", True),
                 ("st_in_38", "ctry_in", "IN", "LA", "Ladakh", "38", "UNION_TERRITORY", True),
                 ("st_in_97", "ctry_in", "IN", "OT", "Other Territory", "97", "SPECIAL_ZONE", True),
+                ("st_in_99", "ctry_in", "IN", "CJ", "Centre Jurisdiction", "99", "SPECIAL_ZONE", True),
             ]
             execute_values(
                 cur,

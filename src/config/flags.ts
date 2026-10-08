@@ -11,7 +11,10 @@
  * License      : Proprietary Commercial Software
  */
 /**
- * Cutover feature flags for routing traffic between Express and FastAPI backends.
+ * @deprecated [DEPRECATED / FROZEN - ADR-045 / Express Fully Retired]
+ * Express has been completely decommissioned from SMRITI Retail OS.
+ * All application modules communicate solely with FastAPI + Postgres via src/lib/apiFetchV1.ts.
+ * These flags are retained as immutable frozen booleans strictly for backward compatibility.
  */
 export const FLAGS = {
   // ── Additional modules (Express unmounted v3.20.0, FastAPI only) ──────────

@@ -56,47 +56,10 @@ def is_valid_gstin_checksum(gstin: str) -> bool:
         return False
 
 
-# Statutory Indian GST State Codes dictionary per GSTN master
-VALID_GST_STATE_CODES = {
-    "01": "Jammu and Kashmir",
-    "02": "Himachal Pradesh",
-    "03": "Punjab",
-    "04": "Chandigarh",
-    "05": "Uttarakhand",
-    "06": "Haryana",
-    "07": "Delhi",
-    "08": "Rajasthan",
-    "09": "Uttar Pradesh",
-    "10": "Bihar",
-    "11": "Sikkim",
-    "12": "Arunachal Pradesh",
-    "13": "Nagaland",
-    "14": "Manipur",
-    "15": "Mizoram",
-    "16": "Tripura",
-    "17": "Meghalaya",
-    "18": "Assam",
-    "19": "West Bengal",
-    "20": "Jharkhand",
-    "21": "Odisha",
-    "22": "Chhattisgarh",
-    "23": "Madhya Pradesh",
-    "24": "Gujarat",
-    "26": "Dadra and Nagar Haveli and Daman and Diu",
-    "27": "Maharashtra",
-    "29": "Karnataka",
-    "30": "Goa",
-    "31": "Lakshadweep",
-    "32": "Kerala",
-    "33": "Tamil Nadu",
-    "34": "Puducherry",
-    "35": "Andaman and Nicobar Islands",
-    "36": "Telangana",
-    "37": "Andhra Pradesh",
-    "38": "Ladakh",
-    "97": "Other Territory",
-    "99": "Centre Jurisdiction",
-}
+from ..core.gst_engine import GST_STATE_CODES
+
+# Canonical reference mapping alias
+VALID_GST_STATE_CODES = GST_STATE_CODES
 
 
 class EWayBillService:
@@ -188,9 +151,13 @@ class EWayBillService:
         dst_wh = dst_res.scalar_one_or_none()
 
         company = await self._get_company()
-        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AAXFT2508H1ZR") if company else "27AAXFT2508H1ZR"
+        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None)) if company else None
+        if not company_gstin:
+            raise HTTPException(status_code=422, detail="SMRITI-STAT-001: E-Way Bill requires a configured company GSTIN.")
         company_name = company.name if company else "SMRITI Enterprise"
-        company_state_code = int(company_gstin[:2]) if company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit() else 27
+        company_state_code = int(company_gstin[:2]) if len(company_gstin) >= 2 and company_gstin[:2].isdigit() else None
+        if not company_state_code:
+            raise HTTPException(status_code=422, detail="SMRITI-STAT-001: Unable to determine supplier state code from company GSTIN.")
 
         warnings: List[str] = []
         is_valid_gstin, gstin_err = self._validate_gstin(company_gstin, "Company GSTIN")
@@ -462,11 +429,12 @@ class EWayBillService:
         company = await self._get_company()
 
         company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None)) if company else None
-        if is_strict and not company_gstin:
-            raise HTTPException(status_code=422, detail="E-Way Bill requires a configured company GSTIN.")
-        company_gstin = company_gstin or "27AABCS1429B1Z"
+        if not company_gstin:
+            raise HTTPException(status_code=422, detail="SMRITI-STAT-001: E-Way Bill requires a configured company GSTIN.")
         company_name = company.name if company else "SMRITI Enterprise"
-        company_state_code = int(company_gstin[:2]) if company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit() else 27
+        company_state_code = int(company_gstin[:2]) if len(company_gstin) >= 2 and company_gstin[:2].isdigit() else None
+        if not company_state_code:
+            raise HTTPException(status_code=422, detail="SMRITI-STAT-001: Unable to determine supplier state code from company GSTIN.")
 
         customer_gstin = getattr(invoice, 'customer_gstin', None) or ((getattr(customer, 'canonical_gstin', None) or getattr(customer, 'gstin', None) or "URP") if customer else "URP")
         customer_name = getattr(invoice, 'customer_name', None) or (customer.name if customer else None)
@@ -562,7 +530,7 @@ class EWayBillService:
         raw_disp_pin = disp_snap.get("pincode")
         if is_strict and not (raw_disp_pin and str(raw_disp_pin).isdigit()):
             raise HTTPException(status_code=422, detail="E-Way Bill requires a dispatch pincode.")
-        disp_pin = int(raw_disp_pin) if (raw_disp_pin and str(raw_disp_pin).isdigit()) else (440029 if has_disp else comp_pin)
+        disp_pin = int(raw_disp_pin) if (raw_disp_pin and str(raw_disp_pin).isdigit()) else comp_pin
         
         raw_disp_sc = disp_snap.get("state_code")
         act_from_state = int(raw_disp_sc) if (raw_disp_sc and str(raw_disp_sc).isdigit()) else company_state_code
@@ -579,7 +547,7 @@ class EWayBillService:
         act_to_state = int(deliv_gstin[:2]) if (deliv_gstin and len(deliv_gstin) >= 2 and deliv_gstin[:2].isdigit()) else customer_state_code
         
         # Determine Statutory NIC Transaction Type (transType: 1=Regular, 2=BillTo-ShipTo, 3=BillFrom-DispatchFrom, 4=Combination)
-        is_dispatch_diff = has_disp and (disp_pin != comp_pin or act_from_state != company_state_code or "NAGPUR" in disp_place.upper())
+        is_dispatch_diff = has_disp and (disp_pin != comp_pin or act_from_state != company_state_code or disp_place.strip().lower() != comp_place.strip().lower())
         is_ship_diff = (act_to_state != customer_state_code)
         
         if is_dispatch_diff and is_ship_diff:

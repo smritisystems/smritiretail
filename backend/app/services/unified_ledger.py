@@ -1232,6 +1232,70 @@ class UnifiedAccountingLedgerService:
         )
 
     @classmethod
+    async def _resolve_company_tax_state(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        comp: Optional[Any] = None,
+    ) -> str:
+        """
+        Authoritatively resolve company tax jurisdiction state code without silent DL fallback.
+        """
+        from ..models.purchase import PurchaseJurisdictionConfig
+        from ..models.tenant import Company
+        jur_stmt = select(PurchaseJurisdictionConfig).where(PurchaseJurisdictionConfig.company_id == company_id)
+        jur = (await session.execute(jur_stmt)).scalars().first()
+        if jur and jur.company_state:
+            return jur.company_state.strip().upper()
+
+        if not comp:
+            comp_stmt = select(Company).where(Company.id == company_id)
+            comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+
+        if comp:
+            if getattr(comp, "state_code", None):
+                return str(comp.state_code).strip().upper()
+            if comp.gst_number and len(comp.gst_number) >= 2 and comp.gst_number[:2].isdigit():
+                return comp.gst_number[:2]
+            if getattr(comp, "state", None):
+                from ..models.localization import StateRef
+                st_res = await session.execute(
+                    select(StateRef).where(
+                        StateRef.country_code == "IN",
+                        (func.lower(StateRef.name) == comp.state.strip().lower())
+                        | (func.upper(StateRef.state_code) == comp.state.strip().upper()),
+                        StateRef.is_active == True,
+                    )
+                )
+                st_ref = st_res.scalars().first()
+                if st_ref and st_ref.gst_state_code:
+                    return st_ref.gst_state_code
+                if st_ref and st_ref.state_code:
+                    return st_ref.state_code.strip().upper()
+
+        from ..services.system_parameter import SystemParameterService
+        param = await SystemParameterService.resolve_parameter(
+            db=session,
+            param_code="SMRITI.PURCHASE.DEFAULT_JURISDICTION_STATE",
+            company_id=company_id,
+        )
+        if param and param.effective_value:
+            return str(param.effective_value).strip().upper()
+
+        param_tax = await SystemParameterService.resolve_parameter(
+            db=session,
+            param_code="SMRITI.TAX.DEFAULT_STATE_CODE",
+            company_id=company_id,
+        )
+        if param_tax and param_tax.effective_value:
+            return str(param_tax.effective_value).strip().upper()
+
+        raise HTTPException(
+            status_code=400,
+            detail="SMRITI-JURISDICTION-001: Company tax jurisdiction cannot be resolved for ledger posting. Company state or purchase jurisdiction config must be configured.",
+        )
+
+    @classmethod
     async def post_purchase_bill_to_gl(
         cls,
         session: AsyncSession,
@@ -1296,9 +1360,7 @@ class UnifiedAccountingLedgerService:
             if comp_gst_state and supp_gst_state:
                 is_interstate = (comp_gst_state != supp_gst_state)
             elif supplier.state:
-                jur_stmt = select(PurchaseJurisdictionConfig).where(PurchaseJurisdictionConfig.company_id == company_id)
-                jur = (await session.execute(jur_stmt)).scalars().first()
-                comp_state = jur.company_state.strip().upper() if jur and jur.company_state else "DL"
+                comp_state = await cls._resolve_company_tax_state(session, company_id, comp)
                 is_interstate = (supplier.state.strip().upper() != comp_state)
 
         if is_interstate:
@@ -1504,9 +1566,7 @@ class UnifiedAccountingLedgerService:
             if comp_gst_state and supp_gst_state:
                 is_interstate = (comp_gst_state != supp_gst_state)
             elif supplier.state:
-                jur_stmt = select(PurchaseJurisdictionConfig).where(PurchaseJurisdictionConfig.company_id == company_id)
-                jur = (await session.execute(jur_stmt)).scalars().first()
-                comp_state = jur.company_state.strip().upper() if jur and jur.company_state else "DL"
+                comp_state = await cls._resolve_company_tax_state(session, company_id, comp)
                 is_interstate = (supplier.state.strip().upper() != comp_state)
 
         if is_interstate:
@@ -2125,10 +2185,7 @@ class UnifiedAccountingLedgerService:
             if comp_gst_state and supp_gst_state:
                 is_interstate = (comp_gst_state != supp_gst_state)
             elif supplier.state:
-                from ..models.purchase import PurchaseJurisdictionConfig
-                jur_stmt = select(PurchaseJurisdictionConfig).where(PurchaseJurisdictionConfig.company_id == company_id)
-                jur = (await session.execute(jur_stmt)).scalars().first()
-                comp_state = jur.company_state.strip().upper() if jur and jur.company_state else "DL"
+                comp_state = await cls._resolve_company_tax_state(session, company_id, comp)
                 is_interstate = (supplier.state.strip().upper() != comp_state)
 
         c_amt = Decimal(str(claim_amount or 0)).quantize(Decimal("0.01"))
@@ -2263,10 +2320,7 @@ class UnifiedAccountingLedgerService:
             if comp_gst_state and supp_gst_state:
                 is_interstate = (comp_gst_state != supp_gst_state)
             elif supplier.state:
-                from ..models.purchase import PurchaseJurisdictionConfig
-                jur_stmt = select(PurchaseJurisdictionConfig).where(PurchaseJurisdictionConfig.company_id == company_id)
-                jur = (await session.execute(jur_stmt)).scalars().first()
-                comp_state = jur.company_state.strip().upper() if jur and jur.company_state else "DL"
+                comp_state = await cls._resolve_company_tax_state(session, company_id, comp)
                 is_interstate = (supplier.state.strip().upper() != comp_state)
 
         c_amt = Decimal(str(claim_amount or 0)).quantize(Decimal("0.01"))

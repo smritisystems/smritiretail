@@ -239,6 +239,7 @@ export interface SalesItemLine {
   tax_amount?: number;
   totalAmount: number;
   total_amount?: number;
+  taxDeterminationStatus?: "RESOLVED" | "UNRESOLVED";
 
   // Extended PO Line Item Identifiers
   srNo?: number;

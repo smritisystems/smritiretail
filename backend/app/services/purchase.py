@@ -1542,8 +1542,58 @@ class PurchaseService:
 
     async def get_jurisdiction(self) -> str:
         """
-        Fetch company state tax jurisdiction from DB.
+        Fetch company state tax jurisdiction authoritatively from DB.
+        Resolution order:
+        1. Branch GSTIN / state_code
+        2. Company GSTIN / state_code / states_ref lookup
+        3. PurchaseJurisdictionConfig
+        4. SystemParameterService (SMRITI.PURCHASE.DEFAULT_JURISDICTION_STATE or SMRITI.TAX.DEFAULT_STATE_CODE)
+        5. Explicit failure (HTTPException 400 SMRITI-JURISDICTION-001) - NEVER silently defaults to DL or any state.
         """
+        from ..models.tenant import Company, Branch
+        from ..models.localization import StateRef
+
+        # 1. Branch GSTIN / state_code
+        if self.tenant.branch_id:
+            b_res = await self.db.execute(
+                select(Branch).where(Branch.id == self.tenant.branch_id, Branch.is_deleted == False)
+            )
+            branch = b_res.scalars().first()
+            if branch:
+                b_gst = getattr(branch, "gstin", None) or getattr(branch, "gst_number", None)
+                if b_gst and len(b_gst) >= 2 and b_gst[:2].isdigit():
+                    return b_gst[:2]
+                if getattr(branch, "state_code", None):
+                    return str(branch.state_code).strip().upper()
+
+        # 2. Company GSTIN / state_code / states_ref
+        if self.tenant.company_id:
+            c_res = await self.db.execute(
+                select(Company).where(Company.id == self.tenant.company_id, Company.is_deleted == False)
+            )
+            comp = c_res.scalars().first()
+            if comp:
+                if comp.gst_number and len(comp.gst_number) >= 2 and comp.gst_number[:2].isdigit():
+                    return comp.gst_number[:2]
+                if getattr(comp, "state_code", None):
+                    return str(comp.state_code).strip().upper()
+                if getattr(comp, "state", None):
+                    st_res = await self.db.execute(
+                        select(StateRef).where(
+                            StateRef.country_code == "IN",
+                            (func.lower(StateRef.name) == comp.state.strip().lower())
+                            | (func.upper(StateRef.state_code) == comp.state.strip().upper()),
+                            StateRef.is_active == True,
+                        )
+                    )
+                    st_ref = st_res.scalars().first()
+                    if st_ref:
+                        if st_ref.gst_state_code:
+                            return st_ref.gst_state_code
+                        if st_ref.state_code:
+                            return st_ref.state_code
+
+        # 3. PurchaseJurisdictionConfig
         stmt = select(PurchaseJurisdictionConfig).where(
             PurchaseJurisdictionConfig.is_deleted == False
         )
@@ -1562,20 +1612,31 @@ class PurchaseService:
         if cfg and cfg.company_state:
             return cfg.company_state
 
-        # Check Company record from DB
-        from ..models.tenant import Company
-        if self.tenant.company_id:
-            c_res = await self.db.execute(
-                select(Company).where(Company.id == self.tenant.company_id, Company.is_deleted == False)
-            )
-            comp = c_res.scalars().first()
-            if comp and comp.gst_number and len(comp.gst_number) >= 2 and comp.gst_number[:2].isdigit():
-                from ..core.gst_engine import GST_STATE_CODES
-                gst_code = comp.gst_number[:2]
-                if gst_code in GST_STATE_CODES:
-                    return gst_code
+        # 4. SystemParameterService
+        from ..services.system_parameter import SystemParameterService
+        jurisdiction_param = await SystemParameterService.resolve_parameter(
+            db=self.db,
+            param_code="SMRITI.PURCHASE.DEFAULT_JURISDICTION_STATE",
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+        )
+        if jurisdiction_param and jurisdiction_param.effective_value:
+            return str(jurisdiction_param.effective_value).strip().upper()
 
-        return "DL"
+        tax_param = await SystemParameterService.resolve_parameter(
+            db=self.db,
+            param_code="SMRITI.TAX.DEFAULT_STATE_CODE",
+            company_id=self.tenant.company_id,
+            branch_id=self.tenant.branch_id,
+        )
+        if tax_param and tax_param.effective_value:
+            return str(tax_param.effective_value).strip().upper()
+
+        # 5. Fail explicitly
+        raise HTTPException(
+            status_code=400,
+            detail="SMRITI-JURISDICTION-001: Purchase tax jurisdiction cannot be resolved. Branch/Company GSTIN, purchase jurisdiction config, or SMRITI.PURCHASE.DEFAULT_JURISDICTION_STATE must be configured.",
+        )
 
     async def set_jurisdiction(self, state: str) -> str:
         """

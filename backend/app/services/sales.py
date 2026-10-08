@@ -33,7 +33,7 @@ from ..models.sales import (
     SalesReturn, SalesReturnItem,
 )
 from ..models.inventory import Product, StockMovement
-from ..models.tenant import Company
+from ..models.tenant import Company, Branch
 from ..models.crm import Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation, CustomerCreditLedgerEntry
 from ..core.gst_engine import (
     calculate_line_item_tax,
@@ -882,14 +882,57 @@ class SalesService:
         total_grand = Decimal("0.00")
         total_pairs = 0
 
-        # State / Supply logic
-        company_state_code = "27"
+        # State / Supply logic: Authoritative resolution order
+        company_state_code = None
+        # 1. Branch GSTIN / state_code
+        if getattr(so, "branch_id", None):
+            b_res = await self.db.execute(
+                select(Branch).where(Branch.id == so.branch_id, Branch.is_deleted == False)
+            )
+            b_obj = b_res.scalars().first()
+            if b_obj:
+                b_gst = getattr(b_obj, "gstin", None) or getattr(b_obj, "gst_number", None)
+                if b_gst and len(b_gst) >= 2 and b_gst[:2].isdigit():
+                    company_state_code = b_gst[:2]
+                elif getattr(b_obj, "state_code", None):
+                    company_state_code = str(b_obj.state_code).zfill(2)
+
+        # 2. Company GSTIN / state_code
+        if not company_state_code and getattr(so, "company_id", None):
+            c_res = await self.db.execute(
+                select(Company).where(Company.id == so.company_id, Company.is_deleted == False)
+            )
+            c_obj = c_res.scalars().first()
+            if c_obj:
+                if c_obj.gst_number and len(c_obj.gst_number) >= 2 and c_obj.gst_number[:2].isdigit():
+                    company_state_code = c_obj.gst_number[:2]
+                elif getattr(c_obj, "state_code", None):
+                    company_state_code = str(c_obj.state_code).zfill(2)
+
+        # 3. SystemParameterService
+        if not company_state_code:
+            from ..services.system_parameter import SystemParameterService
+            state_param = await SystemParameterService.resolve_parameter(
+                db=self.db,
+                param_code="SMRITI.TAX.DEFAULT_STATE_CODE",
+                company_id=getattr(so, "company_id", None),
+                branch_id=getattr(so, "branch_id", None),
+            )
+            if state_param and state_param.effective_value:
+                company_state_code = str(state_param.effective_value).zfill(2)
+
+        # 4. Explicit Failure
+        if not company_state_code:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-JURISDICTION-001: Seller tax jurisdiction cannot be resolved for sales order. Company/Branch GSTIN, state code, or SMRITI.TAX.DEFAULT_STATE_CODE must be configured.",
+            )
         customer_gstin = so.customer_gstin or ""
-        pos_code = "27"
+        pos_code = company_state_code
         if customer_gstin and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit():
             pos_code = customer_gstin[:2]
         is_interstate = (pos_code != company_state_code)
-        pos_state_name = GST_STATE_CODES.get(pos_code, "Maharashtra") if "GST_STATE_CODES" in globals() else "Maharashtra"
+        pos_state_name = GST_STATE_CODES.get(pos_code) or "Transaction State"
 
         for ln, item in enumerate(items_to_convert, start=1):
             qty = Decimal(str(item.pending_quantity or item.quantity or 1))

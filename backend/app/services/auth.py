@@ -25,6 +25,7 @@ Founders
 
 import uuid
 import logging
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -57,6 +58,83 @@ def _build_token_payload(user: User, company_id: str = None, branch_id: str = No
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def _resolve_token_expirations(
+        self,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> tuple[Optional[int], Optional[int]]:
+        """
+        Resolve tenant-specific access and refresh token expirations.
+        Behavior:
+        1. Parameter absent -> returns None (caller applies documented system defaults).
+        2. Parameter exists and is valid -> returns parsed positive integer.
+        3. Parameter exists but is invalid -> raises HTTPException(500, SMRITI-AUTH-CFG-001).
+        4. Resolution fails unexpectedly -> logs error with context and raises HTTPException(500, SMRITI-AUTH-CFG-002).
+        """
+        from .system_parameter import SystemParameterService
+        exp_min: Optional[int] = None
+        exp_days: Optional[int] = None
+
+        if not company_id:
+            return exp_min, exp_days
+
+        try:
+            min_p = await SystemParameterService.resolve_parameter(
+                db=self.db,
+                param_code="SMRITI.AUTH.TOKEN_EXPIRE_MINUTES",
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+            if min_p and min_p.effective_value is not None:
+                try:
+                    val_min = int(str(min_p.effective_value).strip())
+                    if val_min <= 0:
+                        raise ValueError(f"Value must be positive, got {val_min}")
+                    exp_min = val_min
+                except (ValueError, TypeError) as conv_err:
+                    logger.error(
+                        f"SMRITI-AUTH-CFG-001: Invalid security configuration for SMRITI.AUTH.TOKEN_EXPIRE_MINUTES: '{min_p.effective_value}'. Error: {conv_err}"
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"SMRITI-AUTH-CFG-001: Invalid security configuration for SMRITI.AUTH.TOKEN_EXPIRE_MINUTES: '{min_p.effective_value}'. Must be a positive integer.",
+                    )
+
+            days_p = await SystemParameterService.resolve_parameter(
+                db=self.db,
+                param_code="SMRITI.AUTH.REFRESH_TOKEN_EXPIRE_DAYS",
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+            if days_p and days_p.effective_value is not None:
+                try:
+                    val_days = int(str(days_p.effective_value).strip())
+                    if val_days <= 0:
+                        raise ValueError(f"Value must be positive, got {val_days}")
+                    exp_days = val_days
+                except (ValueError, TypeError) as conv_err:
+                    logger.error(
+                        f"SMRITI-AUTH-CFG-001: Invalid security configuration for SMRITI.AUTH.REFRESH_TOKEN_EXPIRE_DAYS: '{days_p.effective_value}'. Error: {conv_err}"
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"SMRITI-AUTH-CFG-001: Invalid security configuration for SMRITI.AUTH.REFRESH_TOKEN_EXPIRE_DAYS: '{days_p.effective_value}'. Must be a positive integer.",
+                    )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(
+                f"SMRITI-AUTH-CFG-002: Unexpected failure resolving security parameters for company='{company_id}', branch='{branch_id}': {e}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"SMRITI-AUTH-CFG-002: Security parameter resolution failed: {str(e)}",
+            )
+
+        return exp_min, exp_days
 
     # ------------------------------------------------------------------
     # Bootstrap — first-run SYSADMIN creation
@@ -204,10 +282,15 @@ class AuthService:
         if resolved_branch_id and not user.branch_id:
             user.branch_id = resolved_branch_id
 
+        exp_min, exp_days = await self._resolve_token_expirations(
+            company_id=resolved_company_id,
+            branch_id=resolved_branch_id,
+        )
+
         payload = _build_token_payload(user, company_id=resolved_company_id, branch_id=resolved_branch_id)
         return {
-            "access_token":  create_access_token(payload),
-            "refresh_token": create_refresh_token(payload),
+            "access_token":  create_access_token(payload, expires_minutes=exp_min),
+            "refresh_token": create_refresh_token(payload, expires_days=exp_days),
             "token_type":    "bearer",
             "role":          user.role,
             "company_id":    resolved_company_id,
@@ -252,12 +335,17 @@ class AuthService:
                     detail="Access denied: You are not assigned to the specified target branch.",
                 )
 
+        exp_min, exp_days = await self._resolve_token_expirations(
+            company_id=req.target_company_id,
+            branch_id=req.target_branch_id,
+        )
+
         payload = _build_token_payload(user, company_id=req.target_company_id, branch_id=req.target_branch_id)
         user.company_id = req.target_company_id
         user.branch_id = req.target_branch_id
         return {
-            "access_token":  create_access_token(payload),
-            "refresh_token": create_refresh_token(payload),
+            "access_token":  create_access_token(payload, expires_minutes=exp_min),
+            "refresh_token": create_refresh_token(payload, expires_days=exp_days),
             "token_type":    "bearer",
             "role":          user.role,
             "company_id":    req.target_company_id,
@@ -304,9 +392,14 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        new_payload = _build_token_payload(user)
+        exp_min, _ = await self._resolve_token_expirations(
+            company_id=payload.get("company_id") or user.company_id,
+            branch_id=payload.get("branch_id") or user.branch_id,
+        )
+
+        new_payload = _build_token_payload(user, company_id=payload.get("company_id"), branch_id=payload.get("branch_id"))
         return {
-            "access_token": create_access_token(new_payload),
+            "access_token": create_access_token(new_payload, expires_minutes=exp_min),
             "token_type":   "bearer",
         }
 

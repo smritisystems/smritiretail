@@ -41,14 +41,6 @@ const formEmploymentFields: Array<{ label: string; key: keyof User }> = [
 ];
 
 const fallbackLogo = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><text x='50%' y='68%' text-anchor='middle' font-family='Arial, sans-serif' font-size='64' font-weight='700' fill='%23111827'>M</text></svg>";
-const knownCompanyLogos: Record<string, string> = {
-  "COMP-001": "/myImages/tattly_logo_black.png",
-  "001": "/myImages/tattly_logo_black.png",
-};
-const knownCompanyAddresses: Record<string, string> = {
-  "COMP-001": "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003",
-  "001": "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003",
-};
 
 const valueFor = (staff: User, key: keyof User, withData: boolean) => {
   if (!withData) return "";
@@ -113,9 +105,8 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
     if (typeof window !== "undefined") {
       const companyId = localStorage.getItem("smriti_company_id") || localStorage.getItem("smriti_company_code") || "";
       const storedCompanyName = localStorage.getItem("smriti_company_name") || "";
-      const normalizedName = storedCompanyName.toLowerCase();
-      setCompanyName(storedCompanyName || (knownCompanyLogos[companyId] ? "Tattly Threads" : ""));
-      setCompanyAddress(localStorage.getItem("smriti_company_address") || localStorage.getItem("smriti_company_address_display") || knownCompanyAddresses[companyId] || "");
+      setCompanyName(storedCompanyName || "");
+      setCompanyAddress(localStorage.getItem("smriti_company_address") || localStorage.getItem("smriti_company_address_display") || "");
       try {
         const branding = JSON.parse(localStorage.getItem("smriti_branding_config") || "{}");
         const companyLogo = localStorage.getItem(`smriti_company_logo_${companyId}`) || localStorage.getItem("smriti_company_logo_url");
@@ -125,13 +116,11 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
           setLogoUrl(branding.logoUrl);
         } else if (companyLogo) {
           setLogoUrl(companyLogo);
-        } else if (normalizedName.includes("tattly threads") || knownCompanyLogos[companyId]) {
-          setLogoUrl("/myImages/tattly_logo_black.png");
         } else {
           setLogoUrl(fallbackLogo);
         }
       } catch {
-        setLogoUrl(knownCompanyLogos[companyId] ? knownCompanyLogos[companyId] : fallbackLogo);
+        setLogoUrl(fallbackLogo);
       }
     }
   }, []);

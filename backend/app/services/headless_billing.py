@@ -101,13 +101,33 @@ class HeadlessBillingCore:
         if is_interstate is None:
             comp_obj = await session.get(Company, company_id)
             branch_obj = await session.get(Branch, branch_id) if branch_id else None
-
-            branch_state_code = "27"
-            branch_gstin = getattr(branch_obj, "gstin", None)
+            branch_state_code = None
+            branch_gstin = getattr(branch_obj, "gstin", None) or getattr(branch_obj, "gst_number", None)
             if branch_gstin and len(branch_gstin) >= 2 and branch_gstin[:2].isdigit():
                 branch_state_code = branch_gstin[:2]
+            elif branch_obj and getattr(branch_obj, "state_code", None):
+                branch_state_code = str(branch_obj.state_code).zfill(2)
             elif comp_obj and comp_obj.gst_number and len(comp_obj.gst_number) >= 2 and comp_obj.gst_number[:2].isdigit():
                 branch_state_code = comp_obj.gst_number[:2]
+            elif comp_obj and getattr(comp_obj, "state_code", None):
+                branch_state_code = str(comp_obj.state_code).zfill(2)
+
+            if not branch_state_code:
+                from .system_parameter import SystemParameterService
+                state_param = await SystemParameterService.resolve_parameter(
+                    db=session,
+                    param_code="SMRITI.TAX.DEFAULT_STATE_CODE",
+                    company_id=company_id,
+                    branch_id=branch_id,
+                )
+                if state_param and state_param.effective_value:
+                    branch_state_code = str(state_param.effective_value).zfill(2)
+
+            if not branch_state_code:
+                raise HTTPException(
+                    status_code=400,
+                    detail="SMRITI-JURISDICTION-001: Seller tax jurisdiction cannot be resolved for billing. Company/Branch GSTIN, state code, or SMRITI.TAX.DEFAULT_STATE_CODE must be configured.",
+                )
 
             customer_state_code = branch_state_code
             cust_gst = req.customer_gstin or (getattr(db_customer, "gst_number", None) or getattr(db_customer, "gstin", None) if db_customer else None)
@@ -302,10 +322,24 @@ class HeadlessBillingCore:
                 else:
                     tax_inc = False
 
-            # Statutory GST rate resolution
+            # Statutory GST rate resolution (P0-5)
             gst_rate = item.gst_rate
             if gst_rate is None:
-                gst_rate = Decimal("18.00")
+                if line_res and line_res.success and line_res.tax_rate is not None:
+                    gst_rate = Decimal(str(line_res.tax_rate))
+                elif item.is_fee_line:
+                    gst_rate = Decimal("0.00")
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "SMRITI-TAX-001",
+                            "title": "Missing Statutory GST Rate",
+                            "explanation": f"Line {line_no}: Item '{item.name or item.code}' has no valid GST tax rate specified or resolved from item master.",
+                            "suggested_action": "Please specify a statutory GST rate or configure the item tax rate in the master catalog.",
+                            "line_no": line_no,
+                        },
+                    )
 
             # Gross base & Line discount
             gross_base = qty * rate
@@ -393,6 +427,30 @@ class HeadlessBillingCore:
 
         # 7. Customer Discount Policy Validation
         validate_customer_discount_policy(customer_discount_policy, total_discount, total_gross)
+
+        # 7.5 Server-Authoritative Invoice Maximum Discount Ceiling (P0-3)
+        # Governed by canonical system parameter SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT
+        # Scope hierarchy: TERMINAL > BRANCH > COMPANY > GLOBAL
+        from .system_parameter import SystemParameterService
+        max_disc_param = await SystemParameterService.resolve_parameter(
+            db=session,
+            param_code="SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT",
+            company_id=company_id,
+            terminal_id=getattr(req.context, "terminal_id", "COMMON") or "COMMON",
+            branch_id=branch_id,
+        )
+        if max_disc_param and max_disc_param.effective_value is not None:
+            configured_max_cap = Decimal(str(max_disc_param.effective_value))
+            if configured_max_cap > 0 and total_gross > 0:
+                actual_discount_pct = (total_discount / total_gross) * Decimal("100.00")
+                if actual_discount_pct > configured_max_cap:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"SMRITI-PRICING-001: Invoice discount of {actual_discount_pct:.2f}% exceeds the maximum "
+                            f"configured ceiling of {configured_max_cap:.2f}% (governed by SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT)."
+                        ),
+                    )
 
         return BillingCalculationResult(
             gross_amount=total_gross,
