@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.46.2
+ * Version      : 6.49.0
  * Created      : 2026-10-08
  * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -18,6 +18,11 @@ import { barcodeTransactionStore } from "../components/barcode/barcodeTransactio
 import {
   generateThermalLabelSvgString,
   generateThermalSheetSvgString,
+  runPrePrintSanitizer,
+  compilePrnString,
+  generateFootwearVariantMatrix,
+  parseBarcodeCsvOrText,
+  DEFAULT_PRINT_PRESETS,
 } from "../components/barcode/PrintLabelsStudio.tsx";
 
 describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
@@ -183,4 +188,280 @@ describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
     expect(sheetSvg).toContain('CASUAL LINEN SHIRT');
     expect(sheetSvg).toContain('DENIM JEANS');
   });
+
+  it("generates authentic 3-zone footwear box & counter label SVG when template width is 100x50mm", () => {
+    const mockRow = {
+      id: "itm-ch30k",
+      itemCode: "CH-30-K",
+      product: "CH-30-K Heel (Black 37)",
+      brand: "Tattly Threads",
+      style: "CH-30-K",
+      shade: "Black",
+      size: "37",
+      barcode: "8904551005335",
+      stock: 12,
+      printQty: 1,
+      mrp: 1199,
+      selected: true,
+    };
+
+    const svg = generateThermalLabelSvgString(mockRow, 100, 50.7);
+    expect(svg).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(svg).toContain('viewBox="0 0 804 405"');
+    expect(svg).toContain('TATTLY THREADS');
+    expect(svg).toContain('CH-30-K');
+    expect(svg).toContain('BLACK');
+    expect(svg).toContain('>37<');
+    expect(svg).toContain('MRP:1199/-');
+    expect(svg).toContain('8904551005335');
+    expect(svg).toContain('MKTD.By:Tattly Threads');
+    expect(svg).toContain('NET CONTENTS:1 Pair Footwear');
+  });
+
+  it("detects pre-print sanitizer issues: duplicate barcodes, missing sizes, missing colors, and zero prices", () => {
+    const dirtyRows = [
+      {
+        id: "1",
+        itemCode: "CH-30-K-1",
+        product: "Footwear 1",
+        brand: "Tattly Threads",
+        style: "CH-30-K",
+        shade: "Black",
+        size: "37",
+        barcode: "8904551005335",
+        stock: 10,
+        printQty: 1,
+        mrp: 1199,
+        selected: true,
+      },
+      {
+        id: "2",
+        itemCode: "CH-30-K-2",
+        product: "Footwear 2",
+        brand: "Tattly Threads",
+        style: "CH-30-K",
+        shade: "", // Missing color
+        size: "38",
+        barcode: "8904551005335", // Duplicate barcode
+        stock: 5,
+        printQty: 1,
+        mrp: 1199,
+        selected: true,
+      },
+      {
+        id: "3",
+        itemCode: "CH-30-K-3",
+        product: "Footwear 3",
+        brand: "Tattly Threads",
+        style: "CH-30-K",
+        shade: "Taupe",
+        size: "", // Missing size
+        barcode: "8904551005342",
+        stock: 8,
+        printQty: 1,
+        mrp: 0, // Zero price
+        selected: true,
+      },
+    ];
+
+    const report = runPrePrintSanitizer(dirtyRows as any);
+    expect(report.isClean).toBe(false);
+    expect(report.totalIssues).toBeGreaterThanOrEqual(4);
+    expect(report.duplicateBarcodes).toContain("8904551005335");
+    expect(report.missingColors).toContain("CH-30-K-2");
+    expect(report.missingSizes).toContain("CH-30-K-3");
+    expect(report.invalidMrp).toContain("CH-30-K-3");
+  });
+
+  it("verifies clean status from pre-print sanitizer when all items are valid", () => {
+    const cleanRows = [
+      {
+        id: "1",
+        itemCode: "CH-30-K-1",
+        product: "Footwear 1",
+        brand: "Tattly Threads",
+        style: "CH-30-K",
+        shade: "Black",
+        size: "37",
+        barcode: "8904551005335",
+        stock: 10,
+        printQty: 1,
+        mrp: 1199,
+        selected: true,
+      },
+      {
+        id: "2",
+        itemCode: "CH-30-K-2",
+        product: "Footwear 2",
+        brand: "Tattly Threads",
+        style: "CH-30-K",
+        shade: "Black",
+        size: "38",
+        barcode: "8904551005342",
+        stock: 5,
+        printQty: 1,
+        mrp: 1199,
+        selected: true,
+      },
+    ];
+
+    const report = runPrePrintSanitizer(cleanRows as any);
+    expect(report.isClean).toBe(true);
+    expect(report.totalIssues).toBe(0);
+    expect(report.duplicateBarcodes.length).toBe(0);
+  });
+
+  it("generates footwear variant matrix with complete size curve 37-42 and valid EAN-13 barcodes", () => {
+    const matrix = generateFootwearVariantMatrix("CH-30-K", "TOUPE", 1299);
+    expect(matrix.length).toBe(6);
+    expect(matrix.map(m => m.size)).toEqual(["37", "38", "39", "40", "41", "42"]);
+    expect(matrix.every(m => m.style === "CH-30-K")).toBe(true);
+    expect(matrix.every(m => m.shade === "TOUPE")).toBe(true);
+    expect(matrix.every(m => m.mrp === 1299)).toBe(true);
+    expect(matrix.every(m => m.barcode.startsWith("890455100"))).toBe(true);
+    // Distinct barcodes across all sizes
+    const barcodesSet = new Set(matrix.map(m => m.barcode));
+    expect(barcodesSet.size).toBe(6);
+  });
+
+  it("compiles raw ZPL PRN string for footwear 3-stub label preserving stubs and reverse boxes", () => {
+    const items = [
+      {
+        id: "var-1",
+        itemCode: "CH-30-K-BLK-37",
+        product: "CH-30-K Heel (Black 37)",
+        brand: "Tattly Threads",
+        style: "CH-30-K",
+        shade: "Black",
+        size: "37",
+        barcode: "8904551005335",
+        stock: 12,
+        printQty: 2,
+        mrp: 1199,
+        selected: true,
+      },
+    ];
+
+    const template = { id: "lay-footwear-100x50-3stub", name: "Footwear 3-Stub 100 x 50 mm", widthMm: 100, heightMm: 50.7 };
+    const prn = compilePrnString(items as any, template);
+
+    expect(prn).toContain("<xpml><page></page></xpml>^XA");
+    expect(prn).toContain("^LL405");
+    expect(prn).toContain("^FT424,44^A0N,30,28^FR^FDCH-30-K     ^FS");
+    expect(prn).toContain("^FT661,110^A0N,50,47^FR^FD37^FS");
+    expect(prn).toContain("^FT346,371^BY2^BCN,66,N,N,N^FD>:8904551005335^FS");
+    expect(prn).toContain("^FT410,175^A0N,38,36^FD1199/-^FS");
+    expect(prn).toContain("^PQ2,0,1,Y");
+    expect(prn).toContain("^XZ");
+  });
+
+  it("compiles standard retail ZPL PRN string for smaller label formats", () => {
+    const items = [
+      {
+        id: "itm-101",
+        itemCode: "TEE-01",
+        product: "Cotton T-Shirt",
+        brand: "Smriti",
+        style: "Crew",
+        shade: "White",
+        size: "L",
+        barcode: "890100000099",
+        stock: 20,
+        printQty: 5,
+        mrp: 499,
+        selected: true,
+      },
+    ];
+
+    const template = { id: "retail-50x25", name: "Retail 50 x 25 mm", widthMm: 50, heightMm: 25 };
+    const prn = compilePrnString(items as any, template);
+
+    expect(prn).toContain("^XA");
+    expect(prn).toContain("^PW400");
+    expect(prn).toContain("^LL200");
+    expect(prn).toContain("^FDCotton T-Shirt^FS");
+    expect(prn).toContain("^BY2^BCN,50,Y,N,N^FD890100000099^FS");
+    expect(prn).toContain("^FDMRP: Rs. 499/-^FS");
+    expect(prn).toContain("^PQ5,0,1,Y");
+    expect(prn).toContain("^XZ");
+  });
+
+  it("parses CSV/text manifest and aggregates duplicate scanned barcodes into combined print quantities", () => {
+    const rawPastedText = `
+      8904551002686,1
+      8904551002686,1
+      8904551002693,1
+      8904551002693,2
+      8904551002709,1
+      8904551002716,1
+    `;
+
+    const entries = parseBarcodeCsvOrText(rawPastedText, { delimiter: "auto", barcodeCol: 0, qtyCol: 1 });
+    expect(entries.length).toBe(4);
+
+    const b1 = entries.find(e => e.barcode === "8904551002686");
+    expect(b1).toBeDefined();
+    expect(b1?.qty).toBe(2); // Aggregated 1 + 1
+
+    const b2 = entries.find(e => e.barcode === "8904551002693");
+    expect(b2).toBeDefined();
+    expect(b2?.qty).toBe(3); // Aggregated 1 + 2
+
+    const b3 = entries.find(e => e.barcode === "8904551002709");
+    expect(b3?.qty).toBe(1);
+
+    const b4 = entries.find(e => e.barcode === "8904551002716");
+    expect(b4?.qty).toBe(1);
+  });
+
+  it("auto-detects tab, semicolon, and space delimiters when parsing barcode manifests", () => {
+    const tabText = "8904551001001\t5\n8904551001002\t10";
+    const semiText = "8904551002001;3\n8904551002002;7";
+    const spaceText = "8904551003001 4\n8904551003002 6";
+
+    const tabEntries = parseBarcodeCsvOrText(tabText, { delimiter: "auto", barcodeCol: 0, qtyCol: 1 });
+    expect(tabEntries.length).toBe(2);
+    expect(tabEntries[0].qty).toBe(5);
+
+    const semiEntries = parseBarcodeCsvOrText(semiText, { delimiter: "auto", barcodeCol: 0, qtyCol: 1 });
+    expect(semiEntries.length).toBe(2);
+    expect(semiEntries[1].qty).toBe(7);
+
+    const spaceEntries = parseBarcodeCsvOrText(spaceText, { delimiter: "auto", barcodeCol: 0, qtyCol: 1 });
+    expect(spaceEntries.length).toBe(2);
+    expect(spaceEntries[0].qty).toBe(4);
+  });
+
+  it("skips header rows and correctly maps alternate column indices with default qty fallback", () => {
+    const rawWithHeader = `
+      Barcode No,Item Description,Print Qty
+      8904551005001,Heel Shoe,4
+      8904551005002,Sandal Party,
+    `;
+
+    // Map Barcode Col = 0, Qty Col = 2
+    const entries = parseBarcodeCsvOrText(rawWithHeader, { delimiter: ",", barcodeCol: 0, qtyCol: 2 });
+    expect(entries.length).toBe(2);
+    expect(entries[0].barcode).toBe("8904551005001");
+    expect(entries[0].qty).toBe(4);
+    expect(entries[1].barcode).toBe("8904551005002");
+    expect(entries[1].qty).toBe(1); // Fallback to 1 for empty qty column
+
+    // Test default qty (-1) option
+    const noQtyColEntries = parseBarcodeCsvOrText("8904551009999", { delimiter: ",", barcodeCol: 0, qtyCol: -1 });
+    expect(noQtyColEntries[0].qty).toBe(1);
+  });
+
+  it("verifies default print profile presets contain valid Zebra LAN and USB configurations", () => {
+    expect(DEFAULT_PRINT_PRESETS.length).toBeGreaterThanOrEqual(2);
+    const lanPreset = DEFAULT_PRINT_PRESETS.find(p => p.printerInterface.includes("LAN"));
+    expect(lanPreset).toBeDefined();
+    expect(lanPreset?.networkPrinterPort).toBe(9100);
+    expect(lanPreset?.templateId).toBe("lay-footwear-100x50-3stub");
+
+    const usbPreset = DEFAULT_PRINT_PRESETS.find(p => p.printerInterface.includes("USB"));
+    expect(usbPreset).toBeDefined();
+    expect(usbPreset?.templateId).toBe("retail-50x25");
+  });
 });
+
