@@ -28,6 +28,24 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.25] - 2026-10-08 — SMRITI Print Labels Studio Multi-Source Inward Intake, Dynamic Layouts & Accurate SVG Preview
+
+> **Branch:** `smritiNX` | **Area:** Barcode, Hardware, Thermal Printing, Inward Logistics
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_MultiSource_And_Preview_v6.46.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Barcode_PrintLabelsStudio_MultiSource_And_Preview_Plan_v6.46.0.md`
+
+### Added
+- **Multi-Source Inward Intake Pipeline**:
+  - Wired domain sources (`PURCHASE` with default PO quantities, `GRN` inwards with receipt quantities, `SALES` return inwards, and `STOCK_TRANSFER` inwards) via `barcodeTransactionStore` into `PrintLabelsStudio.tsx`.
+- **Dynamic Layout Synchronization & Printer Selection**:
+  - Automatically queries and merges user-configured layouts from `GET /api/v1/barcode/layouts` with baseline presets.
+  - Dynamically detects and lists configured hardware thermal printers from `GET /api/v1/barcode/printer-settings`.
+- **Symbology Barcode SVG & Sheet Preview Modal**:
+  - Replaced illustrative 40-rectangle placeholder bar pattern with `<ThermalBarcodeSvg>` rendering.
+  - Added interactive browser print preview sheet modal with `window.print()` trigger.
+- **Unit Verification Suite**:
+  - Created `src/tests/printLabelsStudio.test.ts` asserting multi-source record resolution and template merging (6/6 tests passing).
+
 ## [6.70.24] - 2026-10-08 — SMRITI Canonical 14 Core System Roles Convergence & Tattly Threads RBAC Integration
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Security, RBAC, Database Enum, Multi-Tenant Governance
