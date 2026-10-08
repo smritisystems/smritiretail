@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.43] - 2026-10-09 — Phase 5 Control Plane Navigation & Payment Mode Harmonization (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, UI Navigation Control Plane & Payment Mode Governance
+> **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase5_Control_Plane_And_Payment_Harmonization_v1.0.0.md`
+> **Plan:** `docs/implementation/foundation/Foundation_Phase5_Control_Plane_And_Payment_Harmonization_Plan_v1.0.0.md`
+
+### Changed & Hardened (Phase 5 Control Plane & Payment Mode Harmonization)
+- **Cluster A: Payment Mode Enum & Tender Harmonization (FND-052)**:
+  - Defined `CANONICAL_PAYMENT_MODES` (`CASH`, `CARD`, `UPI`, `CHEQUE`, `BANK_TRANSFER`, `CREDIT_NOTE`, `SPLIT`, `CREDIT`, `ON_ACCOUNT`, `STORE_CREDIT`, `WALLET`, `LOYALTY`, `GIFT_VOUCHER`) in `src/components/billing/types.ts`.
+  - Implemented bidirectional pure normalizer `toCanonicalPaymentMode()` supporting financial aliases (`NEFT`, `RTGS`, `IMPS`, `CHECK`, `CN`, `DUE`, `Store Credit`, `Reward Points`, `Gift Card`).
+  - Expanded `PaymentMode` union type to accept both legacy display strings and canonical uppercase tokens.
+  - Updated `BillingTerm.tsx` settlement handler to serialize tender modes via `toCanonicalPaymentMode(payments[0]?.mode)`.
+- **Cluster B: Fiori Launchpad & Dynamic Menu Resolution (FND-060)**:
+  - Extended `getVisibleLaunchpadTiles()` and `getQuickActionTiles()` in `launchpadCatalog.ts` to accept optional custom catalog arrays.
+  - Implemented `mapModuleToGroup()` and `synthesizeLaunchpadCatalogWithRemoteMenus()` merging backend database menus (`smriti_menus`) into launchpad tiles.
+  - Upgraded `src/components/launchpad/FioriLaunchpad.tsx` with asynchronous `/api/v1/menus/resolved` synchronization on mount while ensuring seamless offline fallback to local `LAUNCHPAD_CATALOG`.
+  - Added visual `Control Plane Synced` status badge in the Launchpad Hero Operational Banner.
+- **Master Forensic Audit Finalization**:
+  - Successfully classified and completed all 68 audit findings across Phase 0 through 5.
+
 ## [6.70.42] - 2026-10-09 — Phase 4 Operational Daemons, Media Processing & UI Governance (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Daemons, Outbox Engine, SPIF Media & Workforce Master Governance
