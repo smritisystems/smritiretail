@@ -28,6 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.37] - 2026-10-08 — Leave Approval Workflow, Atomic Balance Deduction & Printable Salary Slip (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Statutory Leave Lifecycle, Manager Leave Approval Workflow, Printable Salary Slip Studio
+> **Walkthrough:** `docs/walkthrough/hr/Leave_Approval_Workflow_And_Payslip_Print_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/hr/Leave_Approval_Workflow_And_Payslip_Print_Plan_v1.0.0.md`
+
+### Added & Engineered
+- **Atomic Statutory Leave Balance Deduction (`PATCH /api/v1/staff/leave/requests/{request_id}/decision`)**:
+  - Implemented automated balance adjustment upon manager approval: locates employee `LeaveBalance` for target year and type, increments `used_days += total_days`, and decrements `pending_days` atomically within the PostgreSQL transaction.
+  - Implemented reservation hold release upon rejection: atomically decrements `pending_days` back to zero while preserving `used_days`.
+  - Added auto-provisioning fallback ensuring statutory leave balances (CL 12, SL 12, EL 15) are provisioned if not already established.
+- **Real-Time Leave Reservation Hold (`POST /api/v1/staff/leave/requests`)**:
+  - Automatically updates `pending_days = (pending_days or 0) + total_days` when new leave applications are submitted.
+- **1-Click Manager Leave Decision Console (`EmployeeAttendanceModal.tsx` v3.121.6)**:
+  - Added inline `[✓ Approve]` and `[✕ Reject]` action buttons for pending leave requests with optimistic UI feedback and automatic re-fetching of leave balances and history.
+- **Executive Printable Salary Slip Studio (`EmployeeAttendanceModal.tsx` v3.121.6)**:
+  - Added `[🖨 Print Salary Slip]` trigger in the `PAYOUT` tab launching a full-screen, print-optimized salary voucher overlay.
+  - Features organizational branding (SMRITI Retail OS, branch code, GSTIN), employee metadata, attendance & shift breakdown (working days, present shifts, late punches, LOP days, total hours worked), side-by-side earnings and LOP deductions table, bold net remuneration banner, and dual physical signature blocks (Employee & Authorized Signatory).
+  - Clean `@media print` CSS isolating the voucher sheet during `window.print()` / PDF export.
+
+### Verified & Certified
+- **Pytest**: 2/2 tests green in `backend/app/tests/t_leave_decision_balance_verify.py` (`test_leave_approval_atomic_balance_deduction`, `test_non_manager_cannot_decide_leave`).
+- **Vitest**: 12/12 tests green in `src/tests/employeeAttendanceStudio.test.ts` (including leave decision transitions and printable payslip calculation math).
+- **TypeScript**: `npx tsc --noEmit` exited code 0 (0 errors).
+- **Python Bytecode**: `python -m py_compile` clean across all modified files.
+
 ## [6.70.36] - 2026-10-08 — Commission Payout Settlement & Leave Management Integration (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Commission Payout Settlement, Statutory Leave Lifecycle, Dynamic Payout Engine

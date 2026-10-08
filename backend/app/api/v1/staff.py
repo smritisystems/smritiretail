@@ -9,7 +9,7 @@ Founders
 * Jawahar Ramkripal Mallah   -- Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.70.36
+* Version    : 6.70.37
 * Created    : 2026-08-24
 * Modified   : 2026-10-08
 * Copyright  : (c) AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -1693,6 +1693,34 @@ async def create_leave_request(
         reason=payload.reason,
     )
     db.add(request)
+
+    # Auto-adjust or provision pending_days on LeaveBalance
+    leave_year = payload.start_date.year
+    lb = (await db.execute(select(LeaveBalance).where(
+        LeaveBalance.company_id == tenant.company_id,
+        LeaveBalance.user_id == payload.user_id,
+        LeaveBalance.leave_year == leave_year,
+        LeaveBalance.leave_type == payload.leave_type,
+        LeaveBalance.is_deleted == False,
+    ))).scalar_one_or_none()
+    if lb:
+        lb.pending_days = (lb.pending_days or 0) + total_days
+    else:
+        entitled = 15 if payload.leave_type == "EL" else 12
+        lb = LeaveBalance(
+            id=f"lb-{uuid.uuid4().hex[:12]}",
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
+            user_id=payload.user_id,
+            leave_year=leave_year,
+            leave_type=payload.leave_type,
+            entitled_days=entitled,
+            used_days=0,
+            pending_days=total_days,
+            created_by=current_user.id,
+        )
+        db.add(lb)
+
     await db.commit()
     await db.refresh(request)
     return request
@@ -1718,7 +1746,47 @@ async def decide_leave_request(
         raise HTTPException(status_code=404, detail="Leave request was not found in the active tenant.")
     if request.status != "PENDING":
         raise HTTPException(status_code=409, detail="Only pending leave requests can be decided.")
-    request.status = payload.status
+
+    # Locate LeaveBalance for this employee, year, and leave type
+    leave_year = request.start_date.year
+    lb = (await db.execute(select(LeaveBalance).where(
+        LeaveBalance.company_id == tenant.company_id,
+        LeaveBalance.user_id == request.user_id,
+        LeaveBalance.leave_year == leave_year,
+        LeaveBalance.leave_type == request.leave_type,
+        LeaveBalance.is_deleted == False,
+    ))).scalar_one_or_none()
+
+    if not lb:
+        entitled = 15 if request.leave_type == "EL" else 12
+        lb = LeaveBalance(
+            id=f"lb-{uuid.uuid4().hex[:12]}",
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
+            user_id=request.user_id,
+            leave_year=leave_year,
+            leave_type=request.leave_type,
+            entitled_days=entitled,
+            used_days=0,
+            pending_days=0,
+            created_by=current_user.id,
+        )
+        db.add(lb)
+
+    if payload.status == "APPROVED":
+        request.status = "APPROVED"
+        lb.used_days = (lb.used_days or 0) + request.total_days
+        if lb.pending_days and lb.pending_days >= request.total_days:
+            lb.pending_days -= request.total_days
+        else:
+            lb.pending_days = 0
+    elif payload.status == "REJECTED":
+        request.status = "REJECTED"
+        if lb.pending_days and lb.pending_days >= request.total_days:
+            lb.pending_days -= request.total_days
+        else:
+            lb.pending_days = 0
+
     request.approver_id = current_user.id
     request.decision_reason = payload.decision_reason
     request.decided_at = datetime.now(timezone.utc)

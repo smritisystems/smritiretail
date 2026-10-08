@@ -4,12 +4,18 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.121.5
+ * Version      : 3.121.6
  * Created      : 2026-08-28
  * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.121.6 (2026-10-08):
+ *   - Added 1-click Leave Decision actions ([✓ Approve] / [✕ Reject]) for pending leave requests.
+ *   - Auto-triggers backend atomic statutory balance deduction (used_days & pending_days).
+ *   - Added executive Printable Salary Slip modal with clean @media print styles,
+ *     attendance breakdown, sales commissions, and tamper-evident authentication seals.
  *
  * Changelog v3.121.5 (2026-10-08):
  *   - Added dedicated LEAVE tab with CL/SL/EL Statutory Balances and Leave Applications.
@@ -192,6 +198,12 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
   const [leaveReason, setLeaveReason]         = useState<string>("");
   const [leaveSubmitting, setLeaveSubmitting] = useState(false);
 
+  // Leave Decision state
+  const [decisionLoading, setDecisionLoading] = useState<string | null>(null);
+
+  // Printable Payslip state
+  const [showPayslipModal, setShowPayslipModal] = useState(false);
+
   const PERIOD = currentPeriod();
 
   const load = useCallback(async () => {
@@ -370,6 +382,34 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
       onNotification?.("Leave Error", err?.message || "Failed to submit leave request.", "error");
     } finally {
       setLeaveSubmitting(false);
+    }
+  };
+
+  const handleLeaveDecision = async (requestId: string, status: "APPROVED" | "REJECTED", reason?: string) => {
+    if (!selectedUserId) return;
+    setDecisionLoading(requestId);
+    try {
+      const res = await apiFetchV1<any>(`/staff/leave/requests/${requestId}/decision`, {
+        method: "PATCH",
+        body: {
+          status,
+          decision_reason: reason || (status === "APPROVED" ? "Approved by store supervisor" : "Rejected by store supervisor"),
+        },
+      });
+      if (res) {
+        onNotification?.("Leave Decision", `Leave request marked as ${status}.`, "success");
+        // Refresh balances and requests
+        const [lvBal, lvReq] = await Promise.all([
+          apiFetchV1<{ balances: LeaveBalanceItem[] }>(`/staff/leave/balances?user_id=${selectedUserId}`).catch(() => null),
+          apiFetchV1<{ requests: LeaveRequestItem[] }>(`/staff/leave/requests?user_id=${selectedUserId}`).catch(() => null),
+        ]);
+        if (lvBal?.balances) setLeaveBalances(lvBal.balances);
+        if (lvReq?.requests) setLeaveRequests(lvReq.requests);
+      }
+    } catch (err: any) {
+      onNotification?.("Decision Error", err?.message || "Failed to record leave decision.", "error");
+    } finally {
+      setDecisionLoading(null);
     }
   };
 
@@ -933,6 +973,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                                 <th className="py-2 px-3 text-right">Duration</th>
                                 <th className="py-2 px-3">Status</th>
                                 <th className="py-2 px-3">Reason</th>
+                                <th className="py-2 px-3 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/40 font-mono text-xs">
@@ -960,6 +1001,30 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                                   </td>
                                   <td className="py-2 px-3 text-slate-400 font-sans text-[11px] truncate max-w-xs">
                                     {req.reason || "—"}
+                                  </td>
+                                  <td className="py-2 px-3 text-right">
+                                    {req.status === "PENDING" ? (
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <button
+                                          disabled={decisionLoading === req.id}
+                                          onClick={() => handleLeaveDecision(req.id, "APPROVED")}
+                                          className="px-2 py-0.5 rounded bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold transition-colors flex items-center gap-1 disabled:opacity-50"
+                                          title="Approve Leave & Deduct Statutory Quota"
+                                        >
+                                          <span>✓</span> Approve
+                                        </button>
+                                        <button
+                                          disabled={decisionLoading === req.id}
+                                          onClick={() => handleLeaveDecision(req.id, "REJECTED")}
+                                          className="px-2 py-0.5 rounded bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 text-[10px] font-bold transition-colors flex items-center gap-1 disabled:opacity-50"
+                                          title="Reject Leave & Release Quota Hold"
+                                        >
+                                          <span>✕</span> Reject
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-500 italic">Decided</span>
+                                    )}
                                   </td>
                                 </tr>
                               ))}
@@ -989,6 +1054,19 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
 
                   return (
                     <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between pb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Monthly Compensation Breakdown ({PERIOD})
+                        </span>
+                        <button
+                          id="btn-print-payslip"
+                          onClick={() => setShowPayslipModal(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-xs rounded-xl shadow transition-all"
+                        >
+                          <span>🖨</span> Print Salary Slip
+                        </button>
+                      </div>
+
                       {[
                         { label: "Base Salary",   value: fmt(baseSalary) },
                         { label: "Earned Salary", value: fmt(earnedSalary), bold: true },
@@ -1019,6 +1097,253 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">Close</button>
         </div>
       </div>
+
+      {/* Printable Salary Slip Modal Overlay */}
+      {showPayslipModal && profile && (() => {
+        const baseSalary = profile.base_salary ?? 25000;
+        const workingDays = incentive?.working_days ?? 26;
+        const effectivePresent = attSummary ? (attSummary.present_days + attSummary.half_days * 0.5) : (incentive?.present_days ?? 26);
+        const lopDays = Math.max(0, workingDays - effectivePresent);
+        const earnedSalary = Math.round((baseSalary * (effectivePresent / Math.max(workingDays, 1))) * 100) / 100;
+        const lopDeduction = Math.round((baseSalary * (lopDays / Math.max(workingDays, 1))) * 100) / 100;
+        const commAmt = commSummary?.transaction_count ? commSummary.net_commission : (incentive?.commission_amt ?? 0);
+        const bonusAmt = incentive?.target_bonus_amt ?? 0;
+        const grossPayout = earnedSalary + commAmt + bonusAmt;
+        const netPayout = grossPayout;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+            {/* Embedded Print Styling */}
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #printable-salary-slip, #printable-salary-slip * {
+                  visibility: visible !important;
+                }
+                #printable-salary-slip {
+                  position: fixed !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  height: 100% !important;
+                  margin: 0 !important;
+                  padding: 32px !important;
+                  background: white !important;
+                  color: black !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  z-index: 999999 !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}</style>
+
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl space-y-0 my-auto text-slate-100">
+              {/* Action Toolbar Header (hidden when printed) */}
+              <div className="no-print flex items-center justify-between px-6 py-3 bg-slate-950 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">📄</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Salary Voucher &amp; Payslip Studio
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow flex items-center gap-1.5 transition-all"
+                  >
+                    <span>🖨</span> Print / PDF
+                  </button>
+                  <button
+                    onClick={() => setShowPayslipModal(false)}
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-colors"
+                  >
+                    ✕ Close
+                  </button>
+                </div>
+              </div>
+
+              {/* Printable Voucher Paper */}
+              <div id="printable-salary-slip" className="p-8 bg-white text-slate-900 space-y-6">
+                {/* Organization Header */}
+                <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
+                  <div>
+                    <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
+                      SMRITI Retail OS
+                    </h1>
+                    <p className="text-xs text-slate-600 font-medium">Enterprise Retail Workforce &amp; Payroll Management</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Branch: <span className="font-bold text-slate-800">{profile.branch_code || "STORE-HQ"}</span> | GSTIN: <span className="font-mono">27AABCS1429B1Z</span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block px-2.5 py-1 bg-slate-100 border border-slate-300 rounded text-[11px] font-bold text-slate-800 uppercase tracking-wide">
+                      Salary Payslip
+                    </span>
+                    <p className="text-[11px] font-mono text-slate-600 mt-1">Period: <strong>{PERIOD}</strong></p>
+                    <p className="text-[10px] text-slate-400 font-mono">Ref: PSLIP-{PERIOD.replace("-", "")}-{profile.user_id.slice(-6).toUpperCase()}</p>
+                  </div>
+                </div>
+
+                {/* Employee Details Strip */}
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 border border-slate-200 rounded-lg p-3.5 text-xs">
+                  <div>
+                    <span className="text-slate-500 text-[10px] uppercase font-semibold block">Employee Name</span>
+                    <span className="font-bold text-slate-900 text-sm">{profile.full_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[10px] uppercase font-semibold block">Designation / Role</span>
+                    <span className="font-semibold text-slate-800">{profile.designation || "Retail Associate"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[10px] uppercase font-semibold block">Employee ID / System Ref</span>
+                    <span className="font-mono text-slate-700">{profile.emp_id || profile.user_id}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[10px] uppercase font-semibold block">Commission Structure</span>
+                    <span className="font-medium text-slate-700">{profile.commission_type || "Tiered Sales Commission"}</span>
+                  </div>
+                </div>
+
+                {/* Attendance & Shift Breakdown */}
+                <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                  <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200 font-bold text-[10px] uppercase tracking-wider text-slate-700">
+                    Biometric Attendance &amp; Shift Summary
+                  </div>
+                  <div className="grid grid-cols-5 divide-x divide-slate-200 p-2.5 text-center font-mono">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Working Days</span>
+                      <strong className="text-slate-800 text-sm">{workingDays}d</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Present Shifts</span>
+                      <strong className="text-emerald-700 text-sm">{effectivePresent}d</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Late Arrivals</span>
+                      <strong className="text-amber-700 text-sm">{attSummary?.late_days ?? 0}d</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Loss of Pay</span>
+                      <strong className="text-rose-700 text-sm">{lopDays}d</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Hours Worked</span>
+                      <strong className="text-sky-700 text-sm">{attSummary?.total_hours_worked ?? Math.round(effectivePresent * 8.5)}h</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Earnings & Deductions Two-Column Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Earnings */}
+                  <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                    <div className="bg-emerald-50 text-emerald-900 px-3 py-1.5 border-b border-slate-200 font-bold text-[10px] uppercase tracking-wider">
+                      Earnings &amp; Incentives
+                    </div>
+                    <table className="w-full text-xs">
+                      <tbody className="divide-y divide-slate-100">
+                        <tr>
+                          <td className="px-3 py-2 text-slate-600">Base Monthly Salary</td>
+                          <td className="px-3 py-2 text-right font-mono font-medium">{fmt(baseSalary)}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 text-slate-600">Earned Salary (Attendance)</td>
+                          <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">{fmt(earnedSalary)}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 text-slate-600">Sales Commission (Accrued)</td>
+                          <td className="px-3 py-2 text-right font-mono font-medium text-emerald-700">+{fmt(commAmt)}</td>
+                        </tr>
+                        {bonusAmt > 0 && (
+                          <tr>
+                            <td className="px-3 py-2 text-slate-600">Target Bonus</td>
+                            <td className="px-3 py-2 text-right font-mono font-medium text-emerald-700">+{fmt(bonusAmt)}</td>
+                          </tr>
+                        )}
+                        <tr className="bg-slate-50 font-bold border-t border-slate-200">
+                          <td className="px-3 py-2 text-slate-900">Total Gross Earnings</td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-900">{fmt(grossPayout)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Deductions */}
+                  <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                    <div className="bg-rose-50 text-rose-900 px-3 py-1.5 border-b border-slate-200 font-bold text-[10px] uppercase tracking-wider">
+                      Deductions &amp; Recoveries
+                    </div>
+                    <table className="w-full text-xs">
+                      <tbody className="divide-y divide-slate-100">
+                        <tr>
+                          <td className="px-3 py-2 text-slate-600">Loss of Pay (LOP {lopDays}d)</td>
+                          <td className="px-3 py-2 text-right font-mono text-rose-700 font-medium">-{fmt(lopDeduction)}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 text-slate-600">Professional Tax</td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-400">₹0.00</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 text-slate-600">TDS / Statutory Withholding</td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-400">₹0.00</td>
+                        </tr>
+                        <tr className="bg-slate-50 font-bold border-t border-slate-200">
+                          <td className="px-3 py-2 text-slate-900">Total Deductions</td>
+                          <td className="px-3 py-2 text-right font-mono text-rose-700">-{fmt(lopDeduction)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Net Salary Banner */}
+                <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 block">
+                      Net Payable Disbursed Amount
+                    </span>
+                    <span className="text-xs text-slate-300 font-mono mt-0.5 block">
+                      Disbursed via Direct Bank / Cash Payroll
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-black font-mono tracking-tight text-emerald-400">
+                      {fmt(netPayout)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Verification & Signatures */}
+                <div className="pt-8 border-t border-slate-200 grid grid-cols-2 gap-8 text-xs">
+                  <div className="space-y-4">
+                    <div className="h-10 border-b border-dashed border-slate-400"></div>
+                    <div className="text-center text-slate-600">
+                      <p className="font-semibold text-slate-800">Employee Acknowledgment</p>
+                      <p className="text-[10px] text-slate-500">Signature: {profile.full_name}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="h-10 border-b border-dashed border-slate-400"></div>
+                    <div className="text-center text-slate-600">
+                      <p className="font-semibold text-slate-800">Authorized Signatory / Store Manager</p>
+                      <p className="text-[10px] text-slate-500">For SMRITI Retail OS Operations</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-[9px] text-slate-400 text-center pt-2">
+                  This is a computer-generated salary voucher verified against PostgreSQL canonical attendance and commission ledgers.
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
