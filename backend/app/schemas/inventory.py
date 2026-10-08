@@ -339,6 +339,15 @@ class ProductResponse(ProductBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("barcode", mode="before")
+    @classmethod
+    def fallback_empty_barcode(cls, v: Any, info: ValidationInfo) -> str:
+        s = str(v).strip() if v is not None else ""
+        if not s:
+            code_val = info.data.get("code") if info.data else None
+            return str(code_val).strip() if code_val else "UNASSIGNED"
+        return s
+
     @model_validator(mode="after")
     def validate_pricing_hierarchy(self) -> "ProductResponse":  # type: ignore[override]
         """
