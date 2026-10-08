@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.33] - 2026-10-08 — Interactive Punch Clocking & Biometric Device Webhook (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** HR, Attendance Punch Clocking, Biometric IoT Webhook, Shift Status UI
+> **Walkthrough:** `docs/walkthrough/hr/Attendance_Punch_Clocking_And_Biometric_Webhook_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/hr/Attendance_Punch_Clocking_And_Biometric_Webhook_Plan_v1.0.0.md`
+
+### Added & Engineered
+- **Interactive Punch API (`backend/app/api/v1/staff.py`)**:
+  - Implemented `POST /api/v1/staff/attendance/punch` with auto-state detection (Clock IN vs Clock OUT), permission validation, and timezone-aware timestamps.
+  - Implemented `POST /api/v1/staff/attendance/device-push` for hardware biometric terminals (eSSL, ZKTeco, Matrix) with batch employee code resolution across `staff_profiles` and `users`.
+  - Added Pydantic schemas: `AttendancePunchPayload`, `BiometricPunchItem`, `BiometricDevicePushPayload`.
+- **Attendance Studio UI Console (`src/components/hr/EmployeeAttendanceModal.tsx`)**:
+  - Engineered Shift Status Console featuring real-time badge (`Not Clocked In Today`, `Clocked In at {time}`, `Clocked Out at {time}`).
+  - Added interactive Punch Action button (`[⏱ Clock In Now]`, `[⏱ Clock Out Now]`, `[↻ Update Clock-Out]`) with optimistic feedback.
+  - Added IoT Biometric hardware push status pill (`📡 IoT Biometric Push ● Active`).
+- **Automated Verification & Test Suites**:
+  - Created Pytest suite `backend/app/tests/t_staff_punch_verify.py` verifying punch in/out transitions and biometric batch ingestion (2/2 passed, 11/11 full staff suite green in 56.85s).
+  - Extended Vitest suite `src/tests/employeeAttendanceStudio.test.ts` (6/6 passed in 743ms).
+  - Verified 0 TypeScript errors with `npx tsc --noEmit`.
+
 ## [6.70.32] - 2026-10-08 — Attendance Studio Full System Audit & API Contract Reconciliation (v1.0.1)
 
 > **Branch:** `smritiNX` | **Area:** HR, Attendance Studio, Boundary Contract Hardening, Payroll Synthesis

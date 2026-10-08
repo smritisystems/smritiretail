@@ -9,9 +9,9 @@ Founders
 * Jawahar Ramkripal Mallah   -- Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.30.0
+* Version    : 6.70.33
 * Created    : 2026-08-24
-* Modified   : 2026-08-24
+* Modified   : 2026-10-08
 * Copyright  : (c) AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 
@@ -101,6 +101,29 @@ class AttendanceCreate(BaseModel):
     register_source: Optional[str] = None
     device_source: Optional[str] = None
     correction_reason: Optional[str] = None
+
+
+class AttendancePunchPayload(BaseModel):
+    user_id: Optional[str] = None
+    punch_type: Optional[str] = "AUTO"  # AUTO | IN | OUT
+    device_source: Optional[str] = "WEB_PORTAL"
+    register_source: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class BiometricPunchItem(BaseModel):
+    employee_code: Optional[str] = None
+    user_id: Optional[str] = None
+    timestamp: datetime
+    punch_state: Optional[str] = "AUTO"  # AUTO | CHECK_IN | CHECK_OUT | 0 | 1
+    verify_type: Optional[str] = "BIOMETRIC"  # FINGERPRINT | FACE | CARD | PASSWORD
+
+
+class BiometricDevicePushPayload(BaseModel):
+    device_id: str
+    device_key: Optional[str] = None
+    branch_id: Optional[str] = None
+    punches: List[BiometricPunchItem] = []
 
 
 class LeaveRequestCreate(BaseModel):
@@ -996,6 +1019,237 @@ async def create_attendance(
     await db.commit()
     await db.refresh(record)
     return record
+
+
+@router.post("/attendance/punch")
+async def record_attendance_punch(
+    payload: AttendancePunchPayload,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Interactive Punch Clocking Endpoint.
+    Records clock-in or clock-out for a staff member.
+    Idempotent and auto-determines IN vs OUT transition if punch_type='AUTO'.
+    """
+    target_user_id = payload.user_id or current_user.id
+    if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
+        if target_user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Employees may only punch attendance for themselves."
+            )
+    await _tenant_user(db, target_user_id, tenant)
+
+    now_utc = datetime.now(timezone.utc)
+    today = now_utc.date()
+
+    existing = (await db.execute(select(AttendanceRecord).where(
+        AttendanceRecord.company_id == tenant.company_id,
+        AttendanceRecord.user_id == target_user_id,
+        AttendanceRecord.attendance_date == today,
+        AttendanceRecord.is_deleted == False,
+    ))).scalar_one_or_none()
+
+    punch_mode = (payload.punch_type or "AUTO").upper()
+
+    if not existing:
+        # First punch of today -> Clock IN
+        record = AttendanceRecord(
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
+            created_by=current_user.id,
+            user_id=target_user_id,
+            attendance_date=today,
+            status="PRESENT",
+            check_in_at=now_utc,
+            check_out_at=None,
+            branch_source_id=tenant.branch_id,
+            register_source=payload.register_source,
+            device_source=payload.device_source or "WEB_PORTAL",
+            correction_status="NONE",
+            correction_reason=payload.notes,
+        )
+        db.add(record)
+        await db.commit()
+        await db.refresh(record)
+        return {
+            "success": True,
+            "action": "CHECKED_IN",
+            "message": f"Successfully clocked in at {now_utc.strftime('%H:%M')}",
+            "record": {
+                "id": record.id,
+                "user_id": record.user_id,
+                "attendance_date": record.attendance_date.isoformat(),
+                "status": record.status,
+                "check_in_at": record.check_in_at.isoformat() if record.check_in_at else None,
+                "check_out_at": record.check_out_at.isoformat() if record.check_out_at else None,
+                "device_source": record.device_source,
+            }
+        }
+    else:
+        # Record exists
+        if punch_mode == "IN" and not existing.check_in_at:
+            existing.check_in_at = now_utc
+            action_done = "CHECKED_IN"
+            msg = f"Clock-in updated at {now_utc.strftime('%H:%M')}"
+        elif punch_mode == "IN" and existing.check_in_at:
+            return {
+                "success": True,
+                "action": "ALREADY_CHECKED_IN",
+                "message": f"Already clocked in at {existing.check_in_at.strftime('%H:%M')}",
+                "record": {
+                    "id": existing.id,
+                    "user_id": existing.user_id,
+                    "attendance_date": existing.attendance_date.isoformat(),
+                    "status": existing.status,
+                    "check_in_at": existing.check_in_at.isoformat() if existing.check_in_at else None,
+                    "check_out_at": existing.check_out_at.isoformat() if existing.check_out_at else None,
+                    "device_source": existing.device_source,
+                }
+            }
+        else:
+            # AUTO or OUT -> Clock OUT
+            existing.check_out_at = now_utc
+            if payload.device_source:
+                existing.device_source = f"{existing.device_source or ''}, {payload.device_source}".strip(", ")
+            action_done = "CHECKED_OUT"
+            msg = f"Successfully clocked out at {now_utc.strftime('%H:%M')}"
+
+        existing.modified_at = now_utc
+        existing.updated_by = current_user.id
+        await db.commit()
+        await db.refresh(existing)
+        return {
+            "success": True,
+            "action": action_done,
+            "message": msg,
+            "record": {
+                "id": existing.id,
+                "user_id": existing.user_id,
+                "attendance_date": existing.attendance_date.isoformat(),
+                "status": existing.status,
+                "check_in_at": existing.check_in_at.isoformat() if existing.check_in_at else None,
+                "check_out_at": existing.check_out_at.isoformat() if existing.check_out_at else None,
+                "device_source": existing.device_source,
+            }
+        }
+
+
+@router.post("/attendance/device-push")
+async def receive_biometric_device_push(
+    payload: BiometricDevicePushPayload,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
+):
+    """
+    IoT Biometric Device Push Webhook.
+    Receives raw punch streams from hardware terminals (ZKTeco, eSSL, Matrix).
+    Resolves employee codes to tenant users and upserts attendance records.
+    """
+    if not payload.punches:
+        return {"processed": 0, "success": True, "message": "No punches to process"}
+
+    profiles = (await db.execute(
+        select(StaffProfile).where(
+            StaffProfile.company_id == tenant.company_id,
+            StaffProfile.is_deleted == False,
+        )
+    )).scalars().all()
+
+    code_to_uid = {}
+    for p in profiles:
+        if p.employee_code:
+            code_to_uid[p.employee_code.strip().upper()] = p.user_id
+        if p.employee_id:
+            code_to_uid[p.employee_id.strip().upper()] = p.user_id
+
+    users = (await control_db.execute(
+        select(User).where(
+            or_(User.company_id == tenant.company_id, User.company_id.is_(None)),
+            User.is_deleted == False,
+        )
+    )).scalars().all()
+    for u in users:
+        if u.employee_code:
+            code_to_uid.setdefault(u.employee_code.strip().upper(), u.id)
+        if u.employee_id:
+            code_to_uid.setdefault(u.employee_id.strip().upper(), u.id)
+        code_to_uid.setdefault(u.username.strip().upper(), u.id)
+        code_to_uid.setdefault(u.id.upper(), u.id)
+
+    processed_count = 0
+    errors = []
+
+    for item in payload.punches:
+        raw_code = (item.employee_code or item.user_id or "").strip().upper()
+        resolved_uid = code_to_uid.get(raw_code)
+        if not resolved_uid:
+            errors.append(f"Unrecognized employee code '{raw_code}'")
+            continue
+
+        punch_time = item.timestamp
+        if punch_time.tzinfo is None:
+            punch_time = punch_time.replace(tzinfo=timezone.utc)
+        punch_date = punch_time.date()
+
+        existing = (await db.execute(
+            select(AttendanceRecord).where(
+                AttendanceRecord.company_id == tenant.company_id,
+                AttendanceRecord.user_id == resolved_uid,
+                AttendanceRecord.attendance_date == punch_date,
+                AttendanceRecord.is_deleted == False,
+            )
+        )).scalar_one_or_none()
+
+        device_tag = f"IoT-{payload.device_id}:{item.verify_type or 'BIO'}"
+        state = str(item.punch_state or "AUTO").upper()
+
+        if not existing:
+            new_rec = AttendanceRecord(
+                company_id=tenant.company_id,
+                branch_id=payload.branch_id or tenant.branch_id,
+                created_by="system-biometric",
+                user_id=resolved_uid,
+                attendance_date=punch_date,
+                status="PRESENT",
+                check_in_at=punch_time,
+                check_out_at=None,
+                branch_source_id=payload.branch_id or tenant.branch_id,
+                register_source="BIOMETRIC_TERMINAL",
+                device_source=device_tag,
+            )
+            db.add(new_rec)
+        else:
+            if state in ("CHECK_IN", "0"):
+                if not existing.check_in_at or punch_time < existing.check_in_at:
+                    existing.check_in_at = punch_time
+            elif state in ("CHECK_OUT", "1"):
+                if not existing.check_out_at or punch_time > existing.check_out_at:
+                    existing.check_out_at = punch_time
+            else:
+                if existing.check_in_at and punch_time > existing.check_in_at:
+                    existing.check_out_at = punch_time
+                elif not existing.check_in_at:
+                    existing.check_in_at = punch_time
+
+            existing.modified_at = datetime.now(timezone.utc)
+            if existing.device_source and device_tag not in existing.device_source:
+                existing.device_source = f"{existing.device_source}, {device_tag}"
+            elif not existing.device_source:
+                existing.device_source = device_tag
+
+        processed_count += 1
+
+    await db.commit()
+    return {
+        "success": True,
+        "processed": processed_count,
+        "device_id": payload.device_id,
+        "errors": errors,
+    }
 
 
 @router.get("/leave/balances")
