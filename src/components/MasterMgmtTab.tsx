@@ -386,7 +386,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
   }, [selectedType, lookupTypes, availableVendorCodes, responseTransform, extraHeaderActions]);
 
   const registryConfig: any = useMemo(() => {
-    let base = dynamicConfig;
+    let base: any = dynamicConfig;
     if (selectedType === "size_group") {
       base = getMasterRegistryTypeConfig("size_group", "select");
     } else if (selectedType === "size_group_registry") {
