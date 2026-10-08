@@ -15,11 +15,13 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ExternalLink, Search, X, Sparkles, Layers, ShieldCheck, Database, Store } from "lucide-react";
 import { useWorkspace } from "../../contexts/WorkspaceContext.tsx";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import type { TileData } from "./launchpadCatalog.ts";
 import {
   LAUNCHPAD_CATALOG,
   getVisibleLaunchpadTiles,
   getQuickActionTiles,
+  synthesizeLaunchpadCatalogWithRemoteMenus,
 } from "./launchpadCatalog.ts";
 
 export type { TileData };
@@ -27,6 +29,7 @@ export {
   LAUNCHPAD_CATALOG,
   getVisibleLaunchpadTiles,
   getQuickActionTiles,
+  synthesizeLaunchpadCatalogWithRemoteMenus,
 };
 
 export interface FioriLaunchpadProps {
@@ -37,11 +40,45 @@ export interface FioriLaunchpadProps {
 export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onSelectModule }) => {
   const { popOutExternalWindow } = useWorkspace();
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [remoteMenus, setRemoteMenus] = useState<any[] | null>(null);
+  const [isControlPlaneSynced, setIsControlPlaneSynced] = useState<boolean>(false);
+
+  // Asynchronously query PostgreSQL control plane (/api/v1/menus/resolved)
+  useEffect(() => {
+    let isMounted = true;
+    async function loadControlPlaneMenus() {
+      try {
+        const res = await apiFetchV1("/api/v1/menus/resolved");
+        if (!isMounted) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setRemoteMenus(data);
+            setIsControlPlaneSynced(true);
+          }
+        }
+      } catch {
+        // Resilient offline fallback: retain static LAUNCHPAD_CATALOG without disruption
+      }
+    }
+    loadControlPlaneMenus();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Synthesize catalog from database menus or fallback to static catalog
+  const activeCatalog = useMemo(() => {
+    if (!remoteMenus || remoteMenus.length === 0) {
+      return LAUNCHPAD_CATALOG;
+    }
+    return synthesizeLaunchpadCatalogWithRemoteMenus(remoteMenus, LAUNCHPAD_CATALOG);
+  }, [remoteMenus]);
 
   // Filter tiles strictly using the canonical helper (deny-by-default)
   const visibleTiles = useMemo(() => {
-    return getVisibleLaunchpadTiles(currentUser?.role);
-  }, [currentUser?.role]);
+    return getVisibleLaunchpadTiles(currentUser?.role, activeCatalog);
+  }, [currentUser?.role, activeCatalog]);
 
   // Quick Action Tiles
   const quickActions = useMemo(() => {
@@ -196,6 +233,12 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
             <span className="text-[11px] text-blue-200/80 font-mono">
               Industrial Terminal
             </span>
+            {isControlPlaneSynced && (
+              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Database size={10} className="text-emerald-300" />
+                Control Plane Synced
+              </span>
+            )}
           </div>
 
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight font-display text-white">

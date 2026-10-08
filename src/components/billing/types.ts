@@ -42,7 +42,95 @@ export interface BillingLineItem {
 }
 export type BillType = "Product" | "Service";
 export type TransactionType = "Credit" | "Cash";
-export type PaymentMode = "Cash" | "Credit Card" | "Debit Card" | "Cheque" | "UPI" | "Credit Note" | "Split" | "Credit" | "On Account";
+
+export const CANONICAL_PAYMENT_MODES = [
+  "CASH",
+  "CARD",
+  "UPI",
+  "CHEQUE",
+  "BANK_TRANSFER",
+  "CREDIT_NOTE",
+  "SPLIT",
+  "CREDIT",
+  "ON_ACCOUNT",
+  "STORE_CREDIT",
+  "WALLET",
+  "LOYALTY",
+  "GIFT_VOUCHER",
+] as const;
+
+export type CanonicalPaymentMode = typeof CANONICAL_PAYMENT_MODES[number];
+
+export type LegacyPaymentModeDisplay =
+  | "Cash"
+  | "Credit Card"
+  | "Debit Card"
+  | "Cheque"
+  | "UPI"
+  | "Credit Note"
+  | "Split"
+  | "Credit"
+  | "On Account";
+
+export type PaymentMode = LegacyPaymentModeDisplay | CanonicalPaymentMode;
+
+/**
+ * Normalizes any legacy display string, raw input, or canonical code
+ * into the authoritative uppercase CanonicalPaymentMode enum.
+ */
+export function toCanonicalPaymentMode(raw: string | PaymentMode | null | undefined): CanonicalPaymentMode {
+  if (!raw) return "CASH";
+  const normalized = String(raw).trim().toUpperCase().replace(/[\s-]+/g, "_");
+
+  switch (normalized) {
+    case "CASH":
+      return "CASH";
+    case "CREDIT_CARD":
+    case "DEBIT_CARD":
+    case "CARD":
+      return "CARD";
+    case "UPI":
+      return "UPI";
+    case "CHEQUE":
+    case "CHECK":
+      return "CHEQUE";
+    case "BANK_TRANSFER":
+    case "NEFT":
+    case "RTGS":
+    case "IMPS":
+    case "WIRE":
+      return "BANK_TRANSFER";
+    case "CREDIT_NOTE":
+    case "CN":
+      return "CREDIT_NOTE";
+    case "SPLIT":
+    case "MULTI":
+      return "SPLIT";
+    case "CREDIT":
+    case "DUE":
+      return "CREDIT";
+    case "ON_ACCOUNT":
+    case "ACCOUNT":
+      return "ON_ACCOUNT";
+    case "STORE_CREDIT":
+      return "STORE_CREDIT";
+    case "WALLET":
+      return "WALLET";
+    case "LOYALTY":
+    case "LOYALTY_POINTS":
+    case "REWARD_POINTS":
+      return "LOYALTY";
+    case "GIFT_VOUCHER":
+    case "VOUCHER":
+    case "GIFT_CARD":
+      return "GIFT_VOUCHER";
+    default:
+      if ((CANONICAL_PAYMENT_MODES as readonly string[]).includes(normalized)) {
+        return normalized as CanonicalPaymentMode;
+      }
+      return "CASH";
+  }
+}
 
 export interface CustomerGSTRegistrationDTO {
   id: string;

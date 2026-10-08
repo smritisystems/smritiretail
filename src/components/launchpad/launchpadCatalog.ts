@@ -586,17 +586,20 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
  * - SYSADMIN / ADMIN -> sees all tiles
  * - Specific role -> sees tiles explicitly allowing that role
  */
-export function getVisibleLaunchpadTiles(userRoleRaw?: string | null): TileData[] {
+export function getVisibleLaunchpadTiles(
+  userRoleRaw?: string | null,
+  catalog: TileData[] = LAUNCHPAD_CATALOG
+): TileData[] {
   if (!userRoleRaw || typeof userRoleRaw !== "string" || !userRoleRaw.trim()) {
     // Deny-by-default: anonymous / unassigned users only see unrestricted tiles (if any)
-    return LAUNCHPAD_CATALOG.filter((tile) => !tile.roles || tile.roles.length === 0);
+    return catalog.filter((tile) => !tile.roles || tile.roles.length === 0);
   }
 
   const userRole = userRoleRaw.toUpperCase().trim();
   const isSysAdmin = userRole === "SYSADMIN" || userRole === "SYSTEM ADMIN" || userRole === "ADMIN";
   const isManager = userRole === "MANAGER" || userRole === "STORE MANAGER" || isSysAdmin;
 
-  return LAUNCHPAD_CATALOG.filter((tile) => {
+  return catalog.filter((tile) => {
     if (!tile.roles || tile.roles.length === 0 || isSysAdmin) return true;
     return tile.roles.some((r) => r.toUpperCase() === userRole || (r === "MANAGER" && isManager));
   });
@@ -605,6 +608,94 @@ export function getVisibleLaunchpadTiles(userRoleRaw?: string | null): TileData[
 /**
  * Get primary quick action tiles.
  */
-export function getQuickActionTiles(userRoleRaw?: string | null): TileData[] {
-  return getVisibleLaunchpadTiles(userRoleRaw).filter((t) => t.isQuickAction);
+export function getQuickActionTiles(
+  userRoleRaw?: string | null,
+  catalog: TileData[] = LAUNCHPAD_CATALOG
+): TileData[] {
+  return getVisibleLaunchpadTiles(userRoleRaw, catalog).filter((t) => t.isQuickAction);
+}
+
+/**
+ * Maps raw backend module strings to canonical Launchpad tile group names.
+ */
+export function mapModuleToGroup(moduleStr: string): string {
+  const mod = (moduleStr || "").toLowerCase();
+  if (mod.includes("retail") || mod.includes("sale") || mod.includes("pos") || mod.includes("bill")) {
+    return "Retail Operations";
+  }
+  if (mod.includes("stock") || mod.includes("item") || mod.includes("invent") || mod.includes("master")) {
+    return "Master Data & Stock";
+  }
+  if (mod.includes("financ") || mod.includes("tax") || mod.includes("gst") || mod.includes("audit") || mod.includes("complian")) {
+    return "Finance & Compliance";
+  }
+  if (mod.includes("report") || mod.includes("analy") || mod.includes("bi")) {
+    return "Analytics & Reporting";
+  }
+  return "Administration & Control";
+}
+
+/**
+ * Synthesizes local launchpad catalog with remote menus resolved from PostgreSQL control plane (smriti_menus).
+ * - Matches remote menus by id or route.
+ * - Enriches matched tiles with title/icon/tag overrides from remote menu.
+ * - Appends novel menu entries into appropriate catalog groups.
+ * - Retains offline local catalog tiles if remote menus are empty or unavailable.
+ */
+export function synthesizeLaunchpadCatalogWithRemoteMenus(
+  remoteMenus: Array<{
+    id: string;
+    title: string;
+    route?: string | null;
+    icon?: string | null;
+    module?: string | null;
+    badge?: string | null;
+  }>,
+  baseCatalog: TileData[] = LAUNCHPAD_CATALOG
+): TileData[] {
+  if (!remoteMenus || !Array.isArray(remoteMenus) || remoteMenus.length === 0) {
+    return baseCatalog;
+  }
+
+  const catalogCopy = [...baseCatalog];
+  const seenIds = new Set<string>();
+
+  for (const m of remoteMenus) {
+    const rawRoute = (m.route || "").replace(/^\//, "").trim();
+    const cleanId = m.id.replace(/^menu-/, "").trim();
+
+    // Find if matching tile exists in catalog
+    const matchedIdx = catalogCopy.findIndex(
+      (t) => t.id === m.id || t.id === cleanId || (rawRoute && t.id === rawRoute)
+    );
+
+    if (matchedIdx >= 0) {
+      const existing = catalogCopy[matchedIdx];
+      seenIds.add(existing.id);
+      catalogCopy[matchedIdx] = {
+        ...existing,
+        title: m.title || existing.title,
+        icon: m.icon || existing.icon,
+        tag: m.badge || existing.tag,
+      };
+    } else {
+      // Synthesize new tile for novel remote menu item
+      const tileId = rawRoute || cleanId || m.id;
+      if (!seenIds.has(tileId)) {
+        seenIds.add(tileId);
+        catalogCopy.push({
+          id: tileId,
+          title: m.title,
+          subtitle: `Dynamic Control Plane Module (${m.module || "General"})`,
+          icon: m.icon || "widgets",
+          tag: m.badge || m.module || undefined,
+          badgeType: "info",
+          group: mapModuleToGroup(m.module || ""),
+          roles: undefined, // Backend resolved endpoint already filtered by role & permissions
+        });
+      }
+    }
+  }
+
+  return catalogCopy;
 }

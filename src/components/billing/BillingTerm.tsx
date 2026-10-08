@@ -40,7 +40,8 @@ import {
   SettlementPaymentRow,
   CustomerGSTRegistrationDTO,
   CustomerDeliveryLocationDTO,
-  CustomerBillingLocationDTO
+  CustomerBillingLocationDTO,
+  toCanonicalPaymentMode
 } from "./types.ts";
 import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "./SmritiF2AdvancedItemSearch.tsx";
 import {
@@ -2132,7 +2133,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       source_document_type: headerState.billingSource || "DIRECT",
       source_document_id: headerState.customerPoId || null,
       status: "Completed",
-      payment_mode: isCreditTx ? "CREDIT" : (payments[0]?.mode.toUpperCase() || "CASH"),
+      payment_mode: isCreditTx ? "CREDIT" : toCanonicalPaymentMode(payments[0]?.mode),
       paid_amount: isCreditTx ? 0 : totalTendered,
       balance_amount: isCreditTx ? summaryTotals.netAmount : (changeDue > 0 ? 0 : Math.max(0, summaryTotals.netAmount - totalTendered)),
       discount_amount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
