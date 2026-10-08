@@ -4,12 +4,18 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.121.3
+ * Version      : 3.121.4
  * Created      : 2026-08-28
  * Modified     : 2026-10-08
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.121.4 (2026-10-08):
+ *   - Integrated GET /staff/commissions/summary querying PostgreSQL commission_ledgers.
+ *   - Integrated GET /staff/attendance/summary providing period attendance KPI metrics.
+ *   - Added live PostgreSQL Transaction Audit Ledger history in the Commission tab.
+ *   - Replaced synthetic mockup with real-time POS sales volumes and commission clawbacks.
  *
  * Changelog v3.121.3 (2026-10-08):
  *   - Added interactive Clock In / Clock Out action console with real-time shift status.
@@ -74,6 +80,45 @@ interface IncentiveRecord {
   slab_breakdown?: { slab: string; sales_in_slab: number; rate: number; amount: number }[];
 }
 
+export interface CommissionLedgerEntry {
+  id: string;
+  participant_id: string;
+  participant_role: string;
+  transaction_type: string;
+  gross_sales_amount: number;
+  commission_amount: number;
+  reference_invoice_id?: string;
+  reference_return_id?: string;
+  narration?: string;
+  timestamp?: string;
+}
+
+export interface CommissionSummary {
+  company_id: string;
+  user_id?: string;
+  period: string;
+  transaction_count: number;
+  gross_sales: number;
+  returned_sales: number;
+  net_sales: number;
+  earned_commission: number;
+  reversed_commission: number;
+  net_commission: number;
+  entries: CommissionLedgerEntry[];
+}
+
+export interface AttendanceSummary {
+  total_days: number;
+  present_days: number;
+  late_days: number;
+  half_days: number;
+  absent_days: number;
+  leave_days: number;
+  holiday_days: number;
+  total_hours_worked: number;
+  avg_daily_hours: number;
+}
+
 interface EmployeeAttendanceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -104,6 +149,8 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
   const [loading, setLoading]               = useState(false);
   const [punchLoading, setPunchLoading]     = useState(false);
   const [error, setError]                   = useState<string | null>(null);
+  const [commSummary, setCommSummary]       = useState<CommissionSummary | null>(null);
+  const [attSummary, setAttSummary]         = useState<AttendanceSummary | null>(null);
   const PERIOD = currentPeriod();
 
   const load = useCallback(async () => {
@@ -185,6 +232,22 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
   }, [isOpen, PERIOD, onNotification]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Load real-time PostgreSQL commission ledger & attendance summary for selected employee
+  useEffect(() => {
+    if (!isOpen || !selectedUserId) return;
+    let cancelled = false;
+    Promise.all([
+      apiFetchV1<CommissionSummary>(`/staff/commissions/summary?period=${PERIOD}&user_id=${selectedUserId}`).catch(() => null),
+      apiFetchV1<AttendanceSummary>(`/staff/attendance/summary?period=${PERIOD}&user_id=${selectedUserId}`).catch(() => null),
+    ]).then(([comm, att]) => {
+      if (!cancelled) {
+        setCommSummary(comm);
+        setAttSummary(att);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, selectedUserId, PERIOD]);
 
   const handlePunch = useCallback(async (type: "AUTO" | "IN" | "OUT" = "AUTO") => {
     if (!selectedUserId) return;
@@ -395,8 +458,30 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                       );
                     })()}
 
+                    {/* Period Attendance KPI Pills */}
+                    {attSummary && (
+                      <div className="grid grid-cols-4 gap-2 text-xs">
+                        <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 text-center">
+                          <div className="text-[10px] text-slate-500 uppercase font-semibold">Total Logged</div>
+                          <div className="text-sm font-bold text-slate-200 font-mono mt-0.5">{attSummary.total_days}d</div>
+                        </div>
+                        <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 text-center">
+                          <div className="text-[10px] text-slate-500 uppercase font-semibold">Present Shifts</div>
+                          <div className="text-sm font-bold text-emerald-400 font-mono mt-0.5">{attSummary.present_days}d</div>
+                        </div>
+                        <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 text-center">
+                          <div className="text-[10px] text-slate-500 uppercase font-semibold">Late Punches</div>
+                          <div className="text-sm font-bold text-amber-400 font-mono mt-0.5">{attSummary.late_days}d</div>
+                        </div>
+                        <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 text-center">
+                          <div className="text-[10px] text-slate-500 uppercase font-semibold">Total Worked</div>
+                          <div className="text-sm font-bold text-sky-400 font-mono mt-0.5">{attSummary.total_hours_worked}h ({attSummary.avg_daily_hours}h/d)</div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Attendance Records List */}
-                    <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+                    <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
                       {empAtt.length === 0 ? (
                         <p className="text-xs text-slate-500 text-center py-6">No attendance records for this period.</p>
                       ) : empAtt.slice(0, 30).map((r) => (
@@ -411,16 +496,16 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                   </div>
                 )}
 
-                {activeTab === "COMMISSION" && incentive && (
+                {activeTab === "COMMISSION" && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-3 text-xs">
                       {[
-                        { label: "Net Sales",     value: fmt(incentive.net_sales) },
-                        { label: "Commission",    value: fmt(incentive.commission_amt) },
-                        { label: "Target Bonus",  value: fmt(incentive.target_bonus_amt) },
-                        { label: "Target Amt",    value: fmt(incentive.target_amt ?? 0) },
-                        { label: "Achievement",   value: `${incentive.target_achievement_pct ?? 0}%` },
-                        { label: "Total Earnings",value: fmt(incentive.total_earnings) },
+                        { label: "Net Sales",     value: fmt(commSummary?.transaction_count ? commSummary.net_sales : (incentive?.net_sales ?? 0)) },
+                        { label: "Commission",    value: fmt(commSummary?.transaction_count ? commSummary.net_commission : (incentive?.commission_amt ?? 0)) },
+                        { label: "Gross Sales",   value: fmt(commSummary?.gross_sales ?? (incentive?.net_sales ?? 0)) },
+                        { label: "Clawbacks",     value: commSummary?.returned_sales ? `-${fmt(commSummary.returned_sales)}` : "₹0" },
+                        { label: "Transactions",  value: `${commSummary?.transaction_count ?? 0} Tx` },
+                        { label: "Net Accrued",   value: fmt(commSummary?.transaction_count ? commSummary.net_commission : (incentive?.total_earnings ?? 0)) },
                       ].map((m) => (
                         <div key={m.label} className="flex items-center justify-between px-3 py-2 bg-slate-800/30 border border-slate-700/60 rounded-lg">
                           <span className="text-slate-500">{m.label}</span>
@@ -428,7 +513,80 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                         </div>
                       ))}
                     </div>
-                    {incentive.slab_breakdown && (
+
+                    {/* Real-Time Transaction Ledger History */}
+                    <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-900/60">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                            Live Commission Ledger (PostgreSQL System-of-Record)
+                          </span>
+                          {commSummary?.transaction_count ? (
+                            <span className="text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-bold">
+                              {commSummary.transaction_count} Tx
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className="text-[10px] text-slate-500">
+                          Net Accrued: <strong className="text-emerald-400 font-mono">{fmt(commSummary?.net_commission ?? 0)}</strong>
+                        </span>
+                      </div>
+
+                      {commSummary?.entries && commSummary.entries.length > 0 ? (
+                        <div className="max-h-60 overflow-y-auto">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="text-slate-500 uppercase text-[9px] border-b border-slate-800 bg-slate-900/30 font-semibold">
+                                <th className="py-2 px-3">Date &amp; Time</th>
+                                <th className="py-2 px-3">Reference Document</th>
+                                <th className="py-2 px-3">Type</th>
+                                <th className="py-2 px-3 text-right">Invoiced Amount</th>
+                                <th className="py-2 px-3 text-right">Commission</th>
+                                <th className="py-2 px-3">Narration</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/40 font-mono text-xs">
+                              {commSummary.entries.map((entry) => (
+                                <tr key={entry.id} className="hover:bg-slate-800/30 transition-colors">
+                                  <td className="py-2 px-3 text-slate-400 whitespace-nowrap">
+                                    {entry.timestamp ? new Date(entry.timestamp).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                                  </td>
+                                  <td className="py-2 px-3 text-slate-200 font-semibold">
+                                    {entry.reference_invoice_id || entry.reference_return_id || "—"}
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                      entry.transaction_type === "EARNED"
+                                        ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                        : "text-rose-400 bg-rose-500/10 border-rose-500/20"
+                                    }`}>
+                                      {entry.transaction_type}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-slate-300">
+                                    {fmt(entry.gross_sales_amount)}
+                                  </td>
+                                  <td className={`py-2 px-3 text-right font-bold ${
+                                    entry.commission_amount >= 0 ? "text-emerald-400" : "text-rose-400"
+                                  }`}>
+                                    {entry.commission_amount >= 0 ? `+${fmt(entry.commission_amount)}` : `-${fmt(Math.abs(entry.commission_amount))}`}
+                                  </td>
+                                  <td className="py-2 px-3 text-slate-400 font-sans text-[11px] truncate max-w-xs">
+                                    {entry.narration || "Sales commission"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="py-8 text-center text-xs text-slate-500">
+                          No live commission transactions posted for this employee in {PERIOD}. Checkout POS sales with this salesperson to accrue real-time incentives.
+                        </div>
+                      )}
+                    </div>
+
+                    {incentive?.slab_breakdown && (
                       <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-4 py-2 border-b border-slate-800">Tiered Slab Breakdown</p>
                         <table className="w-full text-xs text-left">

@@ -28,6 +28,30 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.35] - 2026-10-08 — Real-Time Sales Commission & Attendance Summary Engine (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Real-Time Commission Summary, Attendance Aggregation, Live PostgreSQL Ledger UI
+> **Walkthrough:** `docs/walkthrough/hr/Realtime_Commission_And_Attendance_Summary_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/hr/Realtime_Commission_And_Attendance_Summary_Plan_v1.0.0.md`
+
+### Added & Engineered
+- **Real-Time Staff Commission Summary Engine (`GET /api/v1/staff/commissions/summary`)**:
+  - Implemented high-performance aggregation endpoint querying PostgreSQL `commission_ledgers` directly.
+  - Computes gross sales, returned sales, net sales, earned commissions, reversed clawbacks, and net accrued commission in a single SQL aggregation pass using `func.coalesce` and conditional `case()`.
+  - Supports cashier `user_id` resolution through `commission_participants` or direct `participant_id` lookups.
+  - Returns detailed transaction audit history including reference invoice IDs, return IDs, narrations, and transaction types.
+- **Attendance Period Summary Engine (`GET /api/v1/staff/attendance/summary`)**:
+  - Implemented multi-day date range shift aggregation querying `attendance_records`.
+  - Calculates total scheduled days, present count, late count, absent count, total hours worked, and average daily shift length.
+- **Live Attendance Studio Modal UI Enhancement (`EmployeeAttendanceModal.tsx` v3.121.4)**:
+  - Replaced hardcoded dummy ₹1,50,000 sales / ₹3,750 commission estimates with live PostgreSQL ledger totals.
+  - Added dedicated Live Commission Audit Ledger table with `EARNED` (emerald) vs `REVERSED` (rose) badge indicators, invoice/return links, amounts, commissions, and timestamps.
+  - Displayed live Attendance Summary KPI pills (Total Days, Present, Late, Absent, Total Hours, Avg Shift) in Attendance tab.
+- **Automated Verification & Test Suites**:
+  - Created Pytest suite `backend/app/tests/t_staff_summary_verify.py` verifying commission math aggregation, returned sales handling, and attendance summary metrics.
+  - Updated Vitest suite `src/tests/employeeAttendanceStudio.test.ts` (8/8 tests passed).
+  - Validated TypeScript compiler cleanly (`npx tsc --noEmit` exited code 0).
+
 ## [6.70.34] - 2026-10-08 — POS Real-Time Sales Commission Accrual & Return Reversal (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce, Sales Commission Accrual, Return Reversal Hook, PostgreSQL Ledger

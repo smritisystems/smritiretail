@@ -9,7 +9,7 @@ Founders
 * Jawahar Ramkripal Mallah   -- Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.70.33
+* Version    : 6.70.35
 * Created    : 2026-08-24
 * Modified   : 2026-10-08
 * Copyright  : (c) AITDL.com and SMRITIBooks.com. All Rights Reserved.
@@ -29,13 +29,13 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
-from sqlalchemy import or_
+from sqlalchemy import or_, and_, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 
 from ...api.deps import get_db, get_company_db, get_tenant_context, get_current_user, TenantContext
-from ...models.commission import CommissionParticipant, CommissionProgram, CommissionRule
+from ...models.commission import CommissionParticipant, CommissionProgram, CommissionRule, CommissionLedger
 from ...models.auth import User, UserRole
 from ...models.hr import AttendanceRecord, LeaveBalance, LeaveRequest
 from ...models.crm import CustomerDeliveryLocation
@@ -949,6 +949,124 @@ async def list_programs(
 
 
 # ---------------------------------------------------------------------------
+# STAFF-003B: Real-Time Sales Commission & Incentive Summary
+# GET /api/v1/staff/commissions/summary
+# ---------------------------------------------------------------------------
+
+@router.get("/commissions/summary")
+async def get_commissions_summary(
+    user_id: Optional[str] = Query(default=None),
+    participant_id: Optional[str] = Query(default=None),
+    period: Optional[str] = Query(default=None, description="Month format YYYY-MM"),
+    from_date: Optional[date] = Query(default=None),
+    to_date: Optional[date] = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Authoritative Real-Time Sales Commission & Incentive Summary.
+    Aggregates PostgreSQL commission_ledgers transactions (EARNED, REVERSED)
+    for a staff member or all participants within the tenant.
+    """
+    if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
+        user_id = current_user.id
+
+    target_participant_ids = []
+    if participant_id:
+        target_participant_ids.append(participant_id)
+    elif user_id:
+        parts = (await db.execute(
+            select(CommissionParticipant.id).where(
+                CommissionParticipant.company_id == tenant.company_id,
+                or_(CommissionParticipant.user_id == user_id, CommissionParticipant.id == user_id),
+                CommissionParticipant.is_deleted == False
+            )
+        )).scalars().all()
+        target_participant_ids.extend(parts)
+        if not target_participant_ids:
+            target_participant_ids.append(f"cp-missing-{user_id}")
+
+    conditions = [
+        CommissionLedger.company_id == tenant.company_id,
+        CommissionLedger.is_deleted == False,
+    ]
+    if target_participant_ids:
+        conditions.append(CommissionLedger.participant_id.in_(target_participant_ids))
+
+    if period:
+        try:
+            yr, mo = [int(x) for x in period.split("-")]
+            start_dt = datetime(yr, mo, 1, 0, 0, 0, tzinfo=timezone.utc)
+            if mo == 12:
+                end_dt = datetime(yr + 1, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+            else:
+                end_dt = datetime(yr, mo + 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+            conditions.append(CommissionLedger.timestamp >= start_dt)
+            conditions.append(CommissionLedger.timestamp < end_dt)
+        except Exception:
+            pass
+    else:
+        if from_date:
+            conditions.append(CommissionLedger.timestamp >= datetime.combine(from_date, datetime.min.time(), tzinfo=timezone.utc))
+        if to_date:
+            conditions.append(CommissionLedger.timestamp <= datetime.combine(to_date, datetime.max.time(), tzinfo=timezone.utc))
+
+    agg_stmt = select(
+        func.count(CommissionLedger.id).label("tx_count"),
+        func.coalesce(func.sum(case((CommissionLedger.gross_sales_amount > 0, CommissionLedger.gross_sales_amount), else_=0)), 0).label("gross_sales"),
+        func.coalesce(func.sum(case((CommissionLedger.gross_sales_amount < 0, CommissionLedger.gross_sales_amount), else_=0)), 0).label("returned_sales"),
+        func.coalesce(func.sum(case((CommissionLedger.transaction_type == 'EARNED', CommissionLedger.commission_amount), else_=0)), 0).label("earned_comm"),
+        func.coalesce(func.sum(case((CommissionLedger.transaction_type == 'REVERSED', CommissionLedger.commission_amount), else_=0)), 0).label("reversed_comm"),
+    ).where(and_(*conditions))
+
+    agg_res = (await db.execute(agg_stmt)).fetchone()
+    tx_count = agg_res.tx_count if agg_res else 0
+    gross_sales = float(agg_res.gross_sales or 0) if agg_res else 0.0
+    returned_sales = float(agg_res.returned_sales or 0) if agg_res else 0.0
+    earned_comm = float(agg_res.earned_comm or 0) if agg_res else 0.0
+    reversed_comm = float(agg_res.reversed_comm or 0) if agg_res else 0.0
+    net_sales = round(gross_sales + returned_sales, 2)
+    net_comm = round(earned_comm + reversed_comm, 2)
+
+    ledger_stmt = select(CommissionLedger).where(and_(*conditions)).order_by(CommissionLedger.timestamp.desc()).limit(50)
+    ledgers = (await db.execute(ledger_stmt)).scalars().all()
+
+    entries = [
+        {
+            "id": l.id,
+            "participant_id": l.participant_id,
+            "participant_role": l.participant_role,
+            "transaction_type": l.transaction_type,
+            "gross_sales_amount": float(l.gross_sales_amount or 0),
+            "commission_amount": float(l.commission_amount or 0),
+            "reference_invoice_id": l.reference_invoice_id,
+            "reference_return_id": l.reference_return_id,
+            "narration": l.narration,
+            "timestamp": l.timestamp.isoformat() if l.timestamp else None,
+        }
+        for l in ledgers
+    ]
+
+    return {
+        "success": True,
+        "company_id": tenant.company_id,
+        "user_id": user_id,
+        "participant_id": target_participant_ids[0] if len(target_participant_ids) == 1 else None,
+        "period": period or (from_date.isoformat() if from_date else "ALL"),
+        "transaction_count": tx_count,
+        "gross_sales": gross_sales,
+        "returned_sales": abs(returned_sales),
+        "net_sales": net_sales,
+        "earned_commission": earned_comm,
+        "reversed_commission": abs(reversed_comm),
+        "net_commission": net_comm,
+        "entries": entries,
+    }
+
+
+# ---------------------------------------------------------------------------
 # STAFF-004: Attendance and leave foundations
 # ---------------------------------------------------------------------------
 
@@ -976,6 +1094,103 @@ async def list_attendance(
         stmt = stmt.where(AttendanceRecord.attendance_date <= to_date)
     rows = (await db.execute(stmt.order_by(AttendanceRecord.attendance_date.desc()))).scalars().all()
     return {"records": rows, "total": len(rows)}
+
+
+@router.get("/attendance/summary")
+async def get_attendance_summary(
+    user_id: Optional[str] = Query(default=None),
+    period: Optional[str] = Query(default=None, description="Month format YYYY-MM"),
+    from_date: Optional[date] = Query(default=None),
+    to_date: Optional[date] = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Authoritative Period Attendance KPI Summary.
+    Aggregates PostgreSQL attendance_records to provide exact counts of present,
+    absent, leave, late, total hours worked, and average daily shift hours.
+    """
+    if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
+        user_id = current_user.id
+
+    conditions = [
+        AttendanceRecord.company_id == tenant.company_id,
+        AttendanceRecord.is_deleted == False,
+    ]
+    if user_id:
+        conditions.append(AttendanceRecord.user_id == user_id)
+
+    if period:
+        try:
+            yr, mo = [int(x) for x in period.split("-")]
+            start_date = date(yr, mo, 1)
+            if mo == 12:
+                end_date = date(yr + 1, 1, 1) - timedelta(days=1)
+            else:
+                end_date = date(yr, mo + 1, 1) - timedelta(days=1)
+            conditions.append(AttendanceRecord.attendance_date >= start_date)
+            conditions.append(AttendanceRecord.attendance_date <= end_date)
+        except Exception:
+            pass
+    else:
+        if from_date:
+            conditions.append(AttendanceRecord.attendance_date >= from_date)
+        if to_date:
+            conditions.append(AttendanceRecord.attendance_date <= to_date)
+
+    records = (await db.execute(
+        select(AttendanceRecord).where(and_(*conditions)).order_by(AttendanceRecord.attendance_date.desc())
+    )).scalars().all()
+
+    present_days = 0
+    late_days = 0
+    half_days = 0
+    absent_days = 0
+    leave_days = 0
+    holiday_days = 0
+    total_hours_worked = 0.0
+
+    for r in records:
+        st = (r.status or "").upper()
+        if st == "PRESENT":
+            present_days += 1
+        elif st == "LATE":
+            late_days += 1
+            present_days += 1
+        elif st == "HALF_DAY":
+            half_days += 1
+        elif st == "ABSENT":
+            absent_days += 1
+        elif st == "LEAVE":
+            leave_days += 1
+        elif st == "HOLIDAY":
+            holiday_days += 1
+
+        if r.check_in_at and r.check_out_at:
+            delta = (r.check_out_at - r.check_in_at).total_seconds() / 3600.0
+            if delta > 0:
+                total_hours_worked += delta
+
+    total_days = len(records)
+    effective_days = present_days + (half_days * 0.5)
+    avg_daily_hours = round(total_hours_worked / effective_days, 2) if effective_days > 0 else 0.0
+
+    return {
+        "success": True,
+        "company_id": tenant.company_id,
+        "user_id": user_id,
+        "period": period or (from_date.isoformat() if from_date else "ALL"),
+        "total_days": total_days,
+        "present_days": present_days,
+        "late_days": late_days,
+        "half_days": half_days,
+        "absent_days": absent_days,
+        "leave_days": leave_days,
+        "holiday_days": holiday_days,
+        "total_hours_worked": round(total_hours_worked, 2),
+        "avg_daily_hours": avg_daily_hours,
+    }
 
 
 @router.post("/attendance", status_code=status.HTTP_201_CREATED)

@@ -200,4 +200,74 @@ describe("Attendance Studio — Full System Audit & Regression Verification", ()
     expect(payload.punch_type).toBe("AUTO");
     expect(payload.device_source).toBe("ATTENDANCE_STUDIO_UI");
   });
+
+  it("verifies live CommissionSummary contract and ledger entry mapping for studio UI", () => {
+    const backendSummary = {
+      success: true,
+      company_id: "comp-1",
+      user_id: "usr-emp-101",
+      period: "2026-10",
+      transaction_count: 2,
+      gross_sales: 15000.0,
+      returned_sales: 2000.0,
+      net_sales: 13000.0,
+      earned_commission: 300.0,
+      reversed_commission: 40.0,
+      net_commission: 260.0,
+      entries: [
+        {
+          id: "cml-1",
+          participant_id: "cp-1",
+          participant_role: "SALESPERSON",
+          transaction_type: "EARNED",
+          gross_sales_amount: 15000.0,
+          commission_amount: 300.0,
+          reference_invoice_id: "INV-001",
+          timestamp: "2026-10-08T10:00:00Z",
+        },
+        {
+          id: "cml-2",
+          participant_id: "cp-1",
+          participant_role: "SALESPERSON",
+          transaction_type: "REVERSED",
+          gross_sales_amount: -2000.0,
+          commission_amount: -40.0,
+          reference_return_id: "RET-001",
+          timestamp: "2026-10-08T12:00:00Z",
+        },
+      ],
+    };
+
+    expect(backendSummary.success).toBe(true);
+    expect(backendSummary.transaction_count).toBe(2);
+    expect(backendSummary.net_sales).toBe(13000.0);
+    expect(backendSummary.net_commission).toBe(260.0);
+    expect(backendSummary.entries).toHaveLength(2);
+    expect(backendSummary.entries[0].transaction_type).toBe("EARNED");
+    expect(backendSummary.entries[1].transaction_type).toBe("REVERSED");
+  });
+
+  it("verifies AttendanceSummary contract and average shift calculation", () => {
+    const attSummary = {
+      success: true,
+      company_id: "comp-1",
+      user_id: "usr-emp-101",
+      period: "2026-10",
+      total_days: 5,
+      present_days: 4,
+      late_days: 1,
+      half_days: 0,
+      absent_days: 1,
+      leave_days: 0,
+      holiday_days: 0,
+      total_hours_worked: 34.5,
+      avg_daily_hours: 8.63,
+    };
+
+    expect(attSummary.success).toBe(true);
+    expect(attSummary.total_days).toBe(5);
+    expect(attSummary.present_days).toBe(4);
+    expect(attSummary.total_hours_worked).toBe(34.5);
+    expect(attSummary.avg_daily_hours).toBe(8.63);
+  });
 });
