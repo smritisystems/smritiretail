@@ -49,8 +49,10 @@ Remediate the functional limitations identified during the Barcode Print Studio 
 
 | File | Change |
 |---|---|
-| `src/components/barcode/PrintLabelsStudio.tsx` | Added `barcodeTransactionStore` and `ThermalBarcodeSvg` imports; wired multi-source intake (`PURCHASE`, `GRN`, `SALES`, `STOCK_TRANSFER`); dynamic layout synchronization with `/barcode/layouts`; dynamic printer selection from `/barcode/printer-settings`; symbology SVG barcode preview; and full browser print preview sheet modal. |
+| `src/components/barcode/PrintLabelsStudio.tsx` | Added `barcodeTransactionStore` and `ThermalBarcodeSvg` imports; wired multi-source intake (`PURCHASE`, `GRN`, `SALES`, `STOCK_TRANSFER`); dynamic layout synchronization with `/barcode/layouts`; dynamic printer selection from `/barcode/printer-settings`; symbology SVG barcode preview; full browser print preview sheet modal; collapsible Advanced Filters drawer wired to `/api/v1/masters/*`; printer hardware configuration modal; and cross-subtab navigation prop. |
+| `src/components/BarcodeStudioTab.tsx` | Wired `onNavigateToDesigner` navigation handler passing control from Print Studio to Visual Label Designer. |
 | `docs/walkthrough/README.md` | Prepending v6.46.0 row to master index table. |
+| `CHANGELOG.md` | Prepending [6.70.25] release notes. |
 
 ---
 
@@ -114,8 +116,8 @@ apiFetchV1<any>('/barcode/printer-settings').then(res => {
 
 | Test Suite | Command | Result |
 |---|---|---|
-| PrintLabelsStudio Domain Suite | `npx vitest run src/tests/printLabelsStudio.test.ts` | **6/6 passed** (exit 0) |
-| Barcode & Print Engine Regression | `npx vitest run src/tests/printLabelsStudio.test.ts src/tests/labelPrintEngine.test.ts src/tests/tagPrinting.test.ts src/tests/printEngineHeadlessAudit.test.ts src/tests/qzTrayClient.test.ts src/tests/barcodeManagementIntake.test.ts src/tests/barcodePlaceholderService.test.ts src/tests/grnBarcodeScanner.test.ts` | **84/84 passed** (exit 0) |
+| PrintLabelsStudio Domain Suite | `npx vitest run src/tests/printLabelsStudio.test.ts` | **8/8 passed** (exit 0) |
+| Barcode & Print Engine Regression | `npx vitest run src/tests/printLabelsStudio.test.ts src/tests/labelPrintEngine.test.ts src/tests/tagPrinting.test.ts src/tests/printEngineHeadlessAudit.test.ts src/tests/qzTrayClient.test.ts src/tests/barcodeManagementIntake.test.ts src/tests/barcodePlaceholderService.test.ts src/tests/grnBarcodeScanner.test.ts` | **86/86 passed** (exit 0) |
 | Backend Pytest Hardware Audit | `.\.venv\Scripts\pytest.exe backend\tests\test_printer_service_headless_audit.py backend\tests\t_barcodes.py -v` | **13/13 passed** (exit 0) |
 | Backend Pytest Database Suite | `.\.venv\Scripts\pytest.exe backend\app\tests\test_barcode.py backend\app\tests\test_barcode_registry.py -v` | **10/10 passed** (exit 0) |
 | Full TypeScript Compilation | `npx tsc --noEmit --skipLibCheck` | **0 errors** (exit 0) |
@@ -132,15 +134,17 @@ apiFetchV1<any>('/barcode/printer-settings').then(res => {
 | Dynamic layout template merging | **Done** | `src/tests/printLabelsStudio.test.ts` (test 6) passed |
 | Symbology-accurate barcode SVG preview | **Done** | `ThermalBarcodeSvg.tsx` integrated into preview card and modal |
 | Print Sheet Preview Modal | **Done** | Interactive modal component rendered with `window.print()` trigger |
+| Advanced Filters Drawer & Master Lookups | **Done** | Category, Warehouse, Supplier, Item Code and Barcode range filters wired |
+| Printer & Hardware Configuration Modal | **Done** | Resolution, dispatch mode, and hardware diagnostic modal wired |
+| Cross-subtab Navigation | **Done** | `Template Library` navigates to `VisualLabelDesigner` via `onNavigateToDesigner` |
 | TypeScript type soundness | **Done** | `tsc --noEmit --skipLibCheck` clean (exit code 0) |
-| Zero regressions across Barcode subsystem | **Done** | 84 frontend tests + 23 backend tests 100% green |
+| Zero regressions across Barcode subsystem | **Done** | 86 frontend tests + 23 backend tests 100% green |
 
 ---
 
 ## 10. Known Limitations
 
 1. Browser Print Sheet Modal renders using CSS flex grid; direct PDF pagination splitting across physical label roll cutters still relies on QZ Tray or TCP dispatch (`POST /api/v1/barcode/print`).
-2. Advanced filters for Category, Warehouse, and Supplier remain static until dedicated master lookup endpoints are wired into filter pills.
 
 ---
 
