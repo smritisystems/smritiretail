@@ -31,6 +31,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     return {
       username: formData.username,
       fullName: formData.fullName || formData.username,
+      email: formData.email?.trim() || (formData.username?.includes("@") ? formData.username.trim() : undefined),
       role: formData.role,
       status: formData.status || "Active",
       designation: formData.designation || undefined,
@@ -138,6 +139,14 @@ export const staffMasterConfig: MasterConfig<User> = {
       type: "text",
       required: true,
       placeholder: "Unique login username",
+      colSpan: 1
+    },
+    {
+      name: "email",
+      fieldId: "user.email",
+      label: "Email Address",
+      type: "text",
+      placeholder: "e.g. staff@company.com",
       colSpan: 1
     },
     {
