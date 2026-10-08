@@ -807,7 +807,7 @@ async def list_personnel(
         PersonnelOut(
             id=p.id,
             person_name=p.person_name,
-            user_id=getattr(p, "user_id", None),
+            user_id=getattr(p, "user_id", None) or p.id,
             participant_role=getattr(p, "participant_role", "SALESPERSON") or "SALESPERSON",
             is_active=getattr(p, "is_active", True),
             created_at=str(p.created_at)[:10] if p.created_at else "",

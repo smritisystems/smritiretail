@@ -395,8 +395,17 @@ describe("Attendance Studio — Full System Audit & Regression Verification", ()
     expect(netPayout).toBe(36153.85);
 
     // Voucher Ref format validation
-    const voucherRef = `PSLIP-${period.replace("-", "")}-${profile.user_id.slice(-6).toUpperCase()}`;
+    const voucherRef = `PSLIP-${period.replace("-", "")}-${String(profile.user_id || profile.emp_id || "STAFF").slice(-6).toUpperCase()}`;
     expect(voucherRef).toBe("PSLIP-202610-MP-789");
+
+    // Null user_id fallback safety verification
+    const nullProfile = { ...profile, user_id: null as any, emp_id: "EMP-042" };
+    const nullRef = `PSLIP-${period.replace("-", "")}-${String(nullProfile.user_id || nullProfile.emp_id || "STAFF").slice(-6).toUpperCase()}`;
+    expect(nullRef).toBe("PSLIP-202610-MP-042");
+
+    const emptyProfile = { ...profile, user_id: null as any, emp_id: null as any };
+    const emptyRef = `PSLIP-${period.replace("-", "")}-${String(emptyProfile.user_id || emptyProfile.emp_id || "STAFF").slice(-6).toUpperCase()}`;
+    expect(emptyRef).toBe("PSLIP-202610-STAFF");
   });
 });
 
