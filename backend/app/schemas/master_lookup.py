@@ -80,3 +80,15 @@ class MasterValueResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}
+
+
+class MasterValueBulkCreate(BaseModel):
+    items: list[MasterValueCreate] = Field(..., min_length=1, max_length=500)
+    skip_existing: bool | None = True
+
+
+class MasterValueBulkResponse(BaseModel):
+    total: int
+    created: int
+    skipped: int
+    items: list[MasterValueResponse] = []
