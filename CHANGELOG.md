@@ -28,6 +28,36 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.23] - 2026-10-08 — SMRITI Legacy Deprecation Telemetry Observability UI Workspace
+
+> **Branch:** `smritiNX` | **Area:** UI/UX, Observability, Telemetry, Gateway Governance, RFC 8594, Option B Post-Convergence
+> **Walkthrough:** `docs/walkthrough/inventory/Legacy_Deprecation_Telemetry_Observability_UI_v1.0.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Legacy_Deprecation_Telemetry_Observability_UI_Plan_v1.0.0.md`
+
+### Added
+- **Administrative Observability UI Workspace (`LegacyDeprecationTelemetryTab.tsx`)**:
+  - Implemented high-density executive console in `src/components/governance/LegacyDeprecationTelemetryTab.tsx` visualizing real-time and historical telemetry from `LegacyProductTelemetrySink`.
+  - Executive KPI summary cards: Total Events Logged, Legacy Route Invocations, Runtime Fallback Invocations, Monitored Tenants, and RFC 8594 Gateway Compliance Status.
+  - Interactive distribution analytics: Frequency breakdown by request path with progress bars, runtime fallback distribution by caller service, and fallback reasons/warning codes.
+  - Live audit table stream with multi-criteria filtering (All, Endpoint, Fallback), free-text search (route, caller, IP, product ID), relative timestamp formatting, and inline JSON inspection drawer.
+  - One-click export actions: Download events as JSONL (`.jsonl`), download events as spreadsheet (`.csv`), and copy summary text to clipboard.
+  - Dynamic polling control with configurable intervals (Off, 10s, 30s, 60s) and source toggle (Fast in-memory buffer vs persistent disk JSONL).
+- **Backend API Expansion (`/api/v1/governance/legacy-telemetry/events`)**:
+  - Implemented `GET /api/v1/governance/legacy-telemetry/events` in `backend/app/api/v1/governance.py` supporting pagination, event type filtering, and durable disk querying.
+  - Expanded role authorization (`_require_admin_or_manager`) allowing store managers (`MANAGER`) alongside administrators (`SYSADMIN`, `ADMIN`) to view telemetry.
+  - Resolved duplicate router prefix in `governance.py` (`router = APIRouter()`).
+- **Workspace & Navigation Integration**:
+  - Mounted `"legacy-telemetry"`, `"deprecation-telemetry"`, and `"legacy-deprecation-telemetry"` in `src/components/shell/TabRenderer.tsx`.
+  - Added sub-navigation toggle in `src/components/LegacyMigDashTab.tsx` allowing seamless switching between Shoper 9 Menu Lineage and RFC 8594 API Telemetry.
+  - Registered Launchpad tile in `src/components/launchpad/launchpadCatalog.ts` under "System & Operations".
+  - Registered route in `src/navigation/breadcrumb/BreadcrumbRegistry.ts`.
+- **Preflight Architecture Certification**:
+  - Registered capability `withCapability("legacy_deprecation_telemetry_observability", "GOVERNANCE")`.
+  - Issued and certified Preflight Certificate `.architecture/certificates/PF-2026-1008-B8CAED.json`.
+- **Automated Verification**:
+  - Added backend test `test_tc_p5_010` in `backend/tests/test_phase5_legacy_deprecation_and_telemetry.py` (10/10 tests green).
+  - Added frontend Vitest suite `src/tests/legacyDeprecationTelemetryUI.test.ts` (5/5 tests green).
+
 ## [6.70.22] - 2026-10-08 — SMRITI Legacy Deprecation Gateway & Structured Telemetry Logger (Phase 5 Option B Convergence)
 
 > **Branch:** `smritiNX` | **Area:** API Gateway, Telemetry, Observability, Legacy Deprecation, RFC 8594, Inventory Governance

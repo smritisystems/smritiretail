@@ -79,6 +79,7 @@ const ProPosWs = lazy(() => import("../billing/propos/ProPosWs.tsx").then(m => (
 const DocumentStudioScreen = lazy(() => import("../global/document/DocStudioScreen.tsx").then(m => ({ default: m.DocumentStudioScreen })));
 const BulkImportSection = lazy(() => import("../BulkImportSection.tsx").then(m => ({ default: m.BulkImportSection })));
 const DataBridgeWorkspace = lazy(() => import("../databridge/DataBridgeWorkspace.tsx").then(m => ({ default: m.DataBridgeWorkspace })));
+const LegacyDeprecationTelemetryTab = lazy(() => import("../governance/LegacyDeprecationTelemetryTab.tsx").then(m => ({ default: m.LegacyDeprecationTelemetryTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -214,6 +215,10 @@ export const mapModuleId = (id: string): string => {
     "databridge": "databridge",
     "data-bridge": "databridge",
     "menu-databridge": "databridge",
+    "legacy-telemetry": "legacy-telemetry",
+    "deprecation-telemetry": "legacy-telemetry",
+    "legacy-deprecation-telemetry": "legacy-telemetry",
+    "menu-legacy-telemetry": "legacy-telemetry",
   };
   return map[id] || id;
 };
@@ -585,6 +590,10 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "databridge":
     case "data-bridge":
       return <DataBridgeWorkspace currentUser={currentUser} onNotification={addNotification} />;
+    case "legacy-telemetry":
+    case "deprecation-telemetry":
+    case "legacy-deprecation-telemetry":
+      return <LegacyDeprecationTelemetryTab onNotification={addNotification} />;
     default:
       return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
   }
