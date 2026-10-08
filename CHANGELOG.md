@@ -28,6 +28,84 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.29] - 2026-10-08 — SMRITI Print Labels Studio CSV/Raw Barcode Intake, Print Profiles & Session Audit Log (v6.49.0)
+
+> **Branch:** `smritiNX` | **Area:** Barcode, Thermal Printing, Hardware, Legacy Label Studio V2 Parity, CSV Intake, Print Profiles
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_CSVIntake_And_Presets_v6.49.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Barcode_PrintLabelsStudio_CSVIntake_And_Presets_Plan_v6.49.0.md`
+
+### Added
+- **Multi-Mode Barcode Importer (`[Import CSV / Text]`)**:
+  - Implemented dual intake modal supporting both file upload (`.csv`, `.txt`, `.tsv`) and direct multi-line raw text paste.
+  - Added delimiter sniffing and manual override: `Auto Detect`, `Comma (,)`, `Tab (\t)`, `Semicolon (;)`, and `Space ( )`.
+  - Configurable column mapping for barcode values (Col 1 to 4) and print quantities (Col 1 to 4 or Default 1).
+  - Built-in duplicate scan aggregation: automatically aggregates identical barcode entries by summing their `printQty`, optimizing warehouse barcode gun intake workflows.
+  - Automatically identifies and skips header lines (`barcode`, `sku`, `item code`, etc.).
+- **Worksheet 1-Click Mass Clear Action (`[Clear All]`)**:
+  - Added quick `[Clear All]` action button directly to the worksheet toolbar with a window confirmation guard to instantly reset staging rows.
+- **Hardware Print Profile Presets**:
+  - Integrated `PRINT PROFILE PRESETS` dropdown in Step 3 / Left Sidebar with out-of-the-box configurations:
+    - *Zebra GK420D - Footwear 100x50 (LAN)*: 203 DPI, 100x50mm, Raw TCP/IP (192.168.1.200:9100).
+    - *Zebra ZD421 - Retail 50x25 (USB)*: 203 DPI, 50x25mm, USB / Local spooler.
+  - Added `[💾 Save Current Settings Preset]` button in the right sidebar with modal prompting for preset name.
+  - Presets persist across browser reloads via `localStorage` (`smriti_barcode_print_presets`).
+- **Live Monospace Print Session Audit Log**:
+  - Integrated terminal-styled real-time session audit log in Step 3 recording all user actions with microsecond-level timestamps:
+    - Label import events, variant generation, auto-fix applications, profile switches, test prints, and PRN downloads.
+- **Automated Verification Suites**:
+  - Expanded `src/tests/printLabelsStudio.test.ts` to 20 unit tests verifying CSV parsing, delimiter sniffing, quantity summing/aggregation, header stripping, and preset defaults.
+  - Verified 20/20 Vitest tests pass in 40ms; `npx tsc --noEmit` clean with 0 errors.
+
+## [6.70.28] - 2026-10-08 — SMRITI Print Labels Studio Legacy Label Studio V2 Parity & Pre-Print Sanitizer (v6.48.0)
+
+> **Branch:** `smritiNX` | **Area:** Barcode, Thermal Printing, Hardware, Label Studio V2 Parity, QA Data Sanitization
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_V2_Parity_v6.48.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Barcode_PrintLabelsStudio_V2_Parity_Plan_v6.48.0.md`
+
+### Added
+- **1-Click Footwear Variant Curve Generator (`[Load Variants]`)**:
+  - Unrolls any queried article or item row into a full footwear size matrix (Sizes 37 through 42 across selected or standard colors).
+  - Automatically synthesizes valid EAN-13 barcodes with standard check-digits (`generateFootwearVariantMatrix`).
+- **Live Pre-Print Data Sanitizer Card & Auto-Fix Engine**:
+  - Added dedicated right-hand diagnostic sidebar card executing real-time data integrity audits.
+  - Automatically identifies duplicate barcodes, missing sizes, missing colors, and zero/invalid MRP values.
+  - Provided 1-Click `[Auto-Fix All]` remediation setting default sizing (`FREE`), neutral colorway (`STD`), standard pricing (`₹1,199`), and resolving collisions with unique EAN-13 barcodes.
+- **Recent Jobs & 1-Click Reprint Drawer**:
+  - Connected `GET /api/v1/barcode/print-history` to right sidebar with status indicators (`PRINTED`, `ERROR`, `PENDING`).
+  - Implemented 1-Click instant reprint triggers that automatically load historical payload batches back into the active print worksheet.
+- **Direct Raw PRN Code Editor & Instant File Download**:
+  - Added `[Direct Raw PRN]` modal featuring multi-brand syntax presets (Zebra ZPL-II, TSPL/TSCC, ESC/POS, EPL).
+  - Added direct browser `.prn` text file download (`downloadPrnFile`) for offline USB spooling or network raw socket transmission (`nc`, `lpr`, `lp -d`).
+- **Dynamic Token Mapping Reference & Monochrome Image-to-Hex ZPL Converter**:
+  - Added `[Mapping Reference]` modal documenting all system tokens (`{{ARTICLE}}`, `{{SIZE}}`, `{{COLOR}}`, `{{MRP}}`, `{{BARCODE}}`, `{{MFG_DATE}}`).
+  - Added `[Image to Hex (PRN)]` utility converting user-uploaded graphic files via HTML5 `<canvas>` into Zebra 1-bit monochrome `^GFA` hex stream.
+- **Persistent Thermal Printer Hardware Diagnostics**:
+  - Integrated live printer status bar in Step 3 showing QZ Tray connection state (`● QZ Connected`), printer IP latency ping (`[Ping IP]`), and 1-Click hardware test print (`[Test Label]`).
+- **Automated Verification Suites**:
+  - Expanded `src/tests/printLabelsStudio.test.ts` to 16 comprehensive unit tests covering variant generation, pre-print sanitizer detection, auto-fix remediation, and ZPL PRN compilation.
+  - Zero TypeScript errors (`npx tsc --noEmit` exited code 0).
+  - 11/11 backend tests passing in `test_barcode_client_prn_dynamic.py` and `test_barcode.py`.
+
+## [6.70.27] - 2026-10-08 — Client PRN Barcode Dynamic Mapping, Reverse Black-Box Rendering & 3-Stub Footwear Template (v6.47.0)
+
+> **Branch:** `smritiNX` | **Area:** Barcode, Thermal Printing, Hardware, ZPL Template Engine, Footwear Master
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_ClientPRN_DynamicMapping_And_Template_v6.47.0.md`
+> **Implementation Plan:** `docs/implementation/inventory/Barcode_ClientPRN_DynamicMapping_And_Template_Plan_v6.47.0.md`
+
+### Added
+- **Zebra ZPL Footwear 3-Stub Template (`lay-footwear-100x50-3stub`)**:
+  - Reverse-engineered client-provided Zebra PRN file (`assets/BarcodePRN/smriti_barcodes_2026-10-08.prn`) with 100% byte-for-byte token parity.
+  - Implemented `generate_footwear_3stub_zpl` in `backend/app/api/v1/barcode.py` supporting 100mm × 50.7mm 203 DPI label pitch, dual tear-off counter and audit stubs, and inverted reverse-print black boxes (`^GB` with `^FR`).
+  - Added automatic 12-character space-padding for Article No (`f"{raw_art:<12}"`) ensuring symmetrical visual fill inside the 284-dot main box header.
+  - Registered `lay-footwear-100x50-3stub` in `GET /api/v1/barcode/layouts` and thermal print studio template picker.
+- **Dynamic Legal Metrology Resolution**:
+  - Dynamically resolved Packaged Commodities compliance fields (`business_trade_name`, `legal_metrology_address`, `legal_metrology_email`) from `SystemConfig` with fallback to tenant `Company.name`.
+- **Three-Zone Visual SVG Preview**:
+  - Enhanced `generateThermalLabelSvgString` in `src/components/barcode/PrintLabelsStudio.tsx` to render an authentic 3-zone visual SVG with dashed tear-off perforation cut lines, inverted size blocks, and rotated brand margin.
+- **Automated Verification Suites**:
+  - Created `backend/app/tests/test_barcode_client_prn_dynamic.py` (4/4 tests green) covering exact ZPL token parity, variant Toupe generation, layouts endpoint, and PRN stream dispatch.
+  - Added 3-zone footwear SVG generation test in `src/tests/printLabelsStudio.test.ts` (11/11 tests green).
+
 ## [6.70.26] - 2026-10-08 — SMRITI Print Labels Studio Server-Side Inward Document Intake, Vector SVG Export & Legacy Retirement (v6.46.2)
 
 > **Branch:** `smritiNX` | **Area:** Barcode, Hardware, Inward Logistics, Technical Debt Decommissioning

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.25.0
+Version      : 6.47.0
 Created      : 2026-07-12
-Modified     : 2026-08-20
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -58,6 +58,142 @@ def serialize_layout(l: BarcodeLayout) -> BarcodeLayoutResponse:
     )
 
 
+def generate_footwear_3stub_zpl(
+    item: Dict[str, Any],
+    company_name: str = "Tattly Threads",
+    company_address: str = "81,Umerkhadi,Mumbai,400003",
+    company_email: str = "care@tattlythreads.com",
+    default_mfg_date: Optional[str] = None,
+) -> str:
+    """
+    Renders 100mm x 50.7mm 3-Part Footwear Box Label with dual tear-off counter/inventory stubs.
+    Preserves byte-for-byte geometry and reverse print blocks from smriti_barcodes_2026-10-08.prn.
+    """
+    barcode = str(item.get("barcode") or item.get("code") or "").strip()
+
+    # Article / Style code
+    raw_art = str(item.get("style_code") or item.get("style") or item.get("code") or item.get("item_code") or "").strip()
+    art_no = raw_art
+    # Main label Art.No reverse box is 284 dots wide: pad with spaces to 12 chars so white text visually fills the block
+    art_no_padded = f"{raw_art:<12}" if len(raw_art) < 12 else raw_art
+
+    # Variant attributes
+    attrs = item.get("attributes") or {}
+    size = str(item.get("size") or attrs.get("size") or "").strip()
+    color = str(item.get("color") or item.get("shade") or attrs.get("color") or "").strip().upper()
+
+    # Pricing
+    mrp_val = item.get("mrp", item.get("price", 0.0))
+    try:
+        mrp_str = f"{int(float(mrp_val))}"
+    except Exception:
+        mrp_str = str(mrp_val)
+
+    # Brand
+    brand_val = str(item.get("brand") or attrs.get("brand") or "TATTLY THREADS").strip().upper()
+
+    # Mfg Date
+    mfg_date = item.get("mfg_date") or default_mfg_date or datetime.now(timezone.utc).strftime("%m/%y")
+
+    # Net contents
+    net_contents = str(item.get("net_contents") or "NET CONTENTS:1 Pair Footwear").strip()
+
+    return f"""<xpml><page quantity='0' pitch='50.7 mm'></xpml>^XA
+^SZ2^JMA
+^MCY^PMN
+^PW804
+^JZY
+^LH0,0^LRN
+^XZ
+<xpml></page></xpml><xpml><page quantity='1' pitch='50.7 mm'></xpml>^XA
+^FO346,305
+^BY2^BCN,66,N,N^FD{barcode}^FS
+^FT390,385
+^CI0
+^AAN,27,15^FD{barcode}^FS
+^FT772,357
+^A0B,34,46^FD{brand_val}^FS
+^FT355,271
+^ADN,18,10^FD{company_address}^FS
+^FT355,289
+^ADN,18,10^FD{company_email}^FS
+^FO627,62
+^GB70,67,67^FS
+^FT627,116
+^A0N,65,72^FR^FD{size}^FS
+^FT405,111
+^A0N,37,49^FD{color}^FS
+^FO416,15
+^GB284,47,47^FS
+^FT416,54
+^A0N,45,44^FR^FD{art_no_padded}^FS
+^FO332,13
+^GB367,117,3^FS
+^FO334,57
+^GB337,0,3^FS
+^FT490,199
+^A0N,17,23^FD |(Incl of all taxes)^FS
+^FT488,175
+
+
+^A0N,42,56^FD{mrp_str}/-^FS
+^FT408,170
+^A0N,28,38^FDMRP:^FS
+^FT355,199
+^A0N,17,23^FDMFG.Dt.:{mfg_date}^FS
+^FT355,215
+^ABN,11,7^FD{net_contents}^FS
+^FT340,41
+^A0N,17,23^FDArt.No.^FS
+^FT340,103
+^A0N,17,23^FDColor:^FS
+^FO34,112
+^BY1^BCN,30,N,N^FD{barcode}^FS
+^FT26,165
+^A0N,25,34^FD{barcode}^FS
+^FO37,47
+^GB70,67,67^FS
+^FT37,101
+^A0N,65,72^FR^FD{size}^FS
+^FT116,63
+^A0N,28,38^FD{color}^FS
+^FT37,34
+^A0N,28,27^FD{art_no}^FS
+^FT17,146
+^ABB,11,7^FD{brand_val}^FS
+^FT116,84
+^A0N,20,27^FDMRP:{mrp_str}/-^FS
+^FT116,101
+^A0N,17,23^FD(Incl of all taxes)^FS
+^FO33,338
+^BY1^BCN,30,N,N^FD{barcode}^FS
+^FT26,394
+^A0N,25,34^FD{barcode}^FS
+^FO33,274
+^GB70,67,67^FS
+^FT33,328
+^A0N,65,72^FR^FD{size}^FS
+^FT116,289
+^A0N,28,38^FD{color}^FS
+^FT33,260
+^A0N,28,27^FD{art_no}^FS
+^FT16,372
+^ABB,11,7^FD{brand_val}^FS
+^FT116,310
+^A0N,20,27^FDMRP:{mrp_str}/-^FS
+^FT116,327
+^A0N,17,23^FD(Incl of all taxes)^FS
+^FO731,0
+^GB0,405,3^FS
+^FO324,236
+^GB407,0,3^FS
+^FT355,261
+^A0N,20,27^FDMKTD.By:{company_name}^FS
+^PQ1,0,1,Y
+^XZ
+<xpml></page></xpml><xpml><end/></xpml>"""
+
+
 @router.get(
     "/layouts",
     response_model=List[BarcodeLayoutResponse],
@@ -76,7 +212,20 @@ async def list_layouts(
     )
     res = await db.execute(q)
     layouts = res.scalars().all()
-    return [serialize_layout(l) for l in layouts]
+    layout_responses = [serialize_layout(l) for l in layouts]
+    existing_ids = {lr.id for lr in layout_responses}
+    if "lay-footwear-100x50-3stub" not in existing_ids:
+        layout_responses.insert(0, BarcodeLayoutResponse(
+            id="lay-footwear-100x50-3stub",
+            name="Footwear 3-Stub Box & Counter Label (100x50mm)",
+            widthMm=100.0,
+            heightMm=50.7,
+            columns=1,
+            isDefault=False,
+            elements=[],
+            prnTemplate=None,
+        ))
+    return layout_responses
 
 
 @router.post(
@@ -231,12 +380,13 @@ async def print_labels(
     """
     Generate ZPL commands stream, record print history, and dispatch stream via raw TCP socket.
     """
+    layout_id_requested = req.layout_id or req.layoutId
     layout = None
-    if req.layoutId:
-        layout = await db.get(BarcodeLayout, req.layoutId)
+    if layout_id_requested:
+        layout = await db.get(BarcodeLayout, layout_id_requested)
         if not layout:
             q_lay = select(BarcodeLayout).where(
-                BarcodeLayout.name == req.layoutId,
+                BarcodeLayout.name == layout_id_requested,
                 BarcodeLayout.company_id == tenant_ctx.company_id,
                 BarcodeLayout.is_deleted == False
             )
@@ -262,13 +412,47 @@ async def print_labels(
                     elements = data
             except Exception:
                 pass
-    
+    elif layout_id_requested in ("lay-footwear-100x50-3stub", "lay-premium-zpl"):
+        layout_width = 100.0
+        layout_height = 50.7
+
+    is_footwear_layout = (
+        layout_id_requested in ("lay-footwear-100x50-3stub", "lay-premium-zpl") or
+        (layout and layout.id in ("lay-footwear-100x50-3stub", "lay-premium-zpl")) or
+        (layout and abs(layout_width - 100.0) < 2.0 and abs(layout_height - 50.7) < 2.0 and not prn_template)
+    )
+
     # 1. Fetch Printer Connection parameters from SystemConfig
     configured_printer = await PrinterService.get_configured_printer(db, company_id=tenant_ctx.company_id)
     connection_type = configured_printer.get("connection_type", "TCP")
     printer_ip = configured_printer.get("ip", "192.168.1.200")
     printer_port = int(configured_printer.get("port", 9100))
     usb_target = configured_printer.get("usb_target", "LPT1")
+
+    # Resolve legal metrology from SystemConfig / Company if present
+    company_trade_name = None
+    company_address = None
+    company_email = None
+
+    if is_footwear_layout or prn_template:
+        cfg_q = select(SystemConfig).where(
+            SystemConfig.company_id == tenant_ctx.company_id,
+            SystemConfig.is_deleted == False
+        )
+        cfgs = (await db.execute(cfg_q)).scalars().all()
+        cfg_map = {c.key: c.value for c in cfgs}
+
+        company_trade_name = cfg_map.get("business_trade_name") or cfg_map.get("legal_metrology_marketer")
+        if not company_trade_name:
+            from ...models.tenant import Company
+            comp_row = (await db.execute(select(Company).where(Company.id == tenant_ctx.company_id))).scalars().first()
+            if comp_row:
+                company_trade_name = comp_row.name or "Tattly Threads"
+            else:
+                company_trade_name = "Tattly Threads"
+
+        company_address = cfg_map.get("legal_metrology_address") or cfg_map.get("business_address") or "81,Umerkhadi,Mumbai,400003"
+        company_email = cfg_map.get("legal_metrology_email") or cfg_map.get("customer_care_email") or "care@tattlythreads.com"
 
     # Determine dispatch mode: request override > company SystemConfig > default server_tcp
     if getattr(req, "saveAsPrn", False):
@@ -293,7 +477,14 @@ async def print_labels(
         prod_color = item.get("color", "")
 
         # Build raw ZPL thermal stream
-        if prn_template:
+        if is_footwear_layout:
+            raw_stream = generate_footwear_3stub_zpl(
+                item=item,
+                company_name=company_trade_name or "Tattly Threads",
+                company_address=company_address or "81,Umerkhadi,Mumbai,400003",
+                company_email=company_email or "care@tattlythreads.com",
+            )
+        elif prn_template:
             mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
             mrp_val = item.get("mrp", item.get("price", 0.0))
             try:
@@ -307,12 +498,20 @@ async def print_labels(
                 brand_val = attrs.get("brand") or "SMRITI"
 
             raw_stream = prn_template
+            raw_art = str(item.get("style_code") or item.get("style") or item.get("code") or item.get("item_code") or "").strip()
+            art_no_padded = f"{raw_art:<12}" if len(raw_art) < 12 else raw_art
             
             # 1. Apply primary system-derived placeholders
             raw_stream = raw_stream.replace("{mfg_date}", mfg_date)
             raw_stream = raw_stream.replace("{mrp}", mrp_str)
             raw_stream = raw_stream.replace("{brand}", brand_val)
-            raw_stream = raw_stream.replace("{style_code}", item.get("style_code", prod_code))
+            raw_stream = raw_stream.replace("{style_code}", raw_art)
+            raw_stream = raw_stream.replace("{art_no}", raw_art)
+            raw_stream = raw_stream.replace("{art_no_padded}", art_no_padded)
+            raw_stream = raw_stream.replace("{company_name}", company_trade_name or "Tattly Threads")
+            raw_stream = raw_stream.replace("{address}", company_address or "81,Umerkhadi,Mumbai,400003")
+            raw_stream = raw_stream.replace("{email}", company_email or "care@tattlythreads.com")
+            raw_stream = raw_stream.replace("{net_contents}", str(item.get("net_contents") or "NET CONTENTS:1 Pair Footwear"))
 
             # 2. Iterate and replace any top-level key present in the request item dict
             for key, val in item.items():
@@ -328,114 +527,6 @@ async def print_labels(
                     if v is not None:
                         raw_stream = raw_stream.replace(f"{{{k}}}", str(v))
                         raw_stream = raw_stream.replace(f"{{{k.lower()}}}", str(v))
-        elif layout and layout.id == "lay-premium-zpl":
-            mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
-            mrp_val = item.get("mrp", item.get("price", 0.0))
-            try:
-                mrp_str = f"{int(float(mrp_val))}"
-            except Exception:
-                mrp_str = str(mrp_val)
-
-            brand_val = item.get("brand") or "SMRITI"
-            if not brand_val or brand_val == "SMRITI":
-                attrs = item.get("attributes") or {}
-                brand_val = attrs.get("brand") or "SMRITI"
-
-            raw_stream = f"""^XA
-^SZ2^JMA
-^MCY^PMN
-^PW804
-^JZY
-^LH0,0^LRN
-^XZ
-^XA
-^FO706,47
-^BY3^BCB,50,N,N^FD{item.get('barcode', '')}^FS
-^FT781,340
-^CI0
-^AAB,27,15^FD{item.get('barcode', '')}^FS
-^FT345,53
-^A0N,34,46^FD{brand_val}^FS
-^FT335,340
-^A0N,17,23^FDMKTD.By:{brand_val}^FS
-^FT335,351
-^ABN,11,7^FD81,Umerkhadi,Mumbai,400003^FS
-^FO615,135
-^GB76,80,76^FS
-^FT615,198
-^A0N,79,77^FR^FD{prod_size}^FS
-^FT400,182
-^A0N,37,49^FD{prod_color}^FS
-^FO410,86
-^GB277,46,46^FS
-^FT410,124
-^A0N,45,43^FR^FD{item.get('style_code', prod_code)}^FS
-^FO327,84
-^GB367,129,3^FS
-^FO329,128
-^GB337,0,3^FS
-^FT536,274
-^A0N,17,23^FD(Incl of all taxes)^FS
-^FT493,251
-^A0N,42,56^FD{mrp_str}/-^FS
-^FT410,246
-^A0N,28,38^FDMRP:^FS
-^FT327,274
-^A0N,17,23^FDMFG.Dt.: {mfg_date}^FS
-^FT327,290
-^ABN,11,7^FDNET CONTENTS:1 Pair Footwear^FS
-^FT335,113
-^A0N,17,23^FDArt.No.^FS
-^FT335,175
-^A0N,17,23^FDColor:^FS
-^FT335,386
-^ABN,11,7^FDcontact@yourstore.com^FS
-^FO34,125
-^BY2^BCN,30,N,N^FD{item.get('barcode', '')}^FS
-^FT46,181
-^A0N,25,34^FD{item.get('barcode', '')}^FS
-^FO37,60
-^GB70,67,67^FS
-^FT37,114
-^A0N,65,72^FR^FD{prod_size}^FS
-^FO116,50
-^GB101,30,30^FS
-^FT116,76
-^A0N,28,38^FR^FD{prod_color}^FS
-^FT37,47
-^A0N,28,27^FD{item.get('style_code', prod_code)}^FS
-^FT17,159
-^ABB,11,7^FD{brand_val}^FS
-^FT116,97
-^A0N,20,27^FDMRP:{mrp_str}/-^FS
-^FT116,114
-^A0N,17,23^FD(Incl of all taxes)^FS
-^FO33,338
-^BCN,30,N,N^FD{item.get('barcode', '')}^FS
-^FT45,394
-^A0N,25,34^FD{item.get('barcode', '')}^FS
-^FO33,275
-^GB70,65,65^FS
-^FT33,327
-^A0N,62,70^FR^FD{prod_size}^FS
-^FO116,263
-^GB101,30,30^FS
-^FT116,289
-^A0N,28,38^FR^FD{prod_color}^FS
-^FT33,260
-^A0N,28,27^FD{item.get('style_code', prod_code)}^FS
-^FT16,372
-^ABB,11,7^FD{brand_val}^FS
-^FT116,310
-^A0N,20,27^FDMRP:{mrp_str}/-^FS
-^FT116,327
-^A0N,17,23^FD(Incl of all taxes)^FS
-^FO328,308
-^GB367,0,3^FS
-^FO328,365
-^GB367,0,3^FS
-^PQ1,0,1,Y
-^XZ"""
         else:
             zpl_parts = ["^XA", f"^PW{int(layout_width * 8)}", f"^LL{int(layout_height * 8)}"]
 
