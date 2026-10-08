@@ -197,7 +197,7 @@ class PurchaseJurisdictionConfig(BaseEntity):
     """
     __tablename__ = "purchase_jurisdiction_configs"
 
-    company_state = Column(String(10), nullable=False, default="DL")
+    company_state = Column(String(10), nullable=False)
 
 
 class PurchaseBill(BaseEntity):

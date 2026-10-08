@@ -1877,3 +1877,17 @@ async def list_item_barcodes_lookup(
     return rows
 
 
+@router.get("/lookup/{type_code}/presets", response_model=None)
+async def get_master_lookup_presets(
+    type_code: str,
+    current_user: User = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    """
+    Retrieve canonical master lookup preset recommendations for a given master type code.
+    Serves authoritative system recommendations for retail master configuration.
+    """
+    from ...services.master_lookup_presets import get_standard_lookup_presets
+    return get_standard_lookup_presets(type_code)
+
+
+

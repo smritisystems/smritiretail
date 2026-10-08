@@ -28,6 +28,82 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.41] - 2026-10-09 — Phase 3 Master Registry Presets & Tenant Defaults Hardening (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Master Data, Multi-Tenancy & Printing Configuration
+> **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase3_Master_Registry_And_Tenant_Defaults_v1.0.0.md`
+
+### Changed & Hardened (Phase 3 Master Registry & Tenant Defaults)
+- **Cluster A: Staff Print Center Multi-Tenant De-Hardcoding (FND-010)**:
+  - Excised hardcoded `"Tattly Threads"` company name and Mumbai address dictionaries from `src/components/staff/StaffPrintModal.tsx`.
+  - Dynamically resolved company name, address, and logo strictly from tenant profile and branding storage with neutral generic fallbacks.
+- **Cluster B: Commercial Policy & Walk-In Parameterization (FND-002, FND-006)**:
+  - Dynamically resolved walk-in customer codes in `backend/app/services/customer_discount_policy.py` via `SystemParameterService` parameter `SMRITI.POS.WALKIN_CUSTOMER_CODE` (defaulting to `"CUST-WALKIN"`).
+  - Added optional `couponStackingAllowed?: boolean` override to `PriceResolutionInput` in `src/utils/pricingDiscountEngine.ts` to allow caller and policy-level coupon stacking governance on a per-transaction basis.
+- **Cluster C: Backend Master Registry Presets API (FND-036 to FND-051)**:
+  - Created canonical `master_lookup_presets.py` containing standardized retail presets across 22+ master categories.
+  - Mounted `@router.get("/lookup/{type_code}/presets")` in `backend/app/api/v1/master_lookup.py`.
+  - Upgraded `LookupRecommendModal.tsx` to asynchronously fetch recommendations from the server API, falling back gracefully to client presets when offline.
+
+## [6.70.40] - 2026-10-09 — Phase 2 Operational Defaults, Integrations & Governance Configuration Hardening (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Security, Integrations & Operational Governance
+> **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase2_Operational_Defaults_And_Integrations_v1.0.0.md`
+
+### Changed & Hardened (Phase 2 Operational Defaults)
+- **Cluster A: Security, Auth & Token Lifecycle Configuration**:
+  - Made JWT token expiration dynamically configurable via `SystemParameterService` (`SMRITI.AUTH.TOKEN_EXPIRE_MINUTES`, `SMRITI.AUTH.REFRESH_TOKEN_EXPIRE_DAYS`).
+  - Added `_resolve_token_expirations` in `AuthService`, applying tenant-specific expirations across `sign_in`, `switch_context`, and `refresh` token endpoints with seamless `.env` fallback.
+- **Cluster B: Integrations & Flags Governance**:
+  - Deprecated and documented dead cutover flags in `src/config/flags.ts` adhering to Strangler-Fig completion rules and ADR-045.
+- **Cluster C: Financial Year Engine & Model Defaults**:
+  - Upgraded `SmritiDefineBillPrefixModal.tsx` to compute current Indian financial year (`getCurrentFinancialYear()`, April 1 to March 31) dynamically, eliminating hardcoded `"2026-2027"` and `"26-27"` strings.
+  - Standardized staff profile defaults in `backend/app/models/staff_profile.py` with canonical constants (`DEFAULT_STAFF_COUNTRY`, `DEFAULT_STAFF_EMPLOYMENT_TYPE`, `DEFAULT_STAFF_STATUS`).
+
+## [6.70.39] - 2026-10-09 — Phase 1 Operational & Identity Configuration Hardening (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Operational & Identity Configuration Hardening, Statutory State Unification
+> **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase1_Operational_And_Identity_Configuration_Hardening_v1.0.0.md`
+
+### Changed & Hardened (Phase 1 Operational Configuration)
+- **Cluster A: Statutory State Resolution Unification**:
+  - Eliminated static `INDIAN_STATES` array in `src/constants/indianLocationData.ts`, converting to dynamic dictionary key derivation with statutory guidance.
+  - Upgraded `CustMailingDlg.tsx` to retrieve states dynamically from `/control/reference/states` via `fetchCanonicalIndianStates()`, removing static fallback.
+  - De-duplicated E-Way Bill state validations in `backend/app/services/eway_bill_service.py` by removing 40 lines of duplicate dictionaries and linking directly to canonical `GST_STATE_CODES` from `gst_engine.py` (including codes 99, 25, 28, 27).
+- **Cluster B: Seller & Tenant Metadata De-Hardcoding**:
+  - Excised hardcoded seller name (`"Tattly Threads"`), default GSTIN (`"27AAXFT2508H1ZR"`), and state code (`"27"`) from `backend/app/services/canonical_sales_writer.py`.
+  - Dynamically extracts seller identity and GSTIN from active tenant `Company`, `Branch`, and dispatch `Warehouse` entities.
+  - De-hardcoded `"Maharashtra"` fallback in `backend/app/services/sales.py` in `convert_so_to_invoice`, resolving state dynamically from `Company.gst_number`.
+  - Dynamic purchase tax jurisdiction resolution in `backend/app/services/purchase.py` via `PurchaseJurisdictionConfig` -> `Company.gst_number` -> `Company.state` -> `SystemParameterService` (`SMRITI.PURCHASE.DEFAULT_JURISDICTION_STATE`).
+- **Cluster C: Multi-Tenant & Identity Scope Governance**:
+  - Fallback state code resolution governed through server-authoritative system parameter `SMRITI.TAX.DEFAULT_STATE_CODE`.
+
+## [6.70.38] - 2026-10-09 — Phase 0 P0 Commercial & Statutory Hotfix Remediation (v3.16.1)
+
+> **Branch:** `smritiNX` | **Area:** Statutory & Commercial Core, Forensic Audit Hotfix, GST Engine, Tax Authority
+> **Walkthrough:** `docs/walkthrough/statutory/Statutory_Phase0_P0_Hotfix_Remediation_And_Acceptance_v3.16.1.md`
+
+### Fixed & Hardened (Phase 0 P0 Hotfixes)
+- **P0-1 Commercial: Reliance Discount Bypass Removed**:
+  - Eliminated hardcoded 50% discount override for Reliance accounts in `customer_discount_policy.py`.
+  - Customer discount policy now derives strictly from canonical customer group configuration.
+- **P0-2 Inventory: Server-Authoritative Negative Stock Policy**:
+  - Deprecated client-controlled `allow_negative_stock` in `CanonicalPostingContext`.
+  - `CanonicalSalesPostingWriter.post_sales_transaction` evaluates server-authoritative parameter `SMRITI.STOCK.ALLOW_NEGATIVE_STOCK` via `SystemParameterService`.
+  - Transaction rolls back atomically when negative stock occurs and server policy is disabled.
+- **P0-3 Commercial: Maximum Discount Cap Dynamic Configuration**:
+  - Replaced hardcoded 40% discount ceiling with dynamic system parameter `SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT`.
+  - Enforced in both frontend calculation engine (`pricingDiscountEngine.ts`) and backend (`HeadlessBillingCore.calculate_billing`).
+- **P0-4 Statutory: Single Canonical GST State Code Source (`states_ref`)**:
+  - Eliminated duplicate static state dictionaries in `gst_engine.py` and `indianStates.ts`.
+  - PostgreSQL table `states_ref` established as single statutory authority for Indian GST state codes.
+  - Added missing statutory state codes `99` (Centre Jurisdiction), `25` (Daman and Diu), and `28` (Andhra Pradesh Old) to seed data.
+  - Setup Wizard dynamically fetches states from `/control/reference/states` with fail-fast validation.
+- **P0-5 Statutory: Elimination of Silent Tax Assumptions (0% and 18%)**:
+  - Replaced silent fallback in `normalizeSales.ts` with strict tax determination (`resolveItemGstRate`).
+  - Transactional and posting flows reject items with missing/unresolvable tax with `SMRITI-TAX-001`.
+  - Preview displays represent missing tax as `UNRESOLVED` rather than an invalid statutory 0% rate.
+
 ## [6.70.37] - 2026-10-08 — Leave Approval Workflow, Atomic Balance Deduction & Printable Salary Slip (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Statutory Leave Lifecycle, Manager Leave Approval Workflow, Printable Salary Slip Studio

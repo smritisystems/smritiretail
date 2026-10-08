@@ -5,6 +5,11 @@ from sqlalchemy import Column, String, Text, UniqueConstraint
 from ..db.base import BaseEntity
 
 
+DEFAULT_STAFF_COUNTRY = "India"
+DEFAULT_STAFF_EMPLOYMENT_TYPE = "Permanent"
+DEFAULT_STAFF_STATUS = "Active"
+
+
 class StaffProfile(BaseEntity):
     """Employment and HR profile owned by one company database.
 
@@ -27,7 +32,7 @@ class StaffProfile(BaseEntity):
     address = Column(String(500), nullable=True)
     city = Column(String(100), nullable=True)
     state = Column(String(100), nullable=True)
-    country = Column(String(50), nullable=False, default="India")
+    country = Column(String(50), nullable=False, default=DEFAULT_STAFF_COUNTRY)
     pin_code = Column(String(10), nullable=True)
     department = Column(String(100), nullable=True)
     designation = Column(String(100), nullable=True)
@@ -36,7 +41,7 @@ class StaffProfile(BaseEntity):
     designation_id = Column(String(50), nullable=True)
     date_of_joining = Column(String(20), nullable=True)
     reporting_manager = Column(String(200), nullable=True)
-    employment_type = Column(String(20), nullable=False, default="Permanent")
+    employment_type = Column(String(20), nullable=False, default=DEFAULT_STAFF_EMPLOYMENT_TYPE)
     allowed_branches = Column(Text, nullable=True)
     photo = Column(Text, nullable=True)
     salary_json = Column(Text, nullable=True)
@@ -44,7 +49,7 @@ class StaffProfile(BaseEntity):
     performance_json = Column(Text, nullable=True)
     preferences_json = Column(Text, nullable=True)
     notification_settings_json = Column(Text, nullable=True)
-    status = Column(String(50), nullable=False, default="Active")
+    status = Column(String(50), nullable=False, default=DEFAULT_STAFF_STATUS)
 
     __table_args__ = (
         UniqueConstraint("company_id", "user_id", name="uq_staff_profiles_company_user"),

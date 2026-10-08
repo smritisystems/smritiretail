@@ -13,7 +13,14 @@
 
 import { describe, it, expect } from "vitest";
 import { formatCurrency, formatNumber, safeNumber, safeDivision, formatDate, formatDateTime } from "../utils/formatters";
-import { normalizeSalesOrder, normalizeSalesOrders, normalizeSalesOrderItem, normalizeQuotation, normalizeQuotations } from "../utils/normalizeSales";
+import {
+  normalizeSalesOrder,
+  normalizeSalesOrders,
+  normalizeSalesOrderItem,
+  normalizeQuotation,
+  normalizeQuotations,
+  resolveItemGstRate,
+} from "../utils/normalizeSales";
 
 describe("SMRITI Safe Number & Currency Formatters Audit", () => {
   it("should safely format standard numbers into INR currency", () => {
@@ -232,5 +239,136 @@ describe("SMRITI Sales Order Normalization & Case Resilience Audit", () => {
     expect(q.grandTotal).toBe(1150);
 
     expect(normalizeQuotations(null)).toEqual([]);
+  });
+
+  describe("SMRITI P0-5 GST Rate Normalization and Fallback Elimination", () => {
+    // 1. Explicit 0% = valid 0%
+    it("should accept explicit 0% GST as valid 0% and never silently convert to 18%", () => {
+      const res0 = resolveItemGstRate(0);
+      expect(res0.status).toBe("RESOLVED");
+      expect(res0.rate).toBe(0);
+
+      const resStr0 = resolveItemGstRate("0");
+      expect(resStr0.status).toBe("RESOLVED");
+      expect(resStr0.rate).toBe(0);
+
+      const item = normalizeSalesOrderItem({ code: "MILK", price: 50, gstRate: 0 });
+      expect(item.gstRate).toBe(0);
+      expect(item.gst_rate).toBe(0);
+      expect(item.taxRate).toBe(0);
+      expect(item.taxDeterminationStatus).toBe("RESOLVED");
+    });
+
+    // 2. Explicit 5% = valid 5%
+    it("should accept explicit 5% GST as valid 5%", () => {
+      const res = resolveItemGstRate(5);
+      expect(res.status).toBe("RESOLVED");
+      expect(res.rate).toBe(5);
+
+      const item = normalizeSalesOrderItem({ code: "SHIRT", price: 500, gstRate: 5 });
+      expect(item.gstRate).toBe(5);
+      expect(item.taxDeterminationStatus).toBe("RESOLVED");
+    });
+
+    // 3. Explicit 12% = valid 12%
+    it("should accept explicit 12% GST as valid 12%", () => {
+      const res = resolveItemGstRate(12);
+      expect(res.status).toBe("RESOLVED");
+      expect(res.rate).toBe(12);
+
+      const item = normalizeSalesOrderItem({ code: "CHEESE", price: 200, gstRate: 12 });
+      expect(item.gstRate).toBe(12);
+      expect(item.taxDeterminationStatus).toBe("RESOLVED");
+    });
+
+    // 4. Explicit 18% = valid 18%
+    it("should accept explicit 18% GST as valid 18%", () => {
+      const res = resolveItemGstRate(18);
+      expect(res.status).toBe("RESOLVED");
+      expect(res.rate).toBe(18);
+
+      const item = normalizeSalesOrderItem({ code: "HARDWARE", price: 1000, gstRate: 18 });
+      expect(item.gstRate).toBe(18);
+      expect(item.taxDeterminationStatus).toBe("RESOLVED");
+    });
+
+    // 5. Explicit 28% = valid 28%
+    it("should accept explicit 28% GST as valid 28%", () => {
+      const res = resolveItemGstRate(28);
+      expect(res.status).toBe("RESOLVED");
+      expect(res.rate).toBe(28);
+
+      const item = normalizeSalesOrderItem({ code: "LUXURY", price: 5000, gstRate: 28 });
+      expect(item.gstRate).toBe(28);
+      expect(item.taxDeterminationStatus).toBe("RESOLVED");
+    });
+
+    // 6. Missing tax + authoritative resolution = resolved rate
+    it("should resolve missing tax through canonical tax resolver or item master", () => {
+      const itemWithMaster = {
+        code: "ITEM_CANON",
+        price: 500,
+        masterGstRate: 12,
+      };
+      const resFromMaster = resolveItemGstRate(undefined, itemWithMaster);
+      expect(resFromMaster.status).toBe("RESOLVED");
+      expect(resFromMaster.rate).toBe(12);
+
+      const itemWithHook = { code: "ITEM_HOOK", price: 300 };
+      const resFromHook = resolveItemGstRate(undefined, itemWithHook, {
+        canonicalTaxResolver: (it) => (it.code === "ITEM_HOOK" ? 18 : null),
+      });
+      expect(resFromHook.status).toBe("RESOLVED");
+      expect(resFromHook.rate).toBe(18);
+
+      const normItem = normalizeSalesOrderItem(itemWithMaster);
+      expect(normItem.gstRate).toBe(12);
+      expect(normItem.taxDeterminationStatus).toBe("RESOLVED");
+    });
+
+    // 7. Missing tax + no resolution = SMRITI-TAX-001 (in transactional/strict mode)
+    it("should reject missing tax with SMRITI-TAX-001 when resolution is unavailable", () => {
+      expect(() => {
+        resolveItemGstRate(undefined, { code: "NO_TAX_ITEM" });
+      }).toThrowError(/SMRITI-TAX-001: Missing statutory GST rate/);
+
+      expect(() => {
+        resolveItemGstRate(null, { code: "NULL_TAX_ITEM" }, { mode: "transactional" });
+      }).toThrowError(/SMRITI-TAX-001: Missing statutory GST rate/);
+
+      expect(() => {
+        normalizeSalesOrderItem({ code: "ORPHAN_ITEM", price: 100 }, 1, { mode: "posting" });
+      }).toThrowError(/SMRITI-TAX-001: Missing statutory GST rate/);
+    });
+
+    // 8. Invalid tax = SMRITI-TAX-001
+    it("should reject invalid tax values with SMRITI-TAX-001", () => {
+      expect(() => {
+        resolveItemGstRate("invalid_rate", { code: "BAD_TAX" });
+      }).toThrowError(/SMRITI-TAX-001: Invalid statutory GST rate/);
+
+      expect(() => {
+        resolveItemGstRate(-5, { code: "NEGATIVE_TAX" });
+      }).toThrowError(/SMRITI-TAX-001: Invalid statutory GST rate/);
+
+      expect(() => {
+        normalizeSalesOrderItem({ code: "BAD_ITEM", price: 100, gstRate: -18 }, 1);
+      }).toThrowError(/SMRITI-TAX-001: Invalid statutory GST rate/);
+    });
+
+    // 9. Preview mode representation: UNRESOLVED (rate: undefined, NEVER 0%, NEVER 18%)
+    it("should represent missing tax in preview mode as UNRESOLVED and never produce 0% or 18%", () => {
+      const previewRes = resolveItemGstRate(undefined, { code: "PREVIEW_ITEM" }, { mode: "preview" });
+      expect(previewRes.status).toBe("UNRESOLVED");
+      expect(previewRes.rate).toBeUndefined();
+      expect(previewRes.rate).not.toBe(0);
+      expect(previewRes.rate).not.toBe(18);
+
+      const previewItem = normalizeSalesOrderItem({ code: "PREVIEW_ITEM", price: 100 }, 1, { mode: "preview" });
+      expect(previewItem.taxDeterminationStatus).toBe("UNRESOLVED");
+      expect(previewItem.gstRate).toBeUndefined();
+      expect(previewItem.gstRate).not.toBe(0);
+      expect(previewItem.gstRate).not.toBe(18);
+    });
   });
 });

@@ -18,7 +18,104 @@ import { safeNumber } from "./formatters";
  * Safely normalizes a Sales Order Item line, ensuring both camelCase and snake_case properties
  * and finite numeric values for arithmetic operations.
  */
-export function normalizeSalesOrderItem(item: any, idx = 1): SalesItemLine {
+export interface TaxResolutionOptions {
+  /** Mode of normalization: 'transactional' | 'posting' require strict resolution; 'preview' | 'draft' allow UNRESOLVED representation */
+  mode?: "transactional" | "posting" | "preview" | "draft";
+  strict?: boolean;
+  itemIndex?: number;
+  itemName?: string;
+  /** Authoritative resolver hook to lookup master catalog or company tax architecture */
+  canonicalTaxResolver?: (item: any) => number | string | undefined | null;
+}
+
+export interface TaxResolutionResult {
+  rate: number | undefined;
+  status: "RESOLVED" | "UNRESOLVED";
+}
+
+/**
+ * Authoritatively resolves item GST rate without any silent assumptions (no 18%, no 0%).
+ *
+ * Statutory Rule:
+ * 1. Explicit valid rate (0%, 5%, 12%, 18%, 28%, etc.) -> RESOLVED with that rate.
+ * 2. Missing/invalid rate -> Attempt authoritative resolution from item/master tax architecture:
+ *    - If resolved -> RESOLVED with master rate.
+ *    - If unresolvable:
+ *        - In transactional/posting/strict mode -> THROWS Error("SMRITI-TAX-001: Missing statutory GST rate...")
+ *        - In preview/draft mode -> Returns { rate: undefined, status: "UNRESOLVED" }
+ *          (never silently produces 0% or 18%).
+ */
+export function resolveItemGstRate(
+  rawRate: any,
+  item?: any,
+  options?: TaxResolutionOptions
+): TaxResolutionResult {
+  const isStrict =
+    options?.strict ??
+    (options?.mode === "transactional" ||
+      options?.mode === "posting" ||
+      options?.mode === undefined); // Default to strict transactional mode for statutory safety
+
+  // 1. Check explicit rate
+  if (rawRate !== undefined && rawRate !== null && rawRate !== "") {
+    const num = typeof rawRate === "number" ? rawRate : Number(rawRate);
+    if (!isNaN(num) && isFinite(num) && num >= 0) {
+      return { rate: num, status: "RESOLVED" };
+    }
+    // Explicit invalid value provided (e.g. negative or non-numeric)
+    if (isStrict) {
+      throw new Error(
+        `SMRITI-TAX-001: Invalid statutory GST rate '${rawRate}' on line ${options?.itemIndex ?? 1}${
+          options?.itemName ? ` (${options.itemName})` : ""
+        }. Value must be a valid non-negative number.`
+      );
+    }
+    return { rate: undefined, status: "UNRESOLVED" };
+  }
+
+  // 2. Missing rate: Attempt authoritative tax resolution from canonical item master / company tax architecture
+  if (options?.canonicalTaxResolver && item) {
+    const canonicalRate = options.canonicalTaxResolver(item);
+    if (canonicalRate !== undefined && canonicalRate !== null && canonicalRate !== "") {
+      const num = typeof canonicalRate === "number" ? canonicalRate : Number(canonicalRate);
+      if (!isNaN(num) && isFinite(num) && num >= 0) {
+        return { rate: num, status: "RESOLVED" };
+      }
+    }
+  }
+
+  // Check if item contains authoritative master tax properties
+  const masterRate =
+    item?.masterGstRate ??
+    item?.master_gst_rate ??
+    item?.product?.gst_rate ??
+    item?.product?.tax_rate ??
+    item?.tax_rate;
+  if (masterRate !== undefined && masterRate !== null && masterRate !== "") {
+    const num = typeof masterRate === "number" ? masterRate : Number(masterRate);
+    if (!isNaN(num) && isFinite(num) && num >= 0) {
+      return { rate: num, status: "RESOLVED" };
+    }
+  }
+
+  // 3. Unresolvable statutory tax:
+  if (isStrict) {
+    throw new Error(
+      `SMRITI-TAX-001: Missing statutory GST rate on line ${options?.itemIndex ?? 1}${
+        options?.itemName ? ` (${options.itemName})` : ""
+      }. Transaction requires explicit statutory tax determination.`
+    );
+  }
+
+  // Preview / draft representation: UNRESOLVED (rate: undefined, NEVER 0% or 18%)
+  return { rate: undefined, status: "UNRESOLVED" };
+}
+
+export function normalizeSalesOrderItem(
+  item: any,
+  idx = 1,
+  options?: TaxResolutionOptions
+): SalesItemLine {
   if (!item || typeof item !== "object") {
     return {
       productId: "",
@@ -27,20 +124,30 @@ export function normalizeSalesOrderItem(item: any, idx = 1): SalesItemLine {
       name: "Unknown Item",
       quantity: 1,
       price: 0,
-      taxRate: 0,
-      gstRate: 0,
+      taxRate: undefined,
+      gstRate: undefined,
       taxAmount: 0,
       totalAmount: 0,
       srNo: idx,
       sr_no: idx,
+      taxDeterminationStatus: "UNRESOLVED",
     };
   }
 
   const pid = String(item.productId || item.product_id || "");
   const qty = safeNumber(item.quantity, 1);
   const price = safeNumber(item.price, 0);
-  const gstRate = safeNumber(item.gstRate ?? item.gst_rate ?? item.taxRate, 18);
-  const taxAmt = safeNumber(item.taxAmount ?? item.tax_amount, 0);
+  const rawRate = item.gstRate ?? item.gst_rate ?? item.taxRate ?? item.tax_rate;
+  const resolution = resolveItemGstRate(rawRate, item, {
+    ...options,
+    itemIndex: idx,
+    itemName: item.name || item.code,
+  });
+  const gstRate = resolution.rate;
+  const taxAmt =
+    gstRate !== undefined
+      ? safeNumber(item.taxAmount ?? item.tax_amount, (qty * price * gstRate) / 100)
+      : safeNumber(item.taxAmount ?? item.tax_amount, 0);
   const totAmt = safeNumber(item.totalAmount ?? item.total_amount, qty * price + taxAmt);
   const srNo = safeNumber(item.srNo ?? item.sr_no, idx);
 
@@ -57,10 +164,12 @@ export function normalizeSalesOrderItem(item: any, idx = 1): SalesItemLine {
     taxRate: gstRate,
     gstRate: gstRate,
     gst_rate: gstRate,
+    taxDeterminationStatus: resolution.status,
     taxAmount: taxAmt,
     tax_amount: taxAmt,
     totalAmount: totAmt,
     total_amount: totAmt,
+
 
     // Extended PO fields
     srNo: srNo,
@@ -165,7 +274,7 @@ export function normalizeSalesOrderAllocation(alloc: any): SalesOrderInvoiceAllo
 /**
  * Normalizes a single SalesOrder response object from FastAPI/Express.
  */
-export function normalizeSalesOrder(so: any): SalesOrder {
+export function normalizeSalesOrder(so: any, options?: TaxResolutionOptions): SalesOrder {
   if (!so || typeof so !== "object") {
     return {
       id: "",
@@ -186,7 +295,9 @@ export function normalizeSalesOrder(so: any): SalesOrder {
   const orderNo = String(so.orderNo || so.order_no || "SO");
   const customerName = String(so.customerName || so.customer_name || "");
   const rawItems = Array.isArray(so.items) ? so.items : [];
-  const normalizedItems = rawItems.map((it: any, idx: number) => normalizeSalesOrderItem(it, idx + 1));
+  const normalizedItems = rawItems.map((it: any, idx: number) =>
+    normalizeSalesOrderItem(it, idx + 1, options ?? { mode: "preview" })
+  );
 
   const taxTotal = safeNumber(so.taxTotal ?? so.tax_total, 0);
   const grandTotal = safeNumber(so.grandTotal ?? so.grand_total, 0);
@@ -259,16 +370,16 @@ export function normalizeSalesOrder(so: any): SalesOrder {
 /**
  * Normalizes an array of SalesOrder responses safely handling null/non-array input.
  */
-export function normalizeSalesOrders(data: unknown): SalesOrder[] {
+export function normalizeSalesOrders(data: unknown, options?: TaxResolutionOptions): SalesOrder[] {
   if (!data) return [];
   if (!Array.isArray(data)) return [];
-  return data.map(normalizeSalesOrder);
+  return data.map((d) => normalizeSalesOrder(d, options));
 }
 
 /**
  * Normalizes a single Quotation.
  */
-export function normalizeQuotation(q: any): Quotation {
+export function normalizeQuotation(q: any, options?: TaxResolutionOptions): Quotation {
   if (!q || typeof q !== "object") {
     return {
       id: "",
@@ -285,7 +396,9 @@ export function normalizeQuotation(q: any): Quotation {
   const qNo = String(q.quotationNo || q.quotation_no || "QT");
   const cName = String(q.customerName || q.customer_name || "");
   const rawItems = Array.isArray(q.items) ? q.items : [];
-  const normalizedItems = rawItems.map((it: any, idx: number) => normalizeSalesOrderItem(it, idx + 1));
+  const normalizedItems = rawItems.map((it: any, idx: number) =>
+    normalizeSalesOrderItem(it, idx + 1, options ?? { mode: "preview" })
+  );
   const taxTotal = safeNumber(q.taxTotal ?? q.tax_total, 0);
   const grandTotal = safeNumber(q.grandTotal ?? q.grand_total, 0);
 
@@ -308,7 +421,7 @@ export function normalizeQuotation(q: any): Quotation {
   };
 }
 
-export function normalizeQuotations(data: unknown): Quotation[] {
+export function normalizeQuotations(data: unknown, options?: TaxResolutionOptions): Quotation[] {
   if (!data || !Array.isArray(data)) return [];
-  return data.map(normalizeQuotation);
+  return data.map((d) => normalizeQuotation(d, options));
 }

@@ -14,7 +14,7 @@
  * Classification: SMRITI Core System Lookups & Master Directory Standard
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Sparkles,
   X,
@@ -33,6 +33,7 @@ import {
   getLookupRecommendations,
   getMissingRecommendations,
 } from "./lookupStandardPresets.ts";
+import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 
 export interface LookupRecommendModalProps {
   isOpen: boolean;
@@ -55,8 +56,37 @@ export const LookupRecommendModal: React.FC<LookupRecommendModalProps> = ({
   const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
   const [isCommitting, setIsCommitting] = useState(false);
   const [filterMode, setFilterMode] = useState<"ALL" | "MISSING_ONLY" | "ALREADY_REGISTERED">("MISSING_ONLY");
+  const [remotePresets, setRemotePresets] = useState<StandardLookupPreset[] | null>(null);
+  const [isLoadingPresets, setIsLoadingPresets] = useState(false);
 
-  const allPresets = useMemo(() => getLookupRecommendations(typeCode), [typeCode]);
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen && typeCode) {
+      setIsLoadingPresets(true);
+      apiFetchV1<StandardLookupPreset[]>(`/masters/lookup/${encodeURIComponent(typeCode)}/presets`)
+        .then((res) => {
+          if (isMounted && Array.isArray(res) && res.length > 0) {
+            setRemotePresets(res);
+          }
+        })
+        .catch(() => {
+          // Fall back gracefully to local preset registry
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingPresets(false);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, typeCode]);
+
+  const allPresets = useMemo(() => {
+    if (remotePresets && remotePresets.length > 0) {
+      return remotePresets;
+    }
+    return getLookupRecommendations(typeCode);
+  }, [typeCode, remotePresets]);
 
   const existingCodeSet = useMemo(() => {
     return new Set(

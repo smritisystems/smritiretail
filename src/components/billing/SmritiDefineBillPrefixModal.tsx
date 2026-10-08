@@ -34,6 +34,18 @@ interface SmritiDefineBillPrefixModalProps {
   companyCode?: string;
 }
 
+export function getCurrentFinancialYear(): { fy: string; suffix: string } {
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1-12
+  const currentYear = now.getFullYear();
+  const startYear = month >= 4 ? currentYear : currentYear - 1;
+  const endYear = startYear + 1;
+  return {
+    fy: `${startYear}-${endYear}`,
+    suffix: `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`,
+  };
+}
+
 export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalProps> = ({
   isOpen,
   onClose,
@@ -51,8 +63,8 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
 
   // Year End Rollover Dialog state
   const [showYearEndDialog, setShowYearEndDialog] = useState<boolean>(false);
-  const [newFyInput, setNewFyInput] = useState<string>("2026-2027");
-  const [newYearSuffixInput, setNewYearSuffixInput] = useState<string>("26-27");
+  const [newFyInput, setNewFyInput] = useState<string>(() => getCurrentFinancialYear().fy);
+  const [newYearSuffixInput, setNewYearSuffixInput] = useState<string>(() => getCurrentFinancialYear().suffix);
   const [resetToStartNumber, setResetToStartNumber] = useState<boolean>(true);
 
   // Prefix definitions state

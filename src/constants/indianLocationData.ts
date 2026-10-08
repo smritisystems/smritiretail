@@ -3,46 +3,6 @@ export interface IndianCityPincodeEntry {
   pincode: string;
 }
 
-export const INDIAN_STATES: string[] = [
-  "Andaman & Nicobar Islands",
-  "Andhra Pradesh",
-  "Andhra Pradesh (New)",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chandigarh",
-  "Chhattisgarh",
-  "Dadra & Nagar Haveli",
-  "Daman & Diu",
-  "Delhi",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jammu & Kashmir",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Ladakh",
-  "Lakshadweep",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Puducherry",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal"
-];
 
 export const INDIAN_STATE_CITY_PIN_DATA: Record<string, IndianCityPincodeEntry[]> = {
   "Andaman & Nicobar Islands": [
@@ -280,6 +240,12 @@ export const INDIAN_STATE_CITY_PIN_DATA: Record<string, IndianCityPincodeEntry[]
     { city: "Siliguri", pincode: "734001" }
   ]
 };
+
+/**
+ * @deprecated For statutory GST state codes and names, use fetchCanonicalIndianStates() from "./indianStates.ts".
+ * This array provides local names corresponding to INDIAN_STATE_CITY_PIN_DATA suggestions.
+ */
+export const INDIAN_STATES: string[] = Object.keys(INDIAN_STATE_CITY_PIN_DATA).sort();
 
 export const ALL_INDIAN_CITY_OPTIONS = Object.values(INDIAN_STATE_CITY_PIN_DATA)
   .flatMap((items) => items)

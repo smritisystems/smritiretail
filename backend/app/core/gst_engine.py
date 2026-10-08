@@ -91,6 +91,41 @@ def extract_state_code_from_gstin(gstin: Optional[str]) -> Optional[str]:
     return None
 
 
+async def resolve_gst_state_name_from_db(
+    db,
+    state_code: str,
+    country_code: str = "IN",
+) -> Optional[str]:
+    """
+    Authoritatively resolve state name from canonical states_ref table.
+    DB states_ref is the sole statutory source of truth.
+    Returns None if state is not registered in states_ref (no static fallback).
+    """
+    if db is None:
+        raise ValueError("SMRITI-REF-002: Active database session required for authoritative state resolution from states_ref")
+    from ..services.localization_svc import GlobalReferenceService
+    ref = await GlobalReferenceService(db).get_state_by_gst_code(state_code, country_code)
+    if ref:
+        return ref.name
+    return None
+
+
+async def load_canonical_gst_state_codes_from_db(
+    db,
+    country_code: str = "IN",
+) -> Dict[str, str]:
+    """
+    Loads all active GST state codes authoritatively from PostgreSQL states_ref table.
+    """
+    if db is None:
+        raise ValueError("SMRITI-REF-002: Active database session required for authoritative state resolution from states_ref")
+    from ..services.localization_svc import GlobalReferenceService
+    states = await GlobalReferenceService(db).get_states(country_code=country_code, active_only=True)
+    return {str(s.gst_state_code).zfill(2): s.name for s in states if s.gst_state_code}
+
+
+
+
 def round_currency(val: Decimal) -> Decimal:
     """Rounds to 2 decimal places using standard financial round-half-up."""
     return val.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

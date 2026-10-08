@@ -21,7 +21,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import text
+from sqlalchemy import text, func
 from sqlalchemy.orm import selectinload
 
 from ..schemas.canonical_posting import (
@@ -51,6 +51,7 @@ from .outbox_service import OutboxService
 from .numbering import NumberingService
 from .identity.engine import IdentityEngine
 from .customer_discount_policy import resolve_customer_discount_policy, validate_customer_discount_policy
+from .system_parameter import SystemParameterService
 from .promotions_engine import PromotionsEngine
 from ..schemas.promotions import PromotionCartItem, PromotionEvaluationRequest, PromotionRedemptionRequest
 from ..api.deps import TenantContext
@@ -512,20 +513,39 @@ class CanonicalSalesPostingWriter:
 
         # 4. Resolve Interstate / Tax Jurisdiction
         from ..models.tenant import Company
-        branch_state_code = "27"  # Default Maharashtra
         q_comp = select(Company).where(Company.id == company_id)
         res_comp = await session.execute(q_comp)
         comp_obj = res_comp.scalars().first()
-        if comp_obj and comp_obj.gst_number:
-            extracted_branch_sc = extract_state_code_from_gstin(comp_obj.gst_number)
-            if extracted_branch_sc:
-                branch_state_code = extracted_branch_sc
 
         q_branch = select(Branch).where(Branch.company_id == company_id)
         if branch_id:
             q_branch = q_branch.where((Branch.id == branch_id) | (Branch.code == branch_id))
         res_br = await session.execute(q_branch)
         branch_obj = res_br.scalars().first()
+
+        branch_state_code = None
+        if branch_obj and getattr(branch_obj, "gst_number", None):
+            branch_state_code = extract_state_code_from_gstin(branch_obj.gst_number)
+        if not branch_state_code and comp_obj and comp_obj.gst_number:
+            branch_state_code = extract_state_code_from_gstin(comp_obj.gst_number)
+        if not branch_state_code and branch_obj and getattr(branch_obj, "state_code", None):
+            branch_state_code = str(branch_obj.state_code).zfill(2)
+        if not branch_state_code and comp_obj and getattr(comp_obj, "state_code", None):
+            branch_state_code = str(comp_obj.state_code).zfill(2)
+        if not branch_state_code:
+            state_param = await SystemParameterService.resolve_parameter(
+                db=session,
+                param_code="SMRITI.TAX.DEFAULT_STATE_CODE",
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+            branch_state_code = str(state_param.effective_value).zfill(2) if state_param and state_param.effective_value else None
+
+        if not branch_state_code:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-JURISDICTION-001: Seller tax jurisdiction cannot be resolved. Branch/Company GSTIN, state code, or SMRITI.TAX.DEFAULT_STATE_CODE must be configured.",
+            )
 
         pos_state_code = None
         pos_state_name = None
@@ -647,28 +667,54 @@ class CanonicalSalesPostingWriter:
                         detail=f"SMRITI-LOC-005: Dispatch location '{disp_wh.code}' is missing state information.",
                     )
 
-                state_code_map = {v.lower(): k for k, v in GST_STATE_CODES.items()}
-                disp_state_code = state_code_map.get(disp_wh.state.strip().lower())
+                from ..models.localization import StateRef
+                st_res = await session.execute(
+                    select(StateRef).where(
+                        StateRef.country_code == "IN",
+                        (func.lower(StateRef.name) == disp_wh.state.strip().lower())
+                        | (func.upper(StateRef.state_code) == disp_wh.state.strip().upper()),
+                        StateRef.is_active == True,
+                    )
+                )
+                st_ref = st_res.scalars().first()
+                disp_state_code = st_ref.gst_state_code if st_ref and st_ref.gst_state_code else None
                 if not disp_state_code:
                     if comp_obj and comp_obj.gst_number and len(comp_obj.gst_number) >= 2 and comp_obj.gst_number[:2].isdigit():
                         disp_state_code = comp_obj.gst_number[:2]
+                    elif branch_state_code:
+                        disp_state_code = branch_state_code
                     else:
-                        disp_state_code = "27"
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"SMRITI-JURISDICTION-001: Dispatch location '{disp_wh.code}' state jurisdiction cannot be resolved.",
+                        )
+
+                seller_legal_name = (
+                    getattr(comp_obj, "name", None)
+                    or getattr(branch_obj, "name", None)
+                    or disp_wh.name
+                    or "Company Dispatch Location"
+                )
+                seller_gstin = (
+                    getattr(comp_obj, "gst_number", None)
+                    or getattr(branch_obj, "gst_number", None)
+                    or ""
+                )
 
                 dispatch_from_location_id = disp_wh.id
                 dispatch_from_snapshot = {
                     "location_id": disp_wh.id,
                     "code": disp_wh.code,
-                    "name": getattr(comp_obj, "name", "Tattly Threads"),
+                    "name": seller_legal_name,
                     "location_name": disp_wh.name,
                     "address_line1": disp_wh.address or "",
                     "address_line2": "",
                     "city": disp_wh.city or "",
                     "district": disp_wh.city or "",
-                    "state": disp_wh.state or "Maharashtra",
+                    "state": disp_wh.state or (getattr(comp_obj, "state", None) or ""),
                     "state_code": disp_state_code,
                     "pincode": disp_pin,
-                    "gstin": getattr(comp_obj, "gst_number", "27AAXFT2508H1ZR") or "27AAXFT2508H1ZR",
+                    "gstin": seller_gstin,
                     "contact_person": disp_wh.contact_person,
                     "phone": disp_wh.phone,
                 }
@@ -836,6 +882,18 @@ class CanonicalSalesPostingWriter:
                 branch_id=branch_id or "MAIN",
             )
             wms_svc = InventoryWmsService(session, tenant_ctx)
+
+            # Resolve server-authoritative negative stock policy via SystemParameterService (P0-2)
+            # Scope hierarchy: TERMINAL > BRANCH > COMPANY > GLOBAL
+            allow_neg_param = await SystemParameterService.resolve_parameter(
+                db=session,
+                param_code="SMRITI.STOCK.ALLOW_NEGATIVE_STOCK",
+                company_id=company_id,
+                terminal_id=getattr(req.context, "terminal_id", "COMMON") or "COMMON",
+                branch_id=branch_id,
+            )
+            server_allows_negative = bool(allow_neg_param.effective_value) if allow_neg_param else False
+
             for ded in batch_deductions:
                 try:
                     await wms_svc.atomic_mutate_batch_stock(
@@ -853,8 +911,12 @@ class CanonicalSalesPostingWriter:
                         location_id=ded.get("warehouse_location_id"),
                     )
                 except HTTPException as he:
-                    if req.context.allow_negative_stock:
-                        logger.warning("Negative stock override permitted on line %d: %s", ded["line_no"], he.detail)
+                    if server_allows_negative:
+                        logger.warning(
+                            "Negative stock override permitted by server policy SMRITI.STOCK.ALLOW_NEGATIVE_STOCK on line %d: %s",
+                            ded["line_no"],
+                            he.detail,
+                        )
                     else:
                         if commit:
                             await session.rollback()
