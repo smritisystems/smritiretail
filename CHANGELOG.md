@@ -28,6 +28,26 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.42] - 2026-10-09 — Phase 4 Operational Daemons, Media Processing & UI Governance (v1.0.0)
+
+> **Branch:** `smritiNX` | **Area:** Foundation, Daemons, Outbox Engine, SPIF Media & Workforce Master Governance
+> **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase4_Operational_Daemons_Media_And_UI_Governance_v1.0.0.md`
+> **Plan:** `docs/implementation/foundation/Foundation_Phase4_Operational_Daemons_Media_And_UI_Governance_Plan_v1.0.0.md`
+
+### Changed & Hardened (Phase 4 Operational Daemons & Media)
+- **Cluster A: Outbox Worker & Background Daemon Parameterization (FND-024 to FND-027 / FND-P1-02)**:
+  - Connected `backend/app/services/outbox_worker.py` to `SystemParameterService`.
+  - Dynamically resolved `SMRITI.OUTBOX.BATCH_SIZE`, `SMRITI.OUTBOX.MAX_RETRIES`, `SMRITI.OUTBOX.BACKOFF_SECONDS`, `SMRITI.OUTBOX.CLAIM_TIMEOUT_SECONDS`, and `SMRITI.OUTBOX.POLL_INTERVAL_SECONDS` with safe class invariants as fallbacks.
+  - Enabled dynamic parameters for `process_company_outbox_batch`, `process_tenant_database`, `run_worker_cycle`, and `run_daemon_loop`.
+- **Cluster B: SPIF & Media Processing Operational Parameters (FND-P1-06, FND-017)**:
+  - In `backend/app/services/spif.py`, parameterized `process_and_save_base64_image` with caller-configurable `max_dimension` and `quality`.
+  - In `backend/app/api/v1/staff.py`, dynamically resolved `SMRITI.HR.PHOTO_MAX_DIM_PX` and `SMRITI.HR.PHOTO_QUALITY_RATIO` via `SystemParameterService` before invoking SPIF.
+  - In `src/components/staff/StaffMasterWs.tsx`, parameterized canvas resize bounds (`DEFAULT_PHOTO_MAX_DIM = 500`) and quality (`DEFAULT_PHOTO_QUALITY = 0.85`).
+- **Cluster C: Staff Master Department & Designation Master Integration (FND-019 / FND-P1-04)**:
+  - In `src/components/staff/StaffMasterWs.tsx`, added native `<datalist>` auto-suggestions for Department and Designation (`STANDARD_STAFF_DEPARTMENTS` and `STANDARD_STAFF_DESIGNATIONS`), eliminating unstructured spelling drift while preserving flexibility.
+- **Cluster D: Feature Flags Retirement (FND-034)**:
+  - In `src/config/flags.ts`, added architectural tombstone documentation confirming that Express is completely decommissioned and zero active runtime consumers depend on legacy transition flags.
+
 ## [6.70.41] - 2026-10-09 — Phase 3 Master Registry Presets & Tenant Defaults Hardening (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Master Data, Multi-Tenancy & Printing Configuration

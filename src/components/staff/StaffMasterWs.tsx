@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.68.0
+ * Version      : 6.70.42
  * Created      : 2026-09-11
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -74,6 +74,20 @@ const STAFF_TABS: Array<{ id: StaffTab; label: string; icon: React.ReactNode }> 
   { id: "sessions", label: "Sessions", icon: <KeyRound size={14} /> },
   { id: "activity", label: "Activity & Audit", icon: <Activity size={14} /> },
   { id: "lifecycle", label: "Lifecycle", icon: <Clock3 size={14} /> },
+];
+
+export const DEFAULT_PHOTO_MAX_DIM = 500;
+export const DEFAULT_PHOTO_QUALITY = 0.85;
+
+export const STANDARD_STAFF_DEPARTMENTS = [
+  "Sales", "Accounts", "Inventory", "Management", "Operations",
+  "Billing", "Customer Service", "Security", "IT", "HR"
+];
+
+export const STANDARD_STAFF_DESIGNATIONS = [
+  "Sales Executive", "Cashier", "Store Manager", "Assistant Store Manager",
+  "Accountant", "Inventory Supervisor", "Security Officer", "Floor Supervisor",
+  "Brand Promoter", "Stock Associate"
 ];
 
 const STORE_ROLE_OPTIONS = ["Sales Executive", "Store Manager", "Cashier", "Brand Promoter", "Visual Merchandiser", "Stock Associate", "Security" ];
@@ -432,7 +446,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
         const img = new Image();
         img.onload = async () => {
           const canvas = document.createElement("canvas");
-          const MAX_DIM = 500;
+          const MAX_DIM = DEFAULT_PHOTO_MAX_DIM;
           let width = img.width;
           let height = img.height;
           if (width > height) {
@@ -450,7 +464,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           ctx?.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL("image/webp", 0.85);
+          const dataUrl = canvas.toDataURL("image/webp", DEFAULT_PHOTO_QUALITY);
 
           if (selected?.id) {
             try {
@@ -1122,21 +1136,33 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
                     <label className="text-[10px] font-bold uppercase text-slate-500">Department</label>
                     <input
                       aria-label="Edit department"
+                      list="staff-departments-list"
                       value={editDraft.department}
                       onChange={(e) => setEditDraft({ ...editDraft, department: e.target.value })}
                       className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="Department"
+                      placeholder="Select or enter Department"
                     />
+                    <datalist id="staff-departments-list">
+                      {STANDARD_STAFF_DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept} />
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold uppercase text-slate-500">Designation</label>
                     <input
                       aria-label="Edit designation"
+                      list="staff-designations-list"
                       value={editDraft.designation}
                       onChange={(e) => setEditDraft({ ...editDraft, designation: e.target.value })}
                       className="mt-1 w-full rounded-lg border p-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                      placeholder="Designation"
+                      placeholder="Select or enter Designation"
                     />
+                    <datalist id="staff-designations-list">
+                      {STANDARD_STAFF_DESIGNATIONS.map((desig) => (
+                        <option key={desig} value={desig} />
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold uppercase text-slate-500">Branch</label>

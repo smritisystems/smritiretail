@@ -9,9 +9,9 @@ Founders
 * Jawahar Ramkripal Mallah   -- Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.70.37
+* Version    : 6.70.42
 * Created    : 2026-08-24
-* Modified   : 2026-10-08
+* Modified   : 2026-10-09
 * Copyright  : (c) AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 
@@ -47,6 +47,7 @@ from ...models.staff_profile_history import StaffProfileHistory
 from ...schemas.user import StaffUserUpdate
 from ...services.user import UserService, to_staff_response
 from ...services.spif import SpifService
+from ...services.system_parameter import SystemParameterService
 
 router = APIRouter(prefix="/staff")
 
@@ -687,8 +688,28 @@ async def upload_staff_photo(
         old_filename = profile.photo.split("/photos/")[-1]
         SpifService.delete_image_file(old_filename)
 
+    # Resolve configurable photo dimension & quality from SystemParameterService (FND-017, FND-P1-06)
+    max_dim = SpifService.DEFAULT_MAX_DIMENSION
+    quality = SpifService.DEFAULT_QUALITY
     try:
-        filename = SpifService.process_and_save_base64_image(payload.photo_data)
+        dim_param = await SystemParameterService.resolve_parameter(
+            company_db, "SMRITI.HR.PHOTO_MAX_DIM_PX", company_id=tenant.company_id
+        )
+        if dim_param and dim_param.effective_value:
+            max_dim = int(dim_param.effective_value)
+
+        q_param = await SystemParameterService.resolve_parameter(
+            company_db, "SMRITI.HR.PHOTO_QUALITY_RATIO", company_id=tenant.company_id
+        )
+        if q_param and q_param.effective_value:
+            quality = int(q_param.effective_value)
+    except Exception:
+        pass
+
+    try:
+        filename = SpifService.process_and_save_base64_image(
+            payload.photo_data, max_dimension=max_dim, quality=quality
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to process staff photo: {str(e)}")
 
