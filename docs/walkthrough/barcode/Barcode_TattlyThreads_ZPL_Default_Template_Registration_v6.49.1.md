@@ -15,7 +15,8 @@
 # Walkthrough: Tattly Threads Footwear 100x50.7mm ZPL Default Template Validation and Registration
 
 ## 1. Purpose
-Validate and register the supplied Tattly Threads ZPL label (`100 mm × 50.7 mm`, 3-zone, dual tear-off stubs, 804 pitch dots, 19 dynamic placeholders) as the authoritative `DEFAULT` ZPL template across SMRITI Retail OS, following a strict automated validation-first protocol without modifying coordinates, dimensions, fonts, barcodes, static texts, or database schemas.
+Validate and register the supplied Tattly Threads ZPL label (`100 mm × 50.7 mm`, 3-zone, dual tear-off stubs, 804 pitch dots, 19 dynamic placeholders) as the authoritative default template for the 100x50.7mm Footwear/ZPL layout in SMRITI Retail OS, following a strict automated validation-first protocol.
+The **master PRN is immutable** (100% character-by-character parity preserved); runtime rendering code in `PrintLabelsStudio.tsx` and the backend fallback generator was updated to reproduce and use that master template without altering database schemas or existing variant records.
 
 ## 2. Scope
 - Structural ZPL and XPML wrapper validation (^XA/^XZ balance, pitch, width).
@@ -25,11 +26,11 @@ Validate and register the supplied Tattly Threads ZPL label (`100 mm × 50.7 mm`
   2. BLACK / 40 (8904551005366)
   3. TOUPE / 37 (8904551005403)
   4. TOUPE / 42 (8904551005458)
-- Headless label rasterization into high-resolution PNG screenshots.
+- Headless ZPL rasterization used for automated validation only (generating PNG screenshots at 8 dpmm / 203 DPI).
 - Automated visual and barcode validation.
-- Database registration in `print_templates` and `barcode_layouts` with `DEFAULT=true`.
-- Safety check guaranteeing 100% character-by-character parity with the source template.
-- UI integration in Print Labels Studio ensuring user selection for both ZPL and DPL printers.
+- Database registration in `print_templates` and `barcode_layouts` as default for the 100x50.7mm Footwear/ZPL layout.
+- Safety check guaranteeing 100% character-by-character parity with the immutable source template.
+- UI integration in Print Labels Studio ensuring user selection for both ZPL (203 DPI) and DPL (300 DPI) printers.
 
 ## 3. Files Created
 - `scripts/validate_zpl_footwear_template.py`: Comprehensive validation pipeline executing Steps 1 through 8.
@@ -39,20 +40,50 @@ Validate and register the supplied Tattly Threads ZPL label (`100 mm × 50.7 mm`
 - `assets/BarcodePRN/TATTLY_BLACK_40.prn`: Fully substituted ZPL PRN file for BLACK / 40.
 - `assets/BarcodePRN/TATTLY_TOUPE_37.prn`: Fully substituted ZPL PRN file for TOUPE / 37.
 - `assets/BarcodePRN/TATTLY_TOUPE_42.prn`: Fully substituted ZPL PRN file for TOUPE / 42.
-- `assets/BarcodePRN/TATTLY_BLACK_37.png`: Headless rendered 203 DPI label screenshot for BLACK / 37.
-- `assets/BarcodePRN/TATTLY_BLACK_40.png`: Headless rendered 203 DPI label screenshot for BLACK / 40.
-- `assets/BarcodePRN/TATTLY_TOUPE_37.png`: Headless rendered 203 DPI label screenshot for TOUPE / 37.
-- `assets/BarcodePRN/TATTLY_TOUPE_42.png`: Headless rendered 203 DPI label screenshot for TOUPE / 42.
+- `assets/BarcodePRN/TATTLY_BLACK_37.png`: Headless rendered 203 DPI label screenshot for BLACK / 37 (validation only).
+- `assets/BarcodePRN/TATTLY_BLACK_40.png`: Headless rendered 203 DPI label screenshot for BLACK / 40 (validation only).
+- `assets/BarcodePRN/TATTLY_TOUPE_37.png`: Headless rendered 203 DPI label screenshot for TOUPE / 37 (validation only).
+- `assets/BarcodePRN/TATTLY_TOUPE_42.png`: Headless rendered 203 DPI label screenshot for TOUPE / 42 (validation only).
 
 ## 4. Files Modified
-- `backend/app/api/v1/barcode.py`: Set default layout response metadata to `"Tattly Threads Footwear — 100x50.7mm"` with `isDefault=True`, removed extraneous blank lines in fallback generator.
-- `src/components/barcode/PrintLabelsStudio.tsx`: Updated `LABEL_TEMPLATES` preset title, default `templateId` to `'lay-footwear-100x50-3stub'`, default printer name, and synchronized `compilePrnString` with approved PRN commands.
-- `src/tests/printLabelsStudio.test.ts`: Updated unit test assertions to match the approved 100x50.7mm footwear template structure.
+- `backend/app/api/v1/barcode.py`: Set layout response metadata to `"Tattly Threads Footwear — 100x50.7mm"` with `isDefault=True`; synchronized runtime ZPL fallback with master template; routed DPL requests to `PrinterService.generate_dpl_footwear_label`.
+- `src/components/barcode/PrintLabelsStudio.tsx`: Updated `LABEL_TEMPLATES` preset title, default `templateId` to `'lay-footwear-100x50-3stub'`, default printer name, and synchronized runtime `compilePrnString` to dynamically populate the master template.
+- `src/tests/printLabelsStudio.test.ts`: Updated unit test assertions to match the approved 100x50.7mm footwear template structure and added native DPL footwear compilation tests.
 
 ## 5. Architecture Decisions
 - **Validation-First Pre-requisite Gate**: Automated verification was executed prior to any database write. The template was not marked `DEFAULT` until all syntax, token, rendering, and barcode checks passed.
-- **Dual-Backend Support**: Kept native 300 DPI DPL rendering (for IMPACT by Honeywell IH-2) and 203 DPI ZPL rendering (for Zebra printers) as separate, independent, first-class pipelines.
-- **Exact PRN Immutability**: The raw PRN is stored and dispatched character-by-character as supplied without alteration of coordinates, fonts, or commands.
+- **Dual-Backend Support & Resolution Routing**:
+  ```text
+  ZPL template (100 × 50.7 mm, ^PW804, ≈ 203 DPI) → Zebra / ZPL printer (203 DPI)
+  DPL template (300 DPI)                           → Honeywell IH-2 (300 DPI DPL)
+  ```
+  The 203-DPI ZPL template is never sent to the 300-DPI DPL renderer/queue. The DPL renderer remains independent and is not used to modify or convert the master ZPL template.
+- **Master PRN Immutability vs Runtime Rendering**: The master PRN is stored and dispatched character-by-character as supplied without alteration. The runtime code in `PrintLabelsStudio.tsx` was updated to dynamically generate and populate that exact master layout using current item/variant data.
+- **Scoped Default Status**: The default status applies specifically to the 100x50.7mm Footwear/ZPL layout, preserving standard presets for other label dimensions and industries.
+- **Zero Production External Dependencies**: Headless ZPL rasterization was utilized solely for automated pre-registration test validation, keeping production printing independent of external rendering engines.
+
+### System Architecture
+
+```text
+                    SMRITI PRINT LABELS STUDIO
+                              │
+                 ┌────────────┴────────────┐
+                 │                         │
+             Template                  Printer
+              Selection                 Selection
+                 │                         │
+                 └────────────┬────────────┘
+                              │
+                       Canonical Data
+                              │
+          ┌───────────────────┴───────────────────┐
+          │                                       │
+      ZPL Renderer                            DPL Renderer
+          │                                       │
+    203 DPI ZPL                              300 DPI DPL
+          │                                       │
+    Zebra / ZPL printer                    Honeywell IH-2
+```
 
 ## 6. Design Rationale
 Retail barcode printers require deterministic dot placement. The supplied Tattly Threads footwear label contains precise reverse-print blocks (`^FR`), vertical tear-off stubs, and legal metrology declarations. By validating live substitution and verifying rendered bitmaps programmatically, the system guarantees that printed labels match hardware requirements.
@@ -61,10 +92,10 @@ Retail barcode printers require deterministic dot placement. The supplied Tattly
 1. Evaluated PRN syntax: verified 2 `^XA`/`^XZ` pairs, XPML pitch `50.7 mm`, width `^PW804`.
 2. Verified 19 dynamic placeholders across 6 logical tokens (`{barcode}`, `{size}`, `{colour}`, `{style_code}`, `{mrp}`, `{pkd_date}`).
 3. Validated resolution against live database records in `smriti001` for the four mandated variants.
-4. Exported resolved `.prn` files and rendered headless `.png` bitmaps using Labelary 8 dpmm rendering engine.
+4. Exported resolved `.prn` files and rendered headless `.png` bitmaps using 8 dpmm rendering engine for automated validation.
 5. Inspected rendered images using Pillow: verified dimensions, non-blank status, and pixel activity across Zone 1 (upper stub), Zone 2 (lower stub), and Zone 3 (main shoe box body).
-6. Registered template in `print_templates` (`tmpl-tt-footwear-100x50.7-zpl`, version 1, `is_default_size=True`) and `barcode_layouts` (`lay-footwear-100x50-3stub`, `is_default=True`).
-7. Conducted pre- and post-registration character-by-character safety checks, confirming 100% exact parity.
+6. Registered template in `print_templates` (`tmpl-tt-footwear-100x50.7-zpl`, version 1, `is_default_size=True`) and `barcode_layouts` (`lay-footwear-100x50-3stub`, `is_default=True`) as default for the 100x50.7mm footwear layout.
+7. Conducted pre- and post-registration character-by-character safety checks, confirming 100% exact parity on the master template.
 
 ## 8. Tests Executed
 - `python scripts/validate_zpl_footwear_template.py`: 100% PASS across Steps 1 through 8.
@@ -79,11 +110,11 @@ Retail barcode printers require deterministic dot placement. The supplied Tattly
 - Canonical attribute mapping: PASS
 - Live data resolution: PASS
 - Four PRN files generated: PASS
-- Headless rendering: PASS
+- Headless rendering: PASS (automated validation only)
 - Four screenshots generated: PASS
 - Barcode validation: PASS
 - Visual validation: PASS
-- Default template registration: PASS
+- Default template registration (100x50.7mm Footwear): PASS
 
 ## 10. Known Limitations
 None. Both ZPL (203 DPI) and DPL (300 DPI) rendering paths operate cleanly without conflicts.
