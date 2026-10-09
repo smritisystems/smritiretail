@@ -45,6 +45,14 @@ def upgrade() -> None:
                         UPDATE {table} SET uuid = md5(random()::text || clock_timestamp()::text)::uuid::text WHERE uuid IS NULL;
                     END IF;
 
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = '{table}' AND column_name = 'company_id') THEN
+                        ALTER TABLE {table} ADD COLUMN company_id VARCHAR(50) DEFAULT 'COMP-001';
+                    END IF;
+
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = '{table}' AND column_name = 'is_active') THEN
+                        ALTER TABLE {table} ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE;
+                    END IF;
+
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = '{table}' AND column_name = 'branch_id') THEN
                         ALTER TABLE {table} ADD COLUMN branch_id VARCHAR(50);
                     END IF;
