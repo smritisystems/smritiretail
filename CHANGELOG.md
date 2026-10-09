@@ -40,15 +40,15 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Asserted ZPL and XPML structure: pitch `50.7 mm`, width `804 dots`, balanced `^XA`/`^XZ` pairs, zero invalid commands.
   - Enforced 19 dynamic placeholder tokens across 6 logical dimensions (`{barcode}: 6`, `{size}: 3`, `{colour}: 3`, `{style_code}: 3`, `{mrp}: 3`, `{pkd_date}: 1`).
   - Resolved dynamic variant data from live PostgreSQL `smriti001` database across 4 target footwear variants (`BLACK/37`, `BLACK/40`, `TOUPE/37`, `TOUPE/42`).
-  - Rendered headless 203 DPI (8 dpmm) Labelary PNG bitmaps; verified non-blank bounding boxes and active pixels across Zone 1, Zone 2, and Zone 3 using Pillow.
+  - Headless ZPL rasterization used for automated validation only (generating PNG screenshots at 8 dpmm / 203 DPI with zero runtime production external dependencies); verified non-blank bounding boxes and active pixels across Zone 1, Zone 2, and Zone 3 using Pillow.
   - Validated Code 128 symbology and human-readable text against EAN-13 barcodes across all 6 barcode positions.
-- **Database Registration & Step 11 Safety Invariant**:
-  - Registered `tmpl-tt-footwear-100x50.7-zpl` in `print_templates` as `is_default_size=True`, `is_active=True`.
-  - Registered `lay-footwear-100x50-3stub` in `barcode_layouts` as `is_default=True`.
-  - Executed character-by-character safety check pre- and post-registration guaranteeing 100% exact match against supplied source template.
-- **UI & Dual-Engine Alignment**:
-  - Synchronized `PrintLabelsStudio.tsx` fallback compiler and `LABEL_TEMPLATES` default to `"Tattly Threads Footwear — 100x50.7mm"`.
-  - Preserved complete architectural isolation between 203 DPI Zebra ZPL printing and native 300 DPI Honeywell DPL renderer (`generate_dpl_footwear_label`).
+- **Master PRN Immutability & Database Registration**:
+  - Master PRN is immutable (100% character-by-character parity preserved against supplied source).
+  - Registered `tmpl-tt-footwear-100x50.7-zpl` in `print_templates` and `lay-footwear-100x50-3stub` in `barcode_layouts` as the default for the 100x50.7mm Footwear/ZPL layout.
+  - Executed character-by-character safety checks pre- and post-registration guaranteeing exact match against supplied source template.
+- **Runtime Renderer & 203 DPI vs 300 DPI Routing**:
+  - Aligned runtime rendering code (`compilePrnString` in `PrintLabelsStudio.tsx` and backend fallback) to dynamically reproduce and populate the master template using current SMRITI item/variant data.
+  - Enforced architectural separation between 203 DPI Zebra ZPL printing and native 300 DPI Honeywell DPL renderer (`generate_dpl_footwear_label`): the 203-DPI ZPL template is never sent to the 300-DPI DPL renderer/queue.
 - **Automated Verification**:
   - Certified with 6/6 tests green in `backend/tests/test_zpl_footwear_label.py`.
   - Certified with 28/28 tests green across all backend barcode test suites (`pytest`).
