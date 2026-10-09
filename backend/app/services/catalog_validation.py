@@ -125,6 +125,15 @@ class CatalogDimensionValidator:
 
         type_code = cls.resolve_type_code(dimension_field)
         label = cls.get_dimension_label(type_code)
+
+        # Check known dimension aliases
+        alias_map = IM001ControlledFieldValidator.KNOWN_DIMENSION_ALIASES.get(type_code.upper(), {})
+        if not alias_map:
+            alias_map = IM001ControlledFieldValidator.KNOWN_DIMENSION_ALIASES.get(dimension_field.upper(), {})
+        alias_target = alias_map.get(clean_val.upper())
+        if alias_target:
+            clean_val = alias_target
+
         target_lower = clean_val.casefold()
 
         # 1. Direct query on master_values for matching type
