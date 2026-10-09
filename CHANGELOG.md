@@ -28,6 +28,27 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.48] - 2026-10-09 — SMRITI Smart Import Studio Resilience & Safe Float Parsing (Item Master Catalog)
+
+> **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Resilient Parsing, Universal Import API
+> **Walkthrough:** `docs/walkthrough/inventory/Smart_Import_And_Correction_Studio_Resilience_Walkthrough_v6.70.48.md`
+> **Plan:** `docs/implementation/inventory/Smart_Import_And_Correction_Studio_Plan_v6.70.47.md`
+
+### Fixed & Hardened (Smart Import Studio Resilience)
+- **Universal Safe Float Coercion (`backend/app/api/v1/universal_import.py`)**:
+  - Implemented `_safe_float()` utility function robustly parsing formatted numeric strings containing currency symbols (`₹`, `$`, `Rs.`), commas (`,`), percent signs (`%`), or empty/whitespace values without crashing the server or throwing HTTP 400 Bad Request.
+  - Applied `_safe_float()` across all price, MRP, GST tax rate, landed cost price, buying price, and quantity fields across both `/preview` and `/commit` endpoints.
+- **Resilient Empty Preview Handshake (`backend/app/api/v1/universal_import.py`)**:
+  - Relaxed `ImportPreviewRequest.rows` to `default_factory=list`, returning clean 200 summary with `total_rows: 0` when zero data rows are supplied.
+- **Database Query Safety (`backend/app/api/v1/universal_import.py`)**:
+  - Sanitized `Supplier.code` matching with regex prefix removal (`V-`, `V-00`) and wrapped database lookups in safety guards to prevent SQL syntax errors on non-standard vendor input.
+- **Client-Side Empty Row Filter (`src/components/itemMaster/ItemMasterStudio.tsx`)**:
+  - Filtered completely empty matrix rows in `buildImportRows` to prevent sending unmapped placeholder objects to the preview endpoint.
+- **Automated Verification**:
+  - Certified with 4/4 Vitest tests green in `smartImportStudio.test.ts`.
+  - Certified with 6/6 Pytest tests green in `test_smart_import_studio.py`.
+  - Clean production build in 58.15s (0 TypeScript compiler errors).
+
 ## [6.70.47] - 2026-10-09 — SMRITI Smart Import & Correction Studio (Item Master Catalog & Bulk Ingestion)
 
 > **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Same-Window Remediation, Multi-Strategy Ingestion
