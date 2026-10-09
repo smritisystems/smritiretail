@@ -114,12 +114,16 @@ def upgrade() -> None:
     conn.execute(sa.text("""
         DO $$
         BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_name = 'sales_invoice_items' AND column_name = 'sku_snapshot'
-            ) THEN
-                ALTER TABLE sales_invoice_items ADD COLUMN sku_snapshot VARCHAR(100);
-                UPDATE sales_invoice_items SET sku_snapshot = code WHERE sku_snapshot IS NULL;
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_invoice_items') THEN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'sales_invoice_items' AND column_name = 'sku_snapshot'
+                ) THEN
+                    ALTER TABLE sales_invoice_items ADD COLUMN sku_snapshot VARCHAR(100);
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sales_invoice_items' AND column_name = 'code') THEN
+                        EXECUTE 'UPDATE sales_invoice_items SET sku_snapshot = code WHERE sku_snapshot IS NULL';
+                    END IF;
+                END IF;
             END IF;
         END $$;
     """))
@@ -134,13 +138,16 @@ def upgrade() -> None:
             IF EXISTS (
                 SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'sales_invoice_items' AND column_name = 'variant_id'
+            ) AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'products' AND column_name = 'item_variant_id'
             ) THEN
-                UPDATE sales_invoice_items sii
-                SET variant_id = p.item_variant_id
-                FROM products p
-                WHERE sii.product_id = p.id
-                  AND sii.variant_id IS NULL
-                  AND p.item_variant_id IS NOT NULL;
+                EXECUTE 'UPDATE sales_invoice_items sii
+                         SET variant_id = p.item_variant_id
+                         FROM products p
+                         WHERE sii.product_id = p.id
+                           AND sii.variant_id IS NULL
+                           AND p.item_variant_id IS NOT NULL';
             END IF;
         END $$;
     """))
@@ -152,13 +159,16 @@ def upgrade() -> None:
             IF EXISTS (
                 SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'stock_movements' AND column_name = 'variant_id'
+            ) AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'products' AND column_name = 'item_variant_id'
             ) THEN
-                UPDATE stock_movements sm
-                SET variant_id = p.item_variant_id
-                FROM products p
-                WHERE sm.product_id = p.id
-                  AND sm.variant_id IS NULL
-                  AND p.item_variant_id IS NOT NULL;
+                EXECUTE 'UPDATE stock_movements sm
+                         SET variant_id = p.item_variant_id
+                         FROM products p
+                         WHERE sm.product_id = p.id
+                           AND sm.variant_id IS NULL
+                           AND p.item_variant_id IS NOT NULL';
             END IF;
         END $$;
     """))
@@ -170,13 +180,16 @@ def upgrade() -> None:
             IF EXISTS (
                 SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'purchase_order_items' AND column_name = 'variant_id'
+            ) AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'products' AND column_name = 'item_variant_id'
             ) THEN
-                UPDATE purchase_order_items poi
-                SET variant_id = p.item_variant_id
-                FROM products p
-                WHERE poi.product_id = p.id
-                  AND poi.variant_id IS NULL
-                  AND p.item_variant_id IS NOT NULL;
+                EXECUTE 'UPDATE purchase_order_items poi
+                         SET variant_id = p.item_variant_id
+                         FROM products p
+                         WHERE poi.product_id = p.id
+                           AND poi.variant_id IS NULL
+                           AND p.item_variant_id IS NOT NULL';
             END IF;
         END $$;
     """))
@@ -188,13 +201,16 @@ def upgrade() -> None:
             IF EXISTS (
                 SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'purchase_receipt_items' AND column_name = 'variant_id'
+            ) AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'products' AND column_name = 'item_variant_id'
             ) THEN
-                UPDATE purchase_receipt_items pri
-                SET variant_id = p.item_variant_id
-                FROM products p
-                WHERE pri.product_id = p.id
-                  AND pri.variant_id IS NULL
-                  AND p.item_variant_id IS NOT NULL;
+                EXECUTE 'UPDATE purchase_receipt_items pri
+                         SET variant_id = p.item_variant_id
+                         FROM products p
+                         WHERE pri.product_id = p.id
+                           AND pri.variant_id IS NULL
+                           AND p.item_variant_id IS NOT NULL';
             END IF;
         END $$;
     """))
@@ -209,13 +225,16 @@ def upgrade() -> None:
                 SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'stock_movements' AND column_name = 'item_id'
             ) AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'stock_movements' AND column_name = 'variant_id'
+            ) AND EXISTS (
                 SELECT 1 FROM information_schema.tables WHERE table_name = 'item_variants'
             ) THEN
-                UPDATE stock_movements sm
-                SET item_id = v.item_id
-                FROM item_variants v
-                WHERE sm.variant_id = v.id
-                  AND sm.item_id IS NULL;
+                EXECUTE 'UPDATE stock_movements sm
+                         SET item_id = v.item_id
+                         FROM item_variants v
+                         WHERE sm.variant_id = v.id
+                           AND sm.item_id IS NULL';
             END IF;
         END $$;
     """))
