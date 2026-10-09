@@ -24,7 +24,7 @@ BRAIN_ARTIFACTS_DIR = Path(r"C:\Users\netma\.gemini\antigravity-ide\brain\3c4e6b
 WORKSPACE_ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 BRAIN_ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
-FIXTURE_PATH = Path(r"f:\SMRITRretailNX\tests\fixtures\smart_import_50_footwear_items.tsv")
+FIXTURE_PATH = Path(r"f:\SMRITRretailNX\tests\fixtures\smart_import_192_footwear_items.tsv")
 
 def save_screenshots(filename, page_screenshot_bytes):
     p1 = WORKSPACE_ARTIFACTS_DIR / filename
@@ -34,7 +34,7 @@ def save_screenshots(filename, page_screenshot_bytes):
     print(f"[Screenshot] Successfully saved {filename} ({len(page_screenshot_bytes)} bytes)")
 
 async def main():
-    print("=== LIVE TATTLY THREADS (https://tattlythreads.smritisys.com/) 50-ITEM IMPORT RUNNER ===")
+    print("=== LIVE TATTLY THREADS (https://tattlythreads.smritisys.com/) COMPLETE FOOTWEAR IMPORT RUNNER ===")
 
     # 1. Read Fixture
     with open(FIXTURE_PATH, "r", encoding="utf-8") as f:
@@ -160,14 +160,14 @@ async def main():
             if await revalidate_btn.is_visible():
                 await revalidate_btn.click()
                 print("Waiting for validation response...")
-                await page.wait_for_timeout(8000)
+                await page.wait_for_timeout(15000)
 
             # Select strategy ALL_ELIGIBLE in strategy selector if present
             strategy_select = page.locator("select:has-text('All Eligible'), select").first
             if await strategy_select.is_visible():
                 try:
                     await strategy_select.select_option("ALL_ELIGIBLE")
-                    await page.wait_for_timeout(1000)
+                    await page.wait_for_timeout(1500)
                 except Exception:
                     pass
 
@@ -181,7 +181,7 @@ async def main():
             if await commit_btn.is_visible():
                 print("Clicking 'Import & Commit' button...")
                 await commit_btn.click()
-                await page.wait_for_timeout(2000)
+                await page.wait_for_timeout(3000)
 
                 # Confirm Modal: Click 'Confirm & Commit'
                 confirm_btn = page.locator("div[role='dialog'] button:has-text('Confirm & Commit'), button:has-text('Confirm & Commit')").last
@@ -189,7 +189,7 @@ async def main():
                     print("Clicking 'Confirm & Commit' in modal...")
                     await confirm_btn.click()
                     print("Awaiting commit response and live PostgreSQL transaction...")
-                    await page.wait_for_timeout(10000)
+                    await page.wait_for_timeout(25000)
 
             # Screenshot: Import Result
             s_result = await page.screenshot(full_page=True)
