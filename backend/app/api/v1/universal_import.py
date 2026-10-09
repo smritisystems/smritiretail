@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.70.47
+Version      : 6.70.48
 Created      : 2026-08-25
-Modified     : 2026-10-09 (v6.70.47 — Smart Import Studio, structured error contracts, and same-window reconciliation)
+Modified     : 2026-10-09 (v6.70.48 — Smart Import Studio, structured error contracts, safe float/numeric parsing, resilient empty preview, and same-window reconciliation)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -58,8 +58,8 @@ router = APIRouter()
 
 
 class ImportPreviewRequest(BaseModel):
-    target: str = Field(..., min_length=1)
-    rows: List[Dict[str, Any]] = Field(..., min_length=1, max_length=5000)
+    target: str = Field(default="ITEM_MASTER")
+    rows: List[Dict[str, Any]] = Field(default_factory=list, max_length=5000)
 
 
 class ImportCommitRequest(ImportPreviewRequest):
@@ -84,6 +84,21 @@ def _text(row: Dict[str, Any], *keys: str) -> str:
     return ""
 
 
+def _safe_float(val: Any, default: float = 0.0) -> float:
+    """Robustly parse float values, handling currency symbols, commas, percent signs, None, and non-numeric strings."""
+    if val is None:
+        return default
+    if isinstance(val, (int, float, Decimal)):
+        return float(val)
+    s = str(val).strip().replace(",", "").replace("$", "").replace("₹", "").replace("Rs.", "").replace("Rs", "").replace("%", "").strip()
+    if not s or s.lower() in ("null", "none", "nan", "n/a", "-", ""):
+        return default
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return default
+
+
 def _candidate_payload(item: Item, variant: Optional[ItemVariant] = None) -> Dict[str, Any]:
     return {
         "item_id": item.id,
@@ -94,8 +109,8 @@ def _candidate_payload(item: Item, variant: Optional[ItemVariant] = None) -> Dic
         "variant_name": variant.variant_name if variant else None,
         "brand": item.brand,
         "attributes": (variant.attributes_json if variant else item.attributes_json) or {},
-        "mrp": float((variant.mrp if variant else item.mrp) or 0),
-        "selling_price": float((variant.selling_price if variant else item.selling_price) or 0),
+        "mrp": _safe_float(variant.mrp if variant else item.mrp),
+        "selling_price": _safe_float(variant.selling_price if variant else item.selling_price),
     }
 
 
@@ -135,9 +150,19 @@ async def _resolve_row(db: AsyncSession, row: Dict[str, Any]) -> Dict[str, Any]:
             .join(ItemVariant.item)
             .where(
                 ItemVariant.is_deleted == False,
-                ItemVariant.attributes_json["size"].as_string() == size,
-                ItemVariant.attributes_json["color"].as_string() == color,
-                Item.attributes_json["style"].as_string() == style,
+                or_(
+                    func.upper(ItemVariant.size) == size.upper(),
+                    ItemVariant.attributes_json["size"].as_string() == size,
+                ),
+                or_(
+                    func.upper(ItemVariant.color) == color.upper(),
+                    ItemVariant.attributes_json["color"].as_string() == color,
+                ),
+                or_(
+                    func.upper(Item.item_code) == style.upper(),
+                    func.upper(Item.style_code) == style.upper(),
+                    Item.attributes_json["style"].as_string() == style,
+                ),
             )
             .options(selectinload(ItemVariant.item))
         )
@@ -166,8 +191,53 @@ async def preview_universal_import(
 ) -> Dict[str, Any]:
     """Resolve rows without creating products, changing stock, or changing prices."""
     effective_user = current_user or _current_user
-    if request.target.upper().strip() == "ITEM_MASTER":
+    target = (request.target or "ITEM_MASTER").upper().replace("-", "_").strip()
+    if target == "ITEM_MASTER":
         company_id = getattr(effective_user, "company_id", None) or (effective_user.get("company_id") if isinstance(effective_user, dict) else "COMP-001")
+        
+        # Handle empty row set gracefully
+        if not request.rows:
+            return {
+                "target": "ITEM_MASTER",
+                "code": "SMRITI-IMPORT-READY",
+                "message": "No data rows to preview.",
+                "summary": {
+                    "total_rows": 0,
+                    "valid_rows": 0,
+                    "new_rows": 0,
+                    "existing_match_rows": 0,
+                    "existing_conflict_rows": 0,
+                    "duplicate_in_file_rows": 0,
+                    "invalid_rows": 0,
+                    "blocking_errors": 0,
+                    "pricing_conflicts": 0,
+                    "distinct_styles": 0,
+                    "warning_rows": 0,
+                    "warnings": [],
+                    "status": "READY_FOR_IMPORT",
+                },
+                "reconciliation_report": [],
+                "approved_values_map": {},
+                "errors": [],
+                "counts": {
+                    "total": 0,
+                    "valid": 0,
+                    "invalid": 0,
+                    "blocking_errors": 0,
+                    "warning_rows": 0,
+                    "new": 0,
+                    "existing_match": 0,
+                    "existing_conflict": 0,
+                    "duplicate_in_file": 0,
+                    "pricing_conflicts": 0,
+                    "distinct_styles": 0,
+                    "duplicate_barcodes": 0,
+                    "duplicate_skus": 0,
+                },
+                "rows": [],
+                "row_results": [],
+            }
+
         reconciliation_report: List[Dict[str, Any]] = []
         all_structured_errors: List[Dict[str, Any]] = []
         batch_barcodes: Dict[str, int] = {}  # barcode -> first row number
@@ -211,8 +281,8 @@ async def preview_universal_import(
             color = _text(row, "color", "colour", "Color", "Colour", "COLOR")
             size = _text(row, "size", "Size", "SIZE")
             vendor_code = _text(row, "vendor_code", "vendorCode", "VENDOR_CODE", "supplier_code", "supplierCode", "vendor")
-            mrp_val = float(row.get("mrp", row.get("MRP", 0)) or 0)
-            selling_val = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))) or 0)
+            mrp_val = _safe_float(row.get("mrp", row.get("MRP", 0)))
+            selling_val = _safe_float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))))
             warehouse_code = _text(row, "warehouse_code", "WAREHOUSE_CODE", "warehouse_id")
 
             errors: List[str] = []
@@ -225,15 +295,21 @@ async def preview_universal_import(
             supplier_match = None
             if vendor_code:
                 clean_vcode = vendor_code.strip().upper()
+                clean_vcode_raw = re.sub(r"^V-0*", "", clean_vcode)
                 sup_stmt = select(Supplier).where(
                     (Supplier.company_id == company_id) | (Supplier.company_id.is_(None)),
                     (func.upper(Supplier.code) == clean_vcode)
                     | (Supplier.id == vendor_code.strip())
-                    | (func.upper(Supplier.code) == f"V-00{clean_vcode}")
-                    | (func.upper(Supplier.code) == f"V-0{clean_vcode}"),
+                    | (func.upper(Supplier.code) == f"V-00{clean_vcode_raw}")
+                    | (func.upper(Supplier.code) == f"V-0{clean_vcode_raw}")
+                    | (func.upper(Supplier.code) == f"V-{clean_vcode_raw}"),
                     Supplier.is_deleted == False
                 )
-                supplier_match = (await db.execute(sup_stmt)).scalars().first()
+                try:
+                    supplier_match = (await db.execute(sup_stmt)).scalars().first()
+                except Exception:
+                    supplier_match = None
+
                 if not supplier_match:
                     err_msg = f"Vendor code '{vendor_code}' does not match any registered Supplier in company {company_id}."
                     errors.append(err_msg)
@@ -354,7 +430,7 @@ async def preview_universal_import(
             # Part 6: HSN / GST Soft Validation (Human Review Flag)
             upper_mat = _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper") or ""
             row_hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN") or ""
-            row_tax = float(row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT", 18))) or 18)
+            row_tax = _safe_float(row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT", 18))), 18.0)
             synthetic_keywords = ("synthetic", "rubber", "plastic", "pvc", "pu", "faux", "mesh", "textile", "canvas")
             if any(kw in upper_mat.lower() for kw in synthetic_keywords) and row_hsn.strip().startswith("6403"):
                 hsn_msg = (
@@ -911,15 +987,15 @@ async def commit_universal_import(
                 uom = _text(row, "uom", "UOM") or "PRS"
                 tax_rate_raw = row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT")))
                 if tax_rate_raw is not None and str(tax_rate_raw).strip() != "":
-                    tax_rate = float(tax_rate_raw)
+                    tax_rate = _safe_float(tax_rate_raw, 0.0)
                 else:
                     tax_rate = 0.0
                     flag_requires_review = True
                     requires_review_reasons.append("Missing GST tax rate in source data.")
-                buying_price = float(row.get("buyingPrice", row.get("buying_price", row.get("BUYING_PRICE", 0))) or 0)
-                cost_price = float(row.get("costPrice", row.get("cost_price", row.get("LANDED_COST_PRICE", 0))) or 0)
-                mrp = float(row.get("mrp", row.get("MRP", 0)) or 0)
-                selling_price = float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))) or 0)
+                buying_price = _safe_float(row.get("buyingPrice", row.get("buying_price", row.get("BUYING_PRICE", 0))))
+                cost_price = _safe_float(row.get("costPrice", row.get("cost_price", row.get("LANDED_COST_PRICE", 0))))
+                mrp = _safe_float(row.get("mrp", row.get("MRP", 0)))
+                selling_price = _safe_float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))))
                 image_url = _text(row, "primary_image_url", "image_url", "IMAGE_LINK", "image_link", "image")
 
                 # 2. v2.2: First-class attribute extraction (promoted from attributes_json blob)

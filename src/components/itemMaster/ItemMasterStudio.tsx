@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.47
+ * Version      : 6.70.48
  * Created      : 2026-08-21
- * Modified     : 2026-10-09 (v6.70.47 — Smart Import & Correction Studio, inline cell editing, 7-metric dashboard, conflict drawer, bulk auto-fix, and safe partial commits)
+ * Modified     : 2026-10-09 (v6.70.48 — Smart Import & Correction Studio, blank row filtering, inline cell editing, 7-metric dashboard, conflict drawer, bulk auto-fix, and safe partial commits)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -292,17 +292,23 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       return headerDetection.dataRows.map((tokens, idx) => {
         const rowNum = idx + 1;
         const obj: Record<string, any> = { rowNumber: rowNum };
+        let hasAnyData = false;
         tokens.forEach((val, colIdx) => {
           const fieldKey = effectiveMapping.get(colIdx);
           if (!fieldKey || !val.trim()) return;
           obj[fieldKey] = val.trim();
+          hasAnyData = true;
         });
         // Merge user corrections
         if (correctionsMap.has(rowNum)) {
-          Object.assign(obj, correctionsMap.get(rowNum));
+          const edits = correctionsMap.get(rowNum) || {};
+          Object.assign(obj, edits);
+          if (Object.keys(edits).length > 0) hasAnyData = true;
         }
-        return obj;
-      }).filter(obj => !userSkips.has(obj.rowNumber));
+        return { obj, hasAnyData };
+      })
+      .filter(item => item.hasAnyData && !userSkips.has(item.obj.rowNumber))
+      .map(item => item.obj);
     },
     [headerDetection.dataRows, effectiveMapping, rowCorrections, skippedByUser]
   );

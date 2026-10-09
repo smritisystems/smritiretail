@@ -39,7 +39,7 @@ const STORAGE_KEY_COMMON_FIELDS = "smriti_item_master_common_fields_v1";
 
 interface ItemEntryViewwProps {
   onRefreshProducts?: () => Promise<void>;
-  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string } | null;
   existingProducts?: Product[];
 }

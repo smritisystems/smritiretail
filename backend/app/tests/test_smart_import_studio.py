@@ -253,3 +253,69 @@ async def test_smart_import_strict_strategy_aborts(session_factory):
             )
 
         assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_smart_import_preview_empty_rows(session_factory):
+    """
+    Test that /universal-import/preview with empty rows list returns 200 with total_rows=0.
+    """
+    company_id = "COMP-001"
+    user = {"company_id": company_id, "branch_id": "BR-001", "id": "usr-test-empty"}
+
+    async with session_factory() as session:
+        resp = await preview_universal_import(
+            request=ImportPreviewRequest(target="ITEM_MASTER", rows=[]),
+            db=session,
+            _current_user=user,
+            current_user=user
+        )
+
+        assert resp["target"] == "ITEM_MASTER"
+        assert resp["summary"]["total_rows"] == 0
+        assert resp["summary"]["status"] == "READY_FOR_IMPORT"
+        assert resp["reconciliation_report"] == []
+
+
+@pytest.mark.asyncio
+async def test_smart_import_safe_float_and_currency_parsing(session_factory):
+    """
+    Test that rows with currency symbols (₹, $), commas, percent signs, or non-numeric strings
+    are safely parsed without crashing the preview engine.
+    """
+    company_id = "COMP-001"
+    user = {"company_id": company_id, "branch_id": "BR-001", "id": "usr-test-safe-float"}
+
+    async with session_factory() as session:
+        rows = [
+            {
+                "rowNumber": 1,
+                "style_code": f"ART-CURR-{uuid.uuid4().hex[:6].upper()}",
+                "barcode": f"BC{uuid.uuid4().hex[:8].upper()}",
+                "brand": "SMRITI",
+                "department": "Footwear",
+                "category": "Footwear",
+                "color": "BLACK",
+                "size": "42",
+                "mrp": " ₹ 2,999.00 ",
+                "sellingPrice": " 2,499.00 ",
+                "tax_rate": "18%",
+                "vendor_code": "V-001",
+                "hsn": "6404",
+            }
+        ]
+
+        resp = await preview_universal_import(
+            request=ImportPreviewRequest(target="item-master", rows=rows),
+            db=session,
+            _current_user=user,
+            current_user=user
+        )
+
+        assert resp["target"] == "ITEM_MASTER"
+        assert resp["summary"]["total_rows"] == 1
+        assert len(resp["reconciliation_report"]) == 1
+        row1 = resp["reconciliation_report"][0]
+        assert row1["mrp"] == 2999.0
+        assert row1["selling_price"] == 2499.0
+
