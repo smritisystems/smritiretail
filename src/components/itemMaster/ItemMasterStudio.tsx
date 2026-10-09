@@ -56,12 +56,14 @@ import {
 } from "../../services/unifiedFieldCatalog.ts";
 import { generateSkuCode } from "../../services/skuGenerationEngine.ts";
 import { AttributeDefinition } from "../../types.ts";
+import { ImportBatchManager, ImportBatchRecord } from "../../services/importBatchManager.ts";
 
 interface SmritiItemMasterStudioProps {
   onRefreshProducts?: () => Promise<void>;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string } | null;
   onCancel?: () => void;
+  onImportCompleted?: (batch: ImportBatchRecord) => void;
 }
 
 interface ParsedRowData {
@@ -120,7 +122,8 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   onRefreshProducts,
   onNotification,
   currentUser,
-  onCancel
+  onCancel,
+  onImportCompleted,
 }) => {
   const [rawText, setRawText] = useState<string>("");
   const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
@@ -710,6 +713,21 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       const failed = commitResp?.failed ?? commitResp?.errors ?? 0;
 
       if (saved > 0 || skipped > 0) {
+        const itemCodes = (commitResp?.results || []).map((r: any) => r.item_code || r.variant_sku).filter(Boolean);
+        const barcodes = (commitResp?.results || []).map((r: any) => r.barcode).filter(Boolean);
+
+        const batchRecord = ImportBatchManager.recordBatch({
+          batchId: commitResp?.idempotency_key || `batch-${Date.now()}`,
+          savedCount: saved,
+          createdCount: commitResp?.created ?? saved,
+          skippedCount: skipped,
+          failedCount: failed,
+          itemCodes,
+          barcodes,
+          summary: `Import Batch (${saved} items) • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          strategy: importStrategy,
+        });
+
         onNotification?.(
           "Import Successful",
           `Committed to PostgreSQL: ${saved} item(s) created/updated${skipped > 0 ? `, ${skipped} skipped (existing matches)` : ""}.${failed > 0 ? ` (${failed} rows skipped due to errors)` : ""}`,
@@ -721,6 +739,10 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         setSkippedByUser(new Set());
         setPreviewResult(null);
         setPreviewReport([]);
+
+        if (onImportCompleted) {
+          onImportCompleted(batchRecord);
+        }
       } else {
         onNotification?.(
           "Import Summary",
