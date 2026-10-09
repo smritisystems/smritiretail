@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 6.70.49
  * Created      : 2026-08-16
- * Modified     : 2026-10-06
+ * Modified     : 2026-10-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -17,17 +17,27 @@ import { normalizeHeader } from "./HeaderNormalizer";
 
 export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
   {
+    key: "style_code",
+    label: "STYLE / ARTICLE CODE",
+    required: true,
+    aliases: [
+      "style", "style code", "style no", "style number",
+      "product style code", "product style", "style product code",
+      "article code", "article no", "article number", "article", "style article code", "style/article code",
+      "styleArticle", "design no", "model", "article_style_code", "article style code"
+    ],
+    description: "Parent article style or model code identifier"
+  },
+  {
     key: "code",
     label: "SKU CODE",
     required: true,
     aliases: [
       "sku", "sku code", "item code", "item no", "item number", "item id",
-      "product code", "product no", "product number", "style code", "style no",
-      "product style code", "product style", "style product code",
-      "article code", "article no", "article number", "article", "style article code", "style/article code",
-      "common", "common code", "common no", "common sku", "matrix code", "variant sku"
+      "product code", "product no", "product number", "variant sku", "variant code",
+      "common", "common code", "common no", "common sku", "matrix code", "stock no"
     ],
-    description: "Unique SKU or product style code identifier"
+    description: "Unique SKU or variant code identifier"
   },
   {
     key: "name",

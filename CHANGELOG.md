@@ -28,6 +28,27 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.49] - 2026-10-09 — SMRITI Smart Import Header Disambiguation & Style-SKU Parity (Item Master Catalog)
+
+> **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Header Mapping Engine, Style-SKU Parity
+> **Walkthrough:** `docs/walkthrough/inventory/Smart_Import_Header_Disambiguation_And_Style_SKU_Parity_Walkthrough_v6.70.49.md`
+> **Plan:** `docs/implementation/inventory/Smart_Import_And_Correction_Studio_Plan_v6.70.47.md`
+
+### Fixed & Hardened (Smart Import Studio Header Mapping & Style-SKU Parity)
+- **Header Disambiguation (`src/lib/headerMapping/HeaderAliasRegistry.ts` & `src/services/unifiedFieldCatalog.ts`)**:
+  - Segregated `style_code` ("STYLE / ARTICLE CODE") and `code` ("SKU / VARIANT CODE") into distinct canonical field definitions in `SMRITI_ITEM_MASTER_FIELDS` and `CORE_STANDARD_ITEM_FIELDS`.
+  - Added full alias coverage for `style_code` (`"product style code"`, `"product style"`, `"product_style_code"`, `"product_style"`, `"style product code"`, `"article code"`, `"article no"`, `"article"`).
+  - Cleaned `stockNo` (`code`) aliases to prevent greedy collision with style code columns when catalogs supply both `PRODUCT STYLE CODE` and `SKU`.
+  - Removed erroneous `"item description"` / `"ITEM DESCRIPTION"` aliases from `collection_type` in `unifiedFieldCatalog.ts` and `catalog_validation.py`, ensuring clean mapping to `name` / `itemDescription`.
+- **Backend Robust Extraction Fallbacks (`backend/app/api/v1/universal_import.py`)**:
+  - Added multi-key extraction fallbacks for `style_code` checking `style_code`, `styleCode`, `styleArticle`, `style`, `article`, `item_code`, `product_style_code`, `product_style`, `PRODUCT STYLE CODE`, `PRODUCT_STYLE_CODE`, and smart fallback when `code` is provided with separate `sku`.
+  - Added multi-key extraction fallbacks for `sku` checking `sku`, `SKU`, `variant_sku`, `SKU_CODE`, `SKU_PREVIEW`, `code`, `stockNo`.
+  - Added comprehensive fallback keys for product name, brand, HSN code, tax rate, gender, department, category, subcategory, heels, upper material, outsole, and image link.
+- **Controlled Field Validation Synchronization (`backend/app/services/catalog_validation.py`)**:
+  - Synchronized `CatalogDimensionValidator.DIMENSION_FIELD_MAP` and `IM001ControlledFieldValidator.FIELD_EXTRACTION_MAP` to recognize `product_style_code`, `product_style`, `merchandise_category`, and `vendor`.
+- **SSOT Version Bump**:
+  - Aligned all 4 SSOT anchors (`package.json`, `src/config/version.ts`, `backend/app/core/config.py`, `CHANGELOG.md`) to `6.70.49`.
+
 ## [6.70.48] - 2026-10-09 — SMRITI Smart Import Studio Resilience & Safe Float Parsing (Item Master Catalog)
 
 > **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Resilient Parsing, Universal Import API

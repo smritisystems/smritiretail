@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.32.0
+Version      : 6.70.49
 Created      : 2026-09-13
-Modified     : 2026-09-13
+Modified     : 2026-10-09
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -52,6 +52,8 @@ class CatalogDimensionValidator:
         "style_article": "style_article",
         "stylearticle": "style_article",
         "style/article": "style_article",
+        "product_style_code": "style_article",
+        "product_style": "style_article",
         "article": "style_article",
         "article_no": "style_article",
         "articleno": "style_article",
@@ -61,12 +63,14 @@ class CatalogDimensionValidator:
         "size": "size",
         "vendor_code": "vendor_code",
         "vendorcode": "vendor_code",
+        "vendor": "vendor_code",
         "product": "product",
         "hsn": "hsn_code",
         "hsn_code": "hsn_code",
         "uom": "uom",
         "gender": "gender",
         "product_type": "product_type",
+        "merchandise_category": "product_type",
         "heel_type": "heel_type",
         "upper_material": "upper_material",
         "outsole_material": "outsole_material",
@@ -551,20 +555,21 @@ class IM001ControlledFieldValidator:
         "ARTICLE_STYLE_CODE": (
             "style_code", "styleCode", "styleArticle", "style", "article", "ARTICLE_STYLE_CODE",
             "item_code", "Article CODE", "Article Code", "ARTICLE CODE", "ARTICLE_CODE", "article_code",
-            "Article No", "ARTICLE_NO", "article_no",
+            "Article No", "ARTICLE_NO", "article_no", "product_style_code", "product_style",
+            "PRODUCT STYLE CODE", "PRODUCT_STYLE_CODE"
         ),
         "BRAND_NAME": ("brand", "Brand", "BRAND_NAME", "brand_name"),
-        "COLOR": ("color", "colour", "Color", "Colour", "COLOR"),
+        "COLOR": ("color", "colour", "Color", "Colour", "COLOR", "shade"),
         "SIZE": ("size", "Size", "SIZE"),
         "GENDER": ("gender", "Gender", "GENDER", "Gndr"),
-        "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT"),
-        "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY", "merchandiseCategory"),
+        "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT", "dept"),
+        "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY", "merchandiseCategory", "product_category"),
         "PRODUCT_TYPE": (
             "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type",
-            "MERCHANDISE CATEGORY",
+            "merchandise_category", "MERCHANDISE CATEGORY", "MERCHANDISE_CATEGORY"
         ),
         "HEEL_TYPE": (
-            "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel", "HEELS"
+            "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel", "HEELS", "heels"
         ),
         "UPPER_MATERIAL": (
             "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper", "UPPER MATERIAL"
@@ -572,17 +577,17 @@ class IM001ControlledFieldValidator:
         "UOM": ("uom", "UOM", "unit_of_measure"),
         "DESIGN_ATTRIBUTE": (
             "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute",
-            "sub_category", "Sub category", "Sub Category", "subcategory"
+            "subCategory", "sub_category", "Sub category", "Sub Category", "subcategory", "SUB CATEGORY"
         ),
         "OUTSOLE_MATERIAL": (
             "outsole", "outsole_material", "outsoleMaterial", "OUTSOLE_MATERIAL", "OUTSOLE", "sole"
         ),
         "COLLECTION_TYPE": (
-            "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type", "ITEM DESCRIPTION", "item_description"
+            "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type"
         ),
         "GST_RATE_PERCENT": (
             "GST_RATE_PERCENT", "gst_rate_percent", "tax_rate", "gst", "GST", "TAX_RATE", "tax",
-            "GstRatePercent", "taxRate", "gst_percentage"
+            "GstRatePercent", "taxRate", "gst_percentage", "gstPercentage", "product_tax", "PRODUCT_TAX"
         ),
     }
 

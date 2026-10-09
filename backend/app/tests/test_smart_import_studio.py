@@ -69,6 +69,10 @@ async def test_smart_import_preview_structured_errors(session_factory):
                 "category": "Footwear",
                 "color": "BLACK",
                 "size": "40",
+                "gender": "LADIES",
+                "product_type": "CHAPPAL",
+                "heel_type": "FLAT",
+                "upper_material": "SYNTHETIC",
                 "mrp": 2500,
                 "sellingPrice": 2200,
                 "tax_rate": 18,
@@ -183,6 +187,10 @@ async def test_smart_import_partial_commit_strategy(session_factory):
                 "category": "Footwear",
                 "color": "BLACK",
                 "size": "40",
+                "gender": "LADIES",
+                "product_type": "CHAPPAL",
+                "heel_type": "FLAT",
+                "upper_material": "SYNTHETIC",
                 "mrp": 1999,
                 "sellingPrice": 1699,
                 "costPrice": 900,
@@ -318,4 +326,106 @@ async def test_smart_import_safe_float_and_currency_parsing(session_factory):
         row1 = resp["reconciliation_report"][0]
         assert row1["mrp"] == 2999.0
         assert row1["selling_price"] == 2499.0
+
+
+@pytest.mark.asyncio
+async def test_smart_import_style_and_sku_disambiguation(session_factory):
+    """
+    Test that when both style_code (or PRODUCT STYLE CODE) and SKU (or variant_sku)
+    are present in the import payload, both are correctly resolved and committed.
+    """
+    company_id = "COMP-001"
+    branch_id = "BR-MAIN-001"
+    tenant = TenantContext(company_id=company_id, branch_id=branch_id)
+    user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-disambig"}
+
+    rand_tag = uuid.uuid4().hex[:6].upper()
+    style_code_val = f"CH-01-{rand_tag}"
+    sku_val = f"CH-01-{rand_tag}-CREAM-36"
+    barcode_val = f"890{uuid.uuid4().hex[:10].upper()}"
+
+    async with session_factory() as session:
+        # Ensure supplier V-001 exists
+        sup_stmt = select(Supplier).where(Supplier.company_id == company_id, Supplier.code == "V-001")
+        existing_sup = (await session.execute(sup_stmt)).scalars().first()
+        if not existing_sup:
+            new_sup = Supplier(
+                id=f"sup-{uuid.uuid4().hex[:12]}",
+                company_id=company_id,
+                branch_id=None,
+                name="Test Disambiguation Supplier",
+                code="V-001",
+                identity_code=f"SUP-DISAMBIG-{uuid.uuid4().hex[:6].upper()}",
+            )
+            session.add(new_sup)
+            await session.commit()
+
+        rows = [
+            {
+                "rowNumber": 1,
+                "barcode": barcode_val,
+                "style_code": style_code_val,
+                "sku": sku_val,
+                "item_name": "BASIC",
+                "brand": "TATTLY THREADS",
+                "color": "CREAM",
+                "size": "36",
+                "mrp": "1899",
+                "costPrice": "375",
+                "tax_rate": "5",
+                "hsn": "64041990",
+                "gender": "LADIES",
+                "vendor_code": "V-001",
+                "purchase_class": "SIS",
+                "department": "LADIES FTW",
+                "product_type": "CHAPPAL",
+                "design_attribute": "CROSS",
+                "heel_type": "FLAT",
+                "upper_material": "SYNTHETIC",
+                "outsole": "PU",
+                "image_url": style_code_val,
+            }
+        ]
+
+        # 1. Test Preview
+        preview_resp = await preview_universal_import(
+            request=ImportPreviewRequest(target="ITEM_MASTER", rows=rows),
+            db=session,
+            _current_user=user,
+            current_user=user
+        )
+        assert preview_resp["target"] == "ITEM_MASTER"
+        assert preview_resp["summary"]["total_rows"] == 1
+        assert preview_resp["summary"]["valid_rows"] == 1
+        assert preview_resp["summary"]["blocking_errors"] == 0
+
+        # 2. Test Commit
+        commit_req = ImportCommitRequest(
+            target="ITEM_MASTER",
+            rows=rows,
+            idempotency_key=f"commit-disambig-{uuid.uuid4().hex[:10]}",
+            import_strategy="ALL_ELIGIBLE",
+        )
+        commit_resp = await commit_universal_import(
+            request=commit_req,
+            db=session,
+            current_user=user,
+            tenant=tenant
+        )
+        assert commit_resp["success"] is True
+        assert commit_resp["created"] == 1
+
+        # 3. Verify Database entities
+        saved_item = (await session.execute(
+            select(Item).where(Item.company_id == company_id, Item.item_code == style_code_val)
+        )).scalars().first()
+        assert saved_item is not None
+        assert saved_item.style_code == style_code_val
+
+        saved_variant = (await session.execute(
+            select(ItemVariant).where(ItemVariant.company_id == company_id, ItemVariant.variant_sku == sku_val)
+        )).scalars().first()
+        assert saved_variant is not None
+        assert saved_variant.item_id == saved_item.id
+
 

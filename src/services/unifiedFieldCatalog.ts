@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.1
+ * Version      : 6.70.49
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -49,7 +49,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Stock No / SKU",
     datatype: "text",
     required: true,
-    aliases: ["stock no", "sku", "sku code", "item code", "item no", "product code", "style code", "article no"],
+    aliases: ["stock no", "sku", "sku code", "item code", "item no", "product code", "variant sku", "variant code", "matrix code"],
     active: true,
     displayOrder: 1,
     source: "core",
@@ -73,7 +73,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Product Name",
     datatype: "text",
     required: true,
-    aliases: ["product", "item name", "product name", "item description", "description", "title"],
+    aliases: ["product", "item name", "product name", "item description", "description", "title", "ITEM DESCRIPTION", "product description"],
     active: true,
     displayOrder: 3,
     source: "core",
@@ -157,7 +157,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "MRP",
     datatype: "currency",
     required: true,
-    aliases: ["mrp", "maximum retail price", "retail price", "list price"],
+    aliases: ["mrp", "maximum retail price", "retail price", "list price", "planned mrp", "target mrp", "planned_mrp", "max retail price", "plate rate or mrp", "PLANNED MRP"],
     active: true,
     displayOrder: 9,
     source: "core",
@@ -183,7 +183,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Cost Price",
     datatype: "currency",
     required: true,
-    aliases: ["cost price", "cost", "purchase rate", "landing cost", "buy price", "net cost", "cp"],
+    aliases: ["cost price", "cost", "purchase rate", "landing cost", "landed cost", "landed cost price", "buy price", "net cost", "cp", "COST PRICE"],
     active: true,
     displayOrder: 11,
     source: "core",
@@ -196,7 +196,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Selling Price",
     datatype: "currency",
     required: true,
-    aliases: ["selling price", "price", "sale price", "rate", "offer price"],
+    aliases: ["selling price", "price", "sale price", "rate", "offer price", "sales price", "selling rate", "sale rate", "sp", "plate rate"],
     active: true,
     displayOrder: 12,
     source: "core",
@@ -210,7 +210,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     datatype: "select",
     required: true,
     validValues: ["STD_18", "GST_12", "GST_5", "EXEMPT", "18", "12", "5", "0"],
-    aliases: ["product tax", "gst", "gst %", "tax rate", "gst percentage", "tax %", "vat"],
+    aliases: ["product tax", "gst", "gst %", "tax rate", "gst percentage", "tax %", "vat", "tax", "product tax %", "tax percentage", "PRODUCT TAX"],
     active: true,
     displayOrder: 12,
     source: "core",
@@ -222,7 +222,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "HSN Code",
     datatype: "text",
     required: true,
-    aliases: ["hsn", "hsn code", "hsn no", "hsn/sac", "sac"],
+    aliases: ["hsn", "hsn code", "hsn no", "hsn/sac", "sac", "HSN CODE", "HSN", "hsn sac"],
     active: true,
     displayOrder: 13,
     source: "core",
@@ -251,7 +251,9 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     aliases: [
       "style", "style code", "article", "article no", "article/style",
       "article/style/model no.", "design no", "model",
-      "ARTICLE_STYLE_CODE", "article style code"
+      "ARTICLE_STYLE_CODE", "article style code",
+      "product style code", "product style", "product_style_code", "product_style",
+      "style product code", "article code", "PRODUCT STYLE CODE"
     ],
     active: true,
     displayOrder: 15,
@@ -381,7 +383,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Collection Type",
     datatype: "text",
     required: false,
-    aliases: ["collection type", "collection_type", "COLLECTION_TYPE", "item description", "ITEM DESCRIPTION"],
+    aliases: ["collection type", "collection_type", "COLLECTION_TYPE"],
     active: true,
     displayOrder: 25,
     source: "core",

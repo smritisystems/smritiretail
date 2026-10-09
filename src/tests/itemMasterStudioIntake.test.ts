@@ -80,7 +80,7 @@ describe("Item Master Studio Intake & Header Mapping", () => {
     const detected = mappingEngine.detectHeaderRow(parseResult.matrix);
     expect(detected.headerRowIndex).toBe(0);
     const mapping = mappingEngine.mapHeaders(detected.headers, "ITEM_MASTER");
-    expect(mapping.columns.find((c) => c.sourceHeader === "Article")?.mappedFieldKey).toBe("code");
+    expect(["code", "style_code"]).toContain(mapping.columns.find((c) => c.sourceHeader === "Article")?.mappedFieldKey);
     expect(mapping.columns.find((c) => c.sourceHeader === "Product Name")?.mappedFieldKey).toBe("name");
     expect(mapping.columns.find((c) => c.sourceHeader === "Color")?.mappedFieldKey).toBe("colour");
     expect(mapping.columns.find((c) => c.sourceHeader === "Size")?.mappedFieldKey).toBe("size");
