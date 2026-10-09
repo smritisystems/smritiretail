@@ -608,6 +608,36 @@ class IM001ControlledFieldValidator:
         "GST_RATE_PERCENT": "gst_rate",
     }
 
+    KNOWN_DIMENSION_ALIASES: Dict[str, Dict[str, str]] = {
+        "UPPER_MATERIAL": {
+            "MATERIAL": "MATERIAL",
+        },
+        "HEEL_TYPE": {
+            "WEDGES": "WEDGE",
+        },
+        "PRODUCT_TYPE": {
+            "SHOES": "SHOE",
+        },
+        "MERCHANDISE_CATEGORY": {
+            "SHOES": "SHOE",
+            "CHAPPAL": "CHAPPAL",
+            "SANDAL": "SANDAL",
+        },
+        "DESIGN_ATTRIBUTE": {
+            "MUEL": "MULE",
+        },
+        "COLOR": {
+            "R-GOLD": "ROSE GOLD",
+            "CHIKKU": "CHIKKU",
+            "SULTAN": "SULTAN",
+        },
+        "UOM": {
+            "PRS": "PAIR",
+            "PAIRS": "PAIR",
+            "PR": "PAIR",
+        }
+    }
+
     FIELD_TO_SYSPARAM_MAP: Dict[str, str] = {
         "ARTICLE_STYLE_CODE": "ItemSubClass1HasCat",
         "COLOR": "ItemSubClass2HasCat",
@@ -773,6 +803,9 @@ class IM001ControlledFieldValidator:
                     pt_rows = await CatalogDimensionValidator.get_approved_values("product_type")
                     pt_codes = [r["code"] for r in pt_rows if r.get("code")]
                     codes = list(dict.fromkeys(codes + pt_codes))
+                # Merge known aliases so they are always recognized
+                aliases = list(cls.KNOWN_DIMENSION_ALIASES.get(std_field, {}).keys())
+                codes = list(dict.fromkeys(codes + aliases))
                 result[std_field] = codes
             except Exception:
                 result[std_field] = []
@@ -863,6 +896,11 @@ class IM001ControlledFieldValidator:
 
                 if clean_val.upper() in db_norm_map:
                     continue  # Exact match — pass
+
+                # Known alias match
+                alias_target = cls.KNOWN_DIMENSION_ALIASES.get(std_field, {}).get(clean_val.upper())
+                if alias_target and (alias_target.upper() in db_norm_map or alias_target.upper() == clean_val.upper()):
+                    continue
 
                 # Near-match detection
                 near_match = cls.find_near_match(clean_val, db_values)
