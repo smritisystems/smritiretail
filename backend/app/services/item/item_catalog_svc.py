@@ -817,8 +817,8 @@ class ItemCatalogService:
         raw_vendor = kwargs.get("vendor_code") or kwargs.get("vendorCode")
 
         from ..catalog_validation import CatalogDimensionValidator
-        normalized_brand = await CatalogDimensionValidator.validate_and_normalize_dimension("brand", raw_brand, strict=True) if raw_brand else None
-        normalized_cat = await CatalogDimensionValidator.validate_and_normalize_dimension("category", raw_cat, strict=True) if raw_cat else (category or "Footwear")
+        normalized_brand = await CatalogDimensionValidator.validate_and_normalize_dimension("brand", raw_brand, strict=False) if raw_brand else None
+        normalized_cat = await CatalogDimensionValidator.validate_and_normalize_dimension("category", raw_cat, strict=False) if raw_cat else (category or "Footwear")
         normalized_dept = await CatalogDimensionValidator.validate_and_normalize_dimension("department", raw_dept, strict=True) if raw_dept else None
         normalized_style = await CatalogDimensionValidator.validate_and_normalize_dimension("style_code", raw_style, strict=False) if raw_style else None
         normalized_color = await CatalogDimensionValidator.validate_and_normalize_dimension("color", raw_color, strict=False) if raw_color else None
