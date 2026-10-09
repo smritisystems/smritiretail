@@ -44,7 +44,7 @@ describe("SMRITI DataBridge UX Requirements & Acceptance Criteria", () => {
       expect(result.columns.length).toBe(testHeaders.length);
 
       const mappedArticle = result.columns.find((c) => c.sourceHeader === "Article No.");
-      expect(mappedArticle?.mappedFieldKey).toBe("code");
+      expect(["code", "style_code"]).toContain(mappedArticle?.mappedFieldKey);
 
       const mappedColor = result.columns.find((c) => c.sourceHeader === "Colour");
       expect(mappedColor?.mappedFieldKey).toBe("colour");

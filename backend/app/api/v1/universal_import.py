@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.70.48
+Version      : 6.70.49
 Created      : 2026-08-25
-Modified     : 2026-10-09 (v6.70.48 — Smart Import Studio, structured error contracts, safe float/numeric parsing, resilient empty preview, and same-window reconciliation)
+Modified     : 2026-10-09 (v6.70.49 — Smart Import Studio, style vs SKU header disambiguation, robust field alias extraction)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -272,17 +272,25 @@ async def preview_universal_import(
         for index, row in enumerate(request.rows, start=1):
             row_num = row.get("rowNumber", index)
             barcode = _text(row, "barcode", "Barcode", "BARCODE_NO", "ean", "upc")
-            sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW")
+            sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW", "code", "stockNo", "Stock No")
             style = _text(
                 row, "style_code", "styleCode", "styleArticle", "style", "article",
                 "ARTICLE_STYLE_CODE", "item_code", "Article CODE", "Article Code",
-                "ARTICLE CODE", "ARTICLE_CODE", "article_code", "Article No", "article_no"
+                "ARTICLE CODE", "ARTICLE_CODE", "article_code", "Article No", "article_no",
+                "product_style_code", "product_style", "PRODUCT STYLE CODE", "PRODUCT_STYLE_CODE"
             )
-            color = _text(row, "color", "colour", "Color", "Colour", "COLOR")
+            # Fallback if style is not explicitly mapped:
+            if not style and row.get("code") and row.get("sku") and str(row.get("code")).strip() != str(row.get("sku")).strip():
+                style = str(row.get("code")).strip()
+            elif not style and row.get("code") and not _text(row, "sku", "SKU", "variant_sku"):
+                style = str(row.get("code")).strip()
+
+            color = _text(row, "color", "colour", "Color", "Colour", "COLOR", "shade")
             size = _text(row, "size", "Size", "SIZE")
-            vendor_code = _text(row, "vendor_code", "vendorCode", "VENDOR_CODE", "supplier_code", "supplierCode", "vendor")
-            mrp_val = _safe_float(row.get("mrp", row.get("MRP", 0)))
-            selling_val = _safe_float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))))
+            vendor_code = _text(row, "vendor_code", "vendorCode", "VENDOR_CODE", "supplier_code", "supplierCode", "vendor", "supplier")
+            mrp_val = _safe_float(row.get("mrp", row.get("MRP", row.get("planned_mrp", row.get("PLANNED_MRP", 0)))))
+            selling_val = _safe_float(row.get("sellingPrice", row.get("selling_price", row.get("price", row.get("SELLING_PRICE", 0)))))
+            cost_val = _safe_float(row.get("costPrice", row.get("cost_price", row.get("cost", row.get("COST_PRICE", row.get("buying_price", row.get("buyingPrice", 0)))))))
             warehouse_code = _text(row, "warehouse_code", "WAREHOUSE_CODE", "warehouse_id")
 
             errors: List[str] = []
@@ -729,13 +737,19 @@ async def commit_universal_import(
                 resolution = {"status": "MATCHED", "match_type": "USER_SELECTED", "match": _candidate_payload(selected_item)}
         if target == "ITEM_MASTER":
             barcode = _text(row, "barcode", "Barcode", "BARCODE_NO", "ean", "upc")
-            sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW")
+            sku = _text(row, "sku", "SKU", "variant_sku", "SKU_CODE", "SKU_PREVIEW", "code", "stockNo", "Stock No")
             style_code = _text(
                 row, "style_code", "styleCode", "styleArticle", "style", "article",
                 "ARTICLE_STYLE_CODE", "item_code", "Article CODE", "Article Code",
-                "ARTICLE CODE", "ARTICLE_CODE", "article_code", "Article No", "article_no"
+                "ARTICLE CODE", "ARTICLE_CODE", "article_code", "Article No", "article_no",
+                "product_style_code", "product_style", "PRODUCT STYLE CODE", "PRODUCT_STYLE_CODE"
             )
-            item_name = _text(row, "item_name", "itemName", "name", "ITEM_DESCRIPTION", "product_name") or style_code
+            if not style_code and row.get("code") and row.get("sku") and str(row.get("code")).strip() != str(row.get("sku")).strip():
+                style_code = str(row.get("code")).strip()
+            elif not style_code and row.get("code") and not _text(row, "sku", "SKU", "variant_sku"):
+                style_code = str(row.get("code")).strip()
+
+            item_name = _text(row, "name", "itemName", "item_name", "itemDescription", "item_description", "ITEM_DESCRIPTION", "product_name", "product", "description") or style_code
 
             if not sku:
                 color_val = _text(row, "color", "colour", "Color", "Colour", "COLOR")
@@ -970,22 +984,22 @@ async def commit_universal_import(
 
                 # Explicit separation:
                 # 1. Flat Item columns: item_code, style_code, color, size, vendor_code, hsn_code, tax_rate, department, category, brand
-                color = _text(row, "color", "colour", "COLOR", "Color")
+                color = _text(row, "color", "colour", "COLOR", "Color", "shade")
                 size = _text(row, "size", "SIZE", "Size")
                 # Category: read directly from category column — do NOT fall back to department.
                 # Field Notes (v2.2): "MERCHANDISE CATEGORY" values (CHAPPAL, SANDAL) are product types;
                 # they are handled via v22_product_type below.
-                cat_raw = _text(row, "category", "Category")
+                cat_raw = _text(row, "category", "Category", "product_category")
                 cat = cat_raw or None
-                dept_raw = _text(row, "department", "Department", "MERCHANDISE_DEPARTMENT")
+                dept_raw = _text(row, "department", "Department", "MERCHANDISE_DEPARTMENT", "dept")
                 dept = dept_raw or None
-                brand = _text(row, "brand", "Brand", "BRAND_NAME")
-                hsn = _text(row, "hsn", "hsn_code", "HSN_CODE", "HSN")
+                brand = _text(row, "brand", "Brand", "BRAND_NAME", "brand_name")
+                hsn = _text(row, "hsnCode", "hsn", "hsn_code", "HSN_CODE", "HSN", "hsn_sac")
                 if not hsn:
                     flag_requires_review = True
                     requires_review_reasons.append("Missing HSN code in source data.")
                 uom = _text(row, "uom", "UOM") or "PRS"
-                tax_rate_raw = row.get("tax_rate", row.get("gst", row.get("GST_RATE_PERCENT")))
+                tax_rate_raw = row.get("gstPercentage", row.get("tax_rate", row.get("taxRate", row.get("gst", row.get("GST_RATE_PERCENT", row.get("product_tax", row.get("PRODUCT_TAX")))))))
                 if tax_rate_raw is not None and str(tax_rate_raw).strip() != "":
                     tax_rate = _safe_float(tax_rate_raw, 0.0)
                 else:
@@ -993,21 +1007,21 @@ async def commit_universal_import(
                     flag_requires_review = True
                     requires_review_reasons.append("Missing GST tax rate in source data.")
                 buying_price = _safe_float(row.get("buyingPrice", row.get("buying_price", row.get("BUYING_PRICE", 0))))
-                cost_price = _safe_float(row.get("costPrice", row.get("cost_price", row.get("LANDED_COST_PRICE", 0))))
-                mrp = _safe_float(row.get("mrp", row.get("MRP", 0)))
-                selling_price = _safe_float(row.get("sellingPrice", row.get("price", row.get("SELLING_PRICE", 0))))
-                image_url = _text(row, "primary_image_url", "image_url", "IMAGE_LINK", "image_link", "image")
+                cost_price = _safe_float(row.get("costPrice", row.get("cost_price", row.get("cost", row.get("COST_PRICE", row.get("LANDED_COST_PRICE", 0))))))
+                mrp = _safe_float(row.get("mrp", row.get("MRP", row.get("planned_mrp", row.get("PLANNED_MRP", 0)))))
+                selling_price = _safe_float(row.get("sellingPrice", row.get("selling_price", row.get("price", row.get("SELLING_PRICE", 0)))))
+                image_url = _text(row, "imageUrl", "image_url", "primary_image_url", "IMAGE_LINK", "image_link", "imageName", "image_name", "image")
 
                 # 2. v2.2: First-class attribute extraction (promoted from attributes_json blob)
                 # Each field gets its own SQL column on Item — queryable, reportable, IM-001 controlled.
                 v22_gender          = _text(row, "gender", "Gender", "GENDER", "Gndr")
-                v22_purchase_class  = _text(row, "purchase_class", "purchaseClass", "PURCHASE_CLASS")
+                v22_purchase_class  = _text(row, "purchase_class", "purchaseClass", "PURCHASE_CLASS", "purchase_classification")
                 # Field Notes (v2.2): "MERCHANDISE CATEGORY" column values are product types;
                 # extract them as product_type. product_type first, then MERCHANDISE CATEGORY as alias.
-                v22_product_type    = _text(row, "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "MERCHANDISE CATEGORY", "MERCHANDISE_CATEGORY")
-                v22_design_attr     = _text(row, "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute")
-                v22_heel_type       = _text(row, "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heel")
-                v22_upper_material  = _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper")
+                v22_product_type    = _text(row, "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "merchandise_category", "MERCHANDISE CATEGORY", "MERCHANDISE_CATEGORY")
+                v22_design_attr     = _text(row, "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute", "subCategory", "sub_category", "sub_category_name", "SUB CATEGORY", "Sub category", "subcategory")
+                v22_heel_type       = _text(row, "heel_type", "heelType", "HEEL_TYPE", "Heel_Type", "heels", "HEELS", "heel")
+                v22_upper_material  = _text(row, "upper_material", "upperMaterial", "UPPER_MATERIAL", "Upper_Material", "upper", "UPPER MATERIAL")
                 v22_outsole         = _text(row, "outsole_material", "outsole", "outsoleMaterial", "OUTSOLE_MATERIAL", "OUTSOLE", "sole")
                 v22_collection_type = _text(row, "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type")
 
@@ -1039,7 +1053,7 @@ async def commit_universal_import(
                 footwear_nested_attrs = {k: v for k, v in (row.get("attributes_json") or {}).items() if v is not None and str(v).strip()}
 
                 # Part 6: HSN / GST Soft Validation (Human Review Flag)
-                upper_mat = (footwear_nested_attrs.get("upper_material") or "").strip().lower()
+                upper_mat = (v22_upper_material or footwear_nested_attrs.get("upper_material") or "").strip().lower()
                 synthetic_keywords = ("synthetic", "rubber", "plastic", "pvc", "pu", "faux", "mesh", "textile", "canvas")
                 if any(kw in upper_mat for kw in synthetic_keywords) and hsn and hsn.strip().startswith("6403"):
                     requires_review_reasons.append(

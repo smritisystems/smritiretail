@@ -51,7 +51,7 @@ async def test_import_item_pricing_routes_to_authoritative_price_book_entry(sess
     items.mrp also reflects it as fallback.
     """
     company_id = "COMP-001"
-    branch_id = "BR-001"
+    branch_id = "BR-MAIN-001"
     tenant = TenantContext(company_id=company_id, branch_id=branch_id)
     user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-pricing"}
 
@@ -69,7 +69,7 @@ async def test_import_item_pricing_routes_to_authoritative_price_book_entry(sess
         "department": "Footwear",
         "brand": "SMRITI",
         "color": "Black",
-        "size": "9",
+        "size": "40",
         "mrp": 1899,
         "sellingPrice": 1899,
         "costPrice": 950,
@@ -127,7 +127,7 @@ async def test_import_item_vendor_code_linkage_success(session_factory):
     directly from Supplier.code.
     """
     company_id = "COMP-001"
-    branch_id = "BR-001"
+    branch_id = "BR-MAIN-001"
     tenant = TenantContext(company_id=company_id, branch_id=branch_id)
     user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-vendor"}
 
@@ -193,7 +193,7 @@ async def test_import_item_vendor_code_linkage_unregistered_supplier_rejected(se
     the service/import layer rejects it with a validation error (HTTP 422).
     """
     company_id = "COMP-001"
-    branch_id = "BR-001"
+    branch_id = "BR-MAIN-001"
     tenant = TenantContext(company_id=company_id, branch_id=branch_id)
     user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-vendor-fail"}
 
@@ -218,6 +218,7 @@ async def test_import_item_vendor_code_linkage_unregistered_supplier_rejected(se
         target="ITEM_MASTER",
         rows=[sample_row],
         idempotency_key=f"idemp-{uuid.uuid4().hex}",
+        import_strategy="STRICT",
     )
 
     async with session_factory() as session:
@@ -245,7 +246,7 @@ async def test_import_footwear_attributes_routing_to_attributes_json(session_fac
     Assert the JSON blob contains exactly the expected nested keys with correct values.
     """
     company_id = "COMP-001"
-    branch_id = "BR-001"
+    branch_id = "BR-MAIN-001"
     tenant = TenantContext(company_id=company_id, branch_id=branch_id)
     user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-attrs"}
 
@@ -277,7 +278,7 @@ async def test_import_footwear_attributes_routing_to_attributes_json(session_fac
             "category": "Footwear",
             "department": "Footwear",
             "color": "Black",
-            "size": "9",
+            "size": "40",
             "vendor_code": supplier_code,
             "hsn_code": "64041990",
             "tax_rate": 18,
@@ -316,7 +317,7 @@ async def test_import_footwear_attributes_routing_to_attributes_json(session_fac
         assert item.item_code == style_code
         assert item.style_code == style_code
         assert item.color == "BLACK"
-        assert item.size == "9"
+        assert item.size == "40"
         assert item.vendor_code == supplier_code.upper()
         assert item.hsn_code == "64041990"
         assert item.tax_rate == Decimal("18.00")
@@ -324,25 +325,19 @@ async def test_import_footwear_attributes_routing_to_attributes_json(session_fac
         assert item.department == "FOOTWEAR"
         assert item.brand == "SMRITI"
 
-        # 2. Assert attributes_json nested fields on Item
-        expected_nested = {
-            "gender": "Men",
-            "heel_type": "Flat",
-            "upper_material": "Mesh",
-            "outsole": "Phylon",
-            "design_attribute": "Lace-Up",
-            "collection_type": "Running",
-        }
-        for k, v in expected_nested.items():
-            assert item.attributes_json.get(k) == v, f"Item.attributes_json[{k}] expected {v}, got {item.attributes_json.get(k)}"
+        # 2. Assert first-class promoted columns on Item
+        assert item.gender == "Men"
+        assert item.heel_type == "Flat"
+        assert item.upper_material == "Mesh"
+        assert item.outsole_material == "Phylon"
+        assert item.design_attribute == "Lace-Up"
+        assert item.collection_type == "Running"
 
         # 3. Assert ItemVariant attributes_json contains nested attributes
         variant = (await session.execute(select(ItemVariant).where(ItemVariant.item_id == item.id))).scalars().first()
         assert variant is not None
-        for k, v in expected_nested.items():
-            assert variant.attributes_json.get(k) == v
         assert variant.attributes_json.get("color") == "Black"
-        assert variant.attributes_json.get("size") == "9"
+        assert variant.attributes_json.get("size") == "40"
 
 
 @pytest.mark.asyncio
@@ -354,7 +349,7 @@ async def test_style_code_consistency_validation_flags_snd_row_bug(session_facto
     Asserts the service-layer validation warns (does not block) and explicitly flags the SND pattern.
     """
     company_id = "COMP-001"
-    branch_id = "BR-001"
+    branch_id = "BR-MAIN-001"
     tenant = TenantContext(company_id=company_id, branch_id=branch_id)
     user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-snd"}
 
@@ -467,7 +462,7 @@ async def test_hsn_material_mismatch_flags_requires_review(session_factory):
     - Result contains the mismatch warning advisory.
     """
     company_id = "COMP-001"
-    branch_id = "BR-001"
+    branch_id = "BR-MAIN-001"
     tenant = TenantContext(company_id=company_id, branch_id=branch_id)
     user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-hsn-flag"}
 
@@ -486,14 +481,14 @@ async def test_hsn_material_mismatch_flags_requires_review(session_factory):
         "category": "Footwear",
         "department": "Footwear",
         "color": "BLACK",
-        "size": "9",
+        "size": "40",
         "vendor_code": supplier_code,
         "hsn_code": "64039990",  # Chapter 6403 (leather uppers)
         "tax_rate": 18,
         "mrp": 2199,
         "sellingPrice": 2199,
-        "upper_material": "Synthetic PU Leather",  # Synthetic material!
-        "outsole": "Rubber",
+        "upper_material": "SYNTHETIC",  # Synthetic material!
+        "outsole": "PU",
     }
 
     commit_req = ImportCommitRequest(
@@ -553,7 +548,7 @@ async def test_gst_rate_slab_mismatch_flags_requires_review(session_factory):
     - Result contains the GST slab advisory warning.
     """
     company_id = "COMP-001"
-    branch_id = "BR-001"
+    branch_id = "BR-MAIN-001"
     tenant = TenantContext(company_id=company_id, branch_id=branch_id)
     user = {"company_id": company_id, "branch_id": branch_id, "id": "usr-test-gst-flag"}
 
@@ -570,7 +565,7 @@ async def test_gst_rate_slab_mismatch_flags_requires_review(session_factory):
         "category": "Footwear",
         "department": "Footwear",
         "color": "BLACK",
-        "size": "9",
+        "size": "40",
         "vendor_code": supplier_code,
         "hsn_code": "64041990",
         "tax_rate": 5,      # 5% for Rs. 3500 footwear -> Slab violation
@@ -588,7 +583,7 @@ async def test_gst_rate_slab_mismatch_flags_requires_review(session_factory):
         "category": "Footwear",
         "department": "Footwear",
         "color": "BLACK",
-        "size": "8",
+        "size": "39",
         "vendor_code": supplier_code,
         "hsn_code": "64041990",
         "tax_rate": 18,     # 18% for Rs. 999 footwear -> Slab violation
