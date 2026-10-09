@@ -72,6 +72,12 @@ export interface Product {
   galleryImages?: string[]; // SPIF Gallery Images URLs list
   buyingPrice?: number; // Dealer / buying price (mapped from buying_price)
   isActive?: boolean; // Product active status (mapped from is_active)
+  createdAt?: string; // ISO date string of product creation
+  created_at?: string;
+  modifiedAt?: string;
+  modified_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
 }
 
 export interface AttributeDefinition {

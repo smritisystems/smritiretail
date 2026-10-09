@@ -40,6 +40,7 @@ import { ReplaceDataDlg } from "./ReplaceDataDlg.tsx";
 import { VariantTplSec } from "../VariantTemplateSec.tsx";
 import { hydrateRoleGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 import { BulkImportSection } from "../BulkImportSection.tsx";
+import { ImportBatchRecord, ImportBatchManager } from "../../services/importBatchManager.ts";
 
 interface SmritiItemMasterWorkspaceProps {
   products?: Product[];
@@ -66,6 +67,9 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
     }
     return "catalog";
   });
+  const [activeImportBatch, setActiveImportBatch] = useState<ImportBatchRecord | null>(() => {
+    return ImportBatchManager.getLatestBatch();
+  });
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showCodeSelectDlg, setShowCodeSelectDlg] = useState(false);
@@ -82,6 +86,16 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
       // storage unavailable
     }
     handleNotify("Adaptive Mode", `Switched to ${mode} mode.`, "info");
+  };
+
+  const handleImportCompleted = (batch: ImportBatchRecord) => {
+    setActiveImportBatch(batch);
+    setActiveNav("catalog");
+    handleNotify(
+      "Smart Import Complete",
+      `Showing ${batch.savedCount} newly imported items in Catalog.`,
+      "success"
+    );
   };
 
   const [viewConfig, setItemViewConfig] = useState<ItemViewConfigState>({
@@ -392,6 +406,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               onAddNew={() => setIsAddDrawerOpen(true)}
               mode={adaptiveMode}
               onSelectMode={handleSelectAdaptiveMode}
+              activeImportBatch={activeImportBatch}
             />
           )}
 
@@ -425,6 +440,7 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               onNotification={handleNotify}
               currentUser={currentUser}
               onCancel={() => setActiveNav("catalog")}
+              onImportCompleted={handleImportCompleted}
             />
           )}
 

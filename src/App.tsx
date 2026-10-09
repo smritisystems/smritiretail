@@ -406,6 +406,10 @@ const AppContent: React.FC = () => {
             // ── Issue 4 fix: map buying_price and is_active ──
             buyingPrice: p.buying_price ? parseFloat(p.buying_price) : undefined,
             isActive: p.is_active !== false,
+            createdAt: p.created_at || undefined,
+            created_at: p.created_at || undefined,
+            modifiedAt: p.modified_at || undefined,
+            modified_at: p.modified_at || undefined,
           };
         });
 

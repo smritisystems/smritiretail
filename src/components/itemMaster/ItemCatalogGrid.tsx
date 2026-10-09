@@ -12,7 +12,7 @@
  * Classification: Internal
  */
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Search,
   Plus,
@@ -28,12 +28,24 @@ import {
   Download,
   X,
   Eye,
+  Calendar,
+  Sparkles,
+  History,
+  ChevronDown,
+  RotateCcw,
+  Tag,
+  Clock,
 } from "lucide-react";
 import { Product } from "../../types.ts";
 import { AddProductDrawer } from "./AddProductDrawer.tsx";
 import { VariantEditModal } from "./modals/VariantEditModal.tsx";
+import { BatchBarcodePrintModal } from "./modals/BatchBarcodePrintModal.tsx";
+import { ImportBatchManager, ImportBatchRecord } from "../../services/importBatchManager.ts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+export type QuickFilterType = "ALL" | "FOOTWEAR" | "JUST_IMPORTED" | "NO_BARCODE" | "NO_PRICE" | "INACTIVE";
+export type DateFilterType = "ALL" | "TODAY" | "YESTERDAY" | "LAST_7_DAYS" | "LAST_30_DAYS" | "THIS_MONTH" | "CUSTOM";
 
 interface SmritiItemCatalogGridProps {
   products: Product[];
@@ -45,6 +57,8 @@ interface SmritiItemCatalogGridProps {
   onAddNew?: () => void;
   mode?: "SIMPLE" | "HYBRID" | "ADVANCED";
   onSelectMode?: (mode: "SIMPLE" | "HYBRID" | "ADVANCED") => void;
+  activeImportBatch?: ImportBatchRecord | null;
+  initialQuickFilter?: QuickFilterType;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -60,8 +74,62 @@ function formatINR(val: number | undefined | null): string {
   return Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatDateTime(val?: string | Date): string {
+  if (!val) return "—";
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function matchBatchFilter(p: Product, batch: ImportBatchRecord | null): boolean {
+  if (!batch) return true;
+  const itemCodes = new Set((batch.itemCodes || []).map(c => c.toLowerCase()));
+  const barcodes = new Set((batch.barcodes || []).map(b => b.toLowerCase()));
+
+  if (p.code && itemCodes.has(p.code.toLowerCase())) return true;
+  if (p.sku && itemCodes.has(p.sku.toLowerCase())) return true;
+  if (p.barcode && barcodes.has(p.barcode.toLowerCase())) return true;
+  if (Array.isArray(p.secondaryBarcodes) && p.secondaryBarcodes.some(b => barcodes.has(b.toLowerCase()))) return true;
+
+  // Proximity fallback (if batch created recently)
+  if (batch.timestamp && (p.createdAt || p.created_at)) {
+    const bt = new Date(batch.timestamp).getTime();
+    const it = new Date(p.createdAt || p.created_at || "").getTime();
+    if (!isNaN(bt) && !isNaN(it) && Math.abs(bt - it) <= 15 * 60 * 1000) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 const renderMutedDash = () => (
   <span className="text-slate-300 dark:text-slate-600 font-mono text-[11px] select-none">—</span>
+);
+
+const FilterChip: React.FC<{ label: string; onClear: () => void }> = ({ label, onClear }) => (
+  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 animate-in fade-in duration-100">
+    <span>{label}</span>
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClear(); }}
+      className="w-3.5 h-3.5 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-300 transition cursor-pointer"
+      title="Remove filter"
+    >
+      <X size={10} />
+    </button>
+  </span>
 );
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -76,9 +144,22 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   onAddNew,
   mode = "HYBRID",
   onSelectMode,
+  activeImportBatch,
+  initialQuickFilter,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [quickFilter, setQuickFilter] = useState<"ALL" | "FOOTWEAR" | "NO_BARCODE" | "NO_PRICE" | "INACTIVE">("ALL");
+  const [quickFilter, setQuickFilter] = useState<QuickFilterType>(() => {
+    if (initialQuickFilter) return initialQuickFilter;
+    if (activeImportBatch) return "JUST_IMPORTED";
+    return "ALL";
+  });
+  const [dateFilter, setDateFilter] = useState<DateFilterType>("ALL");
+  const [dateFilterField, setDateFilterField] = useState<"created" | "modified">("created");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(() => activeImportBatch?.batchId || null);
+  const [isBatchHistoryOpen, setIsBatchHistoryOpen] = useState(false);
+
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterBrand, setFilterBrand] = useState("All");
   const [filterGender, setFilterGender] = useState("All");
@@ -96,22 +177,75 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
 
+  // Barcode Label Print Queue Modal
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printModalProducts, setPrintModalProducts] = useState<Product[]>([]);
+  const [printModalTitle, setPrintModalTitle] = useState("Batch Barcodes");
+
+  // React to new active import batch coming from parent
+  useEffect(() => {
+    if (activeImportBatch) {
+      setSelectedBatchId(activeImportBatch.batchId);
+      setQuickFilter("JUST_IMPORTED");
+    }
+  }, [activeImportBatch]);
+
   // Reset page when filters change
   useEffect(() => { 
     setPageIndex(0); 
-  }, [searchQuery, quickFilter, filterCategory, filterBrand, filterGender, filterProductType, filterStatus]);
+  }, [searchQuery, quickFilter, dateFilter, customStartDate, customEndDate, selectedBatchId, filterCategory, filterBrand, filterGender, filterProductType, filterStatus]);
+
+  // Recent import batches from storage
+  const recentBatches = useMemo(() => ImportBatchManager.getRecentBatches(), [activeImportBatch, isBatchHistoryOpen]);
+  const currentBatch = useMemo(() => {
+    if (selectedBatchId) return ImportBatchManager.getBatchById(selectedBatchId);
+    return activeImportBatch || ImportBatchManager.getLatestBatch();
+  }, [selectedBatchId, activeImportBatch]);
 
   // Quick preset counts
   const footwearCount = useMemo(() => products.filter(p => (p.category || "").toLowerCase() === "footwear").length, [products]);
   const missingBarcodeCount = useMemo(() => products.filter(p => !p.barcode || p.barcode.trim() === "").length, [products]);
   const noPriceCount = useMemo(() => products.filter(p => p.mrp == null && p.price == null).length, [products]);
   const inactiveCount = useMemo(() => products.filter(p => p.isActive === false || (p as any).is_active === false).length, [products]);
+  const justImportedCount = useMemo(() => {
+    if (!currentBatch) return 0;
+    return products.filter(p => matchBatchFilter(p, currentBatch)).length;
+  }, [products, currentBatch]);
 
   // Unique filter values
   const categories = useMemo(() => [...new Set(products.map(p => p.category).filter(Boolean))], [products]);
   const brands = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))], [products]);
   const genders = useMemo(() => [...new Set(products.map(p => getAttr(p, "gender")).filter(Boolean))], [products]);
   const productTypes = useMemo(() => [...new Set(products.map(p => getAttr(p, "product_type")).filter(Boolean))], [products]);
+
+  // Active filters check
+  const hasActiveFilters = useMemo(() => {
+    return (
+      quickFilter !== "ALL" ||
+      dateFilter !== "ALL" ||
+      filterCategory !== "All" ||
+      filterBrand !== "All" ||
+      filterGender !== "All" ||
+      filterProductType !== "All" ||
+      filterStatus !== "All" ||
+      searchQuery.trim() !== "" ||
+      selectedBatchId !== null
+    );
+  }, [quickFilter, dateFilter, filterCategory, filterBrand, filterGender, filterProductType, filterStatus, searchQuery, selectedBatchId]);
+
+  const handleClearAllFilters = () => {
+    setQuickFilter("ALL");
+    setDateFilter("ALL");
+    setCustomStartDate("");
+    setCustomEndDate("");
+    setSelectedBatchId(null);
+    setFilterCategory("All");
+    setFilterBrand("All");
+    setFilterGender("All");
+    setFilterProductType("All");
+    setFilterStatus("All");
+    setSearchQuery("");
+  };
 
   // Filtered products
   const filtered = useMemo(() => {
@@ -122,7 +256,59 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
       if (quickFilter === "NO_PRICE" && (p.mrp != null || p.price != null)) return false;
       if (quickFilter === "INACTIVE" && (p.isActive !== false && (p as any).is_active !== false)) return false;
 
-      // 2. Structured dropdown filters
+      // 1b. Just Imported Batch filter
+      if (quickFilter === "JUST_IMPORTED" || selectedBatchId) {
+        const batchToMatch = selectedBatchId ? ImportBatchManager.getBatchById(selectedBatchId) : currentBatch;
+        if (batchToMatch && !matchBatchFilter(p, batchToMatch)) {
+          return false;
+        }
+      }
+
+      // 2. Date Filtering
+      if (dateFilter !== "ALL") {
+        const dateStr = dateFilterField === "modified"
+          ? (p.modifiedAt || p.modified_at || p.updatedAt || p.updated_at || p.createdAt || p.created_at)
+          : (p.createdAt || p.created_at);
+
+        if (!dateStr) return false;
+        const itemDate = new Date(dateStr);
+        if (isNaN(itemDate.getTime())) return false;
+
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const itemDayStart = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+
+        if (dateFilter === "TODAY") {
+          if (itemDayStart.getTime() !== todayStart.getTime()) return false;
+        } else if (dateFilter === "YESTERDAY") {
+          const yesterdayStart = new Date(todayStart);
+          yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+          if (itemDayStart.getTime() !== yesterdayStart.getTime()) return false;
+        } else if (dateFilter === "LAST_7_DAYS") {
+          const sevenDaysAgo = new Date(todayStart);
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+          if (itemDayStart.getTime() < sevenDaysAgo.getTime() || itemDayStart.getTime() > todayStart.getTime()) return false;
+        } else if (dateFilter === "LAST_30_DAYS") {
+          const thirtyDaysAgo = new Date(todayStart);
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+          if (itemDayStart.getTime() < thirtyDaysAgo.getTime() || itemDayStart.getTime() > todayStart.getTime()) return false;
+        } else if (dateFilter === "THIS_MONTH") {
+          if (itemDate.getFullYear() !== now.getFullYear() || itemDate.getMonth() !== now.getMonth()) return false;
+        } else if (dateFilter === "CUSTOM") {
+          if (customStartDate) {
+            const start = new Date(customStartDate);
+            start.setHours(0, 0, 0, 0);
+            if (itemDate < start) return false;
+          }
+          if (customEndDate) {
+            const end = new Date(customEndDate);
+            end.setHours(23, 59, 59, 999);
+            if (itemDate > end) return false;
+          }
+        }
+      }
+
+      // 3. Structured dropdown filters
       if (filterCategory !== "All" && p.category !== filterCategory) return false;
       if (filterBrand !== "All" && p.brand !== filterBrand) return false;
       if (filterGender !== "All" && getAttr(p, "gender") !== filterGender) return false;
@@ -133,7 +319,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
         if (filterStatus === "Inactive" && active) return false;
       }
 
-      // 3. Search query
+      // 4. Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return (
@@ -146,7 +332,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
       }
       return true;
     });
-  }, [products, quickFilter, filterCategory, filterBrand, filterGender, filterProductType, filterStatus, searchQuery]);
+  }, [products, quickFilter, selectedBatchId, currentBatch, dateFilter, dateFilterField, customStartDate, customEndDate, filterCategory, filterBrand, filterGender, filterProductType, filterStatus, searchQuery]);
 
   // Pagination
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
@@ -234,8 +420,11 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   };
 
   const handleBulkPrintBarcodes = () => {
-    const count = selectedIds.size;
-    onNotification?.("Barcode Printing", `Queued barcode labels for ${count} selected products to thermal printer spool.`, "info");
+    const selectedProds = products.filter(p => selectedIds.has(p.id || p.code));
+    if (selectedProds.length === 0) return;
+    setPrintModalProducts(selectedProds);
+    setPrintModalTitle(`Selected ${selectedProds.length} Products`);
+    setIsPrintModalOpen(true);
   };
 
   const handleRefresh = async () => {
@@ -370,6 +559,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mr-1">Quick:</span>
         {[
           { id: "ALL", label: `All`, count: products.length },
+          ...(currentBatch ? [{ id: "JUST_IMPORTED", label: `✨ Just Imported`, count: justImportedCount, alert: false, isSpecial: true }] : []),
           { id: "FOOTWEAR", label: `👟 Footwear`, count: footwearCount },
           { id: "NO_BARCODE", label: `⚠️ Missing Barcode`, count: missingBarcodeCount, alert: missingBarcodeCount > 0 },
           { id: "NO_PRICE", label: `🏷️ Unset Price`, count: noPriceCount, alert: noPriceCount > 0 },
@@ -381,7 +571,11 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
             onClick={() => setQuickFilter(pill.id as any)}
             className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition flex items-center gap-1.5 cursor-pointer ${
               quickFilter === pill.id
-                ? "bg-blue-600 text-white shadow-xs"
+                ? pill.id === "JUST_IMPORTED"
+                  ? "bg-indigo-600 text-white shadow-xs font-bold"
+                  : "bg-blue-600 text-white shadow-xs"
+                : (pill as any).isSpecial
+                ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100"
                 : pill.alert
                 ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100"
                 : "bg-white dark:bg-[#2d3133] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50"
@@ -397,17 +591,118 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
         ))}
       </div>
 
+      {/* ── Just Imported Isolation Banner ─────────────────────────────────── */}
+      {quickFilter === "JUST_IMPORTED" && currentBatch && (
+        <div className="mx-5 mb-2.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-800 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in duration-150 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+              <Sparkles size={16} />
+            </div>
+            <div>
+              <div className="font-bold text-blue-950 dark:text-blue-100 flex items-center gap-2">
+                <span>Active Import Batch: {currentBatch.summary}</span>
+                <span className="px-2 py-0.2 rounded-full bg-blue-600 text-white font-mono text-[10px]">
+                  {filtered.length} Items
+                </span>
+              </div>
+              <div className="text-[11px] text-blue-700 dark:text-blue-300">
+                Imported at {formatDateTime(currentBatch.timestamp)} • Filter is isolating only items from this session.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPrintModalProducts(filtered);
+                setPrintModalTitle(currentBatch.summary);
+                setIsPrintModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition shadow-xs cursor-pointer"
+            >
+              <Printer size={13} />
+              <span>Print Barcode Labels</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-800 dark:text-blue-200 font-semibold transition cursor-pointer"
+            >
+              <Download size={13} />
+              <span>Export Batch CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickFilter("ALL");
+                setSelectedBatchId(null);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition cursor-pointer"
+              title="Clear batch filter and show all products"
+            >
+              <X size={13} />
+              <span>Show All</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Active Filter Chips Summary Bar ───────────────────────────────── */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-1.5 px-5 pb-2">
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mr-1">Active:</span>
+          {quickFilter !== "ALL" && (
+            <FilterChip
+              label={`Preset: ${quickFilter === "JUST_IMPORTED" ? "Just Imported" : quickFilter.replace("_", " ")}`}
+              onClear={() => { setQuickFilter("ALL"); setSelectedBatchId(null); }}
+            />
+          )}
+          {dateFilter !== "ALL" && (
+            <FilterChip
+              label={`Date: ${dateFilter.replace(/_/g, " ")}${dateFilter === "CUSTOM" && (customStartDate || customEndDate) ? ` (${customStartDate || "Start"} to ${customEndDate || "End"})` : ""}`}
+              onClear={() => { setDateFilter("ALL"); setCustomStartDate(""); setCustomEndDate(""); }}
+            />
+          )}
+          {filterCategory !== "All" && (
+            <FilterChip label={`Category: ${filterCategory}`} onClear={() => setFilterCategory("All")} />
+          )}
+          {filterBrand !== "All" && (
+            <FilterChip label={`Brand: ${filterBrand}`} onClear={() => setFilterBrand("All")} />
+          )}
+          {filterGender !== "All" && (
+            <FilterChip label={`Gender: ${filterGender}`} onClear={() => setFilterGender("All")} />
+          )}
+          {filterProductType !== "All" && (
+            <FilterChip label={`Type: ${filterProductType}`} onClear={() => setFilterProductType("All")} />
+          )}
+          {filterStatus !== "All" && (
+            <FilterChip label={`Status: ${filterStatus}`} onClear={() => setFilterStatus("All")} />
+          )}
+          {searchQuery.trim() && (
+            <FilterChip label={`Search: "${searchQuery}"`} onClear={() => setSearchQuery("")} />
+          )}
+          <button
+            type="button"
+            onClick={handleClearAllFilters}
+            className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline px-2 py-0.5 ml-1 flex items-center gap-1 cursor-pointer"
+          >
+            <RotateCcw size={11} />
+            <span>Clear All</span>
+          </button>
+        </div>
+      )}
+
       {/* ── Search & Filter Bar ─────────────────────────────────────────── */}
       <div className="shrink-0 px-5 pb-2.5">
         <div className="flex flex-wrap gap-2 items-center">
           {/* Search */}
-          <div className="relative flex-1 min-w-[240px]">
+          <div className="relative flex-1 min-w-[220px]">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by SKU, product name, brand, article, design, model, size, color, HSN..."
+              placeholder="Search SKU, name, brand, article, model, size, color, HSN..."
               className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#2d3133] border border-[#e2e8f0] dark:border-[#45464d] rounded-lg text-xs text-[#0f172a] dark:text-[#e2e8f0] outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition placeholder:text-[#94a3b8]"
             />
           </div>
@@ -415,6 +710,114 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
           {/* Primary Filters: Category, Brand */}
           <FilterSelect label="Category" value={filterCategory} onChange={setFilterCategory} options={["All", ...categories as string[]]} />
           <FilterSelect label="Brand" value={filterBrand} onChange={setFilterBrand} options={["All", ...brands as string[]]} />
+
+          {/* Date Range Selector */}
+          <div className="relative">
+            <div className="flex items-center gap-1.5 bg-white dark:bg-[#2d3133] border border-[#e2e8f0] dark:border-[#45464d] rounded-lg px-2.5 py-1.5 text-xs text-[#0f172a] dark:text-[#e2e8f0]">
+              <Calendar size={13} className="text-[#94a3b8]" />
+              <span className="text-[10px] text-slate-400 uppercase font-bold">Date:</span>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value as any)}
+                className="bg-transparent outline-none font-semibold text-xs cursor-pointer text-slate-700 dark:text-slate-200"
+              >
+                <option value="ALL">All Time</option>
+                <option value="TODAY">Today</option>
+                <option value="YESTERDAY">Yesterday</option>
+                <option value="LAST_7_DAYS">Last 7 Days</option>
+                <option value="LAST_30_DAYS">Last 30 Days</option>
+                <option value="THIS_MONTH">This Month</option>
+                <option value="CUSTOM">Custom Range...</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Custom Date Pickers (visible if CUSTOM selected) */}
+          {dateFilter === "CUSTOM" && (
+            <div className="flex items-center gap-1.5 bg-white dark:bg-[#2d3133] border border-blue-400 dark:border-blue-600 rounded-lg px-2 py-1 text-xs">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="bg-transparent outline-none text-xs font-mono text-slate-700 dark:text-slate-200"
+                placeholder="Start Date"
+              />
+              <span className="text-slate-400 text-xs">to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="bg-transparent outline-none text-xs font-mono text-slate-700 dark:text-slate-200"
+                placeholder="End Date"
+              />
+            </div>
+          )}
+
+          {/* Import Batches History Dropdown */}
+          {recentBatches.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsBatchHistoryOpen(!isBatchHistoryOpen)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+                  selectedBatchId || quickFilter === "JUST_IMPORTED"
+                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
+                    : "border-[#e2e8f0] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9]"
+                }`}
+                title="Filter Catalog by recent import batch sessions"
+              >
+                <History size={13} />
+                <span>Import Batches ({recentBatches.length})</span>
+                <ChevronDown size={12} />
+              </button>
+
+              {isBatchHistoryOpen && (
+                <div className="absolute right-0 mt-1 w-72 bg-white dark:bg-[#1e222b] rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-30 animate-in fade-in duration-100">
+                  <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span>Recent Import Sessions</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        ImportBatchManager.clearAllBatches();
+                        setSelectedBatchId(null);
+                        setQuickFilter("ALL");
+                        setIsBatchHistoryOpen(false);
+                      }}
+                      className="text-[10px] text-rose-500 hover:underline normal-case font-normal cursor-pointer"
+                    >
+                      Clear History
+                    </button>
+                  </div>
+                  <div className="max-h-60 overflow-auto divide-y divide-slate-100 dark:divide-slate-800">
+                    {recentBatches.map((b) => (
+                      <button
+                        key={b.batchId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBatchId(b.batchId);
+                          setQuickFilter("JUST_IMPORTED");
+                          setIsBatchHistoryOpen(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex flex-col gap-0.5 transition ${
+                          selectedBatchId === b.batchId ? "bg-blue-50/70 dark:bg-blue-900/20" : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-semibold text-slate-900 dark:text-white">
+                          <span className="truncate max-w-[170px]">{b.summary}</span>
+                          <span className="px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-mono text-[10px]">
+                            {b.savedCount} items
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {formatDateTime(b.timestamp)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Secondary Filters (Responsive / Toggleable) */}
           <div className={`${showMoreFilters ? "flex" : "hidden md:flex"} flex-wrap gap-2 items-center`}>
@@ -492,6 +895,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                   </>
                 )}
 
+                <Th className="text-center whitespace-nowrap">Date Added</Th>
                 <Th className="text-center">Status</Th>
                 <Th className="text-center w-14">Actions</Th>
               </tr>
@@ -653,6 +1057,11 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                         </>
                       )}
 
+                      {/* Date Added */}
+                      <Td className="text-center font-mono text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        {formatDateTime(p.createdAt || p.created_at)}
+                      </Td>
+
                       {/* Status */}
                       <Td className="text-center">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
@@ -807,6 +1216,15 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
         onClose={() => { setIsEditModalOpen(false); setSelectedVariantForEdit(null); }}
         product={selectedVariantForEdit}
         onUpdated={() => { void onRefreshProducts?.(); }}
+        onNotification={onNotification}
+      />
+
+      {/* ── Batch Barcode Label Print Modal ───────────────────────────────── */}
+      <BatchBarcodePrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        products={printModalProducts}
+        batchTitle={printModalTitle}
         onNotification={onNotification}
       />
     </div>
