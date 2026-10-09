@@ -28,6 +28,23 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.50] - 2026-10-09 — SMRITI Smart Import 504 Footwear Ingestion & Catalog Pagination Scaling
+
+> **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Inventory API, Pagination Scaling
+> **Walkthrough:** `docs/walkthrough/catalog/Catalog_Smart_Import_Pagination_And_Footwear_Ingestion_v6.70.50.md`
+> **Plan:** `docs/implementation/catalog/Catalog_Smart_Import_Pagination_And_Footwear_Ingestion_Plan_v6.70.50.md`
+
+### Added & Scaled (Smart Import 504 Footwear Dataset & Pagination Engine)
+- **Inventory Pagination Limit Scaling (`backend/app/api/v1/inventory.py`)**:
+  - Expanded `page_size` query parameter upper limit from `le=500` to `le=5000`, enabling single-request retrieval of high-density retail catalogs with up to 5,000 active variants.
+- **Frontend Catalog Memory Hydration Scaling (`src/App.tsx`, `PoGenerateTab.tsx`, `PoSizewiseTab.tsx`)**:
+  - Upgraded initial catalog load queries from `page_size=200` to `page_size=5000`.
+  - Resolved UI pagination truncation where only 200 of 504 articles were rendered in `Article / Design Master` views.
+- **Complete Footwear Ingestion & Database Audit**:
+  - Committed 504 footwear variants across 36 distinct styles (`CH-01-A` through `CH-25-G`, `SND-01-C` through `SND-11-J`, and `SH-02-I`, `SH-03-I`) with zero blocking errors.
+  - Verified 100% database parity in PostgreSQL `smriti001` across `items` (36), `item_variants` (504), `item_barcodes` (504), and `products` (505).
+  - All 175 Vitest suites (1,361 tests) green; 0 TypeScript compiler errors.
+
 ## [6.70.49] - 2026-10-09 — SMRITI Smart Import Header Disambiguation & Style-SKU Parity (Item Master Catalog)
 
 > **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Header Mapping Engine, Style-SKU Parity
