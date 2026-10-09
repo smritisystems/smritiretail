@@ -4,12 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.121.6
+ * Version      : 6.70.46
  * Created      : 2026-08-28
- * Modified     : 2026-10-08
+ * Modified     : 2026-10-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v6.70.46 (2026-10-09):
+ *   - Enforced defensive Array.isArray guards across personnel, attendance, incentives,
+ *     leaveBalances, and leaveRequests to guarantee immunity against C.find is not a function.
  *
  * Changelog v3.121.6 (2026-10-08):
  *   - Added 1-click Leave Decision actions ([✓ Approve] / [✕ Reject]) for pending leave requests.
@@ -306,8 +310,13 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
       if (!cancelled) {
         setCommSummary(comm);
         setAttSummary(att);
-        if (lvBal?.balances) setLeaveBalances(lvBal.balances);
-        if (lvReq?.requests) setLeaveRequests(lvReq.requests);
+        if (Array.isArray(lvBal?.balances)) setLeaveBalances(lvBal.balances);
+        else if (Array.isArray(lvBal)) setLeaveBalances(lvBal);
+        else setLeaveBalances([]);
+
+        if (Array.isArray(lvReq?.requests)) setLeaveRequests(lvReq.requests);
+        else if (Array.isArray(lvReq)) setLeaveRequests(lvReq);
+        else setLeaveRequests([]);
         if (comm?.unsettled_commission != null) {
           setSettleAmount(String(comm.unsettled_commission));
         }
@@ -451,16 +460,22 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
     }
   }, [selectedUserId, load, onNotification]);
 
-  const profile    = personnel.find((p) => p.user_id === selectedUserId);
-  const empAtt     = attendance.filter((r) => r.user_id === selectedUserId);
-  const incentive  = incentives.find((i) => i.user_id === selectedUserId);
+  const safePersonnel     = Array.isArray(personnel) ? personnel : [];
+  const safeAttendance    = Array.isArray(attendance) ? attendance : [];
+  const safeIncentives    = Array.isArray(incentives) ? incentives : [];
+  const safeLeaveBalances = Array.isArray(leaveBalances) ? leaveBalances : [];
+  const safeLeaveRequests = Array.isArray(leaveRequests) ? leaveRequests : [];
+
+  const profile    = safePersonnel.find((p) => p.user_id === selectedUserId);
+  const empAtt     = safeAttendance.filter((r) => r.user_id === selectedUserId);
+  const incentive  = safeIncentives.find((i) => i.user_id === selectedUserId);
 
   // Aggregate summary across all personnel
-  const totalNetPayout   = incentives.reduce((s, i) => s + (i.net_payout ?? 0), 0);
-  const totalCommission  = incentives.reduce((s, i) => s + (i.commission_amt ?? 0), 0);
-  const totalBonus       = incentives.reduce((s, i) => s + (i.target_bonus_amt ?? 0), 0);
-  const avgAttendancePct = personnel.length
-    ? Math.round(incentives.reduce((s, i) => s + ((i.present_days ?? 0) / Math.max(i.working_days ?? 26, 1)) * 100, 0) / personnel.length)
+  const totalNetPayout   = safeIncentives.reduce((s, i) => s + (i.net_payout ?? 0), 0);
+  const totalCommission  = safeIncentives.reduce((s, i) => s + (i.commission_amt ?? 0), 0);
+  const totalBonus       = safeIncentives.reduce((s, i) => s + (i.target_bonus_amt ?? 0), 0);
+  const avgAttendancePct = safePersonnel.length
+    ? Math.round(safeIncentives.reduce((s, i) => s + ((i.present_days ?? 0) / Math.max(i.working_days ?? 26, 1)) * 100, 0) / safePersonnel.length)
     : 0;
 
   if (!isOpen) return null;
@@ -520,8 +535,8 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         <div className="flex flex-1 overflow-hidden">
           {/* Employee sidebar */}
           <div className="w-52 border-r border-slate-800 overflow-y-auto bg-slate-950/30 p-3 space-y-2">
-            {personnel.map((p) => {
-              const inc = incentives.find((i) => i.user_id === p.user_id);
+            {safePersonnel.map((p) => {
+              const inc = safeIncentives.find((i) => i.user_id === p.user_id);
               return (
                 <button key={p.user_id} onClick={() => { setSelectedUserId(p.user_id); setActiveTab("ATTENDANCE"); }}
                   className={`w-full text-left p-3 rounded-xl border transition-all ${selectedUserId === p.user_id ? "bg-violet-950/20 border-violet-500/40" : "border-transparent hover:bg-slate-800/60"}`}>
@@ -869,7 +884,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                         { type: "SL", label: "Sick Leave (SL)", color: "from-emerald-600/20 to-teal-600/10 border-emerald-500/30 text-emerald-400" },
                         { type: "EL", label: "Earned Leave (EL)", color: "from-violet-600/20 to-purple-600/10 border-violet-500/30 text-violet-400" },
                       ].map((card) => {
-                        const bal = leaveBalances.find((b) => b.leave_type === card.type);
+                        const bal = safeLeaveBalances.find((b) => b.leave_type === card.type);
                         const entitled = bal?.entitled_days ?? (card.type === "EL" ? 15 : 12);
                         const used = bal?.used_days ?? 0;
                         const available = Math.max(0, entitled - used);
@@ -968,9 +983,9 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                     <div className="bg-slate-950/40 border border-slate-800 rounded-xl overflow-hidden">
                       <div className="px-4 py-2 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Leave History (PostgreSQL System-of-Record)</span>
-                        <span className="text-[10px] text-slate-500">{leaveRequests.length} Record{leaveRequests.length === 1 ? "" : "s"}</span>
+                        <span className="text-[10px] text-slate-500">{safeLeaveRequests.length} Record{safeLeaveRequests.length === 1 ? "" : "s"}</span>
                       </div>
-                      {leaveRequests.length > 0 ? (
+                      {safeLeaveRequests.length > 0 ? (
                         <div className="max-h-60 overflow-y-auto">
                           <table className="w-full text-xs text-left">
                             <thead>
@@ -984,7 +999,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/40 font-mono text-xs">
-                              {leaveRequests.map((req) => (
+                              {safeLeaveRequests.map((req) => (
                                 <tr key={req.id} className="hover:bg-slate-800/30 transition-colors">
                                   <td className="py-2 px-3 text-slate-300 whitespace-nowrap">
                                     {req.start_date} → {req.end_date}

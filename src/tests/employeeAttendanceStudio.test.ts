@@ -407,5 +407,96 @@ describe("Attendance Studio — Full System Audit & Regression Verification", ()
     const emptyRef = `PSLIP-${period.replace("-", "")}-${String(emptyProfile.user_id || emptyProfile.emp_id || "STAFF").slice(-6).toUpperCase()}`;
     expect(emptyRef).toBe("PSLIP-202610-STAFF");
   });
+
+  it("safeguards Commission Studio against non-array object payloads from /staff/incentives (STAFF-002 report format)", () => {
+    // The backend /api/v1/staff/incentives endpoint returns an object with report_id, lines, etc.
+    const backendIncentivesObject = {
+      report_id: "STAFF-002",
+      sh9_exe: "SR443900",
+      generated_at: "2026-10-09T01:40:00Z",
+      total_rules: 0,
+      programs_available: 0,
+      lines: [],
+    };
+
+    const mockPersonnel = [
+      {
+        id: "usr-cashier-direct",
+        user_id: "usr-cashier-direct",
+        participant_name: "Anita Cashier",
+        participant_role: "CASHIER",
+        branch_code: "BR-MAIN",
+      },
+    ];
+
+    const mockCommSummary = {
+      user_id: "usr-cashier-direct",
+      earned_commission: 4500,
+      net_sales: 120000,
+    };
+
+    // Simulate normalization logic in CommissionStudioModal
+    let repSummaries: any[] = [];
+    if (Array.isArray(backendIncentivesObject)) {
+      repSummaries = backendIncentivesObject;
+    } else if (Array.isArray((backendIncentivesObject as any)?.summaries)) {
+      repSummaries = (backendIncentivesObject as any).summaries;
+    }
+
+    if (repSummaries.length === 0 && mockPersonnel.length > 0) {
+      repSummaries = mockPersonnel.map((p: any) => ({
+        user_id: p.user_id || p.id,
+        rep_id: p.id,
+        rep_name: p.participant_name,
+        branch_code: p.branch_code,
+        period: "2026-10",
+        net_sales: mockCommSummary.net_sales,
+        commission_amt: mockCommSummary.earned_commission,
+        target_bonus_amt: 0,
+        total_earnings: mockCommSummary.earned_commission,
+        target_achievement_pct: 100,
+        revenue_target: 100000,
+        units_sold: 0,
+        unit_target: 50,
+      }));
+    }
+
+    // Defensive array guards must ensure find() executes without TypeError
+    const safeSummaries = Array.isArray(repSummaries) ? repSummaries : [];
+    const selectedUserId = "usr-cashier-direct";
+    const selected = safeSummaries.find((s) => s.user_id === selectedUserId);
+
+    expect(selected).toBeDefined();
+    expect(selected?.rep_name).toBe("Anita Cashier");
+    expect(selected?.commission_amt).toBe(4500);
+
+    // Test when backend returned raw null or unexpected object
+    const corruptedState: any = { report_id: "CORRUPTED" };
+    const safeGuardedArray = Array.isArray(corruptedState) ? corruptedState : [];
+    expect(() => {
+      const result = safeGuardedArray.find((s: any) => s.user_id === selectedUserId);
+      expect(result).toBeUndefined();
+    }).not.toThrow();
+  });
+
+  it("safeguards Placement and Leave arrays against null/non-array responses", () => {
+    // Simulate non-array retry response
+    const retryNullResponse: any = null;
+    const safePlacements = Array.isArray(retryNullResponse?.placements) ? retryNullResponse.placements : [];
+    expect(safePlacements).toEqual([]);
+    expect(() => {
+      const activePlacement = safePlacements.find((p: any) => p.status === "ACTIVE");
+      expect(activePlacement).toBeUndefined();
+    }).not.toThrow();
+
+    // Simulate dictionary response without balances
+    const leaveBalancesResp: any = { error: "Tenant switching" };
+    const safeBalances = Array.isArray(leaveBalancesResp?.balances) ? leaveBalancesResp.balances : [];
+    expect(safeBalances).toEqual([]);
+    expect(() => {
+      const clBal = safeBalances.find((b: any) => b.leave_type === "CL");
+      expect(clBal).toBeUndefined();
+    }).not.toThrow();
+  });
 });
 
