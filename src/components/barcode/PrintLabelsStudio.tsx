@@ -404,7 +404,7 @@ export function compilePrnString(items: StudioRow[], template: LabelTemplate, is
 <xpml></page></xpml><xpml><page quantity='1' pitch='50.7 mm'></xpml>^XA
 ^FO346,305
 ^BY2^BCN,66,N,N^FD${barcodeVal}^FS
-^FT390,385
+^FT390,399
 ^CI0
 ^AAN,27,15^FD${barcodeVal}^FS
 ^FT772,357
