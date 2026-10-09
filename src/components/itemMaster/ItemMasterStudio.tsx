@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.61.0
+ * Version      : 6.70.47
  * Created      : 2026-08-21
- * Modified     : 2026-10-03 (v6.61.0 — File upload, drag-and-drop, template download, and headerless row mode)
+ * Modified     : 2026-10-09 (v6.70.47 — Smart Import & Correction Studio, inline cell editing, 7-metric dashboard, conflict drawer, bulk auto-fix, and safe partial commits)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -16,34 +16,50 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { 
   Table, 
   CheckCircle, 
+  AlertCircle,
+  AlertTriangle,
   Filter, 
   Play, 
   RefreshCw,
   Sparkles,
   Layers,
-  Database
+  Database,
+  Undo,
+  Download,
+  Eye,
+  X,
+  Check,
+  ArrowRight,
+  Search,
+  Plus,
+  Trash2,
+  Edit3,
+  ShieldAlert,
+  FileText,
+  RotateCcw,
+  CheckSquare,
+  Square,
+  HelpCircle,
+  ChevronDown,
+  Info
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
-import { validateItemMasterLookupOptions } from "../../services/itemMasterLookupGate.ts";
 import { HeaderMappingEngine } from "../../lib/headerMapping/HeaderMappingEngine.ts";
 import { ColumnMappingResult } from "../../lib/headerMapping/types.ts";
 import { GridInputEngine } from "../../services/gridInput/gridInputEngine.ts";
 import { 
-  getUnifiedItemMasterFields, 
   getGloballyVisibleFields,
   isFieldGloballyVisible,
   getUnifiedHeaderMappingFields, 
-  serializeProductAttributes,
   CORE_STANDARD_ITEM_FIELDS,
   UnifiedItemField
 } from "../../services/unifiedFieldCatalog.ts";
 import { generateSkuCode } from "../../services/skuGenerationEngine.ts";
-import { AttributeDefinition, Product } from "../../types.ts";
-import { ItemMasterFieldDefinition } from "./types.ts";
+import { AttributeDefinition } from "../../types.ts";
 
 interface SmritiItemMasterStudioProps {
   onRefreshProducts?: () => Promise<void>;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string } | null;
   onCancel?: () => void;
 }
@@ -55,6 +71,50 @@ interface ParsedRowData {
   errorMessage?: string;
   isSkipped?: boolean;
 }
+
+type FilterTab = "ALL" | "VALID" | "ERRORS" | "WARNINGS" | "CORRECTED" | "SKIPPED";
+type ImportStrategy = "ALL_ELIGIBLE" | "VALID_ONLY" | "STRICT";
+type MatchMode = "SKIP" | "UPDATE_METADATA_AND_PRICE" | "FAIL_ON_EXISTING";
+
+const FIELD_LABEL: Record<string, string> = {
+  BRAND_NAME: 'Brand Name',
+  brand: 'Brand',
+  COLOR: 'Colour',
+  color: 'Colour',
+  SIZE: 'Size',
+  size: 'Size',
+  GENDER: 'Gender',
+  gender: 'Gender',
+  MERCHANDISE_DEPARTMENT: 'Department',
+  department: 'Department',
+  MERCHANDISE_CATEGORY: 'Category',
+  category: 'Category',
+  PRODUCT_TYPE: 'Product Type',
+  product_type: 'Product Type',
+  HEEL_TYPE: 'Heel Type',
+  heel_type: 'Heel Type',
+  UPPER_MATERIAL: 'Upper Material',
+  upper_material: 'Upper Material',
+  UOM: 'Unit of Measure',
+  uom: 'Unit of Measure',
+  DESIGN_ATTRIBUTE: 'Design / Sub-Category',
+  design_attribute: 'Design / Sub-Category',
+  OUTSOLE_MATERIAL: 'Outsole Material',
+  outsole_material: 'Outsole Material',
+  COLLECTION_TYPE: 'Collection Type',
+  collection_type: 'Collection Type',
+  GST_RATE_PERCENT: 'GST %',
+  tax_rate: 'GST Tax Rate',
+  style_code: 'Style / Article Code',
+  sku: 'Variant SKU',
+  barcode: 'Barcode (EAN-13 / UPC)',
+  mrp: 'Maximum Retail Price (MRP)',
+  selling_price: 'Selling Price',
+  cost_price: 'Cost Price',
+  vendor_code: 'Supplier / Vendor Code',
+  warehouse_code: 'Warehouse Location',
+  hsn: 'HSN Code',
+};
 
 export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   onRefreshProducts,
@@ -68,108 +128,40 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
   const [detectedColumns, setDetectedColumns] = useState<ColumnMappingResult[]>([]);
   const [manualOverrides, setManualOverrides] = useState<Record<number, string>>({});
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [showOnlyErrors, setShowOnlyErrors] = useState<boolean>(false);
-  const [skippedRowIndices, setSkippedRowIndices] = useState<Set<number>>(new Set());
-  const [activeConflictRow, setActiveConflictRow] = useState<number | null>(null);
+  const [activeFilterTab, setActiveFilterTab] = useState<FilterTab>("ALL");
   const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
-  // Backend-driven preview results — validity banner and error counts derived from IM-001 backend
+
+  // Backend preview results & reconciliation report
   const [previewResult, setPreviewResult] = useState<Record<string, any> | null>(null);
+  const [previewReport, setPreviewReport] = useState<any[]>([]);
   const [previewErrors, setPreviewErrors] = useState<string[]>([]);
   const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
-  const [previewReport, setPreviewReport] = useState<any[]>([]); // per-row reconciliation report
   const [approvedValuesMap, setApprovedValuesMap] = useState<Record<string, string[]>>({});
+
+  // Cell-level inline corrections & user state
   const [rowCorrections, setRowCorrections] = useState<Map<number, Record<string, string>>>(new Map());
   const [skippedByUser, setSkippedByUser] = useState<Set<number>>(new Set());
-  const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [activeConflictRow, setActiveConflictRow] = useState<number | null>(null);
+  const [editingCell, setEditingCell] = useState<{ rowNumber: number; fieldKey: string } | null>(null);
 
+  // Import Strategy & Match Mode
+  const [importStrategy, setImportStrategy] = useState<ImportStrategy>("ALL_ELIGIBLE");
+  const [existingMatchMode, setExistingMatchMode] = useState<MatchMode>("SKIP");
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
   const [hasHeaderRow, setHasHeaderRow] = useState<boolean>(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      setRawText(text);
-      setSkippedRowIndices(new Set());
-    } catch (err: any) {
-      onNotification?.("File Read Error", err?.message || "Could not read the selected file.", "error");
-    } finally {
-      e.target.value = "";
-    }
-  };
-
-  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDraggingFile(false);
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      setRawText(text);
-      setSkippedRowIndices(new Set());
-    } catch (err: any) {
-      onNotification?.("File Drop Error", err?.message || "Could not read the dropped file.", "error");
-    }
-  };
-
-  const handleDownloadTemplate = () => {
-    const headers = [
-      "StyleCode",
-      "ProductName",
-      "Brand",
-      "Gender",
-      "ProductType",
-      "HeelType",
-      "UpperMaterial",
-      "Color",
-      "Size",
-      "Barcode",
-      "MRP",
-      "CostPrice",
-      "SellingPrice",
-      "GST_Rate",
-      "HSN"
-    ];
-    const sampleRow = [
-      "ART-1001",
-      "Classic Leather Derby",
-      "Apex",
-      "Men",
-      "Formal Shoes",
-      "Low Heel",
-      "Genuine Leather",
-      "Black",
-      "42",
-      "8901234567890",
-      "2999",
-      "1200",
-      "2499",
-      "18",
-      "6403"
-    ];
-    const tsvContent = `${headers.join("\t")}\n${sampleRow.join("\t")}\n`;
-    const blob = new Blob([tsvContent], { type: "text/tab-separated-values;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "Item_Master_Import_Template.tsv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  // Listen to global visibility changes
+  // ── 1. Listen to global visibility changes ────────────────────────────────
   useEffect(() => {
     const handleVisChange = () => setVisibilityVersion(v => v + 1);
     window.addEventListener("smriti_field_visibility_updated", handleVisChange);
     return () => window.removeEventListener("smriti_field_visibility_updated", handleVisChange);
   }, []);
 
-  // ── 1. Load Canonical Backend Attribute Definitions ───────────────────────
+  // ── 2. Load Canonical Backend Attribute Definitions ───────────────────────
   useEffect(() => {
     let isMounted = true;
     const fetchMetadata = async () => {
@@ -190,7 +182,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     return () => { isMounted = false; };
   }, []);
 
-  // ── 2. Construct Canonical Unified Field Catalog & Mapping Engine (Globally Synced) ─────────
+  // ── 3. Construct Canonical Unified Field Catalog & Mapping Engine ─────────
   const unifiedItemFields = useMemo<UnifiedItemField[]>(() => {
     return getGloballyVisibleFields(dynamicDefinitions);
   }, [dynamicDefinitions, visibilityVersion]);
@@ -204,7 +196,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     return new HeaderMappingEngine(unifiedHeaderFields);
   }, [dynamicDefinitions, visibilityVersion]);
 
-  // ── 3. Parse Raw Matrix from Textarea via SMRITI GridInputEngine ──────────
+  // ── 4. Parse Raw Matrix from Textarea via SMRITI GridInputEngine ──────────
   const matrix = useMemo(() => {
     if (!rawText.trim()) return [];
     const parseResult = GridInputEngine.parseDelimitedText(rawText);
@@ -221,14 +213,13 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     }
   }, [matrix, mappingEngine]);
 
-  // ── 4. Detect Header Row & Extract Columns ────────────────────────────────
+  // ── 5. Detect Header Row & Extract Columns ────────────────────────────────
   const headerDetection = useMemo(() => {
     if (matrix.length === 0) {
       return { headerRowIndex: 0, headers: [] as string[], dataRows: [] as string[][] };
     }
 
     if (!hasHeaderRow) {
-      // Headerless mode: all rows are data rows, generate synthetic column labels
       const maxCols = Math.max(...matrix.map(r => r.length));
       const headers = Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`);
       return {
@@ -257,7 +248,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     }
   }, [matrix, mappingEngine, hasHeaderRow]);
 
-  // ── 5. Auto-Map Detected Headers via Canonical HeaderMappingEngine ────────
+  // ── 6. Auto-Map Detected Headers via Canonical HeaderMappingEngine ────────
   useEffect(() => {
     if (headerDetection.headers.length > 0) {
       const mapping = mappingEngine.mapHeaders(headerDetection.headers, 'ITEM_MASTER');
@@ -275,7 +266,6 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     detectedColumns.forEach(col => {
       const override = manualOverrides[col.sourceIndex];
       let target = override !== undefined ? override : (col.mappedFieldKey || "");
-      // Clean prefix if generated as attr_key
       if (target.startsWith("attr_")) {
         target = target.replace(/^attr_/, "");
       }
@@ -284,168 +274,51 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
     return map;
   }, [detectedColumns, manualOverrides]);
 
-  // ── 6. Validate Data Rows Against Schema ──────────────────────────────────
-  const parsedRows: ParsedRowData[] = useMemo(() => {
-    return headerDetection.dataRows.map((tokens, idx) => {
-      const isSkipped = skippedRowIndices.has(idx);
-      let hasError = false;
-      let errorMessage = "";
-
-      const stockNoColIdx = detectedColumns.findIndex(c => {
-        const key = (manualOverrides[c.sourceIndex] || c.mappedFieldKey || "").replace(/^attr_/, "");
-        return key === "code" || key === "stockNo";
-      });
-      const nameColIdx = detectedColumns.findIndex(c => {
-        const key = (manualOverrides[c.sourceIndex] || c.mappedFieldKey || "").replace(/^attr_/, "");
-        return key === "name" || key === "product";
-      });
-
-      if (stockNoColIdx >= 0 && !tokens[stockNoColIdx]?.trim()) {
-        hasError = true;
-        errorMessage = "Missing required SKU / Stock No.";
-      } else if (nameColIdx >= 0 && !tokens[nameColIdx]?.trim()) {
-        hasError = true;
-        errorMessage = "Missing required Product Name.";
-      } else if (tokens.length < 2) {
-        hasError = true;
-        errorMessage = "Insufficient columns in row.";
-      }
-
-      return {
-        rowIndex: idx + 1,
-        tokens,
-        hasError,
-        errorMessage,
-        isSkipped
-      };
+  // Inverted mapping: fieldKey -> sourceIndex
+  const fieldToColMap = useMemo(() => {
+    const map = new Map<string, number>();
+    effectiveMapping.forEach((fieldKey, colIdx) => {
+      map.set(fieldKey.toLowerCase(), colIdx);
     });
-  }, [headerDetection.dataRows, detectedColumns, manualOverrides, skippedRowIndices]);
+    return map;
+  }, [effectiveMapping]);
 
-  const errorCount = useMemo(() => parsedRows.filter(r => r.hasError && !r.isSkipped).length, [parsedRows]);
-
-  // Derived mandatory columns check — prevents 'All Rows Valid' when required footwear dimensions are dropped
-  const missingMandatoryColumns = useMemo(() => {
-    if (headerDetection.dataRows.length === 0) return [];
-    const mapped = new Set(Array.from(effectiveMapping.values()).map(k => k.toLowerCase()));
-    const requiredFields = [
-      { key: "style_code", label: "Style Code", aliases: ["style", "style_code", "article", "article_style_code"] },
-      { key: "brand", label: "Brand", aliases: ["brand", "brand_name"] },
-      { key: "gender", label: "Gender", aliases: ["gender"] },
-      { key: "product_type", label: "Product Type", aliases: ["product_type", "merchandise_category", "producttype"] },
-      { key: "heel_type", label: "Heel Type", aliases: ["heel_type", "heeltype"] },
-      { key: "upper_material", label: "Upper Material", aliases: ["upper_material", "uppermaterial"] },
-      { key: "color", label: "Color", aliases: ["color", "colour"] },
-      { key: "size", label: "Size", aliases: ["size"] },
-    ];
-    return requiredFields.filter(f => !f.aliases.some(a => mapped.has(a)));
-  }, [effectiveMapping, headerDetection.dataRows.length]);
-
-  const filteredRows = useMemo(() => {
-    return parsedRows.filter(r => {
-      if (showOnlyErrors && !r.hasError) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return r.tokens.some(t => t.toLowerCase().includes(q));
-      }
-      return true;
-    });
-  }, [parsedRows, showOnlyErrors, searchQuery]);
-
-  useEffect(() => {
-    const firstErr = parsedRows.find(r => r.hasError && !r.isSkipped);
-    if (firstErr) {
-      setActiveConflictRow(firstErr.rowIndex - 1);
-    } else {
-      setActiveConflictRow(null);
-    }
-  }, [parsedRows]);
-
-  // ── 7. Auto-Resolve Missing SKU via Canonical skuGenerationEngine ─────────
-  const handleAutoFillSku = useCallback((rowIdx: number) => {
-    const targetDataRow = headerDetection.dataRows[rowIdx];
-    if (!targetDataRow) return;
-
-    // Resolve brand, style, shade, size from row tokens
-    let brand = "GEN";
-    let styleCode = "STYLE";
-    let colour = "STD";
-    let size = "M";
-
-    targetDataRow.forEach((val, colIdx) => {
-      const key = effectiveMapping.get(colIdx);
-      if (!val.trim()) return;
-      if (key === "brand") brand = val.trim();
-      else if (key === "style" || key === "style_code") styleCode = val.trim();
-      else if (key === "colour" || key === "color" || key === "shade") colour = val.trim();
-      else if (key === "size") size = val.trim();
-    });
-
-    const generatedSku = generateSkuCode({
-      brand,
-      styleCode,
-      colour,
-      size
-    }, { mode: "AUTO", prefix: "SKU", sequenceStart: 1001 }, rowIdx);
-
-    const nextMatrix = [...matrix];
-    const absoluteRowIdx = headerDetection.headerRowIndex >= 0
-      ? headerDetection.headerRowIndex + 1 + rowIdx
-      : rowIdx;
-
-    if (nextMatrix[absoluteRowIdx]) {
-      nextMatrix[absoluteRowIdx][0] = generatedSku;
-      setRawText(nextMatrix.map(r => r.join("\t")).join("\n"));
-    }
-  }, [headerDetection, matrix, effectiveMapping]);
-
-  // ── 8. Two-Phase Universal Import: Preview then Commit via IM-001 governed route ─────────
-  // CRITICAL: This component MUST route through /api/v1/universal-import/preview and
-  // /api/v1/universal-import/commit. The legacy /products/ endpoint is decommissioned.
-  // Style/article MUST come from the mapped field — never derived from SKU code.
-
+  // ── 7. Build Import Payload with merged inline corrections ────────────────
   const buildImportRows = useCallback(
     (
-      corrections?: Map<number, Record<string, string>>,
-      userSkips?: Set<number>
+      correctionsMap: Map<number, Record<string, string>> = rowCorrections,
+      userSkips: Set<number> = skippedByUser
     ) => {
-      return parsedRows
-        .filter(r => !r.isSkipped)
-        .map((row, idx) => {
-          const rowNum = idx + 1;
-          const obj: Record<string, any> = { rowNumber: rowNum };
-          row.tokens.forEach((val, colIdx) => {
-            const fieldKey = effectiveMapping.get(colIdx);
-            if (!fieldKey || !val.trim()) return;
-            obj[fieldKey] = val.trim();
-          });
-          // Merge user corrections from the fix panel
-          if (corrections?.has(rowNum)) {
-            Object.assign(obj, corrections.get(rowNum));
-          }
-          return obj;
-        })
-        // Exclude rows the user manually skipped via fix panel
-        .filter(obj => !(userSkips?.has(obj.rowNumber)));
+      return headerDetection.dataRows.map((tokens, idx) => {
+        const rowNum = idx + 1;
+        const obj: Record<string, any> = { rowNumber: rowNum };
+        tokens.forEach((val, colIdx) => {
+          const fieldKey = effectiveMapping.get(colIdx);
+          if (!fieldKey || !val.trim()) return;
+          obj[fieldKey] = val.trim();
+        });
+        // Merge user corrections
+        if (correctionsMap.has(rowNum)) {
+          Object.assign(obj, correctionsMap.get(rowNum));
+        }
+        return obj;
+      }).filter(obj => !userSkips.has(obj.rowNumber));
     },
-    [parsedRows, effectiveMapping]
+    [headerDetection.dataRows, effectiveMapping, rowCorrections, skippedByUser]
   );
 
-  const handlePreviewAndImport = async (
-    corrections?: Map<number, Record<string, string>>,
-    userSkips?: Set<number>
+  // ── 8. Run Server-Side Preview Validation ─────────────────────────────────
+  const runPreviewValidation = useCallback(async (
+    correctionsToUse: Map<number, Record<string, string>> = rowCorrections,
+    skipsToUse: Set<number> = skippedByUser
   ) => {
-    const rows = buildImportRows(corrections, userSkips);
-    if (rows.length === 0) {
-      onNotification?.("No Data", "Please paste valid rows before importing.", "error");
-      return;
-    }
-
-    setIsProcessing(true);
-    setPreviewResult(null);
+    const rows = buildImportRows(correctionsToUse, skipsToUse);
+    if (rows.length === 0) return;
+    setIsValidating(true);
     setPreviewErrors([]);
+    setPreviewWarnings([]);
 
     try {
-      // PHASE 1: Preview — backend validates against IM-001 mandatory fields, lookup master, duplicates
       const previewResp = await apiFetchV1("/universal-import/preview", {
         method: "POST",
         body: {
@@ -456,7 +329,6 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
 
       setPreviewResult(previewResp?.summary ?? previewResp);
 
-      // Store per-row reconciliation report for the validation panel
       const rowReport: any[] = (
         Array.isArray(previewResp?.reconciliation_report) ? previewResp.reconciliation_report :
         Array.isArray(previewResp?.rows) ? previewResp.rows :
@@ -464,22 +336,20 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       );
       setPreviewReport(rowReport);
 
-      // Store approved values map for fix dropdowns
       if (previewResp?.approved_values_map && typeof previewResp.approved_values_map === 'object') {
         setApprovedValuesMap(previewResp.approved_values_map);
       }
 
-      // Collect all blocking errors from preview row results
-      const blockingErrors: string[] = [];
+      const blocking: string[] = [];
       rowReport.forEach((rr: any) => {
         if (Array.isArray(rr?.errors) && rr.errors.length > 0) {
-          rr.errors.forEach((e: string) => blockingErrors.push(`Row ${rr.row_number || '?'}: ${e}`));
+          rr.errors.forEach((e: string) => blocking.push(`Row ${rr.row_number || '?'}: ${e}`));
         } else if (rr?.status === "INVALID" || rr?.action === "BLOCK" || rr?.reconciliation_state === "INVALID") {
-          blockingErrors.push(`Row ${rr.row_number || '?'}: Validation failed or row blocked.`);
+          blocking.push(`Row ${rr.row_number || '?'}: Validation failed.`);
         }
       });
+      setPreviewErrors(blocking);
 
-      // Collect warnings (including HSN/synthetic mismatch review flags)
       const warnings: string[] = [];
       if (Array.isArray(previewResp?.all_warnings)) {
         previewResp.all_warnings.forEach((w: string) => warnings.push(w));
@@ -488,22 +358,343 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       }
       setPreviewWarnings(warnings);
 
-      if (blockingErrors.length > 0) {
-        setPreviewErrors(blockingErrors);
-        onNotification?.(
-          "Preview: Validation Errors Detected",
-          `${blockingErrors.length} blocking error(s) found. Fix issues before committing. First error: ${blockingErrors[0]}`,
-          "error"
-        );
-        return; // Do not proceed to commit
+      return { previewResp, rowReport, blocking, warnings };
+    } catch (err: any) {
+      const msg = err?.message || "Failed to execute preview validation.";
+      setPreviewErrors([msg]);
+      onNotification?.("Validation Error", msg, "error");
+    } finally {
+      setIsValidating(false);
+    }
+  }, [buildImportRows, onNotification, rowCorrections, skippedByUser]);
+
+  // Auto-validate whenever raw text matrix is parsed or columns mapped
+  useEffect(() => {
+    if (headerDetection.dataRows.length > 0 && effectiveMapping.size > 0) {
+      const timer = setTimeout(() => {
+        runPreviewValidation();
+      }, 350);
+      return () => clearTimeout(timer);
+    } else {
+      setPreviewResult(null);
+      setPreviewReport([]);
+      setPreviewErrors([]);
+      setPreviewWarnings([]);
+    }
+  }, [headerDetection.dataRows.length, effectiveMapping.size]);
+
+  // ── 9. Interactive Cell Correction Handlers ───────────────────────────────
+  const handleApplyCellCorrection = (rowNumber: number, fieldKey: string, value: string) => {
+    setRowCorrections(prev => {
+      const next = new Map(prev);
+      const rowEdits = { ...(next.get(rowNumber) || {}) };
+      if (value === "") {
+        delete rowEdits[fieldKey];
+        if (Object.keys(rowEdits).length === 0) {
+          next.delete(rowNumber);
+        } else {
+          next.set(rowNumber, rowEdits);
+        }
+      } else {
+        rowEdits[fieldKey] = value;
+        next.set(rowNumber, rowEdits);
+      }
+      return next;
+    });
+    setEditingCell(null);
+  };
+
+  const handleRevertCellCorrection = (rowNumber: number, fieldKey: string) => {
+    setRowCorrections(prev => {
+      const next = new Map(prev);
+      const rowEdits = { ...(next.get(rowNumber) || {}) };
+      delete rowEdits[fieldKey];
+      if (Object.keys(rowEdits).length === 0) {
+        next.delete(rowNumber);
+      } else {
+        next.set(rowNumber, rowEdits);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSkipRow = (rowNumber: number) => {
+    setSkippedByUser(prev => {
+      const next = new Set(prev);
+      if (next.has(rowNumber)) {
+        next.delete(rowNumber);
+      } else {
+        next.add(rowNumber);
+      }
+      return next;
+    });
+  };
+
+  const handleSkipAllErrors = () => {
+    const errorRows = previewReport
+      .filter(r => r.status === "INVALID" || r.action === "BLOCK" || (r.errors && r.errors.length > 0))
+      .map(r => r.row_number);
+    setSkippedByUser(prev => new Set([...prev, ...errorRows]));
+    onNotification?.("Rows Skipped", `Marked ${errorRows.length} invalid rows as skipped.`, "info");
+  };
+
+  const handleRestoreAllOriginals = () => {
+    setRowCorrections(new Map());
+    setSkippedByUser(new Set());
+    onNotification?.("Restored", "All manual cell edits and skipped states have been cleared.", "info");
+  };
+
+  // ── 10. Auto-Fix Safe Errors Engine ───────────────────────────────────────
+  const handleAutoFixSafeErrors = async () => {
+    if (previewReport.length === 0) return;
+    let fixedCount = 0;
+    const nextCorrections = new Map(rowCorrections);
+
+    previewReport.forEach((row: any) => {
+      const rowNum = row.row_number;
+      const currentEdits = { ...(nextCorrections.get(rowNum) || {}) };
+      let rowModified = false;
+
+      // 1. Auto-apply near_match suggestions for master fields
+      if (Array.isArray(row.field_failures)) {
+        row.field_failures.forEach((ff: any) => {
+          if (ff.near_match && !currentEdits[ff.field]) {
+            currentEdits[ff.field] = ff.near_match;
+            rowModified = true;
+            fixedCount++;
+          }
+        });
       }
 
-      // PHASE 2: Commit — all rows passed preview validation
+      // 2. Auto-fix selling price > MRP (clamp selling to MRP)
+      const mrp = parseFloat(currentEdits.mrp || row.mrp || 0);
+      const selling = parseFloat(currentEdits.selling_price || row.selling_price || 0);
+      if (selling > mrp && mrp > 0) {
+        currentEdits.selling_price = String(mrp);
+        rowModified = true;
+        fixedCount++;
+      }
+
+      if (rowModified) {
+        nextCorrections.set(rowNum, currentEdits);
+      }
+    });
+
+    if (fixedCount > 0) {
+      setRowCorrections(nextCorrections);
+      onNotification?.("Auto-Fix Applied", `Applied ${fixedCount} safe corrections. Re-validating...`, "success");
+      await runPreviewValidation(nextCorrections, skippedByUser);
+    } else {
+      onNotification?.("No Safe Fixes", "No automatic suggestions or safe corrections found for current errors.", "info");
+    }
+  };
+
+  // ── 11. Download Error Report (TSV) ───────────────────────────────────────
+  const handleDownloadErrorReport = () => {
+    if (previewReport.length === 0) {
+      onNotification?.("No Errors", "No preview validation report available to export.", "info");
+      return;
+    }
+    const errorRows = previewReport.filter(r => (r.errors && r.errors.length > 0) || r.status === "INVALID" || (r.warnings && r.warnings.length > 0));
+    if (errorRows.length === 0) {
+      onNotification?.("All Valid", "Zero errors or warnings detected in current dataset.", "success");
+      return;
+    }
+
+    const headers = ["Row Number", "Reconciliation Status", "Barcode", "SKU", "Style Code", "Errors", "Review Warnings", "Suggested Action"];
+    const rows = errorRows.map(r => [
+      String(r.row_number),
+      r.reconciliation_state || r.status,
+      r.barcode || "",
+      r.sku || "",
+      r.style_code || "",
+      (r.errors || []).join(" | "),
+      (r.warnings || []).join(" | "),
+      r.action || ""
+    ]);
+
+    const tsvContent = [headers.join("\t"), ...rows.map(r => r.join("\t"))].join("\n");
+    const blob = new Blob([tsvContent], { type: "text/tab-separated-values;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `SMRITI_Import_Validation_Errors_${Date.now()}.tsv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // ── 12. File Upload & Template Download ───────────────────────────────────
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setRawText(text);
+      setRowCorrections(new Map());
+      setSkippedByUser(new Set());
+    } catch (err: any) {
+      onNotification?.("File Read Error", err?.message || "Could not read file.", "error");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setRawText(text);
+      setRowCorrections(new Map());
+      setSkippedByUser(new Set());
+    } catch (err: any) {
+      onNotification?.("File Drop Error", err?.message || "Could not read file.", "error");
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      "StyleCode", "ProductName", "Brand", "Gender", "ProductType", "HeelType",
+      "UpperMaterial", "Color", "Size", "Barcode", "MRP", "CostPrice", "SellingPrice",
+      "GST_Rate", "HSN", "VendorCode", "WarehouseCode"
+    ];
+    const sampleRow = [
+      "ART-1001", "Classic Leather Derby", "Apex", "Men", "Formal Shoes", "Low Heel",
+      "Genuine Leather", "Black", "42", "8901234567890", "2999", "1200", "2499",
+      "18", "6403", "V-001", "WH-MAIN"
+    ];
+    const tsvContent = `${headers.join("\t")}\n${sampleRow.join("\t")}\n`;
+    const blob = new Blob([tsvContent], { type: "text/tab-separated-values;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "Item_Master_Import_Template.tsv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // ── 13. Dynamic 7-Metric Calculations ─────────────────────────────────────
+  const totalRowsCount = headerDetection.dataRows.length;
+  const skippedRowsCount = skippedByUser.size;
+  const correctedRowsCount = rowCorrections.size;
+
+  const previewRowMap = useMemo(() => {
+    const map = new Map<number, any>();
+    previewReport.forEach(r => map.set(r.row_number, r));
+    return map;
+  }, [previewReport]);
+
+  const metricStats = useMemo(() => {
+    let valid = 0;
+    let blocking = 0;
+    let warnings = 0;
+
+    for (let i = 1; i <= totalRowsCount; i++) {
+      if (skippedByUser.has(i)) continue;
+      const report = previewRowMap.get(i);
+      if (!report) continue;
+      if (report.status === "VALID" && report.action !== "BLOCK") {
+        valid++;
+      } else {
+        blocking++;
+      }
+      if (Array.isArray(report.warnings) && report.warnings.length > 0) {
+        warnings++;
+      }
+    }
+
+    const ready = Math.max(0, valid);
+
+    return {
+      total: totalRowsCount,
+      valid,
+      blocking,
+      warnings,
+      corrected: correctedRowsCount,
+      skipped: skippedRowsCount,
+      ready,
+    };
+  }, [totalRowsCount, skippedByUser, previewRowMap, correctedRowsCount, skippedRowsCount]);
+
+  // Filtered rows for grid display
+  const displayRows = useMemo(() => {
+    return headerDetection.dataRows.map((tokens, idx) => {
+      const rowNumber = idx + 1;
+      const isSkipped = skippedByUser.has(rowNumber);
+      const isCorrected = rowCorrections.has(rowNumber);
+      const report = previewRowMap.get(rowNumber);
+      const hasErrors = report ? (report.status === "INVALID" || report.action === "BLOCK" || (report.errors && report.errors.length > 0)) : false;
+      const hasWarnings = report ? (report.warnings && report.warnings.length > 0) : false;
+      const isValid = report ? (report.status === "VALID" && !hasErrors) : false;
+
+      // Extract effective token values (original token or corrected override)
+      const edits = rowCorrections.get(rowNumber) || {};
+      const effectiveTokens = tokens.map((token, colIdx) => {
+        const fieldKey = effectiveMapping.get(colIdx);
+        if (fieldKey && edits[fieldKey] !== undefined) {
+          return edits[fieldKey];
+        }
+        return token;
+      });
+
+      return {
+        rowNumber,
+        originalTokens: tokens,
+        effectiveTokens,
+        isSkipped,
+        isCorrected,
+        hasErrors,
+        hasWarnings,
+        isValid,
+        report,
+        edits
+      };
+    }).filter(row => {
+      // Filter tab check
+      if (activeFilterTab === "VALID" && (!row.isValid || row.isSkipped)) return false;
+      if (activeFilterTab === "ERRORS" && (!row.hasErrors || row.isSkipped)) return false;
+      if (activeFilterTab === "WARNINGS" && (!row.hasWarnings || row.isSkipped)) return false;
+      if (activeFilterTab === "CORRECTED" && !row.isCorrected) return false;
+      if (activeFilterTab === "SKIPPED" && !row.isSkipped) return false;
+
+      // Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTokens = row.effectiveTokens.some(t => t.toLowerCase().includes(q));
+        const matchesErrors = (row.report?.errors || []).some((e: string) => e.toLowerCase().includes(q));
+        const matchesWarnings = (row.report?.warnings || []).some((w: string) => w.toLowerCase().includes(q));
+        if (!matchesTokens && !matchesErrors && !matchesWarnings) return false;
+      }
+
+      return true;
+    });
+  }, [headerDetection.dataRows, skippedByUser, rowCorrections, previewRowMap, effectiveMapping, activeFilterTab, searchQuery]);
+
+  // ── 14. Commit Import Handler ─────────────────────────────────────────────
+  const handleCommitImport = async () => {
+    const rows = buildImportRows(rowCorrections, skippedByUser);
+    if (rows.length === 0) {
+      onNotification?.("No Data", "No eligible rows to import.", "error");
+      return;
+    }
+
+    setIsProcessing(true);
+    setShowConfirmModal(false);
+
+    try {
       const commitResp = await apiFetchV1("/universal-import/commit", {
         method: "POST",
         body: {
           target: "ITEM_MASTER",
           rows,
+          import_strategy: importStrategy,
+          existing_match_mode: existingMatchMode,
           idempotency_key: `im-studio-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         },
       });
@@ -512,119 +703,50 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
       const skipped = commitResp?.skipped ?? 0;
       const failed = commitResp?.failed ?? commitResp?.errors ?? 0;
 
-      if (saved > 0) {
+      if (saved > 0 || skipped > 0) {
         onNotification?.(
-          "Import Complete",
-          `IM-001 committed: ${saved} items saved${skipped > 0 ? `, ${skipped} skipped (existing)` : ""}.${failed > 0 ? ` ${failed} failed.` : ""}`,
+          "Import Successful",
+          `Committed to PostgreSQL: ${saved} item(s) created/updated${skipped > 0 ? `, ${skipped} skipped (existing matches)` : ""}.${failed > 0 ? ` (${failed} rows skipped due to errors)` : ""}`,
           "success"
         );
         await onRefreshProducts?.();
         setRawText("");
-        setPreviewResult(null);
-        setPreviewWarnings([]);
-        setPreviewReport([]);
         setRowCorrections(new Map());
         setSkippedByUser(new Set());
-        setApprovedValuesMap({});
+        setPreviewResult(null);
+        setPreviewReport([]);
       } else {
         onNotification?.(
-          "Import Failed",
-          `No items were saved. ${failed > 0 ? `${failed} row(s) failed validation or conflict.` : "All rows may already exist."}`,
-          "error"
+          "Import Summary",
+          `No new items were created. ${failed > 0 ? `${failed} rows failed validation.` : "All rows matched existing items."}`,
+          "warning"
         );
       }
     } catch (err: any) {
-      const raw: string = err?.message || "Unexpected error during import";
-      // Multi-line error messages (e.g. N validation errors from apiFetchV1) — show each as its own line
-      const lines = raw.split("\n").map((l: string) => l.trim()).filter(Boolean);
-      const title = lines.length > 1 ? `Import Errors (${lines.length - 1})` : "Import Error";
-      const body = lines.length > 1
-        ? lines.slice(1).join("\n") // numbered list lines already formatted by apiFetchV1
-        : raw;
-      onNotification?.(title, body, "error");
-      setPreviewErrors(lines.length > 1 ? lines.slice(1) : [raw]);
+      const raw = err?.message || "Commit failed due to database or validation conflict.";
+      onNotification?.("Import Conflict", raw, "error");
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const handleRunPreviewOnly = async () => {
-    const rows = buildImportRows();
-    if (rows.length === 0) return;
-    setIsValidating(true);
-    setPreviewResult(null);
-    setPreviewErrors([]);
-    setPreviewWarnings([]);
-    try {
-      const previewResp = await apiFetchV1("/universal-import/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          target: "ITEM_MASTER",
-          rows
-        })
-      });
-      setPreviewResult(previewResp);
-      const rowReport: any[] = (
-        Array.isArray(previewResp?.reconciliation_report) ? previewResp.reconciliation_report :
-        Array.isArray(previewResp?.rows) ? previewResp.rows :
-        Array.isArray(previewResp?.row_results) ? previewResp.row_results : []
-      );
-      setPreviewReport(rowReport);
-      const blockingErrors: string[] = [];
-      rowReport.forEach((rr: any) => {
-        if (Array.isArray(rr?.errors) && rr.errors.length > 0) {
-          rr.errors.forEach((e: string) => blockingErrors.push(`Row ${rr.row_number || '?'}: ${e}`));
-        } else if (rr?.status === "INVALID" || rr?.action === "BLOCK" || rr?.reconciliation_state === "INVALID") {
-          blockingErrors.push(`Row ${rr.row_number || '?'}: Validation failed or row blocked.`);
-        }
-      });
-      setPreviewErrors(blockingErrors);
-      const warnings: string[] = [];
-      if (Array.isArray(previewResp?.all_warnings)) {
-        previewResp.all_warnings.forEach((w: string) => warnings.push(w));
-      } else if (Array.isArray(previewResp?.warnings)) {
-        previewResp.warnings.forEach((w: string) => warnings.push(w));
-      }
-      setPreviewWarnings(warnings);
-      if (blockingErrors.length === 0) {
-        onNotification?.("Preview Succeeded", `${previewResp?.new_rows ?? rows.length} row(s) validated against IM-001 master. Ready to import.`, "success");
-      } else {
-        onNotification?.("Preview Validation Failed", `${blockingErrors.length} blocking error(s) found.`, "error");
-      }
-    } catch (err: any) {
-      setPreviewErrors([err?.message || "Failed to execute preview validation."]);
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  // Legacy stub kept to satisfy existing JSX button ref — delegates to new handler
-  const handleResolveAndImport = () => { void handlePreviewAndImport(); };
-
-
-  const handleSkipActiveConflict = () => {
-    if (activeConflictRow !== null) {
-      setSkippedRowIndices(prev => new Set([...prev, activeConflictRow]));
     }
   };
 
   return (
     <div className="bg-[#f7f9fb] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] h-full flex flex-col antialiased select-none overflow-hidden font-sans">
       
-      {/* Top Studio Control Header */}
+      {/* ── Top Studio Header ── */}
       <header className="bg-white dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] px-6 py-3 flex items-center justify-between shrink-0 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#515f74] dark:text-[#bec6e0]">table_view</span>
+            <span className="material-symbols-outlined text-[#1565c0] dark:text-[#90caf9] text-xl">dataset</span>
             <h2 className="text-base font-bold text-[#191c1e] dark:text-white">
-              Item Master — Bulk Excel Paste &amp; Mapping Engine
+              SMRITI Smart Import &amp; Correction Studio
             </h2>
-            <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-[#e0e3e5] dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] rounded">
-              Unified Catalog: {unifiedItemFields.length} Attributes Active
+            <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-[#e3f2fd] text-[#1565c0] rounded border border-[#1565c0]/20">
+              v6.70.47 · SSOT
             </span>
           </div>
           <p className="text-xs text-[#515f74] dark:text-[#a0a5b5] mt-0.5">
-            Real-time spreadsheet parser, canonical schema alignment, and database persistence.
+            Same-window live validation, cell-level correction, conflict resolution, and safe multi-strategy database commit.
           </p>
         </div>
 
@@ -635,48 +757,121 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
             onClick={onCancel}
             className="px-4 py-2 border border-[#76777d] text-[#191c1e] dark:text-[#eff1f3] bg-white dark:bg-[#2d3133] hover:bg-[#eceef0] rounded text-xs font-semibold transition"
           >
-            Cancel
+            Exit Studio
           </button>
+          
           <button
             type="button"
-            onClick={handleRunPreviewOnly}
-            disabled={isProcessing || isValidating || matrix.length === 0 || headerDetection.dataRows.length === 0}
-            className="px-3.5 py-2 border border-[#515f74] dark:border-[#bec6e0] text-[#191c1e] dark:text-[#eff1f3] bg-white dark:bg-[#2d3133] hover:bg-[#eceef0] rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs disabled:opacity-40"
+            onClick={() => runPreviewValidation()}
+            disabled={isProcessing || isValidating || totalRowsCount === 0}
+            className="px-3.5 py-2 border border-[#1565c0] text-[#1565c0] dark:text-[#90caf9] bg-white dark:bg-[#2d3133] hover:bg-[#e3f2fd] dark:hover:bg-[#1565c0]/20 rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs disabled:opacity-40"
           >
-            {isValidating ? (
-              <>
-                <RefreshCw size={13} className="animate-spin" />
-                Validating...
-              </>
-            ) : (
-              <>
-                <CheckCircle size={13} />
-                Validate Preview
-              </>
-            )}
+            <RefreshCw size={13} className={isValidating ? "animate-spin" : ""} />
+            Re-validate All
           </button>
+
           <button
             type="button"
-            onClick={handleResolveAndImport}
-            disabled={isProcessing || isValidating || matrix.length === 0}
-            className="px-5 py-2 bg-[#000000] dark:bg-[#dae2fd] text-white dark:text-[#131b2e] hover:bg-[#2d3133] dark:hover:bg-white rounded text-xs font-bold transition flex items-center gap-2 shadow-xs disabled:opacity-40"
+            onClick={() => setShowConfirmModal(true)}
+            disabled={isProcessing || isValidating || totalRowsCount === 0 || (importStrategy === "STRICT" && metricStats.blocking > 0)}
+            className="px-5 py-2 bg-[#1565c0] hover:bg-[#0d47a1] text-white rounded text-xs font-bold transition flex items-center gap-2 shadow-xs disabled:opacity-40"
           >
             {isProcessing ? (
               <>
                 <RefreshCw size={14} className="animate-spin" />
-                Saving to Database...
+                Committing to Postgres...
               </>
             ) : (
               <>
                 <Play size={14} />
-                Resolve &amp; Import ({headerDetection.dataRows.length} Rows)
+                Import &amp; Commit ({metricStats.ready} Ready)
               </>
             )}
           </button>
         </div>
       </header>
 
-      {/* Main Split-Screen Canvas */}
+      {/* ── 7-Metric Dynamic Dashboard Header ── */}
+      <div className="bg-white dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] px-6 py-2 grid grid-cols-7 gap-3 shrink-0 text-center">
+        <div 
+          onClick={() => setActiveFilterTab("ALL")}
+          className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
+            activeFilterTab === "ALL" ? "bg-[#e0e3e5] dark:bg-[#2d3133] border-[#76777d]" : "border-transparent hover:bg-[#f2f4f6]"
+          }`}
+        >
+          <div className="text-[10px] uppercase font-bold text-[#515f74] dark:text-[#a0a5b5]">Total Rows</div>
+          <div className="text-base font-black text-[#191c1e] dark:text-white font-mono">{metricStats.total}</div>
+        </div>
+
+        <div 
+          onClick={() => setActiveFilterTab("VALID")}
+          className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
+            activeFilterTab === "VALID" ? "bg-[#d1fae5] border-[#10b981]" : "border-transparent hover:bg-[#f0fdf4]"
+          }`}
+        >
+          <div className="text-[10px] uppercase font-bold text-[#065f46] dark:text-[#34d399] flex items-center justify-center gap-1">
+            <CheckCircle size={10} /> Valid
+          </div>
+          <div className="text-base font-black text-[#065f46] dark:text-[#34d399] font-mono">{metricStats.valid}</div>
+        </div>
+
+        <div 
+          onClick={() => setActiveFilterTab("ERRORS")}
+          className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
+            activeFilterTab === "ERRORS" ? "bg-[#ffdad6] border-[#ba1a1a]" : "border-transparent hover:bg-[#fff8f7]"
+          }`}
+        >
+          <div className="text-[10px] uppercase font-bold text-[#93000a] dark:text-[#ffdad6] flex items-center justify-center gap-1">
+            <AlertCircle size={10} /> Blocking Errors
+          </div>
+          <div className="text-base font-black text-[#93000a] dark:text-[#ffdad6] font-mono">{metricStats.blocking}</div>
+        </div>
+
+        <div 
+          onClick={() => setActiveFilterTab("WARNINGS")}
+          className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
+            activeFilterTab === "WARNINGS" ? "bg-[#fef08a] border-[#eab308]" : "border-transparent hover:bg-[#fefce8]"
+          }`}
+        >
+          <div className="text-[10px] uppercase font-bold text-[#854d0e] dark:text-[#fef08a] flex items-center justify-center gap-1">
+            <AlertTriangle size={10} /> Review Warnings
+          </div>
+          <div className="text-base font-black text-[#854d0e] dark:text-[#fef08a] font-mono">{metricStats.warnings}</div>
+        </div>
+
+        <div 
+          onClick={() => setActiveFilterTab("CORRECTED")}
+          className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
+            activeFilterTab === "CORRECTED" ? "bg-[#e3f2fd] border-[#1565c0]" : "border-transparent hover:bg-[#f0f9ff]"
+          }`}
+        >
+          <div className="text-[10px] uppercase font-bold text-[#1565c0] dark:text-[#90caf9] flex items-center justify-center gap-1">
+            <Edit3 size={10} /> Corrected
+          </div>
+          <div className="text-base font-black text-[#1565c0] dark:text-[#90caf9] font-mono">{metricStats.corrected}</div>
+        </div>
+
+        <div 
+          onClick={() => setActiveFilterTab("SKIPPED")}
+          className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
+            activeFilterTab === "SKIPPED" ? "bg-[#eceef0] border-[#9e9e9e]" : "border-transparent hover:bg-[#f5f5f5]"
+          }`}
+        >
+          <div className="text-[10px] uppercase font-bold text-[#76777d] flex items-center justify-center gap-1">
+            <RotateCcw size={10} /> Skipped
+          </div>
+          <div className="text-base font-black text-[#76777d] font-mono">{metricStats.skipped}</div>
+        </div>
+
+        <div className="px-3 py-1.5 rounded-lg bg-[#002244] text-white border border-[#003366]">
+          <div className="text-[10px] uppercase font-bold text-[#90caf9] flex items-center justify-center gap-1">
+            <Play size={10} /> Ready to Commit
+          </div>
+          <div className="text-base font-black text-white font-mono">{metricStats.ready}</div>
+        </div>
+      </div>
+
+      {/* ── Main Split Canvas ── */}
       <div className="flex-1 grid grid-cols-12 gap-4 p-4 min-h-0 overflow-hidden">
         
         {/* Left Panel: Raw Paste Area */}
@@ -704,7 +899,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-4 py-2.5 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between shrink-0">
             <h3 className="text-xs font-bold text-[#191c1e] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
               <span className="material-symbols-outlined text-[#515f74] text-base">content_paste</span>
-              Raw Data Input
+              Raw Matrix Input
             </h3>
             <div className="flex items-center gap-2">
               <button
@@ -714,7 +909,7 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
                 title="Upload CSV, TSV or TXT file"
               >
                 <span className="material-symbols-outlined text-[13px]">upload_file</span>
-                Upload File
+                Upload
               </button>
               <button
                 type="button"
@@ -725,20 +920,21 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
                 <span className="material-symbols-outlined text-[13px]">download</span>
                 Template
               </button>
-              <span className="px-2 py-0.5 bg-[#e0e3e5] dark:bg-[#45464d] text-[#191c1e] dark:text-[#eff1f3] text-[10px] font-mono font-bold rounded">
-                Ctrl+V
-              </span>
             </div>
           </div>
 
           <div className="flex-1 p-2 relative">
             <textarea
               value={rawText}
-              onChange={e => setRawText(e.target.value)}
-              placeholder="Paste your Excel or Google Sheets cells here, or upload a CSV/TSV file...
+              onChange={e => {
+                setRawText(e.target.value);
+                setRowCorrections(new Map());
+                setSkippedByUser(new Set());
+              }}
+              placeholder="Paste tab-delimited or CSV rows from Excel / Google Sheets here...
 
-Expected Columns:
-StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
+Example Columns:
+StyleCode	ProductName	Brand	Gender	ProductType	HeelType	UpperMaterial	Color	Size	Barcode	MRP	CostPrice	SellingPrice	GST_Rate	HSN"
               className="w-full h-full resize-none border-none p-3 font-mono text-xs text-[#191c1e] dark:text-[#eff1f3] bg-transparent outline-none leading-relaxed placeholder-[#76777d]"
             />
 
@@ -756,7 +952,7 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
           <div className="bg-[#eceef0] dark:bg-[#131b2e] px-4 py-2 border-t border-[#c6c6cd] dark:border-[#45464d] flex justify-between items-center shrink-0 text-xs">
             <div className="flex items-center gap-3">
               <span className="font-mono text-[#515f74] dark:text-[#bec6e0] font-bold">
-                {headerDetection.dataRows.length} data rows detected
+                {headerDetection.dataRows.length} data rows
               </span>
               {matrix.length > 0 && (
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs select-none border-l border-[#c6c6cd] dark:border-[#45464d] pl-3">
@@ -766,104 +962,106 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
                     onChange={(e) => setHasHeaderRow(e.target.checked)}
                     className="rounded border-[#c6c6cd] text-black focus:ring-0 cursor-pointer"
                   />
-                  <span className="text-[11px] text-[#515f74] dark:text-[#bec6e0]">First row has headers</span>
+                  <span className="text-[11px] text-[#515f74] dark:text-[#bec6e0]">Header row</span>
                 </label>
               )}
             </div>
             <button
               type="button"
-              onClick={() => { setRawText(""); setSkippedRowIndices(new Set()); }}
+              onClick={() => { setRawText(""); setRowCorrections(new Map()); setSkippedByUser(new Set()); }}
               disabled={!rawText}
-              className="text-[#000000] dark:text-[#dae2fd] font-semibold hover:underline disabled:opacity-30"
+              className="text-[#ba1a1a] font-semibold hover:underline disabled:opacity-30"
             >
               Clear
             </button>
           </div>
         </div>
 
-        {/* Right Panel: Live Mapping & Preview Table */}
+        {/* Right Panel: Smart Correction Grid & Actions */}
         <div className="col-span-12 xl:col-span-8 flex flex-col bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg overflow-hidden shadow-xs min-h-0">
           
-          {/* Right Header Bar */}
-          <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-4 py-2 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between shrink-0">
-            <h3 className="text-xs font-bold text-[#191c1e] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
-              <span className="material-symbols-outlined text-[#515f74] text-base">table_chart</span>
-              Live Mapping Preview
-            </h3>
-
+          {/* Right Header Bar & Bulk Actions */}
+          <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-4 py-2 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between shrink-0 flex-wrap gap-2">
             <div className="flex items-center gap-3">
-              {headerDetection.dataRows.length === 0 ? null : missingMandatoryColumns.length > 0 ? (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#ffdad6] text-[#93000a] rounded text-[11px] font-bold border border-[#ba1a1a]/30" title={`Missing required columns: ${missingMandatoryColumns.map(f => f.label).join(", ")}`}>
-                  <span className="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
-                  Missing Mandatory: {missingMandatoryColumns.map(f => f.label).join(", ")}
-                </div>
-              ) : previewErrors.length > 0 ? (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#ffdad6] text-[#93000a] rounded text-[11px] font-bold border border-[#ba1a1a]/30" title={previewErrors.slice(0, 3).join("\n")}>
-                  <span className="w-2 h-2 rounded-full bg-[#ba1a1a]"></span>
-                  {previewErrors.length} IM-001 Validation Error{previewErrors.length > 1 ? "s" : ""}
-                </div>
-              ) : previewResult && previewResult.status === "READY_FOR_IMPORT" ? (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#d1fae5] text-[#065f46] rounded text-[11px] font-bold border border-[#10b981]/30">
-                  <CheckCircle size={12} className="text-[#059669]" />
-                  IM-001 Validated ({previewResult.new_rows || 0} New Rows Ready)
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-[#515f74] dark:text-[#bec6e0] text-[11px] font-semibold bg-[#e0e3e5] dark:bg-[#45464d] px-2.5 py-1 rounded">
-                  <span>Pending IM-001 Validation</span>
-                </div>
-              )}
+              <div className="relative">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#76777d]" />
+                <input
+                  type="text"
+                  placeholder="Filter rows, barcodes, styles..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-8 pr-3 py-1 text-xs rounded border border-[#c6c6cd] dark:border-[#45464d] bg-white dark:bg-[#2d3133] text-[#191c1e] dark:text-white outline-none w-52"
+                />
+              </div>
 
-              {previewWarnings.length > 0 && (
-                <div className="flex items-center gap-1 px-2 py-0.5 bg-[#fef08a] text-[#854d0e] rounded text-[11px] font-bold border border-[#eab308]/40" title={previewWarnings.slice(0, 3).join("\n")}>
-                  <span className="material-symbols-outlined text-[14px]">flag</span>
-                  {previewWarnings.length} Review Flag{previewWarnings.length > 1 ? "s" : ""}
-                </div>
-              )}
-
-              <div className="h-4 w-px bg-[#c6c6cd] dark:bg-[#45464d]"></div>
+              {/* Bulk Actions Button Group */}
+              <button
+                type="button"
+                onClick={handleAutoFixSafeErrors}
+                disabled={metricStats.blocking === 0 && metricStats.warnings === 0}
+                className="px-2.5 py-1 bg-[#e3f2fd] hover:bg-[#bbdefb] text-[#1565c0] rounded text-[11px] font-bold border border-[#1565c0]/30 flex items-center gap-1 transition disabled:opacity-40"
+                title="Automatically fix typos, clamp selling price to MRP, and apply master lookup suggestions"
+              >
+                <Sparkles size={12} />
+                Auto-Fix Safe Errors
+              </button>
 
               <button
                 type="button"
-                onClick={() => setShowOnlyErrors(prev => !prev)}
-                className={`text-xs px-2 py-1 rounded flex items-center gap-1 transition ${
-                  showOnlyErrors ? "bg-[#ba1a1a] text-white font-bold" : "text-[#515f74] hover:text-[#191c1e] dark:text-[#bec6e0]"
-                }`}
-                title="Toggle errors filter"
+                onClick={handleSkipAllErrors}
+                disabled={metricStats.blocking === 0}
+                className="px-2.5 py-1 bg-[#eceef0] hover:bg-[#e0e3e5] text-[#515f74] rounded text-[11px] font-semibold transition disabled:opacity-40"
+                title="Mark all rows with blocking errors as skipped"
               >
-                <Filter size={12} />
-                <span>Errors Only</span>
+                Skip All Errors
               </button>
+
+              <button
+                type="button"
+                onClick={handleRestoreAllOriginals}
+                disabled={metricStats.corrected === 0 && metricStats.skipped === 0}
+                className="px-2.5 py-1 bg-[#eceef0] hover:bg-[#e0e3e5] text-[#515f74] rounded text-[11px] font-semibold transition disabled:opacity-40"
+                title="Revert all manual edits and restore uploaded values"
+              >
+                Restore Originals
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadErrorReport}
+                disabled={previewReport.length === 0}
+                className="px-2.5 py-1 bg-[#eceef0] hover:bg-[#e0e3e5] text-[#515f74] rounded text-[11px] font-semibold transition flex items-center gap-1 disabled:opacity-40"
+                title="Export TSV error report"
+              >
+                <Download size={12} />
+                Error TSV
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-[#515f74]">
+                Showing {displayRows.length} of {totalRowsCount} rows
+              </span>
             </div>
           </div>
 
-          {/* Human / CA Sign-Off Review Flag Banner (e.g. HSN 6403 with Synthetic Upper) */}
-          {previewWarnings.length > 0 && (
-            <div className="bg-[#fef9c3] dark:bg-[#713f12]/40 border-b border-[#facc15] px-4 py-2 flex items-center justify-between text-xs text-[#854d0e] dark:text-[#fef08a] shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-base text-[#ca8a04]">warning</span>
-                <span className="font-bold">Human / CA Sign-Off Flag (REQUIRES_REVIEW):</span>
-                <span>{previewWarnings[0]}</span>
-                {previewWarnings.length > 1 && (
-                  <span className="text-[11px] opacity-80">(+{previewWarnings.length - 1} more flag{previewWarnings.length > 2 ? "s" : ""})</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Table Container with Sticky Column Header Selectors */}
+          {/* Interactive Grid Table */}
           <div className="flex-1 overflow-auto bg-white dark:bg-[#191c1e]">
-            {headerDetection.dataRows.length === 0 ? (
+            {totalRowsCount === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8 text-center">
                 <Table size={36} className="mb-2 opacity-30 text-[#515f74]" />
                 <p className="text-xs font-semibold">No data loaded yet.</p>
                 <p className="text-[11px] text-[#76777d] mt-0.5">Paste tab-delimited Excel cells on the left to preview column mapping.</p>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse min-w-[800px]">
+              <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead className="sticky top-0 bg-white dark:bg-[#131b2e] z-10 shadow-xs">
                   <tr className="border-b border-[#c6c6cd] dark:border-[#45464d]">
-                    <th className="w-10 px-3 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] bg-[#f2f4f6] dark:bg-[#131b2e] text-center text-[10px] font-mono font-bold text-[#515f74]">
+                    <th className="w-12 px-2 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] bg-[#f2f4f6] dark:bg-[#131b2e] text-center text-[10px] font-mono font-bold text-[#515f74]">
                       #
+                    </th>
+                    <th className="w-24 px-2 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] bg-[#f2f4f6] dark:bg-[#131b2e] text-center text-[10px] font-bold text-[#515f74]">
+                      Status
                     </th>
                     {detectedColumns.map((col) => {
                       const override = manualOverrides[col.sourceIndex];
@@ -874,14 +1072,13 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
                       return (
                         <th
                           key={col.sourceIndex}
-                          className="px-3 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] min-w-[140px]"
+                          className="px-3 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] min-w-[150px]"
                         >
                           <div className="flex flex-col gap-1">
                             <span className="text-[10px] text-[#76777d] font-mono uppercase truncate">
-                              Input Col {col.sourceIndex + 1}: {col.sourceHeader}
+                              Col {col.sourceIndex + 1}: {col.sourceHeader}
                             </span>
                             
-                            {/* Interactive Target Field Selector from Canonical Unified Catalog */}
                             <select
                               value={effectiveKey}
                               onChange={e => setManualOverrides(prev => ({ ...prev, [col.sourceIndex]: e.target.value }))}
@@ -908,40 +1105,165 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
                 </thead>
 
                 <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133] text-xs">
-                  {filteredRows.map((row) => {
-                    const isConflict = row.hasError && !row.isSkipped;
+                  {displayRows.map((row) => {
                     const isSkipped = row.isSkipped;
+                    const report = row.report;
+                    const isConflict = row.hasErrors && !isSkipped;
 
                     return (
                       <tr
-                        key={row.rowIndex}
+                        key={row.rowNumber}
                         className={`transition ${
                           isSkipped
-                            ? "opacity-30 bg-[#eceef0]"
+                            ? "opacity-35 bg-[#eceef0]"
                             : isConflict
-                            ? "bg-[#ffdad6]/25 hover:bg-[#ffdad6]/40"
+                            ? "bg-[#ffdad6]/20 hover:bg-[#ffdad6]/35"
+                            : row.hasWarnings
+                            ? "bg-[#fefce8] hover:bg-[#fef9c3]"
+                            : row.isCorrected
+                            ? "bg-[#f0f9ff] hover:bg-[#e0f2fe]"
                             : "hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133]"
                         }`}
                       >
-                        <td className="px-3 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] text-center font-mono font-bold text-[#515f74] bg-[#f2f4f6] dark:bg-[#131b2e]/60">
-                          {row.rowIndex}
+                        {/* Row Number & Skip Action */}
+                        <td className="px-2 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] text-center font-mono text-[11px] text-[#515f74] bg-[#f2f4f6]/60 dark:bg-[#131b2e]/60">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSkipRow(row.rowNumber)}
+                            className="hover:text-black font-bold flex items-center justify-center w-full"
+                            title={isSkipped ? "Include row" : "Skip row"}
+                          >
+                            {row.rowNumber}
+                          </button>
                         </td>
+
+                        {/* Status Badge */}
+                        <td className="px-2 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] text-center">
+                          {isSkipped ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#e0e3e5] text-[#515f74]">
+                              SKIPPED
+                            </span>
+                          ) : isConflict ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveConflictRow(activeConflictRow === row.rowNumber ? null : row.rowNumber)}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#ffdad6] text-[#93000a] border border-[#ba1a1a]/30 flex items-center gap-1 mx-auto"
+                              title={report?.errors?.join("; ") || "Validation Error"}
+                            >
+                              <AlertCircle size={10} />
+                              ERROR
+                            </button>
+                          ) : row.hasWarnings ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#fef08a] text-[#854d0e] border border-[#eab308]/40">
+                              REVIEW
+                            </span>
+                          ) : row.isCorrected ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#dbeafe] text-[#1e40af] border border-[#3b82f6]/30">
+                              CORRECTED
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#d1fae5] text-[#065f46]">
+                              VALID
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Data Cells with Inline Edit & Revert */}
                         {detectedColumns.map((col) => {
-                          const val = row.tokens[col.sourceIndex] || "";
-                          const fieldKey = effectiveMapping.get(col.sourceIndex);
-                          const isKeyField = fieldKey === "code" || fieldKey === "stockNo";
+                          const fieldKey = effectiveMapping.get(col.sourceIndex) || "";
+                          const rawVal = row.originalTokens[col.sourceIndex] || "";
+                          const isCellEdited = row.edits[fieldKey] !== undefined;
+                          const currentVal = isCellEdited ? row.edits[fieldKey] : rawVal;
+                          const isEditingThisCell = editingCell?.rowNumber === row.rowNumber && editingCell?.fieldKey === fieldKey;
+                          
+                          // Check if this field failed validation in preview report
+                          const fieldFailure = report?.field_failures?.find((ff: any) => ff.field.toLowerCase() === fieldKey.toLowerCase());
+                          const isErrorField = Boolean(fieldFailure);
+                          const approvedOptions = approvedValuesMap[fieldKey] || approvedValuesMap[fieldKey.toUpperCase()] || [];
 
                           return (
                             <td
                               key={col.sourceIndex}
-                              className={`px-3 py-2 border-r border-[#c6c6cd] dark:border-[#45464d] ${
-                                isKeyField ? "font-mono font-bold text-[#000000] dark:text-[#dae2fd]" : ""
+                              className={`px-3 py-1.5 border-r border-[#c6c6cd] dark:border-[#45464d] relative group ${
+                                isCellEdited
+                                  ? "bg-[#e0f2fe]/40 font-semibold text-[#0369a1]"
+                                  : isErrorField
+                                  ? "bg-[#fee2e2]/40 text-[#991b1b]"
+                                  : ""
                               }`}
                             >
-                              {val ? (
-                                <span>{val}</span>
+                              {isEditingThisCell ? (
+                                <div className="flex items-center gap-1">
+                                  {approvedOptions.length > 0 ? (
+                                    <select
+                                      autoFocus
+                                      value={currentVal}
+                                      onChange={e => handleApplyCellCorrection(row.rowNumber, fieldKey, e.target.value)}
+                                      onBlur={() => setEditingCell(null)}
+                                      className="w-full text-xs font-semibold px-1.5 py-0.5 rounded border border-[#1565c0] bg-white outline-none"
+                                    >
+                                      <option value="">— Select —</option>
+                                      {approvedOptions.map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <input
+                                      autoFocus
+                                      type="text"
+                                      value={currentVal}
+                                      onChange={e => handleApplyCellCorrection(row.rowNumber, fieldKey, e.target.value)}
+                                      onBlur={() => setEditingCell(null)}
+                                      onKeyDown={e => {
+                                        if (e.key === "Enter" || e.key === "Escape") setEditingCell(null);
+                                      }}
+                                      className="w-full text-xs px-1.5 py-0.5 rounded border border-[#1565c0] bg-white outline-none"
+                                    />
+                                  )}
+                                </div>
                               ) : (
-                                <span className="text-[#76777d] italic text-[11px]">—</span>
+                                <div 
+                                  onClick={() => setEditingCell({ rowNumber: row.rowNumber, fieldKey })}
+                                  className="flex items-center justify-between cursor-pointer min-h-[22px]"
+                                >
+                                  <span className="truncate">
+                                    {currentVal || <span className="text-[#76777d] italic text-[11px]">—</span>}
+                                  </span>
+
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                                    {isCellEdited && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRevertCellCorrection(row.rowNumber, fieldKey);
+                                        }}
+                                        className="p-0.5 text-[#0369a1] hover:text-[#0c4a6e]"
+                                        title={`Revert to original: "${rawVal}"`}
+                                      >
+                                        <Undo size={11} />
+                                      </button>
+                                    )}
+                                    <Edit3 size={10} className="text-[#76777d]" />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Near match pill suggestion if invalid */}
+                              {fieldFailure?.near_match && !isCellEdited && (
+                                <div className="mt-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleApplyCellCorrection(row.rowNumber, fieldKey, fieldFailure.near_match);
+                                    }}
+                                    className="text-[10px] px-1 py-0.2 bg-[#dbeafe] text-[#1e40af] rounded border border-[#3b82f6]/30 hover:bg-[#bfdbfe] font-bold"
+                                    title={`Click to apply suggested value: ${fieldFailure.near_match}`}
+                                  >
+                                    Use "{fieldFailure.near_match}"
+                                  </button>
+                                </div>
                               )}
                             </td>
                           );
@@ -954,301 +1276,182 @@ StockNo	Product	Brand	Style	Shade	Size	MRP	Price	Tax"
             )}
           </div>
 
-          {/* Bottom Resolution Drawer */}
-          {activeConflictRow !== null && (
-            <div className="bg-[#ffdad6] dark:bg-[#93000a]/30 border-t border-[#ba1a1a] p-4 flex items-start gap-3 shrink-0">
-              <span className="material-symbols-outlined text-[#ba1a1a] mt-0.5">error</span>
-              <div className="flex-1 text-xs">
-                <h4 className="font-bold text-[#93000a] dark:text-[#ffdad6] text-xs uppercase tracking-wide">
-                  Mapping Conflict Detected in Row {activeConflictRow + 1}
-                </h4>
-                <p className="text-[#93000a] dark:text-[#ffdad6] mt-0.5">
-                  {parsedRows[activeConflictRow]?.errorMessage || "Required fields are missing or unassigned for this row."}
-                </p>
-                <div className="mt-2.5 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSkipActiveConflict}
-                    className="px-3 py-1 bg-white dark:bg-[#2d3133] text-[#191c1e] dark:text-white border border-[#c6c6cd] rounded font-semibold text-[11px] hover:bg-[#eceef0] transition"
-                  >
-                    Skip Row {activeConflictRow + 1}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAutoFillSku(activeConflictRow)}
-                    className="px-3 py-1 bg-[#ba1a1a] text-white rounded font-bold text-[11px] hover:bg-[#93000a] transition flex items-center gap-1"
-                  >
-                    <Sparkles size={11} />
-                    Auto-Fill Standard SKU
-                  </button>
+          {/* Conflict Resolution Popover Drawer */}
+          {activeConflictRow !== null && previewRowMap.get(activeConflictRow) && (() => {
+            const r = previewRowMap.get(activeConflictRow);
+            const conflict = r.conflict_details;
+
+            return (
+              <div className="bg-[#fff1f2] dark:bg-[#93000a]/20 border-t border-[#f43f5e] p-3 shrink-0 flex items-start gap-3">
+                <span className="material-symbols-outlined text-[#e11d48] mt-0.5">report_problem</span>
+                <div className="flex-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-[#9f1239] dark:text-[#fda4af] uppercase tracking-wide">
+                      Row {activeConflictRow} Conflict Resolution
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setActiveConflictRow(null)}
+                      className="text-[#9f1239] hover:text-black"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  
+                  <div className="mt-1 text-[#9f1239] dark:text-[#fda4af]">
+                    {(r.errors || []).map((e: string, idx: number) => (
+                      <p key={idx}>• {e}</p>
+                    ))}
+                  </div>
+
+                  {conflict && (
+                    <div className="mt-2 p-2 bg-white dark:bg-[#1f1315] rounded border border-[#f43f5e]/30 text-[11px]">
+                      <span className="font-bold text-[#515f74]">Conflicting Database Record: </span>
+                      <span className="font-mono font-bold text-[#191c1e] dark:text-white">
+                        {conflict.existing_item_name} ({conflict.existing_item_code}) — SKU: {conflict.existing_variant_sku}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSkipRow(activeConflictRow)}
+                      className="px-3 py-1 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-semibold text-[11px] hover:bg-[#eceef0]"
+                    >
+                      Skip Row {activeConflictRow}
+                    </button>
+                    {r.field_failures?.length > 0 && r.field_failures[0]?.near_match && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleApplyCellCorrection(activeConflictRow, r.field_failures[0].field, r.field_failures[0].near_match);
+                          setActiveConflictRow(null);
+                        }}
+                        className="px-3 py-1 bg-[#1565c0] text-white rounded font-bold text-[11px] hover:bg-[#0d47a1] flex items-center gap-1"
+                      >
+                        <Sparkles size={11} />
+                        Apply "{r.field_failures[0].near_match}"
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
         </div>
       </div>
 
-      {/* ── Interactive Validation & Fix Panel ───────────────────────────────── */}
-      {previewReport.length > 0 && (() => {
-        const blocked  = previewReport.filter(r => r.action === 'BLOCK' && !skippedByUser.has(r.row_number));
-        const dupes    = previewReport.filter(r => r.reconciliation_state === 'DUPLICATE_IN_FILE' && !skippedByUser.has(r.row_number));
-        const warned   = previewReport.filter(r => (r.warnings||[]).length > 0 && r.action !== 'BLOCK' && !skippedByUser.has(r.row_number));
-        const skipped  = previewReport.filter(r => r.action === 'SKIP');
-        const newRows  = previewReport.filter(r => r.reconciliation_state === 'NEW' && !skippedByUser.has(r.row_number));
-        const userSkips = previewReport.filter(r => skippedByUser.has(r.row_number));
-        const problemRows = [...blocked, ...dupes];
-
-        // Helper: apply a correction
-        const applyCorrection = (rowNum: number, fieldKey: string, value: string) => {
-          setRowCorrections(prev => {
-            const next = new Map(prev);
-            next.set(rowNum, { ...(next.get(rowNum) || {}), [fieldKey]: value });
-            return next;
-          });
-        };
-
-        // Helper: skip a row
-        const skipRow = (rowNum: number) => {
-          setSkippedByUser(prev => new Set([...prev, rowNum]));
-        };
-
-        // Re-validate handler: merge corrections into rows then re-run preview
-        const handleRevalidate = () => {
-          // Apply rowCorrections back into rawText (rebuild rows from parsedRows with overrides applied)
-          // We trigger handlePreviewAndImport with corrections merged via buildImportRows override
-          handlePreviewAndImport(rowCorrections, skippedByUser);
-        };
-
-        const FIELD_LABEL: Record<string, string> = {
-          BRAND_NAME: 'Brand Name', COLOR: 'Colour', SIZE: 'Size', GENDER: 'Gender',
-          MERCHANDISE_DEPARTMENT: 'Department', MERCHANDISE_CATEGORY: 'Category',
-          PRODUCT_TYPE: 'Product Type', HEEL_TYPE: 'Heel Type',
-          UPPER_MATERIAL: 'Upper Material', UOM: 'Unit of Measure',
-          DESIGN_ATTRIBUTE: 'Design / Sub-Category', OUTSOLE_MATERIAL: 'Outsole Material',
-          COLLECTION_TYPE: 'Collection Type', GST_RATE_PERCENT: 'GST %',
-        };
-
-        return (
-          <div className="mt-4 rounded-xl border border-[#c6c6cd] dark:border-[#45464d] bg-white dark:bg-[#191c1e] shadow-sm overflow-hidden">
-
-            {/* ── Panel Header ── */}
-            <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-4 py-3 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between flex-wrap gap-2">
-              <h3 className="text-xs font-bold text-[#191c1e] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
-                <span className="material-symbols-outlined text-[#515f74] text-base">fact_check</span>
-                Import Validation
-                <span className="font-normal text-[#515f74] normal-case tracking-normal ml-1">
-                  — {previewReport.length} rows checked
-                </span>
+      {/* ── Pre-Commit Confirmation Modal ── */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1e2327] rounded-xl border border-[#c6c6cd] dark:border-[#45464d] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in duration-200">
+            <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-5 py-3.5 border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#191c1e] dark:text-white flex items-center gap-2">
+                <Database size={16} className="text-[#1565c0]" />
+                Confirm Database Import
               </h3>
-              <div className="flex items-center gap-2 flex-wrap">
-                {blocked.length  > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#ffdad6] text-[#93000a] font-bold border border-[#ba1a1a]/30">🚫 {blocked.length} to fix</span>}
-                {dupes.length    > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#ffdad6] text-[#93000a] font-bold border border-[#ba1a1a]/30">🔁 {dupes.length} duplicate</span>}
-                {warned.length   > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#fef08a] text-[#854d0e] font-bold border border-[#eab308]/40">⚑ {warned.length} review</span>}
-                {userSkips.length > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#e0e3e5] text-[#515f74] font-bold">⏭ {userSkips.length} skipped</span>}
-                {skipped.length  > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#e0e3e5] text-[#515f74] font-bold">↩ {skipped.length} already exist</span>}
-                {newRows.length  > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#d1fae5] text-[#065f46] font-bold border border-[#10b981]/30">✅ {newRows.length} ready</span>}
-                {problemRows.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleRevalidate}
-                    disabled={isProcessing}
-                    className="ml-2 px-3 py-1 bg-[#1565c0] hover:bg-[#0d47a1] text-white rounded-full text-[11px] font-bold flex items-center gap-1 transition disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">refresh</span>
-                    Re-validate with fixes
-                  </button>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="text-[#76777d] hover:text-black"
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            {/* ── Problem Rows — Fix Cards ── */}
-            {problemRows.length > 0 && (
-              <div className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
-                {problemRows.map((row: any) => {
-                  const isDupe = row.reconciliation_state === 'DUPLICATE_IN_FILE';
-                  const corrections = rowCorrections.get(row.row_number) || {};
-
-                  return (
-                    <div key={row.row_number} className="px-4 py-3 bg-[#fff8f7] dark:bg-[#93000a]/10">
-                      {/* Row identity strip */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono font-bold text-white bg-[#ba1a1a] px-2 py-0.5 rounded">
-                            Row {row.row_number}
-                          </span>
-                          {isDupe
-                            ? <span className="text-[11px] font-bold text-[#93000a]">🔁 Duplicate barcode in your file</span>
-                            : <span className="text-[11px] font-bold text-[#93000a]">🚫 {row.errors?.length || 0} issue{(row.errors?.length || 0) !== 1 ? 's' : ''} to fix</span>
-                          }
-                          {row.barcode && (
-                            <span className="font-mono text-[10px] bg-[#f2f4f6] dark:bg-[#2d3133] px-2 py-0.5 rounded text-[#515f74]">
-                              {row.barcode}
-                            </span>
-                          )}
-                          {row.sku && (
-                            <span className="font-mono text-[10px] text-[#76777d]">{row.sku}</span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => skipRow(row.row_number)}
-                          className="text-[11px] px-2.5 py-1 rounded border border-[#c6c6cd] dark:border-[#45464d] text-[#515f74] hover:bg-[#eceef0] dark:hover:bg-[#2d3133] transition flex items-center gap-1"
-                        >
-                          <span className="material-symbols-outlined text-[13px]">block</span>
-                          Skip this row
-                        </button>
-                      </div>
-
-                      {/* Duplicate: no field-level fix possible */}
-                      {isDupe && (
-                        <p className="text-[11px] text-[#93000a] dark:text-[#ffdad6] ml-1">
-                          This barcode appears more than once in your file. Remove the duplicate row from your spreadsheet and re-validate.
-                        </p>
-                      )}
-
-                      {/* Fix cards for each field failure */}
-                      {!isDupe && (row.field_failures || []).map((ff: any, fi: number) => {
-                        const fieldLabel = FIELD_LABEL[ff.field] || ff.field.replace(/_/g, ' ');
-                        const approvedValues: string[] = approvedValuesMap[ff.field] || [];
-                        const currentSelection = corrections[ff.field] ?? (ff.near_match || '');
-
-                        return (
-                          <div key={fi} className="mt-2 p-3 rounded-lg border border-[#ffdad6] dark:border-[#ba1a1a]/40 bg-white dark:bg-[#1e1212]">
-                            <div className="flex items-start justify-between gap-3 flex-wrap">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-bold text-[#515f74] uppercase tracking-wide mb-1">{fieldLabel}</p>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {/* Bad value badge */}
-                                  <span className="font-mono text-xs bg-[#ffdad6] text-[#93000a] px-2 py-0.5 rounded line-through decoration-[#ba1a1a]">
-                                    {ff.value}
-                                  </span>
-                                  <span className="text-[#515f74] text-[11px]">is not recognised.</span>
-                                </div>
-                                {ff.near_match && (
-                                  <p className="text-[11px] text-[#1565c0] dark:text-[#90caf9] mt-1 flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[13px]">lightbulb</span>
-                                    Closest match: <span className="font-bold font-mono ml-1">"{ff.near_match}"</span>
-                                  </p>
-                                )}
-                              </div>
-
-                              {/* Fix controls */}
-                              <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                                {/* One-click suggestion */}
-                                {ff.near_match && (
-                                  <button
-                                    type="button"
-                                    onClick={() => applyCorrection(row.row_number, ff.field, ff.near_match)}
-                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 border transition ${
-                                      corrections[ff.field] === ff.near_match
-                                        ? 'bg-[#d1fae5] text-[#065f46] border-[#10b981] cursor-default'
-                                        : 'bg-[#e3f2fd] text-[#1565c0] border-[#1565c0]/30 hover:bg-[#bbdefb]'
-                                    }`}
-                                  >
-                                    {corrections[ff.field] === ff.near_match
-                                      ? <><span className="material-symbols-outlined text-[13px]">check_circle</span> Applied</>
-                                      : <><span className="material-symbols-outlined text-[13px]">auto_fix_high</span> Use "{ff.near_match}"</>
-                                    }
-                                  </button>
-                                )}
-
-                                {/* Dropdown picker */}
-                                {approvedValues.length > 0 && (
-                                  <div className="flex items-center gap-1">
-                                    <select
-                                      value={currentSelection}
-                                      onChange={e => applyCorrection(row.row_number, ff.field, e.target.value)}
-                                      className="text-xs border border-[#c6c6cd] dark:border-[#45464d] rounded px-2 py-1.5 bg-white dark:bg-[#2d3133] text-[#191c1e] dark:text-white outline-none focus:border-[#1565c0] transition cursor-pointer"
-                                    >
-                                      <option value="">— Select approved value —</option>
-                                      {approvedValues.map(v => (
-                                        <option key={v} value={v}>{v}</option>
-                                      ))}
-                                    </select>
-                                    {currentSelection && currentSelection !== ff.near_match && (
-                                      <button
-                                        type="button"
-                                        onClick={() => applyCorrection(row.row_number, ff.field, currentSelection)}
-                                        className="px-2 py-1.5 bg-[#1565c0] text-white rounded text-[11px] font-bold hover:bg-[#0d47a1] transition"
-                                      >
-                                        Apply
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Applied confirmation */}
-                            {corrections[ff.field] && (
-                              <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[#059669] dark:text-[#34d399]">
-                                <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                                Will replace <span className="font-mono line-through text-[#ba1a1a] mx-1">{ff.value}</span>
-                                with <span className="font-mono font-bold text-[#059669] ml-1">"{corrections[ff.field]}"</span>
-                                — click <strong>Re-validate with fixes</strong> above to confirm.
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {/* Structural errors (barcode conflict, missing field, price) — no dropdown possible */}
-                      {!isDupe && (row.errors || [])
-                        .filter((e: string) => !(row.field_failures || []).some((ff: any) => e.includes(`"${ff.value}"`) || e.includes(ff.value)))
-                        .map((e: string, ei: number) => (
-                          <div key={ei} className="mt-2 p-2.5 rounded-lg border border-[#ffdad6] dark:border-[#ba1a1a]/40 bg-white dark:bg-[#1e1212] flex items-start gap-2">
-                            <span className="material-symbols-outlined text-[13px] text-[#ba1a1a] mt-px shrink-0">error</span>
-                            <p className="text-[11px] text-[#93000a] dark:text-[#ffdad6]">{e}</p>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* ── Warning Rows ── */}
-            {warned.length > 0 && (
-              <div className="border-t border-[#eceef0] dark:border-[#2d3133]">
-                <div className="px-4 py-2 bg-[#fef9c3] dark:bg-[#713f12]/20 flex items-center gap-2 text-[11px] text-[#854d0e] dark:text-[#fef08a] font-bold">
-                  <span className="material-symbols-outlined text-[14px]">warning</span>
-                  {warned.length} row{warned.length !== 1 ? 's' : ''} have review flags (CA / human sign-off recommended before committing)
+            <div className="p-5 space-y-4 text-xs">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-3 bg-[#d1fae5]/50 border border-[#10b981]/30 rounded-lg">
+                  <div className="text-[10px] font-bold text-[#065f46]">Ready to Commit</div>
+                  <div className="text-xl font-black text-[#065f46] font-mono mt-0.5">{metricStats.ready}</div>
                 </div>
-                <div className="divide-y divide-[#fef08a]/30">
-                  {warned.map((row: any) => (
-                    <div key={row.row_number} className="px-4 py-2.5 bg-[#fefce8] dark:bg-[#713f12]/10 flex items-start gap-3">
-                      <span className="text-[10px] font-mono font-bold text-white bg-[#ca8a04] px-2 py-0.5 rounded shrink-0 mt-0.5">
-                        Row {row.row_number}
-                      </span>
-                      <div>
-                        {(row.warnings || []).map((w: string, wi: number) => (
-                          <p key={wi} className="text-[11px] text-[#854d0e] dark:text-[#fef08a] flex items-start gap-1.5 mb-0.5">
-                            <span className="material-symbols-outlined text-[12px] mt-px shrink-0">flag</span>
-                            {w}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+
+                <div className="p-3 bg-[#eceef0] border border-[#c6c6cd] rounded-lg">
+                  <div className="text-[10px] font-bold text-[#515f74]">Skipped Rows</div>
+                  <div className="text-xl font-black text-[#515f74] font-mono mt-0.5">{metricStats.skipped}</div>
+                </div>
+
+                <div className="p-3 bg-[#ffdad6]/40 border border-[#ba1a1a]/30 rounded-lg">
+                  <div className="text-[10px] font-bold text-[#93000a]">Blocking Errors</div>
+                  <div className="text-xl font-black text-[#93000a] font-mono mt-0.5">{metricStats.blocking}</div>
                 </div>
               </div>
-            )}
 
-            {/* ── Ready Rows Summary ── */}
-            {(newRows.length > 0 || skipped.length > 0) && (
-              <div className="border-t border-[#eceef0] dark:border-[#2d3133] px-4 py-2.5 bg-[#f0fdf4] dark:bg-[#052e16]/30 flex items-center gap-3 text-[11px] text-[#065f46] dark:text-[#34d399]">
-                <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                {newRows.length > 0 && <span className="font-bold">{newRows.length} new item{newRows.length !== 1 ? 's' : ''} ready to import</span>}
-                {newRows.length > 0 && skipped.length > 0 && <span className="text-[#515f74]">·</span>}
-                {skipped.length > 0 && <span className="text-[#515f74]">{skipped.length} already exist and will be skipped</span>}
-                {userSkips.length > 0 && <span className="text-[#515f74]">· {userSkips.length} manually skipped</span>}
+              {/* Import Strategy Selector */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-[#191c1e] dark:text-white block">
+                  Import Strategy:
+                </label>
+                <select
+                  value={importStrategy}
+                  onChange={e => setImportStrategy(e.target.value as ImportStrategy)}
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-[#c6c6cd] dark:border-[#45464d] bg-white dark:bg-[#2d3133] outline-none"
+                >
+                  <option value="ALL_ELIGIBLE">ALL_ELIGIBLE — Import all valid rows and gracefully skip invalid rows (Recommended)</option>
+                  <option value="VALID_ONLY">VALID_ONLY — Commit valid rows only and ignore uncorrected errors</option>
+                  <option value="STRICT">STRICT — Abort commit if any blocking error remains</option>
+                </select>
               </div>
-            )}
+
+              {/* Existing Match Mode Selector */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-[#191c1e] dark:text-white block">
+                  Existing Item Handling:
+                </label>
+                <select
+                  value={existingMatchMode}
+                  onChange={e => setExistingMatchMode(e.target.value as MatchMode)}
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-[#c6c6cd] dark:border-[#45464d] bg-white dark:bg-[#2d3133] outline-none"
+                >
+                  <option value="SKIP">SKIP — Skip existing database items without altering them</option>
+                  <option value="UPDATE_METADATA_AND_PRICE">UPDATE_METADATA_AND_PRICE — Update pricing &amp; attributes on existing matches</option>
+                  <option value="FAIL_ON_EXISTING">FAIL_ON_EXISTING — Disallow importing items that already exist in database</option>
+                </select>
+              </div>
+
+              {metricStats.warnings > 0 && (
+                <div className="p-3 bg-[#fef9c3] border border-[#facc15] rounded-lg text-[#854d0e] flex items-start gap-2 text-[11px]">
+                  <AlertTriangle size={14} className="text-[#ca8a04] mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold">CA / Human Review Sign-Off: </span>
+                    {metricStats.warnings} row(s) contain advisory flags (e.g. HSN material chapter or GST rate slabs). These will be flagged with status <code>REQUIRES_REVIEW</code> upon creation.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-[#f2f4f6] dark:bg-[#131b2e] px-5 py-3 border-t border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 border border-[#76777d] text-[#191c1e] dark:text-[#eff1f3] bg-white dark:bg-[#2d3133] rounded text-xs font-semibold hover:bg-[#eceef0]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCommitImport}
+                disabled={isProcessing}
+                className="px-5 py-2 bg-[#1565c0] hover:bg-[#0d47a1] text-white rounded text-xs font-bold transition flex items-center gap-2"
+              >
+                {isProcessing ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Committing...
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} />
+                    Confirm &amp; Commit
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
     </div>
   );

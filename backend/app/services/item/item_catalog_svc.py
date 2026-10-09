@@ -851,6 +851,7 @@ class ItemCatalogService:
             hsn_code=clean_hsn,
             tax_rate=Decimal(str(tax_rate)),
             primary_uom=primary_uom,
+            uom=kwargs.get("uom") or primary_uom or "PCS",
             mrp=Decimal(str(mrp)),
             selling_price=Decimal(str(selling_price)),
             buying_price=Decimal(str(buying_price)) if buying_price is not None else None,
