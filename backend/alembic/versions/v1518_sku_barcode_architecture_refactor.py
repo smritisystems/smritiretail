@@ -129,53 +129,95 @@ def upgrade() -> None:
     # ─────────────────────────────────────────────────────────────
     # 4a. sales_invoice_items: backfill variant_id from products.item_variant_id
     conn.execute(sa.text("""
-        UPDATE sales_invoice_items sii
-        SET variant_id = p.item_variant_id
-        FROM products p
-        WHERE sii.product_id = p.id
-          AND sii.variant_id IS NULL
-          AND p.item_variant_id IS NOT NULL;
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'sales_invoice_items' AND column_name = 'variant_id'
+            ) THEN
+                UPDATE sales_invoice_items sii
+                SET variant_id = p.item_variant_id
+                FROM products p
+                WHERE sii.product_id = p.id
+                  AND sii.variant_id IS NULL
+                  AND p.item_variant_id IS NOT NULL;
+            END IF;
+        END $$;
     """))
 
     # 4b. stock_movements: backfill variant_id from products.item_variant_id
     conn.execute(sa.text("""
-        UPDATE stock_movements sm
-        SET variant_id = p.item_variant_id
-        FROM products p
-        WHERE sm.product_id = p.id
-          AND sm.variant_id IS NULL
-          AND p.item_variant_id IS NOT NULL;
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'stock_movements' AND column_name = 'variant_id'
+            ) THEN
+                UPDATE stock_movements sm
+                SET variant_id = p.item_variant_id
+                FROM products p
+                WHERE sm.product_id = p.id
+                  AND sm.variant_id IS NULL
+                  AND p.item_variant_id IS NOT NULL;
+            END IF;
+        END $$;
     """))
 
     # 4c. purchase_order_items: backfill variant_id from products.item_variant_id
     conn.execute(sa.text("""
-        UPDATE purchase_order_items poi
-        SET variant_id = p.item_variant_id
-        FROM products p
-        WHERE poi.product_id = p.id
-          AND poi.variant_id IS NULL
-          AND p.item_variant_id IS NOT NULL;
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'purchase_order_items' AND column_name = 'variant_id'
+            ) THEN
+                UPDATE purchase_order_items poi
+                SET variant_id = p.item_variant_id
+                FROM products p
+                WHERE poi.product_id = p.id
+                  AND poi.variant_id IS NULL
+                  AND p.item_variant_id IS NOT NULL;
+            END IF;
+        END $$;
     """))
 
     # 4d. purchase_receipt_items: backfill variant_id from products.item_variant_id
     conn.execute(sa.text("""
-        UPDATE purchase_receipt_items pri
-        SET variant_id = p.item_variant_id
-        FROM products p
-        WHERE pri.product_id = p.id
-          AND pri.variant_id IS NULL
-          AND p.item_variant_id IS NOT NULL;
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'purchase_receipt_items' AND column_name = 'variant_id'
+            ) THEN
+                UPDATE purchase_receipt_items pri
+                SET variant_id = p.item_variant_id
+                FROM products p
+                WHERE pri.product_id = p.id
+                  AND pri.variant_id IS NULL
+                  AND p.item_variant_id IS NOT NULL;
+            END IF;
+        END $$;
     """))
 
     # ─────────────────────────────────────────────────────────────
     # Step 5: Backfill item_id on stock_movements from item_variants where missing
     # ─────────────────────────────────────────────────────────────
     conn.execute(sa.text("""
-        UPDATE stock_movements sm
-        SET item_id = v.item_id
-        FROM item_variants v
-        WHERE sm.variant_id = v.id
-          AND sm.item_id IS NULL;
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'stock_movements' AND column_name = 'item_id'
+            ) AND EXISTS (
+                SELECT 1 FROM information_schema.tables WHERE table_name = 'item_variants'
+            ) THEN
+                UPDATE stock_movements sm
+                SET item_id = v.item_id
+                FROM item_variants v
+                WHERE sm.variant_id = v.id
+                  AND sm.item_id IS NULL;
+            END IF;
+        END $$;
     """))
 
 
