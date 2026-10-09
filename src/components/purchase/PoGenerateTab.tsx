@@ -444,7 +444,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     setSuppliersError(null);
     try {
       try {
-        const prodRes = await apiFetchV1("/inventory/?page=1&page_size=200&sort=created_at&order=desc");
+        const prodRes = await apiFetchV1("/inventory/?page=1&page_size=5000&sort=created_at&order=desc");
         const list = Array.isArray(prodRes) ? prodRes : prodRes?.items || [];
         if (list.length > 0) {
           setProducts(list.map((p: any) => ({

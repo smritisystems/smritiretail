@@ -369,7 +369,7 @@ const AppContent: React.FC = () => {
 
       // Fetch products from FastAPI backend
       try {
-        const prodData = await apiFetchV1("/inventory/?page=1&page_size=200&sort=created_at&order=desc");
+        const prodData = await apiFetchV1("/inventory/?page=1&page_size=5000&sort=created_at&order=desc");
         const rawList = Array.isArray(prodData) ? prodData : (Array.isArray(prodData?.items) ? prodData.items : []);
         const mappedProducts = rawList.map((p: any) => {
           const secBarcodes = Array.isArray(p.secondary_barcodes) ? p.secondary_barcodes : [];
