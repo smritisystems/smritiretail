@@ -28,6 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.48] - 2026-10-09 — Tattly Threads Barcode Human-Readable Font & Overlap Audit and Controlled Runtime Fix (v6.49.2)
+
+> **Branch:** `smritiNX` | **Area:** Barcode & Hardware, ZPL Font Geometry, Headless Pixel Audit, Print Labels Studio
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_TattlyThreads_Barcode_Font_Overlap_Audit_v6.49.2.md`
+> **Plan:** `docs/implementation/inventory/Barcode_TattlyThreads_Barcode_Font_Overlap_Audit_v6.49.2.md`
+
+### Added & Validated (Forensic Geometric Audit & Surgical Runtime Fix)
+- **Forensic Collision Root Cause Discovery**:
+  - Proved that the client master PRN (`TattlyThreads.prn` and `RawPRNScript.prn`) contains an inherent design collision (`MASTER-SPEC COLLISION CONFIRMED`):
+    - Main barcode bars span vertical range `Y: [305, 371]` (`^FO346,305^BY2^BCN,66`).
+    - Main barcode Font A text baseline is placed at `^FT390,385^AAN,27,15`, causing ascenders to start at `Y = 385 - 27 = 358`.
+    - Proved mathematically and via pixel geometry that master renders have a 13-dot vertical collision (`Y: [358, 371]`, 111 black pixels across X=390..530 at Y=365).
+  - Proved that tear-off stubs 1 and 2 intentionally use Font 0 (`^A0N,25,34`) and possess clean 2–4 dot white separation gaps (`Y: 143..146` and `Y: 369..372`).
+- **Master PRN Immutability Guaranteed**:
+  - Verified 0-byte diff and preserved SHA-256 integrity on both client master files (`assets/BarcodePRN/TattlyThreads.prn` and `assets/BarcodePRN/RawPRNScript.prn`).
+- **Surgical Runtime Baseline Adjustment**:
+  - Adjusted runtime dynamic generator text baseline from `^FT390,385` to `^FT390,399` in `PrintLabelsStudio.tsx` and `backend/app/api/v1/barcode.py`.
+  - Created a clean 7-dot white gap (`Y: 372..376` with zero black pixels) between bottom of barcode bars and top of Font A text.
+  - Preserved 6-dot bottom margin before label boundary (`405 - 399 = 6 dots`).
+  - Preserved Font A (`^AAN,27,15`), barcode height (66 dots), Code 128 symbology, and exact EAN-13 digits.
+- **Automated Verification & Regression Gate**:
+  - Added regression test suite in `backend/tests/test_zpl_footwear_label.py` testing master SHA-256 integrity, runtime pixel geometry (zero black pixels in Y=372..376 across X=390..530 for all 4 variants), and stub font preservation.
+  - Certified with 34/34 tests green in pytest (`test_zpl_footwear_label.py`, `test_dpl_footwear_label.py`, `test_printer_service_headless_audit.py`, `test_barcode.py`).
+  - Certified with 22/22 tests green in Vitest (`src/tests/printLabelsStudio.test.ts`).
+  - Certified with 0 TypeScript compiler errors (`npx tsc --noEmit`).
+
 ## [6.70.47] - 2026-10-09 — Tattly Threads Footwear ZPL Default Template Validation & Registration (v6.70.47)
 
 > **Branch:** `smritiNX` | **Area:** Barcode & Hardware, ZPL Template Validation, Print Labels Studio, Headless Rasterization

@@ -155,3 +155,103 @@ class TestZplFootwearLabelValidation:
 
         crop3 = img.crop((min(250, w), 0, w, h)).convert("L")
         assert crop3.getextrema()[0] < crop3.getextrema()[1], "Zone 3 (main box) is blank"
+
+    def test_master_template_file_integrity(self):
+        """
+        Hard safety check: assert that client master PRN files remain 100% byte-for-byte immutable.
+        """
+        import hashlib
+
+        def sha256_file(path):
+            with open(path, "rb") as f:
+                return hashlib.sha256(f.read()).hexdigest().upper()
+
+        tattly_hash = sha256_file(RAW_TEMPLATE_PATH)
+        assert tattly_hash == "E4C8B69847F16594A3A7013818CDE19D3D861FA4915709CC0B23320DEB6014D7", (
+            f"Master file {RAW_TEMPLATE_PATH} has been modified! Expected E4C8B6..., found {tattly_hash}"
+        )
+
+        raw_script_path = os.path.join(ASSETS_DIR, "RawPRNScript.prn")
+        assert os.path.exists(raw_script_path), f"RawPRNScript.prn missing at {raw_script_path}"
+        raw_hash = sha256_file(raw_script_path)
+        assert raw_hash == "224B32A66995333BBDACC6EAEFD2BF43E25D618B1DCCB8CDBB50653FB055E2AD", (
+            f"Master file {raw_script_path} has been modified! Expected 224B32..., found {raw_hash}"
+        )
+
+    @pytest.mark.parametrize(
+        "variant_id,barcode",
+        [
+            ("BLACK_37", "8904551005335"),
+            ("BLACK_40", "8904551005366"),
+            ("TOUPE_37", "8904551005403"),
+            ("TOUPE_42", "8904551005458"),
+        ]
+    )
+    def test_runtime_main_barcode_no_overlap_pixel_geometry(self, variant_id, barcode):
+        """
+        Regression assertion (v6.49.2):
+        Verify that in the SMRITI runtime rendered label, the main barcode human-readable
+        text does NOT visually intersect the barcode bars.
+        Asserts pixel geometry: between bottom of barcode bars (Y=371) and top of human-readable text (Y=378),
+        there is a clean white gap (zero black pixels) across X=390..530.
+        """
+        import httpx
+        from app.api.v1.barcode import generate_footwear_3stub_zpl
+
+        runtime_zpl = generate_footwear_3stub_zpl(
+            item={
+                "barcode": barcode,
+                "size": "37",
+                "color": "BLACK",
+                "style": "CH-30-K",
+                "mrp": 1199,
+                "mfg_date": "10/26",
+            },
+            company_name="Tattly Threads",
+            company_address="81,Umerkhadi,Mumbai,400003",
+            company_email="care@tattlythreads.com",
+            default_mfg_date="10/26",
+        )
+
+        assert "^FT390,399" in runtime_zpl, "Runtime generator must place text baseline at 399 to eliminate overlap"
+        assert "^AAN,27,15" in runtime_zpl, "Runtime generator must preserve Font A (^AAN,27,15)"
+        assert "^BY2^BCN,66,N,N" in runtime_zpl, "Runtime generator must preserve barcode height 66"
+
+        xa_idx = runtime_zpl.rfind("^XA")
+        xz_idx = runtime_zpl.rfind("^XZ")
+        pure_zpl = runtime_zpl[xa_idx : xz_idx + 3]
+
+        resp = httpx.post("http://api.labelary.com/v1/printers/8dpmm/labels/3.95x2/0/", data=pure_zpl.encode("utf-8"), timeout=15.0)
+        assert resp.status_code == 200, f"Labelary render failed: {resp.text}"
+
+        import io
+        img = Image.open(io.BytesIO(resp.content)).convert("L")
+
+        # 1. Barcode bars intact: rows Y=310..365 must have black pixels in X=390..530
+        for y in range(315, 365, 10):
+            cnt = sum(1 for x in range(390, 530) if img.getpixel((x, y)) < 128)
+            assert cnt > 50, f"Barcode bars missing or corrupted at Y={y}"
+
+        # 2. Separation gap: rows Y=372..376 must have ZERO black pixels across X=390..530
+        for y in range(372, 377):
+            cnt = sum(1 for x in range(390, 530) if img.getpixel((x, y)) < 128)
+            assert cnt == 0, f"Collision detected at Y={y}: found {cnt} black pixels between bars and text!"
+
+        # 3. Text digits intact: rows Y=385..395 must have black pixels in X=390..530
+        text_pixels = sum(1 for x in range(390, 530) for y in range(385, 396) if img.getpixel((x, y)) < 128)
+        assert text_pixels > 100, f"Human-readable text missing or corrupted below barcode"
+
+    def test_stub_human_readable_fonts_preserved_and_distinct(self):
+        """
+        Verify Section 10: Font Verification
+        - Stub 1 and Stub 2 human-readable barcodes use Font 0 (^A0N,25,34)
+        - Main barcode human-readable barcode uses Font A (^AAN,27,15)
+        - Font hierarchy remains distinct and intentional.
+        """
+        with open(RAW_TEMPLATE_PATH, "r", encoding="utf-8") as f:
+            prn = f.read()
+
+        assert "^FT26,165\n^A0N,25,34" in prn or "^FT26,165\r\n^A0N,25,34" in prn
+        assert "^FT26,394\n^A0N,25,34" in prn or "^FT26,394\r\n^A0N,25,34" in prn
+        assert "^FT390,385\n^CI0\n^AAN,27,15" in prn or "^FT390,385\r\n^CI0\r\n^AAN,27,15" in prn
+
