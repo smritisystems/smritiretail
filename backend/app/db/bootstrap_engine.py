@@ -542,9 +542,51 @@ def apply_tenant_schema_extensions(database_name: str) -> None:
                 CREATE INDEX IF NOT EXISTS ix_item_serials_item_id ON item_serials(item_id);
                 CREATE INDEX IF NOT EXISTS ix_item_serials_serial_no ON item_serials(serial_number);
 
-                -- 3. Sales Order Items & Master Reference Column Hardening
+                -- 3. Item Batches, Serials, and Locations Column Hardening
                 DO $$
                 BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'item_serials') THEN
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS uuid VARCHAR(36);
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS modified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS updated_by VARCHAR(50);
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50);
+                        ALTER TABLE item_serials ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+                    END IF;
+
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'item_batches') THEN
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS uuid VARCHAR(36);
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS modified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS updated_by VARCHAR(50);
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50);
+                        ALTER TABLE item_batches ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+                    END IF;
+
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'item_warehouse_locations') THEN
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS uuid VARCHAR(36);
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS modified_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS updated_by VARCHAR(50);
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50);
+                        ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+                    END IF;
+
                     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_order_items') THEN
                         ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS article_no VARCHAR(50);
                         ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS vendor_style VARCHAR(100);
