@@ -63,10 +63,45 @@ async def main():
 
         page = await context.new_page()
 
-        # Listen to browser console messages
+        # Listen to browser console and network
         page.on("console", lambda msg: print(f"[Browser Console] {msg.type}: {msg.text}") if msg.type in ("error", "warning") else None)
         page.on("pageerror", lambda err: print(f"[Browser PageError] {err}"))
-        page.on("response", lambda resp: print(f"[Network Response] {resp.status} {resp.url}") if resp.status >= 400 else None)
+
+        async def handle_response(resp):
+            if "/universal-import/preview" in resp.url:
+                try:
+                    res_json = await resp.json()
+                    print(f"\n[Preview Network Response] Status {resp.status}")
+                    print("Summary:", res_json.get("summary"))
+                    rows = res_json.get("reconciliation_report") or res_json.get("rows") or []
+                    print(f"Returned rows: {len(rows)}")
+                    for r in rows[:3]:
+                        print(f"Row {r.get('row_number')}: status={r.get('status')} errors={r.get('errors')}")
+                except Exception as e:
+                    print(f"[Preview Response Parse Error]: {e}")
+            elif "/universal-import/commit" in resp.url:
+                try:
+                    res_json = await resp.json()
+                    print(f"\n[Commit Network Response] Status {resp.status}")
+                    print("Commit result:", json.dumps(res_json, indent=2))
+                except Exception as e:
+                    print(f"[Commit Response Parse Error]: {e}")
+
+        async def handle_request(req):
+            if "/universal-import/preview" in req.url:
+                try:
+                    post_data = req.post_data
+                    if post_data:
+                        body_json = json.loads(post_data)
+                        rows = body_json.get("rows", [])
+                        print(f"\n[Preview Network Request] Total rows in payload: {len(rows)}")
+                        if rows:
+                            print("Sample payload row 1:", json.dumps(rows[0], indent=2))
+                except Exception as e:
+                    print(f"[Preview Request Parse Error]: {e}")
+
+        page.on("request", handle_request)
+        page.on("response", handle_response)
 
         print("\nStep 1: Navigating to https://tattlythreads.smritisys.com/ ...")
         await page.goto("https://tattlythreads.smritisys.com/", wait_until="networkidle", timeout=30000)
@@ -125,7 +160,16 @@ async def main():
             if await revalidate_btn.is_visible():
                 await revalidate_btn.click()
                 print("Waiting for validation response...")
-                await page.wait_for_timeout(6000)
+                await page.wait_for_timeout(8000)
+
+            # Select strategy ALL_ELIGIBLE in strategy selector if present
+            strategy_select = page.locator("select:has-text('All Eligible'), select").first
+            if await strategy_select.is_visible():
+                try:
+                    await strategy_select.select_option("ALL_ELIGIBLE")
+                    await page.wait_for_timeout(1000)
+                except Exception:
+                    pass
 
             # Screenshot: Preview results
             s_preview = await page.screenshot(full_page=True)
@@ -133,17 +177,19 @@ async def main():
 
             # Step 5: Click Import & Commit
             print("\nStep 5: Submitting database import...")
-            commit_btn = page.locator("button:has-text('Import & Commit')").first
-            if await commit_btn.is_visible() and not await commit_btn.is_disabled():
+            commit_btn = page.locator("button:has-text('Import & Commit'), button:has-text('Import')").first
+            if await commit_btn.is_visible():
+                print("Clicking 'Import & Commit' button...")
                 await commit_btn.click()
                 await page.wait_for_timeout(2000)
 
-                # Confirm Modal
+                # Confirm Modal: Click 'Confirm & Commit'
                 confirm_btn = page.locator("div[role='dialog'] button:has-text('Confirm & Commit'), button:has-text('Confirm & Commit')").last
                 if await confirm_btn.is_visible():
+                    print("Clicking 'Confirm & Commit' in modal...")
                     await confirm_btn.click()
                     print("Awaiting commit response and live PostgreSQL transaction...")
-                    await page.wait_for_timeout(8000)
+                    await page.wait_for_timeout(10000)
 
             # Screenshot: Import Result
             s_result = await page.screenshot(full_page=True)
@@ -154,7 +200,7 @@ async def main():
             catalog_tab_btn = page.locator("button:has-text('Article / Design Catalog'), button:has-text('Catalog')").first
             if await catalog_tab_btn.is_visible():
                 await catalog_tab_btn.click()
-                await page.wait_for_timeout(3000)
+                await page.wait_for_timeout(4000)
 
             s_catalog = await page.screenshot(full_page=True)
             save_screenshots("07-live-catalog-verification.png", s_catalog)

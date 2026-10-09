@@ -597,7 +597,7 @@ class IM001ControlledFieldValidator:
         "SIZE": "size",
         "GENDER": "gender",
         "MERCHANDISE_DEPARTMENT": "department",
-        "MERCHANDISE_CATEGORY": "category",
+        "MERCHANDISE_CATEGORY": "product_type",
         "PRODUCT_TYPE": "product_type",
         "HEEL_TYPE": "heel_type",
         "UPPER_MATERIAL": "upper_material",
@@ -768,7 +768,12 @@ class IM001ControlledFieldValidator:
         for std_field, dimension in cls.FIELD_TO_DIMENSION_MAP.items():
             try:
                 rows = await CatalogDimensionValidator.get_approved_values(dimension)
-                result[std_field] = [r["code"] for r in rows if r.get("code")]
+                codes = [r["code"] for r in rows if r.get("code")]
+                if std_field == "MERCHANDISE_CATEGORY":
+                    pt_rows = await CatalogDimensionValidator.get_approved_values("product_type")
+                    pt_codes = [r["code"] for r in pt_rows if r.get("code")]
+                    codes = list(dict.fromkeys(codes + pt_codes))
+                result[std_field] = codes
             except Exception:
                 result[std_field] = []
         return result
