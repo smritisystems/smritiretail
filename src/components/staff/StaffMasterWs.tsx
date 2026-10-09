@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.42
+ * Version      : 6.70.46
  * Created      : 2026-09-11
  * Modified     : 2026-10-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -307,12 +307,13 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
           return;
         }
         if (activeTab === "assignments") {
-          if (data.placements?.length) {
-            setPlacements(data.placements);
+          const list = Array.isArray(data?.placements) ? data.placements : [];
+          if (list.length) {
+            setPlacements(list);
             return;
           }
           const retry = await apiFetchV1<{ placements?: typeof placements }>(`${endpoint}&_retry=${Date.now()}`, { cache: "no-store" });
-          setPlacements(retry.placements || []);
+          setPlacements(Array.isArray(retry?.placements) ? retry.placements : []);
         }
       })
       .catch((error: any) => {
@@ -327,15 +328,18 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       .finally(() => setHrLoading(false));
   }, [activeTab, selectedId, attendanceFrom, attendanceTo, onNotification]);
 
+  const safeStaff = Array.isArray(staff) ? staff : [];
+  const safePlacements = Array.isArray(placements) ? placements : [];
+
   const filteredStaff = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return staff;
-    return staff.filter((person) => [person.fullName, person.username, person.role, person.department, person.designation, person.branch]
+    if (!query) return safeStaff;
+    return safeStaff.filter((person) => [person.fullName, person.username, person.role, person.department, person.designation, person.branch]
       .some((value) => String(value || "").toLowerCase().includes(query)));
-  }, [search, staff]);
+  }, [search, safeStaff]);
 
-  const activeCount = staff.filter((person) => person.status === "Active").length;
-  const adminCount = staff.filter((person) => ["SYSADMIN", "ADMIN", "MANAGER"].includes(String(person.role))).length;
+  const activeCount = safeStaff.filter((person) => person.status === "Active").length;
+  const adminCount = safeStaff.filter((person) => ["SYSADMIN", "ADMIN", "MANAGER"].includes(String(person.role))).length;
   const profileFields = [selected.fullName, selected.employeeId || selected.employeeCode, selected.email, selected.mobile, selected.department, selected.designation, selected.branch, selected.dateOfJoining, selected.reportingManager, selected.photo];
   const profileCompletion = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100);
   const photoUrl = selected.photo || "";
@@ -538,7 +542,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   };
 
   const openReassign = async () => {
-    const activePlacement = placements.find((placement) => placement.status === "ACTIVE");
+    const activePlacement = safePlacements.find((placement) => placement.status === "ACTIVE");
     if (!activePlacement) return;
     setShowReassign(true);
     setReassignRoleMode("Sales Executive");
@@ -617,7 +621,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   }, [reassignDraft.hostCustomerId]);
 
   const handleReassign = async () => {
-    const activePlacement = placements.find((placement) => placement.status === "ACTIVE");
+    const activePlacement = safePlacements.find((placement) => placement.status === "ACTIVE");
     if (!activePlacement) return;
     const validation = validateReassignment(
       {
@@ -829,7 +833,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       case "access":
         return <div className="space-y-3"><div className="grid gap-3 sm:grid-cols-2">{renderField("Type of staff role", selected.role)}{renderField("Role source", "System access role")}{renderField("Menu access", "Resolved by security policy")}{renderField("Sensitive data", "Permission-gated")}</div><div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-900 dark:bg-indigo-950/20"><label className="text-[10px] font-bold uppercase tracking-wide text-slate-500" htmlFor="staff-role-editor">Type of staff role</label><select id="staff-role-editor" aria-label="Type of staff role" value={editDraft.role} onChange={(event) => { setEditDraft({ ...editDraft, role: event.target.value }); setIsEditing(true); }} className="mt-2 w-full rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800">{SYSTEM_CORE_ROLES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}</select><p className="mt-2 text-xs text-slate-500">Use Save Changes above to apply the access role.</p></div>{renderUnavailable("Permission diff requires access contract", "The current backend exposes menu access policy but not a staff-specific effective-permission diff endpoint. No permissions are fabricated here.")}</div>;
       case "assignments": {
-        const activePlacement = placements.find((placement) => placement.status === "ACTIVE");
+        const activePlacement = safePlacements.find((placement) => placement.status === "ACTIVE");
         return (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -839,8 +843,8 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
                 {activePlacement && <button onClick={openReassign} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Reassign</button>}
               </div>
             </div>
-            {placements.length ? (
-              <div className="space-y-3">{placements.map((placement) => <div key={placement.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-sm font-bold">{placement.placement_type === "INTERNAL_BRANCH" ? `${placement.internal_store_code ? `${placement.internal_store_code} · ${placement.internal_store_name || "Unnamed store"}` : `${placement.internal_branch_code || "No code"} · ${placement.internal_branch_name || "Internal branch"}`}` : `${placement.host_store_code || "No code"} · ${placement.host_store_name || "Partner store"}`}</div><div className="mt-1 text-xs text-slate-500">{placement.placement_type === "INTERNAL_BRANCH" ? `${placement.internal_store_code ? "Company-owned store" : "Company branch only"}` : `Partner store: ${placement.host_store_code || "Not provided"} · ${placement.host_store_name || "Store name not provided"}`}{placement.role_at_location ? ` · Role: ${placement.role_at_location}` : ""}</div></div><div className="flex items-center gap-2"><span className="rounded-full border border-indigo-200 px-2 py-1 text-[10px] font-bold text-indigo-700 dark:border-indigo-900 dark:text-indigo-300">{placement.status}</span>{placement.status === "PENDING" && <button onClick={() => handleApprovePlacement(placement.id)} className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700">Approve</button>}</div></div><div className="mt-3 grid gap-3 text-xs sm:grid-cols-3"><div><div className="text-[10px] uppercase text-slate-500">Stock model</div><div className="mt-1 font-bold">{placement.stock_model}</div></div><div><div className="text-[10px] uppercase text-slate-500">Effective from</div><div className="mt-1 font-bold">{placement.effective_from}</div></div><div><div className="text-[10px] uppercase text-slate-500">Effective to</div><div className="mt-1 font-bold">{placement.effective_to || "Ongoing"}</div></div></div></div>)}</div>
+            {safePlacements.length ? (
+              <div className="space-y-3">{safePlacements.map((placement) => <div key={placement.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-sm font-bold">{placement.placement_type === "INTERNAL_BRANCH" ? `${placement.internal_store_code ? `${placement.internal_store_code} · ${placement.internal_store_name || "Unnamed store"}` : `${placement.internal_branch_code || "No code"} · ${placement.internal_branch_name || "Internal branch"}`}` : `${placement.host_store_code || "No code"} · ${placement.host_store_name || "Partner store"}`}</div><div className="mt-1 text-xs text-slate-500">{placement.placement_type === "INTERNAL_BRANCH" ? `${placement.internal_store_code ? "Company-owned store" : "Company branch only"}` : `Partner store: ${placement.host_store_code || "Not provided"} · ${placement.host_store_name || "Store name not provided"}`}{placement.role_at_location ? ` · Role: ${placement.role_at_location}` : ""}</div></div><div className="flex items-center gap-2"><span className="rounded-full border border-indigo-200 px-2 py-1 text-[10px] font-bold text-indigo-700 dark:border-indigo-900 dark:text-indigo-300">{placement.status}</span>{placement.status === "PENDING" && <button onClick={() => handleApprovePlacement(placement.id)} className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700">Approve</button>}</div></div><div className="mt-3 grid gap-3 text-xs sm:grid-cols-3"><div><div className="text-[10px] uppercase text-slate-500">Stock model</div><div className="mt-1 font-bold">{placement.stock_model}</div></div><div><div className="text-[10px] uppercase text-slate-500">Effective from</div><div className="mt-1 font-bold">{placement.effective_from}</div></div><div><div className="text-[10px] uppercase text-slate-500">Effective to</div><div className="mt-1 font-bold">{placement.effective_to || "Ongoing"}</div></div></div></div>)}</div>
             ) : renderUnavailable("No placement assigned", "Assign this staff member to an internal branch or approved partner store code to track location-specific attendance and sell-through.")}
             {showAssign && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">

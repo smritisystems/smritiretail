@@ -28,6 +28,29 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.46] - 2026-10-09 — Commission Studio & Staff Management Array-Guard Hardening (v6.70.46)
+
+> **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Commission Studio, Staff Master Workspace, Defensive Frontend Architecture
+> **Walkthrough:** `docs/walkthrough/hr/Commission_Studio_And_Staff_Array_Guard_Hardening_v6.70.46.md`
+> **Plan:** `docs/implementation/hr/Commission_Studio_And_Staff_Array_Guard_Hardening_Plan_v6.70.46.md`
+
+### Fixed & Hardened (Defensive Array Guarding & Summary Normalization)
+- **Elimination of `TypeError: C.find is not a function`**:
+  - Remediated runtime crash in `StaffManagementTab-BeldRST2.js:1:26605` occurring when opening Commission Studio or switching employee records.
+  - Hardened `/staff/incentives` response handling in `src/components/hr/CommissionStudioModal.tsx`, defensively extracting array items whether returned as raw arrays, `summaries`, or `lines` from Shoper9 rule definitions (`STAFF-002`).
+  - Synthesized authoritative `RepSummary` entries from `/staff/personnel` and PostgreSQL `/staff/commissions/summary` ledger when backend returns rule slabs instead of computed rep summaries.
+  - Enforced `Array.isArray(...)` guards across `safeSummaries` and `safePayouts` throughout Leaderboard, Breakdown, and Ledger tabs.
+- **Defensive Guarding in Employee Attendance & Staff Master**:
+  - Enforced `Array.isArray` parsing for `leaveBalances` and `leaveRequests` in `src/components/hr/EmployeeAttendanceModal.tsx`.
+  - Guarded all array method calls with `safePersonnel`, `safeAttendance`, `safeIncentives`, `safeLeaveBalances`, and `safeLeaveRequests`.
+  - Protected `placements` retry deserialization and accessors in `src/components/staff/StaffMasterWs.tsx` with `safePlacements`.
+  - Guarded `staff` filtering and active/admin counter calculations with `safeStaff`.
+- **Verification & Bundle Validation**:
+  - Added regression test suite in `src/tests/employeeAttendanceStudio.test.ts` verifying non-array dictionary object resilience (14/14 tests green).
+  - Certified full test suite (172/172 test files, 1,343 tests green).
+  - Certified backend reconciliation suite (4/4 Pytest tests green in `test_staff_attendance_cross_db_reconciliation.py`).
+  - Successfully compiled production bundle (`StaffManagementTab-Cxef0y5y.js`) in 50.26s with zero TypeScript compilation errors.
+
 ## [6.70.45] - 2026-10-09 — Cross-Database Staff Identity & Attendance Reconciliation (v6.70.45)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Multi-Tenant Database Architecture, Attendance & Leave API

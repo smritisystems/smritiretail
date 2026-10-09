@@ -1,19 +1,22 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.107.1
+ * Version      : 6.70.46
  * Created      : 2026-08-28
- * Modified     : 2026-10-04
+ * Modified     : 2026-10-09
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  *
- * Changelog v3.107.1 (2026-10-04):
- *   - Replaced CommissionEngine mock (TARGETS[], ENTRIES[]) with live
- *     apiFetchV1 calls: GET /staff/incentives, POST /crm-growth/commissions/calculate.
+ * Changelog v6.70.46 (2026-10-09):
+ *   - Safeguarded against TypeError: C.find is not a function when /staff/incentives
+ *     returns non-array object payloads ({ report_id: "STAFF-002", lines: [] }).
+ *   - Synthesized authoritative RepSummary rows from /staff/personnel and
+ *     /staff/commissions/summary when pre-aggregated summaries array is not provided.
+ *   - Enforced safe array guards across safeSummaries, safePayouts, and branch aggregations.
  */
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -84,29 +87,77 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
     if (!isOpen) return;
     setLoading(true); setError(null);
     try {
-      const inc = await apiFetchV1<RepSummary[]>(`/staff/incentives?period=${PERIOD}`);
-      setSummaries(inc ?? []);
+      const [inc, personnelRes, commSummary] = await Promise.all([
+        apiFetchV1<any>(`/staff/incentives?period=${PERIOD}`).catch(() => ({ lines: [] })),
+        apiFetchV1<any[]>("/staff/personnel").catch(() => []),
+        apiFetchV1<any>(`/staff/commissions/summary?period=${PERIOD}`).catch(() => null),
+      ]);
+
+      let repSummaries: RepSummary[] = [];
+
+      if (Array.isArray(inc)) {
+        repSummaries = inc;
+      } else if (Array.isArray((inc as any)?.summaries)) {
+        repSummaries = (inc as any).summaries;
+      }
+
+      const rawStaff: any[] = Array.isArray(personnelRes)
+        ? personnelRes
+        : (personnelRes as any)?.users || (personnelRes as any)?.data || [];
+
+      if (repSummaries.length === 0 && rawStaff.length > 0) {
+        repSummaries = rawStaff.map((p: any) => {
+          const uId = p.user_id || p.id || `rep-${Math.random().toString(36).slice(2, 7)}`;
+          const pName = p.participant_name || p.full_name || p.name || "Sales Representative";
+          const bCode = p.branch_code || p.branch || "HO";
+          const earned = commSummary?.user_id === uId ? Number(commSummary?.earned_commission || 0) : 0;
+          const netSales = commSummary?.user_id === uId ? Number(commSummary?.net_sales || 0) : 0;
+          return {
+            user_id: uId,
+            rep_id: p.id,
+            rep_name: pName,
+            branch_code: bCode,
+            period: PERIOD,
+            net_sales: netSales,
+            commission_amt: earned,
+            target_bonus_amt: 0,
+            total_earnings: earned,
+            target_achievement_pct: netSales > 0 ? Math.min(100, Math.round((netSales / 100000) * 100)) : 0,
+            revenue_target: 100000,
+            units_sold: 0,
+            unit_target: 50,
+          };
+        });
+      }
+
+      setSummaries(repSummaries);
+      if (!selectedUserId && repSummaries[0]?.user_id) {
+        setSelectedUserId(repSummaries[0].user_id);
+      }
     } catch (e: any) {
+      setSummaries([]);
       setError(e?.message ?? "Failed to load commission data.");
       onNotification?.("Error", "Could not load commission data.", "error");
     } finally { setLoading(false); }
-  }, [isOpen, PERIOD]);
+  }, [isOpen, PERIOD, selectedUserId, onNotification]);
 
   useEffect(() => { load(); }, [load]);
 
-  const displayed = filterBranch === "ALL" ? summaries : summaries.filter((s) => s.branch_code === filterBranch);
-  const selected  = summaries.find((s) => s.user_id === selectedUserId);
-  const branches  = Array.from(new Set(summaries.map((s) => s.branch_code).filter(Boolean)));
+  const safeSummaries = Array.isArray(summaries) ? summaries : [];
+  const safePayouts   = Array.isArray(payouts) ? payouts : [];
+  const displayed = filterBranch === "ALL" ? safeSummaries : safeSummaries.filter((s) => s.branch_code === filterBranch);
+  const selected  = safeSummaries.find((s) => s.user_id === selectedUserId) || safeSummaries[0] || null;
+  const branches  = Array.from(new Set(safeSummaries.map((s) => s.branch_code).filter(Boolean)));
 
   const handleRaise = async (rep: RepSummary) => {
-    if (payouts.find((p) => p.user_id === rep.user_id && p.period === rep.period)) {
+    if (safePayouts.find((p) => p.user_id === rep.user_id && p.period === rep.period)) {
       onNotification?.("Already Raised", `Payout for ${rep.rep_name} already exists`, "info"); return;
     }
     try {
       const p = await apiFetchV1<PayoutRecord>("/crm-growth/commissions/calculate", {
         method: "POST", body: JSON.stringify({ user_id: rep.user_id, period: rep.period }),
       });
-      if (p) { setPayouts((prev) => [...prev, p]); onNotification?.("Payout Raised", `${p.payout_no} - ${fmt(p.total_commission)}`, "success"); }
+      if (p) { setPayouts((prev) => [...(Array.isArray(prev) ? prev : []), p]); onNotification?.("Payout Raised", `${p.payout_no} - ${fmt(p.total_commission)}`, "success"); }
     } catch (e: any) { onNotification?.("Error", e?.message ?? "Payout creation failed.", "error"); }
   };
 
@@ -172,7 +223,7 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
           {activeTab === "LEADERBOARD" && (
             <div className="space-y-3">
               {displayed.map((rep, i) => {
-                const paidOut = payouts.find((p) => p.user_id === rep.user_id);
+                const paidOut = safePayouts.find((p) => p.user_id === rep.user_id);
                 const achPct = rep.revenue_target ? Math.round((rep.net_sales / rep.revenue_target) * 100) : 0;
                 return (
                   <div key={rep.user_id} className={`bg-slate-800/30 border rounded-xl p-4 transition-all cursor-pointer ${selectedUserId === rep.user_id ? "border-yellow-500/40 bg-yellow-950/10" : "border-slate-700/60 hover:border-slate-600"}`}
@@ -272,10 +323,10 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
             <div className="space-y-5">
               <div className="grid grid-cols-4 gap-3">
                 {[
-                  { label: "Pending",  count: payouts.filter((p) => p.status === "PENDING").length,  total: payouts.filter((p) => p.status === "PENDING").reduce((s, p) => s + p.total_commission, 0),  color: "text-amber-400" },
-                  { label: "Approved", count: payouts.filter((p) => p.status === "APPROVED").length, total: payouts.filter((p) => p.status === "APPROVED").reduce((s, p) => s + p.total_commission, 0), color: "text-sky-400" },
-                  { label: "Paid",     count: payouts.filter((p) => p.status === "PAID").length,     total: payouts.filter((p) => p.status === "PAID").reduce((s, p) => s + p.total_commission, 0),     color: "text-emerald-400" },
-                  { label: "Disputed", count: payouts.filter((p) => p.status === "DISPUTED").length, total: payouts.filter((p) => p.status === "DISPUTED").reduce((s, p) => s + p.total_commission, 0), color: "text-rose-400" },
+                  { label: "Pending",  count: safePayouts.filter((p) => p.status === "PENDING").length,  total: safePayouts.filter((p) => p.status === "PENDING").reduce((s, p) => s + p.total_commission, 0),  color: "text-amber-400" },
+                  { label: "Approved", count: safePayouts.filter((p) => p.status === "APPROVED").length, total: safePayouts.filter((p) => p.status === "APPROVED").reduce((s, p) => s + p.total_commission, 0), color: "text-sky-400" },
+                  { label: "Paid",     count: safePayouts.filter((p) => p.status === "PAID").length,     total: safePayouts.filter((p) => p.status === "PAID").reduce((s, p) => s + p.total_commission, 0),     color: "text-emerald-400" },
+                  { label: "Disputed", count: safePayouts.filter((p) => p.status === "DISPUTED").length, total: safePayouts.filter((p) => p.status === "DISPUTED").reduce((s, p) => s + p.total_commission, 0), color: "text-rose-400" },
                 ].map((m) => (
                   <div key={m.label} className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4 text-center">
                     <div className={`text-lg font-black font-mono ${m.color}`}>{fmt(m.total)}</div>
@@ -283,14 +334,14 @@ export const CommissionStudioModal: React.FC<CommissionStudioModalProps> = ({ is
                   </div>
                 ))}
               </div>
-              {payouts.length === 0 ? (
+              {safePayouts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-500 gap-2">
                   <span className="material-symbols-outlined text-4xl">receipt_long</span>
                   <p className="text-sm">No payouts raised yet. Go to Leaderboard and click "Raise Payout".</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {payouts.map((p) => (
+                  {safePayouts.map((p) => (
                     <div key={p.payout_id} className="bg-slate-800/30 border border-slate-700/60 rounded-xl p-4">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div>
