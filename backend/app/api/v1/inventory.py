@@ -73,7 +73,7 @@ async def create_product(
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
 async def list_products(
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=500),
+    page_size: int = Query(25, ge=1, le=5000),
     q: str | None = Query(None),
     category: str | None = Query(None),
     sort: str = Query("name"),
