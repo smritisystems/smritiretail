@@ -20,6 +20,7 @@ import {
   generateThermalSheetSvgString,
   runPrePrintSanitizer,
   compilePrnString,
+  compileDplFootwearString,
   generateFootwearVariantMatrix,
   parseBarcodeCsvOrText,
   DEFAULT_PRINT_PRESETS,
@@ -345,12 +346,16 @@ describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
     const template = { id: "lay-footwear-100x50-3stub", name: "Footwear 3-Stub 100 x 50 mm", widthMm: 100, heightMm: 50.7 };
     const prn = compilePrnString(items as any, template);
 
-    expect(prn).toContain("<xpml><page></page></xpml>^XA");
-    expect(prn).toContain("^LL405");
-    expect(prn).toContain("^FT424,44^A0N,30,28^FR^FDCH-30-K     ^FS");
-    expect(prn).toContain("^FT661,110^A0N,50,47^FR^FD37^FS");
-    expect(prn).toContain("^FT346,371^BY2^BCN,66,N,N,N^FD>:8904551005335^FS");
-    expect(prn).toContain("^FT410,175^A0N,38,36^FD1199/-^FS");
+    expect(prn).toContain("<xpml><page quantity='0' pitch='50.7 mm'></xpml>^XA");
+    expect(prn).toContain("^PW804");
+    expect(prn).toContain("^FT416,54");
+    expect(prn).toContain("^A0N,45,44^FR^FDCH-30-K     ^FS");
+    expect(prn).toContain("^FT627,116");
+    expect(prn).toContain("^A0N,65,72^FR^FD37^FS");
+    expect(prn).toContain("^FO346,305");
+    expect(prn).toContain("^BY2^BCN,66,N,N^FD8904551005335^FS");
+    expect(prn).toContain("^FT488,175");
+    expect(prn).toContain("^A0N,42,56^FD1199/-^FS");
     expect(prn).toContain("^PQ2,0,1,Y");
     expect(prn).toContain("^XZ");
   });
@@ -462,6 +467,91 @@ describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
     const usbPreset = DEFAULT_PRINT_PRESETS.find(p => p.printerInterface.includes("USB"));
     expect(usbPreset).toBeDefined();
     expect(usbPreset?.templateId).toBe("retail-50x25");
+
+    const honeywellPreset = DEFAULT_PRINT_PRESETS.find(p => p.id === "preset-honeywell-ih2-footwear");
+    expect(honeywellPreset).toBeDefined();
+    expect(honeywellPreset?.dpi).toBe(300);
+    expect(honeywellPreset?.templateId).toBe("lay-footwear-100x50-3stub");
+  });
+
+  it("compiles native 300 DPI DPL stream for footwear 3-stub label without ZPL commands", () => {
+    const items = [
+      {
+        id: "var-1",
+        itemCode: "CH-30-K-BLK-37",
+        product: "CH-30-K Footwear (Black 37)",
+        brand: "Tattly Threads",
+        style: "CH-30-K",
+        shade: "BLACK",
+        size: "37",
+        barcode: "8904551005335",
+        stock: 12,
+        printQty: 1,
+        mrp: 1199,
+        selected: true,
+      },
+    ];
+
+    const template = { id: "lay-footwear-100x50-3stub", name: "Footwear 3-Stub 100 x 50 mm", widthMm: 100, heightMm: 50.7 };
+    const dpl = compileDplFootwearString(items as any, template);
+
+    // Assert structural DPL headers & terminator
+    expect(dpl).toContain("\x02L");
+    expect(dpl).toContain("D11");
+    expect(dpl).toContain("H16");
+    expect(dpl).toContain("Q0001");
+    expect(dpl).toContain("E");
+
+    // Assert DPL Code 128 barcodes
+    expect(dpl).toContain("1e42098045005108904551005335");
+    expect(dpl).toContain("1e42045016500508904551005335");
+    expect(dpl).toContain("1e42045049000498904551005335");
+
+    // Assert resolved fields
+    expect(dpl).toContain("CH-30-K");
+    expect(dpl).toContain("BLACK");
+    expect(dpl).toContain("37");
+    expect(dpl).toContain("MRP: Rs. 1199/-");
+
+    // Assert NO ZPL commands and NO unresolved placeholders
+    expect(dpl).not.toContain("^XA");
+    expect(dpl).not.toContain("^XZ");
+    expect(dpl).not.toContain("^FO");
+    expect(dpl).not.toContain("^FT");
+    expect(dpl).not.toContain("^BC");
+    expect(dpl).not.toContain("{barcode}");
+    expect(dpl).not.toContain("{size}");
+    expect(dpl).not.toContain("{color}");
+    expect(dpl).not.toContain("{style}");
+    expect(dpl).not.toContain("{mrp}");
+    expect(dpl).not.toContain("{pkd_date}");
+  });
+
+  it("compiles DPL via compilePrnString when isDpl flag is true", () => {
+    const items = [
+      {
+        id: "var-2",
+        itemCode: "CH-30-K-BLK-40",
+        product: "CH-30-K Footwear (Black 40)",
+        brand: "Tattly Threads",
+        style: "CH-30-K",
+        shade: "BLACK",
+        size: "40",
+        barcode: "8904551005366",
+        stock: 5,
+        printQty: 2,
+        mrp: 1199,
+        selected: true,
+      },
+    ];
+
+    const template = { id: "lay-footwear-100x50-3stub", name: "Footwear 3-Stub 100 x 50 mm", widthMm: 100, heightMm: 50.7 };
+    const dplStream = compilePrnString(items as any, template, true);
+
+    expect(dplStream).toContain("\x02L");
+    expect(dplStream).toContain("Q0002");
+    expect(dplStream).toContain("1e42098045005108904551005366");
+    expect(dplStream).not.toContain("^XA");
   });
 });
 

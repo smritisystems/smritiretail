@@ -58,7 +58,7 @@ interface AdvancedFilters {
 interface LabelTemplate { id: string; name: string; widthMm: number; heightMm: number; }
 
 const LABEL_TEMPLATES: LabelTemplate[] = [
-  { id: 'lay-footwear-100x50-3stub', name: 'Footwear 3-Stub 100 x 50 mm', widthMm: 100, heightMm: 50.7 },
+  { id: 'lay-footwear-100x50-3stub', name: 'Tattly Threads Footwear — 100x50.7mm', widthMm: 100, heightMm: 50.7 },
   { id: 'retail-50x25', name: 'Retail 50 x 25 mm', widthMm: 50, heightMm: 25 },
   { id: 'thermal-40x20', name: 'Thermal 40 x 20 mm', widthMm: 40, heightMm: 20 },
   { id: 'jewellery-38x19', name: 'Jewellery 38 x 19 mm', widthMm: 38, heightMm: 19 },
@@ -313,8 +313,73 @@ export function runPrePrintSanitizer(items: StudioRow[]): SanitizerReport {
   };
 }
 
-export function compilePrnString(items: StudioRow[], template: LabelTemplate): string {
+export function compileDplFootwearString(items: StudioRow[], template: LabelTemplate): string {
   if (items.length === 0) return '';
+  const now = new Date();
+  const pkdDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`;
+  const lines: string[] = [];
+
+  for (const item of items) {
+    const qty = Math.max(1, item.printQty || 1);
+    const barcodeVal = item.barcode || item.itemCode || '8904551005335';
+    const rawArt = (item.style || item.itemCode || 'CH-30-K').trim().toUpperCase();
+    const color = (item.shade || 'BLACK').toUpperCase();
+    const size = item.size || '37';
+    const mrp = Math.round(Number(item.mrp) || 1199);
+    const brand = (item.brand || 'TATTLY THREADS').toUpperCase();
+
+    const dpl = [
+      '\x02L',
+      'D11',
+      'H16',
+      '1X1100000000370L000599',
+      '1X1100002980000L0370000',
+      '1X1100000220490B0420070',
+      '1X1100000920928B0104099',
+      '1X1100000700055B0104099',
+      '1X1100003950049B0104099',
+      '191100000600395Art.No.',
+      `192200000650500${rawArt}`,
+      '191100001500395Color:',
+      `192200001500500${color}`,
+      `193300001600950${size}`,
+      `192200002500500MRP: Rs. ${mrp}/-`,
+      '191100002500730|(Incl of all taxes)',
+      `191100002900420MFG.Dt.: ${pkdDate}`,
+      '191100003150420NET CONTENTS: 1 Pair Footwear',
+      '19110000395042081,Umerkhadi,Mumbai,400003',
+      '191100004200420care@tattlythreads.com',
+      '191100004500420MKTD.By: Tattly Threads',
+      `1e4209804500510${barcodeVal}`,
+      `191100005600575${barcodeVal}`,
+      `191100000400055${rawArt}`,
+      `191100000750170${color}`,
+      `192200001350075${size}`,
+      `191100001150170MRP: ${mrp}/-`,
+      '191100001400170(Incl of all taxes)',
+      `1e4204501650050${barcodeVal}`,
+      `191100002250090${barcodeVal}`,
+      `191100003650049${rawArt}`,
+      `191100004000170${color}`,
+      `192200004600075${size}`,
+      `191100004400170MRP: ${mrp}/-`,
+      '191100004650170(Incl of all taxes)',
+      `1e4204504900049${barcodeVal}`,
+      `191100005500090${barcodeVal}`,
+      `Q${String(qty).padStart(4, '0')}`,
+      'E',
+      ''
+    ].join('\n');
+    lines.push(dpl);
+  }
+  return lines.join('\n');
+}
+
+export function compilePrnString(items: StudioRow[], template: LabelTemplate, isDpl?: boolean): string {
+  if (items.length === 0) return '';
+  if (isDpl && template.widthMm >= 90 && template.heightMm >= 45) {
+    return compileDplFootwearString(items, template);
+  }
   const lines: string[] = [];
 
   for (const item of items) {
@@ -329,42 +394,95 @@ export function compilePrnString(items: StudioRow[], template: LabelTemplate): s
 
     if (template.widthMm >= 90 && template.heightMm >= 45) {
       lines.push(
-`<xpml><page></page></xpml>^XA
-^LH0,0^FS
-^LL405
-^FO37,47^GB56,54,54^FS
-^FO33,274^GB56,54,54^FS
-^FO627,60^GB68,66,66^FS
-^FO416,15^GB284,40,40^FS
-^FO250,0^GB0,405,1^FS
-^FO0,202^GB250,0,1^FS
-^FT424,44^A0N,30,28^FR^FD${artPadded}^FS
-^FT661,110^A0N,50,47^FR^FD${size}^FS
-^FT65,88^A0N,41,39^FR^FD${size}^FS
-^FT61,315^A0N,41,39^FR^FD${size}^FS
-^FT346,371^BY2^BCN,66,N,N,N^FD>:${barcodeVal}^FS
-^FT526,396^A0N,20,19^FD${barcodeVal}^FS
-^FT34,142^BY2^BCN,30,N,N,N^FD>:${barcodeVal}^FS
-^FT124,157^A0N,15,14^FD${barcodeVal}^FS
-^FT33,368^BY2^BCN,30,N,N,N^FD>:${barcodeVal}^FS
-^FT123,383^A0N,15,14^FD${barcodeVal}^FS
-^FT340,41^A0N,18,17^FDArt.No.^FS
-^FT340,103^A0N,20,19^FDColor:^FS
-^FT405,103^A0N,28,27^FD${color}^FS
-^FT355,170^A0N,23,22^FDMRP:^FS
-^FT410,175^A0N,38,36^FD${mrp}/-^FS
-^FT530,172^A0N,17,23^FD|(Incl of all taxes)^FS
-^FT355,199^A0N,17,23^FDMFG.Dt.:10/26^FS
-^FT355,215^A0N,17,23^FDNET CONTENTS:1 Pair Footwear^FS
-^FT116,63^A0N,20,27^FD${color}^FS
-^FT116,84^A0N,20,27^FDMRP:${mrp}/-^FS
-^FT116,101^A0N,17,23^FD(Incl of all taxes)^FS
-^FT116,289^A0N,20,27^FD${color}^FS
-^FT116,310^A0N,20,27^FDMRP:${mrp}/-^FS
-^FT116,327^A0N,17,23^FD(Incl of all taxes)^FS
-^FO731,0^GB0,405,3^FS
-^FO324,236^GB407,0,3^FS
-^FT355,261^A0N,20,27^FDMKTD.By:${brand}^FS
+`<xpml><page quantity='0' pitch='50.7 mm'></xpml>^XA
+^SZ2^JMA
+^MCY^PMN
+^PW804
+^JZY
+^LH0,0^LRN
+^XZ
+<xpml></page></xpml><xpml><page quantity='1' pitch='50.7 mm'></xpml>^XA
+^FO346,305
+^BY2^BCN,66,N,N^FD${barcodeVal}^FS
+^FT390,385
+^CI0
+^AAN,27,15^FD${barcodeVal}^FS
+^FT772,357
+^A0B,34,46^FDTATTLY THREADS^FS
+^FT355,271
+^ADN,18,10^FD81,Umerkhadi,Mumbai,400003^FS
+^FT355,289
+^ADN,18,10^FDcare@tattlythreads.com^FS
+^FO627,62
+^GB70,67,67^FS
+^FT627,116
+^A0N,65,72^FR^FD${size}^FS
+^FT405,111
+^A0N,37,49^FD${color}^FS
+^FO416,15
+^GB284,47,47^FS
+^FT416,54
+^A0N,45,44^FR^FD${rawArt}     ^FS
+^FO332,13
+^GB367,117,3^FS
+^FO334,57
+^GB337,0,3^FS
+^FT490,199
+^A0N,17,23^FD |(Incl of all taxes)^FS
+^FT488,175
+^A0N,42,56^FD${mrp}/-^FS
+^FT408,170
+^A0N,28,38^FDMRP:^FS
+^FT355,199
+^A0N,17,23^FDMFG.Dt.:10/26^FS
+^FT355,215
+^ABN,11,7^FDNET CONTENTS:1 Pair Footwear^FS
+^FT340,41
+^A0N,17,23^FDArt.No.^FS
+^FT340,103
+^A0N,17,23^FDColor:^FS
+^FO34,112
+^BY1^BCN,30,N,N^FD${barcodeVal}^FS
+^FT26,165
+^A0N,25,34^FD${barcodeVal}^FS
+^FO37,47
+^GB70,67,67^FS
+^FT37,101
+^A0N,65,72^FR^FD${size}^FS
+^FT116,63
+^A0N,28,38^FD${color}^FS
+^FT37,34
+^A0N,28,27^FD${rawArt}^FS
+^FT17,146
+^ABB,11,7^FDTATTLY THREADS^FS
+^FT116,84
+^A0N,20,27^FDMRP:${mrp}/-^FS
+^FT116,101
+^A0N,17,23^FD(Incl of all taxes)^FS
+^FO33,338
+^BY1^BCN,30,N,N^FD${barcodeVal}^FS
+^FT26,394
+^A0N,25,34^FD${barcodeVal}^FS
+^FO33,274
+^GB70,67,67^FS
+^FT33,328
+^A0N,65,72^FR^FD${size}^FS
+^FT116,289
+^A0N,28,38^FD${color}^FS
+^FT33,260
+^A0N,28,27^FD${rawArt}^FS
+^FT16,372
+^ABB,11,7^FDTATTLY THREADS^FS
+^FT116,310
+^A0N,20,27^FDMRP:${mrp}/-^FS
+^FT116,327
+^A0N,17,23^FD(Incl of all taxes)^FS
+^FO731,0
+^GB0,405,3^FS
+^FO324,236
+^GB407,0,3^FS
+^FT355,261
+^A0N,20,27^FDMKTD.By:Tattly Threads^FS
 ^PQ${qty},0,1,Y
 ^XZ
 <xpml></page></xpml><xpml><end/></xpml>`
@@ -561,6 +679,15 @@ export const DEFAULT_PRINT_PRESETS: PrintProfilePreset[] = [
     networkPrinterPort: 9100,
     dpi: 203,
   },
+  {
+    id: 'preset-honeywell-ih2-footwear',
+    name: 'Honeywell IH-2 - Footwear 100x50 (300 DPI DPL)',
+    templateId: 'lay-footwear-100x50-3stub',
+    printerInterface: 'USB (QZ Tray / DPL)',
+    networkPrinterIp: '127.0.0.1',
+    networkPrinterPort: 9100,
+    dpi: 300,
+  },
 ];
 
 // ── Props ───────────────────────────────────────────────────────────────────
@@ -594,13 +721,13 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
   const [qkSize, setQkSize]             = useState('All');
   // Templates (Dynamic + Presets)
   const [templates, setTemplates]       = useState<LabelTemplate[]>(LABEL_TEMPLATES);
-  const [templateId, setTemplateId]     = useState('retail-50x25');
+  const [templateId, setTemplateId]     = useState('lay-footwear-100x50-3stub');
   const [labelsPerItem, setLabelsPerItem] = useState(1);
   // Printers (Dynamic + Defaults)
   const [printers, setPrinters]         = useState<string[]>([
-    'Zebra ZD421 (USB)', 'Zebra ZT411 (Network)', 'Brother QL-820NWB', 'System Default'
+    'Zebra ZD421 (USB) - ZPL', 'IMPACT by Honeywell IH-2 (300 dpi) - DPL', 'Zebra ZT411 (Network) - ZPL', 'Brother QL-820NWB', 'System Default'
   ]);
-  const [printerName, setPrinterName]   = useState('Zebra ZD421 (USB)');
+  const [printerName, setPrinterName]   = useState('Zebra ZD421 (USB) - ZPL');
   const [printerReady, setPrinterReady] = useState(true);
   // Printing
   const [printing, setPrinting]         = useState(false);
@@ -1151,8 +1278,15 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
     if (totalLabels === 0) { onNotification?.('Zero Labels', 'Set print quantity > 0 for at least one item.', 'error'); return; }
     setPrinting(true);
     try {
+      const isDpl = printerName.toLowerCase().includes('dpl') ||
+                    printerName.toLowerCase().includes('honeywell') ||
+                    printerName.toLowerCase().includes('ih-2') ||
+                    selectedPresetId === 'preset-honeywell-ih2-footwear';
       const payload = {
         layoutId: templateId,
+        targetPrinter: printerName,
+        printer_language: isDpl ? 'DPL' : 'ZPL',
+        language: isDpl ? 'dpl' : 'zpl',
         items: selectedRows.map(r => ({
           code: r.itemCode,
           name: r.product,
@@ -1445,8 +1579,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
       onNotification?.('No Selection', 'Please select at least one item to export PRN.', 'info');
       return;
     }
-    const prn = compilePrnString(itemsToExport, selectedTemplate);
-    const filename = `smriti_labels_${selectedTemplate.id}_${Date.now()}.prn`;
+    const isDpl = printerName.toLowerCase().includes('dpl') ||
+                  printerName.toLowerCase().includes('honeywell') ||
+                  printerName.toLowerCase().includes('ih-2') ||
+                  selectedPresetId === 'preset-honeywell-ih2-footwear';
+    const prn = compilePrnString(itemsToExport, selectedTemplate, isDpl);
+    const filename = `smriti_labels_${selectedTemplate.id}_${Date.now()}.${isDpl ? 'dpl' : 'prn'}`;
     downloadPrnFile(prn, filename);
     addSessionLog(`PRN DOWNLOADED LOCAL (${itemsToExport.length} items, ${prn.split(/\r?\n/).length} lines)`, 'success');
     onNotification?.('PRN Downloaded', `Generated and downloaded PRN file for ${itemsToExport.length} item(s).`, 'success');
@@ -1455,7 +1593,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
   // ── Direct Raw PRN Modal ───────────────────────────────────────────────
   const handleOpenRawPrnModal = () => {
     const itemsToExport = selectedRows.length > 0 ? selectedRows : (previewRow ? [previewRow] : rows.slice(0, 2));
-    const initialPrn = compilePrnString(itemsToExport, selectedTemplate);
+    const isDpl = printerName.toLowerCase().includes('dpl') ||
+                  printerName.toLowerCase().includes('honeywell') ||
+                  printerName.toLowerCase().includes('ih-2') ||
+                  selectedPresetId === 'preset-honeywell-ih2-footwear';
+    const initialPrn = compilePrnString(itemsToExport, selectedTemplate, isDpl);
     setRawPrnText(initialPrn);
     setRawPrnModalOpen(true);
   };
