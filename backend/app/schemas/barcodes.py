@@ -53,7 +53,7 @@ class BarcodeValidateResponse(BaseModel):
 # ============================================================================
 
 class LabelCompileRequest(BaseModel):
-    printer_language: str = Field("ZPL", description="ZPL, TSPL, ESC_POS")
+    printer_language: str = Field("ZPL", description="ZPL, DPL, TSPL, ESC_POS")
     dpi: int = Field(203, description="203, 300, 600")
     width_mm: float = 50.0
     height_mm: float = 25.0
@@ -64,6 +64,8 @@ class LabelCompileRequest(BaseModel):
     selling_price: Decimal
     size: Optional[str] = None
     color: Optional[str] = None
+    style: Optional[str] = None
+    pkd_date: Optional[str] = None
     brand: Optional[str] = "SMRITI"
     hsn_code: Optional[str] = None
 
@@ -88,7 +90,7 @@ class BatchLabelItem(BaseModel):
 
 
 class BatchLabelPrintRequest(BaseModel):
-    printer_language: str = Field("ZPL", description="ZPL, TSPL, ESC_POS")
+    printer_language: str = Field("ZPL", description="ZPL, DPL, TSPL, ESC_POS")
     dpi: int = 203
     width_mm: float = 50.0
     height_mm: float = 25.0

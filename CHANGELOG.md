@@ -28,6 +28,32 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.47] - 2026-10-09 — Tattly Threads Footwear ZPL Default Template Validation & Registration (v6.70.47)
+
+> **Branch:** `smritiNX` | **Area:** Barcode & Hardware, ZPL Template Validation, Print Labels Studio, Headless Rasterization
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_TattlyThreads_ZPL_Default_Template_Registration_v6.49.1.md`
+> **Plan:** `docs/implementation/inventory/Barcode_TattlyThreads_ZPL_Default_Template_Registration_Plan_v6.49.1.md`
+
+### Added & Validated (Automated Validation-First ZPL Template Registration)
+- **Automated Validation-First Architecture**:
+  - Implemented `scripts/validate_zpl_footwear_template.py` and `scripts/register_default_zpl_template.py` executing 10 verification gates prior to database registration.
+  - Asserted ZPL and XPML structure: pitch `50.7 mm`, width `804 dots`, balanced `^XA`/`^XZ` pairs, zero invalid commands.
+  - Enforced 19 dynamic placeholder tokens across 6 logical dimensions (`{barcode}: 6`, `{size}: 3`, `{colour}: 3`, `{style_code}: 3`, `{mrp}: 3`, `{pkd_date}: 1`).
+  - Resolved dynamic variant data from live PostgreSQL `smriti001` database across 4 target footwear variants (`BLACK/37`, `BLACK/40`, `TOUPE/37`, `TOUPE/42`).
+  - Rendered headless 203 DPI (8 dpmm) Labelary PNG bitmaps; verified non-blank bounding boxes and active pixels across Zone 1, Zone 2, and Zone 3 using Pillow.
+  - Validated Code 128 symbology and human-readable text against EAN-13 barcodes across all 6 barcode positions.
+- **Database Registration & Step 11 Safety Invariant**:
+  - Registered `tmpl-tt-footwear-100x50.7-zpl` in `print_templates` as `is_default_size=True`, `is_active=True`.
+  - Registered `lay-footwear-100x50-3stub` in `barcode_layouts` as `is_default=True`.
+  - Executed character-by-character safety check pre- and post-registration guaranteeing 100% exact match against supplied source template.
+- **UI & Dual-Engine Alignment**:
+  - Synchronized `PrintLabelsStudio.tsx` fallback compiler and `LABEL_TEMPLATES` default to `"Tattly Threads Footwear — 100x50.7mm"`.
+  - Preserved complete architectural isolation between 203 DPI Zebra ZPL printing and native 300 DPI Honeywell DPL renderer (`generate_dpl_footwear_label`).
+- **Automated Verification**:
+  - Certified with 6/6 tests green in `backend/tests/test_zpl_footwear_label.py`.
+  - Certified with 28/28 tests green across all backend barcode test suites (`pytest`).
+  - Certified with 22/22 tests green in `src/tests/printLabelsStudio.test.ts` (`vitest`).
+
 ## [6.70.46] - 2026-10-09 — Commission Studio & Staff Management Array-Guard Hardening (v6.70.46)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Commission Studio, Staff Master Workspace, Defensive Frontend Architecture

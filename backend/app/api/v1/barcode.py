@@ -14,7 +14,14 @@ License      : Proprietary Commercial Software
 import json
 import socket
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+try:
+    from zoneinfo import ZoneInfo
+    KOLKATA_TZ = ZoneInfo("Asia/Kolkata")
+except Exception:
+    KOLKATA_TZ = timezone(timedelta(hours=5, minutes=30))
+
 from fastapi import APIRouter, Depends, HTTPException, Body, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -126,7 +133,7 @@ def generate_footwear_3stub_zpl(
 ^FO416,15
 ^GB284,47,47^FS
 ^FT416,54
-^A0N,45,44^FR^FD{art_no_padded}^FS
+^A0N,45,44^FR^FD{art_no}     ^FS
 ^FO332,13
 ^GB367,117,3^FS
 ^FO334,57
@@ -134,8 +141,6 @@ def generate_footwear_3stub_zpl(
 ^FT490,199
 ^A0N,17,23^FD |(Incl of all taxes)^FS
 ^FT488,175
-
-
 ^A0N,42,56^FD{mrp_str}/-^FS
 ^FT408,170
 ^A0N,28,38^FDMRP:^FS
@@ -217,11 +222,11 @@ async def list_layouts(
     if "lay-footwear-100x50-3stub" not in existing_ids:
         layout_responses.insert(0, BarcodeLayoutResponse(
             id="lay-footwear-100x50-3stub",
-            name="Footwear 3-Stub Box & Counter Label (100x50mm)",
+            name="Tattly Threads Footwear — 100x50.7mm",
             widthMm=100.0,
             heightMm=50.7,
             columns=1,
-            isDefault=False,
+            isDefault=True,
             elements=[],
             prnTemplate=None,
         ))
@@ -462,6 +467,15 @@ async def print_labels(
     else:
         active_dispatch_mode = configured_printer.get("dispatch_mode", "server_tcp")
 
+    target_printer_name = str(req.targetPrinter or getattr(req, "target_printer", None) or configured_printer.get("printer_name", "") or "")
+    req_lang = str(getattr(req, "printer_language", None) or req.language or "").lower().strip()
+    is_dpl = (
+        req_lang == "dpl" or
+        "dpl" in target_printer_name.lower() or
+        "honeywell" in target_printer_name.lower() or
+        "ih-2" in target_printer_name.lower()
+    )
+
     full_raw_stream_list = []
     log_entries = []
 
@@ -473,19 +487,36 @@ async def print_labels(
         qty = int(item.get("qty", 1))
         
         # Dynamic properties
-        prod_size = item.get("size", "")
-        prod_color = item.get("color", "")
+        attrs = item.get("attributes") or {}
+        prod_size = str(item.get("size") or attrs.get("size") or "").strip()
+        prod_color = str(item.get("color") or item.get("shade") or attrs.get("color") or attrs.get("colour") or item.get("colour") or "").strip().upper()
+        prod_style = str(item.get("style") or item.get("style_code") or item.get("code") or item.get("item_code") or "").strip()
+        prod_barcode = str(item.get("barcode") or item.get("code") or "").strip()
 
-        # Build raw ZPL thermal stream
+        # Build raw thermal stream
         if is_footwear_layout:
-            raw_stream = generate_footwear_3stub_zpl(
-                item=item,
-                company_name=company_trade_name or "Tattly Threads",
-                company_address=company_address or "81,Umerkhadi,Mumbai,400003",
-                company_email=company_email or "care@tattlythreads.com",
-            )
+            if is_dpl:
+                # Native 300 DPI DPL Footwear Label for IMPACT by Honeywell IH-2
+                raw_stream = PrinterService.generate_dpl_footwear_label(
+                    barcode=prod_barcode,
+                    size=prod_size,
+                    color=prod_color,
+                    style=prod_style,
+                    mrp=prod_mrp,
+                    pkd_date=item.get("pkd_date") or item.get("mfg_date"),
+                    brand=company_trade_name or item.get("brand") or "TATTLY THREADS",
+                    company_address=company_address or "81,Umerkhadi,Mumbai,400003",
+                    company_email=company_email or "care@tattlythreads.com",
+                )
+            else:
+                raw_stream = generate_footwear_3stub_zpl(
+                    item=item,
+                    company_name=company_trade_name or "Tattly Threads",
+                    company_address=company_address or "81,Umerkhadi,Mumbai,400003",
+                    company_email=company_email or "care@tattlythreads.com",
+                )
         elif prn_template:
-            mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
+            mfg_date = datetime.now(KOLKATA_TZ).strftime("%m/%y")
             mrp_val = item.get("mrp", item.get("price", 0.0))
             try:
                 mrp_str = f"{int(float(mrp_val))}"
@@ -501,13 +532,19 @@ async def print_labels(
             raw_art = str(item.get("style_code") or item.get("style") or item.get("code") or item.get("item_code") or "").strip()
             art_no_padded = f"{raw_art:<12}" if len(raw_art) < 12 else raw_art
             
-            # 1. Apply primary system-derived placeholders
+            # 1. Apply primary system-derived placeholders (supporting all 6 canonical tokens)
             raw_stream = raw_stream.replace("{mfg_date}", mfg_date)
+            raw_stream = raw_stream.replace("{pkd_date}", mfg_date)
             raw_stream = raw_stream.replace("{mrp}", mrp_str)
             raw_stream = raw_stream.replace("{brand}", brand_val)
+            raw_stream = raw_stream.replace("{style}", raw_art)
             raw_stream = raw_stream.replace("{style_code}", raw_art)
             raw_stream = raw_stream.replace("{art_no}", raw_art)
             raw_stream = raw_stream.replace("{art_no_padded}", art_no_padded)
+            raw_stream = raw_stream.replace("{color}", prod_color)
+            raw_stream = raw_stream.replace("{colour}", prod_color)
+            raw_stream = raw_stream.replace("{barcode}", prod_barcode)
+            raw_stream = raw_stream.replace("{size}", prod_size)
             raw_stream = raw_stream.replace("{company_name}", company_trade_name or "Tattly Threads")
             raw_stream = raw_stream.replace("{address}", company_address or "81,Umerkhadi,Mumbai,400003")
             raw_stream = raw_stream.replace("{email}", company_email or "care@tattlythreads.com")
@@ -527,6 +564,19 @@ async def print_labels(
                     if v is not None:
                         raw_stream = raw_stream.replace(f"{{{k}}}", str(v))
                         raw_stream = raw_stream.replace(f"{{{k.lower()}}}", str(v))
+        elif is_dpl:
+            raw_stream = PrinterService.generate_dpl_label(
+                item_code=prod_code,
+                barcode=prod_barcode or prod_code,
+                name=prod_name,
+                price=prod_price,
+                mrp=prod_mrp,
+                size=prod_size,
+                color=prod_color,
+                brand=company_trade_name or item.get("brand") or "SMRITI",
+                width_mm=layout_width,
+                height_mm=layout_height
+            )
         else:
             zpl_parts = ["^XA", f"^PW{int(layout_width * 8)}", f"^LL{int(layout_height * 8)}"]
 
@@ -646,7 +696,7 @@ async def print_labels(
             "dispatch_mode": "qz_tray",
             "job_id": primary_job_id,
             "job_ids": [e.id for e in log_entries],
-            "language": req.language or "zpl",
+            "language": "dpl" if is_dpl else (req.language or "zpl"),
             "payload": "\n".join(full_raw_stream_list) if full_raw_stream_list else "",
             "encoding": "utf-8",
             "suggested_printer": target_prn,

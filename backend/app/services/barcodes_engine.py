@@ -32,6 +32,7 @@ from ..schemas.barcodes import (
     BatchLabelPrintResponse,
     PrintHistoryQueryResponse,
 )
+from .printer_service import PrinterService
 
 
 class BarcodesEngine:
@@ -220,6 +221,32 @@ PRINT 1
         elif lang == "ESC_POS":
             # POS ESC/POS receipt barcode stream
             compiled = f"\x1b@\x1ba\x01{req.brand or 'SMRITI'}\n{req.item_name[:20]}\n\x1dk\x04{req.barcode}\x00\nRs. {req.selling_price:.2f}\n\x1dV\x00"
+
+        elif lang == "DPL":
+            # Datamax DPL label command compilation
+            if req.width_mm >= 90 and req.height_mm >= 45:
+                compiled = PrinterService.generate_dpl_footwear_label(
+                    barcode=req.barcode,
+                    size=getattr(req, "size", None) or "",
+                    color=getattr(req, "color", None) or "",
+                    style=getattr(req, "style", None) or req.item_code,
+                    mrp=req.mrp,
+                    pkd_date=getattr(req, "pkd_date", None),
+                    brand=req.brand or "TATTLY THREADS"
+                )
+            else:
+                compiled = PrinterService.generate_dpl_label(
+                    item_code=req.item_code,
+                    barcode=req.barcode,
+                    name=req.item_name,
+                    price=float(req.selling_price),
+                    mrp=float(req.mrp),
+                    size=getattr(req, "size", "") or "",
+                    color=getattr(req, "color", "") or "",
+                    brand=req.brand or "SMRITI",
+                    width_mm=req.width_mm,
+                    height_mm=req.height_mm
+                )
 
         else:
             raise ValueError(f"Unsupported printer language '{req.printer_language}'")

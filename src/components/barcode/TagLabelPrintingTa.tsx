@@ -1012,7 +1012,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
           {
             job_id: jobId,
             payload: rawPayload,
-            language: "zpl",
+            language: res?.language || (rawPayload.includes("\x02L") || rawPayload.startsWith(" L") ? "dpl" : "zpl"),
             encoding: "UTF-8",
             suggested_printer: targetPrinter
           },
