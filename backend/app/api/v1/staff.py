@@ -36,6 +36,7 @@ from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 
 from ...api.deps import get_db, get_company_db, get_tenant_context, get_current_user, TenantContext
+from ...db.session import async_session
 from ...models.commission import CommissionParticipant, CommissionProgram, CommissionRule, CommissionLedger
 from ...models.auth import User, UserRole
 from ...models.hr import AttendanceRecord, LeaveBalance, LeaveRequest
@@ -226,22 +227,16 @@ def _require_manager(current_user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager approval is required for this HR action.")
 
 
-async def _tenant_user(db: AsyncSession, user_id: str, tenant: TenantContext) -> User:
-    user = (await db.execute(select(User).where(
-        User.id == user_id,
-        User.company_id == tenant.company_id,
-        User.is_deleted == False,
-    ))).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff member was not found in the active tenant.")
-    return user
-
-
 async def _resolve_company_local_user(control_user: User, db: AsyncSession, tenant: TenantContext) -> User:
     """Reconcile a control-plane staff identity into the company database."""
     local_user = (await db.execute(select(User).where(
-        User.username == control_user.username,
-        User.company_id == tenant.company_id,
+        or_(
+            User.id == control_user.id,
+            and_(
+                User.username == control_user.username,
+                User.company_id == tenant.company_id,
+            ),
+        ),
         User.is_deleted == False,
     ))).scalar_one_or_none()
     if local_user:
@@ -258,17 +253,18 @@ async def _resolve_company_local_user(control_user: User, db: AsyncSession, tena
         branch_id = tenant.branch_id
 
     local_user = User(
-        id=f"usr-local-{uuid.uuid4().hex[:12]}",
+        id=control_user.id,
         username=control_user.username,
         email=control_user.email,
         mobile=control_user.mobile,
         hashed_password=control_user.hashed_password,
         role=control_user.role,
+        role_id=control_user.role_id,
         is_active=control_user.is_active,
         is_deleted=False,
         company_id=tenant.company_id,
         branch_id=branch_id,
-        status=control_user.status,
+        status=control_user.status or "Active",
         full_name=control_user.full_name,
         display_name=control_user.display_name,
         employee_id=control_user.employee_id,
@@ -282,6 +278,57 @@ async def _resolve_company_local_user(control_user: User, db: AsyncSession, tena
     db.add(local_user)
     await db.flush()
     return local_user
+
+
+async def _tenant_user(
+    db: AsyncSession,
+    user_id: str,
+    tenant: TenantContext,
+    control_db: Optional[AsyncSession] = None,
+) -> User:
+    """
+    Authoritative staff identity resolver across company database and control plane.
+    Guarantees that control-plane identities (e.g. central directory users) are reconciled
+    and mapped into the active company DB without phantom 404s.
+    """
+    # 1. Direct search in company database by primary key ID
+    user = (await db.execute(select(User).where(
+        User.id == user_id,
+        User.company_id == tenant.company_id,
+        User.is_deleted == False,
+    ))).scalar_one_or_none()
+    if user:
+        return user
+
+    # 2. Check control plane (smritisys.users) where auth/directory identities reside
+    control_user = None
+    if control_db is not None:
+        control_user = (await control_db.execute(select(User).where(
+            User.id == user_id,
+            or_(User.company_id == tenant.company_id, User.company_id.is_(None)),
+            User.is_deleted == False,
+        ))).scalar_one_or_none()
+    else:
+        async with async_session() as sys_db:
+            control_user = (await sys_db.execute(select(User).where(
+                User.id == user_id,
+                or_(User.company_id == tenant.company_id, User.company_id.is_(None)),
+                User.is_deleted == False,
+            ))).scalar_one_or_none()
+
+    if control_user:
+        return await _resolve_company_local_user(control_user, db, tenant)
+
+    # 3. Fallback: check by username directly in company database
+    user_by_name = (await db.execute(select(User).where(
+        User.username == user_id,
+        User.company_id == tenant.company_id,
+        User.is_deleted == False,
+    ))).scalar_one_or_none()
+    if user_by_name:
+        return user_by_name
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff member was not found in the active tenant.")
 
 
 def _merge_staff_profile(user: User, profile: Optional[StaffProfile]) -> dict:
@@ -1223,6 +1270,7 @@ async def list_attendance(
     from_date: Optional[date] = Query(default=None),
     to_date: Optional[date] = Query(default=None),
     tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1233,8 +1281,9 @@ async def list_attendance(
         AttendanceRecord.is_deleted == False,
     )
     if user_id:
-        await _tenant_user(db, user_id, tenant)
-        stmt = stmt.where(AttendanceRecord.user_id == user_id)
+        target_user = await _tenant_user(db, user_id, tenant, control_db=control_db)
+        user_ids = list({user_id, target_user.id})
+        stmt = stmt.where(AttendanceRecord.user_id.in_(user_ids))
     if from_date:
         stmt = stmt.where(AttendanceRecord.attendance_date >= from_date)
     if to_date:
@@ -1250,6 +1299,7 @@ async def get_attendance_summary(
     from_date: Optional[date] = Query(default=None),
     to_date: Optional[date] = Query(default=None),
     tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1266,7 +1316,9 @@ async def get_attendance_summary(
         AttendanceRecord.is_deleted == False,
     ]
     if user_id:
-        conditions.append(AttendanceRecord.user_id == user_id)
+        target_user = await _tenant_user(db, user_id, tenant, control_db=control_db)
+        user_ids = list({user_id, target_user.id})
+        conditions.append(AttendanceRecord.user_id.in_(user_ids))
 
     if period:
         try:
@@ -1344,19 +1396,22 @@ async def get_attendance_summary(
 async def create_attendance(
     payload: AttendanceCreate,
     tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
         if payload.user_id != current_user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employees may only record attendance for themselves.")
-    await _tenant_user(db, payload.user_id, tenant)
+    target_user = await _tenant_user(db, payload.user_id, tenant, control_db=control_db)
+    resolved_user_id = target_user.id
     allowed_statuses = {"PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE", "HOLIDAY"}
     if payload.status not in allowed_statuses:
         raise HTTPException(status_code=422, detail=f"Unsupported attendance status: {payload.status}")
+    user_ids = list({payload.user_id, resolved_user_id})
     existing = (await db.execute(select(AttendanceRecord).where(
         AttendanceRecord.company_id == tenant.company_id,
-        AttendanceRecord.user_id == payload.user_id,
+        AttendanceRecord.user_id.in_(user_ids),
         AttendanceRecord.attendance_date == payload.attendance_date,
         AttendanceRecord.is_deleted == False,
     ))).scalar_one_or_none()
@@ -1366,7 +1421,7 @@ async def create_attendance(
         company_id=tenant.company_id,
         branch_id=tenant.branch_id,
         created_by=current_user.id,
-        user_id=payload.user_id,
+        user_id=resolved_user_id,
         attendance_date=payload.attendance_date,
         status=payload.status,
         check_in_at=payload.check_in_at,
@@ -1387,6 +1442,7 @@ async def create_attendance(
 async def record_attendance_punch(
     payload: AttendancePunchPayload,
     tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1402,14 +1458,16 @@ async def record_attendance_punch(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Employees may only punch attendance for themselves."
             )
-    await _tenant_user(db, target_user_id, tenant)
+    target_user = await _tenant_user(db, target_user_id, tenant, control_db=control_db)
+    resolved_user_id = target_user.id
 
     now_utc = datetime.now(timezone.utc)
     today = now_utc.date()
 
+    user_ids = list({target_user_id, resolved_user_id})
     existing = (await db.execute(select(AttendanceRecord).where(
         AttendanceRecord.company_id == tenant.company_id,
-        AttendanceRecord.user_id == target_user_id,
+        AttendanceRecord.user_id.in_(user_ids),
         AttendanceRecord.attendance_date == today,
         AttendanceRecord.is_deleted == False,
     ))).scalar_one_or_none()
@@ -1422,7 +1480,7 @@ async def record_attendance_punch(
             company_id=tenant.company_id,
             branch_id=tenant.branch_id,
             created_by=current_user.id,
-            user_id=target_user_id,
+            user_id=resolved_user_id,
             attendance_date=today,
             status="PRESENT",
             check_in_at=now_utc,
@@ -1619,6 +1677,7 @@ async def list_leave_balances(
     user_id: Optional[str] = Query(default=None),
     leave_year: int = Query(default_factory=lambda: date.today().year),
     tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1629,13 +1688,16 @@ async def list_leave_balances(
         LeaveBalance.leave_year == leave_year,
         LeaveBalance.is_deleted == False,
     )
+    resolved_user_id = user_id
     if user_id:
-        await _tenant_user(db, user_id, tenant)
-        stmt = stmt.where(LeaveBalance.user_id == user_id)
+        target_user = await _tenant_user(db, user_id, tenant, control_db=control_db)
+        resolved_user_id = target_user.id
+        user_ids = list({user_id, resolved_user_id})
+        stmt = stmt.where(LeaveBalance.user_id.in_(user_ids))
     rows = (await db.execute(stmt.order_by(LeaveBalance.user_id, LeaveBalance.leave_type))).scalars().all()
 
     # Auto-seed standard statutory retail leave entitlements (12 CL, 12 SL, 15 EL) if none exist for targeted user
-    if len(rows) == 0 and user_id:
+    if len(rows) == 0 and resolved_user_id:
         defaults = [
             ("CL", 12),
             ("SL", 12),
@@ -1647,7 +1709,7 @@ async def list_leave_balances(
                 id=f"lb-{uuid.uuid4().hex[:12]}",
                 company_id=tenant.company_id,
                 branch_id=tenant.branch_id,
-                user_id=user_id,
+                user_id=resolved_user_id,
                 leave_year=leave_year,
                 leave_type=l_type,
                 entitled_days=entitled,
@@ -1670,6 +1732,7 @@ async def list_leave_requests(
     user_id: Optional[str] = Query(default=None),
     request_status: Optional[str] = Query(default=None, alias="status"),
     tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1680,8 +1743,9 @@ async def list_leave_requests(
         LeaveRequest.is_deleted == False,
     )
     if user_id:
-        await _tenant_user(db, user_id, tenant)
-        stmt = stmt.where(LeaveRequest.user_id == user_id)
+        target_user = await _tenant_user(db, user_id, tenant, control_db=control_db)
+        user_ids = list({user_id, target_user.id})
+        stmt = stmt.where(LeaveRequest.user_id.in_(user_ids))
     if request_status:
         stmt = stmt.where(LeaveRequest.status == request_status)
     rows = (await db.execute(stmt.order_by(LeaveRequest.start_date.desc()))).scalars().all()
@@ -1692,13 +1756,15 @@ async def list_leave_requests(
 async def create_leave_request(
     payload: LeaveRequestCreate,
     tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
         if payload.user_id != current_user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employees may only submit leave requests for themselves.")
-    await _tenant_user(db, payload.user_id, tenant)
+    target_user = await _tenant_user(db, payload.user_id, tenant, control_db=control_db)
+    resolved_user_id = target_user.id
     if payload.end_date < payload.start_date:
         raise HTTPException(status_code=422, detail="Leave end date cannot be before start date.")
     total_days = (payload.end_date - payload.start_date).days + 1
@@ -1706,7 +1772,7 @@ async def create_leave_request(
         company_id=tenant.company_id,
         branch_id=tenant.branch_id,
         created_by=current_user.id,
-        user_id=payload.user_id,
+        user_id=resolved_user_id,
         leave_type=payload.leave_type,
         start_date=payload.start_date,
         end_date=payload.end_date,
@@ -1717,9 +1783,10 @@ async def create_leave_request(
 
     # Auto-adjust or provision pending_days on LeaveBalance
     leave_year = payload.start_date.year
+    user_ids = list({payload.user_id, resolved_user_id})
     lb = (await db.execute(select(LeaveBalance).where(
         LeaveBalance.company_id == tenant.company_id,
-        LeaveBalance.user_id == payload.user_id,
+        LeaveBalance.user_id.in_(user_ids),
         LeaveBalance.leave_year == leave_year,
         LeaveBalance.leave_type == payload.leave_type,
         LeaveBalance.is_deleted == False,
@@ -1732,7 +1799,7 @@ async def create_leave_request(
             id=f"lb-{uuid.uuid4().hex[:12]}",
             company_id=tenant.company_id,
             branch_id=tenant.branch_id,
-            user_id=payload.user_id,
+            user_id=resolved_user_id,
             leave_year=leave_year,
             leave_type=payload.leave_type,
             entitled_days=entitled,

@@ -28,6 +28,25 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.45] - 2026-10-09 — Cross-Database Staff Identity & Attendance Reconciliation (v6.70.45)
+
+> **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Multi-Tenant Database Architecture, Attendance & Leave API
+> **Walkthrough:** `docs/walkthrough/hr/Cross_Database_Staff_Identity_And_Attendance_Reconciliation_v6.70.45.md`
+> **Plan:** `docs/implementation/hr/Cross_Database_Staff_Identity_And_Attendance_Reconciliation_Plan_v6.70.45.md`
+
+### Fixed & Hardened (Cross-Database Tenant Reconciliation & HR API)
+- **Two-Tier Cross-Database Identity Resolution**:
+  - Remediated HTTP 404 (`Not Found`) exceptions when querying or recording attendance and leave for central directory users (e.g. `usr-cashier-direct`, `usr-manager-direct`) across company databases.
+  - Implemented authoritative identity resolver `_tenant_user()` in `backend/app/api/v1/staff.py` checking the company database first, falling back to the control plane (`smritisys.users`), and reconciling central identities into `company_db.users` via `_resolve_company_local_user()`.
+  - Updated `_resolve_company_local_user()` to preserve canonical `control_user.id` when provisioning local identities and detect pre-existing identities by `id` or `username`.
+- **Multi-Identifier Attendance and Leave Querying**:
+  - Injected `control_db: AsyncSession = Depends(get_db)` into `/staff/attendance`, `/staff/attendance/summary`, `/staff/leave/balances`, `/staff/leave/requests`, and `/staff/attendance/punch`.
+  - Filtered records via `in_([user_id, target_user.id])`, ensuring seamless retrieval across both primary and aliased identity records.
+- **Frontend Workspace Error Intake Resilience**:
+  - In `src/components/staff/StaffMasterWs.tsx`, defensively hardened the `.catch` handler when switching between Attendance, Leave, and Assignment tabs to reset local state arrays to `[]` and suppress non-critical 404 notifications.
+- **Automated Regression Suite**:
+  - Added comprehensive automated regression tests in `backend/app/tests/test_staff_attendance_cross_db_reconciliation.py` validating cross-database attendance listing, summary aggregation, leave auto-seeding, and interactive clock-in (4/4 passed).
+
 ## [6.70.44] - 2026-10-09 — Employee Attendance Studio Payslip Null Safety (v6.70.44)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Attendance Studio, Payslip Print & Data Resilience

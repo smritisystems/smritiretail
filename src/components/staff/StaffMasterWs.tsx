@@ -315,7 +315,15 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
           setPlacements(retry.placements || []);
         }
       })
-      .catch((error: any) => onNotification?.("HR Data Error", error?.message || "Unable to load HR records.", "error"))
+      .catch((error: any) => {
+        if (activeTab === "attendance") setAttendance([]);
+        if (activeTab === "leave") setLeaveRequests([]);
+        if (activeTab === "assignments") setPlacements([]);
+        const isNotFound = error?.status === 404 || error?.statusCode === 404 || String(error?.message || "").includes("404");
+        if (!isNotFound) {
+          onNotification?.("HR Data Error", error?.message || "Unable to load HR records.", "error");
+        }
+      })
       .finally(() => setHrLoading(false));
   }, [activeTab, selectedId, attendanceFrom, attendanceTo, onNotification]);
 
