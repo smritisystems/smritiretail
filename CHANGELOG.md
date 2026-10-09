@@ -28,6 +28,30 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.47] - 2026-10-09 — SMRITI Smart Import & Correction Studio (Item Master Catalog & Bulk Ingestion)
+
+> **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Same-Window Remediation, Multi-Strategy Ingestion
+> **Walkthrough:** `docs/walkthrough/inventory/Smart_Import_And_Correction_Studio_Walkthrough_v6.70.47.md`
+> **Plan:** `docs/implementation/inventory/Smart_Import_And_Correction_Studio_Plan_v6.70.47.md`
+
+### Added & Upgraded (Item Master Smart Import & Correction Studio)
+- **Same-Window Smart Correction Studio (`ItemMasterStudio.tsx`)**:
+  - Replaced static bulk upload with high-velocity 7-metric interactive dashboard (`Total`, `Valid`, `Blocking Errors`, `Warnings`, `Corrected`, `Skipped`, `Ready for Import`).
+  - Added cell-level inline editing with per-cell undo and approved master value dropdown selectors.
+  - Implemented near-match lookup auto-suggestions for misspelled categories, brands, colors, sizes, and genders.
+  - Added modal conflict disambiguation drawers for duplicate barcodes and SKUs with side-by-side comparison against database records (`existing_item_code`, `existing_item_name`, `existing_variant_sku`) and 1-click resolution actions.
+  - Added bulk actions: `Auto-Fix Safe Errors`, `Skip All Errors`, `Restore Originals`, `Revalidate All`, and `Download TSV Error Report`.
+- **Backend Universal Import API Hardening (`backend/app/api/v1/universal_import.py`)**:
+  - Upgraded `POST /api/v1/universal/preview` with structured HREP error contracts (`SMRITI-IMPORT-VALIDATION`), `blocking_errors` calculation, in-file duplicate detection with exact row references, and DB conflict record metadata extraction.
+  - Upgraded `POST /api/v1/universal/commit` with `import_strategy` support (`ALL_ELIGIBLE`, `VALID_ONLY`, `STRICT`).
+  - Guarded `Product` projection synchronization against `uq_company_barcode_active` collisions and safely resolved tenant `branch_id`.
+- **Item Master Service Parity (`backend/app/services/item/item_catalog_svc.py`)**:
+  - Assigned `uom` alongside `primary_uom` in `UniversalItemMasterService.create_item` satisfying PostgreSQL database NOT NULL constraints.
+- **Automated Verification**:
+  - Certified with 4/4 Vitest tests green in `smartImportStudio.test.ts`.
+  - Certified with 4/4 Pytest tests green in `test_smart_import_studio.py`.
+  - Clean production build in 45.08s (0 TypeScript compiler errors).
+
 ## [6.70.48] - 2026-10-09 — Tattly Threads Barcode Human-Readable Font & Overlap Audit and Controlled Runtime Fix (v6.49.2)
 
 > **Branch:** `smritiNX` | **Area:** Barcode & Hardware, ZPL Font Geometry, Headless Pixel Audit, Print Labels Studio
