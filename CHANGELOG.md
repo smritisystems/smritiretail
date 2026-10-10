@@ -28,6 +28,31 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.53.0] - 2026-10-10 — SMRITI Print Labels Studio Hidable Right Sidebar, Collapsible Step 1 & Interactive Grid Sorting / Column Filters
+
+> **Branch:** `smritiNX` | **Area:** Barcode Label Studio, Responsive Ergonomics, Grid Sorting & Range Filtering
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_Hidable_Sidebar_And_Grid_Sort_Walkthrough_v6.53.0.md`
+> **Plan:** `docs/implementation/inventory/Barcode_PrintLabelsStudio_Hidable_Sidebar_And_Grid_Sort_Plan_v6.53.0.md`
+
+### Added & Enhanced
+- **Collapsible / Hidable Right Sidebar (`PrintLabelsStudio.tsx`)**:
+  - Added `isSidebarCollapsed` state with `localStorage` persistence (`smriti_print_studio_sidebar_collapsed`) and `[Alt+S]` keyboard shortcut listener.
+  - Added header action button `[Show Sidebar] / [Hide Sidebar]` with `PanelRightOpen`/`PanelRightClose` icons.
+  - Added floating right edge handle tab `[SIDEBAR]` allowing single-click sidebar expansion when collapsed.
+  - Expands the worksheet table to 100% monitor width without layout clipping.
+- **Collapsible Step 1 (Choose Source)**:
+  - Added `isStep1Collapsed` state to collapse 6 large source tiles into a sleek active source summary chip (`Active: Items (Manual)`), saving >80px vertical space.
+- **Consolidated Step 2 Advanced Filters**:
+  - Unified Brand, Style, Category, Warehouse, Supplier, Item Code Range, and Barcode Range into a single collapsible panel.
+  - Replaced ASCII string comparisons with `isWithinRange` from `rangeFilter.ts`, parsing numeric barcodes with `BigInt` to prevent boundary errors.
+  - Purged duplicate second Advanced Filters block below the table footer.
+- **Interactive Grid Sorting & Inline Column Filtering**:
+  - Added sortable column headers (`Item Code`, `Product`, `Brand`, `Style`, `Shade`, `Size`, `Barcode`, `Stock`, `Print Qty`) with direction indicators (`ArrowUp`, `ArrowDown`, `ArrowUpDown`) using natural alphanumeric collation (`compareNatural`).
+  - Added inline column filter row for live substring searching across all table columns.
+  - Styled Barcode column with crisp monospace badges.
+- **Zero-Armed Printing Verification**:
+  - Confirmed initial catalog loading defaults all rows to `selected: false` and `printQty: 0` (`Total Labels: 0`, Print button disabled).
+
 ## [6.52.0] - 2026-10-10 — SMRITI Barcode Studio Hidable Sidebar, Advance Filters Toggle & Zero-Armed Printing Architecture
 
 > **Branch:** `smritiNX` | **Area:** Barcode Tag Printing, UI Ergonomics, Zero-Armed Spooling Safety
