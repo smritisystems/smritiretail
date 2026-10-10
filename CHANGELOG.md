@@ -28,6 +28,35 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.70.51] - 2026-10-10 — SMRITI Industrial Barcode Print Job Architecture, Multi-Protocol Compiler & QZ Tray Bridge
+
+> **Branch:** `smritiNX` | **Area:** Thermal Barcode Printing, Multi-Protocol Compiler, QZ Tray Bridge, Print Job Lifecycle
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_Industrial_Print_Job_Engine_And_Multi_Protocol_Compiler_Walkthrough_v6.70.51.md`
+
+### Added & Architected (Multi-Protocol Compiler & Industrial Print Job Engine)
+- **Continuous Mathematical DPI Abstraction (`backend/app/services/barcode_engine/dpi.py`)**:
+  - Implemented continuous scaling $\text{dots\_per\_mm} = \text{DPI} / 25.4$. Automatically converts metric coordinates to native dot matrices across 203 DPI, 300 DPI, and 600 DPI print heads without duplicate template assets.
+- **Multi-Protocol Thermal Renderers (`backend/app/services/barcode_engine/renderers/`)**:
+  - `zpl_renderer.py`: Zebra ZPL compiler featuring reverse-contrast black bounding boxes (`^GB` and `^FR`), rotated text blocks (`^A0B`), and Code 128 barcodes with Human-Readable Interpretation (`^BC`).
+  - `dpl_renderer.py`: Datamax/Honeywell DPL compiler producing native `\x02L` control sequences.
+  - `svg_renderer.py`: Crisp SVG renderer for WYSIWYG studio representation and previews.
+- **Unified Template Registry (`backend/app/services/barcode_engine/registry.py`)**:
+  - Registered built-in `tattly-threads-footwear-100x50.7` matching the 100mm × 50.7mm 3-part tag (Dual counter tear-off stubs + main shoe box label with inverted size box and legal metrology text).
+  - Registered built-in `retail-50x25` (standard 50mm × 25mm 1-up retail roll sticker).
+- **Transactional Print Job Lifecycle & Persistence (`backend/app/models/barcode.py` & `api/v1/barcode.py`)**:
+  - Created `BarcodePrintJob` model tracking execution status (`QUEUED`, `COMPILING`, `READY`, `PRINTING`, `COMPLETED`, `FAILED`, `CANCELLED`), `payload_stream`, SHA-256 `payload_hash`, and error telemetry.
+  - Applied Alembic migration `v1526_add_barcode_print_jobs_table.py` across `smritisys` and `smriti001`.
+  - Exposed REST endpoints: `POST /api/v1/barcode/print-jobs`, `GET /api/v1/barcode/print-jobs`, `GET /api/v1/barcode/print-jobs/{job_id}`, `PATCH /api/v1/barcode/print-jobs/{job_id}/status`, `POST /api/v1/barcode/print-jobs/{job_id}/ack`, and `GET /api/v1/barcode/templates`.
+- **Frontend QZ Tray Auto-Discovery & Dispatch Bridge (`src/components/barcode/`)**:
+  - `BarcodePrinterSele.tsx`: Automatically queries `qz.printers.find()` on mount, prioritizes detected thermal queues, loads default printer from `localStorage`, and persists confirmed choices.
+  - `TagLabelPrintingTa.tsx`: Connected to `POST /api/v1/barcode/print-jobs`, dispatches raw stream to Windows spooler via `dispatchToQzTray(...)`, and acknowledges execution back to backend ACK endpoint.
+  - Direct PRN/ZPL Export: In "Output to File" mode, downloads compiled stream directly from the backend without browser-rendering overhead.
+  - Added template switcher for instant selection between footwear, standard retail, and custom scripts.
+- **Verification & Parity**:
+  - 7/7 backend unit and async database tests passing in `backend/app/tests/test_barcode_print_engine.py` (0.994s).
+  - 10/10 Vitest tests passing in `src/tests/barcodeLayoutRegistry.test.ts` and `src/tests/qzTrayClient.test.ts` (1.26s).
+  - 0 TypeScript compiler errors (`npx tsc --noEmit`).
+
 ## [6.70.50] - 2026-10-09 — SMRITI Smart Import 504 Footwear Ingestion & Catalog Pagination Scaling
 
 > **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Inventory API, Pagination Scaling
