@@ -28,6 +28,60 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.52.0] - 2026-10-10 — SMRITI Barcode Studio Hidable Sidebar, Advance Filters Toggle & Zero-Armed Printing Architecture
+
+> **Branch:** `smritiNX` | **Area:** Barcode Tag Printing, UI Ergonomics, Zero-Armed Spooling Safety
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_Studio_Hidable_Sidebar_And_Zero_Armed_Printing_Walkthrough_v6.52.0.md`
+> **Plan:** `docs/implementation/inventory/Barcode_Studio_Hidable_Sidebar_And_Zero_Armed_Printing_Plan_v6.52.0.md`
+
+### Added & Enhanced
+- **Collapsible / Hidable Configuration Sidebar (`TagLabelPrintingTa.tsx`)**:
+  - Integrated `isSidebarCollapsed` state with `localStorage` persistence (`smriti_barcode_sidebar_collapsed`).
+  - Added header action button `[Hide/Show Sidebar]` with `PanelLeftClose`/`PanelLeftOpen` icons and keyboard hotkey `[Alt+S]`.
+  - Added floating 28px vertical edge expand strip with rotated typography on the left margin when collapsed.
+  - Collapses `<aside>` from `w-72` to `w-0` with CSS transitions, expanding the data grid across 100% monitor width.
+- **Collapsible Advance Filters Panel (Step 2 Selection Criteria)**:
+  - Added `[Advance Filters (Hide/Show)]` toggle button (`[Alt+F]`) with `ChevronUp`/`ChevronDown` icons.
+  - When collapsed, replaces the tall ~250px form with a compact 32px summary strip displaying active criteria chips, `[Clear Criteria]`, and `[Load Results]` shortcuts.
+  - Reclaims ~250px vertical screen space, enabling visibility of 25+ loaded data rows on 768p and 1080p POS displays.
+- **First-Class Barcode Column in Data Grid (Step 3 Loaded Items)**:
+  - Added interactive `Barcode` column header with sorting (`handleSortToggle("barcode")`) and directional indicators.
+  - Added live per-column substring filter (`columnFilters.barcode`).
+  - Rendered monospace secondary badges (`font-mono text-secondary`) for each item's barcode.
+  - Updated empty-state table `colSpan` from 9 to 10.
+- **Zero-Armed Printing Architecture (Safe Retail Selection Defaults)**:
+  - Eliminated dangerous mass auto-selection on window mount (`populateGrid`) and on `handleClear` by resetting `selectedRowIds` to `new Set()` (0 items selected).
+  - Printer spooling remains safely disarmed (`safetyValidation.canPrint: false`, "No items selected in grid") until operators explicitly check items.
+  - Added dedicated toolbar controls: `[Select All ({count})]` and `[Select None]`.
+
+## [6.51.0] - 2026-10-10 — SMRITI Barcode Studio Dual-Tier Range Selection & Printing Engine
+
+> **Branch:** `smritiNX` | **Area:** Barcode Tag Printing, Sequential Range Filtering, Grid Batch Operations
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_Dual_Tier_Range_Selection_And_Printing_Walkthrough_v6.51.0.md`
+> **Plan:** `docs/implementation/inventory/Barcode_Dual_Tier_Range_Selection_And_Printing_Plan_v6.51.0.md`
+
+### Added & Enhanced (Dual-Tier Range Selection & Printing Engine)
+- **Natural Range Filter Engine (`src/components/barcode/rangeFilter.ts`)**:
+  - Engineered `compareNatural(a, b)` with `BigInt` parsing for pure numeric strings (EAN-13 barcodes, SKU codes) and `localeCompare({ numeric: true, sensitivity: 'base' })` for alphanumeric style codes (`CH-10-A` to `CH-30-K`).
+  - Built `isWithinRange(val, from, to, mode)` handling inclusive sequential queries across `barcode`, `style`, `numeric` (MRP, S.No), and `text` modes with support for open-ended boundaries.
+  - Implemented `filterRowsByItemMasterCriteria` evaluating complete Step 1 multi-criteria sets with sequential range bounds.
+  - Implemented `filterRowsByGridRange` for on-the-fly table isolation across `barcode`, `style`, `stockNo`, `sNo`, and `mrp`.
+- **Tier 1: Catalog Range Filters in Step 1 Selection Criteria (`TagLabelPrintingTa.tsx`)**:
+  - Expanded `ItemMasterSelectionCriteria` and `itemCriteria` state with `barcodeFrom`, `barcodeTo`, `styleFrom`, `styleTo`, `mrpFrom`, and `mrpTo`.
+  - Added collapsible "Natural Range Filters" panel in Step 1 with active state counter and 1-click `Clear Ranges` button.
+  - Enhanced active criteria chips bar to display removable chips for `Barcode: {from} → {to}`, `Style: {from} → {to}`, and `MRP: ₹{from} → ₹{to}`.
+- **Tier 2: In-Grid Range Selection & Batch Quantity Tool (`TagLabelPrintingTa.tsx`)**:
+  - Added `Select by Range (Alt+R)` button in Step 3 controls bar with keyboard hotkey `Alt+R`.
+  - Built collapsible Range Action Panel allowing field selection (`Barcode`, `Style Code`, `Stock No`, `S.No`, `MRP`), `From` and `To` inputs, and matching count indicator.
+  - Integrated 1-click batch actions: `Select Range Only`, `+ Add to Selection`, `- Deselect Range`, and `Set Qty for Range` applying specific quantities to all matching rows.
+- **Verification & Test Coverage**:
+  - 13/13 Vitest tests passing in `src/tests/rangeFilter.test.ts`.
+  - 22/22 Vitest tests passing in `src/tests/tagPrinting.test.ts`.
+  - 23/23 Vitest tests passing in `src/tests/printLabelsStudio.test.ts`.
+  - 7/7 Vitest tests passing in `src/tests/prnInterpolation.test.ts` (65/65 total barcode tests green).
+  - 0 TypeScript monorepo compiler errors (`npx tsc --noEmit`).
+  - Production bundle built cleanly via Vite 5.4.21 (3,703 modules in 1m 18s).
+
 ## [6.50.0] - 2026-10-10 — SMRITI Barcode Studio Script-Based PRN Printing Engine & Front-End UX Validation
 
 > **Branch:** `smritiNX` | **Area:** Thermal Barcode Printing, PRN Script Ingestion, POS Operator Ergonomics

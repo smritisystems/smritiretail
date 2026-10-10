@@ -66,10 +66,18 @@ export interface SelectionCriteriaRange {
   sizeTo: string;
 }
 
+export type GridRangeField = "barcode" | "style" | "stockNo" | "sNo" | "mrp";
+
 export interface ItemMasterSelectionCriteria {
   stockNoFrom: string;
   stockNoTo: string;
   barcode: string;
+  barcodeFrom: string;
+  barcodeTo: string;
+  styleFrom: string;
+  styleTo: string;
+  mrpFrom: string;
+  mrpTo: string;
   productNames: string[];
   brands: string[];
   categories: string[];

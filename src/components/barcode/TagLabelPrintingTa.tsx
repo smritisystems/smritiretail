@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.50.0
+ * Version      : 6.52.0
  * Created      : 2026-08-21
  * Modified     : 2026-10-10
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -22,10 +22,17 @@ import {
   LabelPrintRow,
   LabelPrintSettings,
   ItemMasterSelectionCriteria,
+  GridRangeField,
   PortType,
   LabelSourceOption,
   PrintSafetyValidation
 } from "./types.ts";
+import {
+  compareNatural,
+  isWithinRange,
+  filterRowsByItemMasterCriteria,
+  filterRowsByGridRange
+} from "./rangeFilter.ts";
 import {
   interpolatePrnScript,
   compilePrnBatch,
@@ -58,6 +65,7 @@ import {
 import { 
   Printer, 
   Sliders, 
+  SlidersHorizontal,
   Layers, 
   Code, 
   Download, 
@@ -86,7 +94,11 @@ import {
   X,
   Check,
   FileCheck,
-  Activity
+  Activity,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 interface TagLabelPrintingTabProps {
@@ -189,11 +201,17 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     };
   });
 
-  // 1. Selection Criteria (Item Master Mode: 7 Criteria + Barcode)
+  // 1. Selection Criteria (Item Master Mode: 7 Criteria + Barcode + Natural Range Engine)
   const [itemCriteria, setItemCriteria] = useState<ItemMasterSelectionCriteria>({
     stockNoFrom: "000006",
     stockNoTo: "000008",
     barcode: "",
+    barcodeFrom: "",
+    barcodeTo: "",
+    styleFrom: "",
+    styleTo: "",
+    mrpFrom: "",
+    mrpTo: "",
     productNames: [],
     brands: [],
     categories: [],
@@ -201,6 +219,33 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     colours: [],
     sizes: []
   });
+  const [showAdvancedRanges, setShowAdvancedRanges] = useState<boolean>(false);
+
+  // Hidable Sidebar & Collapsible Criteria State (Persisted)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("smriti_barcode_sidebar_collapsed") === "true";
+    }
+    return false;
+  });
+  const [isCriteriaCollapsed, setIsCriteriaCollapsed] = useState<boolean>(false);
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("smriti_barcode_sidebar_collapsed", String(next));
+      }
+      return next;
+    });
+  }, []);
+
+  // Step 3: In-Grid Range Selection & Batch Action State
+  const [showGridRangeBar, setShowGridRangeBar] = useState<boolean>(false);
+  const [gridRangeField, setGridRangeField] = useState<GridRangeField>("barcode");
+  const [gridRangeFrom, setGridRangeFrom] = useState<string>("");
+  const [gridRangeTo, setGridRangeTo] = useState<string>("");
+  const [gridRangeQty, setGridRangeQty] = useState<number>(1);
 
   // 2. PT File State (Against Purchase PT File)
   const [ptFileName, setPtFileName] = useState<string>("PT_20101005.pt");
@@ -345,6 +390,21 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   // F2 is a platform protocol; this screen registers via useF2Screen() above.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Alt+S -> Toggle Left Sidebar
+      if (e.altKey && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        toggleSidebar();
+      }
+      // Alt+F -> Toggle Advance Filters / Criteria
+      if (e.altKey && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        setIsCriteriaCollapsed(prev => !prev);
+      }
+      // Alt+R -> Toggle In-Grid Range Selector Bar
+      if (e.altKey && (e.key === "r" || e.key === "R")) {
+        e.preventDefault();
+        setShowGridRangeBar(prev => !prev);
+      }
       // F11 -> Edit Quantities Modal
       if (e.key === "F11") {
         e.preventDefault();
@@ -355,10 +415,15 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         e.preventDefault();
         handlePrintAll();
       }
+      // F7 -> Print Current
+      if (e.key === "F7") {
+        e.preventDefault();
+        handlePrintCurrent();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [toggleSidebar]);
 
   // Fetch products from backend if empty
   useEffect(() => {
@@ -444,8 +509,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
     const combinedRows = [...baseRows, ...extraRows];
     setGridRows(combinedRows);
-    // Initialize all rows as selected by default
-    setSelectedRowIds(new Set(combinedRows.map(r => r.id)));
+    // Safe Retail Standard: Do not auto-arm printer on window open (Zero-Armed Printing)
+    setSelectedRowIds(new Set());
   };
 
   // Distinct options derived dynamically from actual product inventory
@@ -482,8 +547,29 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     if (itemCriteria.barcode.trim()) {
       chips.push({
         key: "barcode",
-        label: `Barcode: ${itemCriteria.barcode.trim()}`,
+        label: `Barcode Exact: ${itemCriteria.barcode.trim()}`,
         onRemove: () => setItemCriteria(prev => ({ ...prev, barcode: "" }))
+      });
+    }
+    if (itemCriteria.barcodeFrom || itemCriteria.barcodeTo) {
+      chips.push({
+        key: "barcodeRange",
+        label: `Barcode: ${itemCriteria.barcodeFrom || "Start"} → ${itemCriteria.barcodeTo || "End"}`,
+        onRemove: () => setItemCriteria(prev => ({ ...prev, barcodeFrom: "", barcodeTo: "" }))
+      });
+    }
+    if (itemCriteria.styleFrom || itemCriteria.styleTo) {
+      chips.push({
+        key: "styleRange",
+        label: `Style: ${itemCriteria.styleFrom || "Start"} → ${itemCriteria.styleTo || "End"}`,
+        onRemove: () => setItemCriteria(prev => ({ ...prev, styleFrom: "", styleTo: "" }))
+      });
+    }
+    if (itemCriteria.mrpFrom || itemCriteria.mrpTo) {
+      chips.push({
+        key: "mrpRange",
+        label: `MRP: ₹${itemCriteria.mrpFrom || "0"} → ₹${itemCriteria.mrpTo || "Max"}`,
+        onRemove: () => setItemCriteria(prev => ({ ...prev, mrpFrom: "", mrpTo: "" }))
       });
     }
     if (itemCriteria.productNames.length > 0) {
@@ -541,50 +627,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     if (isDirectScanMode) return scannedRows;
     if (isPdtFileMode) return pdtRows;
 
-    // Manual / Item Master Criteria Filtering (AND logic across all 7 criteria + barcode)
-    return gridRows.filter(row => {
-      // 1. Stock No / SKU Range
-      if (itemCriteria.stockNoFrom && row.stockNo < itemCriteria.stockNoFrom) return false;
-      if (itemCriteria.stockNoTo && row.stockNo > itemCriteria.stockNoTo) return false;
-
-      // 2. Barcode Exact Match
-      if (itemCriteria.barcode.trim()) {
-        const b = itemCriteria.barcode.trim().toLowerCase();
-        if (row.barcode.toLowerCase() !== b && row.stockNo.toLowerCase() !== b) return false;
-      }
-
-      // 3. Product Names (Multi-select)
-      if (itemCriteria.productNames.length > 0 && !itemCriteria.productNames.includes(row.product)) {
-        return false;
-      }
-
-      // 4. Brands (Multi-select)
-      if (itemCriteria.brands.length > 0 && !itemCriteria.brands.includes(row.brand)) {
-        return false;
-      }
-
-      // 5. Categories (Multi-select)
-      if (itemCriteria.categories.length > 0 && (!row.category || !itemCriteria.categories.includes(row.category))) {
-        return false;
-      }
-
-      // 6. Style Codes (Multi-select)
-      if (itemCriteria.styleCodes.length > 0 && !itemCriteria.styleCodes.includes(row.style)) {
-        return false;
-      }
-
-      // 7. Colours / Shades (Multi-select)
-      if (itemCriteria.colours.length > 0 && !itemCriteria.colours.includes(row.colour)) {
-        return false;
-      }
-
-      // 8. Sizes (Multi-select)
-      if (itemCriteria.sizes.length > 0 && !itemCriteria.sizes.includes(row.size)) {
-        return false;
-      }
-
-      return true;
-    });
+    // Manual / Item Master Criteria Filtering (AND logic across all criteria + natural ranges)
+    return filterRowsByItemMasterCriteria(gridRows, itemCriteria);
   }, [
     isPtFileMode, isTxMode, isPoMode, isMasterMode, isDirectScanMode, isPdtFileMode,
     ptRows, txRows, poRows, masterRows, scannedRows, pdtRows,
@@ -776,6 +820,56 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     else setGridRows(prev => prev.map(updateFn));
 
     onNotification?.("Quantities Updated", `Set label quantity to ${target === "one" ? "1" : "current stock"} for all items.`, "info");
+  };
+
+  // Step 3 In-Grid Range Filtering & Selection Engine
+  const rangeMatchedRows = useMemo(() => {
+    if (!gridRangeFrom.trim() && !gridRangeTo.trim()) return [];
+    return filterRowsByGridRange(activeDataset, gridRangeField, gridRangeFrom, gridRangeTo);
+  }, [activeDataset, gridRangeField, gridRangeFrom, gridRangeTo]);
+
+  const handleApplyRangeSelect = () => {
+    if (rangeMatchedRows.length === 0) return;
+    const newSelected = new Set(rangeMatchedRows.map(r => r.id));
+    setSelectedRowIds(newSelected);
+    onNotification?.("Range Selected", `Selected ${rangeMatchedRows.length} item(s) within ${gridRangeField} range.`, "info");
+  };
+
+  const handleAddRangeToSelection = () => {
+    if (rangeMatchedRows.length === 0) return;
+    setSelectedRowIds(prev => {
+      const next = new Set(prev);
+      rangeMatchedRows.forEach(r => next.add(r.id));
+      return next;
+    });
+    onNotification?.("Added to Selection", `Added ${rangeMatchedRows.length} item(s) to selection.`, "info");
+  };
+
+  const handleRemoveRangeFromSelection = () => {
+    if (rangeMatchedRows.length === 0) return;
+    setSelectedRowIds(prev => {
+      const next = new Set(prev);
+      rangeMatchedRows.forEach(r => next.delete(r.id));
+      return next;
+    });
+    onNotification?.("Removed from Selection", `Deselected ${rangeMatchedRows.length} item(s) from selection.`, "info");
+  };
+
+  const handleApplyRangeQuantity = () => {
+    if (rangeMatchedRows.length === 0) return;
+    const matchedIds = new Set(rangeMatchedRows.map(r => r.id));
+    const updater = (prevRows: LabelPrintRow[]) =>
+      prevRows.map(r => (matchedIds.has(r.id) ? { ...r, labelCount: gridRangeQty } : r));
+
+    if (isPtFileMode) setPtRows(updater);
+    else if (isTxMode) setTxRows(updater);
+    else if (isPoMode) setPoRows(updater);
+    else if (isMasterMode) setMasterRows(updater);
+    else if (isDirectScanMode) setScannedRows(updater);
+    else if (isPdtFileMode) setPdtRows(updater);
+    else setGridRows(updater);
+
+    onNotification?.("Quantity Updated", `Updated label quantity to ${gridRangeQty} for ${rangeMatchedRows.length} item(s) in range.`, "success");
   };
 
   // Load Results Handler (Primary Button in Selection Criteria Card)
@@ -984,6 +1078,12 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       stockNoFrom: "",
       stockNoTo: "",
       barcode: "",
+      barcodeFrom: "",
+      barcodeTo: "",
+      styleFrom: "",
+      styleTo: "",
+      mrpFrom: "",
+      mrpTo: "",
       productNames: [],
       brands: [],
       categories: [],
@@ -991,6 +1091,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       colours: [],
       sizes: []
     });
+    setGridRangeFrom("");
+    setGridRangeTo("");
     setFilterSearch("");
     setColumnFilters({});
     setSortField(null);
@@ -999,7 +1101,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     setGridRows(prev => prev.map(r => ({ ...r, labelCount: 1 })));
     setScannedRows([]);
     setPdtRows([]);
-    setSelectedRowIds(new Set(gridRows.map(r => r.id)));
+    // Safe Retail Standard: Resetting criteria clears selections to prevent unintended bulk printing
+    setSelectedRowIds(new Set());
     onNotification?.("Session Cleared", "Reset selection criteria, filters, and label quantities.", "info");
   };
 
@@ -1381,6 +1484,22 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Hidable Sidebar Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className={`px-3 py-1.5 border rounded font-body-sm font-semibold transition flex items-center gap-1.5 shadow-xs text-xs ${
+              isSidebarCollapsed
+                ? "bg-secondary text-on-secondary border-secondary"
+                : "bg-surface border-outline-variant hover:bg-surface-variant text-on-surface"
+            }`}
+            title="Toggle Left Sidebar (Alt+S)"
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+            <span>{isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}</span>
+            <span className="text-[9px] font-code-md opacity-80">[Alt+S]</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowTestPrintModal(true)}
@@ -1426,8 +1545,27 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       {/* Main Workspace Frame: Left Sidebar (Step 1 & 4) + Main Content (Step 2, 3, 5) */}
       <div className="flex-1 flex overflow-hidden print:hidden">
         
-        {/* Left Sidebar: Fixed Width (280px), Scrollable Configuration */}
-        <aside className="w-72 bg-surface-container-low border-r border-outline-variant flex flex-col p-3.5 gap-3.5 overflow-y-auto shrink-0 z-10">
+        {/* Floating Sidebar Expand Handle when collapsed */}
+        {isSidebarCollapsed && (
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="w-7 bg-surface-container border-r border-outline-variant hover:bg-secondary-fixed/50 flex flex-col items-center justify-center gap-2 py-4 text-primary transition shrink-0 z-10 cursor-pointer shadow-xs group"
+            title="Expand Sidebar (Alt+S)"
+          >
+            <PanelLeftOpen size={14} className="text-secondary group-hover:scale-110 transition-transform" />
+            <span className="[writing-mode:vertical-lr] rotate-180 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+              Sidebar
+            </span>
+          </button>
+        )}
+
+        {/* Left Sidebar: Collapsible Width (280px / 0px), Scrollable Configuration */}
+        <aside className={`transition-all duration-200 shrink-0 z-10 flex flex-col overflow-y-auto ${
+          isSidebarCollapsed 
+            ? "w-0 p-0 border-r-0 overflow-hidden opacity-0 pointer-events-none" 
+            : "w-72 bg-surface-container-low border-r border-outline-variant p-3.5 gap-3.5 opacity-100"
+        }`}>
           
           {/* STEP 1: Selection Source Option Card */}
           <section className="bg-surface border border-outline-variant rounded-lg p-3 flex flex-col gap-2 shadow-xs border-t-2 border-t-primary">
@@ -1716,7 +1854,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         <main className="flex-1 flex flex-col p-3.5 gap-3 overflow-y-auto bg-surface-container-lowest">
           
           {/* STEP 2: Selection Criteria Panel */}
-          <section className="bg-surface border border-outline-variant rounded-lg p-3.5 flex flex-col gap-2.5 shadow-xs border-t-4 border-t-primary shrink-0">
+          <section className="bg-surface border border-outline-variant rounded-lg p-3.5 flex flex-col gap-2.5 shadow-xs border-t-4 border-t-primary shrink-0 transition-all">
             <div className="flex justify-between items-center border-b border-surface-variant pb-2">
               <div className="flex items-center gap-2">
                 <Filter size={15} className="text-secondary" />
@@ -1725,54 +1863,122 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 </h3>
               </div>
 
-              {/* 4-Way Record Navigator Bar */}
-              {totalLoadedItems > 0 && (
-                <div className="flex items-center gap-1 text-xs bg-surface-container-low px-2 py-0.5 rounded border border-outline-variant">
-                  <span className="text-on-surface-variant font-mono text-[11px] mr-2">
-                    Item {selectedPreviewIndex + 1} of {totalLoadedItems}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleNavFirst}
-                    disabled={selectedPreviewIndex === 0}
-                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
-                    title="First Record (|<<)"
-                  >
-                    <ChevronsLeft size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNavPrev}
-                    disabled={selectedPreviewIndex === 0}
-                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
-                    title="Previous Record (<)"
-                  >
-                    <ChevronLeft size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNavNext}
-                    disabled={selectedPreviewIndex >= totalLoadedItems - 1}
-                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
-                    title="Next Record (>)"
-                  >
-                    <ChevronRight size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNavLast}
-                    disabled={selectedPreviewIndex >= totalLoadedItems - 1}
-                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
-                    title="Last Record (>>|)"
-                  >
-                    <ChevronsRight size={13} />
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {/* 4-Way Record Navigator Bar */}
+                {totalLoadedItems > 0 && (
+                  <div className="flex items-center gap-1 text-xs bg-surface-container-low px-2 py-0.5 rounded border border-outline-variant">
+                    <span className="text-on-surface-variant font-mono text-[11px] mr-2">
+                      Item {selectedPreviewIndex + 1} of {totalLoadedItems}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleNavFirst}
+                      disabled={selectedPreviewIndex === 0}
+                      className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                      title="First Record (|<<)"
+                    >
+                      <ChevronsLeft size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNavPrev}
+                      disabled={selectedPreviewIndex === 0}
+                      className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                      title="Previous Record (<)"
+                    >
+                      <ChevronLeft size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNavNext}
+                      disabled={selectedPreviewIndex >= totalLoadedItems - 1}
+                      className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                      title="Next Record (>)"
+                    >
+                      <ChevronRight size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNavLast}
+                      disabled={selectedPreviewIndex >= totalLoadedItems - 1}
+                      className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                      title="Last Record (>>|)"
+                    >
+                      <ChevronsRight size={13} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Advance Filters Collapse Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsCriteriaCollapsed(prev => !prev)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition border ${
+                    isCriteriaCollapsed
+                      ? "bg-secondary text-on-secondary border-secondary shadow-xs"
+                      : "bg-surface border-outline-variant hover:bg-surface-variant text-primary"
+                  }`}
+                  title="Toggle Advance Filters Panel (Alt+F)"
+                >
+                  {isCriteriaCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  <span>{isCriteriaCollapsed ? "Advance Filters (Show)" : "Advance Filters (Hide)"}</span>
+                  <span className="text-[9px] font-mono opacity-80">[Alt+F]</span>
+                </button>
+              </div>
             </div>
 
-            {/* A. Manual / Item Master 7 Criteria + Dedicated Barcode Input */}
-            {isManualMode && (
+            {/* Collapsed Compact Active Filters Summary Strip */}
+            {isCriteriaCollapsed ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 py-1 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-on-surface-variant">Active Criteria:</span>
+                  {activeFilterChips.length === 0 ? (
+                    <span className="text-[11px] text-on-surface-variant italic">All catalog items (unfiltered)</span>
+                  ) : (
+                    activeFilterChips.map(chip => (
+                      <span
+                        key={chip.key}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-fixed text-primary text-[10px] font-semibold border border-secondary/30"
+                      >
+                        <span>{chip.label}</span>
+                        <button
+                          type="button"
+                          onClick={chip.onRemove}
+                          className="hover:text-error text-primary transition"
+                          title="Remove filter"
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="px-2.5 py-1 bg-surface border border-outline-variant hover:bg-surface-variant text-on-surface rounded text-xs font-semibold transition flex items-center gap-1"
+                    title="Reset all criteria"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Clear Criteria</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLoadResults}
+                    className="bg-primary text-on-primary px-3 py-1 rounded text-xs font-bold hover:bg-primary-container transition flex items-center gap-1 shadow-xs"
+                    title="Reload matching items"
+                  >
+                    <Download size={13} />
+                    <span>Load Results</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* A. Manual / Item Master 7 Criteria + Dedicated Barcode Input */}
+                {isManualMode && (
               <div className="flex flex-col gap-2.5">
                 
                 {/* Row 1: SKU From | SKU To | Barcode Scan */}
@@ -1832,6 +2038,125 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                       className="w-full bg-surface border border-outline-variant rounded px-2.5 py-1.5 text-xs font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all"
                     />
                   </div>
+                </div>
+
+                {/* Advanced Range Criteria Section (Barcode From/To, Style From/To, MRP Min/Max) */}
+                <div className="border border-outline-variant/60 rounded-md bg-surface-container-low p-2.5 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedRanges(prev => !prev)}
+                      className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-secondary transition"
+                    >
+                      <SlidersHorizontal size={13} className="text-secondary" />
+                      <span>Natural Range Filters (Barcode, Style & MRP Range)</span>
+                      <span className="text-[10px] text-on-surface-variant font-normal">
+                        {showAdvancedRanges ? "▲ Hide" : "▼ Expand Range (From → To)"}
+                      </span>
+                    </button>
+                    {(itemCriteria.barcodeFrom || itemCriteria.barcodeTo || itemCriteria.styleFrom || itemCriteria.styleTo || itemCriteria.mrpFrom || itemCriteria.mrpTo) ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] bg-secondary-fixed/70 text-primary font-bold px-2 py-0.5 rounded-full border border-secondary/30">
+                          Active Range Filters
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setItemCriteria(prev => ({
+                            ...prev,
+                            barcodeFrom: "",
+                            barcodeTo: "",
+                            styleFrom: "",
+                            styleTo: "",
+                            mrpFrom: "",
+                            mrpTo: ""
+                          }))}
+                          className="text-[10px] text-error hover:underline font-semibold"
+                        >
+                          Clear Ranges
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-on-surface-variant italic">
+                        Optional range queries
+                      </span>
+                    )}
+                  </div>
+
+                  {showAdvancedRanges && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-outline-variant/40 animate-in fade-in duration-150">
+                      {/* Barcode Range */}
+                      <div className="flex flex-col gap-1">
+                        <label className="font-label-caps text-[11px] text-on-surface-variant flex items-center justify-between">
+                          <span>Barcode Range (From → To)</span>
+                          <span className="text-[9px] text-secondary font-mono">Numeric / EAN</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={itemCriteria.barcodeFrom}
+                            onChange={e => setItemCriteria({ ...itemCriteria, barcodeFrom: e.target.value })}
+                            placeholder="From Barcode"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={itemCriteria.barcodeTo}
+                            onChange={e => setItemCriteria({ ...itemCriteria, barcodeTo: e.target.value })}
+                            placeholder="To Barcode"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Style Range */}
+                      <div className="flex flex-col gap-1">
+                        <label className="font-label-caps text-[11px] text-on-surface-variant flex items-center justify-between">
+                          <span>Style Code Range (From → To)</span>
+                          <span className="text-[9px] text-secondary font-mono">Alphanumeric</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={itemCriteria.styleFrom}
+                            onChange={e => setItemCriteria({ ...itemCriteria, styleFrom: e.target.value })}
+                            placeholder="e.g. CH-10-A"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={itemCriteria.styleTo}
+                            onChange={e => setItemCriteria({ ...itemCriteria, styleTo: e.target.value })}
+                            placeholder="e.g. CH-30-K"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* MRP Range */}
+                      <div className="flex flex-col gap-1">
+                        <label className="font-label-caps text-[11px] text-on-surface-variant flex items-center justify-between">
+                          <span>MRP Range (₹ Min → Max)</span>
+                          <span className="text-[9px] text-secondary font-mono">Currency</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="number"
+                            value={itemCriteria.mrpFrom}
+                            onChange={e => setItemCriteria({ ...itemCriteria, mrpFrom: e.target.value })}
+                            placeholder="Min ₹"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                          <input
+                            type="number"
+                            value={itemCriteria.mrpTo}
+                            onChange={e => setItemCriteria({ ...itemCriteria, mrpTo: e.target.value })}
+                            placeholder="Max ₹"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Row 2: Product Name | Brand | Category */}
@@ -2211,6 +2536,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 </div>
               </div>
             )}
+              </>
+            )}
 
           </section>
 
@@ -2250,6 +2577,38 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
               <div className="flex items-center gap-2 text-xs">
                 <button
                   type="button"
+                  onClick={() => setShowGridRangeBar(prev => !prev)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1.5 transition-all border ${
+                    showGridRangeBar
+                      ? "bg-secondary text-on-secondary border-secondary shadow-xs"
+                      : "bg-surface border-outline-variant hover:bg-surface-variant text-primary"
+                  }`}
+                  title="Toggle Range Selection & Batch Quantity Tool (Alt+R)"
+                >
+                  <SlidersHorizontal size={12} />
+                  <span>Select by Range (Alt+R)</span>
+                  {gridRangeFrom || gridRangeTo ? (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  ) : null}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRowIds(new Set(activeDataset.map(r => r.id)))}
+                  className="px-2 py-0.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded text-[11px] font-semibold text-primary"
+                  title="Select all visible matching items"
+                >
+                  Select All ({activeDataset.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRowIds(new Set())}
+                  className="px-2 py-0.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded text-[11px] font-medium text-error"
+                  title="Deselect all items"
+                >
+                  Select None
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleSetAllLabels("one")}
                   className="px-2 py-0.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded text-[11px] font-medium"
                   title="Set all item label counts to 1"
@@ -2267,6 +2626,125 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 <span className="text-on-surface-variant text-[11px] hidden sm:inline ml-2">Click headers to sort</span>
               </div>
             </div>
+
+            {/* In-Grid Range Selection & Batch Quantity Panel */}
+            {showGridRangeBar && (
+              <div className="bg-surface-container border-b border-outline-variant px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs animate-in slide-in-from-top-1 duration-150">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-label-caps text-[11px] font-bold text-primary flex items-center gap-1">
+                    <Filter size={12} className="text-secondary" />
+                    <span>Range Selector:</span>
+                  </span>
+
+                  {/* Target Column Selector */}
+                  <select
+                    value={gridRangeField}
+                    onChange={e => setGridRangeField(e.target.value as GridRangeField)}
+                    className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-medium focus:border-secondary outline-none"
+                  >
+                    <option value="barcode">Barcode</option>
+                    <option value="style">Style Code</option>
+                    <option value="stockNo">Stock No (SKU)</option>
+                    <option value="sNo">S.No (Row #)</option>
+                    <option value="mrp">MRP (₹)</option>
+                  </select>
+
+                  {/* From Input */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-on-surface-variant font-medium">From:</span>
+                    <input
+                      type="text"
+                      value={gridRangeFrom}
+                      onChange={e => setGridRangeFrom(e.target.value)}
+                      placeholder={gridRangeField === "sNo" ? "e.g. 1" : gridRangeField === "barcode" ? "e.g. 890100000001" : gridRangeField === "style" ? "e.g. CH-10-A" : "Start"}
+                      className="w-28 bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                    />
+                  </div>
+
+                  {/* To Input */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-on-surface-variant font-medium">To:</span>
+                    <input
+                      type="text"
+                      value={gridRangeTo}
+                      onChange={e => setGridRangeTo(e.target.value)}
+                      placeholder={gridRangeField === "sNo" ? "e.g. 10" : gridRangeField === "barcode" ? "e.g. 890100000010" : gridRangeField === "style" ? "e.g. CH-30-K" : "End"}
+                      className="w-28 bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                    />
+                  </div>
+
+                  {/* Match Count Badge */}
+                  <span className="text-[11px] font-code-md text-secondary font-bold px-2 py-0.5 bg-secondary-fixed/50 rounded">
+                    {rangeMatchedRows.length} matching
+                  </span>
+                </div>
+
+                {/* Range Operations */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleApplyRangeSelect}
+                    disabled={rangeMatchedRows.length === 0}
+                    className="px-2.5 py-1 bg-surface border border-outline-variant hover:bg-surface-variant disabled:opacity-40 rounded text-xs font-semibold transition"
+                    title="Check only rows within this range"
+                  >
+                    Select Range Only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddRangeToSelection}
+                    disabled={rangeMatchedRows.length === 0}
+                    className="px-2.5 py-1 bg-surface border border-outline-variant hover:bg-surface-variant disabled:opacity-40 rounded text-xs font-semibold transition"
+                    title="Add matching rows to current selection"
+                  >
+                    + Add to Selection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveRangeFromSelection}
+                    disabled={rangeMatchedRows.length === 0}
+                    className="px-2.5 py-1 bg-surface border border-outline-variant hover:bg-surface-variant disabled:opacity-40 rounded text-xs font-semibold text-error transition"
+                    title="Deselect rows in this range"
+                  >
+                    - Deselect Range
+                  </button>
+
+                  {/* Set Quantity for Range */}
+                  <div className="flex items-center gap-1 pl-2 border-l border-outline-variant">
+                    <span className="text-[11px] text-on-surface-variant font-medium">Qty:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="999"
+                      value={gridRangeQty}
+                      onChange={e => setGridRangeQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-12 bg-surface border border-outline-variant rounded px-1.5 py-1 text-xs text-center font-bold focus:border-secondary outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyRangeQuantity}
+                      disabled={rangeMatchedRows.length === 0}
+                      className="px-2.5 py-1 bg-secondary text-on-secondary hover:bg-secondary-container disabled:opacity-40 rounded text-xs font-bold transition shadow-xs"
+                      title="Apply this quantity to all matching rows in range"
+                    >
+                      Set Qty for Range
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGridRangeFrom("");
+                      setGridRangeTo("");
+                    }}
+                    className="p-1 text-on-surface-variant hover:text-error rounded"
+                    title="Reset Range Inputs"
+                  >
+                    <RotateCcw size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Grid Table Container */}
             <div className="flex-1 overflow-auto custom-scrollbar">
@@ -2297,6 +2775,22 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                       <div className="flex items-center gap-1">
                         <span>Stock No</span>
                         {sortField === "stockNo" ? (
+                          sortDirection === "asc" ? <ArrowUp size={12} className="text-secondary font-bold" /> : <ArrowDown size={12} className="text-secondary font-bold" />
+                        ) : (
+                          <ArrowUpDown size={12} className="opacity-40" />
+                        )}
+                      </div>
+                    </th>
+
+                    {/* Barcode Header */}
+                    <th 
+                      onClick={() => handleSortToggle("barcode")}
+                      className="px-3 py-2 font-label-caps text-on-surface-variant cursor-pointer hover:text-primary transition-colors select-none"
+                      aria-sort={sortField === "barcode" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Barcode</span>
+                        {sortField === "barcode" ? (
                           sortDirection === "asc" ? <ArrowUp size={12} className="text-secondary font-bold" /> : <ArrowDown size={12} className="text-secondary font-bold" />
                         ) : (
                           <ArrowUpDown size={12} className="opacity-40" />
@@ -2433,6 +2927,16 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                     <td className="p-1">
                       <input
                         type="text"
+                        value={columnFilters.barcode || ""}
+                        onChange={e => handleColumnFilterChange("barcode", e.target.value)}
+                        placeholder="Filter..."
+                        className="w-full bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-code-md outline-none focus:border-secondary"
+                        aria-label="Filter by Barcode"
+                      />
+                    </td>
+                    <td className="p-1">
+                      <input
+                        type="text"
                         value={columnFilters.product || ""}
                         onChange={e => handleColumnFilterChange("product", e.target.value)}
                         placeholder="Filter..."
@@ -2531,6 +3035,11 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                         </td>
 
                         <td className="px-3 py-1.5 font-code-md text-on-surface">{row.stockNo}</td>
+                        <td className="px-3 py-1.5 font-code-md text-on-surface text-[11px]">
+                          <span className="font-mono bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant/60 text-secondary font-semibold">
+                            {row.barcode || "—"}
+                          </span>
+                        </td>
                         <td className="px-3 py-1.5 text-on-surface truncate max-w-[320px] min-w-[180px]" title={row.product}>{row.product}</td>
                         <td className="px-3 py-1.5 text-on-surface">{row.brand}</td>
                         <td className="px-3 py-1.5 text-on-surface">{row.style}</td>
@@ -2555,7 +3064,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
                   {activeDataset.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="p-12 text-center text-on-surface-variant">
+                      <td colSpan={10} className="p-12 text-center text-on-surface-variant">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Filter size={24} className="text-secondary opacity-60" />
                           <p className="font-semibold text-sm text-primary">No items match the active selection criteria.</p>
