@@ -99,6 +99,60 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [activeView, setActiveView] = useState<"printing" | "designer">("printing");
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [gridRows, setGridRows] = useState<LabelPrintRow[]>([]);
+
+  useEffect(() => {
+    const defaultSkus = [
+      { code: "000001", name: "Premium Leather Loafers", brand: "TATTLY THREADS", style: "CH-10-A", colour: "BLACK", size: "38", mrp: 1499, price: 1499, stock: 12 },
+      { code: "000002", name: "Casual Canvas Sneakers", brand: "TATTLY THREADS", style: "CH-10-B", colour: "WHITE", size: "39", mrp: 999, price: 999, stock: 8 },
+      { code: "000003", name: "Formal Oxford Shoes", brand: "TATTLY THREADS", style: "CH-20-C", colour: "BROWN", size: "40", mrp: 1899, price: 1899, stock: 15 },
+      { code: "000004", name: "Comfort Slip-On Sandals", brand: "TATTLY THREADS", style: "CH-20-D", colour: "TAN", size: "37", mrp: 799, price: 799, stock: 20 },
+      { code: "000005", name: "Classic Monk Straps", brand: "TATTLY THREADS", style: "CH-25-E", colour: "BLACK", size: "41", mrp: 2199, price: 2199, stock: 5 },
+      { code: "000006", name: "Tattly Threads Footwear", brand: "TATTLY THREADS", style: "CH-30-K", colour: "BLACK", size: "37", mrp: 1199, price: 1199, stock: 14 },
+      { code: "000007", name: "Tattly Threads Footwear", brand: "TATTLY THREADS", style: "CH-30-K", colour: "BLACK", size: "40", mrp: 1199, price: 1199, stock: 18 },
+      { code: "000008", name: "Tattly Threads Footwear", brand: "TATTLY THREADS", style: "CH-30-K", colour: "TOUPE", size: "37", mrp: 1199, price: 1199, stock: 22 },
+      { code: "000009", name: "Tattly Threads Footwear", brand: "TATTLY THREADS", style: "CH-30-K", colour: "TOUPE", size: "39", mrp: 1199, price: 1199, stock: 10 },
+      { code: "000010", name: "Athletic Running Trainers", brand: "TATTLY THREADS", style: "CH-40-M", colour: "GREY", size: "42", mrp: 1599, price: 1599, stock: 16 },
+    ];
+
+    const baseRows: LabelPrintRow[] = defaultSkus.map((p, idx) => ({
+      id: `sku-row-${p.code}`,
+      sNo: idx + 1,
+      stockNo: p.code,
+      barcode: `8901${p.code.padStart(8, '0')}`,
+      brand: p.brand,
+      product: p.name,
+      colour: p.colour,
+      style: p.style,
+      size: p.size,
+      mrp: p.mrp,
+      sellingPrice: p.price,
+      currentStock: p.stock,
+      labelCount: 1,
+      category: "Footwear"
+    }));
+
+    if (products && products.length > 0) {
+      const extraRows: LabelPrintRow[] = products.map((p, idx) => ({
+        id: p.id || `row-extra-${idx + 1}`,
+        sNo: defaultSkus.length + idx + 1,
+        stockNo: p.code || String(defaultSkus.length + idx + 1).padStart(6, '0'),
+        barcode: p.barcode || (p.code ? `8901${p.code.padStart(8, '0')}` : `89010000000${idx + 1}`),
+        brand: p.brand || "TATTLY THREADS",
+        product: p.name || "Tattly Threads Footwear",
+        colour: (p as any).colour || p.color || (idx % 2 === 0 ? "BLACK" : "TOUPE"),
+        style: (p as any).style || p.styleCode || "CH-30-K",
+        size: p.size || (36 + (idx % 5)).toString(),
+        mrp: p.mrp || p.price || 1199,
+        sellingPrice: (p as any).sellingPrice || p.price || 1199,
+        currentStock: p.stock || 10,
+        labelCount: 1,
+        category: p.category || "Footwear"
+      }));
+      setGridRows([...baseRows, ...extraRows]);
+    } else {
+      setGridRows(baseRows);
+    }
+  }, [products]);
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
@@ -111,17 +165,22 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Settings
-  const [settings, setSettings] = useState<LabelPrintSettings>({
-    scriptFileName: "ModernLabelDesign_TE244.blf",
-    labelsPerRow: 1,
-    outputToPort: true,
-    outputToFile: false,
-    portSetting: "USB",
-    sourceOption: "Manual Selection",
-    piPdtFileName: "",
-    quantityMode: "Specified Quantity",
-    targetPrinterName: "IMPACT by Honeywell IH-2 (300 dpi) - DPL",
-    resolutionDpi: 300
+  const [settings, setSettings] = useState<LabelPrintSettings>(() => {
+    const savedPrinter = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_printer") : null;
+    const savedDpi = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_dpi") : null;
+    const savedPort = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_port") : null;
+    return {
+      scriptFileName: "Tattly Threads Footwear — 100x50.7mm",
+      labelsPerRow: 1,
+      outputToPort: true,
+      outputToFile: false,
+      portSetting: (savedPort as any) || "QZ Tray Thermal",
+      sourceOption: "Manual Selection",
+      piPdtFileName: "",
+      quantityMode: "Specified Quantity",
+      targetPrinterName: savedPrinter || "IMPACT by Honeywell IH-2 (300 dpi) - DPL",
+      resolutionDpi: savedDpi ? parseInt(savedDpi, 10) : 300
+    };
   });
 
   // 1. Selection Criteria (Item Master Mode: 7 Criteria + Barcode)
@@ -329,10 +388,40 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   };
 
   const populateGrid = (itemsList: Product[]) => {
-    const rows: LabelPrintRow[] = itemsList.map((p, idx) => ({
-      id: p.id || `row-${idx}`,
+    const defaultSkus = [
+      { stockNo: "000001", barcode: "890100000001", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "36", mrp: 1199, price: 1199, stock: 15 },
+      { stockNo: "000002", barcode: "890100000002", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "37", mrp: 1199, price: 1199, stock: 20 },
+      { stockNo: "000003", barcode: "890100000003", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "38", mrp: 1199, price: 1199, stock: 12 },
+      { stockNo: "000004", barcode: "890100000004", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "39", mrp: 1199, price: 1199, stock: 18 },
+      { stockNo: "000005", barcode: "890100000005", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "40", mrp: 1199, price: 1199, stock: 14 },
+      { stockNo: "000006", barcode: "890100000006", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "37", mrp: 1199, price: 1199, stock: 22 },
+      { stockNo: "000007", barcode: "890100000007", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "40", mrp: 1199, price: 1199, stock: 16 },
+      { stockNo: "000008", barcode: "890100000008", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "TOUPE", style: "CH-30-K", size: "37", mrp: 1199, price: 1199, stock: 25 },
+      { stockNo: "000009", barcode: "890100000009", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "TOUPE", style: "CH-30-K", size: "38", mrp: 1199, price: 1199, stock: 19 },
+      { stockNo: "000010", barcode: "890100000010", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "TOUPE", style: "CH-30-K", size: "39", mrp: 1199, price: 1199, stock: 11 }
+    ];
+
+    const baseRows: LabelPrintRow[] = defaultSkus.map((item, idx) => ({
+      id: `footwear-row-${idx + 1}`,
       sNo: idx + 1,
-      stockNo: p.code || String(idx + 1).padStart(6, "0"),
+      stockNo: item.stockNo,
+      barcode: item.barcode,
+      brand: item.brand,
+      product: item.product,
+      colour: item.colour,
+      style: item.style,
+      size: item.size,
+      mrp: item.mrp,
+      sellingPrice: item.price,
+      currentStock: item.stock,
+      labelCount: 1,
+      category: "Footwear"
+    }));
+
+    const extraRows: LabelPrintRow[] = (itemsList || []).map((p, idx) => ({
+      id: p.id || `row-${idx}`,
+      sNo: baseRows.length + idx + 1,
+      stockNo: p.code || String(baseRows.length + idx + 1).padStart(6, "0"),
       barcode: p.barcode || p.code || "",
       brand: p.brand || "Beanstalk",
       product: p.name || p.category || "Item",
@@ -346,9 +435,11 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       labelCount: 1,
       originalProduct: p
     }));
-    setGridRows(rows);
+
+    const combinedRows = [...baseRows, ...extraRows];
+    setGridRows(combinedRows);
     // Initialize all rows as selected by default
-    setSelectedRowIds(new Set(rows.map(r => r.id)));
+    setSelectedRowIds(new Set(combinedRows.map(r => r.id)));
   };
 
   // Distinct options derived dynamically from actual product inventory
@@ -971,40 +1062,53 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     setShowDispatchModal(false);
     setIsPrinting(true);
 
+    const scriptLower = (settings.scriptFileName || "").toLowerCase();
+    const printerLower = (settings.targetPrinterName || "").toLowerCase();
+    const isFootwear = scriptLower.includes("footwear") || scriptLower.includes("100x50") || scriptLower.includes("tattly");
+    const templateId = isFootwear ? "tattly-threads-footwear-100x50.7" : "retail-50x25";
+    const protocol = (printerLower.includes("dpl") || printerLower.includes("honeywell") || printerLower.includes("ih-2") || scriptLower.includes("dpl")) ? "DPL" : "ZPL";
+    const targetDpi = settings.resolutionDpi || (protocol === "DPL" ? 300 : 203);
+
+    const printItemsPayload = activePrintItems.map(item => ({
+      code: item.stockNo || item.barcode || "ITEM",
+      barcode: item.barcode || item.stockNo || "890100000000",
+      name: item.product || "Footwear Item",
+      brand: item.brand || "TATTLY THREADS",
+      style: item.style || "CH-30-K",
+      color: item.colour || "BLACK",
+      size: item.size || "37",
+      mrp: Number(item.mrp || 0),
+      price: Number(item.sellingPrice || item.mrp || 0),
+      mfg_date: "10/26",
+      net_contents: "1 Pair",
+      company_name: "Tattly Threads",
+      qty: Math.max(1, item.labelCount || 1)
+    }));
+
     // 1. QZ Tray Direct Thermal Route
     if (settings.portSetting === "QZ Tray Thermal") {
       try {
-        onNotification?.("Preparing Print Job", `Creating secure print job for ${activePrintTotalLabels} label(s)...`, "info");
+        onNotification?.("Preparing Print Job", `Compiling ${protocol} stream for ${activePrintTotalLabels} label(s)...`, "info");
         
         let res: any = null;
         try {
-          res = await apiFetchV1("/barcode/print", {
+          res = await apiFetchV1("/barcode/print-jobs", {
             method: "POST",
             body: JSON.stringify({
-              layoutId: settings.scriptFileName || "default",
-              dispatch_mode: "qz_tray",
-              targetPrinter: settings.targetPrinterName,
-              items: activePrintItems.map(item => ({
-                code: item.stockNo,
-                barcode: item.barcode || item.stockNo,
-                name: item.product,
-                brand: item.brand,
-                style: item.style,
-                color: item.colour,
-                size: item.size,
-                mrp: item.mrp,
-                price: item.sellingPrice,
-                qty: item.labelCount
-              }))
+              printer_id: settings.targetPrinterName || "Windows Spooler",
+              template_id: templateId,
+              dpi: targetDpi,
+              protocol: protocol,
+              items: printItemsPayload
             })
           });
         } catch (backendErr: any) {
-          console.warn("[Print Dispatch] Backend print error, fallback to client script:", backendErr);
+          console.warn("[Print Dispatch] Backend print-jobs compilation failed, using local fallback:", backendErr);
         }
 
-        const rawPayload = res?.payload || generateRawDplScript();
-        const jobId = res?.job_id || `job-client-${Date.now()}`;
-        const targetPrinter = settings.targetPrinterName || res?.suggested_printer;
+        const rawPayload = res?.payload_stream || generateRawDplScript();
+        const jobId = res?.id || `job-client-${Date.now()}`;
+        const targetPrinter = settings.targetPrinterName || res?.printer_id;
 
         onNotification?.("Sending to QZ Tray", `Dispatching to Windows printer "${targetPrinter}"...`, "info");
 
@@ -1012,7 +1116,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
           {
             job_id: jobId,
             payload: rawPayload,
-            language: res?.language || (rawPayload.includes("\x02L") || rawPayload.startsWith(" L") ? "dpl" : "zpl"),
+            language: protocol.toLowerCase(),
             encoding: "UTF-8",
             suggested_printer: targetPrinter
           },
@@ -1035,15 +1139,41 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     // 2. PRN File Download Route
     if (settings.portSetting === "PRN File Download" || settings.outputToFile) {
       try {
-        const content = generateRawDplScript();
-        const blob = new Blob([content], { type: "text/plain" });
+        onNotification?.("Compiling File", `Generating ${protocol} label script for ${activePrintTotalLabels} label(s)...`, "info");
+        
+        let res: any = null;
+        try {
+          res = await apiFetchV1("/barcode/print-jobs", {
+            method: "POST",
+            body: JSON.stringify({
+              printer_id: "File Export",
+              template_id: templateId,
+              dpi: targetDpi,
+              protocol: protocol,
+              items: printItemsPayload
+            })
+          });
+        } catch (backendErr: any) {
+          console.warn("[Print Dispatch] Backend compiler unavailable, falling back to local generator:", backendErr);
+        }
+
+        const content = res?.payload_stream || generateRawDplScript();
+        const ext = protocol.toLowerCase() === "zpl" ? "zpl" : "prn";
+        const filename = `${templateId}_${Date.now()}.${ext}`;
+
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Honeywell_IH2_Labels_${Date.now()}.prn`;
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
-        onNotification?.("File Downloaded", `Downloaded PRN script for ${activePrintTotalLabels} label(s).`, "success");
+
+        if (res?.id) {
+          await acknowledgePrintJob(res.id, true, "File Download", undefined);
+        }
+
+        onNotification?.("File Downloaded", `Downloaded ${protocol} file "${filename}" (${activePrintTotalLabels} labels).`, "success");
       } catch (err: any) {
         onNotification?.("Download Error", err?.message || String(err), "error");
       } finally {
@@ -1310,22 +1440,47 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             {/* Template script info */}
             <div className="flex flex-col gap-1">
               <div className="flex justify-between items-center">
-                <label className="font-label-caps text-[10px] text-on-surface-variant">Label Template / Script</label>
+                <label className="font-label-caps text-[10px] text-on-surface-variant">Label Template / Layout</label>
                 <span 
                   onClick={() => fileInputRef.current?.click()}
                   className="text-[10px] text-secondary font-bold hover:underline cursor-pointer"
+                  title="Upload custom .prn, .zpl, or .blf file"
                 >
-                  Change...
+                  Upload File...
                 </span>
               </div>
-              <div className="bg-surface-container border border-outline-variant rounded p-1.5 text-xs font-code-md text-on-surface flex justify-between items-center truncate">
-                <span className="truncate text-[11px]" title={settings.scriptFileName}>
-                  {settings.scriptFileName.split("\\").pop() || settings.scriptFileName}
-                </span>
-                <span className="text-[9px] bg-surface-variant px-1 rounded font-bold text-on-surface-variant ml-1">
-                  {settings.resolutionDpi || 300} DPI
-                </span>
-              </div>
+              <select
+                value={settings.scriptFileName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const newDpi = val.includes("Footwear") ? 203 : (settings.resolutionDpi || 300);
+                  setSettings({ ...settings, scriptFileName: val, resolutionDpi: newDpi });
+                }}
+                className="bg-surface-container border border-outline-variant rounded p-1.5 text-xs font-sans text-on-surface truncate outline-hidden focus:ring-1 focus:ring-secondary font-semibold"
+              >
+                <option value="Tattly Threads Footwear — 100x50.7mm">
+                  Tattly Threads Footwear — 100x50.7mm (3-Part Dual Stub)
+                </option>
+                <option value="Retail 50x25mm Standard">
+                  Retail 50x25mm Standard (Single Column)
+                </option>
+                <option value="ModernLabelDesign_TE244.blf">
+                  ModernLabelDesign_TE244.blf (TSC Standard)
+                </option>
+                <option value="Honeywell_IH2_DualStub.prn">
+                  Honeywell_IH2_DualStub.prn (DPL Script)
+                </option>
+                {![
+                  "Tattly Threads Footwear — 100x50.7mm",
+                  "Retail 50x25mm Standard",
+                  "ModernLabelDesign_TE244.blf",
+                  "Honeywell_IH2_DualStub.prn"
+                ].includes(settings.scriptFileName) && (
+                  <option value={settings.scriptFileName}>
+                    {settings.scriptFileName} (Custom)
+                  </option>
+                )}
+              </select>
               <input
                 ref={fileInputRef}
                 type="file"

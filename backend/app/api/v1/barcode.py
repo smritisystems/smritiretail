@@ -13,6 +13,7 @@ License      : Proprietary Commercial Software
 
 import json
 import socket
+import uuid as uuid_pkg
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 
@@ -28,11 +29,17 @@ from sqlalchemy.future import select
 
 from ...api.deps import get_company_db, get_tenant_context, TenantContext, get_current_user, require_role
 from ...models.auth import User, UserRole
-from ...models.barcode import BarcodeLayout, PrintHistory
+from ...models.barcode import BarcodeLayout, PrintHistory, BarcodePrintJob
 from ...models.system import SystemConfig
 from ...schemas.barcode import (
     BarcodeLayoutCreate, BarcodeLayoutUpdate, BarcodeLayoutResponse, PrintRequest,
     PrintHistoryResponse, PrinterSettingsRequest, PrintJobAckRequest
+)
+from ...schemas.barcode_job import (
+    PrintJobCreateRequest, PrintJobResponse, PrintJobStatusUpdateRequest, TemplateSummaryResponse
+)
+from ...services.barcode_engine import (
+    BarcodeCompiler, template_registry, ProtocolType, render_svg
 )
 from ...services.printer_service import PrinterService
 from ...services.qz_security import QzSecurityService
@@ -997,4 +1004,342 @@ async def sign_qz_request(
         return Response(content=signature, media_type="text/plain")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate QZ signature: {str(e)}")
+
+
+# ==============================================================================
+# INDUSTRIAL BARCODE PRINT JOB & PROTOCOL COMPILER ENDPOINTS (P0 ARCHITECTURE)
+# ==============================================================================
+
+@router.get(
+    "/templates",
+    response_model=List[TemplateSummaryResponse],
+    summary="List Protocol-Agnostic Label Templates"
+)
+async def list_label_templates():
+    """
+    Returns registered protocol-agnostic label templates with dimensions and live SVG sample previews.
+    """
+    templates = template_registry.list_all()
+    results = []
+    for t in templates:
+        sample_svg = render_svg(t)
+        results.append(TemplateSummaryResponse(
+            id=t.id,
+            name=t.name,
+            width_mm=t.width_mm,
+            height_mm=t.height_mm,
+            default_dpi=t.default_dpi,
+            description=t.description,
+            sample_svg=sample_svg
+        ))
+    return results
+
+
+@router.post(
+    "/print-jobs",
+    response_model=PrintJobResponse,
+    summary="Create & Compile Industrial Barcode Print Job"
+)
+async def create_print_job(
+    request: PrintJobCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Central Barcode Print Job Endpoint.
+    1. Validates idempotency key to prevent duplicate spooling.
+    2. Resolves template from registry and calculates mathematical DPI coordinate scaling.
+    3. Compiles high-speed raw thermal byte stream (ZPL / DPL).
+    4. Persists PrintJob entity in PostgreSQL with initial 'READY' status.
+    5. Returns compiled stream for local QZ Tray or raw print bridge dispatch.
+    """
+    # 1. Idempotency Check
+    if request.idempotency_key:
+        stmt = select(BarcodePrintJob).where(BarcodePrintJob.idempotency_key == request.idempotency_key)
+        res = await db.execute(stmt)
+        existing_job = res.scalars().first()
+        if existing_job:
+            return PrintJobResponse(
+                id=existing_job.id,
+                tenant_id=tenant_ctx.tenant_id,
+                company_id=tenant_ctx.company_id,
+                branch_id=tenant_ctx.branch_id,
+                requested_by=existing_job.requested_by,
+                printer_id=existing_job.printer_id,
+                template_id=existing_job.template_id,
+                template_name=existing_job.template_id,
+                target_dpi=existing_job.target_dpi,
+                target_protocol=existing_job.target_protocol,
+                total_items=existing_job.total_items,
+                total_labels=existing_job.total_labels,
+                status=existing_job.status,
+                payload_stream=existing_job.payload_stream,
+                payload_hash=existing_job.payload_hash,
+                error_message=existing_job.error_message,
+                created_at=existing_job.created_at,
+                started_at=existing_job.started_at,
+                completed_at=existing_job.completed_at
+            )
+
+    # 2. Protocol Resolution
+    proto = ProtocolType.ZPL
+    proto_str = (request.protocol or "ZPL").upper()
+    if proto_str == "DPL":
+        proto = ProtocolType.DPL
+    elif proto_str == "SVG":
+        proto = ProtocolType.SVG
+
+    # 3. Barcode Compilation via continuous DPI engine
+    try:
+        compilation = BarcodeCompiler.compile(
+            template_id=request.template_id,
+            items=request.items,
+            protocol=proto,
+            dpi=request.dpi
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Label compilation error: {str(e)}")
+
+    # 4. Create Database PrintJob Record
+    job_id = f"job-{uuid_pkg.uuid4().hex[:12]}"
+    new_job = BarcodePrintJob(
+        id=job_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        idempotency_key=request.idempotency_key,
+        requested_by=current_user.username or current_user.email or "operator",
+        printer_id=request.printer_id,
+        template_id=compilation.template_id,
+        target_dpi=compilation.dpi,
+        target_protocol=proto.value,
+        total_items=compilation.total_items,
+        total_labels=compilation.total_labels,
+        status="READY",
+        payload_hash=compilation.payload_hash,
+        payload_stream=compilation.payload_stream,
+        labels_metadata=json.dumps([{"code": it.code, "barcode": it.barcode, "qty": it.qty} for it in request.items])
+    )
+
+    db.add(new_job)
+    await db.commit()
+    await db.refresh(new_job)
+
+    return PrintJobResponse(
+        id=new_job.id,
+        tenant_id=tenant_ctx.tenant_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        requested_by=new_job.requested_by,
+        printer_id=new_job.printer_id,
+        template_id=new_job.template_id,
+        template_name=compilation.template_name,
+        target_dpi=new_job.target_dpi,
+        target_protocol=new_job.target_protocol,
+        total_items=new_job.total_items,
+        total_labels=new_job.total_labels,
+        status=new_job.status,
+        payload_stream=new_job.payload_stream,
+        payload_hash=new_job.payload_hash,
+        svg_preview=compilation.svg_preview,
+        created_at=new_job.created_at,
+        started_at=new_job.started_at,
+        completed_at=new_job.completed_at
+    )
+
+
+@router.get(
+    "/print-jobs",
+    response_model=List[PrintJobResponse],
+    summary="List Barcode Print Jobs"
+)
+async def list_print_jobs(
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns paginated print job history for the current tenant workspace.
+    """
+    stmt = (
+        select(BarcodePrintJob)
+        .order_by(BarcodePrintJob.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    res = await db.execute(stmt)
+    jobs = res.scalars().all()
+    return [
+        PrintJobResponse(
+            id=j.id,
+            tenant_id=tenant_ctx.tenant_id,
+            company_id=j.company_id,
+            branch_id=j.branch_id,
+            requested_by=j.requested_by,
+            printer_id=j.printer_id,
+            template_id=j.template_id,
+            target_dpi=j.target_dpi,
+            target_protocol=j.target_protocol,
+            total_items=j.total_items,
+            total_labels=j.total_labels,
+            status=j.status,
+            payload_hash=j.payload_hash,
+            error_message=j.error_message,
+            created_at=j.created_at,
+            started_at=j.started_at,
+            completed_at=j.completed_at
+        )
+        for j in jobs
+    ]
+
+
+@router.get(
+    "/print-jobs/{job_id}",
+    response_model=PrintJobResponse,
+    summary="Get Print Job Details"
+)
+async def get_print_job(
+    job_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    stmt = select(BarcodePrintJob).where(BarcodePrintJob.id == job_id)
+    res = await db.execute(stmt)
+    job = res.scalars().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Print job not found.")
+    
+    return PrintJobResponse(
+        id=job.id,
+        tenant_id=tenant_ctx.tenant_id,
+        company_id=job.company_id,
+        branch_id=job.branch_id,
+        requested_by=job.requested_by,
+        printer_id=job.printer_id,
+        template_id=job.template_id,
+        target_dpi=job.target_dpi,
+        target_protocol=job.target_protocol,
+        total_items=job.total_items,
+        total_labels=job.total_labels,
+        status=job.status,
+        payload_stream=job.payload_stream,
+        payload_hash=job.payload_hash,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at
+    )
+
+
+@router.patch(
+    "/print-jobs/{job_id}/status",
+    response_model=PrintJobResponse,
+    summary="Update Print Job Execution Status"
+)
+async def update_print_job_status(
+    job_id: str,
+    body: PrintJobStatusUpdateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Updates the execution status (PRINTING, COMPLETED, FAILED, CANCELLED) with optional hardware error details.
+    """
+    stmt = select(BarcodePrintJob).where(BarcodePrintJob.id == job_id)
+    res = await db.execute(stmt)
+    job = res.scalars().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Print job not found.")
+
+    job.status = body.status.upper()
+    if body.error_message:
+        job.error_message = body.error_message
+    if job.status == "PRINTING" and not job.started_at:
+        job.started_at = datetime.now(timezone.utc)
+    elif job.status in ["COMPLETED", "FAILED", "CANCELLED"]:
+        job.completed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(job)
+
+    return PrintJobResponse(
+        id=job.id,
+        tenant_id=tenant_ctx.tenant_id,
+        company_id=job.company_id,
+        branch_id=job.branch_id,
+        requested_by=job.requested_by,
+        printer_id=job.printer_id,
+        template_id=job.template_id,
+        target_dpi=job.target_dpi,
+        target_protocol=job.target_protocol,
+        total_items=job.total_items,
+        total_labels=job.total_labels,
+        status=job.status,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at
+    )
+
+
+@router.post(
+    "/print-jobs/{job_id}/ack",
+    response_model=PrintJobResponse,
+    summary="Acknowledge Print Job Execution (QZ Tray / Spooler Callback)"
+)
+async def acknowledge_print_job(
+    job_id: str,
+    body: PrintJobAckRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Called by QZ Tray client or local print agent to acknowledge success or report hardware/spooler errors.
+    """
+    stmt = select(BarcodePrintJob).where(BarcodePrintJob.id == job_id)
+    res = await db.execute(stmt)
+    job = res.scalars().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Print job not found.")
+
+    if body.success:
+        job.status = "COMPLETED"
+    else:
+        job.status = "FAILED"
+        job.error_message = body.error_message or "Spooler dispatch error"
+
+    if body.printer_name:
+        job.printer_id = body.printer_name
+
+    job.completed_at = datetime.now(timezone.utc)
+    if not job.started_at:
+        job.started_at = job.completed_at
+
+    await db.commit()
+    await db.refresh(job)
+
+    return PrintJobResponse(
+        id=job.id,
+        tenant_id=tenant_ctx.tenant_id,
+        company_id=job.company_id,
+        branch_id=job.branch_id,
+        requested_by=job.requested_by,
+        printer_id=job.printer_id,
+        template_id=job.template_id,
+        target_dpi=job.target_dpi,
+        target_protocol=job.target_protocol,
+        total_items=job.total_items,
+        total_labels=job.total_labels,
+        status=job.status,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at
+    )
+
 
