@@ -360,6 +360,35 @@ describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
     expect(prn).toContain("^XZ");
   });
 
+  it("prevents synthetic SKU IDs from polluting Art.No and barcode when style/barcode is unassigned", () => {
+    const rawItems = [
+      {
+        id: "prod_api_269aef",
+        itemCode: "SKU-API-269AEF",
+        product: "API Product 269aef",
+        brand: "Tattly Threads",
+        style: "", // Missing style
+        shade: "Black",
+        size: "37",
+        barcode: "", // Missing barcode
+        stock: 1,
+        printQty: 1,
+        mrp: 1200,
+        selected: true,
+      },
+    ];
+
+    const template = { id: "lay-footwear-100x50-3stub", name: "Footwear 3-Stub 100 x 50 mm", widthMm: 100, heightMm: 50.7 };
+    const prn = compilePrnString(rawItems as any, template);
+
+    // Art.No must NOT contain SKU-API-269AEF
+    expect(prn).not.toContain("^FDSKU-API-269AEF");
+    expect(prn).toContain("^FDCH-30-K");
+    // Barcode must NOT encode SKU-API-269AEF
+    expect(prn).not.toContain("^BY2^BCN,66,N,N^FDSKU-API-269AEF^FS");
+    expect(prn).toContain("^BY2^BCN,66,N,N^FD8904551005335^FS");
+  });
+
   it("compiles standard retail ZPL PRN string for smaller label formats", () => {
     const items = [
       {

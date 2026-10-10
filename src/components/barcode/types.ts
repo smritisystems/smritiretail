@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.8.0
+ * Version      : 6.50.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-10
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -91,6 +91,7 @@ export interface LabelPrintSettings {
   ipAddress?: string;
   portNumber?: number;
   resolutionDpi?: number;
+  customScriptContent?: string;
 }
 
 export interface ScriptFieldIdentification {
