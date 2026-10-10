@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1008-B8CAED",
+  "entity": "GOVERNANCE",
+  "capability": "legacy_deprecation_telemetry_observability",
+  "asset_type": "UI_COMPONENT",
+  "proposed_name": "LegacyDeprecationTelemetryTab.tsx",
+  "target_file_path": "src/components/governance/LegacyDeprecationTelemetryTab.tsx",
+  "decision": "APPROVED",
+  "canonical_owner": "LegacyDeprecationTelemetryTab",
+  "content_hash": "212289d818120087dbe714c88248a10ebed882fcde10d016352a946db87b1e6a",
+  "git_commit": "7aaa2da50a16a9563eb94832ee9ac077ce923674",
+  "issued_at": "2026-10-08T05:03:53.541711+00:00",
+  "expires_at": "2026-10-15T05:03:53.541711+00:00",
+  "status": "ISSUED"
+}

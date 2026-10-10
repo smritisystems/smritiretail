@@ -26,7 +26,12 @@ from app.core.security_matrix import (
     CANONICAL_34_MENU_MATRIX,
 )
 
-DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+DB_PARAMS = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 
 def test_security_menu_access_persistence_and_audit():
     """

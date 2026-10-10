@@ -1,4 +1,5 @@
-﻿/**
+// @deprecated 2026-10-04 — ORPHANED, NOT MOUNTED. RFID hardware integration — future IoT scope. Retained for git history only.
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -7,7 +8,7 @@
  * Version      : 3.89.0
  * Created      : 2026-08-28
  * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
@@ -96,7 +97,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">RFID Smart Fitting Room Studio</h2>
-              <p className="text-xs text-slate-400">Real-Time Garment Tracking Â· AI Cross-Sell Â· Session Analytics</p>
+              <p className="text-xs text-slate-400">Real-Time Garment Tracking · AI Cross-Sell · Session Analytics</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -150,7 +151,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
               {/* Session Detail Panel */}
               <div className="lg:col-span-2 space-y-4">
                 {!currentSession ? (
-                  /* â”€â”€ Start New Session â”€â”€ */
+                  /* ?? Start New Session ?? */
                   <div className="space-y-4">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Scan Garments into {selectedRoom}</p>
@@ -170,9 +171,9 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-xs font-semibold text-slate-200 truncate">{g.productName}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">{g.rfidTag} Â· {g.category} Â· Size {g.size}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">{g.rfidTag} · {g.category} · Size {g.size}</div>
                             </div>
-                            <div className="text-xs font-bold text-emerald-400 font-mono">â‚¹{g.sellingPrice}</div>
+                            <div className="text-xs font-bold text-emerald-400 font-mono">₹{g.sellingPrice}</div>
                           </button>
                         ))}
                       </div>
@@ -189,7 +190,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
                     </button>
                   </div>
                 ) : (
-                  /* â”€â”€ Active Session View â”€â”€ */
+                  /* ?? Active Session View ?? */
                   <div className="space-y-4">
                     {/* Cross-Sell Recommendations */}
                     {currentSession.crossSellsGenerated.length > 0 && (
@@ -206,7 +207,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
                                 <div className="text-slate-400 text-[10px] mt-0.5">{rec.reason}</div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <div className="text-emerald-400 font-bold font-mono">â‚¹{rec.recommendedPrice}</div>
+                                <div className="text-emerald-400 font-bold font-mono">₹{rec.recommendedPrice}</div>
                                 <div className="text-[10px] text-amber-400">{Math.round(rec.affinity * 100)}% match</div>
                               </div>
                             </div>
@@ -250,7 +251,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
             </div>
           )}
 
-          {/* â”€â”€ ANALYTICS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ?? ANALYTICS ??????????????????????????????????????????????????????? */}
           {activeTab === "ANALYTICS" && (
             <div className="space-y-5">
               {completedSessions.length === 0 ? (
@@ -290,7 +291,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
                               <td className="py-2 text-center text-cyan-400 font-bold">{s.trialCount}</td>
                               <td className="py-2 text-center text-emerald-400 font-bold">{s.purchaseCount}</td>
                               <td className="py-2 text-right font-bold text-amber-400">
-                                {s.trialCount > 0 ? `${Math.round((s.purchaseCount / s.trialCount) * 100)}%` : "â€”"}
+                                {s.trialCount > 0 ? `${Math.round((s.purchaseCount / s.trialCount) * 100)}%` : "—"}
                               </td>
                             </tr>
                           ))}

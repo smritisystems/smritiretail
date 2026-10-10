@@ -4,26 +4,41 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.8.0
+ * Version      : 6.52.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-10
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  * Source Module: SMRITI Enterprise Barcode Label Studio & Printer Engine
  */
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useF2Screen, useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
+import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import { Product } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import {
   LabelPrintRow,
   LabelPrintSettings,
   ItemMasterSelectionCriteria,
+  GridRangeField,
   PortType,
   LabelSourceOption,
   PrintSafetyValidation
 } from "./types.ts";
+import {
+  compareNatural,
+  isWithinRange,
+  filterRowsByItemMasterCriteria,
+  filterRowsByGridRange
+} from "./rangeFilter.ts";
+import {
+  interpolatePrnScript,
+  compilePrnBatch,
+  detectPrnProtocol,
+  BUILTIN_PRN_TEMPLATES
+} from "./prnInterpolation.ts";
 import { EditQuantityDetailsModal } from "./EditQuantityDetDlg.tsx";
 import { BarcodeScriptGenerationView } from "./BarcodeScriptGenVi.tsx";
 import { BarcodePrinterSelectModal } from "./BarcodePrinterSele.tsx";
@@ -31,6 +46,10 @@ import { PurchBrowseDlg } from "../purchase/PurchBrowseDlg.tsx";
 import { SearchableMultiSelect } from "./SearchableMultiSel.tsx";
 import { ThermalBarcodeSvg } from "./ThermalBarcodeSvg.tsx";
 import { parsePTFileContent, SAMPLE_PT_FILE_RECORDS } from "./ptFileParser.ts";
+import { GridInputEngine } from "../../services/gridInput/gridInputEngine.ts";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
+import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
+import { ParsedGridRow, GridInputParseResult } from "../../services/gridInput/types.ts";
 import { 
   queryTransactionItems, 
   queryPurchaseOrderItems, 
@@ -46,6 +65,7 @@ import {
 import { 
   Printer, 
   Sliders, 
+  SlidersHorizontal,
   Layers, 
   Code, 
   Download, 
@@ -74,7 +94,11 @@ import {
   X,
   Check,
   FileCheck,
-  Activity
+  Activity,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 interface TagLabelPrintingTabProps {
@@ -93,6 +117,60 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [activeView, setActiveView] = useState<"printing" | "designer">("printing");
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [gridRows, setGridRows] = useState<LabelPrintRow[]>([]);
+
+  useEffect(() => {
+    const defaultSkus = [
+      { code: "000001", name: "Premium Leather Loafers", brand: "TATTLY THREADS", style: "CH-10-A", colour: "BLACK", size: "38", mrp: 1499, price: 1499, stock: 12 },
+      { code: "000002", name: "Casual Canvas Sneakers", brand: "TATTLY THREADS", style: "CH-10-B", colour: "WHITE", size: "39", mrp: 999, price: 999, stock: 8 },
+      { code: "000003", name: "Formal Oxford Shoes", brand: "TATTLY THREADS", style: "CH-20-C", colour: "BROWN", size: "40", mrp: 1899, price: 1899, stock: 15 },
+      { code: "000004", name: "Comfort Slip-On Sandals", brand: "TATTLY THREADS", style: "CH-20-D", colour: "TAN", size: "37", mrp: 799, price: 799, stock: 20 },
+      { code: "000005", name: "Classic Monk Straps", brand: "TATTLY THREADS", style: "CH-25-E", colour: "BLACK", size: "41", mrp: 2199, price: 2199, stock: 5 },
+      { code: "000006", name: "Tattly Threads Footwear", brand: "TATTLY THREADS", style: "CH-30-K", colour: "BLACK", size: "37", mrp: 1199, price: 1199, stock: 14 },
+      { code: "000007", name: "Tattly Threads Footwear", brand: "TATTLY THREADS", style: "CH-30-K", colour: "BLACK", size: "40", mrp: 1199, price: 1199, stock: 18 },
+      { code: "000008", name: "Tattly Threads Footwear", brand: "TATTLY THREADS", style: "CH-30-K", colour: "TOUPE", size: "37", mrp: 1199, price: 1199, stock: 22 },
+      { code: "000009", name: "Tattly Threads Footwear", brand: "TATTLY THREADS", style: "CH-30-K", colour: "TOUPE", size: "39", mrp: 1199, price: 1199, stock: 10 },
+      { code: "000010", name: "Athletic Running Trainers", brand: "TATTLY THREADS", style: "CH-40-M", colour: "GREY", size: "42", mrp: 1599, price: 1599, stock: 16 },
+    ];
+
+    const baseRows: LabelPrintRow[] = defaultSkus.map((p, idx) => ({
+      id: `sku-row-${p.code}`,
+      sNo: idx + 1,
+      stockNo: p.code,
+      barcode: `8901${p.code.padStart(8, '0')}`,
+      brand: p.brand,
+      product: p.name,
+      colour: p.colour,
+      style: p.style,
+      size: p.size,
+      mrp: p.mrp,
+      sellingPrice: p.price,
+      currentStock: p.stock,
+      labelCount: 1,
+      category: "Footwear"
+    }));
+
+    if (products && products.length > 0) {
+      const extraRows: LabelPrintRow[] = products.map((p, idx) => ({
+        id: p.id || `row-extra-${idx + 1}`,
+        sNo: defaultSkus.length + idx + 1,
+        stockNo: p.code || String(defaultSkus.length + idx + 1).padStart(6, '0'),
+        barcode: p.barcode || (p.code ? `8901${p.code.padStart(8, '0')}` : `89010000000${idx + 1}`),
+        brand: p.brand || "TATTLY THREADS",
+        product: p.name || "Tattly Threads Footwear",
+        colour: (p as any).colour || p.color || (idx % 2 === 0 ? "BLACK" : "TOUPE"),
+        style: (p as any).style || p.styleCode || "CH-30-K",
+        size: p.size || (36 + (idx % 5)).toString(),
+        mrp: p.mrp || p.price || 1199,
+        sellingPrice: (p as any).sellingPrice || p.price || 1199,
+        currentStock: p.stock || 10,
+        labelCount: 1,
+        category: p.category || "Footwear"
+      }));
+      setGridRows([...baseRows, ...extraRows]);
+    } else {
+      setGridRows(baseRows);
+    }
+  }, [products]);
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState<number>(0);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
@@ -105,24 +183,35 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Settings
-  const [settings, setSettings] = useState<LabelPrintSettings>({
-    scriptFileName: "ModernLabelDesign_TE244.blf",
-    labelsPerRow: 1,
-    outputToPort: true,
-    outputToFile: false,
-    portSetting: "USB",
-    sourceOption: "Manual Selection",
-    piPdtFileName: "",
-    quantityMode: "Specified Quantity",
-    targetPrinterName: "IMPACT by Honeywell IH-2 (300 dpi) - DPL",
-    resolutionDpi: 300
+  const [settings, setSettings] = useState<LabelPrintSettings>(() => {
+    const savedPrinter = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_printer") : null;
+    const savedDpi = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_dpi") : null;
+    const savedPort = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_port") : null;
+    return {
+      scriptFileName: "Tattly Threads Footwear — 100x50.7mm",
+      labelsPerRow: 1,
+      outputToPort: true,
+      outputToFile: false,
+      portSetting: (savedPort as any) || "QZ Tray Thermal",
+      sourceOption: "Manual Selection",
+      piPdtFileName: "",
+      quantityMode: "Specified Quantity",
+      targetPrinterName: savedPrinter || "IMPACT by Honeywell IH-2 (300 dpi) - DPL",
+      resolutionDpi: savedDpi ? parseInt(savedDpi, 10) : 300
+    };
   });
 
-  // 1. Selection Criteria (Item Master Mode: 7 Criteria + Barcode)
+  // 1. Selection Criteria (Item Master Mode: 7 Criteria + Barcode + Natural Range Engine)
   const [itemCriteria, setItemCriteria] = useState<ItemMasterSelectionCriteria>({
     stockNoFrom: "000006",
     stockNoTo: "000008",
     barcode: "",
+    barcodeFrom: "",
+    barcodeTo: "",
+    styleFrom: "",
+    styleTo: "",
+    mrpFrom: "",
+    mrpTo: "",
     productNames: [],
     brands: [],
     categories: [],
@@ -130,6 +219,33 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     colours: [],
     sizes: []
   });
+  const [showAdvancedRanges, setShowAdvancedRanges] = useState<boolean>(false);
+
+  // Hidable Sidebar & Collapsible Criteria State (Persisted)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("smriti_barcode_sidebar_collapsed") === "true";
+    }
+    return false;
+  });
+  const [isCriteriaCollapsed, setIsCriteriaCollapsed] = useState<boolean>(false);
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("smriti_barcode_sidebar_collapsed", String(next));
+      }
+      return next;
+    });
+  }, []);
+
+  // Step 3: In-Grid Range Selection & Batch Action State
+  const [showGridRangeBar, setShowGridRangeBar] = useState<boolean>(false);
+  const [gridRangeField, setGridRangeField] = useState<GridRangeField>("barcode");
+  const [gridRangeFrom, setGridRangeFrom] = useState<string>("");
+  const [gridRangeTo, setGridRangeTo] = useState<string>("");
+  const [gridRangeQty, setGridRangeQty] = useState<number>(1);
 
   // 2. PT File State (Against Purchase PT File)
   const [ptFileName, setPtFileName] = useState<string>("PT_20101005.pt");
@@ -181,6 +297,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const [pdtFileName, setPdtFileName] = useState<string>("PDT_IMPORT_2026.csv");
   const [pdtRows, setPdtRows] = useState<LabelPrintRow[]>([]);
   const pdtFileInputRef = useRef<HTMLInputElement>(null);
+  const [isGlobalImportOpen, setIsGlobalImportOpen] = useState<boolean>(false);
 
   // Modals state
   const [isEditQtyModalOpen, setIsEditQtyModalOpen] = useState<boolean>(false);
@@ -232,14 +349,61 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     checkQzStatus();
   }, []);
 
-  // Keyboard Shortcuts Listener
+  // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase C Batch 1) ──
+  // F2 pressed when stockNoFrom or stockNoTo has focus → entity=variant (Tier 1 data-f2-entity).
+  // The FieldAdapter uses dispatcher.originElementRef.current.id to deterministically
+  // route the selected variant code into the correct criterion field.
+  // PurchBrowseDlg button triggers (lines with setIsF2BrowseModalOpen) are preserved as
+  // domain-specific openers; they are NOT replaced by Universal Lookup.
+  const dispatcher = useF2Dispatcher();
+
+  const tagF2Adapter = useCallback((result: LookupResult) => {
+    if (result.entity !== "variant" && result.entity !== "item" && result.entity !== "item_barcode") {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[TagLabelPrintingTab][F2] FieldAdapter: unhandled entity:", result.entity);
+      }
+      return;
+    }
+    const stockVal = (result.record?.stock_no as string)
+      || (result.record?.code as string)
+      || result.returnValue
+      || "";
+    // Deterministic routing: read the id of the element focused when F2 was pressed.
+    // dispatcher.originElementRef.current is captured at F2-keydown time, before the
+    // modal opens — it is never document.activeElement at selection time.
+    const originId = dispatcher.originElementRef.current?.id ?? "";
+    if (originId === "tag-stock-no-to") {
+      setItemCriteria(prev => ({ ...prev, stockNoTo: stockVal }));
+    } else {
+      // Defaults to stockNoFrom for any other origin (including tag-stock-no-from)
+      setItemCriteria(prev => ({ ...prev, stockNoFrom: stockVal }));
+    }
+  }, [dispatcher.originElementRef]);
+
+  useF2Screen({
+    screenId: "TagLabelPrintingTab",
+    defaultEntity: "variant",
+    adapter: tagF2Adapter,
+  });
+
+  // Keyboard Shortcuts Listener — F2 removed: now handled exclusively by F2DispatcherProvider.
+  // F2 is a platform protocol; this screen registers via useF2Screen() above.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F2 -> Product Browse
-      if (e.key === "F2") {
+      // Alt+S -> Toggle Left Sidebar
+      if (e.altKey && (e.key === "s" || e.key === "S")) {
         e.preventDefault();
-        setF2BrowseTarget("stockNoFrom");
-        setIsF2BrowseModalOpen(true);
+        toggleSidebar();
+      }
+      // Alt+F -> Toggle Advance Filters / Criteria
+      if (e.altKey && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        setIsCriteriaCollapsed(prev => !prev);
+      }
+      // Alt+R -> Toggle In-Grid Range Selector Bar
+      if (e.altKey && (e.key === "r" || e.key === "R")) {
+        e.preventDefault();
+        setShowGridRangeBar(prev => !prev);
       }
       // F11 -> Edit Quantities Modal
       if (e.key === "F11") {
@@ -251,10 +415,15 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         e.preventDefault();
         handlePrintAll();
       }
+      // F7 -> Print Current
+      if (e.key === "F7") {
+        e.preventDefault();
+        handlePrintCurrent();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [toggleSidebar]);
 
   // Fetch products from backend if empty
   useEffect(() => {
@@ -290,16 +459,46 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   };
 
   const populateGrid = (itemsList: Product[]) => {
-    const rows: LabelPrintRow[] = itemsList.map((p, idx) => ({
-      id: p.id || `row-${idx}`,
+    const defaultSkus = [
+      { stockNo: "000001", barcode: "890100000001", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "36", mrp: 1199, price: 1199, stock: 15 },
+      { stockNo: "000002", barcode: "890100000002", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "37", mrp: 1199, price: 1199, stock: 20 },
+      { stockNo: "000003", barcode: "890100000003", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "38", mrp: 1199, price: 1199, stock: 12 },
+      { stockNo: "000004", barcode: "890100000004", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "39", mrp: 1199, price: 1199, stock: 18 },
+      { stockNo: "000005", barcode: "890100000005", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "40", mrp: 1199, price: 1199, stock: 14 },
+      { stockNo: "000006", barcode: "890100000006", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "37", mrp: 1199, price: 1199, stock: 22 },
+      { stockNo: "000007", barcode: "890100000007", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "BLACK", style: "CH-30-K", size: "40", mrp: 1199, price: 1199, stock: 16 },
+      { stockNo: "000008", barcode: "890100000008", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "TOUPE", style: "CH-30-K", size: "37", mrp: 1199, price: 1199, stock: 25 },
+      { stockNo: "000009", barcode: "890100000009", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "TOUPE", style: "CH-30-K", size: "38", mrp: 1199, price: 1199, stock: 19 },
+      { stockNo: "000010", barcode: "890100000010", brand: "TATTLY THREADS", product: "Tattly Threads Footwear", colour: "TOUPE", style: "CH-30-K", size: "39", mrp: 1199, price: 1199, stock: 11 }
+    ];
+
+    const baseRows: LabelPrintRow[] = defaultSkus.map((item, idx) => ({
+      id: `footwear-row-${idx + 1}`,
       sNo: idx + 1,
-      stockNo: p.code || String(idx + 1).padStart(6, "0"),
+      stockNo: item.stockNo,
+      barcode: item.barcode,
+      brand: item.brand,
+      product: item.product,
+      colour: item.colour,
+      style: item.style,
+      size: item.size,
+      mrp: item.mrp,
+      sellingPrice: item.price,
+      currentStock: item.stock,
+      labelCount: 1,
+      category: "Footwear"
+    }));
+
+    const extraRows: LabelPrintRow[] = (itemsList || []).map((p, idx) => ({
+      id: p.id || `row-${idx}`,
+      sNo: baseRows.length + idx + 1,
+      stockNo: p.code || String(baseRows.length + idx + 1).padStart(6, "0"),
       barcode: p.barcode || p.code || "",
       brand: p.brand || "Beanstalk",
       product: p.name || p.category || "Item",
       category: p.category || "General",
       colour: p.color || "Ecru",
-      style: p.styleCode || "BeeLine",
+      style: (p as any).style_code || p.styleCode || "BeeLine",
       size: p.size || "34",
       mrp: p.mrp || p.price || 0,
       sellingPrice: p.price || 0,
@@ -307,9 +506,11 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       labelCount: 1,
       originalProduct: p
     }));
-    setGridRows(rows);
-    // Initialize all rows as selected by default
-    setSelectedRowIds(new Set(rows.map(r => r.id)));
+
+    const combinedRows = [...baseRows, ...extraRows];
+    setGridRows(combinedRows);
+    // Safe Retail Standard: Do not auto-arm printer on window open (Zero-Armed Printing)
+    setSelectedRowIds(new Set());
   };
 
   // Distinct options derived dynamically from actual product inventory
@@ -346,8 +547,29 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     if (itemCriteria.barcode.trim()) {
       chips.push({
         key: "barcode",
-        label: `Barcode: ${itemCriteria.barcode.trim()}`,
+        label: `Barcode Exact: ${itemCriteria.barcode.trim()}`,
         onRemove: () => setItemCriteria(prev => ({ ...prev, barcode: "" }))
+      });
+    }
+    if (itemCriteria.barcodeFrom || itemCriteria.barcodeTo) {
+      chips.push({
+        key: "barcodeRange",
+        label: `Barcode: ${itemCriteria.barcodeFrom || "Start"} → ${itemCriteria.barcodeTo || "End"}`,
+        onRemove: () => setItemCriteria(prev => ({ ...prev, barcodeFrom: "", barcodeTo: "" }))
+      });
+    }
+    if (itemCriteria.styleFrom || itemCriteria.styleTo) {
+      chips.push({
+        key: "styleRange",
+        label: `Style: ${itemCriteria.styleFrom || "Start"} → ${itemCriteria.styleTo || "End"}`,
+        onRemove: () => setItemCriteria(prev => ({ ...prev, styleFrom: "", styleTo: "" }))
+      });
+    }
+    if (itemCriteria.mrpFrom || itemCriteria.mrpTo) {
+      chips.push({
+        key: "mrpRange",
+        label: `MRP: ₹${itemCriteria.mrpFrom || "0"} → ₹${itemCriteria.mrpTo || "Max"}`,
+        onRemove: () => setItemCriteria(prev => ({ ...prev, mrpFrom: "", mrpTo: "" }))
       });
     }
     if (itemCriteria.productNames.length > 0) {
@@ -405,50 +627,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     if (isDirectScanMode) return scannedRows;
     if (isPdtFileMode) return pdtRows;
 
-    // Manual / Item Master Criteria Filtering (AND logic across all 7 criteria + barcode)
-    return gridRows.filter(row => {
-      // 1. Stock No / SKU Range
-      if (itemCriteria.stockNoFrom && row.stockNo < itemCriteria.stockNoFrom) return false;
-      if (itemCriteria.stockNoTo && row.stockNo > itemCriteria.stockNoTo) return false;
-
-      // 2. Barcode Exact Match
-      if (itemCriteria.barcode.trim()) {
-        const b = itemCriteria.barcode.trim().toLowerCase();
-        if (row.barcode.toLowerCase() !== b && row.stockNo.toLowerCase() !== b) return false;
-      }
-
-      // 3. Product Names (Multi-select)
-      if (itemCriteria.productNames.length > 0 && !itemCriteria.productNames.includes(row.product)) {
-        return false;
-      }
-
-      // 4. Brands (Multi-select)
-      if (itemCriteria.brands.length > 0 && !itemCriteria.brands.includes(row.brand)) {
-        return false;
-      }
-
-      // 5. Categories (Multi-select)
-      if (itemCriteria.categories.length > 0 && (!row.category || !itemCriteria.categories.includes(row.category))) {
-        return false;
-      }
-
-      // 6. Style Codes (Multi-select)
-      if (itemCriteria.styleCodes.length > 0 && !itemCriteria.styleCodes.includes(row.style)) {
-        return false;
-      }
-
-      // 7. Colours / Shades (Multi-select)
-      if (itemCriteria.colours.length > 0 && !itemCriteria.colours.includes(row.colour)) {
-        return false;
-      }
-
-      // 8. Sizes (Multi-select)
-      if (itemCriteria.sizes.length > 0 && !itemCriteria.sizes.includes(row.size)) {
-        return false;
-      }
-
-      return true;
-    });
+    // Manual / Item Master Criteria Filtering (AND logic across all criteria + natural ranges)
+    return filterRowsByItemMasterCriteria(gridRows, itemCriteria);
   }, [
     isPtFileMode, isTxMode, isPoMode, isMasterMode, isDirectScanMode, isPdtFileMode,
     ptRows, txRows, poRows, masterRows, scannedRows, pdtRows,
@@ -642,6 +822,56 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     onNotification?.("Quantities Updated", `Set label quantity to ${target === "one" ? "1" : "current stock"} for all items.`, "info");
   };
 
+  // Step 3 In-Grid Range Filtering & Selection Engine
+  const rangeMatchedRows = useMemo(() => {
+    if (!gridRangeFrom.trim() && !gridRangeTo.trim()) return [];
+    return filterRowsByGridRange(activeDataset, gridRangeField, gridRangeFrom, gridRangeTo);
+  }, [activeDataset, gridRangeField, gridRangeFrom, gridRangeTo]);
+
+  const handleApplyRangeSelect = () => {
+    if (rangeMatchedRows.length === 0) return;
+    const newSelected = new Set(rangeMatchedRows.map(r => r.id));
+    setSelectedRowIds(newSelected);
+    onNotification?.("Range Selected", `Selected ${rangeMatchedRows.length} item(s) within ${gridRangeField} range.`, "info");
+  };
+
+  const handleAddRangeToSelection = () => {
+    if (rangeMatchedRows.length === 0) return;
+    setSelectedRowIds(prev => {
+      const next = new Set(prev);
+      rangeMatchedRows.forEach(r => next.add(r.id));
+      return next;
+    });
+    onNotification?.("Added to Selection", `Added ${rangeMatchedRows.length} item(s) to selection.`, "info");
+  };
+
+  const handleRemoveRangeFromSelection = () => {
+    if (rangeMatchedRows.length === 0) return;
+    setSelectedRowIds(prev => {
+      const next = new Set(prev);
+      rangeMatchedRows.forEach(r => next.delete(r.id));
+      return next;
+    });
+    onNotification?.("Removed from Selection", `Deselected ${rangeMatchedRows.length} item(s) from selection.`, "info");
+  };
+
+  const handleApplyRangeQuantity = () => {
+    if (rangeMatchedRows.length === 0) return;
+    const matchedIds = new Set(rangeMatchedRows.map(r => r.id));
+    const updater = (prevRows: LabelPrintRow[]) =>
+      prevRows.map(r => (matchedIds.has(r.id) ? { ...r, labelCount: gridRangeQty } : r));
+
+    if (isPtFileMode) setPtRows(updater);
+    else if (isTxMode) setTxRows(updater);
+    else if (isPoMode) setPoRows(updater);
+    else if (isMasterMode) setMasterRows(updater);
+    else if (isDirectScanMode) setScannedRows(updater);
+    else if (isPdtFileMode) setPdtRows(updater);
+    else setGridRows(updater);
+
+    onNotification?.("Quantity Updated", `Updated label quantity to ${gridRangeQty} for ${rangeMatchedRows.length} item(s) in range.`, "success");
+  };
+
   // Load Results Handler (Primary Button in Selection Criteria Card)
   const handleLoadResults = () => {
     if (isTxMode) {
@@ -722,7 +952,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       brand: matchedProduct.brand || "Beanstalk",
       product: matchedProduct.name || "Scanned Item",
       colour: matchedProduct.color || "Ecru",
-      style: matchedProduct.styleCode || "BeeLine",
+      style: (matchedProduct as any).style_code || matchedProduct.styleCode || "BeeLine",
       size: matchedProduct.size || "34",
       mrp: matchedProduct.mrp || matchedProduct.price || 0,
       sellingPrice: matchedProduct.price || 0,
@@ -763,7 +993,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     reader.readAsText(file);
   };
 
-  // PDT File Upload Handler
+  // PDT File Upload Handler (Centralized with GridInputEngine)
   const handlePdtFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -773,33 +1003,39 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     reader.onload = (event) => {
       const text = event.target?.result as string;
       if (text) {
-        const lines = text.split("\n").filter(l => l.trim().length > 0);
+        const { matrix } = GridInputEngine.parseDelimitedText(text);
+        const { columnMappings, dataRows } = GridInputEngine.mapColumns(matrix, GRID_PROFILES.BARCODE_PRINTING);
         const rows: LabelPrintRow[] = [];
         let sNo = 1;
-        lines.forEach((l, idx) => {
-          const parts = l.split(/[,;\t]/).map(p => p.trim());
-          if (parts.length >= 2) {
-            const barcode = parts[0];
-            const qty = parseFloat(parts[1]) || 1;
-            const rate = parseFloat(parts[2]) || 999;
-            const matched = products.find(p => p.barcode === barcode || p.code === barcode);
+        dataRows.forEach((cells, idx) => {
+          if (cells.length === 0 || cells.every(c => !c)) return;
+          const rowMap: Record<string, string> = {};
+          columnMappings.forEach(m => {
+            if (m.mappedFieldKey && cells[m.sourceIndex] !== undefined) {
+              rowMap[m.mappedFieldKey] = cells[m.sourceIndex].trim();
+            }
+          });
 
-            rows.push({
-              id: `pdt-row-${idx}`,
-              sNo: sNo++,
-              stockNo: matched?.code || barcode,
-              barcode: barcode,
-              brand: matched?.brand || "Beanstalk",
-              product: matched?.name || "PDT Item",
-              colour: matched?.color || "Standard",
-              style: matched?.styleCode || "Standard",
-              size: matched?.size || "Free",
-              mrp: matched?.mrp || rate,
-              sellingPrice: matched?.price || rate,
-              currentStock: matched?.stock || 0,
-              labelCount: qty
-            });
-          }
+          const barcode = rowMap["barcode"] || cells[0] || "";
+          const qty = parseFloat(rowMap["quantity"] || rowMap["labelCount"] || cells[1]) || 1;
+          const rate = parseFloat(rowMap["sellingPrice"] || rowMap["rate"] || rowMap["price"] || cells[2]) || 999;
+          const matched = products.find(p => p.barcode === barcode || p.code === barcode);
+
+          rows.push({
+            id: `pdt-row-${idx}`,
+            sNo: sNo++,
+            stockNo: matched?.code || rowMap["sku"] || rowMap["item_code"] || barcode,
+            barcode: barcode,
+            brand: matched?.brand || rowMap["brand"] || "Beanstalk",
+            product: matched?.name || rowMap["name"] || "PDT Item",
+            colour: matched?.color || rowMap["color"] || "Standard",
+            style: (matched as any)?.style_code || matched?.styleCode || rowMap["style"] || "Standard",
+            size: matched?.size || rowMap["size"] || "Free",
+            mrp: matched?.mrp || parseFloat(rowMap["mrp"]) || rate,
+            sellingPrice: matched?.price || rate,
+            currentStock: matched?.stock || 0,
+            labelCount: qty
+          });
         });
         setPdtRows(rows);
         setSelectedRowIds(new Set(rows.map(r => r.id)));
@@ -810,12 +1046,44 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     reader.readAsText(file);
   };
 
+  const handleGlobalImportCommit = (rows: ParsedGridRow[]) => {
+    const newRows: LabelPrintRow[] = rows.map((r, idx) => {
+      const matched = products.find(p => p.barcode === r.identifier || p.code === r.identifier);
+      return {
+        id: `global-import-${Date.now()}-${idx}`,
+        sNo: pdtRows.length + idx + 1,
+        stockNo: r.resolvedProduct?.sku || (r.mappedValues.sku as string) || (r.mappedValues.item_code as string) || matched?.code || r.identifier,
+        barcode: r.resolvedProduct?.barcode || (r.mappedValues.barcode as string) || matched?.barcode || r.identifier,
+        brand: r.resolvedProduct?.brand || (r.mappedValues.brand as string) || matched?.brand || "Beanstalk",
+        product: r.resolvedProduct?.name || (r.mappedValues.name as string) || matched?.name || "Imported Item",
+        colour: (r.resolvedProduct as any)?.color || (r.mappedValues.color as string) || matched?.color || "Standard",
+        style: (r.resolvedProduct as any)?.style_code || (r.mappedValues.style as string) || matched?.styleCode || "Standard",
+        size: (r.resolvedProduct as any)?.size || (r.mappedValues.size as string) || matched?.size || "Free",
+        mrp: r.resolvedProduct?.mrp ?? (Number(r.mappedValues.mrp) || matched?.mrp || 0),
+        sellingPrice: r.resolvedProduct?.sellingPrice ?? (Number(r.mappedValues.sellingPrice) || matched?.price || 0),
+        currentStock: (r.resolvedProduct as any)?.stock ?? matched?.stock ?? 0,
+        labelCount: r.quantity || 1,
+      };
+    });
+    setPdtRows(prev => [...prev, ...newRows]);
+    setSelectedRowIds(prev => new Set([...prev, ...newRows.map(nr => nr.id)]));
+    setSelectedPreviewIndex(0);
+    setIsGlobalImportOpen(false);
+    onNotification?.("Import Completed", `Imported ${newRows.length} items into label print queue`, "success");
+  };
+
   // Clear Session & Criteria
   const handleClear = () => {
     setItemCriteria({
       stockNoFrom: "",
       stockNoTo: "",
       barcode: "",
+      barcodeFrom: "",
+      barcodeTo: "",
+      styleFrom: "",
+      styleTo: "",
+      mrpFrom: "",
+      mrpTo: "",
       productNames: [],
       brands: [],
       categories: [],
@@ -823,6 +1091,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       colours: [],
       sizes: []
     });
+    setGridRangeFrom("");
+    setGridRangeTo("");
     setFilterSearch("");
     setColumnFilters({});
     setSortField(null);
@@ -831,7 +1101,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     setGridRows(prev => prev.map(r => ({ ...r, labelCount: 1 })));
     setScannedRows([]);
     setPdtRows([]);
-    setSelectedRowIds(new Set(gridRows.map(r => r.id)));
+    // Safe Retail Standard: Resetting criteria clears selections to prevent unintended bulk printing
+    setSelectedRowIds(new Set());
     onNotification?.("Session Cleared", "Reset selection criteria, filters, and label quantities.", "info");
   };
 
@@ -884,6 +1155,32 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     setShowDispatchModal(true);
   };
 
+  // Global Hotkey Listener (F8 = Print All, F7 = Print Current, F11 = Edit Quantities)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT");
+      
+      if (e.key === "F8") {
+        e.preventDefault();
+        if (safetyValidation.canPrint && !isPrinting) {
+          handlePrintAll();
+        }
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        if (currentSelectedItem && currentSelectedItem.labelCount > 0 && !isPrinting) {
+          handlePrintCurrent();
+        }
+      } else if (e.key === "F11" && !isInput) {
+        e.preventDefault();
+        setIsEditQtyModalOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [safetyValidation.canPrint, isPrinting, currentSelectedItem]);
+
   const activePrintItems = useMemo(() => {
     if (isSinglePrintMode && currentSelectedItem) {
       return [{ ...currentSelectedItem, labelCount: Math.max(1, currentSelectedItem.labelCount) }];
@@ -900,40 +1197,87 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     setShowDispatchModal(false);
     setIsPrinting(true);
 
+    const scriptLower = (settings.scriptFileName || "").toLowerCase();
+    const printerLower = (settings.targetPrinterName || "").toLowerCase();
+    const isFootwear = scriptLower.includes("footwear") || scriptLower.includes("100x50") || scriptLower.includes("tattly");
+    const templateId = isFootwear ? "tattly-threads-footwear-100x50.7" : "retail-50x25";
+
+    // 1. Resolve Active Template Script (User-uploaded script takes priority, then built-in scripts)
+    const activeTemplateScript = settings.customScriptContent || (
+      BUILTIN_PRN_TEMPLATES[settings.scriptFileName] ||
+      (isFootwear ? BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"]
+      : (scriptLower.includes("dpl") || scriptLower.includes("honeywell") || scriptLower.includes("ih-2")) ? BUILTIN_PRN_TEMPLATES["Honeywell_IH2_DualStub.prn"]
+      : (scriptLower.includes("te244") || scriptLower.includes("modern")) ? BUILTIN_PRN_TEMPLATES["ModernLabelDesign_TE244.blf"]
+      : BUILTIN_PRN_TEMPLATES["Retail 50x25mm Standard"])
+    );
+
+    const protocol = detectPrnProtocol(activeTemplateScript) || ((printerLower.includes("dpl") || printerLower.includes("honeywell") || printerLower.includes("ih-2") || scriptLower.includes("dpl")) ? "DPL" : "ZPL");
+    const targetDpi = settings.resolutionDpi || (protocol === "DPL" ? 300 : 203);
+
+    // Compile the exact script stream based on the selected or browsed PRN script!
+    const compiledScriptStream = compilePrnBatch(
+      activeTemplateScript,
+      activePrintItems.map(item => ({
+        stockNo: item.stockNo,
+        barcode: item.barcode || item.stockNo,
+        product: item.product,
+        brand: item.brand,
+        style: item.style,
+        colour: item.colour,
+        size: item.size,
+        mrp: Number(item.mrp || 0),
+        sellingPrice: Number(item.sellingPrice || item.mrp || 0),
+        labelCount: item.labelCount
+      }))
+    );
+
+    const printItemsPayload = activePrintItems.map(item => ({
+      code: item.stockNo || item.barcode || "ITEM",
+      barcode: item.barcode || item.stockNo || "890100000000",
+      name: item.product || "Footwear Item",
+      brand: item.brand || "TATTLY THREADS",
+      style: item.style || "CH-30-K",
+      color: item.colour || "BLACK",
+      size: item.size || "37",
+      mrp: Number(item.mrp || 0),
+      price: Number(item.sellingPrice || item.mrp || 0),
+      mfg_date: "10/26",
+      net_contents: "1 Pair",
+      company_name: "Tattly Threads",
+      qty: Math.max(1, item.labelCount || 1)
+    }));
+
     // 1. QZ Tray Direct Thermal Route
     if (settings.portSetting === "QZ Tray Thermal") {
       try {
-        onNotification?.("Preparing Print Job", `Creating secure print job for ${activePrintTotalLabels} label(s)...`, "info");
+        onNotification?.("Preparing Print Job", `Compiling ${protocol} stream for ${activePrintTotalLabels} label(s) via "${settings.scriptFileName}"...`, "info");
         
-        let res: any = null;
-        try {
-          res = await apiFetchV1("/barcode/print", {
-            method: "POST",
-            body: JSON.stringify({
-              layoutId: settings.scriptFileName || "default",
-              dispatch_mode: "qz_tray",
-              targetPrinter: settings.targetPrinterName,
-              items: activePrintItems.map(item => ({
-                code: item.stockNo,
-                barcode: item.barcode || item.stockNo,
-                name: item.product,
-                brand: item.brand,
-                style: item.style,
-                color: item.colour,
-                size: item.size,
-                mrp: item.mrp,
-                price: item.sellingPrice,
-                qty: item.labelCount
-              }))
-            })
-          });
-        } catch (backendErr: any) {
-          console.warn("[Print Dispatch] Backend print error, fallback to client script:", backendErr);
-        }
+        let rawPayload = compiledScriptStream;
+        let jobId = `job-client-${Date.now()}`;
+        let targetPrinter = settings.targetPrinterName || "Windows Spooler";
 
-        const rawPayload = res?.payload || generateRawDplScript();
-        const jobId = res?.job_id || `job-client-${Date.now()}`;
-        const targetPrinter = settings.targetPrinterName || res?.suggested_printer;
+        // If no custom script was uploaded and user didn't override, try backend print-jobs service first
+        if (!settings.customScriptContent) {
+          try {
+            const res: any = await apiFetchV1("/barcode/print-jobs", {
+              method: "POST",
+              body: JSON.stringify({
+                printer_id: settings.targetPrinterName || "Windows Spooler",
+                template_id: templateId,
+                dpi: targetDpi,
+                protocol: protocol,
+                items: printItemsPayload
+              })
+            });
+            if (res?.payload_stream) {
+              rawPayload = res.payload_stream;
+            }
+            if (res?.id) jobId = res.id;
+            if (res?.printer_id) targetPrinter = res.printer_id;
+          } catch (backendErr: any) {
+            console.warn("[Print Dispatch] Backend print-jobs compilation failed, using local script template:", backendErr);
+          }
+        }
 
         onNotification?.("Sending to QZ Tray", `Dispatching to Windows printer "${targetPrinter}"...`, "info");
 
@@ -941,7 +1285,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
           {
             job_id: jobId,
             payload: rawPayload,
-            language: "zpl",
+            language: protocol.toLowerCase(),
             encoding: "UTF-8",
             suggested_printer: targetPrinter
           },
@@ -964,15 +1308,22 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     // 2. PRN File Download Route
     if (settings.portSetting === "PRN File Download" || settings.outputToFile) {
       try {
-        const content = generateRawDplScript();
-        const blob = new Blob([content], { type: "text/plain" });
+        onNotification?.("Compiling File", `Generating ${protocol} label script for ${activePrintTotalLabels} label(s) from "${settings.scriptFileName}"...`, "info");
+        
+        const content = compiledScriptStream;
+        const ext = protocol.toLowerCase() === "zpl" ? "zpl" : "prn";
+        const cleanBaseName = (settings.scriptFileName || "Labels").replace(/\.[^/.]+$/, "").replace(/\s+/g, "_");
+        const filename = `${cleanBaseName}_${Date.now()}.${ext}`;
+
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Honeywell_IH2_Labels_${Date.now()}.prn`;
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
-        onNotification?.("File Downloaded", `Downloaded PRN script for ${activePrintTotalLabels} label(s).`, "success");
+
+        onNotification?.("File Downloaded", `Downloaded ${protocol} file "${filename}" (${activePrintTotalLabels} labels from template "${settings.scriptFileName}").`, "success");
       } catch (err: any) {
         onNotification?.("Download Error", err?.message || String(err), "error");
       } finally {
@@ -1133,6 +1484,22 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Hidable Sidebar Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className={`px-3 py-1.5 border rounded font-body-sm font-semibold transition flex items-center gap-1.5 shadow-xs text-xs ${
+              isSidebarCollapsed
+                ? "bg-secondary text-on-secondary border-secondary"
+                : "bg-surface border-outline-variant hover:bg-surface-variant text-on-surface"
+            }`}
+            title="Toggle Left Sidebar (Alt+S)"
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+            <span>{isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}</span>
+            <span className="text-[9px] font-code-md opacity-80">[Alt+S]</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowTestPrintModal(true)}
@@ -1176,10 +1543,29 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       </header>
 
       {/* Main Workspace Frame: Left Sidebar (Step 1 & 4) + Main Content (Step 2, 3, 5) */}
-      <div className="flex-1 flex overflow-hidden print:hidden pb-16">
+      <div className="flex-1 flex overflow-hidden print:hidden">
         
-        {/* Left Sidebar: Fixed Width (280px), Scrollable Configuration */}
-        <aside className="w-72 bg-surface-container-low border-r border-outline-variant flex flex-col p-3.5 gap-3.5 overflow-y-auto shrink-0 z-10">
+        {/* Floating Sidebar Expand Handle when collapsed */}
+        {isSidebarCollapsed && (
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="w-7 bg-surface-container border-r border-outline-variant hover:bg-secondary-fixed/50 flex flex-col items-center justify-center gap-2 py-4 text-primary transition shrink-0 z-10 cursor-pointer shadow-xs group"
+            title="Expand Sidebar (Alt+S)"
+          >
+            <PanelLeftOpen size={14} className="text-secondary group-hover:scale-110 transition-transform" />
+            <span className="[writing-mode:vertical-lr] rotate-180 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+              Sidebar
+            </span>
+          </button>
+        )}
+
+        {/* Left Sidebar: Collapsible Width (280px / 0px), Scrollable Configuration */}
+        <aside className={`transition-all duration-200 shrink-0 z-10 flex flex-col overflow-y-auto ${
+          isSidebarCollapsed 
+            ? "w-0 p-0 border-r-0 overflow-hidden opacity-0 pointer-events-none" 
+            : "w-72 bg-surface-container-low border-r border-outline-variant p-3.5 gap-3.5 opacity-100"
+        }`}>
           
           {/* STEP 1: Selection Source Option Card */}
           <section className="bg-surface border border-outline-variant rounded-lg p-3 flex flex-col gap-2 shadow-xs border-t-2 border-t-primary">
@@ -1239,30 +1625,100 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             {/* Template script info */}
             <div className="flex flex-col gap-1">
               <div className="flex justify-between items-center">
-                <label className="font-label-caps text-[10px] text-on-surface-variant">Label Template / Script</label>
-                <span 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-[10px] text-secondary font-bold hover:underline cursor-pointer"
-                >
-                  Change...
-                </span>
+                <label className="font-label-caps text-[10px] text-on-surface-variant">Label Template / Layout</label>
+                <div className="flex items-center gap-1.5">
+                  <span 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[10px] text-secondary font-bold hover:underline cursor-pointer"
+                    title="Upload custom .prn, .zpl, or .blf file"
+                  >
+                    Upload File...
+                  </span>
+                  {settings.customScriptContent && (
+                    <span
+                      onClick={() => setSettings(prev => ({ 
+                        ...prev, 
+                        customScriptContent: undefined, 
+                        scriptFileName: "Tattly Threads Footwear — 100x50.7mm" 
+                      }))}
+                      className="text-[9px] text-error hover:underline cursor-pointer font-bold"
+                      title="Clear uploaded custom script"
+                    >
+                      Clear
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="bg-surface-container border border-outline-variant rounded p-1.5 text-xs font-code-md text-on-surface flex justify-between items-center truncate">
-                <span className="truncate text-[11px]" title={settings.scriptFileName}>
-                  {settings.scriptFileName.split("\\").pop() || settings.scriptFileName}
-                </span>
-                <span className="text-[9px] bg-surface-variant px-1 rounded font-bold text-on-surface-variant ml-1">
-                  {settings.resolutionDpi || 300} DPI
-                </span>
-              </div>
+              <select
+                value={settings.scriptFileName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const newDpi = val.includes("Footwear") ? 203 : (settings.resolutionDpi || 300);
+                  const isBuiltIn = Object.prototype.hasOwnProperty.call(BUILTIN_PRN_TEMPLATES, val);
+                  setSettings({ 
+                    ...settings, 
+                    scriptFileName: val, 
+                    resolutionDpi: newDpi,
+                    customScriptContent: isBuiltIn ? BUILTIN_PRN_TEMPLATES[val] : settings.customScriptContent
+                  });
+                }}
+                className="bg-surface-container border border-outline-variant rounded p-1.5 text-xs font-sans text-on-surface truncate outline-hidden focus:ring-1 focus:ring-secondary font-semibold"
+              >
+                <option value="Tattly Threads Footwear — 100x50.7mm">
+                  Tattly Threads Footwear — 100x50.7mm (3-Part Dual Stub)
+                </option>
+                <option value="Retail 50x25mm Standard">
+                  Retail 50x25mm Standard (Single Column)
+                </option>
+                <option value="ModernLabelDesign_TE244.blf">
+                  ModernLabelDesign_TE244.blf (TSC Standard)
+                </option>
+                <option value="Honeywell_IH2_DualStub.prn">
+                  Honeywell_IH2_DualStub.prn (DPL Script)
+                </option>
+                {![
+                  "Tattly Threads Footwear — 100x50.7mm",
+                  "Retail 50x25mm Standard",
+                  "ModernLabelDesign_TE244.blf",
+                  "Honeywell_IH2_DualStub.prn"
+                ].includes(settings.scriptFileName) && (
+                  <option value={settings.scriptFileName}>
+                    {settings.scriptFileName} (Custom)
+                  </option>
+                )}
+              </select>
+
+              {settings.customScriptContent && (
+                <div className="flex items-center justify-between text-[10px] bg-secondary-fixed/40 border border-secondary/40 rounded px-2 py-0.5 text-primary">
+                  <span className="font-mono text-[9px] truncate" title={`${settings.scriptFileName} (${settings.customScriptContent.length} bytes)`}>
+                    ✓ Script Active ({settings.customScriptContent.split("\n").length} lines, {detectPrnProtocol(settings.customScriptContent)})
+                  </span>
+                </div>
+              )}
+
               <input
                 ref={fileInputRef}
                 type="file"
                 accept=".t,.blf,.prn,.zpl,.tspl,.txt"
                 className="hidden"
-                onChange={e => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (file) setSettings({ ...settings, scriptFileName: file.name });
+                  if (file) {
+                    try {
+                      const text = await file.text();
+                      const proto = detectPrnProtocol(text);
+                      const isFootwearOr203 = file.name.toLowerCase().includes("footwear") || text.includes("^PW804");
+                      setSettings(prev => ({
+                        ...prev,
+                        scriptFileName: file.name,
+                        customScriptContent: text,
+                        resolutionDpi: isFootwearOr203 ? 203 : (proto === "DPL" ? 300 : prev.resolutionDpi || 203)
+                      }));
+                      onNotification?.("Custom Script Loaded", `Loaded custom ${proto} template "${file.name}" (${text.length} bytes, ${text.split("\n").length} lines).`, "success");
+                    } catch (err: any) {
+                      onNotification?.("File Load Error", `Failed to read file: ${err?.message || err}`, "error");
+                    }
+                  }
                 }}
               />
             </div>
@@ -1398,7 +1854,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         <main className="flex-1 flex flex-col p-3.5 gap-3 overflow-y-auto bg-surface-container-lowest">
           
           {/* STEP 2: Selection Criteria Panel */}
-          <section className="bg-surface border border-outline-variant rounded-lg p-3.5 flex flex-col gap-2.5 shadow-xs border-t-4 border-t-primary shrink-0">
+          <section className="bg-surface border border-outline-variant rounded-lg p-3.5 flex flex-col gap-2.5 shadow-xs border-t-4 border-t-primary shrink-0 transition-all">
             <div className="flex justify-between items-center border-b border-surface-variant pb-2">
               <div className="flex items-center gap-2">
                 <Filter size={15} className="text-secondary" />
@@ -1407,54 +1863,122 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 </h3>
               </div>
 
-              {/* 4-Way Record Navigator Bar */}
-              {totalLoadedItems > 0 && (
-                <div className="flex items-center gap-1 text-xs bg-surface-container-low px-2 py-0.5 rounded border border-outline-variant">
-                  <span className="text-on-surface-variant font-mono text-[11px] mr-2">
-                    Item {selectedPreviewIndex + 1} of {totalLoadedItems}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleNavFirst}
-                    disabled={selectedPreviewIndex === 0}
-                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
-                    title="First Record (|<<)"
-                  >
-                    <ChevronsLeft size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNavPrev}
-                    disabled={selectedPreviewIndex === 0}
-                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
-                    title="Previous Record (<)"
-                  >
-                    <ChevronLeft size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNavNext}
-                    disabled={selectedPreviewIndex >= totalLoadedItems - 1}
-                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
-                    title="Next Record (>)"
-                  >
-                    <ChevronRight size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNavLast}
-                    disabled={selectedPreviewIndex >= totalLoadedItems - 1}
-                    className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
-                    title="Last Record (>>|)"
-                  >
-                    <ChevronsRight size={13} />
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {/* 4-Way Record Navigator Bar */}
+                {totalLoadedItems > 0 && (
+                  <div className="flex items-center gap-1 text-xs bg-surface-container-low px-2 py-0.5 rounded border border-outline-variant">
+                    <span className="text-on-surface-variant font-mono text-[11px] mr-2">
+                      Item {selectedPreviewIndex + 1} of {totalLoadedItems}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleNavFirst}
+                      disabled={selectedPreviewIndex === 0}
+                      className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                      title="First Record (|<<)"
+                    >
+                      <ChevronsLeft size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNavPrev}
+                      disabled={selectedPreviewIndex === 0}
+                      className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                      title="Previous Record (<)"
+                    >
+                      <ChevronLeft size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNavNext}
+                      disabled={selectedPreviewIndex >= totalLoadedItems - 1}
+                      className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                      title="Next Record (>)"
+                    >
+                      <ChevronRight size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNavLast}
+                      disabled={selectedPreviewIndex >= totalLoadedItems - 1}
+                      className="p-1 rounded hover:bg-surface-variant disabled:opacity-30 text-primary transition"
+                      title="Last Record (>>|)"
+                    >
+                      <ChevronsRight size={13} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Advance Filters Collapse Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsCriteriaCollapsed(prev => !prev)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition border ${
+                    isCriteriaCollapsed
+                      ? "bg-secondary text-on-secondary border-secondary shadow-xs"
+                      : "bg-surface border-outline-variant hover:bg-surface-variant text-primary"
+                  }`}
+                  title="Toggle Advance Filters Panel (Alt+F)"
+                >
+                  {isCriteriaCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  <span>{isCriteriaCollapsed ? "Advance Filters (Show)" : "Advance Filters (Hide)"}</span>
+                  <span className="text-[9px] font-mono opacity-80">[Alt+F]</span>
+                </button>
+              </div>
             </div>
 
-            {/* A. Manual / Item Master 7 Criteria + Dedicated Barcode Input */}
-            {isManualMode && (
+            {/* Collapsed Compact Active Filters Summary Strip */}
+            {isCriteriaCollapsed ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 py-1 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-on-surface-variant">Active Criteria:</span>
+                  {activeFilterChips.length === 0 ? (
+                    <span className="text-[11px] text-on-surface-variant italic">All catalog items (unfiltered)</span>
+                  ) : (
+                    activeFilterChips.map(chip => (
+                      <span
+                        key={chip.key}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-fixed text-primary text-[10px] font-semibold border border-secondary/30"
+                      >
+                        <span>{chip.label}</span>
+                        <button
+                          type="button"
+                          onClick={chip.onRemove}
+                          className="hover:text-error text-primary transition"
+                          title="Remove filter"
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="px-2.5 py-1 bg-surface border border-outline-variant hover:bg-surface-variant text-on-surface rounded text-xs font-semibold transition flex items-center gap-1"
+                    title="Reset all criteria"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Clear Criteria</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLoadResults}
+                    className="bg-primary text-on-primary px-3 py-1 rounded text-xs font-bold hover:bg-primary-container transition flex items-center gap-1 shadow-xs"
+                    title="Reload matching items"
+                  >
+                    <Download size={13} />
+                    <span>Load Results</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* A. Manual / Item Master 7 Criteria + Dedicated Barcode Input */}
+                {isManualMode && (
               <div className="flex flex-col gap-2.5">
                 
                 {/* Row 1: SKU From | SKU To | Barcode Scan */}
@@ -1470,6 +1994,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                       </span>
                     </div>
                     <input
+                      id="tag-stock-no-from"
+                      data-f2-entity="variant"
                       type="text"
                       value={itemCriteria.stockNoFrom}
                       onChange={e => setItemCriteria({ ...itemCriteria, stockNoFrom: e.target.value })}
@@ -1489,6 +2015,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                       </span>
                     </div>
                     <input
+                      id="tag-stock-no-to"
+                      data-f2-entity="variant"
                       type="text"
                       value={itemCriteria.stockNoTo}
                       onChange={e => setItemCriteria({ ...itemCriteria, stockNoTo: e.target.value })}
@@ -1510,6 +2038,125 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                       className="w-full bg-surface border border-outline-variant rounded px-2.5 py-1.5 text-xs font-code-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all"
                     />
                   </div>
+                </div>
+
+                {/* Advanced Range Criteria Section (Barcode From/To, Style From/To, MRP Min/Max) */}
+                <div className="border border-outline-variant/60 rounded-md bg-surface-container-low p-2.5 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedRanges(prev => !prev)}
+                      className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-secondary transition"
+                    >
+                      <SlidersHorizontal size={13} className="text-secondary" />
+                      <span>Natural Range Filters (Barcode, Style & MRP Range)</span>
+                      <span className="text-[10px] text-on-surface-variant font-normal">
+                        {showAdvancedRanges ? "▲ Hide" : "▼ Expand Range (From → To)"}
+                      </span>
+                    </button>
+                    {(itemCriteria.barcodeFrom || itemCriteria.barcodeTo || itemCriteria.styleFrom || itemCriteria.styleTo || itemCriteria.mrpFrom || itemCriteria.mrpTo) ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] bg-secondary-fixed/70 text-primary font-bold px-2 py-0.5 rounded-full border border-secondary/30">
+                          Active Range Filters
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setItemCriteria(prev => ({
+                            ...prev,
+                            barcodeFrom: "",
+                            barcodeTo: "",
+                            styleFrom: "",
+                            styleTo: "",
+                            mrpFrom: "",
+                            mrpTo: ""
+                          }))}
+                          className="text-[10px] text-error hover:underline font-semibold"
+                        >
+                          Clear Ranges
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-on-surface-variant italic">
+                        Optional range queries
+                      </span>
+                    )}
+                  </div>
+
+                  {showAdvancedRanges && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-outline-variant/40 animate-in fade-in duration-150">
+                      {/* Barcode Range */}
+                      <div className="flex flex-col gap-1">
+                        <label className="font-label-caps text-[11px] text-on-surface-variant flex items-center justify-between">
+                          <span>Barcode Range (From → To)</span>
+                          <span className="text-[9px] text-secondary font-mono">Numeric / EAN</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={itemCriteria.barcodeFrom}
+                            onChange={e => setItemCriteria({ ...itemCriteria, barcodeFrom: e.target.value })}
+                            placeholder="From Barcode"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={itemCriteria.barcodeTo}
+                            onChange={e => setItemCriteria({ ...itemCriteria, barcodeTo: e.target.value })}
+                            placeholder="To Barcode"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Style Range */}
+                      <div className="flex flex-col gap-1">
+                        <label className="font-label-caps text-[11px] text-on-surface-variant flex items-center justify-between">
+                          <span>Style Code Range (From → To)</span>
+                          <span className="text-[9px] text-secondary font-mono">Alphanumeric</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={itemCriteria.styleFrom}
+                            onChange={e => setItemCriteria({ ...itemCriteria, styleFrom: e.target.value })}
+                            placeholder="e.g. CH-10-A"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={itemCriteria.styleTo}
+                            onChange={e => setItemCriteria({ ...itemCriteria, styleTo: e.target.value })}
+                            placeholder="e.g. CH-30-K"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* MRP Range */}
+                      <div className="flex flex-col gap-1">
+                        <label className="font-label-caps text-[11px] text-on-surface-variant flex items-center justify-between">
+                          <span>MRP Range (₹ Min → Max)</span>
+                          <span className="text-[9px] text-secondary font-mono">Currency</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="number"
+                            value={itemCriteria.mrpFrom}
+                            onChange={e => setItemCriteria({ ...itemCriteria, mrpFrom: e.target.value })}
+                            placeholder="Min ₹"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                          <input
+                            type="number"
+                            value={itemCriteria.mrpTo}
+                            onChange={e => setItemCriteria({ ...itemCriteria, mrpTo: e.target.value })}
+                            placeholder="Max ₹"
+                            className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Row 2: Product Name | Brand | Category */}
@@ -1869,7 +2516,15 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                     />
                   </div>
                 </div>
-                <div className="flex shrink-0 pb-1">
+                <div className="flex shrink-0 pb-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsGlobalImportOpen(true)}
+                    className="bg-secondary text-on-secondary px-3 py-1.5 rounded text-xs font-bold hover:bg-secondary-container transition flex items-center gap-1.5 shadow-xs"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Global Import (Excel / CSV / Scan)</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleLoadResults}
@@ -1880,6 +2535,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                   </button>
                 </div>
               </div>
+            )}
+              </>
             )}
 
           </section>
@@ -1920,6 +2577,38 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
               <div className="flex items-center gap-2 text-xs">
                 <button
                   type="button"
+                  onClick={() => setShowGridRangeBar(prev => !prev)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1.5 transition-all border ${
+                    showGridRangeBar
+                      ? "bg-secondary text-on-secondary border-secondary shadow-xs"
+                      : "bg-surface border-outline-variant hover:bg-surface-variant text-primary"
+                  }`}
+                  title="Toggle Range Selection & Batch Quantity Tool (Alt+R)"
+                >
+                  <SlidersHorizontal size={12} />
+                  <span>Select by Range (Alt+R)</span>
+                  {gridRangeFrom || gridRangeTo ? (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  ) : null}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRowIds(new Set(activeDataset.map(r => r.id)))}
+                  className="px-2 py-0.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded text-[11px] font-semibold text-primary"
+                  title="Select all visible matching items"
+                >
+                  Select All ({activeDataset.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRowIds(new Set())}
+                  className="px-2 py-0.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded text-[11px] font-medium text-error"
+                  title="Deselect all items"
+                >
+                  Select None
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleSetAllLabels("one")}
                   className="px-2 py-0.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded text-[11px] font-medium"
                   title="Set all item label counts to 1"
@@ -1937,6 +2626,125 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 <span className="text-on-surface-variant text-[11px] hidden sm:inline ml-2">Click headers to sort</span>
               </div>
             </div>
+
+            {/* In-Grid Range Selection & Batch Quantity Panel */}
+            {showGridRangeBar && (
+              <div className="bg-surface-container border-b border-outline-variant px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs animate-in slide-in-from-top-1 duration-150">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-label-caps text-[11px] font-bold text-primary flex items-center gap-1">
+                    <Filter size={12} className="text-secondary" />
+                    <span>Range Selector:</span>
+                  </span>
+
+                  {/* Target Column Selector */}
+                  <select
+                    value={gridRangeField}
+                    onChange={e => setGridRangeField(e.target.value as GridRangeField)}
+                    className="bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-medium focus:border-secondary outline-none"
+                  >
+                    <option value="barcode">Barcode</option>
+                    <option value="style">Style Code</option>
+                    <option value="stockNo">Stock No (SKU)</option>
+                    <option value="sNo">S.No (Row #)</option>
+                    <option value="mrp">MRP (₹)</option>
+                  </select>
+
+                  {/* From Input */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-on-surface-variant font-medium">From:</span>
+                    <input
+                      type="text"
+                      value={gridRangeFrom}
+                      onChange={e => setGridRangeFrom(e.target.value)}
+                      placeholder={gridRangeField === "sNo" ? "e.g. 1" : gridRangeField === "barcode" ? "e.g. 890100000001" : gridRangeField === "style" ? "e.g. CH-10-A" : "Start"}
+                      className="w-28 bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                    />
+                  </div>
+
+                  {/* To Input */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-on-surface-variant font-medium">To:</span>
+                    <input
+                      type="text"
+                      value={gridRangeTo}
+                      onChange={e => setGridRangeTo(e.target.value)}
+                      placeholder={gridRangeField === "sNo" ? "e.g. 10" : gridRangeField === "barcode" ? "e.g. 890100000010" : gridRangeField === "style" ? "e.g. CH-30-K" : "End"}
+                      className="w-28 bg-surface border border-outline-variant rounded px-2 py-1 text-xs font-code-md focus:border-secondary outline-none"
+                    />
+                  </div>
+
+                  {/* Match Count Badge */}
+                  <span className="text-[11px] font-code-md text-secondary font-bold px-2 py-0.5 bg-secondary-fixed/50 rounded">
+                    {rangeMatchedRows.length} matching
+                  </span>
+                </div>
+
+                {/* Range Operations */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleApplyRangeSelect}
+                    disabled={rangeMatchedRows.length === 0}
+                    className="px-2.5 py-1 bg-surface border border-outline-variant hover:bg-surface-variant disabled:opacity-40 rounded text-xs font-semibold transition"
+                    title="Check only rows within this range"
+                  >
+                    Select Range Only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddRangeToSelection}
+                    disabled={rangeMatchedRows.length === 0}
+                    className="px-2.5 py-1 bg-surface border border-outline-variant hover:bg-surface-variant disabled:opacity-40 rounded text-xs font-semibold transition"
+                    title="Add matching rows to current selection"
+                  >
+                    + Add to Selection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveRangeFromSelection}
+                    disabled={rangeMatchedRows.length === 0}
+                    className="px-2.5 py-1 bg-surface border border-outline-variant hover:bg-surface-variant disabled:opacity-40 rounded text-xs font-semibold text-error transition"
+                    title="Deselect rows in this range"
+                  >
+                    - Deselect Range
+                  </button>
+
+                  {/* Set Quantity for Range */}
+                  <div className="flex items-center gap-1 pl-2 border-l border-outline-variant">
+                    <span className="text-[11px] text-on-surface-variant font-medium">Qty:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="999"
+                      value={gridRangeQty}
+                      onChange={e => setGridRangeQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-12 bg-surface border border-outline-variant rounded px-1.5 py-1 text-xs text-center font-bold focus:border-secondary outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyRangeQuantity}
+                      disabled={rangeMatchedRows.length === 0}
+                      className="px-2.5 py-1 bg-secondary text-on-secondary hover:bg-secondary-container disabled:opacity-40 rounded text-xs font-bold transition shadow-xs"
+                      title="Apply this quantity to all matching rows in range"
+                    >
+                      Set Qty for Range
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGridRangeFrom("");
+                      setGridRangeTo("");
+                    }}
+                    className="p-1 text-on-surface-variant hover:text-error rounded"
+                    title="Reset Range Inputs"
+                  >
+                    <RotateCcw size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Grid Table Container */}
             <div className="flex-1 overflow-auto custom-scrollbar">
@@ -1967,6 +2775,22 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                       <div className="flex items-center gap-1">
                         <span>Stock No</span>
                         {sortField === "stockNo" ? (
+                          sortDirection === "asc" ? <ArrowUp size={12} className="text-secondary font-bold" /> : <ArrowDown size={12} className="text-secondary font-bold" />
+                        ) : (
+                          <ArrowUpDown size={12} className="opacity-40" />
+                        )}
+                      </div>
+                    </th>
+
+                    {/* Barcode Header */}
+                    <th 
+                      onClick={() => handleSortToggle("barcode")}
+                      className="px-3 py-2 font-label-caps text-on-surface-variant cursor-pointer hover:text-primary transition-colors select-none"
+                      aria-sort={sortField === "barcode" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Barcode</span>
+                        {sortField === "barcode" ? (
                           sortDirection === "asc" ? <ArrowUp size={12} className="text-secondary font-bold" /> : <ArrowDown size={12} className="text-secondary font-bold" />
                         ) : (
                           <ArrowUpDown size={12} className="opacity-40" />
@@ -2103,6 +2927,16 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                     <td className="p-1">
                       <input
                         type="text"
+                        value={columnFilters.barcode || ""}
+                        onChange={e => handleColumnFilterChange("barcode", e.target.value)}
+                        placeholder="Filter..."
+                        className="w-full bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-[11px] font-code-md outline-none focus:border-secondary"
+                        aria-label="Filter by Barcode"
+                      />
+                    </td>
+                    <td className="p-1">
+                      <input
+                        type="text"
                         value={columnFilters.product || ""}
                         onChange={e => handleColumnFilterChange("product", e.target.value)}
                         placeholder="Filter..."
@@ -2201,7 +3035,12 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                         </td>
 
                         <td className="px-3 py-1.5 font-code-md text-on-surface">{row.stockNo}</td>
-                        <td className="px-3 py-1.5 text-on-surface truncate max-w-[160px]" title={row.product}>{row.product}</td>
+                        <td className="px-3 py-1.5 font-code-md text-on-surface text-[11px]">
+                          <span className="font-mono bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant/60 text-secondary font-semibold">
+                            {row.barcode || "—"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-1.5 text-on-surface truncate max-w-[320px] min-w-[180px]" title={row.product}>{row.product}</td>
                         <td className="px-3 py-1.5 text-on-surface">{row.brand}</td>
                         <td className="px-3 py-1.5 text-on-surface">{row.style}</td>
                         <td className="px-3 py-1.5 text-on-surface">{row.colour}</td>
@@ -2225,7 +3064,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
                   {activeDataset.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="p-12 text-center text-on-surface-variant">
+                      <td colSpan={10} className="p-12 text-center text-on-surface-variant">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Filter size={24} className="text-secondary opacity-60" />
                           <p className="font-semibold text-sm text-primary">No items match the active selection criteria.</p>
@@ -2285,8 +3124,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
       </div>
 
-      {/* STEP 5: Bottom Fixed Action Bar / Safety Gate (Stitch Enterprise Specification) */}
-      <footer className="fixed bottom-0 right-0 left-0 h-16 bg-surface-container-highest border-t border-outline-variant flex justify-between items-center px-4 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
+      {/* STEP 5: Bottom Docked Action Bar / Safety Gate (Stitch Enterprise Specification) */}
+      <footer className="shrink-0 h-16 bg-surface-container-highest border-t border-outline-variant flex justify-between items-center px-4 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
         
         {/* Safety Validation Status Indicator */}
         <div className="flex items-center gap-2 text-xs font-medium">
@@ -2327,9 +3166,9 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             onClick={handlePrintCurrent}
             disabled={!currentSelectedItem || currentSelectedItem.labelCount <= 0}
             className="px-3.5 py-1.5 rounded bg-secondary-fixed/50 text-primary hover:bg-secondary-fixed disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-body-sm font-bold shadow-xs text-xs"
-            title="Print label for current selected item"
+            title="Print label for current selected item (F7)"
           >
-            Print Current ({currentSelectedItem?.labelCount || 1})
+            Print Current ({currentSelectedItem?.labelCount || 1}) [F7]
           </button>
           
           <button
@@ -2342,17 +3181,17 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             {settings.portSetting === "QZ Tray Thermal" ? (
               <>
                 <Zap size={15} />
-                <span>Send to QZ Tray ({selectedTotalLabels})</span>
+                <span>Send to QZ Tray ({selectedTotalLabels}) [F8]</span>
               </>
             ) : settings.portSetting === "PRN File Download" ? (
               <>
                 <Download size={15} />
-                <span>Download PRN ({selectedTotalLabels})</span>
+                <span>Download PRN ({selectedTotalLabels}) [F8]</span>
               </>
             ) : (
               <>
                 <Printer size={15} />
-                <span>Validate &amp; Print ({selectedTotalLabels})</span>
+                <span>Validate &amp; Print ({selectedTotalLabels}) [F8]</span>
               </>
             )}
           </button>
@@ -2775,6 +3614,16 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
           </div>
         </div>
+      )}
+
+      {isGlobalImportOpen && (
+        <GlobalGridImportModal
+          isOpen={isGlobalImportOpen}
+          profile={GRID_PROFILES.BARCODE_PRINTING}
+          onClose={() => setIsGlobalImportOpen(false)}
+          onCommit={handleGlobalImportCommit}
+          title="Barcode Tag Printing Queue"
+        />
       )}
 
     </div>

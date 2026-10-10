@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-4BB1C1",
+  "entity": "INVENTORY",
+  "capability": "LEGACY_PRODUCT_TELEMETRY",
+  "asset_type": "SERVICE",
+  "proposed_name": "legacy_product_telemetry.py",
+  "target_file_path": "backend/app/services/legacy_product_telemetry.py",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "backend/app/services/legacy_product_telemetry.py",
+  "content_hash": "32675c4e6905a2f98a6ebc04fae0ee1b54f35803df7c1d37d3e330c1e5eb8e21",
+  "git_commit": "facfbed32d884053e404d73e3fd5c85d0fcbbed8",
+  "issued_at": "2026-10-07T23:06:34.545447+00:00",
+  "expires_at": "2026-10-14T23:06:34.545447+00:00",
+  "status": "ISSUED"
+}

@@ -4,16 +4,27 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.68.0
  * Created      : 2026-08-22
- * Modified     : 2026-08-22
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect, useMemo } from "react";
+import { ENTERPRISE_BILLING_SUITE_VERSION_LABEL } from "../../config/version.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
+import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
+import { StockExpiryModal } from "../warehouse/StockExpiryModal.tsx";
+import { SmartReplenishmentModal } from "../inventory/SmartReplenishmentModal.tsx";
+import { WarehouseWavePickingModal } from "../inventory/WarehouseWavePickingModal.tsx";
+import { StockTransferStudioModal } from "../inventory/StockTransferStudioModal.tsx";
+import { IPOStudioModal } from "../warehouse/IPOStudioModal.tsx";
+import { RFIDFittingRoomStudioModal } from "../inventory/RFIDFittingRoomStudioModal.tsx";
+import { LabelPrintModal } from "../warehouse/LabelPrintModal.tsx";
+import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
+import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { 
   Warehouse, 
   ArrowRightLeft, 
@@ -35,7 +46,10 @@ import {
   Printer,
   ClipboardCheck,
   ScanLine,
-  X
+  X,
+  Send,
+  Store,
+  Shirt
 } from "lucide-react";
 
 interface Godown {
@@ -167,6 +181,15 @@ export const WmsStudioTab: React.FC<{
   // E-Way Bill & Delivery Challan Modal State
   const [viewingChallan, setViewingChallan] = useState<any | null>(null);
   const [viewingEwayBill, setViewingEwayBill] = useState<any | null>(null);
+  const [transferStagingItems, setTransferStagingItems] = useState<StockTransferItem[]>([]);
+  const [isGlobalTransferImportOpen, setIsGlobalTransferImportOpen] = useState(false);
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
+  const [showReplenishModal, setShowReplenishModal] = useState(false);
+  const [showWavePickingModal, setShowWavePickingModal] = useState(false);
+  const [showStockTransferModal, setShowStockTransferModal] = useState(false);
+  const [showIPOModal, setShowIPOModal] = useState(false);
+  const [showFittingRoomModal, setShowFittingRoomModal] = useState(false);
+  const [showLabelPrintModal, setShowLabelPrintModal] = useState(false);
 
   const fetchWmsData = async () => {
     setLoading(true);
@@ -212,6 +235,69 @@ export const WmsStudioTab: React.FC<{
     });
   }, [batchStocks, selectedWarehouseFilter, searchQuery]);
 
+  // Handle Global Grid Import for Transfers
+  const handleGlobalTransferImportCommit = (rows: ParsedGridRow[], mode: GridImportMode) => {
+    const converted: StockTransferItem[] = rows.map((r, idx) => {
+      const prod = r.resolvedProduct;
+      return {
+        id: `sto-import-${Date.now()}-${idx}`,
+        product_id: prod?.productId || prod?.sku || r.identifier,
+        batch_no: r.batch || "BATCH-DEFAULT",
+        quantity: r.quantity || 1,
+        unit_cost: r.rate ?? prod?.costPrice ?? 0,
+      };
+    });
+
+    if (mode === "REPLACE") {
+      setTransferStagingItems(converted);
+    } else if (mode === "MERGE") {
+      setTransferStagingItems((prev) => {
+        const merged = [...prev];
+        converted.forEach((newItem) => {
+          const existing = merged.find(
+            (m) => m.product_id === newItem.product_id && m.batch_no === newItem.batch_no
+          );
+          if (existing) {
+            existing.quantity += newItem.quantity;
+          } else {
+            merged.push(newItem);
+          }
+        });
+        return merged;
+      });
+    } else {
+      // APPEND
+      setTransferStagingItems((prev) => [...prev, ...converted]);
+    }
+
+    onNotification?.(
+      "Items Staged",
+      `Staged ${converted.length} line(s) for Stock Transfer Order.`,
+      "success"
+    );
+  };
+
+  // Add single item into staged list
+  const handleAddSingleItemToTransfer = () => {
+    if (!transferProductId || !transferBatchNo || transferQty <= 0) {
+      onNotification?.("Validation Error", "Please provide product, batch, and positive quantity.", "error");
+      return;
+    }
+    setTransferStagingItems((prev) => [
+      ...prev,
+      {
+        id: `sto-single-${Date.now()}`,
+        product_id: transferProductId,
+        batch_no: transferBatchNo,
+        quantity: transferQty,
+      },
+    ]);
+    setTransferProductId("");
+    setTransferBatchNo("");
+    setTransferQty(1);
+    onNotification?.("Item Added", "Item added to transfer staging list.", "success");
+  };
+
   // Handle Transfer Creation
   const handleCreateTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,9 +305,20 @@ export const WmsStudioTab: React.FC<{
       onNotification?.("Validation Error", "Source and destination warehouses must be different.", "error");
       return;
     }
-    if (!transferProductId || !transferBatchNo || transferQty <= 0) {
-      onNotification?.("Validation Error", "Please provide product, batch, and positive quantity.", "error");
-      return;
+
+    let itemsToSubmit: StockTransferItem[] = [...transferStagingItems];
+    if (itemsToSubmit.length === 0) {
+      if (!transferProductId || !transferBatchNo || transferQty <= 0) {
+        onNotification?.("Validation Error", "Please add items to the transfer or import via Fast Import.", "error");
+        return;
+      }
+      itemsToSubmit = [
+        {
+          product_id: transferProductId,
+          batch_no: transferBatchNo,
+          quantity: transferQty,
+        },
+      ];
     }
 
     try {
@@ -234,16 +331,23 @@ export const WmsStudioTab: React.FC<{
           dest_warehouse_id: destWh,
           transporter_name: transporter || "Internal Fleet",
           vehicle_number: vehicleNo || "MH-04-TR-1000",
-          items: [
-            {
-              product_id: transferProductId,
-              batch_no: transferBatchNo,
-              quantity: transferQty,
-            },
-          ],
+          items: itemsToSubmit.map((it) => ({
+            product_id: it.product_id,
+            batch_no: it.batch_no,
+            quantity: it.quantity,
+            unit_cost: it.unit_cost || 0,
+          })),
         }),
       });
-      onNotification?.("Transfer Created", "Stock Transfer Order generated in DRAFT state.", "success");
+      onNotification?.(
+        "Transfer Created",
+        `Stock Transfer Order with ${itemsToSubmit.length} line(s) generated in DRAFT state.`,
+        "success"
+      );
+      setTransferStagingItems([]);
+      setTransferProductId("");
+      setTransferBatchNo("");
+      setTransferQty(1);
       fetchWmsData();
     } catch (err: any) {
       onNotification?.("Transfer Error", err.message || "Failed creating transfer", "error");
@@ -482,7 +586,7 @@ export const WmsStudioTab: React.FC<{
             <h2 className="text-base font-bold text-theme-text-primary tracking-wide flex items-center gap-2">
               Distributor & Warehouse Management System (WMS)
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20">
-                v6.16.0 Production Ready
+                {ENTERPRISE_BILLING_SUITE_VERSION_LABEL} Production Ready
               </span>
             </h2>
             <p className="text-xs text-theme-muted mt-0.5">
@@ -555,6 +659,83 @@ export const WmsStudioTab: React.FC<{
               Stock Audit & Recon
             </button>
           </div>
+
+          <button
+            type="button"
+            id="wms-stock-expiry-btn"
+            onClick={() => setShowExpiryModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Inspect Batch Expiry, Quarantines & Recalls"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Stock Expiry</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-smart-replenish-btn"
+            onClick={() => setShowReplenishModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Smart Replenishment Engine & Safety Stock Matrix"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Smart Replenish</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-wave-picking-btn"
+            onClick={() => setShowWavePickingModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Automated Wave Picking, RFID Verification & Bin Allocation"
+          >
+            <ScanLine className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Wave Picking</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-stock-transfer-modal-btn"
+            onClick={() => setShowStockTransferModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Inter-Branch Stock Transfer Requisition & Approval Matrix"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">STO Requisition</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-ipo-modal-btn"
+            onClick={() => setShowIPOModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Inter-Store Purchase Orders, Picking & Auto-GRN"
+          >
+            <Store className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Inter-Store PO</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-rfid-fitting-btn"
+            onClick={() => setShowFittingRoomModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Smart RFID Fitting Room Analytics & Cross-Sell Recommendations"
+          >
+            <Shirt className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Fitting Room</span>
+          </button>
+
+          <button
+            type="button"
+            id="wms-label-print-btn"
+            onClick={() => setShowLabelPrintModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Batch Warehouse Barcode & Shelf Label Print Studio"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Print Labels</span>
+          </button>
 
           <button
             onClick={fetchWmsData}
@@ -687,9 +868,20 @@ export const WmsStudioTab: React.FC<{
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Create Transfer Form */}
             <div className="bg-theme-surface-1 p-5 rounded-xl border border-theme-divider h-fit space-y-4">
-              <div className="flex items-center space-x-2 border-b border-theme-divider pb-3">
-                <ArrowRightLeft className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-sm font-bold text-theme-text-primary">Initiate Stock Transfer (STO)</h3>
+              <div className="flex items-center justify-between border-b border-theme-divider pb-3">
+                <div className="flex items-center space-x-2">
+                  <ArrowRightLeft className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-sm font-bold text-theme-text-primary">Initiate Stock Transfer (STO)</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsGlobalTransferImportOpen(true)}
+                  className="px-2.5 py-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Import Transfer Lines from Excel, PDT, or Scanner"
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                  <span>Fast Import</span>
+                </button>
               </div>
 
               <form onSubmit={handleCreateTransfer} className="space-y-3.5">
@@ -768,11 +960,58 @@ export const WmsStudioTab: React.FC<{
                   </div>
                 </div>
 
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddSingleItemToTransfer}
+                    className="flex-1 py-1.5 px-3 rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover border border-theme-divider text-theme-body text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    + Add Item to List
+                  </button>
+                </div>
+
+                {transferStagingItems.length > 0 && (
+                  <div className="space-y-2 border border-theme-divider/70 rounded-xl p-3 bg-theme-surface-2/40">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-theme-text-primary uppercase tracking-wider text-[10px]">
+                        Staged Items ({transferStagingItems.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setTransferStagingItems([])}
+                        className="text-[11px] text-rose-400 hover:underline cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto divide-y divide-theme-divider/40 text-xs font-mono">
+                      {transferStagingItems.map((item, idx) => (
+                        <div key={idx} className="py-1.5 flex items-center justify-between text-xs">
+                          <div className="truncate flex-1 pr-2">
+                            <span className="text-theme-body font-semibold">{item.product_id}</span>
+                            <span className="text-theme-muted text-[10px] ml-1.5">({item.batch_no})</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-emerald-400">{item.quantity} units</span>
+                            <button
+                              type="button"
+                              onClick={() => setTransferStagingItems((prev) => prev.filter((_, i) => i !== idx))}
+                              className="text-rose-400 hover:text-rose-300 p-0.5 cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   className="w-full mt-2 py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
                 >
-                  Create Transfer Order (STO)
+                  Create Transfer Order (STO) {transferStagingItems.length > 0 ? `(${transferStagingItems.length} Items)` : ""}
                 </button>
               </form>
             </div>
@@ -1540,6 +1779,72 @@ export const WmsStudioTab: React.FC<{
               </div>
             </div>
           </div>
+        )}
+
+        <GlobalGridImportModal
+          isOpen={isGlobalTransferImportOpen}
+          onClose={() => setIsGlobalTransferImportOpen(false)}
+          profile={GRID_PROFILES.STOCK_MOVEMENT}
+          title="Stock Transfer Items Fast Import & Resolution"
+          existingRowCount={transferStagingItems.length}
+          onCommit={handleGlobalTransferImportCommit}
+        />
+
+        {showExpiryModal && (
+          <StockExpiryModal
+            isOpen={showExpiryModal}
+            onClose={() => setShowExpiryModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showReplenishModal && (
+          <SmartReplenishmentModal
+            isOpen={showReplenishModal}
+            onClose={() => setShowReplenishModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showWavePickingModal && (
+          <WarehouseWavePickingModal
+            isOpen={showWavePickingModal}
+            onClose={() => setShowWavePickingModal(false)}
+            assignedWarehouse={selectedWarehouseFilter !== "ALL" ? getWarehouseName(selectedWarehouseFilter) : "Central Distribution Hub (WH-01)"}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showStockTransferModal && (
+          <StockTransferStudioModal
+            isOpen={showStockTransferModal}
+            onClose={() => setShowStockTransferModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showIPOModal && (
+          <IPOStudioModal
+            isOpen={showIPOModal}
+            onClose={() => setShowIPOModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showFittingRoomModal && (
+          <RFIDFittingRoomStudioModal
+            isOpen={showFittingRoomModal}
+            onClose={() => setShowFittingRoomModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
+        )}
+
+        {showLabelPrintModal && (
+          <LabelPrintModal
+            isOpen={showLabelPrintModal}
+            onClose={() => setShowLabelPrintModal(false)}
+            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+          />
         )}
       </div>
     </div>

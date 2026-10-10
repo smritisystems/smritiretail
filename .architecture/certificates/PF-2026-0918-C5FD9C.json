@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0918-C5FD9C",
+  "entity": "SALES",
+  "capability": "B2B_DISPATCH_INVOICING_STUDIO",
+  "asset_type": "SERVICE",
+  "proposed_name": "dispatch_artifact_pipeline.py",
+  "target_file_path": "backend/app/services/dispatch_artifact_pipeline.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/dispatch_invoicing_engine.py",
+  "content_hash": "310b6e4b89536654d26bec22c6004b3539f534ee9e6cae45660b89465083e252",
+  "git_commit": "b247be0c03f3b1420c9bfa533db6a572345ea17a",
+  "issued_at": "2026-09-18T14:42:59.260568+00:00",
+  "expires_at": "2027-09-18T14:42:59.260568+00:00",
+  "status": "ISSUED"
+}

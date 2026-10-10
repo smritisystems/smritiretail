@@ -244,6 +244,14 @@ class CapabilityService:
             "is_core": True,
             "default_enabled": True,
         },
+        "DATABRIDGE": {
+            "name": "SMRITI DataBridge Enterprise Integration Hub",
+            "category": "PLATFORM",
+            "description": "Enterprise data import, export, reconciliation, and canonical SMRITI-X exchange.",
+            "dependencies": ["INVENTORY", "REPORTING"],
+            "is_core": False,
+            "default_enabled": False,
+        },
     }
 
     # Standard Plan Tier Bundles

@@ -19,6 +19,7 @@ import PricingDiscountEngine, {
   PromotionalOffer,
   CouponCode,
   PRICING_CONFIG,
+  setPricingConfig,
 } from "../utils/pricingDiscountEngine";
 
 describe("PricingDiscountEngine — Advanced Pricing Rules & Promotional Discount Engine", () => {
@@ -91,8 +92,8 @@ describe("PricingDiscountEngine — Advanced Pricing Rules & Promotional Discoun
   });
 
   // ─── Test 3: Discount cap enforcement ─────────────────────────────────────
-  it("enforces global max discount cap at invoice level", () => {
-    // Construct an extreme offer that would exceed 40% cap
+  it("enforces dynamic max discount cap at invoice level (40%, 50%, 60%)", () => {
+    // Construct an extreme offer that would exceed cap: 50% promo + 20% coupon on residual = 60% total
     const extremeOffer: PromotionalOffer = {
       ...ACTIVE_OFFER, offerId: "PROMO-EXT", offerName: "Clearance 50%",
       discountValue: 50, priority: 1,
@@ -103,12 +104,33 @@ describe("PricingDiscountEngine — Advanced Pricing Rules & Promotional Discoun
       { sku: SKU, qty: 5, baseUnitPrice: 1000, priceLists: [] as PriceListEntry[], customerGroupPrices: [] as CustomerGroupPrice[], activeOffers: [extremeOffer] },
     ];
 
-    const invoice = PricingDiscountEngine.resolveInvoice(lines, { coupon: extremeCoupon, asOf: AS_OF });
+    // Case A: Configured at 40%
+    const inv40 = PricingDiscountEngine.resolveInvoice(lines, { coupon: extremeCoupon, asOf: AS_OF, maxDiscountCapPct: 40 });
+    expect(inv40.capBreached).toBe(true);
+    expect(inv40.discountPct).toBe(40);
+    expect(inv40.grandTotal).toBe(inv40.subtotal * (1 - 40 / 100));
 
-    // Without cap: 50% + 20% on residual = 60% total → must be capped at 40%
-    expect(invoice.capBreached).toBe(true);
-    expect(invoice.discountPct).toBe(PRICING_CONFIG.maxDiscountCapPct);   // 40
-    expect(invoice.grandTotal).toBe(invoice.subtotal * (1 - PRICING_CONFIG.maxDiscountCapPct / 100));
+    // Case B: Configured at 50%
+    const inv50 = PricingDiscountEngine.resolveInvoice(lines, { coupon: extremeCoupon, asOf: AS_OF, maxDiscountCapPct: 50 });
+    expect(inv50.capBreached).toBe(true);
+    expect(inv50.discountPct).toBe(50);
+    expect(inv50.grandTotal).toBe(inv50.subtotal * (1 - 50 / 100));
+
+    // Case C: Configured at 60% (matches raw total discount, no breach)
+    const inv60 = PricingDiscountEngine.resolveInvoice(lines, { coupon: extremeCoupon, asOf: AS_OF, maxDiscountCapPct: 60 });
+    expect(inv60.capBreached).toBe(false);
+    expect(inv60.discountPct).toBe(60);
+
+    // Case D: Default PRICING_CONFIG has NO hardcoded 40% ceiling
+    expect(PRICING_CONFIG.maxDiscountCapPct).toBeUndefined();
+
+    // Case E: Runtime setPricingConfig updates global config
+    setPricingConfig({ maxDiscountCapPct: 45 });
+    expect(PRICING_CONFIG.maxDiscountCapPct).toBe(45);
+    const invRuntime = PricingDiscountEngine.resolveInvoice(lines, { coupon: extremeCoupon, asOf: AS_OF });
+    expect(invRuntime.capBreached).toBe(true);
+    expect(invRuntime.discountPct).toBe(45);
+    setPricingConfig({ maxDiscountCapPct: undefined }); // reset
   });
 
   // ─── Test 4: Coupon validation ────────────────────────────────────────────
@@ -134,4 +156,49 @@ describe("PricingDiscountEngine — Advanced Pricing Rules & Promotional Discoun
     const inactResult = PricingDiscountEngine.validateCoupon(inactive, AS_OF);
     expect(inactResult.valid).toBe(false);
   });
+
+  // ─── Test 5: Dynamic Indian Financial Year calculation ───────────────────
+  it("computes statutory Indian financial year dynamically (April 1 to March 31)", async () => {
+    const { getCurrentFinancialYear } = await import("../components/billing/SmritiDefineBillPrefixModal");
+    const fyInfo = getCurrentFinancialYear();
+    expect(fyInfo.fy).toMatch(/^\d{4}-\d{4}$/);
+    expect(fyInfo.suffix).toMatch(/^\d{2}-\d{2}$/);
+
+    const [startYearStr, endYearStr] = fyInfo.fy.split("-");
+    const startYear = parseInt(startYearStr, 10);
+    const endYear = parseInt(endYearStr, 10);
+    expect(endYear).toBe(startYear + 1);
+
+    const [startSuff, endSuff] = fyInfo.suffix.split("-");
+    expect(startSuff).toBe(String(startYear).slice(-2));
+    expect(endSuff).toBe(String(endYear).slice(-2));
+  });
+
+  // ─── Test 6: Per-request coupon stacking override ─────────────────────────
+  it("respects per-request couponStackingAllowed override on PriceResolutionInput", () => {
+    // When couponStackingAllowed is explicitly false on the input
+    const noStackResult = PricingDiscountEngine.resolveLine({
+      sku: SKU, qty: 1, baseUnitPrice: BASE_PRICE,
+      priceLists: [], customerGroupPrices: [],
+      activeOffers: [ACTIVE_OFFER], coupon: VIP_COUPON, asOf: AS_OF,
+      couponStackingAllowed: false,
+    });
+    // Promo applies (20% off 1000 = 200), but coupon does NOT stack
+    expect(noStackResult.promoDiscount).toBe(200);
+    expect(noStackResult.couponDiscount).toBe(0);
+    expect(noStackResult.finalLineTotal).toBe(800);
+
+    // When couponStackingAllowed is explicitly true on the input
+    const stackResult = PricingDiscountEngine.resolveLine({
+      sku: SKU, qty: 1, baseUnitPrice: BASE_PRICE,
+      priceLists: [], customerGroupPrices: [],
+      activeOffers: [ACTIVE_OFFER], coupon: VIP_COUPON, asOf: AS_OF,
+      couponStackingAllowed: true,
+    });
+    // Promo applies (20% off 1000 = 200), AND coupon stacks (200 off 800 = 200)
+    expect(stackResult.promoDiscount).toBe(200);
+    expect(stackResult.couponDiscount).toBe(200);
+    expect(stackResult.finalLineTotal).toBe(600);
+  });
 });
+

@@ -6,20 +6,23 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-09-09
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
 import uuid
+import logging
 from decimal import Decimal
 from datetime import datetime, timezone, date, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from fastapi import HTTPException
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+logger = logging.getLogger("smriti.unified_ledger")
 
 from ..models.accounting import (
     Account,
@@ -32,10 +35,18 @@ from ..models.accounting import (
     BankStatementLine,
     CurrencyExchangeRate,
 )
-from ..models.sales import SalesInvoice
-from ..models.purchase import PurchaseReceipt
-from ..models.payment_ledger import PaymentTransaction
-from ..models.inventory import StockAudit
+from ..models.sales import SalesInvoice, SalesReturn, SalesReturnItem
+from ..models.purchase import (
+    PurchaseReceipt,
+    PurchaseBill,
+    PurchaseBillItem,
+    Supplier,
+    PurchaseJurisdictionConfig,
+)
+from ..models.tenant import Company
+from ..models.payment_ledger import PaymentTransaction, PaymentAllocation
+from ..models.inventory import Product, StockAudit
+from ..models.profitability import ProductCostValuation, TransactionCostSnapshot
 from ..models.pos import Shift
 from .outbox_service import OutboxService
 
@@ -58,6 +69,10 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "2021", "name": "Output CGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2022", "name": "Output SGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2023", "name": "Output IGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
+    {"code": "2030", "name": "TDS / Withholding Tax Payable", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
+    {"code": "2050", "name": "Customer Advance Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
+    {"code": "2060", "name": "Customer Credit Note & Wallet Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
+    {"code": "2070", "name": "Customer Loyalty Points Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
 
     # 3000 - Equity
     {"code": "3000", "name": "Equity", "type": "EQUITY", "root": "EQUITY", "is_group": True, "parent": None},
@@ -71,6 +86,7 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "4030", "name": "Foreign Exchange Gain (Realized)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
     {"code": "4040", "name": "Foreign Exchange Gain (Unrealized)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
     {"code": "4050", "name": "Cash Register Overage (Surplus)", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
+    {"code": "4060", "name": "Loyalty Points Breakage & Expiry Income", "type": "REVENUE", "root": "INCOME", "is_group": False, "parent": "4000"},
 
     # 5000 - Expenses
     {"code": "5000", "name": "Expenses", "type": "EXPENSE", "root": "EXPENSE", "is_group": True, "parent": None},
@@ -81,6 +97,8 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     {"code": "5050", "name": "Foreign Exchange Loss (Realized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5060", "name": "Foreign Exchange Loss (Unrealized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5070", "name": "Cash Register Shortage (Deficit)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5080", "name": "Customer Loyalty & Reward Program Expense", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5090", "name": "Statutory Interest, Penalties & Compliance Fees", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
 ]
 
 
@@ -181,7 +199,7 @@ class UnifiedAccountingLedgerService:
                 if acc and not acc.parent_account_id:
                     acc.parent_account_id = code_to_id[parent_code]
 
-        await session.commit()
+        await session.flush()
         return created_accounts
 
     @classmethod
@@ -455,6 +473,17 @@ class UnifiedAccountingLedgerService:
         if not inv:
             raise HTTPException(status_code=404, detail=f"Sales invoice {invoice_id} not found.")
 
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SALES_INVOICE",
+            JournalVoucher.reference_doc_id == invoice_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
         # Ensure COA is present
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
@@ -550,6 +579,110 @@ class UnifiedAccountingLedgerService:
                     "remarks": "Roundoff Adjustment"
                 })
 
+        # 5. COGS & Inventory Asset Recognition (BD-02: Perpetual Real-Time COGS)
+        total_cogs = Decimal("0.00")
+        snapshots_to_add = []
+
+        for item in (inv.items or []):
+            if getattr(item, "is_deleted", False):
+                continue
+
+            item_qty = Decimal(str(item.quantity or 0.00))
+            if item_qty <= Decimal("0.00"):
+                continue
+
+            unit_cost = Decimal("0.00")
+            valuation_method = "ZERO_COST_UNVALUED"
+
+            # Hierarchy 1: ProductCostValuation (WAC -> Purchase -> Last Purchase -> Standard)
+            if item.product_id:
+                pcv_stmt = select(ProductCostValuation).where(
+                    ProductCostValuation.product_id == item.product_id,
+                    ProductCostValuation.company_id == company_id,
+                    ProductCostValuation.is_deleted == False
+                )
+                pcv = (await session.execute(pcv_stmt)).scalars().first()
+                if pcv:
+                    if pcv.weighted_average_cost and Decimal(str(pcv.weighted_average_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.weighted_average_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "WEIGHTED_AVERAGE"
+                    elif pcv.purchase_cost and Decimal(str(pcv.purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.purchase_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "PURCHASE_COST"
+                    elif pcv.last_purchase_cost and Decimal(str(pcv.last_purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.last_purchase_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "LAST_PURCHASE"
+                    elif pcv.standard_cost and Decimal(str(pcv.standard_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.standard_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "STANDARD_COST"
+
+            # Hierarchy 2: Product.cost_price fallback
+            if unit_cost <= Decimal("0.00") and item.product_id:
+                prod_stmt = select(Product).where(
+                    Product.id == item.product_id,
+                    Product.company_id == company_id,
+                    Product.is_deleted == False
+                )
+                prod = (await session.execute(prod_stmt)).scalars().first()
+                if prod and prod.cost_price and Decimal(str(prod.cost_price)) > Decimal("0.00"):
+                    unit_cost = Decimal(str(prod.cost_price)).quantize(Decimal("0.01"))
+                    valuation_method = "COST_PRICE_FALLBACK"
+
+            # Hierarchy 3: Zero-cost items audit
+            if unit_cost <= Decimal("0.00"):
+                selling_price = Decimal(str(item.price or 0.00))
+                if selling_price > Decimal("0.00"):
+                    logger.warning(
+                        "SMRITI-GL-COGS-AUDIT: Standard item '%s' (product_id: %s) has zero cost valuation on invoice %s",
+                        getattr(item, "name", "Unknown"),
+                        item.product_id,
+                        inv.invoice_no
+                    )
+
+            item_cogs = (unit_cost * item_qty).quantize(Decimal("0.01"))
+            selling_price_per_unit = Decimal(str(item.price or 0.00)).quantize(Decimal("0.01"))
+            line_gross = (selling_price_per_unit * item_qty).quantize(Decimal("0.01"))
+            gross_profit = (line_gross - item_cogs).quantize(Decimal("0.01"))
+
+            snapshot = TransactionCostSnapshot(
+                id=f"tcs_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id=company_id,
+                branch_id=branch_id or inv.branch_id,
+                sales_invoice_id=inv.id,
+                sales_invoice_item_id=str(item.id),
+                product_id=str(item.product_id or ""),
+                valuation_method_used=valuation_method,
+                quantity=item_qty,
+                cost_per_unit=unit_cost,
+                total_cogs=item_cogs,
+                selling_price_per_unit=selling_price_per_unit,
+                total_gross_sales=line_gross,
+                gross_profit=gross_profit,
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+            snapshots_to_add.append(snapshot)
+            total_cogs += item_cogs
+
+        if total_cogs > Decimal("0.00"):
+            acc_cogs = await cls.get_account_by_code(session, company_id, "5010")
+            acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+            lines.append({
+                "account_id": acc_cogs.id,
+                "debit_amount": total_cogs,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Cost of Goods Sold for Invoice {inv.invoice_no}"
+            })
+            lines.append({
+                "account_id": acc_inventory.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": total_cogs,
+                "remarks": f"Inventory deduction for Invoice {inv.invoice_no}"
+            })
+
+        for snap in snapshots_to_add:
+            session.add(snap)
+
         return await cls.post_journal_voucher(
             session=session,
             company_id=company_id,
@@ -563,6 +696,451 @@ class UnifiedAccountingLedgerService:
             narration=f"Automated GL posting for Sales Invoice {inv.invoice_no}",
             created_by=inv.created_by
         )
+
+    @classmethod
+    async def post_sales_cancellation_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        invoice_id: str,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a cancelled Sales Invoice into an authoritative reversing GL voucher:
+        Reverses the original sales entry:
+        Debit: Sales Revenue (4010) = Subtotal (Gross before tax)
+        Debit: Output CGST (2021) = CGST Total
+        Debit: Output SGST (2022) = SGST Total
+        Debit: Output IGST (2023) = IGST Total
+        Debit/Credit: Roundoff Account (5030) = Roundoff difference
+        Credit: Accounts Receivable (1030) or Cash (1010) = Grand Total
+        """
+        stmt = select(SalesInvoice).where(
+            SalesInvoice.id == invoice_id,
+            SalesInvoice.company_id == company_id,
+        ).options(selectinload(SalesInvoice.items))
+        inv = (await session.execute(stmt)).scalar_one_or_none()
+        if not inv:
+            raise HTTPException(status_code=404, detail=f"Sales invoice {invoice_id} not found.")
+
+        # Idempotency guard: return existing cancellation voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SALES_INVOICE_CANCEL",
+            JournalVoucher.reference_doc_id == invoice_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        # Ensure COA is present
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+        acc_sales = await cls.get_account_by_code(session, company_id, "4010")
+        acc_cgst = await cls.get_account_by_code(session, company_id, "2021")
+        acc_sgst = await cls.get_account_by_code(session, company_id, "2022")
+        acc_igst = await cls.get_account_by_code(session, company_id, "2023")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        grand_total = Decimal(str(inv.grand_total or 0.00)).quantize(Decimal("0.01"))
+        tax_total = Decimal(str(inv.tax_total or 0.00)).quantize(Decimal("0.01"))
+        subtotal = Decimal(str(getattr(inv, "taxable_value", None) or getattr(inv, "subtotal", None) or (grand_total - tax_total))).quantize(Decimal("0.01"))
+
+        cgst_sum = Decimal("0.00")
+        sgst_sum = Decimal("0.00")
+        igst_sum = Decimal("0.00")
+
+        for item in (inv.items or []):
+            cgst_sum += Decimal(str(getattr(item, "cgst_amount", 0.00) or 0.00))
+            sgst_sum += Decimal(str(getattr(item, "sgst_amount", 0.00) or 0.00))
+            igst_sum += Decimal(str(getattr(item, "igst_amount", 0.00) or 0.00))
+
+        if (cgst_sum + sgst_sum + igst_sum) == 0 and tax_total > 0:
+            if getattr(inv, "is_interstate", False):
+                igst_sum = tax_total
+            else:
+                cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
+                sgst_sum = tax_total - cgst_sum
+
+        lines = []
+
+        # 1. Debit Sales Revenue (reversing original revenue credit)
+        lines.append({
+            "account_id": acc_sales.id,
+            "debit_amount": subtotal,
+            "credit_amount": Decimal("0.00"),
+            "remarks": f"Reversal of Revenue for Cancelled Invoice {inv.invoice_no}"
+        })
+
+        # 2. Debit Output Tax Ledgers (reversing original tax credit)
+        if cgst_sum > 0:
+            lines.append({
+                "account_id": acc_cgst.id,
+                "debit_amount": cgst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of Output CGST on Cancelled Invoice {inv.invoice_no}"
+            })
+        if sgst_sum > 0:
+            lines.append({
+                "account_id": acc_sgst.id,
+                "debit_amount": sgst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of Output SGST on Cancelled Invoice {inv.invoice_no}"
+            })
+        if igst_sum > 0:
+            lines.append({
+                "account_id": acc_igst.id,
+                "debit_amount": igst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of Output IGST on Cancelled Invoice {inv.invoice_no}"
+            })
+
+        # 3. Handle Roundoff reversal
+        total_debit_calc = subtotal + cgst_sum + sgst_sum + igst_sum
+        diff = grand_total - total_debit_calc
+        if abs(diff) > Decimal("0.00"):
+            if diff > 0:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": diff,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": "Reversal of Roundoff Adjustment"
+                })
+            else:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": abs(diff),
+                    "remarks": "Reversal of Roundoff Adjustment"
+                })
+
+        # 4. Credit Customer / Debtors for Grand Total (reversing original debit)
+        lines.append({
+            "account_id": acc_debtors.id,
+            "party_id": inv.customer_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": grand_total,
+            "remarks": f"Reversal of Sales Invoice {inv.invoice_no} to {inv.customer_name}"
+        })
+
+        # 5. Reverse COGS & Inventory if snapshots exist
+        snap_stmt = select(TransactionCostSnapshot).where(
+            TransactionCostSnapshot.sales_invoice_id == invoice_id,
+            TransactionCostSnapshot.company_id == company_id,
+            TransactionCostSnapshot.is_deleted == False
+        )
+        snapshots = (await session.execute(snap_stmt)).scalars().all()
+        total_cogs_reversal = sum(Decimal(str(s.total_cogs or 0.00)) for s in snapshots)
+
+        if total_cogs_reversal > Decimal("0.00"):
+            acc_cogs = await cls.get_account_by_code(session, company_id, "5010")
+            acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+            lines.append({
+                "account_id": acc_inventory.id,
+                "debit_amount": total_cogs_reversal,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of Inventory deduction for Cancelled Invoice {inv.invoice_no}"
+            })
+            lines.append({
+                "account_id": acc_cogs.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": total_cogs_reversal,
+                "remarks": f"Reversal of COGS for Cancelled Invoice {inv.invoice_no}"
+            })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or inv.branch_id,
+            voucher_type="SALES_CANCEL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SALES_INVOICE_CANCEL",
+            reference_doc_id=inv.id,
+            reference_doc_no=inv.invoice_no,
+            narration=f"Automated GL reversal voucher for Cancelled Sales Invoice {inv.invoice_no}. Reason: {reason or 'Customer cancellation'}",
+            created_by=cancelled_by or inv.updated_by or "SYSTEM"
+        )
+
+        try:
+            snapshots = dict(inv.rule_snapshots or {})
+            snapshots["cancellation_gl_voucher_id"] = voucher.id
+            snapshots["cancellation_gl_voucher_no"] = voucher.voucher_no
+            snapshots["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+            inv.rule_snapshots = snapshots
+            session.add(inv)
+        except Exception as e:
+            logger.warning("Could not stamp cancellation GL voucher on invoice rule_snapshots: %s", e)
+
+        return voucher
+
+    @classmethod
+    async def post_sales_return_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        return_id: str,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        processed_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a processed Sales Return / Credit Note into an authoritative double-entry GL voucher:
+        Debit: Sales Revenue (4010) = Subtotal (Gross before tax)
+        Debit: Output CGST (2021) = CGST Total
+        Debit: Output SGST (2022) = SGST Total
+        Debit: Output IGST (2023) = IGST Total
+        Debit/Credit: Roundoff Account (5030) = Roundoff difference
+        Credit: Accounts Receivable (1030) = Grand Total
+        """
+        stmt = select(SalesReturn).where(
+            SalesReturn.id == return_id,
+            SalesReturn.company_id == company_id,
+        ).options(selectinload(SalesReturn.items))
+        ret = (await session.execute(stmt)).scalar_one_or_none()
+        if not ret:
+            raise HTTPException(status_code=404, detail=f"Sales return {return_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SALES_RETURN",
+            JournalVoucher.reference_doc_id == return_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        # Ensure COA is present
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+        acc_sales = await cls.get_account_by_code(session, company_id, "4010")
+        acc_cgst = await cls.get_account_by_code(session, company_id, "2021")
+        acc_sgst = await cls.get_account_by_code(session, company_id, "2022")
+        acc_igst = await cls.get_account_by_code(session, company_id, "2023")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        grand_total = Decimal(str(ret.grand_total or 0.00)).quantize(Decimal("0.01"))
+        tax_total = Decimal(str(ret.tax_total or 0.00)).quantize(Decimal("0.01"))
+        subtotal = (grand_total - tax_total).quantize(Decimal("0.01"))
+
+        cgst_sum = Decimal("0.00")
+        sgst_sum = Decimal("0.00")
+        igst_sum = Decimal("0.00")
+
+        for item in (ret.items or []):
+            cgst_sum += Decimal(str(getattr(item, "cgst_amount", 0.00) or 0.00))
+            sgst_sum += Decimal(str(getattr(item, "sgst_amount", 0.00) or 0.00))
+            igst_sum += Decimal(str(getattr(item, "igst_amount", 0.00) or 0.00))
+
+        if (cgst_sum + sgst_sum + igst_sum) == 0 and tax_total > 0:
+            if getattr(ret, "is_interstate", False):
+                igst_sum = tax_total
+            else:
+                cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
+                sgst_sum = tax_total - cgst_sum
+
+        lines = []
+
+        # 1. Debit Sales Revenue (reversing sales income)
+        lines.append({
+            "account_id": acc_sales.id,
+            "debit_amount": subtotal,
+            "credit_amount": Decimal("0.00"),
+            "remarks": f"Sales Return Revenue debit for {ret.return_no}"
+        })
+
+        # 2. Debit Output Tax Ledgers
+        if cgst_sum > 0:
+            lines.append({
+                "account_id": acc_cgst.id,
+                "debit_amount": cgst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"CGST reversal on Sales Return {ret.return_no}"
+            })
+        if sgst_sum > 0:
+            lines.append({
+                "account_id": acc_sgst.id,
+                "debit_amount": sgst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"SGST reversal on Sales Return {ret.return_no}"
+            })
+        if igst_sum > 0:
+            lines.append({
+                "account_id": acc_igst.id,
+                "debit_amount": igst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"IGST reversal on Sales Return {ret.return_no}"
+            })
+
+        # 3. Handle Roundoff difference
+        total_debit_calc = subtotal + cgst_sum + sgst_sum + igst_sum
+        diff = grand_total - total_debit_calc
+        if abs(diff) > Decimal("0.00"):
+            if diff > 0:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": diff,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": "Roundoff adjustment on Sales Return"
+                })
+            else:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": abs(diff),
+                    "remarks": "Roundoff adjustment on Sales Return"
+                })
+
+        cust_display = getattr(ret, "customer_name", None) or ret.customer_id or "Customer"
+        lines.append({
+            "account_id": acc_debtors.id,
+            "party_id": ret.customer_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": grand_total,
+            "remarks": f"Credit note for Sales Return {ret.return_no} to {cust_display}"
+        })
+
+        # 5. Perpetual Real-Time COGS Reversal (BD-02)
+        # DR Inventory Asset (1040) / CR Cost of Goods Sold (5010)
+        ret_items = ret.items
+        if not ret_items:
+            q_items = select(SalesReturnItem).where(
+                SalesReturnItem.return_id == ret.id,
+                SalesReturnItem.is_deleted == False
+            )
+            ret_items = (await session.execute(q_items)).scalars().all()
+
+        total_return_cogs = Decimal("0.00")
+        line_cogs_audit = []
+
+        for item in (ret_items or []):
+            if getattr(item, "is_deleted", False):
+                continue
+            item_qty = Decimal(str(item.quantity or 0.00))
+            if item_qty <= Decimal("0.00") or not item.product_id:
+                continue
+
+            unit_cost = Decimal("0.00")
+            val_method = "ZERO_COST_UNVALUED"
+
+            # Tier 1: Historical TransactionCostSnapshot from original invoice
+            if ret.original_invoice_id:
+                snap_stmt = select(TransactionCostSnapshot).where(
+                    TransactionCostSnapshot.sales_invoice_id == ret.original_invoice_id,
+                    TransactionCostSnapshot.product_id == item.product_id,
+                    TransactionCostSnapshot.company_id == company_id,
+                    TransactionCostSnapshot.is_deleted == False
+                ).order_by(TransactionCostSnapshot.created_at.desc())
+                snap = (await session.execute(snap_stmt)).scalars().first()
+                if snap and snap.cost_per_unit is not None and Decimal(str(snap.cost_per_unit)) > Decimal("0.00"):
+                    unit_cost = Decimal(str(snap.cost_per_unit)).quantize(Decimal("0.01"))
+                    val_method = f"HISTORICAL_SNAPSHOT ({snap.valuation_method_used or 'SNAPSHOT'})"
+
+            # Tier 2: ProductCostValuation fallback
+            if unit_cost <= Decimal("0.00"):
+                pcv_stmt = select(ProductCostValuation).where(
+                    ProductCostValuation.product_id == item.product_id,
+                    ProductCostValuation.company_id == company_id,
+                    ProductCostValuation.is_deleted == False
+                )
+                pcv = (await session.execute(pcv_stmt)).scalars().first()
+                if pcv:
+                    if pcv.weighted_average_cost and Decimal(str(pcv.weighted_average_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.weighted_average_cost)).quantize(Decimal("0.01"))
+                        val_method = "WEIGHTED_AVERAGE"
+                    elif pcv.purchase_cost and Decimal(str(pcv.purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.purchase_cost)).quantize(Decimal("0.01"))
+                        val_method = "PURCHASE_COST"
+                    elif pcv.last_purchase_cost and Decimal(str(pcv.last_purchase_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.last_purchase_cost)).quantize(Decimal("0.01"))
+                        val_method = "LAST_PURCHASE"
+                    elif pcv.standard_cost and Decimal(str(pcv.standard_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.standard_cost)).quantize(Decimal("0.01"))
+                        val_method = "STANDARD_COST"
+
+            # Tier 3: Product.cost_price fallback
+            if unit_cost <= Decimal("0.00"):
+                prod_stmt = select(Product).where(
+                    Product.id == item.product_id,
+                    Product.company_id == company_id,
+                    Product.is_deleted == False
+                )
+                prod = (await session.execute(prod_stmt)).scalars().first()
+                if prod and prod.cost_price and Decimal(str(prod.cost_price)) > Decimal("0.00"):
+                    unit_cost = Decimal(str(prod.cost_price)).quantize(Decimal("0.01"))
+                    val_method = "COST_PRICE_FALLBACK"
+
+            if unit_cost <= Decimal("0.00"):
+                logger.warning(
+                    "SMRITI-GL-COGS-AUDIT: Return line product '%s' (id: %s) on return %s has zero cost valuation",
+                    getattr(item, "name", "Unknown"),
+                    item.product_id,
+                    ret.return_no
+                )
+
+            line_cogs = (unit_cost * item_qty).quantize(Decimal("0.01"))
+            total_return_cogs += line_cogs
+            line_cogs_audit.append({
+                "product_id": str(item.product_id),
+                "product_name": getattr(item, "name", ""),
+                "quantity": str(item_qty),
+                "cost_per_unit": str(unit_cost),
+                "total_cogs": str(line_cogs),
+                "valuation_method": val_method,
+            })
+
+        if total_return_cogs > Decimal("0.00"):
+            acc_cogs = await cls.get_account_by_code(session, company_id, "5010")
+            acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+            lines.append({
+                "account_id": acc_inventory.id,
+                "debit_amount": total_return_cogs,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Perpetual Inventory Asset restoration for Sales Return {ret.return_no}"
+            })
+            lines.append({
+                "account_id": acc_cogs.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": total_return_cogs,
+                "remarks": f"Perpetual COGS reversal for Sales Return {ret.return_no}"
+            })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or ret.branch_id,
+            voucher_type="CREDIT_NOTE",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SALES_RETURN",
+            reference_doc_id=ret.id,
+            reference_doc_no=ret.return_no,
+            narration=f"Automated credit note GL voucher for Sales Return {ret.return_no}. Reason: {reason or 'Customer return'}",
+            created_by=processed_by or ret.updated_by or "SYSTEM"
+        )
+
+        ret.credit_note_number = voucher.voucher_no
+        try:
+            p_snap = dict(ret.policy_snapshot or {})
+            p_snap["cogs_reversal"] = {
+                "total_return_cogs": str(total_return_cogs),
+                "items": line_cogs_audit,
+            }
+            p_snap["credit_note_gl_voucher_id"] = voucher.id
+            p_snap["credit_note_gl_voucher_no"] = voucher.voucher_no
+            ret.policy_snapshot = p_snap
+            session.add(ret)
+        except Exception as e:
+            logger.warning("Could not record cogs audit on return policy_snapshot: %s", e)
+
+        return voucher
 
     @classmethod
     async def post_purchase_receipt_to_gl(
@@ -582,6 +1160,17 @@ class UnifiedAccountingLedgerService:
         receipt = (await session.execute(stmt)).scalar_one_or_none()
         if not receipt:
             raise HTTPException(status_code=404, detail=f"Purchase receipt {receipt_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "PURCHASE_RECEIPT",
+            JournalVoucher.reference_doc_id == receipt_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
 
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
@@ -641,6 +1230,1177 @@ class UnifiedAccountingLedgerService:
             reference_doc_no=receipt.receipt_no,
             narration=f"Automated GL posting for GRN {receipt.receipt_no}"
         )
+
+    @classmethod
+    async def _resolve_company_tax_state(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        comp: Optional[Any] = None,
+    ) -> str:
+        """
+        Authoritatively resolve company tax jurisdiction state code without silent DL fallback.
+        """
+        from ..models.purchase import PurchaseJurisdictionConfig
+        from ..models.tenant import Company
+        jur_stmt = select(PurchaseJurisdictionConfig).where(PurchaseJurisdictionConfig.company_id == company_id)
+        jur = (await session.execute(jur_stmt)).scalars().first()
+        if jur and jur.company_state:
+            return jur.company_state.strip().upper()
+
+        if not comp:
+            comp_stmt = select(Company).where(Company.id == company_id)
+            comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+
+        if comp:
+            if getattr(comp, "state_code", None):
+                return str(comp.state_code).strip().upper()
+            if comp.gst_number and len(comp.gst_number) >= 2 and comp.gst_number[:2].isdigit():
+                return comp.gst_number[:2]
+            if getattr(comp, "state", None):
+                from ..models.localization import StateRef
+                st_res = await session.execute(
+                    select(StateRef).where(
+                        StateRef.country_code == "IN",
+                        (func.lower(StateRef.name) == comp.state.strip().lower())
+                        | (func.upper(StateRef.state_code) == comp.state.strip().upper()),
+                        StateRef.is_active == True,
+                    )
+                )
+                st_ref = st_res.scalars().first()
+                if st_ref and st_ref.gst_state_code:
+                    return st_ref.gst_state_code
+                if st_ref and st_ref.state_code:
+                    return st_ref.state_code.strip().upper()
+
+        from ..services.system_parameter import SystemParameterService
+        param = await SystemParameterService.resolve_parameter(
+            db=session,
+            param_code="SMRITI.PURCHASE.DEFAULT_JURISDICTION_STATE",
+            company_id=company_id,
+        )
+        if param and param.effective_value:
+            return str(param.effective_value).strip().upper()
+
+        param_tax = await SystemParameterService.resolve_parameter(
+            db=session,
+            param_code="SMRITI.TAX.DEFAULT_STATE_CODE",
+            company_id=company_id,
+        )
+        if param_tax and param_tax.effective_value:
+            return str(param_tax.effective_value).strip().upper()
+
+        raise HTTPException(
+            status_code=400,
+            detail="SMRITI-JURISDICTION-001: Company tax jurisdiction cannot be resolved for ledger posting. Company state or purchase jurisdiction config must be configured.",
+        )
+
+    @classmethod
+    async def post_purchase_bill_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        bill_id: str,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+        tds_amount: Optional[Decimal] = None,
+        tds_section: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a posted Purchase Bill into an authoritative double-entry GL voucher:
+        Debit: Inventory Asset (1040) / Goods Inward = Subtotal (taxable_amount)
+        Debit: Input CGST (1051) / SGST (1052) / IGST (1053) = Tax Totals
+        Debit/Credit: Roundoff Account (5030) = Difference
+        Credit: Accounts Payable (2010) = Grand Total (party_id = supplier_id)
+        Atomically increments supplier.outstanding.
+        """
+        stmt = (
+            select(PurchaseBill)
+            .where(PurchaseBill.id == bill_id, PurchaseBill.company_id == company_id)
+            .options(selectinload(PurchaseBill.items))
+        )
+        bill = (await session.execute(stmt)).scalar_one_or_none()
+        if not bill:
+            raise HTTPException(status_code=404, detail=f"Purchase bill {bill_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "PURCHASE_BILL",
+            JournalVoucher.reference_doc_id == bill_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
+        acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
+        acc_igst = await cls.get_account_by_code(session, company_id, "1053")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        supp_stmt = select(Supplier).where(Supplier.id == bill.supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+
+        grand_total = Decimal(str(bill.total_amount or 0.00)).quantize(Decimal("0.01"))
+        tax_total = Decimal(str(bill.tax_amount or 0.00)).quantize(Decimal("0.01"))
+        subtotal = Decimal(str(bill.taxable_amount or (grand_total - tax_total))).quantize(Decimal("0.01"))
+
+        # Determine tax split (interstate vs intrastate)
+        is_interstate = False
+        if supplier:
+            comp_stmt = select(Company).where(Company.id == company_id)
+            comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+            comp_gst_state = (comp.gst_number or "").strip()[:2] if comp else ""
+            supp_gst_state = (supplier.gst_number or "").strip()[:2] if supplier else ""
+            if comp_gst_state and supp_gst_state:
+                is_interstate = (comp_gst_state != supp_gst_state)
+            elif supplier.state:
+                comp_state = await cls._resolve_company_tax_state(session, company_id, comp)
+                is_interstate = (supplier.state.strip().upper() != comp_state)
+
+        if is_interstate:
+            igst_sum = tax_total
+            cgst_sum = Decimal("0.00")
+            sgst_sum = Decimal("0.00")
+        else:
+            cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
+            sgst_sum = tax_total - cgst_sum
+            igst_sum = Decimal("0.00")
+
+        lines = [
+            {
+                "account_id": acc_inventory.id,
+                "debit_amount": subtotal,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Inward Inventory / Direct Expense for Bill {bill.bill_no}",
+            }
+        ]
+
+        if is_interstate and igst_sum > 0:
+            lines.append({
+                "account_id": acc_igst.id,
+                "debit_amount": igst_sum,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Input IGST on Bill {bill.bill_no}",
+            })
+        else:
+            if cgst_sum > 0:
+                lines.append({
+                    "account_id": acc_cgst.id,
+                    "debit_amount": cgst_sum,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Input CGST on Bill {bill.bill_no}",
+                })
+            if sgst_sum > 0:
+                lines.append({
+                    "account_id": acc_sgst.id,
+                    "debit_amount": sgst_sum,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Input SGST on Bill {bill.bill_no}",
+                })
+
+        # Roundoff handling
+        total_debit_calc = subtotal + (igst_sum if is_interstate else (cgst_sum + sgst_sum))
+        diff = grand_total - total_debit_calc
+        if abs(diff) > Decimal("0.00"):
+            if diff > 0:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": diff,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Roundoff Adjustment on Bill {bill.bill_no}",
+                })
+            else:
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": abs(diff),
+                    "remarks": f"Roundoff Adjustment on Bill {bill.bill_no}",
+                })
+
+        # Check TDS withholding
+        if tds_amount is None and bill.notes and "__TDS_AMOUNT__:" in bill.notes:
+            try:
+                for line_part in bill.notes.split("\n"):
+                    if "__TDS_AMOUNT__:" in line_part:
+                        for segment in line_part.split("|"):
+                            segment = segment.strip()
+                            if segment.startswith("__TDS_AMOUNT__:"):
+                                tds_amount = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+                            elif segment.startswith("__TDS_SECTION__:"):
+                                tds_section = segment.split(":", 1)[1].strip()
+            except Exception:
+                pass
+        tds_amount = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+
+        supp_name = supplier.name if supplier else (bill.supplier_id or "Supplier")
+        if tds_amount > Decimal("0.00"):
+            net_ap = max(Decimal("0.00"), grand_total - tds_amount).quantize(Decimal("0.01"))
+            acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+            lines.append({
+                "account_id": acc_creditors.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": net_ap,
+                "remarks": f"Accounts Payable (Net of TDS) to {supp_name} for Bill {bill.bill_no}",
+            })
+            lines.append({
+                "account_id": acc_tds.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tds_amount,
+                "remarks": f"TDS Withheld u/s {tds_section or '194Q'} on Bill {bill.bill_no} for {supp_name}",
+            })
+            effective_ap_delta = net_ap
+        else:
+            lines.append({
+                "account_id": acc_creditors.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": grand_total,
+                "remarks": f"Accounts Payable to {supp_name} for Bill {bill.bill_no}",
+            })
+            effective_ap_delta = grand_total
+
+        bill_dt = getattr(bill, "bill_date", None) or getattr(bill, "created_at", None)
+        v_date = bill_dt.date() if isinstance(bill_dt, datetime) else (bill_dt or date.today())
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or bill.branch_id,
+            voucher_type="PURCHASE_BILL",
+            voucher_date=v_date,
+            lines=lines,
+            reference_doc_type="PURCHASE_BILL",
+            reference_doc_id=bill.id,
+            reference_doc_no=bill.bill_no,
+            narration=f"Automated AP GL posting for Purchase Bill {bill.bill_no}",
+            created_by=created_by,
+        )
+
+        if supplier:
+            supplier.outstanding = Decimal(str(supplier.outstanding or 0.00)) + effective_ap_delta
+            await session.flush()
+
+        return voucher
+
+    @classmethod
+    async def reverse_purchase_bill_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        bill_id: str,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a cancelled Purchase Bill into an authoritative reversing GL voucher:
+        Debit: Accounts Payable (2010) = Grand Total (reversing supplier credit)
+        Credit: Inventory Asset (1040) = Subtotal (taxable_amount)
+        Credit: Input CGST (1051) / SGST (1052) / IGST (1053) = Tax Totals
+        Debit/Credit: Roundoff Account (5030) = Difference reversal
+        Atomically decrements supplier.outstanding.
+        """
+        stmt = (
+            select(PurchaseBill)
+            .where(PurchaseBill.id == bill_id, PurchaseBill.company_id == company_id)
+            .options(selectinload(PurchaseBill.items))
+        )
+        bill = (await session.execute(stmt)).scalar_one_or_none()
+        if not bill:
+            raise HTTPException(status_code=404, detail=f"Purchase bill {bill_id} not found.")
+
+        # Check if an original purchase bill voucher was ever posted
+        orig_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "PURCHASE_BILL",
+            JournalVoucher.reference_doc_id == bill_id,
+            JournalVoucher.is_deleted == False,
+        )
+        orig_voucher = (await session.execute(orig_stmt)).scalar_one_or_none()
+        if not orig_voucher:
+            # Bill was never posted to GL (e.g. cancelled while DRAFT/SUBMITTED/APPROVED)
+            return None
+
+        # Idempotency guard: return existing cancellation voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "PURCHASE_BILL_CANCEL",
+            JournalVoucher.reference_doc_id == bill_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
+        acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
+        acc_igst = await cls.get_account_by_code(session, company_id, "1053")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        supp_stmt = select(Supplier).where(Supplier.id == bill.supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+
+        grand_total = Decimal(str(bill.total_amount or 0.00)).quantize(Decimal("0.01"))
+        tax_total = Decimal(str(bill.tax_amount or 0.00)).quantize(Decimal("0.01"))
+        subtotal = Decimal(str(bill.taxable_amount or (grand_total - tax_total))).quantize(Decimal("0.01"))
+
+        # Determine tax split (interstate vs intrastate)
+        is_interstate = False
+        if supplier:
+            comp_stmt = select(Company).where(Company.id == company_id)
+            comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+            comp_gst_state = (comp.gst_number or "").strip()[:2] if comp else ""
+            supp_gst_state = (supplier.gst_number or "").strip()[:2] if supplier else ""
+            if comp_gst_state and supp_gst_state:
+                is_interstate = (comp_gst_state != supp_gst_state)
+            elif supplier.state:
+                comp_state = await cls._resolve_company_tax_state(session, company_id, comp)
+                is_interstate = (supplier.state.strip().upper() != comp_state)
+
+        if is_interstate:
+            igst_sum = tax_total
+            cgst_sum = Decimal("0.00")
+            sgst_sum = Decimal("0.00")
+        else:
+            cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
+            sgst_sum = tax_total - cgst_sum
+            igst_sum = Decimal("0.00")
+
+        supp_name = supplier.name if supplier else (bill.supplier_id or "Supplier")
+        # Check if original purchase bill voucher or notes had TDS in Account 2030
+        tds_amount = Decimal("0.00")
+        if orig_voucher:
+            entry_stmt = select(GeneralLedgerEntry).where(
+                GeneralLedgerEntry.voucher_id == orig_voucher.id,
+                GeneralLedgerEntry.is_deleted == False
+            )
+            entries = (await session.execute(entry_stmt)).scalars().all()
+            for ent in entries:
+                acc = await cls.get_account_by_id(session, company_id, ent.account_id)
+                if acc and acc.account_code == "2030" and ent.credit_amount > 0:
+                    tds_amount = Decimal(str(ent.credit_amount)).quantize(Decimal("0.01"))
+                    break
+        if tds_amount <= Decimal("0.00") and bill.notes and "__TDS_AMOUNT__:" in bill.notes:
+            try:
+                for line_part in bill.notes.split("\n"):
+                    if "__TDS_AMOUNT__:" in line_part:
+                        for segment in line_part.split("|"):
+                            segment = segment.strip()
+                            if segment.startswith("__TDS_AMOUNT__:"):
+                                tds_amount = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+
+        tds_amount = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+        net_ap = max(Decimal("0.00"), grand_total - tds_amount).quantize(Decimal("0.01"))
+
+        lines = [
+            # 1. Debit Accounts Payable (reversing original supplier credit)
+            {
+                "account_id": acc_creditors.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": net_ap,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of AP to {supp_name} for Cancelled Bill {bill.bill_no}",
+            },
+        ]
+        if tds_amount > Decimal("0.00"):
+            acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+            lines.append({
+                "account_id": acc_tds.id,
+                "party_id": bill.supplier_id,
+                "debit_amount": tds_amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of TDS Withheld on Cancelled Bill {bill.bill_no}",
+            })
+        lines.append({
+            # 2. Credit Inventory Asset (reversing original inventory debit)
+            "account_id": acc_inventory.id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": subtotal,
+            "remarks": f"Reversal of Inward Inventory for Cancelled Bill {bill.bill_no}",
+        })
+
+        # 3. Credit Input Tax Ledgers (reversing original tax debits)
+        if is_interstate and igst_sum > 0:
+            lines.append({
+                "account_id": acc_igst.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": igst_sum,
+                "remarks": f"Reversal of Input IGST on Cancelled Bill {bill.bill_no}",
+            })
+        else:
+            if cgst_sum > 0:
+                lines.append({
+                    "account_id": acc_cgst.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": cgst_sum,
+                    "remarks": f"Reversal of Input CGST on Cancelled Bill {bill.bill_no}",
+                })
+            if sgst_sum > 0:
+                lines.append({
+                    "account_id": acc_sgst.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": sgst_sum,
+                    "remarks": f"Reversal of Input SGST on Cancelled Bill {bill.bill_no}",
+                })
+
+        # 4. Handle Roundoff reversal
+        total_credit_calc = subtotal + (igst_sum if is_interstate else (cgst_sum + sgst_sum))
+        diff = grand_total - total_credit_calc
+        if abs(diff) > Decimal("0.00"):
+            if diff > 0:
+                # In original posting, roundoff was debited with diff; in reversal, credit diff
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": diff,
+                    "remarks": f"Reversal of Roundoff on Cancelled Bill {bill.bill_no}",
+                })
+            else:
+                # In original posting, roundoff was credited with abs(diff); in reversal, debit abs(diff)
+                lines.append({
+                    "account_id": acc_roundoff.id,
+                    "debit_amount": abs(diff),
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Reversal of Roundoff on Cancelled Bill {bill.bill_no}",
+                })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or bill.branch_id,
+            voucher_type="PURCHASE_BILL_CANCEL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="PURCHASE_BILL_CANCEL",
+            reference_doc_id=bill.id,
+            reference_doc_no=bill.bill_no,
+            narration=f"Compensating GL reversal for Cancelled Purchase Bill {bill.bill_no}. Reason: {reason or 'Bill cancellation'}",
+            created_by=cancelled_by,
+        )
+
+        if supplier:
+            supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0.00)) - net_ap)
+            await session.flush()
+
+        return voucher
+
+    @classmethod
+    async def post_purchase_bill_cancellation_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        bill_id: str,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """Convenience alias for reverse_purchase_bill_gl."""
+        return await cls.reverse_purchase_bill_gl(
+            session=session,
+            company_id=company_id,
+            bill_id=bill_id,
+            branch_id=branch_id,
+            reason=reason,
+            cancelled_by=cancelled_by,
+        )
+
+    @classmethod
+    async def post_supplier_payment_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        payment_id: str,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+        tds_amount: Optional[Decimal] = None,
+        tds_section: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a SupplierPayment into an authoritative double-entry GL voucher:
+        Debit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
+        Credit: Cash in Hand (1010) or Bank Accounts (1020) = Amount - TDS Amount
+        Credit (optional): TDS / Withholding Tax Payable (2030) = TDS Amount
+        """
+        from ..models.supplier_payment import SupplierPayment
+        stmt = (
+            select(SupplierPayment)
+            .where(SupplierPayment.id == payment_id, SupplierPayment.company_id == company_id)
+        )
+        payment = (await session.execute(stmt)).scalar_one_or_none()
+        if not payment:
+            raise HTTPException(status_code=404, detail=f"Supplier payment {payment_id} not found.")
+
+        is_advance = bool(
+            payment.notes and ("__PAYMENT_TYPE__:ADVANCE" in payment.notes or "__PAYMENT_TYPE__: ADVANCE" in payment.notes)
+        )
+        v_type = "SUPPLIER_ADVANCE" if is_advance else "SUPPLIER_PAYMENT"
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type.in_([v_type, "SUPPLIER_PAYMENT"]),
+            JournalVoucher.reference_doc_id == payment_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        supp_stmt = select(Supplier).where(Supplier.id == payment.supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (payment.supplier_id or "Supplier")
+
+        mode = (payment.payment_mode or "CASH").upper()
+        if mode == "CASH":
+            acc_disbursement = await cls.get_account_by_code(session, company_id, "1010")
+        else:
+            acc_disbursement = await cls.get_account_by_code(session, company_id, "1020")
+
+        amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
+
+        if tds_amount is None and payment.notes and "__TDS_AMOUNT__:" in payment.notes:
+            try:
+                for line_part in payment.notes.split("\n"):
+                    if "__TDS_AMOUNT__:" in line_part:
+                        for segment in line_part.split("|"):
+                            segment = segment.strip()
+                            if segment.startswith("__TDS_AMOUNT__:"):
+                                tds_amount = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+                            elif segment.startswith("__TDS_SECTION__:"):
+                                tds_section = segment.split(":", 1)[1].strip()
+            except Exception:
+                pass
+        tds_amount = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+        net_disbursement = max(Decimal("0.00"), amount - tds_amount).quantize(Decimal("0.01"))
+
+        if is_advance:
+            # Supplier Advance Prepayment: Debit 2050 (Supplier Advance Liability)
+            acc_target = await cls.get_account_by_code(session, company_id, "2050")
+            target_remarks = f"Supplier advance disbursement to {supp_name} for Payment {payment.id}"
+            v_narration = f"Supplier advance disbursement to {supp_name} via {mode}"
+        else:
+            # Standard Bill Settlement: Debit 2010 (Accounts Payable / Creditors)
+            acc_target = await cls.get_account_by_code(session, company_id, "2010")
+            target_remarks = f"Payable settlement to {supp_name} for Payment {payment.id}"
+            v_narration = f"Supplier payment to {supp_name} via {mode}"
+
+        lines = [
+            {
+                "account_id": acc_target.id,
+                "party_id": payment.supplier_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": target_remarks,
+            },
+            {
+                "account_id": acc_disbursement.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": net_disbursement,
+                "remarks": f"Disbursement via {mode} for Payment {payment.id}",
+            },
+        ]
+        if tds_amount > Decimal("0.00"):
+            acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+            lines.append({
+                "account_id": acc_tds.id,
+                "party_id": payment.supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tds_amount,
+                "remarks": f"TDS Withheld u/s {tds_section or 'Statutory'} for Payment {payment.id} to {supp_name}",
+            })
+
+        p_date = payment.payment_date if isinstance(payment.payment_date, date) else date.today()
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or payment.branch_id,
+            voucher_type=v_type,
+            voucher_date=p_date,
+            lines=lines,
+            reference_doc_type="SUPPLIER_PAYMENT",
+            reference_doc_id=payment.id,
+            reference_doc_no=payment.reference_no or payment.id,
+            narration=v_narration,
+            created_by=created_by,
+        )
+
+        return voucher
+
+    @classmethod
+    async def reverse_supplier_payment_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        payment_id: str,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a cancelled SupplierPayment into an authoritative reversing GL voucher:
+        For standard payments:
+            Debit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+            Credit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
+        For advance payments:
+            Debit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+            Credit: Supplier Advance Liability (2050) = Amount (party_id = supplier_id)
+        """
+        from ..models.supplier_payment import SupplierPayment
+        stmt = (
+            select(SupplierPayment)
+            .where(SupplierPayment.id == payment_id, SupplierPayment.company_id == company_id)
+        )
+        payment = (await session.execute(stmt)).scalar_one_or_none()
+        if not payment:
+            raise HTTPException(status_code=404, detail=f"Supplier payment {payment_id} not found.")
+
+        is_advance = bool(
+            payment.notes and ("__PAYMENT_TYPE__:ADVANCE" in payment.notes or "__PAYMENT_TYPE__: ADVANCE" in payment.notes)
+        )
+        v_type = "SUPPLIER_ADVANCE" if is_advance else "SUPPLIER_PAYMENT"
+        cancel_v_type = "SUPPLIER_ADVANCE_CANCEL" if is_advance else "SUPPLIER_PAYMENT_CANCEL"
+
+        # Check if original payment voucher was ever posted
+        orig_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type.in_([v_type, "SUPPLIER_PAYMENT"]),
+            JournalVoucher.reference_doc_id == payment_id,
+            JournalVoucher.is_deleted == False,
+        )
+        orig_voucher = (await session.execute(orig_stmt)).scalar_one_or_none()
+        if not orig_voucher:
+            return None
+
+        # Idempotency guard: return existing cancellation voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == cancel_v_type,
+            JournalVoucher.reference_doc_id == payment_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        mode = (payment.payment_mode or "CASH").upper()
+        if mode == "CASH":
+            acc_disbursement = await cls.get_account_by_code(session, company_id, "1010")
+        else:
+            acc_disbursement = await cls.get_account_by_code(session, company_id, "1020")
+
+        supp_stmt = select(Supplier).where(Supplier.id == payment.supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (payment.supplier_id or "Supplier")
+
+        amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
+
+        tds_amount = Decimal("0.00")
+        if orig_voucher:
+            entry_stmt = select(GeneralLedgerEntry).where(
+                GeneralLedgerEntry.voucher_id == orig_voucher.id,
+                GeneralLedgerEntry.is_deleted == False
+            )
+            entries = (await session.execute(entry_stmt)).scalars().all()
+            for ent in entries:
+                acc = await cls.get_account_by_id(session, company_id, ent.account_id)
+                if acc and acc.account_code == "2030" and ent.credit_amount > 0:
+                    tds_amount = Decimal(str(ent.credit_amount)).quantize(Decimal("0.01"))
+                    break
+        if tds_amount <= Decimal("0.00") and payment.notes and "__TDS_AMOUNT__:" in payment.notes:
+            try:
+                for line_part in payment.notes.split("\n"):
+                    if "__TDS_AMOUNT__:" in line_part:
+                        for segment in line_part.split("|"):
+                            segment = segment.strip()
+                            if segment.startswith("__TDS_AMOUNT__:"):
+                                tds_amount = Decimal(segment.split(":", 1)[1]).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+
+        tds_amount = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+        net_disbursement = max(Decimal("0.00"), amount - tds_amount).quantize(Decimal("0.01"))
+
+        if is_advance:
+            acc_target = await cls.get_account_by_code(session, company_id, "2050")
+            target_remarks = f"Reversal of advance disbursement for {supp_name}"
+        else:
+            acc_target = await cls.get_account_by_code(session, company_id, "2010")
+            target_remarks = f"Reversal of payable settlement for {supp_name}"
+
+        lines = [
+            {
+                "account_id": acc_disbursement.id,
+                "debit_amount": net_disbursement,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of disbursement via {mode} for Cancelled Payment {payment.id}",
+            },
+        ]
+        if tds_amount > Decimal("0.00"):
+            acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+            lines.append({
+                "account_id": acc_tds.id,
+                "party_id": payment.supplier_id,
+                "debit_amount": tds_amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of TDS Withheld for Cancelled Payment {payment.id}",
+            })
+        lines.append({
+            "account_id": acc_target.id,
+            "party_id": payment.supplier_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": amount,
+            "remarks": target_remarks,
+        })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or payment.branch_id,
+            voucher_type=cancel_v_type,
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type=cancel_v_type,
+            reference_doc_id=payment.id,
+            reference_doc_no=payment.reference_no or payment.id,
+            narration=f"Compensating reversal for Cancelled Supplier Payment {payment.id}. Reason: {reason or 'Payment cancellation'}",
+            created_by=cancelled_by,
+        )
+
+        return voucher
+
+    @classmethod
+    async def post_supplier_advance_knockoff_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        advance_payment_id: str,
+        bill_id: str,
+        amount: Decimal,
+        bill_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a Supplier Advance knock-off against a confirmed Purchase Bill into
+        an authoritative double-entry GL voucher with ZERO cash movement:
+        Debit: Accounts Payable / Creditors (2010) = Amount (party_id = supplier_id)
+        Credit: Supplier Advance Liability (2050) = Amount (party_id = supplier_id)
+        """
+        knockoff_ref_id = f"{advance_payment_id}_{bill_id}"
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "SUPPLIER_ADVANCE_KNOCKOFF",
+            JournalVoucher.reference_doc_id == knockoff_ref_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_advance = await cls.get_account_by_code(session, company_id, "2050")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        k_amount = Decimal(str(amount or 0.00)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": k_amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Payable reduction via advance knock-off against Bill {bill_no or bill_id}",
+            },
+            {
+                "account_id": acc_advance.id,
+                "party_id": supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": k_amount,
+                "remarks": f"Supplier advance {advance_payment_id} knocked off for {supp_name}",
+            },
+        ]
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="JOURNAL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SUPPLIER_ADVANCE_KNOCKOFF",
+            reference_doc_id=knockoff_ref_id,
+            reference_doc_no=f"KNOCK-{bill_no or bill_id[:8]}",
+            narration=f"Advance knock-off from Payment {advance_payment_id} against Bill {bill_no or bill_id} for {supp_name}",
+            created_by=created_by,
+        )
+        return voucher
+
+    @classmethod
+    async def post_supplier_advance_batch_knockoff_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        advance_payment_id: str,
+        allocations: List[Dict[str, Any]],
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a multi-bill batch supplier advance knock-off into an authoritative
+        compound double-entry GL journal voucher with ZERO cash movement:
+        Debit: Accounts Payable / Creditors (2010) = Amount (for each bill line, party_id = supplier_id)
+        Credit: Supplier Advance Liability (2050) = Total Knocked Off (party_id = supplier_id)
+        """
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_advance = await cls.get_account_by_code(session, company_id, "2050")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        lines = []
+        total_amount = Decimal("0.00")
+        for alloc in allocations:
+            alloc_amt = Decimal(str(alloc.get("amount", 0.00))).quantize(Decimal("0.01"))
+            if alloc_amt <= Decimal("0.00"):
+                continue
+            total_amount += alloc_amt
+            b_id = alloc.get("bill_id", "")
+            b_no = alloc.get("bill_no") or b_id[:8]
+            lines.append({
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": alloc_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Payable reduction via advance knock-off against Bill {b_no}",
+            })
+
+        if not lines or total_amount <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Cannot post GL voucher with zero batch knock-off amount.")
+
+        # Single consolidated credit to Supplier Advance Liability (2050)
+        lines.append({
+            "account_id": acc_advance.id,
+            "party_id": supplier_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": total_amount,
+            "remarks": f"Supplier advance {advance_payment_id} batch knock-off across {len(lines)} bills for {supp_name}",
+        })
+
+        batch_ref_id = f"{advance_payment_id}_batch_{uuid.uuid4().hex[:8]}"
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="JOURNAL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="SUPPLIER_ADVANCE_BATCH_KNOCKOFF",
+            reference_doc_id=batch_ref_id,
+            reference_doc_no=f"BKNOCK-{advance_payment_id[:8]}",
+            narration=f"Batch advance knock-off from Advance {advance_payment_id} across {len(lines) - 1} bills (Total: ₹{total_amount:,.2f}) for {supp_name}",
+            created_by=created_by,
+        )
+        return voucher
+
+
+
+    @classmethod
+    async def post_debit_note_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        debit_note_id: str,
+        supplier_id: str,
+        claim_amount: Decimal,
+        tax_amount: Decimal,
+        total_debit_amount: Decimal,
+        debit_note_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Translates a Supplier Debit Note into an authoritative double-entry GL voucher:
+        Debit: Accounts Payable / Creditors (2010) = total_debit_amount (party_id = supplier_id)
+        Credit: Inventory Asset (1040) = claim_amount
+        Credit: Input CGST (1051) + Input SGST (1052) or Input IGST (1053) = tax_amount
+        Debit/Credit: Roundoff Account (5030) = fractional cents balancing
+        """
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "DEBIT_NOTE",
+            JournalVoucher.reference_doc_id == debit_note_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        is_interstate = False
+        if supplier:
+            from ..models.tenant import Company
+            comp_stmt = select(Company).where(Company.id == company_id)
+            comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+            comp_gst_state = (comp.gst_number or "").strip()[:2] if comp else ""
+            supp_gst_state = (supplier.gst_number or "").strip()[:2] if supplier else ""
+            if comp_gst_state and supp_gst_state:
+                is_interstate = (comp_gst_state != supp_gst_state)
+            elif supplier.state:
+                comp_state = await cls._resolve_company_tax_state(session, company_id, comp)
+                is_interstate = (supplier.state.strip().upper() != comp_state)
+
+        c_amt = Decimal(str(claim_amount or 0)).quantize(Decimal("0.01"))
+        t_amt = Decimal(str(tax_amount or 0)).quantize(Decimal("0.01"))
+        tot_amt = Decimal(str(total_debit_amount or 0)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": tot_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Payable reduction on Debit Note {debit_note_no or debit_note_id} for {supp_name}",
+            },
+            {
+                "account_id": acc_inventory.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": c_amt,
+                "remarks": f"Inventory reduction on return/claim for Debit Note {debit_note_no or debit_note_id}",
+            },
+        ]
+
+        if t_amt > Decimal("0.00"):
+            if is_interstate:
+                acc_igst = await cls.get_account_by_code(session, company_id, "1053")
+                lines.append({
+                    "account_id": acc_igst.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": t_amt,
+                    "remarks": f"Input IGST reversal on Debit Note {debit_note_no or debit_note_id}",
+                })
+            else:
+                acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
+                acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
+                cgst = (t_amt / Decimal("2")).quantize(Decimal("0.01"))
+                sgst = (t_amt - cgst).quantize(Decimal("0.01"))
+                lines.append({
+                    "account_id": acc_cgst.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": cgst,
+                    "remarks": f"Input CGST reversal on Debit Note {debit_note_no or debit_note_id}",
+                })
+                lines.append({
+                    "account_id": acc_sgst.id,
+                    "debit_amount": Decimal("0.00"),
+                    "credit_amount": sgst,
+                    "remarks": f"Input SGST reversal on Debit Note {debit_note_no or debit_note_id}",
+                })
+
+        sum_credits = sum(l["credit_amount"] for l in lines)
+        round_diff = (tot_amt - sum_credits).quantize(Decimal("0.01"))
+        if round_diff > Decimal("0.00"):
+            lines.append({
+                "account_id": acc_roundoff.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": round_diff,
+                "remarks": "Roundoff adjustment (Credit)",
+            })
+        elif round_diff < Decimal("0.00"):
+            lines.append({
+                "account_id": acc_roundoff.id,
+                "debit_amount": abs(round_diff),
+                "credit_amount": Decimal("0.00"),
+                "remarks": "Roundoff adjustment (Debit)",
+            })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="DEBIT_NOTE",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="DEBIT_NOTE",
+            reference_doc_id=debit_note_id,
+            reference_doc_no=debit_note_no or debit_note_id,
+            narration=f"Supplier Debit Note {debit_note_no or debit_note_id} issued to {supp_name}",
+            created_by=created_by,
+        )
+        return voucher
+
+    @classmethod
+    async def reverse_debit_note_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        debit_note_id: str,
+        supplier_id: str,
+        claim_amount: Decimal,
+        tax_amount: Decimal,
+        total_debit_amount: Decimal,
+        debit_note_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> Optional[JournalVoucher]:
+        """
+        Translates a cancelled Supplier Debit Note into an authoritative reversing GL voucher:
+        Debit: Inventory Asset (1040) = claim_amount
+        Debit: Input CGST (1051) + Input SGST (1052) or Input IGST (1053) = tax_amount
+        Debit/Credit: Roundoff Account (5030) = fractional cents balancing
+        Credit: Accounts Payable / Creditors (2010) = total_debit_amount (party_id = supplier_id)
+        """
+        # Idempotency guard: return existing cancellation voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "DEBIT_NOTE_CANCEL",
+            JournalVoucher.reference_doc_id == debit_note_id,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_roundoff = await cls.get_account_by_code(session, company_id, "5030")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        is_interstate = False
+        if supplier:
+            from ..models.tenant import Company
+            comp_stmt = select(Company).where(Company.id == company_id)
+            comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+            comp_gst_state = (comp.gst_number or "").strip()[:2] if comp else ""
+            supp_gst_state = (supplier.gst_number or "").strip()[:2] if supplier else ""
+            if comp_gst_state and supp_gst_state:
+                is_interstate = (comp_gst_state != supp_gst_state)
+            elif supplier.state:
+                comp_state = await cls._resolve_company_tax_state(session, company_id, comp)
+                is_interstate = (supplier.state.strip().upper() != comp_state)
+
+        c_amt = Decimal(str(claim_amount or 0)).quantize(Decimal("0.01"))
+        t_amt = Decimal(str(tax_amount or 0)).quantize(Decimal("0.01"))
+        tot_amt = Decimal(str(total_debit_amount or 0)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_inventory.id,
+                "debit_amount": c_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of inventory reduction for Cancelled Debit Note {debit_note_no or debit_note_id}",
+            },
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tot_amt,
+                "remarks": f"Reversal of payable reduction for {supp_name}",
+            },
+        ]
+
+        if t_amt > Decimal("0.00"):
+            if is_interstate:
+                acc_igst = await cls.get_account_by_code(session, company_id, "1053")
+                lines.append({
+                    "account_id": acc_igst.id,
+                    "debit_amount": t_amt,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Reversal of Input IGST reversal on Debit Note {debit_note_no or debit_note_id}",
+                })
+            else:
+                acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
+                acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
+                cgst = (t_amt / Decimal("2")).quantize(Decimal("0.01"))
+                sgst = (t_amt - cgst).quantize(Decimal("0.01"))
+                lines.append({
+                    "account_id": acc_cgst.id,
+                    "debit_amount": cgst,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Reversal of Input CGST on Debit Note {debit_note_no or debit_note_id}",
+                })
+                lines.append({
+                    "account_id": acc_sgst.id,
+                    "debit_amount": sgst,
+                    "credit_amount": Decimal("0.00"),
+                    "remarks": f"Reversal of Input SGST on Debit Note {debit_note_no or debit_note_id}",
+                })
+
+        sum_debits = sum(l["debit_amount"] for l in lines)
+        round_diff = (tot_amt - sum_debits).quantize(Decimal("0.01"))
+        if round_diff > Decimal("0.00"):
+            lines.append({
+                "account_id": acc_roundoff.id,
+                "debit_amount": round_diff,
+                "credit_amount": Decimal("0.00"),
+                "remarks": "Roundoff adjustment (Debit)",
+            })
+        elif round_diff < Decimal("0.00"):
+            lines.append({
+                "account_id": acc_roundoff.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": abs(round_diff),
+                "remarks": "Roundoff adjustment (Credit)",
+            })
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="DEBIT_NOTE_CANCEL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="DEBIT_NOTE_CANCEL",
+            reference_doc_id=debit_note_id,
+            reference_doc_no=debit_note_no or debit_note_id,
+            narration=f"Compensating reversal for Cancelled Debit Note {debit_note_no or debit_note_id}. Reason: {reason or 'Debit note cancellation'}",
+            created_by=cancelled_by,
+        )
+        return voucher
 
     @classmethod
     async def get_trial_balance(
@@ -806,6 +2566,16 @@ class UnifiedAccountingLedgerService:
         if not payment:
             raise HTTPException(status_code=404, detail=f"Payment transaction {payment_id} not found.")
 
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_id == payment_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
         tender_type = (payment.tender_type or "CASH").upper()
@@ -817,43 +2587,117 @@ class UnifiedAccountingLedgerService:
         amount = Decimal(str(payment.amount or 0.00)).quantize(Decimal("0.01"))
         ref_type = (payment.reference_doc_type or "SALES_INVOICE").upper()
 
+        party_id = payment.party_id
+        if not party_id and payment.reference_doc_id:
+            inv_res = await session.execute(
+                select(SalesInvoice.customer_id).where(
+                    SalesInvoice.id == payment.reference_doc_id,
+                    SalesInvoice.company_id == company_id
+                )
+            )
+            party_id = inv_res.scalar_one_or_none()
+
         lines = []
-        if ref_type in ["SALES_INVOICE", "POS_BILL", "CUSTOMER_RECEIPT"]:
-            # Customer settlement
-            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
-            lines.append({
-                "account_id": tender_account.id,
-                "party_id": payment.party_id,
-                "debit_amount": amount,
-                "credit_amount": Decimal("0.00"),
-                "remarks": f"Tender {tender_type} received for {ref_type} {payment.reference_doc_id}"
-            })
-            lines.append({
-                "account_id": acc_debtors.id,
-                "party_id": payment.party_id,
-                "debit_amount": Decimal("0.00"),
-                "credit_amount": amount,
-                "remarks": f"Receivable settlement for {payment.reference_doc_id}"
-            })
-            voucher_type = "PAYMENT_RECEIPT"
-        else:
+        if ref_type in ["PURCHASE_BILL", "SUPPLIER_PAYMENT", "VENDOR_PAYMENT", "PURCHASE_RECEIPT", "GRN"]:
             # Supplier settlement
             acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
             lines.append({
                 "account_id": acc_creditors.id,
-                "party_id": payment.party_id,
+                "party_id": party_id,
                 "debit_amount": amount,
                 "credit_amount": Decimal("0.00"),
                 "remarks": f"Payable settlement for {payment.reference_doc_id}"
             })
             lines.append({
                 "account_id": tender_account.id,
-                "party_id": payment.party_id,
+                "party_id": party_id,
                 "debit_amount": Decimal("0.00"),
                 "credit_amount": amount,
                 "remarks": f"Tender {tender_type} disbursed for {ref_type} {payment.reference_doc_id}"
             })
             voucher_type = "SUPPLIER_PAYMENT"
+        elif ref_type == "CUSTOMER_ADVANCE":
+            # P2.4 Customer Advance Payment Receipt:
+            # Debit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+            # Credit: Customer Advance Liability (2050) = Amount
+            acc_adv_liability = await cls.get_account_by_code(session, company_id, "2050")
+            lines.append({
+                "account_id": tender_account.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Advance tender {tender_type} received ({payment.transaction_no})"
+            })
+            lines.append({
+                "account_id": acc_adv_liability.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Customer Advance Liability incurred ({payment.transaction_no})"
+            })
+            voucher_type = "PAYMENT_RECEIPT"
+        elif tender_type in ("CREDIT_NOTE", "WALLET", "STORE_CREDIT"):
+            # P2.5 Customer Credit Note / Wallet Settlement:
+            # Debit: Customer Credit Note & Wallet Liability (2060) = Amount
+            # Credit: Accounts Receivable / Debtors (1030) = Amount
+            # Cash in Hand (1010) and Bank Accounts (1020) are NOT touched.
+            acc_credit_liability = await cls.get_account_by_code(session, company_id, "2060")
+            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+            lines.append({
+                "account_id": acc_credit_liability.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Store credit / wallet redeemed ({payment.transaction_no})"
+            })
+            lines.append({
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Receivable settlement via store credit ({payment.transaction_no})"
+            })
+            voucher_type = "PAYMENT_RECEIPT"
+        elif tender_type in ("LOYALTY", "LOYALTY_POINTS"):
+            # P3 Customer Loyalty Points Settlement:
+            # Debit: Customer Loyalty Points Liability (2070) = Amount
+            # Credit: Accounts Receivable / Debtors (1030) = Amount
+            # Cash in Hand (1010) and Bank Accounts (1020) are NOT touched.
+            acc_loyalty_liability = await cls.get_account_by_code(session, company_id, "2070")
+            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+            lines.append({
+                "account_id": acc_loyalty_liability.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Customer loyalty points redeemed ({payment.transaction_no})"
+            })
+            lines.append({
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Receivable settlement via loyalty points ({payment.transaction_no})"
+            })
+            voucher_type = "PAYMENT_RECEIPT"
+        else:
+            # Customer settlement (PAYMENT_RECEIPT)
+            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+            lines.append({
+                "account_id": tender_account.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Tender {tender_type} received for {ref_type} {payment.reference_doc_id}"
+            })
+            lines.append({
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Receivable settlement for {payment.reference_doc_id}"
+            })
+            voucher_type = "PAYMENT_RECEIPT"
 
         payment_dt = getattr(payment, "captured_at", None) or getattr(payment, "created_at", None)
         v_date = payment_dt.date() if isinstance(payment_dt, datetime) else (payment_dt or date.today())
@@ -865,10 +2709,445 @@ class UnifiedAccountingLedgerService:
             voucher_type=voucher_type,
             voucher_date=v_date,
             lines=lines,
-            reference_doc_type=payment.reference_doc_type,
+            reference_doc_type=voucher_type,
             reference_doc_id=payment.id,
             reference_doc_no=payment.transaction_no,
             narration=f"Automated GL posting for Payment {payment.transaction_no} via {tender_type}"
+        )
+
+    @classmethod
+    async def post_payment_allocation_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        allocation_id: str,
+        branch_id: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        Translates a PaymentAllocation of a Customer Advance into an authoritative double-entry GL voucher:
+        Debit: Customer Advance Liability (2050) = Allocated Amount
+        Credit: Accounts Receivable / Debtors (1030) = Allocated Amount
+        Cash in Hand (1010) and Bank Accounts (1020) are NOT touched.
+        """
+        stmt = (
+            select(PaymentAllocation)
+            .where(
+                PaymentAllocation.id == allocation_id,
+                PaymentAllocation.company_id == company_id,
+                PaymentAllocation.is_deleted == False
+            )
+        )
+        alloc = (await session.execute(stmt)).scalar_one_or_none()
+        if not alloc:
+            raise HTTPException(status_code=404, detail=f"Payment allocation {allocation_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "PAYMENT_ALLOCATION",
+            JournalVoucher.reference_doc_id == allocation_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        # Fetch parent payment transaction
+        stmt_pt = (
+            select(PaymentTransaction)
+            .where(
+                PaymentTransaction.id == alloc.payment_id,
+                PaymentTransaction.company_id == company_id,
+                PaymentTransaction.is_deleted == False
+            )
+        )
+        pt = (await session.execute(stmt_pt)).scalar_one_or_none()
+        if not pt:
+            raise HTTPException(status_code=404, detail=f"Payment transaction {alloc.payment_id} not found.")
+
+        # Fetch invoice to get customer party_id and invoice_no
+        stmt_inv = select(SalesInvoice).where(
+            SalesInvoice.id == alloc.invoice_id,
+            SalesInvoice.company_id == company_id
+        )
+        inv = (await session.execute(stmt_inv)).scalar_one_or_none()
+        party_id = pt.party_id or (inv.customer_id if inv else None)
+        inv_no = inv.invoice_no if inv else alloc.invoice_id
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_adv_liability = await cls.get_account_by_code(session, company_id, "2050")
+        acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+
+        amount = Decimal(str(alloc.allocated_amount or 0.00)).quantize(Decimal("0.01"))
+
+        lines = [
+            {
+                "account_id": acc_adv_liability.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Advance knock-off from {pt.transaction_no} against Invoice {inv_no}"
+            },
+            {
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Receivable settlement via advance {pt.transaction_no}"
+            }
+        ]
+
+        alloc_dt = getattr(alloc, "settled_at", None) or getattr(alloc, "created_at", None)
+        v_date = alloc_dt.date() if isinstance(alloc_dt, datetime) else (alloc_dt or date.today())
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or alloc.branch_id or pt.branch_id,
+            voucher_type="JOURNAL",
+            voucher_date=v_date,
+            lines=lines,
+            reference_doc_type="PAYMENT_ALLOCATION",
+            reference_doc_id=alloc.id,
+            reference_doc_no=f"ALLOC-{alloc.id[:10]}",
+            narration=f"Advance knock-off {pt.transaction_no} to Invoice {inv_no}",
+            created_by=alloc.created_by or pt.created_by
+        )
+
+    @classmethod
+    async def post_refund_transaction_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        refund_tx_id: str,
+        branch_id: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        Translates a PaymentTransaction (refund) into an authoritative double-entry GL voucher:
+        Customer Advance Refund:
+            Debit: Customer Advance Liability (2050) = Amount
+            Credit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+        Sales Invoice Payment Refund / Return Payout:
+            Debit: Accounts Receivable / Debtors (1030) = Amount
+            Credit: Cash in Hand (1010) or Bank Accounts (1020) = Amount
+        """
+        stmt = select(PaymentTransaction).where(
+            PaymentTransaction.id == refund_tx_id,
+            PaymentTransaction.company_id == company_id,
+            PaymentTransaction.is_deleted == False
+        )
+        refund = (await session.execute(stmt)).scalar_one_or_none()
+        if not refund:
+            raise HTTPException(status_code=404, detail=f"Refund transaction {refund_tx_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_id == refund_tx_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        tender_type = (refund.tender_type or "CASH").upper()
+        if tender_type == "CASH":
+            tender_account = await cls.get_account_by_code(session, company_id, "1010")
+        elif tender_type in ("STORE_CREDIT", "WALLET", "CREDIT_NOTE"):
+            tender_account = await cls.get_account_by_code(session, company_id, "2060")
+        elif tender_type in ("LOYALTY", "LOYALTY_POINTS"):
+            tender_account = await cls.get_account_by_code(session, company_id, "2070")
+        else:
+            tender_account = await cls.get_account_by_code(session, company_id, "1020")
+
+        amount = Decimal(str(refund.amount or 0.00)).quantize(Decimal("0.01"))
+        ref_type = (refund.reference_doc_type or "").upper()
+
+        orig_ref_type = None
+        if refund.reference_doc_id:
+            orig_stmt = select(PaymentTransaction.reference_doc_type, PaymentTransaction.party_id).where(
+                PaymentTransaction.id == refund.reference_doc_id,
+                PaymentTransaction.company_id == company_id
+            )
+            orig_row = (await session.execute(orig_stmt)).first()
+            if orig_row:
+                orig_ref_type = (orig_row[0] or "").upper()
+                if not refund.party_id:
+                    refund.party_id = orig_row[1]
+
+        party_id = refund.party_id
+        lines = []
+
+        if ref_type == "CUSTOMER_ADVANCE_REFUND" or orig_ref_type == "CUSTOMER_ADVANCE":
+            # Advance deposit refund:
+            # Debit: Customer Advance Liability (2050)
+            # Credit: Cash / Bank (1010 / 1020)
+            acc_adv_liability = await cls.get_account_by_code(session, company_id, "2050")
+            lines.append({
+                "account_id": acc_adv_liability.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Customer Advance Liability reversed on refund ({refund.transaction_no})"
+            })
+            lines.append({
+                "account_id": tender_account.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Advance refund disbursed via {tender_type} ({refund.transaction_no})"
+            })
+        else:
+            # Invoice payment refund / Return payout:
+            # Debit: Accounts Receivable / Debtors (1030)
+            # Credit: Cash / Bank (1010 / 1020)
+            acc_debtors = await cls.get_account_by_code(session, company_id, "1030")
+            lines.append({
+                "account_id": acc_debtors.id,
+                "party_id": party_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Debtors debit reinstated on refund ({refund.transaction_no})"
+            })
+            lines.append({
+                "account_id": tender_account.id,
+                "party_id": party_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Refund disbursed via {tender_type} ({refund.transaction_no})"
+            })
+
+        refund_dt = getattr(refund, "captured_at", None) or getattr(refund, "created_at", None)
+        v_date = refund_dt.date() if isinstance(refund_dt, datetime) else (refund_dt or date.today())
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id or refund.branch_id,
+            voucher_type="PAYMENT_REFUND",
+            voucher_date=v_date,
+            lines=lines,
+            reference_doc_type="PAYMENT_REFUND",
+            reference_doc_id=refund.id,
+            reference_doc_no=refund.transaction_no,
+            narration=f"Automated GL posting for Refund {refund.transaction_no} via {tender_type}",
+            created_by=refund.created_by
+        )
+
+    @classmethod
+    async def post_loyalty_accrual_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        customer_id: str,
+        points: Decimal,
+        monetary_value: Decimal,
+        reference_invoice_id: str,
+        reference_invoice_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        voucher_date: Optional[date] = None,
+        created_by: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        P3 Double-Entry Customer Loyalty Points Accrual:
+        Debit: Customer Loyalty & Reward Program Expense (5080) = Monetary Value
+        Credit: Customer Loyalty Points Liability (2070) = Monetary Value
+        Party: customer_id
+        Zero cash movement.
+        """
+        amount = Decimal(str(monetary_value or 0.00)).quantize(Decimal("0.01"))
+        if amount <= Decimal("0.00"):
+            raise ValueError(f"Loyalty accrual monetary value must be positive, got {amount}")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "LOYALTY_ACCRUAL",
+            JournalVoucher.reference_doc_id == reference_invoice_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_expense = await cls.get_account_by_code(session, company_id, "5080")
+        acc_liability = await cls.get_account_by_code(session, company_id, "2070")
+
+        lines = [
+            {
+                "account_id": acc_expense.id,
+                "party_id": customer_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Loyalty points expense accrued ({points} pts on {reference_invoice_no or reference_invoice_id})"
+            },
+            {
+                "account_id": acc_liability.id,
+                "party_id": customer_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Loyalty points liability recognized ({points} pts on {reference_invoice_no or reference_invoice_id})"
+            }
+        ]
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="LOYALTY_ACCRUAL",
+            voucher_date=voucher_date or date.today(),
+            lines=lines,
+            reference_doc_type="LOYALTY_ACCRUAL",
+            reference_doc_id=reference_invoice_id,
+            reference_doc_no=reference_invoice_no,
+            narration=f"Automated GL posting for Loyalty Accrual {points} pts (INR {amount}) on {reference_invoice_no or reference_invoice_id}",
+            created_by=created_by
+        )
+
+    @classmethod
+    async def post_loyalty_reversal_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        customer_id: str,
+        points: Decimal,
+        monetary_value: Decimal,
+        reference_return_id: str,
+        reference_return_no: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        voucher_date: Optional[date] = None,
+        created_by: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        P3 Double-Entry Customer Loyalty Points Reversal (on Sales Return or Clawback):
+        Debit: Customer Loyalty Points Liability (2070) = Monetary Value
+        Credit: Customer Loyalty & Reward Program Expense (5080) = Monetary Value
+        Party: customer_id
+        Zero cash movement.
+        """
+        amount = Decimal(str(monetary_value or 0.00)).quantize(Decimal("0.01"))
+        if amount <= Decimal("0.00"):
+            raise ValueError(f"Loyalty reversal monetary value must be positive, got {amount}")
+
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "LOYALTY_REVERSAL",
+            JournalVoucher.reference_doc_id == reference_return_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_liability = await cls.get_account_by_code(session, company_id, "2070")
+        acc_expense = await cls.get_account_by_code(session, company_id, "5080")
+
+        lines = [
+            {
+                "account_id": acc_liability.id,
+                "party_id": customer_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Loyalty points liability reversed ({points} pts on {reference_return_no or reference_return_id})"
+            },
+            {
+                "account_id": acc_expense.id,
+                "party_id": customer_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Loyalty points expense credit ({points} pts on {reference_return_no or reference_return_id})"
+            }
+        ]
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="LOYALTY_REVERSAL",
+            voucher_date=voucher_date or date.today(),
+            lines=lines,
+            reference_doc_type="LOYALTY_REVERSAL",
+            reference_doc_id=reference_return_id,
+            reference_doc_no=reference_return_no,
+            narration=f"Automated GL posting for Loyalty Reversal {points} pts (INR {amount}) on {reference_return_no or reference_return_id}",
+            created_by=created_by
+        )
+
+    @classmethod
+    async def post_loyalty_expiry_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        customer_id: str,
+        points: Decimal,
+        monetary_value: Decimal,
+        expiry_reference_id: str,
+        branch_id: Optional[str] = None,
+        voucher_date: Optional[date] = None,
+        created_by: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        P3 Double-Entry Customer Loyalty Points Expiry (Breakage Recognition):
+        Debit: Customer Loyalty Points Liability (2070) = Monetary Value
+        Credit: Loyalty Points Breakage & Expiry Income (4060) = Monetary Value
+        Party: customer_id
+        Zero cash movement.
+        """
+        amount = Decimal(str(monetary_value or 0.00)).quantize(Decimal("0.01"))
+        if amount <= Decimal("0.00"):
+            raise ValueError(f"Loyalty expiry monetary value must be positive, got {amount}")
+
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "LOYALTY_EXPIRY",
+            JournalVoucher.reference_doc_id == expiry_reference_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_liability = await cls.get_account_by_code(session, company_id, "2070")
+        acc_income = await cls.get_account_by_code(session, company_id, "4060")
+
+        lines = [
+            {
+                "account_id": acc_liability.id,
+                "party_id": customer_id,
+                "debit_amount": amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Loyalty points liability derecognized on expiry ({points} pts)"
+            },
+            {
+                "account_id": acc_income.id,
+                "party_id": customer_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": amount,
+                "remarks": f"Loyalty points breakage income recognized ({points} pts)"
+            }
+        ]
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="LOYALTY_EXPIRY",
+            voucher_date=voucher_date or date.today(),
+            lines=lines,
+            reference_doc_type="LOYALTY_EXPIRY",
+            reference_doc_id=expiry_reference_id,
+            reference_doc_no=expiry_reference_id,
+            narration=f"Automated GL posting for Loyalty Expiry Breakage {points} pts (INR {amount})",
+            created_by=created_by
         )
 
     @classmethod
@@ -892,6 +3171,17 @@ class UnifiedAccountingLedgerService:
         audit = (await session.execute(stmt)).scalar_one_or_none()
         if not audit:
             raise HTTPException(status_code=404, detail=f"Stock audit {audit_id} not found.")
+
+        # Idempotency guard: return existing voucher if already posted
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "STOCK_AUDIT",
+            JournalVoucher.reference_doc_id == audit_id,
+            JournalVoucher.is_deleted == False
+        )
+        existing_voucher = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_voucher:
+            return existing_voucher
 
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
@@ -1064,6 +3354,338 @@ class UnifiedAccountingLedgerService:
             created_by=created_by or shift.cashier_id or "pos_shift_engine"
         )
 
+    @classmethod
+    async def post_bank_deposit_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        amount: Decimal,
+        bank_account_code: str = "1020",
+        cash_account_code: str = "1010",
+        deposit_date: Optional[Union[date, str]] = None,
+        reference_no: Optional[str] = None,
+        reference_doc_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        narration: Optional[str] = None,
+        created_by: Optional[str] = None,
+        bank_account_id: Optional[str] = None,
+        cash_account_id: Optional[str] = None
+    ) -> JournalVoucher:
+        """
+        Translates a physical cash drawer deposit / bank deposit slip into an authoritative
+        double-entry GL voucher:
+            Debit: Bank Accounts (1020 or specific bank account) = amount
+            Credit: Cash in Hand (1010 or specific cash drawer) = amount
+        Provides strict idempotency protection based on reference_doc_id / reference_no.
+        """
+        deposit_amt = Decimal(str(amount)).quantize(Decimal("0.01"))
+        if deposit_amt <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Deposit amount must be greater than zero.")
+
+        # Idempotency check: check if voucher already exists for this deposit slip or reference
+        if reference_doc_id:
+            existing_stmt = select(JournalVoucher).where(
+                JournalVoucher.company_id == company_id,
+                JournalVoucher.reference_doc_type == "BANK_DEPOSIT",
+                JournalVoucher.reference_doc_id == str(reference_doc_id),
+                JournalVoucher.is_deleted == False
+            )
+            existing_v = (await session.execute(existing_stmt)).scalar_one_or_none()
+            if existing_v:
+                return existing_v
+        elif reference_no:
+            existing_stmt = select(JournalVoucher).where(
+                JournalVoucher.company_id == company_id,
+                JournalVoucher.reference_doc_type == "BANK_DEPOSIT",
+                JournalVoucher.reference_doc_no == str(reference_no),
+                JournalVoucher.is_deleted == False
+            )
+            existing_v = (await session.execute(existing_stmt)).scalar_one_or_none()
+            if existing_v:
+                return existing_v
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        # Resolve bank account
+        acc_bank = None
+        if bank_account_id:
+            acc_bank = (await session.execute(
+                select(Account).where(
+                    Account.id == bank_account_id,
+                    Account.company_id == company_id,
+                    Account.is_deleted == False
+                )
+            )).scalar_one_or_none()
+        if not acc_bank:
+            acc_bank = await cls.get_account_by_code(session, company_id, bank_account_code)
+
+        # Resolve cash account
+        acc_cash = None
+        if cash_account_id:
+            acc_cash = (await session.execute(
+                select(Account).where(
+                    Account.id == cash_account_id,
+                    Account.company_id == company_id,
+                    Account.is_deleted == False
+                )
+            )).scalar_one_or_none()
+        if not acc_cash:
+            acc_cash = await cls.get_account_by_code(session, company_id, cash_account_code)
+
+        # Normalize voucher date
+        if isinstance(deposit_date, str):
+            try:
+                voucher_date = date.fromisoformat(deposit_date[:10])
+            except Exception:
+                voucher_date = date.today()
+        elif isinstance(deposit_date, date):
+            voucher_date = deposit_date
+        else:
+            voucher_date = date.today()
+
+        lines = [
+            {
+                "account_id": acc_bank.id,
+                "debit_amount": deposit_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Bank deposit to {acc_bank.account_name} ({reference_no or 'Cash Deposit'})"
+            },
+            {
+                "account_id": acc_cash.id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": deposit_amt,
+                "remarks": f"Cash drawer deposit transfer ({reference_no or 'Deposit Slip'})"
+            }
+        ]
+
+        ref_id = str(reference_doc_id) if reference_doc_id else (reference_no or f"DEP-{uuid.uuid4().hex[:8]}")
+        ref_no = reference_no or f"SLIP-{ref_id[:12]}"
+        default_narration = f"Automated bank cash deposit slip {ref_no} for amount ₹{deposit_amt}"
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="BANK_DEPOSIT",
+            voucher_date=voucher_date,
+            lines=lines,
+            reference_doc_type="BANK_DEPOSIT",
+            reference_doc_id=ref_id,
+            reference_doc_no=ref_no,
+            narration=narration or default_narration,
+            created_by=created_by or "bank_deposit_engine"
+        )
+
+    @classmethod
+    async def dispatch_outbox_event(
+        cls,
+        event: Any,
+        session: Optional[AsyncSession] = None
+    ) -> Optional[JournalVoucher]:
+        """
+        Authoritative Transactional Outbox Event Dispatcher Adapter for Unified Accounting Ledger.
+        Subscribes to transactional outbox events (SALES_INVOICE_POSTED, PURCHASE_RECEIPT_POSTED,
+        PAYMENT_TRANSACTION_POSTED, STOCK_AUDIT_RECONCILED, SHIFT_CLOSED, etc.) and translates
+        them into balanced, double-entry General Ledger vouchers.
+
+        Guarantees strict idempotency by verifying prior voucher existence before execution.
+        Supports execution both within an existing caller session or in a dedicated per-tenant
+        session resolved via the Control Plane registry.
+        """
+        # 1. Normalize event metadata and payload
+        event_type = (
+            getattr(event, "event_type", None)
+            or (event.get("event_type") if isinstance(event, dict) else "")
+            or ""
+        ).strip().upper()
+
+        payload = getattr(event, "payload_json", None) or (event.get("payload_json") if isinstance(event, dict) else None)
+        if payload is None:
+            payload = getattr(event, "payload", None) or (event.get("payload") if isinstance(event, dict) else {})
+        if isinstance(payload, str):
+            try:
+                import json
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+
+        company_id = (
+            getattr(event, "company_id", None)
+            or (event.get("company_id") if isinstance(event, dict) else None)
+            or payload.get("company_id")
+            or payload.get("company_code")
+        )
+        branch_id = (
+            getattr(event, "branch_id", None)
+            or (event.get("branch_id") if isinstance(event, dict) else None)
+            or payload.get("branch_id")
+        )
+        aggregate_type = (
+            getattr(event, "aggregate_type", None)
+            or (event.get("aggregate_type") if isinstance(event, dict) else None)
+            or payload.get("aggregate_type")
+            or ""
+        ).strip().upper()
+        aggregate_id = (
+            getattr(event, "aggregate_id", None)
+            or (event.get("aggregate_id") if isinstance(event, dict) else None)
+            or payload.get("aggregate_id")
+        )
+
+        inner_event_type = (
+            payload.get("event_type") or payload.get("action") or ""
+        ).strip().upper()
+
+        if not company_id:
+            logger.warning("[UnifiedLedger] Outbox event missing company_id; cannot dispatch: %s", event)
+            return None
+
+        # 2. Worker execution handler
+        async def _execute_posting(target_session: AsyncSession) -> Optional[JournalVoucher]:
+            # A. Sales Invoice posting
+            if (
+                event_type in ["SALES_INVOICE_POSTED", "CANONICAL_SALES_INVOICE_POSTED"]
+                or inner_event_type in ["CANONICALSALESINVOICEPOSTEDEVENT", "SALES_INVOICE_POSTED"]
+                or aggregate_type == "SALES_INVOICE"
+            ):
+                invoice_id = payload.get("invoice_id") or aggregate_id or payload.get("id")
+                if not invoice_id:
+                    logger.warning("[UnifiedLedger] Missing invoice_id for SALES_INVOICE_POSTED event: %s", payload)
+                    return None
+                from .psv_projection import PSVProjectionService
+                await PSVProjectionService.project_posted_invoice(
+                    session=target_session,
+                    invoice_id=str(invoice_id),
+                    company_id=str(company_id),
+                    branch_id=branch_id,
+                )
+                return await cls.post_sales_invoice_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    invoice_id=str(invoice_id),
+                    branch_id=branch_id
+                )
+
+            # B. Purchase Receipt posting
+            elif (
+                event_type in ["PURCHASE_RECEIPT_POSTED", "PURCHASE_RECEIPT_COMPLETED"]
+                or inner_event_type in ["PURCHASE_RECEIPT_COMPLETED", "PURCHASE_RECEIPT_POSTED"]
+                or aggregate_type == "PURCHASE_RECEIPT"
+            ):
+                receipt_id = payload.get("receipt_id") or aggregate_id or payload.get("id")
+                if not receipt_id and payload.get("receipt_no"):
+                    from ..models.purchase import PurchaseReceipt
+                    stmt_rcpt = select(PurchaseReceipt).where(
+                        PurchaseReceipt.receipt_no == payload["receipt_no"],
+                        PurchaseReceipt.company_id == company_id
+                    )
+                    rcpt_obj = (await target_session.execute(stmt_rcpt)).scalars().first()
+                    if rcpt_obj:
+                        receipt_id = rcpt_obj.id
+
+                if not receipt_id:
+                    logger.warning("[UnifiedLedger] Missing receipt_id for PURCHASE_RECEIPT event: %s", payload)
+                    return None
+                return await cls.post_purchase_receipt_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    receipt_id=str(receipt_id),
+                    branch_id=branch_id
+                )
+
+            # C. Payment Transaction posting
+            elif (
+                event_type in ["PAYMENT_TRANSACTION_POSTED", "PAYMENT_PROCESSED", "PAYMENT_SUCCESS"]
+                or inner_event_type in ["PAYMENT_TRANSACTION_POSTED", "PAYMENT_PROCESSED"]
+                or aggregate_type == "PAYMENT_TRANSACTION"
+            ):
+                payment_id = payload.get("payment_id") or aggregate_id or payload.get("id")
+                if not payment_id:
+                    logger.warning("[UnifiedLedger] Missing payment_id for PAYMENT event: %s", payload)
+                    return None
+                return await cls.post_payment_transaction_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    payment_id=str(payment_id),
+                    branch_id=branch_id
+                )
+
+            # D. Physical Stock Audit posting
+            elif (
+                event_type in ["STOCK_AUDIT_RECONCILED", "STOCK_AUDIT_POSTED"]
+                or inner_event_type in ["STOCK_AUDIT_RECONCILED"]
+                or aggregate_type == "STOCK_AUDIT"
+            ):
+                audit_id = payload.get("audit_id") or aggregate_id or payload.get("id")
+                if not audit_id:
+                    logger.warning("[UnifiedLedger] Missing audit_id for STOCK_AUDIT event: %s", payload)
+                    return None
+                return await cls.post_stock_audit_reconciliation_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    audit_id=str(audit_id),
+                    branch_id=branch_id
+                )
+
+            # E. Shift Close / Z-Report posting
+            elif (
+                event_type in ["SHIFT_CLOSED", "POS_SHIFT_CLOSED"]
+                or inner_event_type in ["SHIFT_CLOSED"]
+                or aggregate_type in ["SHIFT", "POS_SHIFT"]
+            ):
+                shift_id = payload.get("shift_id") or aggregate_id or payload.get("id")
+                if not shift_id:
+                    logger.warning("[UnifiedLedger] Missing shift_id for SHIFT event: %s", payload)
+                    return None
+                return await cls.post_shift_close_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    shift_id=str(shift_id),
+                    branch_id=branch_id
+                )
+
+            # F. Bank Deposit / Cash Transfer posting
+            elif (
+                event_type in ["BANK_DEPOSIT_POSTED", "CASH_DEPOSIT_RECORDED", "BANK_DEPOSIT"]
+                or inner_event_type in ["BANK_DEPOSIT_POSTED", "CASH_DEPOSIT_RECORDED"]
+                or aggregate_type in ["BANK_DEPOSIT", "CASH_DEPOSIT"]
+            ):
+                amount = payload.get("amount") or payload.get("deposit_amount")
+                if amount is None:
+                    logger.warning("[UnifiedLedger] Missing amount for BANK_DEPOSIT event: %s", payload)
+                    return None
+                return await cls.post_bank_deposit_to_gl(
+                    session=target_session,
+                    company_id=company_id,
+                    amount=Decimal(str(amount)),
+                    bank_account_code=payload.get("bank_account_code") or "1020",
+                    cash_account_code=payload.get("cash_account_code") or "1010",
+                    deposit_date=payload.get("deposit_date"),
+                    reference_no=payload.get("reference_no") or payload.get("slip_number") or payload.get("ref_no"),
+                    reference_doc_id=payload.get("deposit_id") or aggregate_id or payload.get("id"),
+                    branch_id=branch_id,
+                    narration=payload.get("narration"),
+                    created_by=payload.get("created_by"),
+                    bank_account_id=payload.get("bank_account_id"),
+                    cash_account_id=payload.get("cash_account_id")
+                )
+
+            logger.info("[UnifiedLedger] Outbox event '%s' ignored by accounting ledger dispatcher.", event_type)
+            return None
+
+        # 3. Session routing
+        if session is not None:
+            voucher = await _execute_posting(session)
+            await session.flush()
+            return voucher
+        else:
+            from ..db.session import resolve_company_database_name, get_company_sessionmaker
+            target_db = await resolve_company_database_name(company_id)
+            session_factory = get_company_sessionmaker(target_db)
+            async with session_factory() as sess:
+                voucher = await _execute_posting(sess)
+                await sess.commit()
+                return voucher
 
     @classmethod
     async def generate_period_balance_snapshot(
@@ -1928,6 +4550,603 @@ class UnifiedAccountingLedgerService:
                 status_code=400,
                 detail="SMRITI-GL-015: Immutable Ledger Policy: Posted journal vouchers and ledger entries cannot be modified directly. Post an authoritative reversing journal voucher."
             )
+
+    @classmethod
+    async def get_vendor_statement_of_account(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        branch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generates an authoritative, audit-ready Vendor Statement of Account (Subledger)
+        for Account 2010 (Accounts Payable / Sundry Creditors) and Account 2050 (Supplier Advance Liability).
+        Computes Opening Balance prior to from_date, detailed chronological transaction lines with
+        exact running balance, and closing unallocated advance balances.
+        """
+        from ..models.supplier_payment import SupplierPayment
+        from ..models.party import Party
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        # 1. Fetch Company Info
+        comp_stmt = select(Company).where(Company.id == company_id)
+        comp = (await session.execute(comp_stmt)).scalar_one_or_none()
+        company_name = comp.name if comp else (company_id.upper() or "SMRITI Retail")
+
+        # 2. Fetch Supplier / Party details
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        if not supplier:
+            # Fallback to Party master (Universal Party)
+            party_stmt = select(Party).where(Party.id == supplier_id, Party.company_id == company_id)
+            party = (await session.execute(party_stmt)).scalar_one_or_none()
+            if party:
+                supp_dict = {
+                    "id": party.id,
+                    "code": party.code,
+                    "name": party.legal_name or party.name,
+                    "gstin": party.tax_id,
+                    "pan": party.pan,
+                    "email": party.email,
+                    "phone": party.phone,
+                    "address": party.billing_address,
+                    "payment_terms_days": 30,
+                }
+            else:
+                raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found for this company.")
+        else:
+            supp_dict = {
+                "id": supplier.id,
+                "code": supplier.code,
+                "name": supplier.name,
+                "gstin": getattr(supplier, "gstin", None) or getattr(supplier, "gst_number", None),
+                "pan": getattr(supplier, "pan", None),
+                "email": getattr(supplier, "email", None),
+                "phone": getattr(supplier, "phone", None) or getattr(supplier, "mobile", None),
+                "address": getattr(supplier, "address", None),
+                "payment_terms_days": getattr(supplier, "payment_terms_days", 30) or 30,
+            }
+
+        # 3. Get Account 2010 (Accounts Payable)
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+
+        # 4. Opening Balance prior to from_date
+        # In Accounts Payable (liability account):
+        # Credit increases liability (+), Debit decreases liability (-)
+        # Opening AP Balance = sum(credit_amount) - sum(debit_amount)
+        opening_balance = Decimal("0.00")
+        if from_date:
+            opening_stmt = (
+                select(
+                    func.coalesce(func.sum(GeneralLedgerEntry.credit_amount), Decimal("0.00")).label("prior_credit"),
+                    func.coalesce(func.sum(GeneralLedgerEntry.debit_amount), Decimal("0.00")).label("prior_debit"),
+                )
+                .join(JournalVoucher, GeneralLedgerEntry.voucher_id == JournalVoucher.id)
+                .where(
+                    GeneralLedgerEntry.company_id == company_id,
+                    GeneralLedgerEntry.account_id == acc_creditors.id,
+                    GeneralLedgerEntry.party_id == supplier_id,
+                    GeneralLedgerEntry.entry_date < from_date,
+                    GeneralLedgerEntry.is_deleted == False,
+                    JournalVoucher.is_cancelled == False,
+                )
+            )
+            op_res = (await session.execute(opening_stmt)).one()
+            opening_balance = (Decimal(str(op_res.prior_credit or 0)) - Decimal(str(op_res.prior_debit or 0))).quantize(Decimal("0.01"))
+
+        # 5. Fetch GL Entries in the reporting period
+        date_filters = []
+        if from_date:
+            date_filters.append(GeneralLedgerEntry.entry_date >= from_date)
+        if to_date:
+            date_filters.append(GeneralLedgerEntry.entry_date <= to_date)
+
+        entries_stmt = (
+            select(
+                GeneralLedgerEntry,
+                JournalVoucher,
+                Account.account_code,
+                Account.account_name,
+            )
+            .join(JournalVoucher, GeneralLedgerEntry.voucher_id == JournalVoucher.id)
+            .join(Account, GeneralLedgerEntry.account_id == Account.id)
+            .where(
+                GeneralLedgerEntry.company_id == company_id,
+                GeneralLedgerEntry.party_id == supplier_id,
+                GeneralLedgerEntry.account_id == acc_creditors.id,
+                GeneralLedgerEntry.is_deleted == False,
+                JournalVoucher.is_cancelled == False,
+                *date_filters,
+            )
+            .order_by(
+                GeneralLedgerEntry.entry_date.asc(),
+                GeneralLedgerEntry.posting_date.asc(),
+                GeneralLedgerEntry.id.asc(),
+            )
+        )
+        gl_rows = (await session.execute(entries_stmt)).all()
+
+        lines = []
+        running_bal = opening_balance
+        total_billed = Decimal("0.00")
+        total_paid = Decimal("0.00")
+        total_knocked_off = Decimal("0.00")
+        total_debit_notes = Decimal("0.00")
+
+        if gl_rows:
+            for row in gl_rows:
+                entry = row[0]
+                voucher = row[1]
+                acc_code = row[2]
+                acc_name = row[3]
+
+                dr = Decimal(str(entry.debit_amount or 0)).quantize(Decimal("0.01"))
+                cr = Decimal(str(entry.credit_amount or 0)).quantize(Decimal("0.01"))
+                running_bal = (running_bal + cr - dr).quantize(Decimal("0.01"))
+
+                ref_type = voucher.reference_doc_type or entry.reference_doc_type or voucher.voucher_type
+                if cr > Decimal("0.00"):
+                    total_billed += cr
+                if dr > Decimal("0.00"):
+                    if ref_type in ("SUPPLIER_ADVANCE_KNOCKOFF", "SUPPLIER_ADVANCE_BATCH_KNOCKOFF"):
+                        total_knocked_off += dr
+                    elif ref_type in ("DEBIT_NOTE", "PURCHASE_RETURN"):
+                        total_debit_notes += dr
+                    else:
+                        total_paid += dr
+
+                lines.append({
+                    "id": entry.id,
+                    "date": entry.entry_date,
+                    "voucher_no": voucher.voucher_no,
+                    "voucher_type": voucher.voucher_type,
+                    "reference_doc_type": ref_type,
+                    "reference_doc_no": voucher.reference_doc_no or voucher.reference_doc_id,
+                    "account_code": acc_code,
+                    "account_name": acc_name,
+                    "narration": entry.remarks or voucher.narration,
+                    "debit": dr,
+                    "credit": cr,
+                    "running_balance": running_bal,
+                })
+        else:
+            # Fallback for legacy fixtures / unposted records: construct from PurchaseBill & SupplierPayment
+            pb_filters = [
+                PurchaseBill.company_id == company_id,
+                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.is_deleted == False,
+                PurchaseBill.status != "CANCELLED",
+            ]
+            if from_date:
+                pb_filters.append(PurchaseBill.bill_date >= from_date)
+            if to_date:
+                pb_filters.append(PurchaseBill.bill_date <= to_date)
+
+            pb_stmt = select(PurchaseBill).where(*pb_filters).order_by(PurchaseBill.bill_date.asc(), PurchaseBill.created_at.asc())
+            bills = (await session.execute(pb_stmt)).scalars().all()
+
+            sp_filters = [
+                SupplierPayment.company_id == company_id,
+                SupplierPayment.supplier_id == supplier_id,
+                SupplierPayment.is_deleted == False,
+            ]
+            if from_date:
+                sp_filters.append(SupplierPayment.payment_date >= from_date)
+            if to_date:
+                sp_filters.append(SupplierPayment.payment_date <= to_date)
+
+            sp_stmt = select(SupplierPayment).where(*sp_filters).order_by(SupplierPayment.payment_date.asc(), SupplierPayment.created_at.asc())
+            pays = (await session.execute(sp_stmt)).scalars().all()
+
+            synth_items = []
+            for b in bills:
+                b_date = b.bill_date or (b.created_at.date() if b.created_at else date.today())
+                synth_items.append({
+                    "id": f"bill_{b.id}",
+                    "date": b_date,
+                    "voucher_no": b.bill_no or b.id,
+                    "voucher_type": "PURCHASE_BILL",
+                    "reference_doc_type": "PURCHASE_BILL",
+                    "reference_doc_no": b.bill_no,
+                    "account_code": "2010",
+                    "account_name": "Accounts Payable / Sundry Creditors",
+                    "narration": f"Purchase Bill {b.bill_no or b.id}",
+                    "debit": Decimal("0.00"),
+                    "credit": Decimal(str(b.total_amount or 0)).quantize(Decimal("0.01")),
+                    "sort_date": b_date,
+                })
+            for p in pays:
+                # Exclude advances from standard payment lines in legacy fallback
+                if p.notes and "__PAYMENT_TYPE__:ADVANCE" in p.notes:
+                    continue
+                p_date = p.payment_date or (p.created_at.date() if p.created_at else date.today())
+                synth_items.append({
+                    "id": f"pay_{p.id}",
+                    "date": p_date,
+                    "voucher_no": p.reference_no or p.id,
+                    "voucher_type": "SUPPLIER_PAYMENT",
+                    "reference_doc_type": "SUPPLIER_PAYMENT",
+                    "reference_doc_no": p.reference_no,
+                    "account_code": "2010",
+                    "account_name": "Accounts Payable / Sundry Creditors",
+                    "narration": f"Supplier Payment ({p.payment_mode or 'CASH'}) {p.reference_no or p.id}",
+                    "debit": Decimal(str(p.amount or 0)).quantize(Decimal("0.01")),
+                    "credit": Decimal("0.00"),
+                    "sort_date": p_date,
+                })
+
+            synth_items.sort(key=lambda x: x["sort_date"])
+            for itm in synth_items:
+                dr = itm["debit"]
+                cr = itm["credit"]
+                running_bal = (running_bal + cr - dr).quantize(Decimal("0.01"))
+                total_billed += cr
+                total_paid += dr
+                itm["running_balance"] = running_bal
+                del itm["sort_date"]
+                lines.append(itm)
+
+        closing_balance = running_bal
+
+        # 6. Fetch Active Unallocated Advance Prepayments (Account 2050)
+        import json
+        adv_stmt = (
+            select(SupplierPayment)
+            .where(
+                SupplierPayment.company_id == company_id,
+                SupplierPayment.supplier_id == supplier_id,
+                SupplierPayment.is_deleted == False,
+                SupplierPayment.notes.like("%__PAYMENT_TYPE__:ADVANCE%"),
+            )
+        )
+        advances = (await session.execute(adv_stmt)).scalars().all()
+        unallocated_adv_total = Decimal("0.00")
+        active_advances_count = 0
+        for adv in advances:
+            adv_amt = Decimal(str(adv.amount or 0))
+            allocated_sum = Decimal("0.00")
+            if adv.notes and "__ALLOCATIONS__:" in adv.notes:
+                try:
+                    alloc_str = adv.notes.split("__ALLOCATIONS__:", 1)[1].strip()
+                    if alloc_str.startswith("["):
+                        end_idx = alloc_str.find("]") + 1
+                        if end_idx > 1:
+                            alloc_list = json.loads(alloc_str[:end_idx])
+                            allocated_sum = sum(Decimal(str(a.get("amount", 0))) for a in alloc_list)
+                except Exception:
+                    allocated_sum = Decimal("0.00")
+            unalloc = max(Decimal("0.00"), adv_amt - allocated_sum).quantize(Decimal("0.01"))
+            if unalloc > Decimal("0.00"):
+                unallocated_adv_total += unalloc
+                active_advances_count += 1
+
+        # 7. Fetch Unpaid Purchase Bills count
+        bill_stmt = (
+            select(func.count(PurchaseBill.id))
+            .where(
+                PurchaseBill.company_id == company_id,
+                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.is_deleted == False,
+                PurchaseBill.status.notin_(["CANCELLED", "DRAFT", "PAID"]),
+                PurchaseBill.paid_amount < PurchaseBill.total_amount,
+            )
+        )
+        unpaid_bills_count = (await session.execute(bill_stmt)).scalar() or 0
+
+        net_payable = max(Decimal("0.00"), closing_balance - unallocated_adv_total).quantize(Decimal("0.01"))
+        now_utc = datetime.now(timezone.utc)
+
+        return {
+            "company_id": company_id,
+            "company_name": company_name,
+            "from_date": from_date,
+            "to_date": to_date,
+            "supplier": supp_dict,
+            "summary": {
+                "opening_balance": opening_balance,
+                "total_billed": total_billed.quantize(Decimal("0.01")),
+                "total_paid": total_paid.quantize(Decimal("0.01")),
+                "total_knocked_off": total_knocked_off.quantize(Decimal("0.01")),
+                "total_debit_notes": total_debit_notes.quantize(Decimal("0.01")),
+                "closing_balance": closing_balance,
+                "unallocated_advance": unallocated_adv_total.quantize(Decimal("0.01")),
+                "net_payable": net_payable,
+            },
+            "lines": lines,
+            "unpaid_bills_count": unpaid_bills_count,
+            "active_advances_count": active_advances_count,
+            "generated_at": now_utc,
+        }
+
+    @classmethod
+    async def post_tds_deduction_to_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        tds_amount: Decimal,
+        tds_section: str = "194Q",
+        bill_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        created_by: Optional[str] = None,
+        remarks: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Standalone TDS Withholding Adjustment Voucher:
+        Debit: Accounts Payable (2010) = tds_amount (reduces vendor liability)
+        Credit: TDS / Withholding Tax Payable (2030) = tds_amount (creates statutory tax liability)
+        Atomically decrements supplier.outstanding.
+        """
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+        tds_amt = Decimal(str(tds_amount or 0.00)).quantize(Decimal("0.01"))
+        if tds_amt <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="TDS amount must be strictly greater than zero.")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        if not supplier:
+            raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found.")
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+
+        supp_name = supplier.name or supplier_id
+        ref_no = f"TDS-{tds_section}-{date.today().strftime('%Y%m%d')}"
+
+        lines = [
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": tds_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": remarks or f"TDS Deduction u/s {tds_section} against {supp_name}",
+            },
+            {
+                "account_id": acc_tds.id,
+                "party_id": supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tds_amt,
+                "remarks": f"TDS Payable u/s {tds_section} for {supp_name}",
+            },
+        ]
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="TDS_DEDUCTION",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="TDS_DEDUCTION",
+            reference_doc_id=bill_id or supplier_id,
+            reference_doc_no=ref_no,
+            narration=f"TDS Withholding u/s {tds_section} for {supp_name} ({ref_no})",
+            created_by=created_by,
+        )
+
+        supplier.outstanding = max(Decimal("0.00"), Decimal(str(supplier.outstanding or 0.00)) - tds_amt)
+        await session.flush()
+        return voucher
+
+    @classmethod
+    async def reverse_tds_deduction_gl(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        voucher_id: str,
+        reason: Optional[str] = None,
+        cancelled_by: Optional[str] = None,
+    ) -> JournalVoucher:
+        """
+        Reverses a standalone TDS Withholding Adjustment Voucher:
+        Debit: TDS / Withholding Tax Payable (2030) = tds_amount
+        Credit: Accounts Payable (2010) = tds_amount
+        Atomically increments supplier.outstanding.
+        """
+        orig_stmt = select(JournalVoucher).where(
+            JournalVoucher.id == voucher_id,
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.is_deleted == False,
+        )
+        orig_voucher = (await session.execute(orig_stmt)).scalar_one_or_none()
+        if not orig_voucher:
+            raise HTTPException(status_code=404, detail="Original TDS voucher not found.")
+
+        # Read entries to get tds_amount and supplier_id
+        entry_stmt = select(GeneralLedgerEntry).where(
+            GeneralLedgerEntry.voucher_id == orig_voucher.id,
+            GeneralLedgerEntry.is_deleted == False
+        )
+        entries = (await session.execute(entry_stmt)).scalars().all()
+        tds_amt = Decimal("0.00")
+        supplier_id = None
+        for ent in entries:
+            acc = await cls.get_account_by_id(session, company_id, ent.account_id)
+            if acc and acc.account_code == "2030" and ent.credit_amount > 0:
+                tds_amt = Decimal(str(ent.credit_amount)).quantize(Decimal("0.01"))
+                supplier_id = ent.party_id
+                break
+
+        if tds_amt <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="No TDS credit line found on original voucher.")
+
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none() if supplier_id else None
+        supp_name = supplier.name if supplier else (supplier_id or "Supplier")
+
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+
+        lines = [
+            {
+                "account_id": acc_tds.id,
+                "party_id": supplier_id,
+                "debit_amount": tds_amt,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Reversal of TDS Payable for {supp_name} ({reason or 'Cancellation'})",
+            },
+            {
+                "account_id": acc_creditors.id,
+                "party_id": supplier_id,
+                "debit_amount": Decimal("0.00"),
+                "credit_amount": tds_amt,
+                "remarks": f"Reversal of TDS AP reduction for {supp_name}",
+            },
+        ]
+
+        voucher = await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=orig_voucher.branch_id,
+            voucher_type="TDS_DEDUCTION_CANCEL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="TDS_DEDUCTION_CANCEL",
+            reference_doc_id=orig_voucher.id,
+            reference_doc_no=f"REV-{orig_voucher.voucher_no}",
+            narration=f"Reversal of TDS Voucher {orig_voucher.voucher_no}. Reason: {reason or 'Cancelled'}",
+            created_by=cancelled_by,
+        )
+
+        if supplier:
+            supplier.outstanding = Decimal(str(supplier.outstanding or 0.00)) + tds_amt
+            await session.flush()
+
+        return voucher
+
+    @classmethod
+    async def get_vendor_tds_summary(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        supplier_id: str,
+        financial_year: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Retrieves the statutory TDS summary for a vendor across all FY transactions:
+        1. Queries Supplier and SupplierProfile for PAN and configured TDS rate/section.
+        2. Validates PAN format (Section 206AA penal rate indicator).
+        3. Queries Account 2030 (TDS Payable) ledger lines linked to party_id = supplier_id.
+        4. Calculates cumulative purchases, cumulative TDS withheld, and threshold monitoring.
+        """
+        from ..models.party import Party, SupplierProfile
+        from .tds_engine import StatutoryTdsEngine
+
+        await cls.seed_default_chart_of_accounts(session, company_id)
+
+        # 1. Fetch Supplier & Universal Party info
+        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
+        party_id = supplier_id
+        if supplier:
+            supp_name = supplier.name
+            supp_code = supplier.code
+            gstin = getattr(supplier, "gst_number", None) or ""
+            pan = getattr(supplier, "pan", None) or (gstin[2:12].upper() if len(gstin) >= 12 else None)
+        else:
+            party_stmt = select(Party).where(Party.id == supplier_id, Party.company_id == company_id)
+            party = (await session.execute(party_stmt)).scalar_one_or_none()
+            if not party:
+                raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found.")
+            supp_name = party.legal_name or party.name
+            supp_code = party.code
+            gstin = getattr(party, "tax_id", None) or ""
+            pan = getattr(party, "pan", None) or (gstin[2:12].upper() if len(gstin) >= 12 else None)
+
+        has_valid_pan = StatutoryTdsEngine.is_valid_pan(pan)
+
+        # 2. Fetch SupplierProfile for active TDS section & rate
+        prof_stmt = select(SupplierProfile).where(
+            SupplierProfile.party_id.in_([supplier_id, party_id]),
+            SupplierProfile.company_id == company_id,
+        )
+        profile = (await session.execute(prof_stmt)).scalars().first()
+        if not profile and supplier:
+            party_match_stmt = select(Party).where(
+                Party.company_id == company_id,
+                or_(Party.party_code == supplier.code, Party.gstin == gstin)
+            )
+            matched_party = (await session.execute(party_match_stmt)).scalars().first()
+            if matched_party:
+                prof_stmt2 = select(SupplierProfile).where(
+                    SupplierProfile.party_id == matched_party.id,
+                    SupplierProfile.company_id == company_id,
+                )
+                profile = (await session.execute(prof_stmt2)).scalars().first()
+        active_section = profile.tds_section if profile and profile.tds_section else "194Q"
+        if not has_valid_pan:
+            active_rate = Decimal("5.00") if active_section == "194Q" else Decimal("20.00")
+        elif profile and profile.tds_rate is not None:
+            active_rate = Decimal(str(profile.tds_rate)).quantize(Decimal("0.01"))
+        else:
+            active_rate = Decimal("0.10") if active_section == "194Q" else Decimal("2.00")
+
+        # 3. Query Account 2030 (TDS Payable) ledger lines
+        acc_tds = await cls.get_account_by_code(session, company_id, "2030")
+        gl_stmt = (
+            select(GeneralLedgerEntry)
+            .where(
+                GeneralLedgerEntry.company_id == company_id,
+                GeneralLedgerEntry.account_id == acc_tds.id,
+                GeneralLedgerEntry.party_id.in_([supplier_id, party_id]),
+                GeneralLedgerEntry.is_deleted == False,
+            )
+        )
+        entries = (await session.execute(gl_stmt)).scalars().all()
+        total_tds_deducted = Decimal("0.00")
+        breakdown: Dict[str, Decimal] = {}
+
+        for ent in entries:
+            c_amt = Decimal(str(ent.credit_amount or 0.00))
+            d_amt = Decimal(str(ent.debit_amount or 0.00))
+            net_entry = c_amt - d_amt
+            total_tds_deducted += net_entry
+            # Group into breakdown
+            sec_key = active_section
+            if ent.remarks:
+                for s_opt in ["194Q", "194C", "194J", "194H", "194I"]:
+                    if s_opt in ent.remarks:
+                        sec_key = s_opt
+                        break
+            breakdown[sec_key] = breakdown.get(sec_key, Decimal("0.00")) + net_entry
+
+        # 4. Cumulative purchases in FY
+        bill_stmt = (
+            select(func.coalesce(func.sum(PurchaseBill.total_amount), 0))
+            .where(
+                PurchaseBill.company_id == company_id,
+                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.is_deleted == False,
+                PurchaseBill.status.notin_(["DRAFT", "CANCELLED"]),
+            )
+        )
+        total_invoiced_fy = Decimal(str((await session.execute(bill_stmt)).scalar() or 0.00)).quantize(Decimal("0.01"))
+
+        threshold_limit = Decimal("5000000.00")
+        threshold_applicable = (active_section == "194Q")
+        threshold_exceeded = total_invoiced_fy > threshold_limit if threshold_applicable else False
+
+        return {
+            "company_id": company_id,
+            "supplier_id": supplier_id,
+            "supplier_code": supp_code,
+            "supplier_name": supp_name,
+            "pan": pan,
+            "has_valid_pan": has_valid_pan,
+            "active_section": active_section,
+            "active_rate": active_rate,
+            "total_invoiced_fy": total_invoiced_fy,
+            "total_tds_deducted_fy": max(Decimal("0.00"), total_tds_deducted).quantize(Decimal("0.01")),
+            "section_breakdown": {k: v.quantize(Decimal("0.01")) for k, v in breakdown.items()},
+            "threshold_applicable": threshold_applicable,
+            "threshold_limit": threshold_limit,
+            "threshold_exceeded": threshold_exceeded,
+        }
+
 
 
 

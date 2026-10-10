@@ -4,55 +4,72 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.4.0
+ * Version      : 6.47.3
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-09-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal
+ * Classification: Internal — Read-Only Quick-Audit Table (Phase 3 Legacy Retirement)
+ * Policy ID    : UADHP-v1.0
  */
 
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   Plus, 
-  Trash2, 
-  Copy, 
   Filter, 
-  Save, 
-  Replace, 
-  Sparkles, 
   LayoutGrid, 
   FileText, 
   Info,
-  CheckCircle,
-  HelpCircle,
-  Download,
-  Printer,
-  ChevronLeft,
-  ChevronRight,
-  ShieldAlert,
-  Search,
-  Image as ImageIcon,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
-  X
+  HelpCircle, 
+  Printer, 
+  ChevronLeft, 
+  ChevronRight, 
+  ShieldAlert, 
+  Search, 
+  Image as ImageIcon, 
+  ArrowUp, 
+  ArrowDown, 
+  ArrowUpDown, 
+  X,
+  Package,
+  FileSpreadsheet
 } from "lucide-react";
 import { Product, AttributeDefinition } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
-import { getUnifiedItemMasterFields, getGloballyVisibleFields, getGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
+import {
+  fetchGovernedLookupOptions,
+  validateHsnCode,
+  LookupOption,
+} from "../../services/itemMasterLookupGate.ts";
+import { getUnifiedItemMasterFields, getGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 import { getCustomFieldLabels } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
 import { resolveProductImageUrl, getImagePathConfig } from "../../services/imagePathConfig.ts";
-import { ReplaceDataDlg } from "./ReplaceDataDlg.tsx";
-import { CodeSelectDlg } from "./CodeSelectDlg.tsx";
 import { ItemShortcuts } from "./ItemShortcuts.tsx";
-import { DataLoadConfirm } from "./DataLoadConfirm.tsx";
 import { ItemViewConfigState } from "./ItemViewConfig.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
 
-export type MasterEntryMode = "add" | "edit" | "delete";
+export type MasterEntryMode = "add" | "edit" | "delete" | "audit";
 export type SortDirection = "asc" | "desc";
+
+const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  code: 150,
+  sku: 150,
+  stockNo: 150,
+  barcode: 150,
+  name: 220,
+  brand: 150,
+  styleCode: 140,
+  colour: 130,
+  size: 90,
+  mrp: 110,
+  price: 120,
+  costPrice: 120,
+  gst_percentage: 110,
+  hsn_code: 130,
+};
+
+const getDefaultColumnWidth = (key: string): number => DEFAULT_COLUMN_WIDTHS[key] || 140;
 
 export const REQUIRED_ITEM_KEYS = new Set([
   "code",
@@ -222,45 +239,85 @@ interface SmritiItemDetailsGridProps {
   onNotification?: (title: string, message: string, type?: "info" | "error" | "success" | "warning") => void;
   onNavigateToItemViewConfig?: () => void;
   onNavigateToCommonFields?: () => void;
+  onNavigateToCatalog?: () => void;
+  onAddNew?: () => void;
 }
 
 export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   products = [],
   viewConfig,
   commonFields,
-  entryMode = "add",
+  entryMode = "audit",
   onRefreshProducts,
   onNotification,
   onNavigateToItemViewConfig,
-  onNavigateToCommonFields
+  onNavigateToCommonFields,
+  onNavigateToCatalog,
+  onAddNew,
 }) => {
   const [dynamicDefinitions, setDynamicDefinitions] = useState<AttributeDefinition[]>([]);
   const [gridRows, setGridRows] = useState<any[]>([]);
   const [selectedRowIndices, setSelectedRowIndices] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<"grid" | "classic">(viewConfig?.viewMode || "grid");
   const [classicRecordIndex, setClassicRecordIndex] = useState<number>(0);
-  const [activeMode, setActiveMode] = useState<MasterEntryMode>(entryMode);
+  const activeMode: MasterEntryMode = "audit";
   
   // Hover image preview
   const [hoverPreview, setHoverPreview] = useState<{ url: string; name: string; x: number; y: number } | null>(null);
 
   // Modals state
-  const [isReplaceModalOpen, setIsReplaceModalOpen] = useState<boolean>(false);
-  const [isCodeModalOpen, setIsCodeModalOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
-  const [isDataConfirmOpen, setIsDataConfirmOpen] = useState<boolean>(false);
-  const [activeCodeTargetRow, setActiveCodeTargetRow] = useState<number | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem("smriti_item_master_column_widths");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
   const [visibilityVersion, setVisibilityVersion] = useState<number>(0);
+  const [warehouseOptions, setWarehouseOptions] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [locationOptions, setLocationOptions] = useState<{ id: string; warehouseId: string; code: string; name: string }[]>([]);
+  const [governedLookups, setGovernedLookups] = useState<Record<string, LookupOption[]>>({});
+  /** Per-record HSN validation advisory { [stockNo|rowKey]: { valid, gstPct, description } } */
+  const [hsnValidation, setHsnValidation] = useState<Record<string, { valid: boolean; gstPct?: number; description?: string }>>({});
 
   // Listen to global visibility changes
   useEffect(() => {
     const handleVisChange = () => setVisibilityVersion(v => v + 1);
     window.addEventListener("smriti_field_visibility_updated", handleVisChange);
     return () => window.removeEventListener("smriti_field_visibility_updated", handleVisChange);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      apiFetchV1("/wms/warehouses"),
+      apiFetchV1("/wms/locations")
+    ]).then(([warehouses, locations]) => {
+      if (!isMounted) return;
+      if (Array.isArray(warehouses)) {
+        setWarehouseOptions(warehouses.map((item: any) => ({
+          id: String(item.id), code: String(item.code || ""), name: String(item.name || item.code || "")
+        })));
+      }
+      if (Array.isArray(locations)) {
+        setLocationOptions(locations.map((item: any) => ({
+          id: String(item.id), warehouseId: String(item.warehouse_id || ""),
+          code: String(item.code || ""), name: String(item.name || item.code || "")
+        })));
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setWarehouseOptions([]);
+        setLocationOptions([]);
+      }
+    });
+    return () => { isMounted = false; };
   }, []);
 
   // Load backend attribute definitions
@@ -274,110 +331,104 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     return () => { isMounted = false; };
   }, []);
 
-  // Initialize rows from products
-  const populateRowsFromProducts = () => {
-    if (products.length > 0) {
-      const rows = products.map((p, idx) => ({
-        _id: p.id || `row-${idx}`,
-        code: p.code || "",
-        name: p.name || "",
-        imageName: (p as any).image_name || (p as any).imageName || (p as any).image || "",
-        brand: p.brand || commonFields?.brand || "",
-        styleCode: (p as any).style_code || (p as any).styleCode || "",
-        colour: (p as any).colour || p.color || "",
-        size: p.size || "",
-        category: p.category || commonFields?.category || "Footwear",
-        subCategory: (p as any).sub_category || commonFields?.subCategory || "",
-        mrp: p.mrp || p.price || 0,
-        price: p.price || 0,
-        costPrice: p.costPrice || (p as any).cost_price || 0,
-        gst_percentage: (p as any).gst_percentage || (p as any).gstPercentage || commonFields?.gstPercentage || 18,
-        hsn_code: (p as any).hsn_code || (p as any).hsnCode || commonFields?.hsnCode || "",
-        barcode: p.barcode || "",
-        uom: (p as any).uom || commonFields?.uom || "Pair",
-        a1: p.attributes?.a1 || p.attributes?.heels || "",
-        a2: p.attributes?.a2 || p.attributes?.upperMaterial || "",
-        a3: p.attributes?.a3 || p.attributes?.outsole || "",
-        a4: p.attributes?.a4 || p.attributes?.gender || commonFields?.department || "",
-        a5: p.attributes?.a5 || commonFields?.vendorCode || "",
-        a6: p.attributes?.a6 || commonFields?.purchaseClass || "",
-        a7: p.attributes?.a7 || "",
-        a8: p.attributes?.a8 || "",
-        a9: p.attributes?.a9 || "",
-        hasTransactions: (p as any).has_transactions || Boolean(p.id && idx % 3 === 0)
-      }));
-      setGridRows(rows);
-    }
-  };
-
+  // Load governed lookup options for dropdown / datalist typeahead
   useEffect(() => {
-    if (activeMode === "add") {
-      if (products.length > 0) {
-        populateRowsFromProducts();
-      } else {
-        setGridRows([{
-          _id: "row-0",
-          code: "SMRT-001",
-          barcode: "8901234567890",
-          name: "Classic Leather Shoe",
-          imageName: "shoe-classic-01",
-          brand: commonFields?.brand || "SMRITI",
-          styleCode: "CLS-101",
-          colour: "Black",
-          size: "8",
-          category: commonFields?.category || "Footwear",
-          subCategory: commonFields?.subCategory || "Formal",
-          mrp: 2999,
-          price: 2499,
-          costPrice: 1200,
-          gst_percentage: commonFields?.gstPercentage || "18",
-          hsn_code: commonFields?.hsnCode || "6403",
-          uom: commonFields?.uom || "Pair",
-          a1: "Low Heel",
-          a2: "Full-Grain Leather",
-          a3: "TPR Sole",
-          a4: commonFields?.department || "Men",
-          a5: commonFields?.vendorCode || "VEND-101",
-          a6: commonFields?.purchaseClass || "A-Class",
-          a7: "",
-          a8: "",
-          a9: "",
-          hasTransactions: false
-        }]);
+    let isMounted = true;
+    fetchGovernedLookupOptions().then(options => {
+      if (isMounted) setGovernedLookups(options);
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  const mapProductToGridRow = (p: any, idx: number) => ({
+    _id: p.id || `row-${idx}`,
+    code: p.code || "",
+    name: p.name || "",
+    imageName: p.image_name || p.imageName || p.image || "",
+    brand: p.brand || commonFields?.brand || "",
+    styleCode: p.style_code || p.styleCode || "",
+    colour: p.colour || p.color || "",
+    size: p.size || "",
+    category: p.category || commonFields?.category || "Footwear",
+    subCategory: p.sub_category || commonFields?.subCategory || "",
+    mrp: p.mrp || p.price || 0,
+    price: p.price || 0,
+    costPrice: p.costPrice || p.cost_price || 0,
+    gst_percentage: p.gst_percentage || p.gstPercentage || commonFields?.gstPercentage || 18,
+    hsn_code: p.hsn_code || p.hsnCode || commonFields?.hsnCode || "",
+    barcode: p.barcode || "",
+    uom: p.uom || commonFields?.uom || "Pair",
+    a1: p.attributes?.a1 || p.attributes?.heels || "",
+    a2: p.attributes?.a2 || p.attributes?.upperMaterial || "",
+    a3: p.attributes?.a3 || p.attributes?.outsole || "",
+    a4: p.attributes?.a4 || p.attributes?.gender || commonFields?.department || "",
+    a5: p.attributes?.a5 || commonFields?.vendorCode || "",
+    a6: p.attributes?.a6 || commonFields?.purchaseClass || "",
+    a7: p.attributes?.a7 || "",
+    a8: p.attributes?.a8 || "",
+    a9: p.attributes?.a9 || "",
+    warehouseId: p.attributes?.warehouse_id || "",
+    binLocation: p.attributes?.location_id || "",
+    hasTransactions: p.has_transactions || Boolean(p.id && idx % 3 === 0)
+  });
+
+  // Initialize rows from products
+  useEffect(() => {
+    setGridRows(products.map(mapProductToGridRow));
+  }, [products]);
+
+  // Debounced search
+  useEffect(() => {
+    const query = searchFilter.trim();
+    if (query.length === 0) {
+      setGridRows(products.map(mapProductToGridRow));
+      return;
+    }
+    if (query.length < 2) return;
+
+    let isMounted = true;
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const response = await apiFetchV1<unknown>(`/inventory/search?q=${encodeURIComponent(query)}&limit=100`);
+        const items = Array.isArray(response) ? response : [];
+        if (isMounted) {
+          setGridRows(items.map(mapProductToGridRow));
+          setSelectedRowIndices(new Set());
+        }
+      } catch (error) {
+        if (isMounted) {
+          onNotification?.("Search Unavailable", error instanceof Error ? error.message : "Could not search item records.", "error");
+        }
+      } finally {
+        if (isMounted) setIsSearching(false);
       }
-    } else {
-      setIsDataConfirmOpen(true);
-    }
-  }, [activeMode, products, commonFields]);
+    }, 300);
 
-  const handleConfirmDataLoading = (loadAll: boolean) => {
-    setIsDataConfirmOpen(false);
-    if (loadAll) {
-      populateRowsFromProducts();
-    } else {
-      setGridRows([]);
-      onNotification?.("Filter Mode", "Apply search filter to load required item records.", "success");
-    }
-  };
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [searchFilter, products]);
 
-  // Keyboard shortcut listeners (F1, F2, Ctrl+S)
+  // Keyboard shortcut listeners (F1, Ctrl+S)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F1") {
         e.preventDefault();
         setIsShortcutsModalOpen(true);
-      } else if (e.key === "F2") {
-        e.preventDefault();
-        setActiveCodeTargetRow(0);
-        setIsCodeModalOpen(true);
       } else if (e.ctrlKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        handleSaveGridToDatabase();
+        onNotification?.(
+          "Read-Only Quick-Audit Mode",
+          "Spreadsheet writes are retired. To create or edit articles, use the Article / Design Catalog and Drawer.",
+          "info"
+        );
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [gridRows]);
+  }, [onNotification]);
 
   // Unified available fields
   const catalogFields = useMemo(() => {
@@ -389,19 +440,19 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   }, [dynamicDefinitions]);
 
   // Active columns to show based on global visibility & viewConfig
-  const visibleColumns = useMemo(() => {
+  const visibleColumns: { key: string; label: string }[] = useMemo(() => {
     const globalVisibleKeys = getGlobalFieldVisibility();
     const customLabels = getCustomFieldLabels();
 
     if (globalVisibleKeys && globalVisibleKeys.length > 0) {
-      return globalVisibleKeys.map(key => {
+      return globalVisibleKeys.map((key: string) => {
         const found = catalogFields.find(f => f.key === key);
         return found ? { key: found.key, label: customLabels[found.key] || found.label } : { key, label: key.toUpperCase() };
       });
     }
 
     if (viewConfig?.visibleColumns && viewConfig.visibleColumns.length > 0) {
-      return viewConfig.visibleColumns.map(key => {
+      return viewConfig.visibleColumns.map((key: string) => {
         const found = catalogFields.find(f => f.key === key);
         return found || { key, label: key.toUpperCase() };
       });
@@ -439,6 +490,43 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   }, [catalogFields]);
 
   const frozenCount = viewConfig?.frozenColumns ?? 2;
+
+  const getColumnWidth = (key: string): number => columnWidths[key] ?? getDefaultColumnWidth(key);
+
+  const handleColumnResize = (key: string, event: React.MouseEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startWidth = getColumnWidth(key);
+    const handleMove = (moveEvent: MouseEvent) => {
+      const nextWidth = Math.min(520, Math.max(72, startWidth + moveEvent.clientX - startX));
+      setColumnWidths(previous => ({ ...previous, [key]: nextWidth }));
+    };
+    const handleUp = () => {
+      setColumnWidths(previous => {
+        try { localStorage.setItem("smriti_item_master_column_widths", JSON.stringify(previous)); } catch { /* ignore */ }
+        return previous;
+      });
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+  };
+
+  const handleAutoSizeColumn = (key: string) => {
+    const contentWidth = gridRows.reduce((maxWidth, row) => {
+      return Math.max(maxWidth, String(row[key] ?? "").length * 7 + 28);
+    }, getDefaultColumnWidth(key));
+    const nextWidth = Math.min(520, Math.max(72, contentWidth));
+    setColumnWidths(previous => {
+      const next = { ...previous, [key]: nextWidth };
+      try { localStorage.setItem("smriti_item_master_column_widths", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const totalTableWidth = 36 + 40 + visibleColumns.reduce((total: number, column: { key: string; label: string }) => total + getColumnWidth(column.key), 0);
 
   // Numeric field keys for natural numerical sorting
   const NUMERIC_FIELD_KEYS = useMemo(() => new Set([
@@ -650,321 +738,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     return { duplicateCodes, duplicateBarcodes, duplicateDbCodes, duplicateDbBarcodes };
   }, [gridRows, products]);
 
-  // Grid Cell Editor & Blur Duplicate Alert
-  const handleCellChange = (rowIndex: number, columnKey: string, value: any) => {
-    setGridRows(prev => {
-      const next = [...prev];
-      next[rowIndex] = { ...next[rowIndex], [columnKey]: value };
-      return next;
-    });
-  };
-
-  const handleCellBlur = (rowIndex: number, columnKey: string, value: string) => {
-    if (!value || !value.trim()) return;
-    const cleanVal = value.trim().toUpperCase();
-
-    if (columnKey === "code" || columnKey === "sku") {
-      // Check in-grid duplicate
-      const conflictingGridIdx = gridRows.findIndex((r, idx) => idx !== rowIndex && String(r.code || "").trim().toUpperCase() === cleanVal);
-      if (conflictingGridIdx !== -1) {
-        onNotification?.(
-          "Duplicate Stock No in Grid",
-          `Stock No "${value}" is already used in Row #${conflictingGridIdx + 1}. Stock No must be unique.`,
-          "error"
-        );
-        return;
-      }
-
-      // Check database duplicate
-      const currentRow = gridRows[rowIndex];
-      const conflictingDb = products.find(p => p.code?.toUpperCase() === cleanVal && p.id !== currentRow._id);
-      if (conflictingDb) {
-        onNotification?.(
-          "Stock No Already Exists in Database",
-          `Stock No "${value}" already belongs to existing product "${conflictingDb.name}". Please enter a unique Stock No.`,
-          "error"
-        );
-      }
-    } else if (columnKey === "barcode") {
-      // Check in-grid duplicate
-      const conflictingGridIdx = gridRows.findIndex((r, idx) => idx !== rowIndex && String(r.barcode || "").trim().toUpperCase() === cleanVal);
-      if (conflictingGridIdx !== -1) {
-        onNotification?.(
-          "Duplicate Barcode in Grid",
-          `Barcode "${value}" is already used in Row #${conflictingGridIdx + 1}. Barcode must be unique.`,
-          "error"
-        );
-        return;
-      }
-
-      // Check database duplicate
-      const currentRow = gridRows[rowIndex];
-      const conflictingDb = products.find(p => p.barcode?.toUpperCase() === cleanVal && p.id !== currentRow._id);
-      if (conflictingDb) {
-        onNotification?.(
-          "Barcode Already Exists in Database",
-          `Barcode "${value}" is already assigned to existing product "${conflictingDb.name}". Please enter a unique Barcode.`,
-          "error"
-        );
-      }
-    }
-  };
-
-  const handleAddRow = () => {
-    const newRow = {
-      _id: `new-${Date.now()}`,
-      code: `SMRT-${String(gridRows.length + 1).padStart(3, "0")}`,
-      barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      name: "New Product Item",
-      imageName: "",
-      brand: commonFields?.brand || "SMRITI",
-      styleCode: "STYLE-01",
-      colour: "Black",
-      size: "M",
-      category: commonFields?.category || "Footwear",
-      subCategory: commonFields?.subCategory || "",
-      mrp: 1999,
-      price: 1499,
-      costPrice: 800,
-      gst_percentage: commonFields?.gstPercentage || "18",
-      hsn_code: commonFields?.hsnCode || "6403",
-      uom: commonFields?.uom || "Pair",
-      a1: "",
-      a2: "",
-      a3: "",
-      a4: commonFields?.department || "",
-      a5: commonFields?.vendorCode || "",
-      a6: commonFields?.purchaseClass || "",
-      a7: "",
-      a8: "",
-      a9: "",
-      hasTransactions: false
-    };
-    setGridRows(prev => [...prev, newRow]);
-    onNotification?.("Row Added", "Added new blank record to matrix.", "success");
-  };
-
-  const handleDeleteRecords = () => {
-    if (selectedRowIndices.size === 0) {
-      onNotification?.("No Selection", "Please select item records to delete.", "error");
-      return;
-    }
-
-    const selectedRows = gridRows.filter((_, idx) => selectedRowIndices.has(idx));
-    const lockedTransactions = selectedRows.filter(r => r.hasTransactions);
-
-    if (lockedTransactions.length > 0) {
-      onNotification?.(
-        "Transaction Guard Warning",
-        `${lockedTransactions.length} item(s) have recorded sales transactions and cannot be hard-deleted. They will be deactivated/archived.`,
-        "error"
-      );
-    }
-
-    setGridRows(prev => prev.filter((_, idx) => !selectedRowIndices.has(idx)));
-    setSelectedRowIndices(new Set());
-    onNotification?.("Items Removed", `Deleted/deactivated ${selectedRows.length} item record(s).`, "success");
-  };
-
-  const handleDuplicateSelected = () => {
-    if (selectedRowIndices.size === 0) {
-      onNotification?.("No Selection", "Please select rows to duplicate.", "error");
-      return;
-    }
-    const toDuplicate = gridRows.filter((_, idx) => selectedRowIndices.has(idx)).map(r => ({
-      ...r,
-      _id: `dup-${Date.now()}-${Math.random()}`,
-      code: `${r.code}-COPY`,
-      barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      hasTransactions: false
-    }));
-    setGridRows(prev => [...prev, ...toDuplicate]);
-    setSelectedRowIndices(new Set());
-    onNotification?.("Duplicated", `Duplicated ${toDuplicate.length} rows.`, "success");
-  };
-
-  const handleGlobalReplace = (targetField: string, findText: string, replaceText: string, matchCase: boolean) => {
-    setGridRows(prev => prev.map(row => {
-      const updatedRow = { ...row };
-      Object.keys(updatedRow).forEach(k => {
-        if (targetField !== "ALL" && k !== targetField) return;
-        const val = String(updatedRow[k] || "");
-        if (!val) return;
-
-        if (matchCase) {
-          updatedRow[k] = val.split(findText).join(replaceText);
-        } else {
-          const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-          updatedRow[k] = val.replace(regex, replaceText);
-        }
-      });
-      return updatedRow;
-    }));
-    onNotification?.("Replace Applied", `Replaced all instances of "${findText}" with "${replaceText}".`, "success");
-  };
-
-  const handleOpenCodeGenerator = (rowIndex: number) => {
-    setActiveCodeTargetRow(rowIndex);
-    setIsCodeModalOpen(true);
-  };
-
-  const handleApplyGeneratedCode = (sku: string, barcode: string) => {
-    if (activeCodeTargetRow !== null && gridRows[activeCodeTargetRow]) {
-      handleCellChange(activeCodeTargetRow, "code", sku);
-      handleCellChange(activeCodeTargetRow, "barcode", barcode);
-      onNotification?.("Code Applied", `Applied SKU ${sku} and Barcode ${barcode}`, "success");
-    }
-  };
-
-  const handleSaveGridToDatabase = async () => {
-    // 0. Validate that grid is not empty
-    if (gridRows.length === 0) {
-      onNotification?.("No Records", "There are no item records to save.", "error");
-      return;
-    }
-
-    // 1. Validate required non-blank fields for every row
-    for (let i = 0; i < gridRows.length; i++) {
-      const row = gridRows[i];
-      const valResult = validateRowRequiredFields(row);
-      if (!valResult.isValid) {
-        onNotification?.(
-          "Validation Error — Required Fields Missing",
-          `Row #${i + 1} has missing required fields: ${valResult.missingFields.join(", ")}. Stock No/SKU, Barcode, Product Name, MRP, Selling Price, GST Tax Rate, and HSN Code cannot be blank.`,
-          "error"
-        );
-        return;
-      }
-    }
-
-    // 2. Check in-grid duplicate Stock No
-    if (duplicatesInfo.duplicateCodes.size > 0) {
-      const firstIdx = Array.from(duplicatesInfo.duplicateCodes)[0];
-      const conflictCode = gridRows[firstIdx]?.code;
-      onNotification?.(
-        "Duplicate Stock No Error",
-        `Duplicate Stock No "${conflictCode}" detected in grid rows. Each product must have a unique Stock No.`,
-        "error"
-      );
-      return;
-    }
-
-    // 3. Check in-grid duplicate Barcode
-    if (duplicatesInfo.duplicateBarcodes.size > 0) {
-      const firstIdx = Array.from(duplicatesInfo.duplicateBarcodes)[0];
-      const conflictBarcode = gridRows[firstIdx]?.barcode;
-      onNotification?.(
-        "Duplicate Barcode Error",
-        `Duplicate Barcode "${conflictBarcode}" detected in grid rows. Each product must have a unique Barcode.`,
-        "error"
-      );
-      return;
-    }
-
-    // 4. Check database conflicts
-    if (duplicatesInfo.duplicateDbCodes.size > 0) {
-      const [idx, prodName] = Array.from(duplicatesInfo.duplicateDbCodes.entries())[0];
-      const conflictCode = gridRows[idx]?.code;
-      onNotification?.(
-        "Stock No Already Exists in Database",
-        `Stock No "${conflictCode}" in Row #${idx + 1} already belongs to existing product "${prodName}".`,
-        "error"
-      );
-      return;
-    }
-
-    if (duplicatesInfo.duplicateDbBarcodes.size > 0) {
-      const [idx, prodName] = Array.from(duplicatesInfo.duplicateDbBarcodes.entries())[0];
-      const conflictBarcode = gridRows[idx]?.barcode;
-      onNotification?.(
-        "Barcode Already Exists in Database",
-        `Barcode "${conflictBarcode}" in Row #${idx + 1} is already registered for product "${prodName}".`,
-        "error"
-      );
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      // Commit to FastAPI transactional endpoint (PUT for existing, POST for new)
-      for (let i = 0; i < gridRows.length; i++) {
-        const row = gridRows[i];
-        const rowNum = i + 1;
-        const rawBp = row.buying_price !== undefined && row.buying_price !== null && String(row.buying_price).trim() !== ""
-          ? row.buying_price
-          : row.buyingPrice;
-        const rawCp = row.cost_price !== undefined && row.cost_price !== null && String(row.cost_price).trim() !== ""
-          ? row.cost_price
-          : row.costPrice;
-
-        const prodPayload = {
-          code: String(row.code ?? "").trim(),
-          barcode: String(row.barcode ?? "").trim(),
-          name: String(row.name ?? "").trim(),
-          primary_image_url: row.imageName && String(row.imageName).trim() ? String(row.imageName).trim() : null,
-          brand: row.brand && String(row.brand).trim() ? String(row.brand).trim() : null,
-          style_code: row.styleCode && String(row.styleCode).trim() ? String(row.styleCode).trim() : null,
-          color: row.colour && String(row.colour).trim() ? String(row.colour).trim() : null,
-          size: row.size && String(row.size).trim() ? String(row.size).trim() : null,
-          category: row.category && String(row.category).trim() ? String(row.category).trim() : "Footwear",
-          mrp: Number(row.mrp || 0),
-          price: Number(row.price || 0),
-          buying_price: rawBp !== null && rawBp !== undefined && String(rawBp).trim() !== "" ? Number(rawBp) : null,
-          cost_price: rawCp !== null && rawCp !== undefined && String(rawCp).trim() !== "" ? Number(rawCp) : null,
-          gst_percentage: Number(row.gst_percentage || 18),
-          hsn_code: String(row.hsn_code ?? "").trim(),
-          attributes: {
-            image_name: row.imageName || "",
-            a1: row.a1 || "",
-            a2: row.a2 || "",
-            a3: row.a3 || "",
-            a4: row.a4 || "",
-            a5: row.a5 || "",
-            a6: row.a6 || "",
-            a7: row.a7 || "",
-            a8: row.a8 || "",
-            a9: row.a9 || ""
-          }
-        };
-
-        const isExisting = row._id && !String(row._id).startsWith("new-") && !String(row._id).startsWith("row-");
-        const matchedProduct = products.find(p => p.id === row._id || p.code === row.code);
-
-        try {
-          if (isExisting || (activeMode === "edit" && matchedProduct?.id)) {
-            const targetId = matchedProduct?.id || row._id;
-            await apiFetchV1(`/products/${targetId}`, {
-              method: "PUT",
-              body: JSON.stringify(prodPayload)
-            });
-          } else {
-            await apiFetchV1("/products/", {
-              method: "POST",
-              body: JSON.stringify(prodPayload)
-            });
-          }
-        } catch (err: any) {
-          const rawMsg = err?.message || "Validation Error";
-          let friendlyMsg = rawMsg;
-          if (rawMsg.includes("code already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("code")) {
-            friendlyMsg = `Stock No "${row.code}" already exists in the database. Please provide a unique Stock No.`;
-          } else if (rawMsg.includes("barcode already exists") || rawMsg.includes("duplicate key value violates unique constraint") && rawMsg.includes("barcode")) {
-            friendlyMsg = `Barcode "${row.barcode}" is already registered in the database for another item. Barcodes must be unique.`;
-          } else if (rawMsg.includes("401") || rawMsg.includes("Token") || rawMsg.includes("Unauthorized")) {
-            friendlyMsg = "Your user session has expired or requires login. Please re-authenticate.";
-          }
-          throw new Error(`Row #${rowNum} [${row.code || 'No Code'}]: ${friendlyMsg}`);
-        }
-      }
-
-      onNotification?.("Saved Successfully", `Successfully saved ${gridRows.length} item${gridRows.length > 1 ? 's' : ''} to database.`, "success");
-      if (onRefreshProducts) await onRefreshProducts();
-    } catch (err: any) {
-      onNotification?.("Unable to Save Items", err.message || "Failed to commit item records to database.", "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // Read-only Quick-Audit mode: spreadsheet write/mutation handlers retired.
 
   const handlePrintManifest = () => {
     window.print();
@@ -981,44 +755,39 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
       {/* Top Header Mode Bar */}
       <div className="px-6 py-3 border-b border-[#c6c6cd] dark:border-[#45464d] bg-white dark:bg-[#131b2e] flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-xs">
         
-        {/* Left: Mode Tabs & Title */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center bg-[#e9edff] dark:bg-[#1d3054] p-1 rounded-lg border border-[#c4d2ff] dark:border-[#434654]">
-            <button
-              type="button"
-              onClick={() => setActiveMode("add")}
-              className={`px-3 py-1 rounded text-xs font-bold transition ${
-                activeMode === "add"
-                  ? "bg-[#0052cc] text-white shadow-xs"
-                  : "text-[#515f74] dark:text-[#bec6e0] hover:text-[#0052cc]"
-              }`}
-            >
-              Adding Item Master
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMode("edit")}
-              className={`px-3 py-1 rounded text-xs font-bold transition ${
-                activeMode === "edit"
-                  ? "bg-[#0052cc] text-white shadow-xs"
-                  : "text-[#515f74] dark:text-[#bec6e0] hover:text-[#0052cc]"
-              }`}
-            >
-              Editing Item Master
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMode("delete")}
-              className={`px-3 py-1 rounded text-xs font-bold transition ${
-                activeMode === "delete"
-                  ? "bg-[#ba1a1a] text-white shadow-xs"
-                  : "text-[#515f74] dark:text-[#bec6e0] hover:text-[#ba1a1a]"
-              }`}
-            >
-              Deleting Item Master
-            </button>
+        {/* Left: Quick-Audit Mode & Actions */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#e0f2fe] dark:bg-[#0369a1]/30 text-[#0369a1] dark:text-[#7dd3fc] rounded-lg border border-[#bae6fd] dark:border-[#0284c7]/40 text-xs font-bold">
+            <FileSpreadsheet size={15} />
+            <span>Quick-Audit Table (Read-Only)</span>
           </div>
 
+          {onNavigateToCatalog && (
+            <button
+              type="button"
+              onClick={onNavigateToCatalog}
+              className="px-3 py-1.5 bg-[#0052cc] hover:bg-[#003d9b] text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              title="Open canonical Article / Design Catalog for creating and editing articles"
+            >
+              <Package size={14} />
+              <span>Open Article Catalog</span>
+            </button>
+          )}
+
+          {onAddNew && (
+            <button
+              type="button"
+              onClick={onAddNew}
+              className="px-3 py-1.5 border border-[#0052cc] text-[#0052cc] dark:text-[#93c5fd] hover:bg-[#e9edff] dark:hover:bg-[#1d3054] rounded-lg text-xs font-bold transition flex items-center gap-1"
+              title="Create new Article using the standardized Drawer"
+            >
+              <span>+ New Article</span>
+            </button>
+          )}
+        </div>
+
+        {/* View Switchers */}
+        <div className="flex items-center gap-3">
           <div className="flex items-center bg-[#f2f4f6] dark:bg-[#191c1e] p-1 rounded-lg border border-[#c6c6cd] dark:border-[#45464d]">
             <button
               type="button"
@@ -1056,8 +825,9 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
               value={searchFilter}
               data-field-key="product_name"
               onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Filter items..."
+              placeholder={isSearching ? "Searching items..." : "Search SKU, barcode, name..."}
               aria-label="Filter items globally"
+              aria-busy={isSearching}
               className="w-full pl-8 pr-7 py-1 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs outline-none focus:border-[#0052cc]"
             />
             {searchFilter && (
@@ -1106,6 +876,25 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         </div>
       )}
 
+      {/* Read-Only Quick-Audit Banner */}
+      <div className="bg-[#f0f9ff] dark:bg-[#0c2a4d] border-b border-[#bae6fd] dark:border-[#1e4976] px-6 py-2 flex items-center justify-between text-xs text-[#0369a1] dark:text-[#7dd3fc]">
+        <div className="flex items-center gap-2">
+          <Info size={14} className="shrink-0" />
+          <span>
+            <strong>Read-Only Mode:</strong> This matrix displays existing catalog items for rapid inventory review, filtering, and export. Direct spreadsheet mutations are retired.
+          </span>
+        </div>
+        {onNavigateToCatalog && (
+          <button
+            type="button"
+            onClick={onNavigateToCatalog}
+            className="text-[#0052cc] dark:text-[#93c5fd] font-bold text-xs hover:underline flex items-center gap-1"
+          >
+            Switch to Article Catalog →
+          </button>
+        )}
+      </div>
+
       {/* Main Workspace Canvas */}
       <div className="flex-1 p-4 overflow-hidden min-h-0">
         
@@ -1143,7 +932,17 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
 
             {/* High Density Table */}
             <div className="flex-1 overflow-auto bg-white dark:bg-[#191c1e]">
-              <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+              <table
+                className="w-full min-w-max table-fixed text-left border-collapse text-xs whitespace-nowrap"
+                style={{ width: `${Math.max(totalTableWidth, 720)}px` }}
+              >
+                <colgroup>
+                  <col style={{ width: "36px" }} />
+                  <col style={{ width: "40px" }} />
+                  {visibleColumns.map(column => (
+                    <col key={column.key} style={{ width: `${getColumnWidth(column.key)}px` }} />
+                  ))}
+                </colgroup>
                 <thead className="sticky top-0 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] z-20">
                   <tr>
                     <th className="p-2 w-10 text-center border-r border-[#c6c6cd] dark:border-[#45464d] sticky left-0 z-30 bg-[#f2f4f6] dark:bg-[#131b2e] align-top">
@@ -1175,8 +974,8 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                     </th>
                     {visibleColumns.map((col, cIdx) => {
                       const isFrozen = cIdx < frozenCount;
-                      const isSorted = sortConfig?.columnKey === col.key;
-                      const sortDirection = isSorted ? sortConfig.direction : null;
+                      const isSorted = Boolean(sortConfig && sortConfig.columnKey === col.key);
+                      const sortDirection = isSorted && sortConfig ? sortConfig.direction : null;
                       const ariaSortValue = sortDirection === "asc" ? "ascending" : sortDirection === "desc" ? "descending" : "none";
                       const filterValue = columnFilters[col.key] || "";
                       const isRequiredCol = isItemFieldRequired(col.key);
@@ -1185,7 +984,8 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                         <th
                           key={col.key}
                           aria-sort={ariaSortValue}
-                          className={`p-2 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] border-r border-[#c6c6cd] dark:border-[#45464d] min-w-[130px] ${
+                          style={{ width: `${getColumnWidth(col.key)}px` }}
+                          className={`relative p-2 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px] border-r border-[#c6c6cd] dark:border-[#45464d] min-w-[72px] ${
                             isFrozen ? "sticky left-[88px] z-30 bg-[#f2f4f6] dark:bg-[#131b2e] shadow-xs" : ""
                           }`}
                         >
@@ -1234,6 +1034,14 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                                 </button>
                               )}
                             </div>
+                            <span
+                              role="separator"
+                              aria-label={`Resize ${col.label} column`}
+                              title="Drag to resize. Double-click to auto-fit."
+                              onMouseDown={(event) => handleColumnResize(col.key, event)}
+                              onDoubleClick={() => handleAutoSizeColumn(col.key)}
+                              className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[#0052cc]"
+                            />
                           </div>
                         </th>
                       );
@@ -1273,7 +1081,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                             isSelected ? "bg-[#d5e3fd]/40" : "hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133]"
                           }`}
                         >
-                          <td className="p-2 text-center border-r border-[#eceef0] dark:border-[#2d3133] sticky left-0 z-10 bg-inherit">
+                          <td className="p-0.5 text-center border-r border-[#eceef0] dark:border-[#2d3133] sticky left-0 z-10 bg-inherit">
                             <input
                               type="checkbox"
                               aria-label={`Select row ${displayIdx + 1}`}
@@ -1289,7 +1097,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                               className="rounded"
                             />
                           </td>
-                          <td className="p-2 text-center font-mono text-[10px] text-[#76777d] border-r border-[#eceef0] dark:border-[#2d3133]">
+                          <td className="p-0.5 text-center font-mono text-[10px] text-[#76777d] border-r border-[#eceef0] dark:border-[#2d3133]">
                             {displayIdx + 1}
                           </td>
                           {visibleColumns.map((col, cIdx) => {
@@ -1297,7 +1105,6 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                             const isCode = col.key === "code" || col.key === "sku" || col.key === "stockNo";
                             const isBarcode = col.key === "barcode";
                             const isImage = col.key === "imageName" || col.key === "image";
-                            const isNonEditableInEditMode = activeMode === "edit" && (isCode || isBarcode);
                             const isDuplicateCode = isCode && (duplicatesInfo.duplicateCodes.has(sourceIndex) || duplicatesInfo.duplicateDbCodes.has(sourceIndex));
                             const isDuplicateBarcode = isBarcode && (duplicatesInfo.duplicateBarcodes.has(sourceIndex) || duplicatesInfo.duplicateDbBarcodes.has(sourceIndex));
                             const isDuplicate = isDuplicateCode || isDuplicateBarcode;
@@ -1307,87 +1114,86 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                             const isRequiredField = isItemFieldRequired(col.key);
                             const isBlankValue = isRequiredField && (val === null || val === undefined || String(val).trim() === "");
 
+                            // Format displayed value for lookup fields
+                            let displayVal = val;
+                            if (col.key === "warehouseId") {
+                              const found = warehouseOptions.find(o => o.id === val);
+                              displayVal = found ? `${found.code} - ${found.name}` : val;
+                            } else if (col.key === "binLocation") {
+                              const found = locationOptions.find(o => o.id === val);
+                              displayVal = found ? `${found.code} - ${found.name}` : val;
+                            }
+
                             return (
                               <td
                                 key={col.key}
-                                className={`p-1.5 border-r border-[#eceef0] dark:border-[#2d3133] ${
+                                className={`p-0 border-r border-[#eceef0] dark:border-[#2d3133] ${
                                   isFrozen ? "sticky left-[88px] z-10 bg-inherit shadow-xs" : ""
                                 } ${
                                   isDuplicate
                                     ? "bg-[#ffdad6] dark:bg-[#93000a]/40"
                                     : isBlankValue
                                     ? "bg-[#ffdad6]/20 dark:bg-[#93000a]/20"
-                                    : isNonEditableInEditMode
-                                    ? "bg-[#e0e3e5] dark:bg-[#2d3133]/60"
                                     : ""
                                 }`}
                               >
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="text"
-                                    readOnly={isNonEditableInEditMode || activeMode === "delete"}
-                                    title={
-                                      isNonEditableInEditMode
-                                        ? "SKU and Barcode are permanent identifiers and cannot be edited for existing items."
-                                        : isBlankValue
-                                        ? `${col.label} is required and cannot be blank.`
-                                        : undefined
-                                    }
-                                    value={val}
-                                    onChange={e => handleCellChange(sourceIndex, col.key, e.target.value)}
-                                    onBlur={e => handleCellBlur(sourceIndex, col.key, e.target.value)}
-                                    className={`w-full px-2 py-1 rounded outline-none text-xs font-semibold ${
+                                <div className="flex items-center justify-between gap-1 px-1 min-h-[30px]">
+                                  <span
+                                    title={isBlankValue ? `${col.label} is missing in record.` : String(displayVal || "")}
+                                    className={`select-text truncate block px-1 py-1 text-xs ${
+                                      isCode || isBarcode || col.key === "hsn_code" || col.key === "price" || col.key === "mrp"
+                                        ? "font-mono font-semibold"
+                                        : "font-normal"
+                                    } ${
                                       isDuplicate
-                                        ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold border border-[#ba1a1a]"
+                                        ? "text-[#ba1a1a] dark:text-[#ffb4ab] font-bold"
                                         : isBlankValue
-                                        ? "border border-[#ba1a1a] bg-[#ffdad6]/40 text-[#ba1a1a] dark:text-[#ffb4ab] placeholder:text-[#ba1a1a]"
-                                        : isNonEditableInEditMode
-                                        ? "bg-transparent text-[#515f74] dark:text-[#bec6e0] cursor-not-allowed font-mono font-bold"
-                                        : "bg-transparent hover:bg-white dark:hover:bg-[#191c1e] focus:bg-white dark:focus:bg-[#191c1e] border border-transparent focus:border-[#0052cc]"
+                                        ? "text-[#ba1a1a] dark:text-[#ffb4ab] italic"
+                                        : "text-[#191c1e] dark:text-[#eff1f3]"
                                     }`}
-                                  />
-                                  {isDuplicate && (
-                                    <span
-                                      title={
-                                        dbConflictMsg
-                                          ? `Already registered in database for '${dbConflictMsg}'`
-                                          : isDuplicateCode
-                                          ? "Duplicate Stock No detected in grid!"
-                                          : "Duplicate Barcode detected in grid!"
-                                      }
-                                      className="text-[#ba1a1a] px-1 font-bold animate-pulse cursor-help"
-                                    >
-                                      ⚠️
-                                    </span>
-                                  )}
-                                  {isCode && activeMode === "add" && !isDuplicate && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenCodeGenerator(sourceIndex)}
-                                      title="Auto-Generate SKU & Barcode (F2)"
-                                      className="p-1 text-[#0052cc] hover:bg-[#e9edff] rounded"
-                                    >
-                                      <Sparkles size={13} />
-                                    </button>
-                                  )}
-                                  {isImage && Boolean(val) && (
-                                    <div
-                                      onMouseEnter={(e) => {
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        setHoverPreview({
-                                          url: resolveProductImageUrl(val),
-                                          name: String(val),
-                                          x: rect.right + 10,
-                                          y: rect.top - 40
-                                        });
-                                      }}
-                                      onMouseLeave={() => setHoverPreview(null)}
-                                      className="cursor-pointer p-1 text-[#0052cc] hover:bg-[#e9edff] rounded"
-                                      title="Hover to preview resolved image"
-                                    >
-                                      <ImageIcon size={13} />
-                                    </div>
-                                  )}
+                                  >
+                                    {displayVal !== "" && displayVal !== null && displayVal !== undefined
+                                      ? String(displayVal)
+                                      : isBlankValue
+                                      ? "Missing"
+                                      : "—"}
+                                  </span>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {isDuplicate && (
+                                      <span
+                                        title={
+                                          dbConflictMsg
+                                            ? `Already registered in database for '${dbConflictMsg}'`
+                                            : isDuplicateCode
+                                            ? "Duplicate Stock No detected in records"
+                                            : "Duplicate Barcode detected in records"
+                                        }
+                                        className="text-[#ba1a1a] px-0.5 font-bold animate-pulse cursor-help"
+                                      >
+                                        ⚠️
+                                      </span>
+                                    )}
+
+                                    {isImage && Boolean(val) && (
+                                      <div
+                                        onMouseEnter={(e) => {
+                                          const rect = e.currentTarget.getBoundingClientRect();
+                                          setHoverPreview({
+                                            url: resolveProductImageUrl(val),
+                                            name: String(val),
+                                            x: rect.right + 10,
+                                            y: rect.top - 40
+                                          });
+                                        }}
+                                        onMouseLeave={() => setHoverPreview(null)}
+                                        className="cursor-pointer p-0.5 text-[#0052cc] hover:bg-[#e9edff] rounded"
+                                        title="Hover to preview resolved image"
+                                      >
+                                        <ImageIcon size={13} />
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                             );
@@ -1402,35 +1208,53 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
 
           </div>
         ) : (
-          /* Classic Single-Record View */
+          /* Classic Single-Record View (Read-Only Quick-Audit Inspector) */
           <div className="h-full overflow-y-auto bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-xl p-6 shadow-xs space-y-6">
             <div className="flex justify-between items-center border-b border-[#eceef0] dark:border-[#45464d] pb-4">
               <div>
-                <h2 className="text-base font-bold text-[#003d9b] dark:text-[#b2c5ff]">
-                  Item Details — Classic View
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-[#003d9b] dark:text-[#b2c5ff]">
+                    Item Details — Classic View
+                  </h2>
+                  <span className="px-2 py-0.5 bg-[#e0f2fe] dark:bg-[#0369a1]/30 text-[#0369a1] dark:text-[#7dd3fc] text-[10px] font-bold rounded">
+                    Read-Only Inspector
+                  </span>
+                </div>
                 <p className="text-xs text-[#76777d]">Single-record inspector &amp; detailed attribute auditing.</p>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={classicRecordIndex === 0}
-                  onClick={() => setClassicRecordIndex(prev => Math.max(0, prev - 1))}
-                  className="p-1.5 border border-[#c6c6cd] dark:border-[#45464d] rounded hover:bg-[#eceef0] disabled:opacity-30"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="font-mono text-xs font-bold px-2">
-                  Record {filteredSortedRows.length > 0 ? classicRecordIndex + 1 : 0} of {filteredSortedRows.length}
-                </span>
-                <button
-                  type="button"
-                  disabled={classicRecordIndex >= filteredSortedRows.length - 1}
-                  onClick={() => setClassicRecordIndex(prev => Math.min(filteredSortedRows.length - 1, prev + 1))}
-                  className="p-1.5 border border-[#c6c6cd] dark:border-[#45464d] rounded hover:bg-[#eceef0] disabled:opacity-30"
-                >
-                  <ChevronRight size={16} />
-                </button>
+              <div className="flex items-center gap-3">
+                {onNavigateToCatalog && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToCatalog}
+                    className="px-3 py-1.5 bg-[#0052cc] hover:bg-[#003d9b] text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                    title="Open canonical Article / Design Catalog to edit this item"
+                  >
+                    <Package size={13} />
+                    <span>Open in Article Catalog</span>
+                  </button>
+                )}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={classicRecordIndex === 0}
+                    onClick={() => setClassicRecordIndex(prev => Math.max(0, prev - 1))}
+                    className="p-1.5 border border-[#c6c6cd] dark:border-[#45464d] rounded hover:bg-[#eceef0] disabled:opacity-30"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="font-mono text-xs font-bold px-2">
+                    Record {filteredSortedRows.length > 0 ? classicRecordIndex + 1 : 0} of {filteredSortedRows.length}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={classicRecordIndex >= filteredSortedRows.length - 1}
+                    onClick={() => setClassicRecordIndex(prev => Math.min(filteredSortedRows.length - 1, prev + 1))}
+                    className="p-1.5 border border-[#c6c6cd] dark:border-[#45464d] rounded hover:bg-[#eceef0] disabled:opacity-30"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1442,104 +1266,90 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                 <h3 className="font-bold uppercase tracking-wider text-[#003d9b] dark:text-[#b2c5ff] text-[10px]">1. Identification</h3>
                 <div>
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    Stock No / SKU <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                    Stock No / SKU
                   </label>
                   <input
                     type="text"
-                    data-field-key="item_code"
-                    readOnly={activeMode === "edit" || activeMode === "delete"}
-                    title={activeMode === "edit" ? "SKU is a permanent identifier and cannot be modified." : undefined}
+                    readOnly={true}
                     value={currentClassicRecord.code || ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "code", e.target.value)}
-                    className={`w-full p-2 border rounded font-mono font-bold ${
-                      !currentClassicRecord.code?.toString().trim()
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    } ${
-                      activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133] cursor-not-allowed text-[#515f74] dark:text-[#bec6e0]" : "bg-white dark:bg-[#2d3133]"
-                    }`}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold select-text cursor-default"
                   />
                   {!currentClassicRecord.code?.toString().trim() && (
                     <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      Stock No / SKU is required and cannot be blank.
+                      Stock No / SKU is blank in database.
                     </span>
                   )}
                 </div>
                 <div>
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    Barcode (EAN-13) <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                    Barcode (EAN-13)
                   </label>
                   <input
                     type="text"
-                    data-field-key="barcode"
-                    readOnly={activeMode === "edit" || activeMode === "delete"}
-                    title={activeMode === "edit" ? "Barcode is a permanent identifier and cannot be modified." : undefined}
+                    readOnly={true}
                     value={currentClassicRecord.barcode || ""}
-                    onChange={e => handleCellChange(currentClassicSourceIndex, "barcode", e.target.value)}
-                    className={`w-full p-2 border rounded font-mono font-bold ${
-                      !currentClassicRecord.barcode?.toString().trim()
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    } ${
-                      activeMode === "edit" ? "bg-[#e0e3e5] dark:bg-[#2d3133] cursor-not-allowed text-[#515f74] dark:text-[#bec6e0]" : "bg-white dark:bg-[#2d3133]"
-                    }`}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold select-text cursor-default"
                   />
                   {!currentClassicRecord.barcode?.toString().trim() && (
                     <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      Barcode is required and cannot be blank.
+                      Barcode is blank in database.
                     </span>
                   )}
                 </div>
                 <div>
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    Product Title / Name <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                    Product Title / Name
                   </label>
                   <input
                     type="text"
-                    data-field-key="product_name"
+                    readOnly={true}
                     value={currentClassicRecord.name || ""}
-                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "name", e.target.value)}
-                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-bold ${
-                      !currentClassicRecord.name?.toString().trim()
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    }`}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-semibold select-text cursor-default"
                   />
                   {!currentClassicRecord.name?.toString().trim() && (
                     <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      Product Name is required and cannot be blank.
+                      Product Name is blank in database.
                     </span>
                   )}
                 </div>
                 <div>
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    HSN Code <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                    HSN Code
                   </label>
                   <input
                     type="text"
-                    data-field-key="hsn_code"
+                    readOnly={true}
                     value={currentClassicRecord.hsn_code || ""}
-                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "hsn_code", e.target.value)}
-                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
-                      !currentClassicRecord.hsn_code?.toString().trim()
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    }`}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold select-text cursor-default"
                   />
                   {!currentClassicRecord.hsn_code?.toString().trim() && (
                     <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      HSN Code is required and cannot be blank.
+                      HSN Code is blank in database.
                     </span>
                   )}
+                  {currentClassicRecord.hsn_code?.toString().trim() && (() => {
+                    const rowKey = currentClassicRecord.stockNo || currentClassicRecord.code || String(currentClassicSourceIndex);
+                    const hsn = hsnValidation[rowKey];
+                    if (!hsn) return null;
+                    if (hsn.valid) return (
+                      <span className="text-emerald-600 dark:text-emerald-400 text-[10px] block mt-1">
+                        ✓ {hsn.description ? `${hsn.description} — ` : ""}GST {hsn.gstPct}%
+                      </span>
+                    );
+                    return (
+                      <span className="text-amber-600 dark:text-amber-400 text-[10px] font-semibold block mt-1">
+                        ⚠ HSN not found in standard list — verify before filing.
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">Image Filename (Optional)</label>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">Image Filename</label>
                   <input
                     type="text"
-                    data-field-key="product_name"
+                    readOnly={true}
                     value={currentClassicRecord.imageName || ""}
-                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "imageName", e.target.value)}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded font-mono text-xs"
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono text-xs select-text cursor-default"
                   />
                 </div>
               </div>
@@ -1549,132 +1359,58 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                 <h3 className="font-bold uppercase tracking-wider text-[#003d9b] dark:text-[#b2c5ff] text-[10px]">2. Pricing &amp; Taxes</h3>
                 <div>
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    Buying Price {!isExemptNonStockItem(currentClassicRecord) && <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>}
-                  </label>
-                  <input
-                    type="number"
-                    data-field-key="buying_price"
-                    value={currentClassicRecord.buyingPrice !== undefined && currentClassicRecord.buyingPrice !== null ? currentClassicRecord.buyingPrice : (currentClassicRecord.buying_price ?? "")}
-                    onChange={(e) => {
-                      const val = e.target.value === "" ? "" : Number(e.target.value);
-                      handleCellChange(currentClassicSourceIndex, "buyingPrice", val);
-                      handleCellChange(currentClassicSourceIndex, "buying_price", val);
-                    }}
-                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
-                      !isExemptNonStockItem(currentClassicRecord) && (Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price) <= 0 || isNaN(Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price)))
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    }`}
-                  />
-                  {!isExemptNonStockItem(currentClassicRecord) && (Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price) <= 0 || isNaN(Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price))) && (
-                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      Buying Price is required and must be greater than 0.
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    Cost Price {!isExemptNonStockItem(currentClassicRecord) && <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>}
-                  </label>
-                  <input
-                    type="number"
-                    data-field-key="cost_price"
-                    value={currentClassicRecord.costPrice !== undefined && currentClassicRecord.costPrice !== null ? currentClassicRecord.costPrice : (currentClassicRecord.cost_price ?? "")}
-                    onChange={(e) => {
-                      const val = e.target.value === "" ? "" : Number(e.target.value);
-                      handleCellChange(currentClassicSourceIndex, "costPrice", val);
-                      handleCellChange(currentClassicSourceIndex, "cost_price", val);
-                    }}
-                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
-                      !isExemptNonStockItem(currentClassicRecord) && (Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price) <= 0 || isNaN(Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price)) || Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price) > Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price))
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    }`}
-                  />
-                  {!isExemptNonStockItem(currentClassicRecord) && (Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price) <= 0 || isNaN(Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price))) ? (
-                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      Cost Price is required and must be greater than 0.
-                    </span>
-                  ) : !isExemptNonStockItem(currentClassicRecord) && Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price) > Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price) ? (
-                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      Cost Price ({Number(currentClassicRecord.costPrice || currentClassicRecord.cost_price)}) must be less than or equal to Buying Price ({Number(currentClassicRecord.buyingPrice || currentClassicRecord.buying_price)}).
-                    </span>
-                  ) : null}
-                </div>
-                <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    Selling Price <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    data-field-key="selling_price"
-                    value={currentClassicRecord.price ?? ""}
-                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "price", e.target.value === "" ? "" : Number(e.target.value))}
-                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold text-[#0c9488] ${
-                      currentClassicRecord.price === "" || currentClassicRecord.price === null || currentClassicRecord.price === undefined || Number(currentClassicRecord.price) < 0 || isNaN(Number(currentClassicRecord.price))
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    }`}
-                  />
-                  {(currentClassicRecord.price === "" || currentClassicRecord.price === null || currentClassicRecord.price === undefined || Number(currentClassicRecord.price) < 0 || isNaN(Number(currentClassicRecord.price))) && (
-                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      Selling Price is required and must be greater than or equal to 0.
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    MRP <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    data-field-key="mrp"
-                    value={currentClassicRecord.mrp ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value === "" ? "" : Number(e.target.value);
-                      handleCellChange(currentClassicSourceIndex, "mrp", val);
-                      const currentPrice = currentClassicRecord.price;
-                      if (currentPrice === "" || currentPrice === null || currentPrice === undefined || currentPrice === 0 || currentPrice === currentClassicRecord.mrp) {
-                        handleCellChange(currentClassicSourceIndex, "price", val);
-                        handleCellChange(currentClassicSourceIndex, "sellingPrice", val);
-                      }
-                    }}
-                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-mono font-bold ${
-                      currentClassicRecord.mrp === "" || currentClassicRecord.mrp === null || currentClassicRecord.mrp === undefined || Number(currentClassicRecord.mrp) < 0 || isNaN(Number(currentClassicRecord.mrp)) || Number(currentClassicRecord.mrp) < Number(currentClassicRecord.price)
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    }`}
-                  />
-                  {(currentClassicRecord.mrp === "" || currentClassicRecord.mrp === null || currentClassicRecord.mrp === undefined || Number(currentClassicRecord.mrp) < 0 || isNaN(Number(currentClassicRecord.mrp))) ? (
-                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      MRP is required and must be a valid number.
-                    </span>
-                  ) : Number(currentClassicRecord.mrp) < Number(currentClassicRecord.price) ? (
-                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      MRP ({Number(currentClassicRecord.mrp)}) must be greater than or equal to Selling Price ({Number(currentClassicRecord.price)}).
-                    </span>
-                  ) : null}
-                </div>
-                <div>
-                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
-                    GST Tax Rate (%) <span className="text-[#ba1a1a] dark:text-[#ffb4ab] font-black">*</span>
+                    Buying Price
                   </label>
                   <input
                     type="text"
-                    data-field-key="gst_percentage"
-                    value={currentClassicRecord.gst_percentage ?? ""}
-                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "gst_percentage", e.target.value)}
-                    className={`w-full p-2 bg-white dark:bg-[#2d3133] border rounded font-semibold ${
-                      !currentClassicRecord.gst_percentage?.toString().trim()
-                        ? "border-[#ba1a1a] bg-[#ffdad6]/30 text-[#ba1a1a]"
-                        : "border-[#c6c6cd]"
-                    }`}
+                    readOnly={true}
+                    value={currentClassicRecord.buyingPrice !== undefined && currentClassicRecord.buyingPrice !== null ? currentClassicRecord.buyingPrice : (currentClassicRecord.buying_price ?? "—")}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold select-text cursor-default"
                   />
-                  {!currentClassicRecord.gst_percentage?.toString().trim() && (
-                    <span className="text-[#ba1a1a] dark:text-[#ffb4ab] text-[10px] font-semibold block mt-1">
-                      GST Tax Rate is required and cannot be blank.
-                    </span>
-                  )}
+                </div>
+                <div>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    Cost Price
+                  </label>
+                  <input
+                    type="text"
+                    readOnly={true}
+                    value={currentClassicRecord.costPrice !== undefined && currentClassicRecord.costPrice !== null ? currentClassicRecord.costPrice : (currentClassicRecord.cost_price ?? "—")}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold select-text cursor-default"
+                  />
+                </div>
+                <div>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    Selling Price
+                  </label>
+                  <input
+                    type="text"
+                    readOnly={true}
+                    value={currentClassicRecord.price !== undefined && currentClassicRecord.price !== null ? currentClassicRecord.price : "—"}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#0c9488] dark:text-[#2dd4bf] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold select-text cursor-default"
+                  />
+                </div>
+                <div>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    MRP
+                  </label>
+                  <input
+                    type="text"
+                    readOnly={true}
+                    value={currentClassicRecord.mrp !== undefined && currentClassicRecord.mrp !== null ? currentClassicRecord.mrp : "—"}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold select-text cursor-default"
+                  />
+                </div>
+                <div>
+                  <label className="text-[#515f74] font-bold text-[10px] block mb-1">
+                    GST Tax Rate (%)
+                  </label>
+                  <input
+                    type="text"
+                    readOnly={true}
+                    value={currentClassicRecord.gst_percentage !== undefined && currentClassicRecord.gst_percentage !== null ? `${currentClassicRecord.gst_percentage}%` : "—"}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-semibold select-text cursor-default"
+                  />
                 </div>
               </div>
 
@@ -1685,30 +1421,27 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">A1 (Heels / Heel Type)</label>
                   <input
                     type="text"
-                    data-field-key="brand"
-                    value={currentClassicRecord.a1 || ""}
-                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "a1", e.target.value)}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
+                    readOnly={true}
+                    value={currentClassicRecord.a1 || "—"}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded select-text cursor-default"
                   />
                 </div>
                 <div>
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">A2 (Upper Material)</label>
                   <input
                     type="text"
-                    data-field-key="color"
-                    value={currentClassicRecord.a2 || ""}
-                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "a2", e.target.value)}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
+                    readOnly={true}
+                    value={currentClassicRecord.a2 || "—"}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded select-text cursor-default"
                   />
                 </div>
                 <div>
                   <label className="text-[#515f74] font-bold text-[10px] block mb-1">A3 (Outsole Material)</label>
                   <input
                     type="text"
-                    data-field-key="size"
-                    value={currentClassicRecord.a3 || ""}
-                    onChange={(e) => handleCellChange(currentClassicSourceIndex, "a3", e.target.value)}
-                    className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded"
+                    readOnly={true}
+                    value={currentClassicRecord.a3 || "—"}
+                    className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] border border-[#c6c6cd] dark:border-[#45464d] rounded select-text cursor-default"
                   />
                 </div>
               </div>
@@ -1758,47 +1491,30 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         </div>
       )}
 
-      {/* Enterprise Standard Footer Bar */}
+      {/* Enterprise Standard Footer Bar (Read-Only Quick-Audit Table) */}
       <footer className="h-12 border-t border-[#c6c6cd] dark:border-[#45464d] bg-white dark:bg-[#131b2e] px-6 flex items-center justify-between shrink-0 shadow-xs text-xs">
         <div className="flex items-center gap-2 font-mono text-[11px] text-[#76777d]">
-          <span>SMRITI Retail OS • Enterprise Item Master</span>
+          <span>SMRITI Retail OS • Quick-Audit Table (Read-Only)</span>
         </div>
 
         <div className="flex items-center gap-2">
-          {activeMode === "add" && (
+          {onRefreshProducts && (
             <button
               type="button"
-              onClick={handleAddRow}
-              className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded font-semibold transition"
+              onClick={async () => {
+                await onRefreshProducts();
+                onNotification?.("Refreshed", "Reloaded latest inventory records from database.", "info");
+              }}
+              className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] dark:hover:bg-[#1f2224] rounded font-semibold transition"
             >
-              Add Row
+              Refresh Data
             </button>
           )}
-
-          {activeMode === "add" && (
-            <button
-              type="button"
-              onClick={handleDuplicateSelected}
-              disabled={selectedRowIndices.size === 0}
-              className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded font-semibold transition disabled:opacity-40"
-            >
-              Duplicate
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsReplaceModalOpen(true)}
-            className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded font-semibold transition flex items-center gap-1"
-          >
-            <Replace size={13} className="text-[#0052cc]" />
-            Replace Data
-          </button>
 
           <button
             type="button"
             onClick={handlePrintManifest}
-            className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded font-semibold transition flex items-center gap-1"
+            className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] dark:hover:bg-[#1f2224] rounded font-semibold transition flex items-center gap-1"
           >
             <Printer size={13} />
             Print
@@ -1817,66 +1533,63 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             onNotification={onNotification}
           />
 
-          <button
-            type="button"
-            onClick={() => {
-              populateRowsFromProducts();
-              onNotification?.("Undo Applied", "Reset all unsaved matrix changes.", "success");
-            }}
-            className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded font-semibold transition"
-          >
-            Cancel
-          </button>
-
-          {activeMode === "delete" ? (
+          {onNavigateToCatalog && (
             <button
               type="button"
-              onClick={handleDeleteRecords}
-              disabled={selectedRowIndices.size === 0}
-              className="px-5 py-1.5 bg-[#ba1a1a] hover:bg-[#93000a] text-white rounded font-bold transition flex items-center gap-1.5 shadow-xs disabled:opacity-40"
+              onClick={onNavigateToCatalog}
+              className="px-4 py-1.5 bg-[#0052cc] hover:bg-[#003d9b] text-white rounded font-bold transition flex items-center gap-1.5 shadow-xs"
+              title="Open canonical Article / Design Catalog for creating and editing articles"
             >
-              <Trash2 size={14} />
-              Confirm Delete ({selectedRowIndices.size})
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSaveGridToDatabase}
-              disabled={isSaving}
-              className="px-5 py-1.5 bg-[#0052cc] hover:bg-[#003d9b] text-white rounded font-bold transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-            >
-              <Save size={14} />
-              {isSaving ? "Saving..." : "Ok (Save to Database)"}
+              <Package size={14} />
+              <span>Open Article Catalog</span>
             </button>
           )}
         </div>
       </footer>
 
       {/* Modals */}
-      <ReplaceDataDlg
-        isOpen={isReplaceModalOpen}
-        onClose={() => setIsReplaceModalOpen(false)}
-        onReplace={handleGlobalReplace}
-        fields={catalogFields}
-      />
-
-      <CodeSelectDlg
-        isOpen={isCodeModalOpen}
-        onClose={() => setIsCodeModalOpen(false)}
-        onSelectCode={handleApplyGeneratedCode}
-        currentRow={activeCodeTargetRow !== null ? gridRows[activeCodeTargetRow] : {}}
-      />
-
       <ItemShortcuts
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
       />
 
-      <DataLoadConfirm
-        isOpen={isDataConfirmOpen}
-        totalRecordsCount={products.length}
-        onConfirm={handleConfirmDataLoading}
-      />
+      {/* Governed Lookup Datalists for Auto-completion */}
+      <datalist id="grid-lookup-brand-list">
+        {(governedLookups.brand || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      {/* Panel 5 Bottom Note: Immutability Warning */}
+      <div className="bg-[#fffbeb] dark:bg-[#2d2415] border-t border-[#fef3c7] dark:border-[#45371c] px-6 py-2 flex items-center gap-2 text-xs text-[#92400e] dark:text-[#fcd34d]">
+        <Info size={14} className="shrink-0" />
+        <span>Note: Article Code, SKU and Barcode are system controlled and cannot be modified.</span>
+      </div>
+
+      <datalist id="grid-lookup-category-list">
+        {(governedLookups.category || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-color-list">
+        {(governedLookups.color || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-size-list">
+        {(governedLookups.size || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-style-list">
+        {(governedLookups.style_article || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
+      <datalist id="grid-lookup-vendor-list">
+        {(governedLookups.vendor_code || []).map(opt => (
+          <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
+        ))}
+      </datalist>
 
     </div>
   );

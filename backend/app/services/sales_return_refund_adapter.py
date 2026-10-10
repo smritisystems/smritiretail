@@ -25,6 +25,7 @@ from ..models.payment_ledger import PaymentTransaction, PaymentAllocation
 from ..models.crm import Customer
 from ..services.sales_return_policy import ResolvedSalesReturnPolicy
 from ..services.compliance_audit import ComplianceAuditService
+from ..services.identity.engine import IdentityEngine
 
 
 class SalesReturnRefundAdapter:
@@ -115,7 +116,7 @@ class SalesReturnRefundAdapter:
             tender_type = mode
 
         now = datetime.now(timezone.utc)
-        tx_id = f"pay_tx_{uuid.uuid4().hex[:12]}"
+        tx_id = IdentityEngine.generate_technical_id()
         tx_no = f"REF-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
         refund_tx = PaymentTransaction(
@@ -152,6 +153,20 @@ class SalesReturnRefundAdapter:
                     cust.outstanding = max(Decimal("0.00"), Decimal(str(cust.outstanding or 0)) - refund_amount)
                     cust.modified_at = now
                     session.add(cust)
+                    from ..models.crm import CustomerCreditLedgerEntry
+                    session.add(CustomerCreditLedgerEntry(
+                        id=f"ccle-{uuid.uuid4().hex[:12]}",
+                        customer_id=cust.id,
+                        entry_date=now,
+                        entry_type="CREDIT",
+                        amount=refund_amount,
+                        balance_after=cust.outstanding,
+                        reference_type="SALES_RETURN_REFUND",
+                        reference_id=sales_return.id,
+                        notes="Store credit or credit note refund",
+                        company_id=company_id,
+                        branch_id=branch_id,
+                    ))
 
         # Record REFUND_POSTED compliance audit event
         await ComplianceAuditService.record_audit_event(

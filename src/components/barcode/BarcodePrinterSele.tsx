@@ -49,11 +49,19 @@ export const BarcodePrinterSelectModal: React.FC<BarcodePrinterSelectModalProps>
   onClose,
   onConfirm
 }) => {
+  const savedPrinter = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_printer") : null;
+  const savedDpi = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_dpi") : null;
+  const savedPort = typeof window !== "undefined" ? localStorage.getItem("smriti_default_barcode_port") : null;
+
   const [selectedPrinter, setSelectedPrinter] = useState<string>(
-    initialPrinterName || DEFAULT_FALLBACK_PRINTERS[0].name
+    initialPrinterName || savedPrinter || DEFAULT_FALLBACK_PRINTERS[0].name
   );
-  const [selectedPort, setSelectedPort] = useState<PortType>(currentPort);
-  const [selectedDpi, setSelectedDpi] = useState<number>(300);
+  const [selectedPort, setSelectedPort] = useState<PortType>(
+    (savedPort as PortType) || currentPort
+  );
+  const [selectedDpi, setSelectedDpi] = useState<number>(
+    savedDpi ? parseInt(savedDpi, 10) : 300
+  );
 
   // QZ Live State
   const [qzStatus, setQzStatus] = useState<{
@@ -94,13 +102,13 @@ export const BarcodePrinterSelectModal: React.FC<BarcodePrinterSelectModalProps>
           error: undefined
         });
         setDiscoveredQzPrinters(res.printers);
-        if (res.printers.length > 0 && (!selectedPrinter || !res.printers.includes(selectedPrinter))) {
-          // If Honeywell or Zebra found, prioritize it, else first
-          const honeywell = res.printers.find(p => /honeywell|ih-2|dpl|tsc|zebra/i.test(p));
-          if (honeywell) {
-            setSelectedPrinter(honeywell);
-          } else {
-            setSelectedPrinter(res.printers[0]);
+        if (res.printers.length > 0) {
+          if (savedPrinter && res.printers.includes(savedPrinter)) {
+            setSelectedPrinter(savedPrinter);
+          } else if (!selectedPrinter || !res.printers.includes(selectedPrinter)) {
+            // If Honeywell or Zebra found, prioritize it, else first
+            const preferred = res.printers.find(p => /honeywell|ih-2|dpl|tsc|zebra/i.test(p));
+            setSelectedPrinter(preferred || res.printers[0]);
           }
         }
       } else {
@@ -160,6 +168,19 @@ export const BarcodePrinterSelectModal: React.FC<BarcodePrinterSelectModalProps>
   if (!isOpen) return null;
 
   const handleApply = () => {
+    try {
+      if (selectedPrinter) {
+        localStorage.setItem("smriti_default_barcode_printer", selectedPrinter);
+      }
+      if (selectedDpi) {
+        localStorage.setItem("smriti_default_barcode_dpi", String(selectedDpi));
+      }
+      if (selectedPort) {
+        localStorage.setItem("smriti_default_barcode_port", selectedPort);
+      }
+    } catch {
+      // LocalStorage access fallback
+    }
     onConfirm({
       printerName: selectedPrinter,
       portType: selectedPort,

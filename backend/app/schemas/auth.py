@@ -7,7 +7,7 @@ Founders
 
 * Pushpa Devi Jawahar Mallah
   * Founder & Chairperson
-  * Phone: +91 9324117007
+  * Phone: [REDACTED_PUBLIC_PII]
   * Email: founder@aitdl.com
 
 * Jawahar Ramkripal Mallah
@@ -83,4 +83,22 @@ class TenantContextSwitchRequest(BaseModel):
     """Request model for dynamically switching company/branch context."""
     target_company_id: str
     target_branch_id: str
+
+
+class SupervisorPinVerifyRequest(BaseModel):
+    username: str = "manager"
+    pin: str
+    action_type: str
+    reason: Optional[str] = "Store Manager On-Duty Authorization"
+
+
+class SupervisorPinVerifyResponse(BaseModel):
+    verified: bool
+    supervisor_id: Optional[str] = None
+    supervisor_name: Optional[str] = None
+    action_type: Optional[str] = None
+    auth_token: Optional[str] = None
+    authorized_at: Optional[str] = None
+    reason: Optional[str] = None
+    message: Optional[str] = None
 

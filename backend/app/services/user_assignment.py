@@ -11,6 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+from typing import Any
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -19,11 +20,9 @@ from fastapi import HTTPException
 
 from ..models.auth import User, UserRole
 from ..models.tenant import Company, Branch
-from ..models.inventory import Store
 from ..models.user_assignment import (
     UserCompanyAssignment,
     UserBranchAssignment,
-    UserStoreAssignment,
 )
 from ..repositories.user_assignment import (
     UserCompanyAssignmentRepository,
@@ -66,11 +65,8 @@ class UserAssignmentService:
             raise HTTPException(status_code=404, detail="Branch not found")
         return branch
 
-    async def _assert_store_exists(self, store_id: str) -> Store:
-        store = await self.db.get(Store, store_id)
-        if not store or store.is_deleted:
-            raise HTTPException(status_code=404, detail="Store not found")
-        return store
+    async def _assert_store_exists(self, store_id: str) -> Any:
+        raise HTTPException(status_code=410, detail="Store entity is retired in Phase C (v1454).")
 
     def _assert_admin_or_manager(self) -> None:
         if self.current_user.role not in [UserRole.SYSADMIN, UserRole.MANAGER]:
@@ -172,34 +168,11 @@ class UserAssignmentService:
             raise HTTPException(status_code=400, detail="Failed to create branch assignment.")
         return assignment
 
-    async def assign_store(self, user_id: str, req: UserStoreAssignmentCreate) -> UserStoreAssignment:
-        self._assert_admin_or_manager()
-        await self._assert_user_exists(user_id)
-        store = await self._assert_store_exists(req.store_id)
-        self._assert_same_company_for_manager(store.company_id)
-
-        existing = await self.store_repo.get_by_user_and_store(user_id, store.id)
-        if existing:
-            raise HTTPException(status_code=400, detail="User already has this store assignment.")
-
-        assignment = UserStoreAssignment(
-            user_id=user_id,
-            company_id=store.company_id,
-            branch_id=store.branch_id,
-            store_id=store.id,
-            created_by=self.current_user.username,
-            updated_by=self.current_user.username,
-            is_active=True,
-            is_deleted=False,
+    async def assign_store(self, user_id: str, req: UserStoreAssignmentCreate) -> Any:
+        raise HTTPException(
+            status_code=410,
+            detail="Store assignments have been retired in Phase C (v1454). Retail location assignments are managed via branches (/api/v1/user-assignments/{user_id}/branches)."
         )
-        try:
-            self.db.add(assignment)
-            await self.db.commit()
-            await self.db.refresh(assignment)
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail="Failed to create store assignment.")
-        return assignment
 
     async def _assert_manager_can_access_user(self, target_user: User) -> None:
         if self.current_user.role == UserRole.MANAGER:
@@ -237,8 +210,7 @@ class UserAssignmentService:
         await self.branch_repo.soft_delete(assignment, deleted_by=self.current_user.username)
 
     async def remove_store_assignment(self, user_id: str, assignment_id: str) -> None:
-        self._assert_admin_or_manager()
-        assignment = await self.store_repo.get(assignment_id)
-        if not assignment or assignment.user_id != user_id:
-            raise HTTPException(status_code=404, detail="Store assignment not found.")
-        await self.store_repo.soft_delete(assignment, deleted_by=self.current_user.username)
+        raise HTTPException(
+            status_code=410,
+            detail="Store assignments have been retired in Phase C (v1454)."
+        )

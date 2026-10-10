@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.22.0
+ * Version      : 6.27.3
  * Created      : 2026-07-12
- * Modified     : 2026-08-25
+ * Modified     : 2026-09-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -31,6 +31,7 @@ const AUTH_STORAGE_KEYS = [
   "smriti_branch_code",
   "smriti_company_name",
   "smriti_branch_name",
+  "smriti_last_activity",
 ];
 
 export function normalizeCompanyId(raw: string | null | undefined): string {
@@ -75,10 +76,27 @@ export function persistTenantContext(params: {
   if (params.branchName) localStorage.setItem("smriti_branch_name", params.branchName);
 }
 
+export function syncAuthCookies(token?: string | null): void {
+  if (typeof document === "undefined") return;
+  const activeToken = token ?? (
+    typeof localStorage !== "undefined"
+      ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
+      : null
+  );
+  if (activeToken) {
+    document.cookie = `access_token=${encodeURIComponent(activeToken)}; path=/; SameSite=Lax`;
+    document.cookie = `smriti_jwt_token=${encodeURIComponent(activeToken)}; path=/; SameSite=Lax`;
+  }
+}
+
 export function clearAuthSession(reason?: string): void {
   if (typeof window !== "undefined") {
     for (const key of AUTH_STORAGE_KEYS) {
       localStorage.removeItem(key);
+    }
+    if (typeof document !== "undefined") {
+      document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      document.cookie = "smriti_jwt_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
     }
     window.dispatchEvent(new CustomEvent("smriti_auth_session_cleared", { detail: { reason } }));
   } else {
@@ -117,6 +135,7 @@ async function _attemptSilentRefresh(): Promise<string | null> {
       const refreshData = await refreshRes.json();
       if (refreshData.access_token) {
         localStorage.setItem("smriti_jwt_token", refreshData.access_token);
+        syncAuthCookies(refreshData.access_token);
         if (refreshData.refresh_token) {
           localStorage.setItem("smriti_refresh_token", refreshData.refresh_token);
         }
@@ -146,7 +165,7 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   const branchId = localStorage.getItem("smriti_branch_id") || "MAIN";
   if (branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", branchId);
   if (branchId && !headers.has("X-Branch-Code")) headers.set("X-Branch-Code", branchId);
-  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+  if (!headers.has("Content-Type") && options.body !== undefined && options.body !== null && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   return headers;
@@ -204,20 +223,26 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     requestInit.body = options.body as BodyInit;
   }
 
-  // Sanitize endpoint string — remove any embedded docker hostname prefixes
+  // Sanitize endpoint string — remove any embedded docker hostname prefixes.
+  // Handles both http://smriti-api:8000/... and bare smriti-api:8000/... forms.
   let cleanEndpoint = endpoint
     .replace(/https?:\/\/python-core(:[0-9]+)?/gi, "")
     .replace(/https?:\/\/smriti-api(:[0-9]+)?/gi, "")
     .replace(/https?:\/\/localhost(:[0-9]+)?/gi, "")
-    .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "");
+    .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "")
+    // Bare (no-protocol) Docker hostnames — e.g. "smriti-api:8000/api/v1/..."
+    .replace(/^python-core(:[0-9]+)?\//gi, "/")
+    .replace(/^smriti-api(:[0-9]+)?\//gi, "/")
+    // Strip accidental Express-style parameter colon prefixes in URL path segments (e.g. "/orders/:1" -> "/orders/1")
+    .replace(/\/:(?=[a-zA-Z0-9_-]+)/g, "/");
 
   if (cleanEndpoint.startsWith("/api/v1")) {
     cleanEndpoint = cleanEndpoint.replace(/^\/api\/v1/, "");
   }
 
-  const baseUrl = typeof window !== "undefined" && window.location?.origin 
-    ? "" 
-    : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:8000");
+  const baseUrl = typeof window !== "undefined" && window.location?.origin
+    ? ""
+    : (process.env.FASTAPI_BASE_URL || "http://127.0.0.1:1981");
   const url = applyQueryParams(
     `${baseUrl}/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`,
     options.params
@@ -231,7 +256,12 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     });
   } catch (networkError: any) {
     console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
-    throw new Error("SMRITI Backend API Server is unreachable. Please ensure the FastAPI service (python-core:8000 / localhost:8000) is running.");
+    // HREP-compliant user-facing message — no internal hostnames or stack details exposed
+    throw new Error(
+      "The SMRITI application service is currently unreachable. " +
+      "Please ensure your network connection or server service is active and try again. " +
+      "If this issue persists, contact your system administrator."
+    );
   }
 
   // ── Silent Token Refresh on 401 ──────────────────────────────────────────────
@@ -263,21 +293,81 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
   // ────────────────────────────────────────────────────────────────────────────
 
   if (!response.ok) {
-    let errorData: any;
+    let errorBody: unknown = null;
+    let errorDetail = `Request failed with status ${response.status}`;
     try {
-      errorData = await response.json();
+      errorBody = await response.json();
     } catch {
-      errorData = { detail: "Upstream python-core communication failed." };
+      try {
+        errorDetail = await response.text();
+      } catch {
+        // noop
+      }
     }
-    const errMsg = errorData.detail || errorData.message || `API request failed with status ${response.status}`;
-    throw new Error(typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg);
+
+    // ── Structured Item Master 422 handling ───────────────────────────────────
+    // Import lazily to avoid circular deps — module is self-contained.
+    if (response.status === 422 && errorBody) {
+      const bodyObj = errorBody as Record<string, unknown>;
+      if (
+        bodyObj.error &&
+        typeof bodyObj.error === "object" &&
+        (bodyObj.error as Record<string, unknown>).code === "ITEM_MASTER_VALIDATION_ERROR"
+      ) {
+        const { parseItemMaster422Response, ItemMasterValidationError } =
+          await import("../services/itemMasterValidationMapper");
+        const normalized = parseItemMaster422Response(errorBody);
+        throw new ItemMasterValidationError(normalized);
+      }
+
+      // ── FastAPI standard 422: detail is a list of Pydantic validation errors ──
+      // Shape: { detail: [ { loc: ["body","field"] | ["body","rows",N,"field"], msg, type } ] }
+      // Convert to actionable "Row N → field: message" lines.
+      const detail = (bodyObj as any).detail;
+      if (Array.isArray(detail) && detail.length > 0) {
+        const lines: string[] = detail.map((err: any) => {
+          const loc: (string | number)[] = Array.isArray(err.loc) ? err.loc : [];
+          const msg: string = err.msg ?? "Validation error";
+          // Detect row index: loc = ["body", "rows", N, "field"] or ["response", "items", N, "field"]
+          const rowIdx = loc.findIndex((s) => s === "rows" || s === "items");
+          let prefix = "";
+          if (rowIdx !== -1 && typeof loc[rowIdx + 1] === "number") {
+            const rowNum = (loc[rowIdx + 1] as number) + 1; // 1-based for users
+            const field = loc.slice(rowIdx + 2).join(" → ") || "value";
+            prefix = `Row ${rowNum} → ${field}: `;
+          } else {
+            // Top-level field (e.g. body → idempotency_key)
+            const field = loc.filter((s) => s !== "body" && s !== "response").join(" → ") || "input";
+            prefix = `${field}: `;
+          }
+          // Strip Pydantic's "Value error, " prefix for cleaner display
+          const cleanMsg = msg.replace(/^Value error,\s*/i, "");
+          return `${prefix}${cleanMsg}`;
+        });
+        const summary = lines.length === 1
+          ? lines[0]
+          : `${lines.length} validation error(s):\n${lines.map((l, i) => `  ${i + 1}. ${l}`).join("\n")}`;
+        throw new Error(summary);
+      }
+    }
+
+    // ── Fallback: plain Error for all other non-ok responses ──────────────────
+    if (errorBody) {
+      const b = errorBody as Record<string, unknown>;
+      errorDetail =
+        (b.detail as string | undefined) ||
+        ((b.error as Record<string, unknown> | undefined)?.explanation as string | undefined) ||
+        (b.message as string | undefined) ||
+        JSON.stringify(errorBody);
+    }
+    throw new Error(errorDetail);
   }
 
-  if (response.status === 204 || response.headers.get("content-length") === "0") {
+  if (response.status === 204 || response.headers?.get?.("content-length") === "0") {
     return null as unknown as T;
   }
 
-  const contentType = response.headers.get("content-type") || "";
+  const contentType = response.headers?.get?.("content-type") || "";
   if (contentType.includes("text/plain")) {
     return (await response.text()) as unknown as T;
   }
@@ -295,3 +385,58 @@ export function isLocalMockToken(): boolean {
   const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
   return !token || token.startsWith("MOCK_");
 }
+
+export function getAuthenticatedDocumentUrl(endpoint: string): string {
+  let cleanEndpoint = endpoint
+    .replace(/https?:\/\/python-core(:[0-9]+)?/gi, "")
+    .replace(/https?:\/\/smriti-api(:[0-9]+)?/gi, "")
+    .replace(/https?:\/\/localhost(:[0-9]+)?/gi, "")
+    .replace(/https?:\/\/127\.0\.0\.1(:[0-9]+)?/gi, "")
+    .replace(/^python-core(:[0-9]+)?\//gi, "/")
+    .replace(/^smriti-api(:[0-9]+)?\//gi, "/");
+
+  if (!cleanEndpoint.startsWith("/api/v1") && !cleanEndpoint.startsWith("http")) {
+    cleanEndpoint = `/api/v1${cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint}`;
+  }
+
+  const origin = typeof window !== "undefined" && window.location?.origin
+    ? window.location.origin
+    : (process.env.WEB_BASE_URL || "http://localhost:8101");
+
+  return new URL(cleanEndpoint, origin).toString();
+}
+
+export function openAuthenticatedDocument(endpoint: string, target = "_blank", features?: string): Window | null {
+  if (typeof window === "undefined") return null;
+  const authUrl = getAuthenticatedDocumentUrl(endpoint);
+  return window.open(authUrl, target, features);
+}
+
+// Auto-sync cookies on module initialization if running in browser
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  try {
+    syncAuthCookies();
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Record UI-driven audit actions (views, prints, exports) to system compliance logs via FastAPI
+ */
+export async function recordAuditAction(
+  actionType: string,
+  tableName: string,
+  recordId: string,
+  reason: string
+): Promise<void> {
+  try {
+    await apiFetchV1("/audit-logs", {
+      method: "POST",
+      body: JSON.stringify({ actionType, tableName, recordId, reason }),
+    });
+  } catch (err) {
+    console.error("[Audit Logger] Failed to record audit action:", err);
+  }
+}
+

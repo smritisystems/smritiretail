@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 """
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from ..models.auth import UserRole
 
 
@@ -43,6 +43,13 @@ class SalaryStructure(BaseModel):
 
 class PaymentDetails(BaseModel):
     frequency: str = "Monthly"
+    paymentMode: str = "Bank Transfer"
+    bankName: Optional[str] = ""
+    accountNumber: Optional[str] = ""
+    ifscCode: Optional[str] = ""
+    branchName: Optional[str] = ""
+    accountType: Optional[str] = "Savings"
+    nameAsPerBank: Optional[str] = ""
     bankDetails: str = ""
     upi: str = ""
     salaryEffectiveFrom: str = ""
@@ -54,6 +61,7 @@ class PaymentDetails(BaseModel):
     fatherSpouseName: Optional[str] = ""
     bloodGroup: Optional[str] = ""
     maritalStatus: Optional[str] = ""
+    emergencyContactRelation: Optional[str] = ""
     permanentAddress: Optional[str] = ""
 
 
@@ -95,6 +103,18 @@ class UserCreate(BaseModel):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
 
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
+
 
 class UserUpdate(BaseModel):
     """SYSADMIN updates an existing user's profile or tenant assignment."""
@@ -104,6 +124,18 @@ class UserUpdate(BaseModel):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
 
 
 class PasswordChange(BaseModel):
@@ -118,6 +150,8 @@ class StaffUserCreate(BaseModel):
     fullName: str
     role: UserRole
     passwordHash: Optional[str] = None
+    # Compatibility input for legacy callers; the service validates either field.
+    password: Optional[str] = None
     status: Optional[str] = "Active"
     employeeId: Optional[str] = None
     employeeCode: Optional[str] = None
@@ -126,7 +160,7 @@ class StaffUserCreate(BaseModel):
     dateOfBirth: Optional[str] = "1990-01-01"
     mobile: Optional[str] = "0000000000"
     alternateMobile: Optional[str] = ""
-    email: Optional[str] = ""
+    email: Optional[str] = None
     emergencyContact: Optional[str] = ""
     address: Optional[str] = ""
     city: Optional[str] = ""
@@ -150,14 +184,55 @@ class StaffUserCreate(BaseModel):
     preferences: Optional[UserPreferencesSchema] = None
     notificationSettings: Optional[NotificationSettings] = None
 
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    def sanitize_email(cls, v):
+        if not v or not isinstance(v, str) or not v.strip():
+            return None
+        return v.strip().lower()
+
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper().replace(" ", "_").replace("-", "_")
+            if cleaned in ("SYS_ADMIN", "SYSTEM_ADMIN", "SUPERADMIN", "SUPER_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
+
 
 class StaffUserUpdate(BaseModel):
     fullName: Optional[str] = None
     role: Optional[UserRole] = None
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
     passwordHash: Optional[str] = None
     status: Optional[str] = None
     employeeId: Optional[str] = None
     employeeCode: Optional[str] = None
+
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper().replace(" ", "_").replace("-", "_")
+            if cleaned in ("SYS_ADMIN", "SYSTEM_ADMIN", "SUPERADMIN", "SUPER_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
+
+    @field_validator("email", mode="before")
+    def sanitize_email(cls, v):
+        if not v or not isinstance(v, str) or not v.strip():
+            return None
+        return v.strip().lower()
     displayName: Optional[str] = None
     gender: Optional[str] = None
     dateOfBirth: Optional[str] = None
@@ -239,6 +314,8 @@ class StaffUserResponse(BaseModel):
     performance: PerformanceMetrics
     preferences: UserPreferencesSchema
     notificationSettings: NotificationSettings
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

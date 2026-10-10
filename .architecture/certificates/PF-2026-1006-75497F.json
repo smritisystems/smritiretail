@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-75497F",
+  "entity": "databridge",
+  "capability": "databridge.workspace_ux",
+  "asset_type": "SPECIALIZED_UI",
+  "proposed_name": "DataBridgeTemplatesModal.tsx",
+  "target_file_path": "src/components/databridge/DataBridgeTemplatesModal.tsx",
+  "decision": "APPROVED",
+  "canonical_owner": "src/components/databridge/DataBridgeWorkspace.tsx",
+  "content_hash": "8b3909134a446a5e86d9bc7bfe165ca2efc3eda4ad3147ebda818eb9851c094e",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T09:34:06.239221+00:00",
+  "expires_at": "2026-10-13T09:34:06.239221+00:00",
+  "status": "ISSUED"
+}

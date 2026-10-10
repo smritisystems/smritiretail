@@ -25,6 +25,7 @@ import { HeaderMapPrevewModal } from "./HeaderMappingPrevi.tsx";
 import { HeaderAliasDlgModal } from "./HeaderAliasManager.tsx";
 import { generateSkuCode, SkuConfigOptions, DEFAULT_SKU_CONFIG, SkuGenerationMode } from "../services/skuGenerationEngine.ts";
 import { serializeProductAttributes } from "../services/unifiedFieldCatalog.ts";
+import { GridInputEngine } from "../services/gridInput/gridInputEngine";
 
 interface ExcelGridEntrySectionProps {
   onRefreshProducts: () => Promise<void>;
@@ -614,10 +615,8 @@ export const ExcelGridEntrySection: React.FC<ExcelGridEntrySectionProps> = ({
     const clipboardData = e.clipboardData.getData("text");
     if (!clipboardData) return;
 
-    const lines = clipboardData.split(/\r\n|\n|\r/).filter(l => l.trim() !== "");
-    if (lines.length === 0) return;
-
-    const matrix = lines.map(line => line.split("\t"));
+    const { matrix } = GridInputEngine.parseDelimitedText(clipboardData);
+    if (matrix.length === 0) return;
 
     const dynamicAttrsList = [
       ...definitions.map(a => ({ key: a.name, label: a.label })),

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-B43FE9",
+  "entity": "databridge",
+  "capability": "databridge.webhook_dispatcher",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "webhook_dispatcher.py",
+  "target_file_path": "backend/app/services/databridge/webhook_dispatcher.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/webhook_dispatcher.py",
+  "content_hash": "39e0ebaf029cd55cab5214f487395a37bf1623d9ab860e1bf2ed8400d1007897",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:39:05.378972+00:00",
+  "expires_at": "2026-10-14T09:39:05.378972+00:00",
+  "status": "ISSUED"
+}

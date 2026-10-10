@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-5EC935",
+  "entity": "databridge",
+  "capability": "databridge.sales_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "sales_order_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/sales_order_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/sales_order_adapter.py",
+  "content_hash": "345d5141595435aefc7f4aa64e15eb1bdbe78cc86c442362716e364488f72885",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T15:13:28.575467+00:00",
+  "expires_at": "2026-10-13T15:13:28.575467+00:00",
+  "status": "ISSUED"
+}

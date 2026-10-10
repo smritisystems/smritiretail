@@ -17,7 +17,13 @@ import psycopg2
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 
-COMPANY_DB = "postgresql://postgres:postgres@localhost:5432/smriti001"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+from conftest import utmih_delete_stock_movements
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+COMPANY_DB = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
 
 def test_wms_phase1_tables_and_scoped_constraints():
     """
@@ -376,7 +382,7 @@ async def test_wms_service_async_lifecycle():
             if transfer_id:
                 await session.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
                 await session.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
-            await session.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id})
+            await utmih_delete_stock_movements(session, "product_id = :pid", {"pid": prod_id})
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
             await session.commit()

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-4B1978",
+  "entity": "vendor",
+  "capability": "vendor.api",
+  "asset_type": "route",
+  "proposed_name": "vendor.py",
+  "target_file_path": "F:/SMRITRretailNX/backend/app/api/v1/vendor.py",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "vendor.py",
+  "content_hash": "e252082d0db4206ff8423d0cbae522a4e5fbea321c74326b31bb459fe04e30db",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:58.522211+00:00",
+  "expires_at": "2026-09-18T05:21:58.522211+00:00",
+  "status": "ISSUED"
+}

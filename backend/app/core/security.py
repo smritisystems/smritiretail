@@ -113,34 +113,36 @@ def validate_password_strength(password: str) -> None:
 # JWT helpers — python-jose
 # ---------------------------------------------------------------------------
 
-def create_access_token(data: dict) -> str:
+def create_access_token(data: dict, expires_minutes: int | None = None) -> str:
     """
     Encode a signed HS256 JWT access token.
 
     The payload is a copy of `data` with:
       - ``type`` = "access"
-      - ``exp``  = now + ACCESS_TOKEN_EXPIRE_MINUTES
+      - ``exp``  = now + (expires_minutes or ACCESS_TOKEN_EXPIRE_MINUTES)
     """
     payload = data.copy()
     payload["type"] = "access"
+    effective_minutes = expires_minutes if expires_minutes is not None else settings.ACCESS_TOKEN_EXPIRE_MINUTES
     payload["exp"] = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=effective_minutes
     )
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict, expires_days: int | None = None) -> str:
     """
     Encode a signed HS256 JWT refresh token.
 
     The payload is a copy of `data` with:
       - ``type`` = "refresh"
-      - ``exp``  = now + REFRESH_TOKEN_EXPIRE_DAYS
+      - ``exp``  = now + (expires_days or REFRESH_TOKEN_EXPIRE_DAYS)
     """
     payload = data.copy()
     payload["type"] = "refresh"
+    effective_days = expires_days if expires_days is not None else settings.REFRESH_TOKEN_EXPIRE_DAYS
     payload["exp"] = datetime.now(timezone.utc) + timedelta(
-        days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+        days=effective_days
     )
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 

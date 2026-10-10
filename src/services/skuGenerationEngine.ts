@@ -65,8 +65,7 @@ export function generateSkuCode(
       }).filter(Boolean);
 
       if (parts.length === 0) {
-        // Fallback to style or sheet code if derived parts are empty
-        return row.code || row.styleCode || row.barcode || `SKU-${Date.now()}`;
+        return row.code || row.styleCode || row.barcode || "";
       }
       return parts.join(delimiter);
     }
@@ -90,8 +89,19 @@ export function generateSkuCode(
 
     case "SHEET":
     default: {
-      const sheetVal = row.code || row.sku || row["STYLE/Article CODE"] || row["styleCode"] || row.barcode || "";
-      return String(sheetVal).trim();
+      // Mandatory SKU Decision Tree:
+      // Case 2: User explicitly provides SKU -> Use user-provided SKU
+      const explicitSku = row.sku || row.SKU || row.code || row.styleCode || row["STYLE/Article CODE"] || "";
+      if (explicitSku && String(explicitSku).trim()) {
+        return String(explicitSku).trim();
+      }
+      // Case 1: Official primary barcode exists AND SKU is blank -> SKU = barcode
+      const barcode = row.barcode || row.Barcode || row["BARCODE"] || "";
+      if (barcode && String(barcode).trim()) {
+        return String(barcode).trim();
+      }
+      // Case 3: Neither exists -> Blank (Do NOT silently generate SKU)
+      return "";
     }
   }
 }

@@ -14,16 +14,78 @@ License      : Proprietary Commercial Software
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func, and_, or_
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
+import uuid
+import re
 from ..models.inventory import Product, StockMovement
+from ..models.item_master import Item, ItemVariant, ItemBarcode, LegacyIdMapping
+from ..models.pricing import PriceBook, PriceBookEntry
 from ..schemas.inventory import ProductCreate
 from ..api.deps import TenantContext
+from .attributes import AttributesService
+from .identity.engine import IdentityEngine
 
 class InventoryService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
         self.db = db
         self.tenant_ctx = tenant_ctx
+
+    async def _resolve_canonical_identity(
+        self,
+        product: Product,
+        provided_item_id: Optional[str] = None,
+        provided_variant_id: Optional[str] = None,
+    ) -> tuple[str, str]:
+        """
+        Enforces Phase 2 Non-Negotiable Architecture Rule:
+        NO STOCK WITHOUT CANONICAL IDENTITY.
+        Resolves item_id and variant_id for product. Rejects unlinked products with 422.
+        Rejects mismatched item_id or variant_id with 422 PRODUCT_CANONICAL_MISMATCH.
+        """
+        canonical_item_id = product.item_id
+        canonical_variant_id = product.item_variant_id
+
+        if not (canonical_item_id and canonical_variant_id):
+            from .product_resolution_service import ProductResolutionService
+            res = await ProductResolutionService.resolve_by_product_id(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                product_id=product.id,
+            )
+            if res.success and res.item_id and res.variant_id:
+                canonical_item_id = res.item_id
+                canonical_variant_id = res.variant_id
+
+        if not (canonical_item_id and canonical_variant_id):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "UNLINKED_PRODUCT_NOT_ALLOWED",
+                    "message": f"Product '{product.id}' is not linked to canonical Item Master. Stock movements are strictly prohibited."
+                }
+            )
+
+        if provided_item_id and provided_item_id != canonical_item_id:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "PRODUCT_CANONICAL_MISMATCH",
+                    "message": f"Provided item_id '{provided_item_id}' does not match canonical item '{canonical_item_id}' for product '{product.id}'."
+                }
+            )
+
+        if provided_variant_id and provided_variant_id != canonical_variant_id:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "PRODUCT_CANONICAL_MISMATCH",
+                    "message": f"Provided variant_id '{provided_variant_id}' does not match canonical variant '{canonical_variant_id}' for product '{product.id}'."
+                }
+            )
+
+        return canonical_item_id, canonical_variant_id
 
     async def update_stock(
         self, 
@@ -34,33 +96,47 @@ class InventoryService:
         reference_doc_id: str, 
         remarks: Optional[str] = None,
         unit_cost: Optional[float] = None,
-        source_module: str = "inventory"
-    ):
+        source_module: str = "inventory",
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+    ) -> Optional[StockMovement]:
         """
         Centralized method to update product stock and record the movement.
         movement_type: 'IN', 'OUT', 'ADJUSTMENT', 'TRANSFER'
+        Dual-key converged: writes product_id, item_id, variant_id.
         """
         stmt = select(Product).filter(
             Product.id == product_id,
             Product.is_deleted == False,
             Product.company_id == self.tenant_ctx.company_id,
-            Product.branch_id == self.tenant_ctx.branch_id
         )
+        if self.tenant_ctx.branch_id:
+            stmt = stmt.filter(
+                (Product.branch_id == self.tenant_ctx.branch_id) | (Product.branch_id.is_(None))
+            )
         res = await self.db.execute(stmt)
         product = res.scalars().first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
+        canonical_item_id, canonical_variant_id = await self._resolve_canonical_identity(
+            product=product,
+            provided_item_id=item_id,
+            provided_variant_id=variant_id,
+        )
+
         if product.tracking_mode == "No-stock":
-            return
+            return None
 
         # Stock is updated automatically by PostgreSQL trigger trg_inventory_state_reconciliation on StockMovement insert
         self.db.add(product)
 
-
-        # Create StockMovement record
+        # Create StockMovement record with dual-key canonical identity
         movement = StockMovement(
+            id=IdentityEngine.generate_technical_id(),
             product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
             product_name=product.name,
             sku=product.sku or "",
             quantity=quantity,
@@ -75,56 +151,252 @@ class InventoryService:
             branch_id=self.tenant_ctx.branch_id,
         )
         self.db.add(movement)
+        return movement
+
+    async def record_movement(
+        self,
+        product_id: str,
+        quantity: float,
+        movement_type: str,
+        reference_doc_type: str,
+        reference_doc_id: str,
+        remarks: Optional[str] = None,
+        unit_cost: Optional[float] = None,
+        source_module: str = "inventory",
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+    ) -> StockMovement:
+        """
+        Authoritative single movement writer for inventory transactions.
+        Dual-key converged: commits and returns StockMovement with canonical identity.
+        """
+        movement = await self.update_stock(
+            product_id=product_id,
+            quantity=quantity,
+            movement_type=movement_type,
+            reference_doc_type=reference_doc_type,
+            reference_doc_id=reference_doc_id,
+            remarks=remarks,
+            unit_cost=unit_cost,
+            source_module=source_module,
+            item_id=item_id,
+            variant_id=variant_id,
+        )
+        await self.db.commit()
+        if movement:
+            await self.db.refresh(movement)
+        return movement
 
     async def create_product(self, product_in: ProductCreate) -> Product:
+        # Multi-Tenant Isolation Enforcement (Blocker 5)
+        if not self.tenant_ctx or not self.tenant_ctx.company_id:
+            raise HTTPException(status_code=400, detail="Multi-tenant security violation: company_id is required")
 
-        # Check for duplicate code
-        existing_code = await self.db.execute(
-            select(Product).filter(
-                Product.code == product_in.code,
-                Product.is_deleted == False,
-                Product.company_id == self.tenant_ctx.company_id,
-                Product.branch_id == self.tenant_ctx.branch_id
-            )
+        cid = self.tenant_ctx.company_id
+        bid = self.tenant_ctx.branch_id or "BR-001"
+
+        from .catalog_validation import CatalogDimensionValidator, IM001ControlledFieldValidator
+
+        attrs = product_in.attributes or {}
+        governed_row = {
+            "brand": product_in.brand,
+            "category": product_in.category,
+            "color": product_in.color,
+            "size": product_in.size,
+            "style_code": product_in.style_code,
+            "vendor_code": product_in.vendor_code,
+            "hsn_code": product_in.hsn_code,
+            "gst_rate_percent": float(product_in.gst_percentage) if product_in.gst_percentage is not None else None,
+            "gender": getattr(product_in, "gender", None) or attrs.get("gender"),
+            "product_type": getattr(product_in, "product_type", None) or attrs.get("product_type") or attrs.get("productType"),
+            "heel_type": getattr(product_in, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels"),
+            "upper_material": getattr(product_in, "upper_material", None) or attrs.get("upper_material") or attrs.get("upperMaterial") or attrs.get("upper"),
+            "design_attribute": getattr(product_in, "design_attribute", None) or attrs.get("design_attribute") or attrs.get("sub_category") or attrs.get("subcategory"),
+            "outsole_material": getattr(product_in, "outsole_material", None) or attrs.get("outsole_material") or attrs.get("outsole"),
+            "collection_type": getattr(product_in, "collection_type", None) or attrs.get("collection_type") or attrs.get("item_description"),
+        }
+
+        # Unified IM-001 Catalog Governance: Fail closed if invalid or unseeded mandatory dimension
+        await IM001ControlledFieldValidator.validate_dict(
+            payload=governed_row,
+            company_id=cid,
+            strict=True,
         )
-        if existing_code.scalars().first():
-            raise HTTPException(status_code=400, detail="Product with this code already exists")
 
-        # Check for duplicate barcode (only if barcode is non-empty)
-        if product_in.barcode and str(product_in.barcode).strip():
-            clean_barcode = str(product_in.barcode).strip()
-            existing_barcode = await self.db.execute(
+        # Ensure mandatory style/article_no attributes default from style_code/code
+        if attrs is not None:
+            if not attrs.get("style") and product_in.style_code:
+                attrs["style"] = product_in.style_code
+            if not attrs.get("style_no") and (product_in.style_code or attrs.get("style")):
+                attrs["style_no"] = product_in.style_code or attrs.get("style")
+            if not attrs.get("article_no") and (product_in.style_code or product_in.code):
+                attrs["article_no"] = product_in.style_code or product_in.code
+
+        await AttributesService(self.db).validate_product_attributes(
+            attrs,
+            cid,
+        )
+
+        dim_map = {
+            "brand": product_in.brand,
+            "category": product_in.category,
+            "color": product_in.color,
+            "size": product_in.size,
+            "style_code": product_in.style_code,
+            "vendor_code": product_in.vendor_code,
+        }
+        for field_name, field_val in dim_map.items():
+            if field_val and str(field_val).strip():
+                normalized = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field=field_name,
+                    value=field_val,
+                    strict=True,
+                )
+                setattr(product_in, field_name, normalized)
+
+        # Normalize promoted footwear dimensions
+        promoted_dims = {
+            "gender": getattr(product_in, "gender", None) or attrs.get("gender"),
+            "product_type": getattr(product_in, "product_type", None) or attrs.get("product_type") or attrs.get("productType"),
+            "heel_type": getattr(product_in, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels"),
+            "upper_material": getattr(product_in, "upper_material", None) or attrs.get("upper_material") or attrs.get("upperMaterial") or attrs.get("upper"),
+            "design_attribute": getattr(product_in, "design_attribute", None) or attrs.get("design_attribute") or attrs.get("sub_category") or attrs.get("subcategory"),
+            "outsole_material": getattr(product_in, "outsole_material", None) or attrs.get("outsole_material") or attrs.get("outsole"),
+            "collection_type": getattr(product_in, "collection_type", None) or attrs.get("collection_type") or attrs.get("item_description"),
+        }
+        for p_field, p_val in promoted_dims.items():
+            if p_val and str(p_val).strip():
+                norm_p = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                    dimension_field=p_field,
+                    value=p_val,
+                    strict=True,
+                )
+                if hasattr(product_in, p_field):
+                    setattr(product_in, p_field, norm_p)
+                if attrs is not None:
+                    attrs[p_field] = norm_p
+        product_in.attributes = attrs
+
+        auto_gen = bool(getattr(product_in, "auto_generate_article_number", False))
+        prod_code = (product_in.code or "").strip().upper()
+        if not prod_code and not auto_gen:
+            raise HTTPException(status_code=400, detail="Product code / SKU is required")
+
+        if prod_code and prod_code != "AUTO":
+            # Check for duplicate code within company/branch
+            existing_code = await self.db.execute(
                 select(Product).filter(
-                    Product.barcode == clean_barcode,
+                    Product.code == prod_code,
                     Product.is_deleted == False,
-                    Product.company_id == self.tenant_ctx.company_id,
-                    Product.branch_id == self.tenant_ctx.branch_id
+                    Product.company_id == cid,
+                    Product.branch_id == bid
                 )
             )
-            if existing_barcode.scalars().first():
-                raise HTTPException(status_code=400, detail="Product with this barcode already exists")
+            if existing_code.scalars().first():
+                raise HTTPException(status_code=400, detail="Product with this code already exists")
 
-        prod_data = product_in.model_dump()
-        if not prod_data.get("id"):
-            import uuid
-            prod_data["id"] = f"PROD-{uuid.uuid4().hex[:8]}"
+        # Determine canonical Article / Style Code
+        style = (product_in.style_code or "").strip().upper()
+        article_code = style if style else (None if auto_gen else prod_code)
 
-        db_product = Product(
-            **prod_data,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id
+        # Build canonical ItemCreateRequest delegating to UniversalItemMasterService (Requirement 3)
+        from ..schemas.item_master import ItemCreateRequest, ItemVariantItem, ItemBarcodeItem
+        from .item_master_svc import UniversalItemMasterService
+
+        barcodes = []
+        if product_in.barcode and str(product_in.barcode).strip():
+            clean_bc = str(product_in.barcode).strip().upper()
+            bc_type = "EAN13" if len(clean_bc) == 13 and clean_bc.isdigit() else "CODE128_INTERNAL"
+            barcodes.append(ItemBarcodeItem(barcode=clean_bc, barcode_type=bc_type, is_primary=True))
+
+        variant_item = ItemVariantItem(
+            variant_sku=prod_code,
+            variant_name=product_in.name,
+            size=product_in.size,
+            color=product_in.color,
+            mrp=float(product_in.mrp or 0.0),
+            selling_price=float(product_in.price or 0.0),
+            cost_price=float(product_in.cost_price or 0.0),
+            is_active=True,
+            barcodes=barcodes,
+            attributes_json=product_in.attributes or {}
         )
-        self.db.add(db_product)
-        try:
-            await self.db.commit()
-        except IntegrityError:
-            await self.db.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail="Product with this code or barcode already exists"
+
+        auto_gen = bool(getattr(product_in, "auto_generate_article_number", False))
+        sup_payload = getattr(product_in, "supplier", None) or (product_in.attributes.get("supplier") if product_in.attributes else None)
+
+        item_req = ItemCreateRequest(
+            item_code=None if auto_gen else article_code,
+            item_name=product_in.name,
+            category=getattr(product_in, "category", None) or "Footwear",
+            category_code=getattr(product_in, "category_code", None),
+            brand=getattr(product_in, "brand", None),
+            style_code=style or (None if auto_gen else article_code),
+            color=getattr(product_in, "color", None),
+            size=getattr(product_in, "size", None),
+            vendor_code=getattr(product_in, "vendor_code", None),
+            hsn_code=getattr(product_in, "hsn_code", None),
+            tax_rate=float(getattr(product_in, "gst_percentage", None)) if getattr(product_in, "gst_percentage", None) is not None else None,
+            primary_uom=getattr(product_in, "uom", None) or "PCS",
+            mrp=float(getattr(product_in, "mrp", None) or 0.0),
+            selling_price=float(getattr(product_in, "price", None) or 0.0),
+            cost_price=float(getattr(product_in, "cost_price", None) or 0.0),
+            buying_price=float(product_in.buying_price) if getattr(product_in, "buying_price", None) is not None else None,
+            is_batch_tracked=bool(getattr(product_in, "is_batch_tracked", False)),
+            is_serial_tracked=bool(getattr(product_in, "is_serial_tracked", False)),
+            attributes_json=getattr(product_in, "attributes", None) or {},
+            variants=[variant_item],
+            auto_generate_article_number=auto_gen,
+            supplier=sup_payload,
+            gender=getattr(product_in, "gender", None) or (product_in.attributes.get("gender") if product_in.attributes else None),
+            product_type=getattr(product_in, "product_type", None) or (product_in.attributes.get("product_type") if product_in.attributes else None),
+            heel_type=getattr(product_in, "heel_type", None) or (product_in.attributes.get("heel_type") or product_in.attributes.get("heels") if product_in.attributes else None),
+            upper_material=getattr(product_in, "upper_material", None) or (product_in.attributes.get("upper_material") or product_in.attributes.get("upper") if product_in.attributes else None),
+            design_attribute=getattr(product_in, "design_attribute", None) or (product_in.attributes.get("design_attribute") or product_in.attributes.get("sub_category") if product_in.attributes else None),
+            outsole_material=getattr(product_in, "outsole_material", None) or (product_in.attributes.get("outsole_material") or product_in.attributes.get("outsole") if product_in.attributes else None),
+            collection_type=getattr(product_in, "collection_type", None) or (product_in.attributes.get("collection_type") if product_in.attributes else None),
+        )
+
+        canonical_item = await UniversalItemMasterService.create_item(
+            session=self.db,
+            req=item_req,
+            company_id=cid,
+            branch_id=bid,
+            commit=True
+        )
+
+        # Retrieve the synchronized Product record representing this variant
+        prod_stmt = select(Product).where(
+            Product.company_id == cid,
+            Product.code == prod_code,
+            Product.is_deleted == False
+        )
+        prod = (await self.db.execute(prod_stmt)).scalars().first()
+        if not prod:
+            fallback_conditions = [Product.sku == prod_code]
+            if product_in.color and product_in.size:
+                fallback_conditions.append(
+                    and_(
+                        Product.item_id == canonical_item.id,
+                        func.lower(Product.color) == str(product_in.color).strip().lower(),
+                        func.lower(Product.size) == str(product_in.size).strip().lower(),
+                    )
+                )
+            prod_stmt = select(Product).where(
+                Product.company_id == cid,
+                Product.is_deleted == False,
+                or_(*fallback_conditions)
             )
-        await self.db.refresh(db_product)
-        return db_product
+            prod = (await self.db.execute(prod_stmt)).scalars().first()
+        if not prod:
+            prod_stmt = select(Product).where(
+                Product.company_id == cid,
+                Product.item_id == canonical_item.id,
+                Product.is_deleted == False
+            ).order_by(Product.created_at.desc())
+            prod = (await self.db.execute(prod_stmt)).scalars().first()
+
+        return prod
 
     async def check_stock_availability(self, product_id: str, quantity: float) -> bool:
         stmt = select(Product).filter(
@@ -152,32 +424,44 @@ class InventoryService:
         from_warehouse: str,
         to_warehouse: str,
         quantity: float,
-        remarks: Optional[str] = None
+        remarks: Optional[str] = None,
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
     ) -> StockMovement:
         """
         Inter-warehouse stock transfer method.
         Records StockMovement and emits Transactional Outbox event.
+        Dual-key converged: writes product_id, item_id, variant_id.
         """
         stmt = select(Product).filter(
             Product.id == product_id,
             Product.is_deleted == False,
             Product.company_id == self.tenant_ctx.company_id,
-            Product.branch_id == self.tenant_ctx.branch_id
         )
+        if self.tenant_ctx.branch_id:
+            stmt = stmt.filter(
+                (Product.branch_id == self.tenant_ctx.branch_id) | (Product.branch_id.is_(None))
+            )
         res = await self.db.execute(stmt)
         product = res.scalars().first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
+        canonical_item_id, canonical_variant_id = await self._resolve_canonical_identity(
+            product=product,
+            provided_item_id=item_id,
+            provided_variant_id=variant_id,
+        )
+
         if product.tracking_mode != "No-stock" and product.stock < quantity:
             raise HTTPException(status_code=400, detail="Insufficient stock for transfer")
 
-        import uuid
-        from datetime import datetime, timezone
-        movement_id = f"SM-TR-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        movement_id = IdentityEngine.generate_technical_id()
         movement = StockMovement(
             id=movement_id,
             product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
             product_name=product.name,
             sku=product.sku or "",
             quantity=quantity,
@@ -218,33 +502,45 @@ class InventoryService:
         self,
         product_id: str,
         new_quantity: float,
-        reason: Optional[str] = None
+        reason: Optional[str] = None,
+        item_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
     ) -> StockMovement:
         """
         Stock reconciliation & physical audit adjustment method.
         Computes delta, updates product.stock, records StockMovement and emits Outbox event.
+        Dual-key converged: writes product_id, item_id, variant_id.
         """
         stmt = select(Product).filter(
             Product.id == product_id,
             Product.is_deleted == False,
             Product.company_id == self.tenant_ctx.company_id,
-            Product.branch_id == self.tenant_ctx.branch_id
         )
+        if self.tenant_ctx.branch_id:
+            stmt = stmt.filter(
+                (Product.branch_id == self.tenant_ctx.branch_id) | (Product.branch_id.is_(None))
+            )
         res = await self.db.execute(stmt)
         product = res.scalars().first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
+        canonical_item_id, canonical_variant_id = await self._resolve_canonical_identity(
+            product=product,
+            provided_item_id=item_id,
+            provided_variant_id=variant_id,
+        )
+
         delta = new_quantity - float(product.stock)
         product.stock = int(new_quantity)
         self.db.add(product)
 
-        import uuid
-        from datetime import datetime, timezone
-        movement_id = f"SM-ADJ-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
+        movement_id = IdentityEngine.generate_technical_id()
         movement = StockMovement(
             id=movement_id,
             product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
             product_name=product.name,
             sku=product.sku or "",
             quantity=delta,

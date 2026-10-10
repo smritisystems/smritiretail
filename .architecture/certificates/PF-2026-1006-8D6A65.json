@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-8D6A65",
+  "entity": "databridge",
+  "capability": "databridge.catalog_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "__init__.py",
+  "target_file_path": "backend/app/services/databridge/adapters/__init__.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/databridge/adapters/base_adapter.py",
+  "content_hash": "3fd08c867d92c90236c858f9624e776e3c7850d698882820673038d4cfce87c3",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T15:13:27.437622+00:00",
+  "expires_at": "2026-10-13T15:13:27.437622+00:00",
+  "status": "ISSUED"
+}

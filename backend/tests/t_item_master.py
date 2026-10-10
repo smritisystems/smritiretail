@@ -15,11 +15,14 @@ Classification: Internal
 import uuid
 import pytest
 from httpx import AsyncClient, ASGITransport
+from fastapi import HTTPException
 
 from app.main import app
 from app.db.session import get_company_sessionmaker
 from app.core.security import create_access_token
 from app.services.item_master_svc import UniversalItemMasterService
+from app.services.master_lookup_import_service import extract_vendor_article_codes_from_po_text
+from app.services.vendor_code_allocator import allocate_next_vendor_code
 from app.schemas.item_master import (
     ItemCreateRequest,
     ItemVariantItem,
@@ -32,6 +35,70 @@ from app.schemas.item_master import (
 )
 
 
+def test_generated_placeholder_barcode_prohibited_at_runtime():
+    """
+    [ADR-001 / R-01 MANDATORY COMPLIANCE]
+    Classified: Former synthetic placeholder barcode generator test.
+    Updated behavior: Runtime synthetic barcode generation is strictly prohibited.
+    Invoking generate_placeholder_barcode must raise RuntimeError.
+    """
+    with pytest.raises(RuntimeError, match="Synthetic barcode generation is prohibited"):
+        UniversalItemMasterService.generate_placeholder_barcode()
+
+
+def test_extract_vendor_article_codes_from_po_text_splits_style_and_article_tokens():
+    """PO PDFs should yield vendor-owned style/article tokens that can be persisted into style_article master lookup."""
+    text = '''
+    Purchase Order PO-1001
+    Vendor Article: SMR-2001-A
+    Article No: SMR-2001-A
+    Style / Article: SMR-2001-A
+    Vendor Code V-001
+    '''
+
+    codes = extract_vendor_article_codes_from_po_text(text)
+    assert sorted(codes) == sorted(["SMR-2001-A"])
+
+
+def test_vendor_code_allocator_stays_within_five_characters():
+    assert allocate_next_vendor_code([]) == "V-00A"
+    assert allocate_next_vendor_code(["V-00A"]) == "V-00B"
+    assert allocate_next_vendor_code(["V-00A", "V-00B", "V-00C"]) == "V-00D"
+    used_first_block = [f"V-00{chr(code)}" for code in range(ord("A"), ord("Z") + 1)]
+    assert allocate_next_vendor_code(used_first_block) == "V-0AA"
+    assert allocate_next_vendor_code(used_first_block + [f"V-0{letter}{letter}" for letter in "A"]) == "V-0BB"
+
+
+@pytest.mark.asyncio
+async def test_missing_barcode_does_not_create_synthetic_barcode():
+    """
+    [ADR-001 / R-01 MANDATORY COMPLIANCE]
+    Classified: Former configurable synthetic barcode policy test.
+    Updated behavior: Creating an item or generating matrix variants without barcodes
+    leaves barcodes unassigned/None; the system MUST NOT create fake/synthetic barcodes.
+    """
+    sessionmaker = get_company_sessionmaker("smriti001")
+    unique_suffix = uuid.uuid4().hex[:6].upper()
+    sku = f"NO-BC-{unique_suffix}"
+
+    req = ItemCreateRequest(
+        item_code=sku,
+        item_name=f"No Barcode Item {unique_suffix}",
+        item_type="FINISHED_GOOD",
+        category="APPAREL",
+        brand="SMRITI",
+        selling_price=500.0,
+    )
+
+    async with sessionmaker() as session:
+        item = await UniversalItemMasterService.create_item(session, req)
+        assert item is not None
+        reloaded = await UniversalItemMasterService.get_item_by_id(session, item.id)
+        assert len(reloaded.barcodes) == 0
+        for v in reloaded.variants:
+            assert len(v.barcodes) == 0
+
+
 def _get_auth_headers(role: str = "SYSADMIN") -> dict:
     token = create_access_token(
         data={
@@ -39,7 +106,7 @@ def _get_auth_headers(role: str = "SYSADMIN") -> dict:
             "username": "usr_super",
             "role": role,
             "company_id": "COMP-001",
-            "branch_id": "BR-001",
+            "branch_id": "BR-MAIN-001",
             "tenant_id": "smriti001",
             "db_name": "smriti001",
             "is_active": True,
@@ -65,7 +132,7 @@ async def test_create_item_with_variants_and_barcodes():
         item_name=f"Premium Linen Shirt {unique_suffix}",
         item_type="FINISHED_GOOD",
         category="APPAREL",
-        brand="Smriti Classic",
+        brand="SMRITI",
         hsn_code="6205",
         tax_rate=12.0,
         primary_uom="PCS",
@@ -103,14 +170,71 @@ async def test_create_item_with_variants_and_barcodes():
         item = await UniversalItemMasterService.create_item(session, req)
         assert item is not None
         assert item.item_code == sku
-        assert item.category == "APPAREL"
+        assert item.category.upper() == "APPAREL"
         assert item.tax_rate == 12.0
         assert len(item.variants) >= 1
         assert item.variants[0].variant_sku == f"{sku}-M"
         assert len(item.variants[0].barcodes) == 1
         assert item.variants[0].barcodes[0].barcode == barcode_val
-        assert len(item.locations) == 1
-        assert item.locations[0].location_bin == "AISLE-3-SHELF-2"
+        assert len(item.locations) >= 1
+        assert any(loc.location_bin == "AISLE-3-SHELF-2" for loc in item.locations)
+
+
+@pytest.mark.asyncio
+async def test_duplicate_item_code_cannot_overwrite_original_details():
+    """A generated item identity is one-time and duplicate creation is rejected."""
+    sessionmaker = get_company_sessionmaker("smriti001")
+    unique_suffix = uuid.uuid4().hex[:6].upper()
+    sku = f"IMMUTABLE-{unique_suffix}"
+
+    first_req = ItemCreateRequest(
+        item_code=sku,
+        item_name="Original Item",
+        category="APPAREL",
+        brand="SMRITI",
+        selling_price=100.0,
+    )
+    replacement_req = first_req.model_copy(
+        update={"item_name": "Replacement Item", "selling_price": 999.0}
+    )
+
+    async with sessionmaker() as session:
+        original = await UniversalItemMasterService.create_item(session, first_req)
+        with pytest.raises((ValueError, HTTPException), match="immutable"):
+            await UniversalItemMasterService.create_item(session, replacement_req)
+
+        unchanged = await UniversalItemMasterService.get_item_by_id(session, original.id)
+        assert unchanged.item_code == sku
+        assert unchanged.item_name == "Original Item"
+        assert float(unchanged.selling_price) == 100.0
+
+
+@pytest.mark.asyncio
+async def test_barcode_cannot_be_reused_for_another_item():
+    """A barcode remains permanently bound to its original item identity."""
+    sessionmaker = get_company_sessionmaker("smriti001")
+    unique_suffix = uuid.uuid4().hex[:6].upper()
+    barcode = f"BC-IMMUTABLE-{unique_suffix}"
+
+    first_req = ItemCreateRequest(
+        item_code=f"BARCODE-A-{unique_suffix}",
+        item_name="Barcode Owner",
+        category="APPAREL",
+        brand="SMRITI",
+        barcodes=[ItemBarcodeItem(barcode=barcode, barcode_type="CUSTOM", is_primary=True)],
+    )
+    second_req = ItemCreateRequest(
+        item_code=f"BARCODE-B-{unique_suffix}",
+        item_name="Barcode Reuse Attempt",
+        category="APPAREL",
+        brand="SMRITI",
+        barcodes=[ItemBarcodeItem(barcode=barcode, barcode_type="CUSTOM", is_primary=True)],
+    )
+
+    async with sessionmaker() as session:
+        await UniversalItemMasterService.create_item(session, first_req)
+        with pytest.raises((ValueError, HTTPException), match="already attached"):
+            await UniversalItemMasterService.create_item(session, second_req)
 
 
 @pytest.mark.asyncio
@@ -125,7 +249,7 @@ async def test_matrix_variant_generator_cartesian():
         item_code=sku,
         item_name=f"Polo T-Shirt {unique_suffix}",
         category="APPAREL",
-        brand="Smriti Sport",
+        brand="SMRITI",
         tax_rate=18.0,
         mrp=999.0,
         selling_price=799.0,
@@ -135,7 +259,7 @@ async def test_matrix_variant_generator_cartesian():
     async with sessionmaker() as session:
         item = await UniversalItemMasterService.create_item(session, req)
 
-        # 2. Generate 3 Sizes x 2 Colors = 6 Variants
+        # 2. Generate 3 Sizes x 2 Colors = 6 Variants (without fake barcodes)
         gen_req = MatrixVariantGenRequest(
             dimensions=[
                 MatrixVariantDimension(dimension_name="size", values=["S", "M", "L"]),
@@ -144,7 +268,6 @@ async def test_matrix_variant_generator_cartesian():
             base_mrp=999.0,
             base_selling_price=799.0,
             base_cost_price=350.0,
-            auto_generate_barcodes=True,
         )
 
         variants = await UniversalItemMasterService.generate_matrix_variants(session, item.id, gen_req)
@@ -158,6 +281,10 @@ async def test_matrix_variant_generator_cartesian():
         # Reload item and verify
         reloaded = await UniversalItemMasterService.get_item_by_id(session, item.id)
         assert len(reloaded.variants) >= 6
+
+        # ADR-001 / R-01: Barcodes must NOT be synthesized
+        for v in reloaded.variants:
+            assert len(v.barcodes) == 0
 
 
 @pytest.mark.asyncio
@@ -173,7 +300,7 @@ async def test_fast_4_tier_scanner_resolver():
         item_code=sku,
         item_name=f"Smartphone X {unique_suffix}",
         category="ELECTRONICS",
-        brand="TechPro",
+        brand="SMRITI",
         tax_rate=18.0,
         mrp=49999.0,
         selling_price=44999.0,
@@ -249,8 +376,8 @@ async def test_batch_registration_and_tracking():
     req = ItemCreateRequest(
         item_code=sku,
         item_name=f"Paracetamol 650mg {unique_suffix}",
-        category="PHARMA",
-        brand="HealthCare",
+        category="ELECTRONICS",
+        brand="BEANSTALK",
         tax_rate=12.0,
         mrp=45.0,
         selling_price=40.0,
@@ -289,11 +416,11 @@ async def test_legacy_product_adapter():
     req = ItemCreateRequest(
         item_code=sku,
         item_name=f"Organic Tea Leaves {unique_suffix}",
-        category="GROCERY",
-        brand="NatureHarvest",
+        category="Footwear",
+        brand="BEANSTALK",
         hsn_code="0902",
         tax_rate=5.0,
-        primary_uom="KG",
+        primary_uom="PCS",
         mrp=350.0,
         selling_price=300.0,
         cost_price=180.0,
@@ -309,7 +436,7 @@ async def test_legacy_product_adapter():
         assert adapter_view.price == 300.0
         assert adapter_view.cost == 180.0
         assert adapter_view.tax_rate == 5.0
-        assert adapter_view.uom == "KG"
+        assert adapter_view.uom == "PCS"
         assert adapter_view.is_active is True
 
 
@@ -329,7 +456,7 @@ async def test_api_item_endpoints():
                 "item_code": sku,
                 "item_name": f"API Test Cotton Polo {unique_suffix}",
                 "category": "APPAREL",
-                "brand": "Smriti API",
+                "brand": "SMRITI",
                 "hsn_code": "6105",
                 "tax_rate": 12.0,
                 "primary_uom": "PCS",
@@ -375,7 +502,7 @@ async def test_api_item_endpoints():
                 ],
                 "base_mrp": 1299.0,
                 "base_selling_price": 999.0,
-                "auto_generate_barcodes": True,
+                "auto_generate_barcodes": False,
             },
             headers=_get_auth_headers(),
         )

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-B229CE",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "component",
+  "proposed_name": "InwardCostDock.tsx",
+  "target_file_path": "src/components/purchase/InwardCostDock.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/InwardCostDock.tsx",
+  "content_hash": "3c4d851c6cdfd61f4c763cd0bd12bb57b0713cd52bb6cd8fe00205e45388ca09",
+  "git_commit": "529b6ce54bdd9d51b942fd1618c45ff53ff56890",
+  "issued_at": "2026-09-19T18:24:32.968416+00:00",
+  "expires_at": "2026-09-26T18:24:32.968416+00:00",
+  "status": "ISSUED"
+}

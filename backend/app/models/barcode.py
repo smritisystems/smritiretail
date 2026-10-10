@@ -76,3 +76,25 @@ class PrintProfile(BaseEntity):
     is_default  = Column(Boolean, default=False)
 
 
+class BarcodePrintJob(BaseEntity):
+    """
+    Print job lifecycle entity tracking multi-item label generation, status, and device dispatch.
+    """
+    __tablename__ = "barcode_print_jobs"
+
+    idempotency_key  = Column(String(128), unique=True, nullable=True, index=True)
+    requested_by     = Column(String(100), nullable=False)
+    printer_id       = Column(String(128), nullable=False)
+    template_id      = Column(String(64), nullable=False)
+    target_dpi       = Column(Integer, nullable=False, default=203)
+    target_protocol  = Column(String(16), nullable=False, default="ZPL")  # ZPL, DPL, SVG, TSPL, RAW
+    total_labels     = Column(Integer, nullable=False, default=1)
+    total_items      = Column(Integer, nullable=False, default=1)
+    status           = Column(String(32), nullable=False, default="QUEUED", index=True)  # QUEUED, COMPILING, READY, PRINTING, COMPLETED, FAILED, CANCELLED
+    error_message    = Column(Text, nullable=True)
+    payload_hash     = Column(String(64), nullable=True)
+    payload_stream   = Column(Text, nullable=True)
+    labels_metadata  = Column(Text, nullable=True)  # JSON summary of items in batch
+
+
+

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-AE81C0",
+  "entity": "databridge",
+  "capability": "databridge.core_foundation",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "exceptions.py",
+  "target_file_path": "backend/app/services/databridge/exceptions.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/databridge/service.py",
+  "content_hash": "d40c4f718be6d52772b5d6792441684d4a9b865c27615e5cefd15e8a28a6a422",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T11:39:08.475632+00:00",
+  "expires_at": "2026-10-13T11:39:08.475632+00:00",
+  "status": "ISSUED"
+}

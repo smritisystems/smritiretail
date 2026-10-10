@@ -14,7 +14,14 @@ License      : Proprietary Commercial Software
 import json
 import socket
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+try:
+    from zoneinfo import ZoneInfo
+    KOLKATA_TZ = ZoneInfo("Asia/Kolkata")
+except Exception:
+    KOLKATA_TZ = timezone(timedelta(hours=5, minutes=30))
+
 from typing import Dict, Any, Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -99,6 +106,143 @@ class PrinterService:
             f"PRINT 1,1\n"
         )
         return tspl
+
+    @classmethod
+    def generate_dpl_label(
+        cls,
+        item_code: str,
+        barcode: str,
+        name: str,
+        price: float,
+        mrp: float,
+        size: str = "",
+        color: str = "",
+        brand: str = "SMRITI",
+        width_mm: float = 50.0,
+        height_mm: float = 25.0
+    ) -> str:
+        """
+        Generates standard 50x25mm single tag DPL command stream.
+        """
+        shade_size = f"Shade: {color}  Size: {size}".strip() if (color or size) else ""
+        dpl = (
+            f"\x02L\n"
+            f"D11\n"
+            f"191100000200020{brand}\n"
+            f"191100000500020{name[:24]}\n"
+            f"191100000800020{shade_size}\n"
+            f"1e4202001100020{barcode}\n"
+            f"191100001500020MRP: Rs. {int(float(mrp))}  SP: Rs. {int(float(price))}\n"
+            f"Q0001\n"
+            f"E\n"
+        )
+        return dpl
+
+    @classmethod
+    def generate_dpl_footwear_label(
+        cls,
+        barcode: str,
+        size: str,
+        color: str,
+        style: str,
+        mrp: Any,
+        pkd_date: Optional[str] = None,
+        brand: str = "TATTLY THREADS",
+        company_address: str = "81,Umerkhadi,Mumbai,400003",
+        company_email: str = "care@tattlythreads.com",
+    ) -> str:
+        """
+        Generates native 300 DPI DPL command stream for 100mm x 50.7mm 3-part footwear box label
+        with dual counter/inventory tear-off stubs for IMPACT by Honeywell IH-2.
+        Preserves 1:1 physical placement and Code 128 symbology from RawPRNScript.prn reference.
+        Validates all 6 mandatory dynamic fields ({barcode}, {size}, {color}, {style}, {mrp}, {pkd_date}).
+        """
+        if pkd_date is None:
+            pkd_date_val = datetime.now(KOLKATA_TZ).strftime("%m/%y")
+        else:
+            pkd_date_val = str(pkd_date).strip()
+
+        missing = []
+        if not barcode or not str(barcode).strip():
+            missing.append("barcode")
+        if not size or not str(size).strip():
+            missing.append("size")
+        if not color or not str(color).strip():
+            missing.append("color")
+        if not style or not str(style).strip():
+            missing.append("style")
+        if mrp is None or str(mrp).strip() == "":
+            missing.append("mrp")
+        if not pkd_date_val:
+            missing.append("pkd_date")
+        if missing:
+            raise ValueError(f"Mandatory DPL footwear label token(s) missing or empty: {', '.join(missing)}")
+
+        try:
+            mrp_str = f"{int(float(mrp))}"
+        except Exception:
+            mrp_str = str(mrp).strip()
+
+        barcode_str = str(barcode).strip()
+        size_str = str(size).strip().upper()
+        color_str = str(color).strip().upper()
+        style_str = str(style).strip().upper()
+
+        dpl_lines = [
+            "\x02L",
+            "D11",
+            "H16",
+            # Partition Lines:
+            "1X1100000000370L000599",  # Vertical divider line at X=370 dots, length 599 dots
+            "1X1100002980000L0370000",  # Horizontal stub divider line at Y=298 dots, length 370 dots
+            "1X1100000220490B0420070",  # Main Article box (W=420, H=70 dots)
+            "1X1100000920928B0104099",  # Main Size reverse box (W=104, H=99 dots)
+            "1X1100000700055B0104099",  # Stub 1 Size reverse box
+            "1X1100003950049B0104099",  # Stub 2 Size reverse box
+            # Main Zone Elements:
+            "191100000600395Art.No.",
+            f"192200000650500{style_str}",
+            "191100001500395Color:",
+            f"192200001500500{color_str}",
+            f"193300001600950{size_str}",
+            f"192200002500500MRP: Rs. {mrp_str}/-",
+            "191100002500730|(Incl of all taxes)",
+            f"191100002900420MFG.Dt.: {pkd_date_val}",
+            "191100003150420NET CONTENTS: 1 Pair Footwear",
+            f"191100003950420{company_address}",
+            f"191100004200420{company_email}",
+            "191100004500420MKTD.By: Tattly Threads",
+            "492200003570772TATTLY THREADS",
+            f"1e4209804500510{barcode_str}",
+            f"191100005600575{barcode_str}",
+            # Stub 1 Elements:
+            "491100001460017TATTLY THREADS",
+            f"191100000400055{style_str}",
+            f"191100000750170{color_str}",
+            f"192200001350075{size_str}",
+            f"191100001150170MRP: {mrp_str}/-",
+            "191100001400170(Incl of all taxes)",
+            f"1e4204501650050{barcode_str}",
+            f"191100002250090{barcode_str}",
+            # Stub 2 Elements:
+            "491100003720016TATTLY THREADS",
+            f"191100003650049{style_str}",
+            f"191100004000170{color_str}",
+            f"192200004600075{size_str}",
+            f"191100004400170MRP: {mrp_str}/-",
+            "191100004650170(Incl of all taxes)",
+            f"1e4204504900049{barcode_str}",
+            f"191100005500090{barcode_str}",
+            "Q0001",
+            "E",
+            ""
+        ]
+        result = "\n".join(dpl_lines)
+        for token in ("{barcode}", "{size}", "{color}", "{style}", "{mrp}", "{pkd_date}"):
+            if token in result:
+                raise ValueError(f"Unresolved token '{token}' detected in rendered DPL output.")
+        return result
+
 
     @classmethod
     def generate_escpos_receipt(
@@ -275,12 +419,14 @@ class PrinterService:
             )
             session.add(history)
             await session.commit()
+            is_dpl = isinstance(payload_data, str) and ("\x02L" in payload_data or payload_data.startswith(" L"))
+            lang_code = "escpos" if is_binary else ("dpl" if is_dpl else "zpl")
             return {
                 "success": True,
                 "status": "QUEUED_QZ_TRAY",
                 "dispatch_mode": "qz_tray",
                 "job_id": job_id,
-                "language": "escpos" if is_binary else "zpl",
+                "language": lang_code,
                 "payload": payload_data if not is_binary else "<binary stream>",
                 "encoding": "base64" if is_binary else "utf-8",
                 "suggested_printer": None,

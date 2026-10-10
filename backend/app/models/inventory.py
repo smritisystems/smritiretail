@@ -12,23 +12,30 @@
  """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text, UniqueConstraint
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from ..db.base import BaseEntity
 
 class Product(BaseEntity):
     __tablename__ = "products"
 
+    # Canonical ItemMaster links retained alongside the legacy product identity.
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    item_variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="SET NULL"), nullable=True, index=True)
     variant_id = Column(BigInteger, autoincrement=True, index=True)
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    # Cached aggregate stock on hand. Authoritative source of truth is product_batch_stocks
+    # (for batch-tracked items) and stock_movements (for standard items). Synchronized via StockSynchronizer.
     stock = Column(Integer, nullable=False, default=0)
     category = Column(String(100), nullable=False, index=True)
     is_favorite = Column(Boolean, default=False)
     barcode = Column(String(100), nullable=False, index=True)
     secondary_barcodes = Column(ARRAY(String), server_default="{}")
     brand = Column(String(100))
+    vendor_code = Column(String(100))
     color = Column(String(50))
     size = Column(String(50))
     mrp = Column(Numeric(15, 2), default=0.00, server_default="0.00")
@@ -37,7 +44,7 @@ class Product(BaseEntity):
     buying_price = Column(Numeric(15, 2))
     cost_price = Column(Numeric(15, 2))
     sku = Column(String(100), unique=True)
-    hsn_code = Column(String(15), default="6403", server_default="6403")
+    hsn_code = Column(String(15), nullable=True)
     pricing_mode = Column(String(30), default="Fixed")
     tracking_mode = Column(String(30), default="Standard")
     variant_template_id = Column(String(50))
@@ -53,7 +60,8 @@ class Product(BaseEntity):
     document_number = Column(String(80))
     size_scale_id = Column(String(50))
     sourcing_mode_override = Column(String(30))
-    tenant_id = Column(String(50))
+    # tenant_id RETIRED — v1497 (2026-09-29): was 0/1899 populated, no write paths.
+    # company_id (BaseEntity) is the canonical tenant discriminator for this table.
     workflow_status = Column(String(30), default="Approved")
 
     __table_args__ = (
@@ -102,6 +110,8 @@ class StockMovement(BaseEntity):
     __tablename__ = "stock_movements"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     product_name = Column(String(255), nullable=False)
     sku = Column(String(50), nullable=False)
     quantity = Column(Numeric(10, 2), nullable=False)
@@ -114,6 +124,9 @@ class StockMovement(BaseEntity):
     batch = Column(String(50), nullable=True)
     serial = Column(String(50), nullable=True)
     unit_cost = Column(Numeric(15, 2), nullable=True)
+    batch_id = Column(String(50), ForeignKey("item_batches.id", ondelete="SET NULL"), nullable=True, index=True)
+    serial_id = Column(String(50), ForeignKey("item_serials.id", ondelete="SET NULL"), nullable=True, index=True)
+    location_id = Column(String(50), ForeignKey("item_warehouse_locations.id", ondelete="SET NULL"), nullable=True, index=True)
     remarks = Column(Text, nullable=True)
     user = Column(String(100), nullable=True)
     device = Column(String(100), nullable=True)
@@ -121,24 +134,20 @@ class StockMovement(BaseEntity):
     source_module = Column(String(50), nullable=True)
     approval = Column(String(50), nullable=True)
 
+    # Tracking Relationships (Phase 5)
+    batch_rel = relationship("ItemBatch", foreign_keys=[batch_id], lazy="selectin")
+    serial_rel = relationship("ItemSerial", foreign_keys=[serial_id], lazy="selectin")
+    location_rel = relationship("ItemWarehouseLocation", foreign_keys=[location_id], lazy="selectin")
 
-class Store(BaseEntity):
-    __tablename__ = "stores"
 
-    code = Column(String(50), nullable=False)
-    name = Column(String(200), nullable=False)
-    store_type = Column(String(50), nullable=True)
-    address = Column(Text, nullable=True)
+# RETIRED — Phase C (2026-09-16, v6.26.0)
+# Table 'stores' formally dropped via Alembic migration v1454_retire_stores_table.py.
+# All 5 safety gates passed (Gate 1: 0 rows, Gate 2: 0 write paths, Gate 3: FK severed,
+# Gate 4: DDL archived at docs/archive/stores_phase_b_archive_v4.17.0.sql, Gate 5: tests green).
+# Canonical replacements are Warehouse and Branch entities.
+# class Store(BaseEntity):
+#     __tablename__ = "stores"
 
-    __table_args__ = (
-        Index(
-            "uq_company_store_code_active",
-            "company_id",
-            "code",
-            unique=True,
-            postgresql_where=text("is_deleted = false"),
-        ),
-    )
 
 
 class Warehouse(BaseEntity):
@@ -166,10 +175,28 @@ class Warehouse(BaseEntity):
     )
 
 
+class WarehouseLocation(BaseEntity):
+    """Reusable warehouse location master for governed bin assignments."""
+    __tablename__ = "warehouse_locations"
+
+    warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(50), nullable=False)
+    name = Column(String(100), nullable=False)
+    aisle = Column(String(50), nullable=True)
+    rack = Column(String(50), nullable=True)
+    shelf = Column(String(50), nullable=True)
+    bin_code = Column(String(50), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_warehouse_location_code"),
+    )
+
+
 class ProductBatchStock(BaseEntity):
     __tablename__ = "product_batch_stocks"
 
     product_id = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id = Column(String(50), nullable=True, index=True)
     warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True)
     batch_no = Column(String(100), nullable=False, index=True)
     mfg_date = Column(Date, nullable=True)

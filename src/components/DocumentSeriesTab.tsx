@@ -14,15 +14,24 @@
  * Target UI    : Document Series Studio (Global Master Screen Refactor)
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
 import { documentSeriesConfig } from "./global/configs/documentSeries.con.tsx";
 import { DocumentSeries } from "../services/numberingEngine.ts";
 
 export const DocumentSeriesTab: React.FC = () => {
+  const memoizedConfig = useMemo(() => documentSeriesConfig, []);
+
   return (
-    <MasterListScreen<DocumentSeries>
-      config={documentSeriesConfig}
-    />
+    <div
+      role="region"
+      aria-label="Enterprise Document Numbering Engine"
+      title="Enterprise Document Numbering Engine (en-IN Locale & Currency Compliant)"
+      className="w-full h-full sm:px-2 md:px-4 space-y-4"
+    >
+      <MasterListScreen<DocumentSeries>
+        config={memoizedConfig}
+      />
+    </div>
   );
 };

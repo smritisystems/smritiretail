@@ -56,47 +56,10 @@ def is_valid_gstin_checksum(gstin: str) -> bool:
         return False
 
 
-# Statutory Indian GST State Codes dictionary per GSTN master
-VALID_GST_STATE_CODES = {
-    "01": "Jammu and Kashmir",
-    "02": "Himachal Pradesh",
-    "03": "Punjab",
-    "04": "Chandigarh",
-    "05": "Uttarakhand",
-    "06": "Haryana",
-    "07": "Delhi",
-    "08": "Rajasthan",
-    "09": "Uttar Pradesh",
-    "10": "Bihar",
-    "11": "Sikkim",
-    "12": "Arunachal Pradesh",
-    "13": "Nagaland",
-    "14": "Manipur",
-    "15": "Mizoram",
-    "16": "Tripura",
-    "17": "Meghalaya",
-    "18": "Assam",
-    "19": "West Bengal",
-    "20": "Jharkhand",
-    "21": "Odisha",
-    "22": "Chhattisgarh",
-    "23": "Madhya Pradesh",
-    "24": "Gujarat",
-    "26": "Dadra and Nagar Haveli and Daman and Diu",
-    "27": "Maharashtra",
-    "29": "Karnataka",
-    "30": "Goa",
-    "31": "Lakshadweep",
-    "32": "Kerala",
-    "33": "Tamil Nadu",
-    "34": "Puducherry",
-    "35": "Andaman and Nicobar Islands",
-    "36": "Telangana",
-    "37": "Andhra Pradesh",
-    "38": "Ladakh",
-    "97": "Other Territory",
-    "99": "Centre Jurisdiction",
-}
+from ..core.gst_engine import GST_STATE_CODES
+
+# Canonical reference mapping alias
+VALID_GST_STATE_CODES = GST_STATE_CODES
 
 
 class EWayBillService:
@@ -148,7 +111,8 @@ class EWayBillService:
         trans_distance_km: int = 50,
         trans_mode: str = "1",
         vehicle_type: str = "R",
-        strict_validation: Optional[bool] = None
+        strict_validation: Optional[bool] = None,
+        require_complete_data: bool = False,
     ) -> Dict[str, Any]:
         """
         Generate export-ready NIC GST E-Way Bill JSON payload for Inter-Godown Stock Transfer (Delivery Challan).
@@ -156,6 +120,13 @@ class EWayBillService:
         Enforces non-overrideable strict validation in production mode.
         """
         is_strict = True if settings.STRICT_STATUTORY_MODE else bool(strict_validation)
+        if require_complete_data:
+            if trans_distance_km is None:
+                raise HTTPException(status_code=422, detail="E-Way Bill requires a transport distance.")
+            if trans_mode == "1" and not vehicle_no:
+                raise HTTPException(status_code=422, detail="E-Way Bill requires a vehicle number for road transport.")
+            if trans_mode in {"2", "3", "4"} and not lr_number:
+                raise HTTPException(status_code=422, detail="E-Way Bill requires a transport document number for non-road transport.")
 
         res = await self.db.execute(
             select(StockTransfer).where(
@@ -180,9 +151,13 @@ class EWayBillService:
         dst_wh = dst_res.scalar_one_or_none()
 
         company = await self._get_company()
-        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AAXFT2508H1ZR") if company else "27AAXFT2508H1ZR"
+        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None)) if company else None
+        if not company_gstin:
+            raise HTTPException(status_code=422, detail="SMRITI-STAT-001: E-Way Bill requires a configured company GSTIN.")
         company_name = company.name if company else "SMRITI Enterprise"
-        company_state_code = int(company_gstin[:2]) if company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit() else 27
+        company_state_code = int(company_gstin[:2]) if len(company_gstin) >= 2 and company_gstin[:2].isdigit() else None
+        if not company_state_code:
+            raise HTTPException(status_code=422, detail="SMRITI-STAT-001: Unable to determine supplier state code from company GSTIN.")
 
         warnings: List[str] = []
         is_valid_gstin, gstin_err = self._validate_gstin(company_gstin, "Company GSTIN")
@@ -419,6 +394,7 @@ class EWayBillService:
         self,
         invoice_id: str,
         transporter_name: Optional[str] = None,
+        transporter_id: Optional[str] = None,
         vehicle_no: Optional[str] = None,
         lr_number: Optional[str] = None,
         trans_distance_km: int = 50,
@@ -445,17 +421,26 @@ class EWayBillService:
             raise HTTPException(status_code=404, detail=f"Sales invoice {invoice_id} not found.")
 
         cust_res = await self.db.execute(
-            select(Customer).where(Customer.id == invoice.customer_id)
+            select(Customer).options(
+                selectinload(Customer.gst_registrations)
+            ).where(Customer.id == invoice.customer_id)
         )
         customer = cust_res.scalar_one_or_none()
         company = await self._get_company()
 
-        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AABCS1429B1Z") if company else "27AABCS1429B1Z"
+        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None)) if company else None
+        if not company_gstin:
+            raise HTTPException(status_code=422, detail="SMRITI-STAT-001: E-Way Bill requires a configured company GSTIN.")
         company_name = company.name if company else "SMRITI Enterprise"
-        company_state_code = int(company_gstin[:2]) if company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit() else 27
+        company_state_code = int(company_gstin[:2]) if len(company_gstin) >= 2 and company_gstin[:2].isdigit() else None
+        if not company_state_code:
+            raise HTTPException(status_code=422, detail="SMRITI-STAT-001: Unable to determine supplier state code from company GSTIN.")
 
-        customer_gstin = (getattr(customer, 'gst_number', None) or getattr(customer, 'gstin', None) or "URP") if customer else "URP"
-        customer_name = customer.name if customer else "Walk-in Retailer"
+        customer_gstin = getattr(invoice, 'customer_gstin', None) or ((getattr(customer, 'canonical_gstin', None) or getattr(customer, 'gstin', None) or "URP") if customer else "URP")
+        customer_name = getattr(invoice, 'customer_name', None) or (customer.name if customer else None)
+        if is_strict and not customer_name:
+            raise HTTPException(status_code=422, detail="E-Way Bill requires a customer legal or trade name.")
+        customer_name = customer_name or ""
         customer_state_code = int(customer_gstin[:2]) if customer_gstin and customer_gstin != "URP" and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit() else company_state_code
 
         is_inter_state = company_state_code != customer_state_code
@@ -483,7 +468,7 @@ class EWayBillService:
         for item in invoice.items:
             prod = products_map.get(item.product_id)
             prod_name = item.name or (prod.name if prod else f"Product {item.product_id}")
-            raw_hsn = getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', None)
+            raw_hsn = getattr(item, 'hsn_code', None) or getattr(prod, 'hsn_code', None) or getattr(prod, 'hsn', None)
             if not raw_hsn or not str(raw_hsn).strip().isdigit() or len(str(raw_hsn).strip()) not in (2, 4, 6, 8):
                 if is_strict:
                     raise HTTPException(status_code=422, detail=f"SMRITI-STAT-002: Product '{prod_name}' has missing or invalid statutory HSN code.")
@@ -528,6 +513,52 @@ class EWayBillService:
         )
         is_threshold_applicable = float(invoice.grand_total) >= float(threshold_value)
 
+        # Canonical Physical Origin / Dispatch From Resolution
+        disp_snap = getattr(invoice, "dispatch_from_snapshot", None) or {}
+        comp_pin = 400003
+        
+        has_disp = bool(disp_snap and (disp_snap.get("address_line1") or disp_snap.get("city") or disp_snap.get("pincode")))
+        company_address = getattr(company, "address", None) if company else None
+        if is_strict and not has_disp and not company_address:
+            raise HTTPException(status_code=422, detail="E-Way Bill requires a configured dispatch address or invoice dispatch snapshot.")
+        disp_addr1 = (disp_snap.get("address_line1") or company_address or "")[:120]
+        disp_addr2 = (disp_snap.get("address_line2") or disp_snap.get("location_name") or "")[:120]
+        disp_place = (disp_snap.get("city") or getattr(company, "city", None) or "")[:50]
+        if is_strict and not disp_place:
+            raise HTTPException(status_code=422, detail="E-Way Bill requires a dispatch place.")
+        
+        raw_disp_pin = disp_snap.get("pincode")
+        if is_strict and not (raw_disp_pin and str(raw_disp_pin).isdigit()):
+            raise HTTPException(status_code=422, detail="E-Way Bill requires a dispatch pincode.")
+        disp_pin = int(raw_disp_pin) if (raw_disp_pin and str(raw_disp_pin).isdigit()) else comp_pin
+        
+        raw_disp_sc = disp_snap.get("state_code")
+        act_from_state = int(raw_disp_sc) if (raw_disp_sc and str(raw_disp_sc).isdigit()) else company_state_code
+
+        # Delivery Site / Destination Resolution
+        deliv_snap = getattr(invoice, "delivery_location_snapshot", None) or {}
+        deliv_gstin = getattr(invoice, "delivery_gstin", None) or deliv_snap.get("gstin") or customer_gstin
+        if is_strict and not (deliv_snap.get("pincode") and str(deliv_snap.get("pincode")).isdigit()):
+            raise HTTPException(status_code=422, detail="E-Way Bill requires a delivery pincode.")
+        if is_strict and not (getattr(customer, "address", None) or getattr(invoice, "shipping_address", None) or getattr(invoice, "billing_address", None)):
+            raise HTTPException(status_code=422, detail="E-Way Bill requires a delivery address.")
+        if is_strict and not (getattr(customer, "city", None) or getattr(invoice, "pos_state", None)):
+            raise HTTPException(status_code=422, detail="E-Way Bill requires a delivery place.")
+        act_to_state = int(deliv_gstin[:2]) if (deliv_gstin and len(deliv_gstin) >= 2 and deliv_gstin[:2].isdigit()) else customer_state_code
+        
+        # Determine Statutory NIC Transaction Type (transType: 1=Regular, 2=BillTo-ShipTo, 3=BillFrom-DispatchFrom, 4=Combination)
+        is_dispatch_diff = has_disp and (disp_pin != comp_pin or act_from_state != company_state_code or disp_place.strip().lower() != comp_place.strip().lower())
+        is_ship_diff = (act_to_state != customer_state_code)
+        
+        if is_dispatch_diff and is_ship_diff:
+            trans_type = 4
+        elif is_dispatch_diff:
+            trans_type = 3
+        elif is_ship_diff:
+            trans_type = 2
+        else:
+            trans_type = 1
+
         eway_payload = {
             "version": "1.0.0",
             "compliance": {
@@ -546,22 +577,27 @@ class EWayBillService:
                     "docType": "INV",
                     "docNo": invoice.invoice_no,
                     "docDate": doc_date,
-                    "transType": "1",
+                    "transType": trans_type,
+                    # Bill From: Supplier Legal Registered Identity & State
                     "fromGstin": company_gstin,
                     "fromTrdName": company_name,
-                    "fromAddr1": getattr(company, 'address', "Plot 12, Industrial Estate") if company else "Plot 12, Industrial Estate",
-                    "fromAddr2": "Central Warehouse",
-                    "fromPlace": "Mumbai",
-                    "fromPincode": 400001,
-                    "actFromStateCode": company_state_code,
                     "fromStateCode": company_state_code,
+                    # Dispatch From: Physical Origin of Goods per NIC Rule 10
+                    "fromAddr1": disp_addr1,
+                    "fromAddr2": disp_addr2,
+                    "fromPlace": disp_place,
+                    "fromPincode": disp_pin,
+                    "actualFromStateCode": act_from_state,
+                    "actFromStateCode": act_from_state,
+                    # Bill To & Ship To: Consignee & Delivery Destination
                     "toGstin": customer_gstin,
                     "toTrdName": customer_name,
-                    "toAddr1": getattr(customer, 'address', None) or getattr(invoice, 'billing_address', None) or "Retail Market Shop",
-                    "toAddr2": "Commercial District",
-                    "toPlace": getattr(customer, 'city', None) or getattr(invoice, 'pos_state', None) or "Mumbai",
-                    "toPincode": 400002,
-                    "actToStateCode": customer_state_code,
+                    "toAddr1": (getattr(customer, 'address', None) or getattr(invoice, 'shipping_address', None) or getattr(invoice, 'billing_address', None) or "")[:120],
+                    "toAddr2": (getattr(invoice, 'site_name', None) or "")[:120],
+                    "toPlace": (getattr(customer, 'city', None) or getattr(invoice, 'pos_state', None) or "")[:50],
+                    "toPincode": int(deliv_snap.get("pincode")) if (deliv_snap.get("pincode") and str(deliv_snap.get("pincode")).isdigit()) else None,
+                    "actualToStateCode": act_to_state,
+                    "actToStateCode": act_to_state,
                     "toStateCode": customer_state_code,
                     "totalValue": round(taxable_tot, 2),
                     "cgstValue": cgst_val,
@@ -569,13 +605,13 @@ class EWayBillService:
                     "igstValue": igst_val,
                     "cessValue": 0.0,
                     "totInvValue": float(invoice.grand_total),
-                    "transporterId": "",
-                    "transporterName": transporter_name or "Logistics Partner",
+                    "transporterId": transporter_id or "",
+                    "transporterName": transporter_name or "",
                     "transDocNo": lr_number or "",
                     "transDocDate": doc_date,
                     "transMode": trans_mode,
                     "transDistance": trans_distance_km,
-                    "vehicleNo": vehicle_no or "MH-04-TR-1000",
+                    "vehicleNo": vehicle_no or "",
                     "vehicleType": vehicle_type,
                     "itemList": items_payload
                 }

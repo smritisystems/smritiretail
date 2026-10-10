@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 """
 
 from typing import List, Optional, Tuple
-from sqlalchemy import cast, func, String
+from sqlalchemy import cast, func, String, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from ..models.inventory import Product
@@ -26,9 +26,16 @@ class ProductRepository(BaseRepository[Product]):
 
     async def get_by_barcode(self, barcode: str) -> Optional[Product]:
         """
-        Fetch product details matching barcode.
+        Fetch product details matching primary or secondary barcode.
         """
-        stmt = select(Product).filter(Product.barcode == barcode, Product.is_deleted == False)
+        clean_bc = str(barcode).strip()
+        stmt = select(Product).filter(
+            or_(
+                Product.barcode == clean_bc,
+                Product.secondary_barcodes.any(clean_bc)
+            ),
+            Product.is_deleted == False
+        )
         stmt = self._apply_tenant_filter(stmt)
         result = await self.db.execute(stmt)
         return result.scalars().first()

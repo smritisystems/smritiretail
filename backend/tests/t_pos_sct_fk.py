@@ -24,6 +24,11 @@ from app.db.session import get_company_sessionmaker
 from app.services.db_resolver import CompanyDatabaseResolver
 
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def test_pos_sct_fk_constraints_and_zero_orphans():
     """
     P0.1 Certification: Verify shift_cash_transactions Foreign Key constraints
@@ -31,7 +36,7 @@ def test_pos_sct_fk_constraints_and_zero_orphans():
     """
     for db_name in ["smriti001", "smriti002", "smritisys"]:
         try:
-            conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+            conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
             cur = conn.cursor()
 
             # 1. Verify constraints exist

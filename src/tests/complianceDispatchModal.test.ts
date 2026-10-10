@@ -99,4 +99,35 @@ describe("SMRITI SGIP Statutory Dispatch Gateway (E-Invoice & E-Way Bill UI)", (
     expect(res.status).toBe("SUCCESS");
     expect(res.eway_bill_no).toBe("271098877665");
   });
+
+  it("STEP 5: should retrieve canonical E-Way Bill details including 4-party dispatch origin and delivery site", async () => {
+    const getSpy = vi.spyOn(apiFetchModule, "apiFetchV1").mockResolvedValue({
+      eway_bill_no: "260951827195",
+      document_no: "TT2026-2027/195",
+      trans_type: 4,
+      dispatch_from: {
+        trade_name: "Tattly Threads (Nagpur Depot)",
+        pincode: "440029",
+        state_code: 27,
+      },
+      ship_to: {
+        trade_name: "Reliance Retail Limited (Panchla DC)",
+        pincode: "711310",
+        state_code: 19,
+      },
+      consignment_value: 338144.0,
+      distance_km: 1020,
+      vehicle_no: "MH31FC1234",
+      status: "GENERATED",
+    });
+
+    const res = await apiFetchModule.apiFetchV1("/compliance/ewaybill/TT2026-2027/195");
+    expect(getSpy).toHaveBeenCalledWith("/compliance/ewaybill/TT2026-2027/195");
+    expect(res.eway_bill_no).toBe("260951827195");
+    expect(res.trans_type).toBe(4);
+    expect(res.dispatch_from.pincode).toBe("440029");
+    expect(res.ship_to.pincode).toBe("711310");
+    expect(res.distance_km).toBe(1020);
+  });
 });
+

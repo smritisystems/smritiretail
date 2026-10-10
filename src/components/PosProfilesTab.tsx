@@ -14,7 +14,7 @@
  * Target UI    : POS Profiles Studio (Global Master Screen Refactor)
  */
 
-import React from "react";
+import React, { useCallback } from "react";
 import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
 import { posProfilesConfig } from "./global/configs/posProfiles.config.tsx";
 import { POSProfile } from "../types.ts";
@@ -30,13 +30,18 @@ export const PosProfilesTab: React.FC<PosProfilesTabProps> = ({
   onNotification,
   currentUser
 }) => {
+  const handleNotification = useCallback(
+    (t: string, m: string, type?: "success" | "error" | "info" | "warning") => {
+      if (onNotification) onNotification(t, m, type === "error" ? "error" : "success");
+    },
+    [onNotification]
+  );
+
   return (
     <MasterListScreen<POSProfile>
       config={posProfilesConfig}
       currentUser={currentUser}
-      onNotification={(t, m, type) => {
-        if (onNotification) onNotification(t, m, type === "warning" || type === "info" ? "success" : type);
-      }}
+      onNotification={handleNotification}
     />
   );
 };

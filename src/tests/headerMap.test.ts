@@ -66,7 +66,7 @@ describe("HeaderMappingEngine Core Pipeline", () => {
     const result = engine.mapHeaders(headers);
 
     const keys = result.columns.map(c => c.mappedFieldKey);
-    expect(keys).toEqual(["code", "name", "barcode", "brand", "category", "gstPercentage", "mrp"]);
+    expect(keys).toEqual(["style_code", "name", "barcode", "brand", "category", "gstPercentage", "mrp"]);
   });
 
   it("should map acceptance example 3 headers", () => {
@@ -74,7 +74,7 @@ describe("HeaderMappingEngine Core Pipeline", () => {
     const result = engine.mapHeaders(headers);
 
     const keys = result.columns.map(c => c.mappedFieldKey);
-    expect(keys).toEqual(["code", "name", "barcode", "brand", "subCategory", "price"]);
+    expect(keys).toEqual(["style_code", "name", "barcode", "brand", "subCategory", "price"]);
   });
 
   it("should flag ambiguous headers for user review", () => {

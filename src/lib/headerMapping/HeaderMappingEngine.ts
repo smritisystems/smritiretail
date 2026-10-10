@@ -69,6 +69,9 @@ export class HeaderMappingEngine {
       // 2. Check for Ambiguous Headers
       const ambiguousRule = AMBIGUOUS_HEADER_RULES.find(r => r.normalizedTrigger === normalizedSource);
       if (ambiguousRule && ambiguousRule.candidateKeys.length > 1) {
+        const contextDefaultKey = context && ambiguousRule.contextDefaults ? ambiguousRule.contextDefaults[context] : null;
+        const defaultField = contextDefaultKey ? this.fields.find(field => field.key === contextDefaultKey) : null;
+
         const candidates = ambiguousRule.candidateKeys.map(k => {
           const f = this.fields.find(field => field.key === k);
           return { key: k, label: f ? f.label : k, score: 80 };
@@ -77,8 +80,8 @@ export class HeaderMappingEngine {
         results.push({
           sourceHeader: rawHeader,
           sourceIndex,
-          mappedFieldKey: null,
-          mappedFieldLabel: null,
+          mappedFieldKey: defaultField ? defaultField.key : null,
+          mappedFieldLabel: defaultField ? defaultField.label : null,
           confidence: 'AMBIGUOUS',
           confidenceScore: 50,
           isAmbiguous: true,

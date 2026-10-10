@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.1
+ * Version      : 6.70.49
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import { AttributeDefinition } from "../types.ts";
+import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 import { SmritiFieldDefinition } from "../lib/headerMapping/types.ts";
 import { ItemMasterFieldDefinition } from "../components/itemMaster/types.ts";
 import { getCustomAliases, getRemovedAliases } from "../lib/headerMapping/HeaderAliasRegistry.ts";
@@ -48,7 +49,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Stock No / SKU",
     datatype: "text",
     required: true,
-    aliases: ["stock no", "sku", "sku code", "item code", "item no", "product code", "style code", "article no"],
+    aliases: ["stock no", "sku", "sku code", "item code", "item no", "product code", "variant sku", "variant code", "matrix code"],
     active: true,
     displayOrder: 1,
     source: "core",
@@ -72,7 +73,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Product Name",
     datatype: "text",
     required: true,
-    aliases: ["product", "item name", "product name", "item description", "description", "title"],
+    aliases: ["product", "item name", "product name", "item description", "description", "title", "ITEM DESCRIPTION", "product description"],
     active: true,
     displayOrder: 3,
     source: "core",
@@ -108,7 +109,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Category",
     datatype: "text",
     required: true,
-    aliases: ["category", "category name", "product category", "department", "merchandise category", "group"],
+    aliases: ["category", "category name", "product category", "group"],
     active: true,
     displayOrder: 5,
     source: "core",
@@ -156,7 +157,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "MRP",
     datatype: "currency",
     required: true,
-    aliases: ["mrp", "maximum retail price", "retail price", "list price"],
+    aliases: ["mrp", "maximum retail price", "retail price", "list price", "planned mrp", "target mrp", "planned_mrp", "max retail price", "plate rate or mrp", "PLANNED MRP"],
     active: true,
     displayOrder: 9,
     source: "core",
@@ -182,7 +183,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Cost Price",
     datatype: "currency",
     required: true,
-    aliases: ["cost price", "cost", "purchase rate", "landing cost", "buy price", "net cost", "cp"],
+    aliases: ["cost price", "cost", "purchase rate", "landing cost", "landed cost", "landed cost price", "buy price", "net cost", "cp", "COST PRICE"],
     active: true,
     displayOrder: 11,
     source: "core",
@@ -195,7 +196,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Selling Price",
     datatype: "currency",
     required: true,
-    aliases: ["selling price", "price", "sale price", "rate", "offer price"],
+    aliases: ["selling price", "price", "sale price", "rate", "offer price", "sales price", "selling rate", "sale rate", "sp", "plate rate"],
     active: true,
     displayOrder: 12,
     source: "core",
@@ -209,7 +210,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     datatype: "select",
     required: true,
     validValues: ["STD_18", "GST_12", "GST_5", "EXEMPT", "18", "12", "5", "0"],
-    aliases: ["gst", "gst %", "tax rate", "gst percentage", "tax %", "vat"],
+    aliases: ["product tax", "gst", "gst %", "tax rate", "gst percentage", "tax %", "vat", "tax", "product tax %", "tax percentage", "PRODUCT TAX"],
     active: true,
     displayOrder: 12,
     source: "core",
@@ -221,7 +222,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "HSN Code",
     datatype: "text",
     required: true,
-    aliases: ["hsn", "hsn code", "hsn no", "hsn/sac", "sac"],
+    aliases: ["hsn", "hsn code", "hsn no", "hsn/sac", "sac", "HSN CODE", "HSN", "hsn sac"],
     active: true,
     displayOrder: 13,
     source: "core",
@@ -241,14 +242,162 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     width: "90px"
   },
   {
+    // IM-004: ARTICLE_STYLE_CODE is mandatory — never derived from SKU code.
     id: "style",
     key: "style_code",
-    label: "Style Code",
+    label: "Style / Article Code",
     datatype: "text",
-    required: false,
-    aliases: ["style", "style code", "design no", "model"],
+    required: true,
+    aliases: [
+      "style", "style code", "article", "article no", "article/style",
+      "article/style/model no.", "design no", "model",
+      "ARTICLE_STYLE_CODE", "article style code",
+      "product style code", "product style", "product_style_code", "product_style",
+      "style product code", "article code", "PRODUCT STYLE CODE"
+    ],
     active: true,
     displayOrder: 15,
+    source: "core",
+    width: "120px"
+  },
+  {
+    id: "vendorCode",
+    key: "vendor_code",
+    label: "Vendor Code",
+    datatype: "text",
+    required: false,
+    aliases: ["vendor code", "vendor", "vendor id", "supplier code", "VENDOR_CODE", "supplier"],
+    active: true,
+    displayOrder: 16,
+    source: "core",
+    width: "120px"
+  },
+  {
+    id: "department",
+    key: "department",
+    label: "Merchandise Department",
+    datatype: "text",
+    required: false,
+    aliases: ["department", "dept", "division", "merchandise department", "MERCHANDISE_DEPARTMENT"],
+    active: true,
+    displayOrder: 17,
+    source: "core",
+    width: "140px"
+  },
+  {
+    // v2.2 Field Notes: "MERCHANDISE CATEGORY" column values are PRODUCT_TYPE (CHAPPAL, SANDAL).
+    // The backend routes this field to product_type on the Item row.
+    id: "merchandiseCategory",
+    key: "MERCHANDISE_CATEGORY",
+    label: "Merchandise Category",
+    datatype: "text",
+    required: false,
+    aliases: ["merchandise category", "MERCHANDISE CATEGORY", "MERCHANDISE_CATEGORY", "mc category"],
+    active: true,
+    displayOrder: 18,
+    source: "core",
+    width: "150px"
+  },
+  {
+    // v2.2: First-class footwear attribute — mandatory per hardening directive
+    id: "gender",
+    key: "gender",
+    label: "Gender",
+    datatype: "text",
+    required: true,
+    aliases: ["gender", "target gender", "section", "GENDER", "Gndr"],
+    active: true,
+    displayOrder: 19,
+    source: "core",
+    width: "100px"
+  },
+  {
+    // v2.2: First-class footwear attribute — mandatory per hardening directive
+    id: "productType",
+    key: "product_type",
+    label: "Product Type",
+    datatype: "text",
+    required: true,
+    aliases: ["product type", "product_type", "PRODUCT_TYPE", "Product_Type"],
+    active: true,
+    displayOrder: 20,
+    source: "core",
+    width: "120px"
+  },
+  {
+    // v2.2: First-class footwear attribute — mandatory per hardening directive
+    id: "heelType",
+    key: "heel_type",
+    label: "Heel Type",
+    datatype: "text",
+    required: true,
+    aliases: ["heel type", "heel_type", "HEEL_TYPE", "Heel_Type", "heels", "heel", "HEELS"],
+    active: true,
+    displayOrder: 21,
+    source: "core",
+    width: "110px"
+  },
+  {
+    // v2.2: First-class footwear attribute — mandatory per hardening directive
+    id: "upperMaterial",
+    key: "upper_material",
+    label: "Upper Material",
+    datatype: "text",
+    required: true,
+    aliases: ["upper material", "upper_material", "UPPER_MATERIAL", "Upper_Material", "shoe upper", "upper"],
+    active: true,
+    displayOrder: 22,
+    source: "core",
+    width: "130px"
+  },
+  {
+    // v2.2: First-class footwear attribute — advisory
+    id: "outsoleMaterial",
+    key: "outsole_material",
+    label: "Outsole Material",
+    datatype: "text",
+    required: false,
+    aliases: ["outsole", "outsole material", "OUTSOLE_MATERIAL", "OUTSOLE", "sole", "sole material"],
+    active: true,
+    displayOrder: 23,
+    source: "core",
+    width: "130px"
+  },
+  {
+    // v2.2: First-class footwear attribute — advisory
+    id: "designAttribute",
+    key: "design_attribute",
+    label: "Design Attribute",
+    datatype: "text",
+    required: false,
+    aliases: ["design attribute", "design_attribute", "DESIGN_ATTRIBUTE", "sub category", "sub-category"],
+    active: true,
+    displayOrder: 24,
+    source: "core",
+    width: "130px"
+  },
+  {
+    // v2.2: First-class footwear attribute — advisory
+    id: "collectionType",
+    key: "collection_type",
+    label: "Collection Type",
+    datatype: "text",
+    required: false,
+    aliases: ["collection type", "collection_type", "COLLECTION_TYPE"],
+    active: true,
+    displayOrder: 25,
+    source: "core",
+    width: "130px"
+  },
+  {
+    id: "purchaseClass",
+    key: "purchase_class",
+    label: "Purchase Class",
+    datatype: "text",
+    required: false,
+    aliases: ["purchase class", "PURCHASE_CLASS", "purchase classification"],
+    active: true,
+    displayOrder: 26,
     source: "core",
     width: "120px"
   },
@@ -260,20 +409,14 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     required: false,
     aliases: ["item description", "description", "details"],
     active: true,
-    displayOrder: 16,
+    displayOrder: 27,
     source: "core",
     width: "200px"
   },
-  // Generic Dynamic Attribute Slots (A1..A9) configurable via Attribute Management
-  { id: "attr_a1", key: "a1", label: "Attribute 1 (A1)", datatype: "text", required: false, aliases: ["a1", "attr 1", "attribute 1", "attribute1", "heels", "heel type"], active: true, displayOrder: 17, source: "core", width: "120px" },
-  { id: "attr_a2", key: "a2", label: "Attribute 2 (A2)", datatype: "text", required: false, aliases: ["a2", "attr 2", "attribute 2", "attribute2", "upper", "upper material", "shoe upper"], active: true, displayOrder: 18, source: "core", width: "120px" },
-  { id: "attr_a3", key: "a3", label: "Attribute 3 (A3)", datatype: "text", required: false, aliases: ["a3", "attr 3", "attribute 3", "attribute3", "outsole", "sole", "sole material"], active: true, displayOrder: 19, source: "core", width: "120px" },
-  { id: "attr_a4", key: "a4", label: "Attribute 4 (A4)", datatype: "text", required: false, aliases: ["a4", "attr 4", "attribute 4", "attribute4", "gender", "target gender", "section"], active: true, displayOrder: 20, source: "core", width: "120px" },
-  { id: "attr_a5", key: "a5", label: "Attribute 5 (A5)", datatype: "text", required: false, aliases: ["a5", "attr 5", "attribute 5", "attribute5", "vendor code", "vendor id", "supplier code"], active: true, displayOrder: 21, source: "core", width: "120px" },
-  { id: "attr_a6", key: "a6", label: "Attribute 6 (A6)", datatype: "text", required: false, aliases: ["a6", "attr 6", "attribute 6", "attribute6", "purchase class", "purchase classification"], active: true, displayOrder: 22, source: "core", width: "120px" },
-  { id: "attr_a7", key: "a7", label: "Attribute 7 (A7)", datatype: "text", required: false, aliases: ["a7", "attr 7", "attribute 7", "attribute7", "department", "dept", "division"], active: true, displayOrder: 23, source: "core", width: "120px" },
-  { id: "attr_a8", key: "a8", label: "Attribute 8 (A8)", datatype: "text", required: false, aliases: ["a8", "attr 8", "attribute 8", "attribute8", "merchandise category", "merchandise cat", "mc category"], active: true, displayOrder: 24, source: "core", width: "120px" },
-  { id: "attr_a9", key: "a9", label: "Attribute 9 (A9)", datatype: "text", required: false, aliases: ["a9", "attr 9", "attribute 9", "attribute9", "season", "fit", "pattern", "occasion"], active: true, displayOrder: 25, source: "core", width: "120px" }
+  // Generic fallback slots for non-standard columns that don't map to any first-class field
+  { id: "attr_a1", key: "a1", label: "Attribute 1 (A1)", datatype: "text", required: false, aliases: ["a1", "attr 1", "attribute 1", "attribute1"], active: true, displayOrder: 28, source: "core", width: "120px" },
+  { id: "attr_a2", key: "a2", label: "Attribute 2 (A2)", datatype: "text", required: false, aliases: ["a2", "attr 2", "attribute 2", "attribute2"], active: true, displayOrder: 29, source: "core", width: "120px" },
+  { id: "attr_a3", key: "a3", label: "Attribute 3 (A3)", datatype: "text", required: false, aliases: ["a3", "attr 3", "attribute 3", "attribute3"], active: true, displayOrder: 30, source: "core", width: "120px" }
 ];
 
 /**
@@ -409,7 +552,7 @@ export function serializeProductAttributes(
     const cleanKey = def.name.toLowerCase().replace(/[^a-z0-9_]/g, "_");
     const dynId = `dyn_attr_${cleanKey}`;
 
-    const rawVal = 
+    let rawVal = 
       itemData[cleanKey] ?? 
       itemData[dynId] ?? 
       itemData[def.name] ?? 
@@ -419,12 +562,29 @@ export function serializeProductAttributes(
       itemData.attributes?.[cleanKey] ??
       itemData.attributes?.[def.name];
 
+    if ((rawVal === undefined || rawVal === null || String(rawVal).trim() === "") && (cleanKey === "style_no" || cleanKey === "style")) {
+      rawVal = itemData.style ?? itemData.style_code ?? itemData.style_no ?? itemData.code;
+    }
+    if ((rawVal === undefined || rawVal === null || String(rawVal).trim() === "") && (cleanKey === "article_no" || cleanKey === "article")) {
+      rawVal = itemData.article ?? itemData.article_no ?? itemData.style ?? itemData.style_code ?? itemData.code;
+    }
+
     if (rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== "") {
       attributesPayload[cleanKey] = String(rawVal).trim();
     }
   });
 
   // Standard inherited attributes
+  const resolvedStyle = itemData.style || itemData.style_code || itemData.style_no || itemData.code;
+  if (resolvedStyle) {
+    attributesPayload.style = String(resolvedStyle).trim();
+    attributesPayload.style_no = String(resolvedStyle).trim();
+  }
+  const resolvedArticle = itemData.article || itemData.article_no || itemData.style || itemData.style_code || itemData.code;
+  if (resolvedArticle) {
+    attributesPayload.article = String(resolvedArticle).trim();
+    attributesPayload.article_no = String(resolvedArticle).trim();
+  }
   if (itemData.brand) attributesPayload.brand = String(itemData.brand).trim();
   if (itemData.category) attributesPayload.category = String(itemData.category).trim();
   if (itemData.subCategory) attributesPayload.subCategory = String(itemData.subCategory).trim();
@@ -445,13 +605,78 @@ const GLOBAL_FIELD_VISIBILITY_KEY = "smriti_global_field_visibility";
  */
 export function saveGlobalFieldVisibility(visibleKeys: string[]): void {
   try {
-    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(visibleKeys));
-    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(visibleKeys));
+    const normalizedKeys = Array.from(new Set(visibleKeys));
+    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(normalizedKeys));
+    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(normalizedKeys));
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys } }));
+      window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys: normalizedKeys } }));
     }
+    void persistGlobalFieldVisibility(normalizedKeys);
   } catch (err) {
     console.error("Failed to save global field visibility:", err);
+  }
+}
+
+/** Hydrate the cached global ItemMaster order from the authenticated user's server preferences. */
+export async function hydrateGlobalFieldVisibility(): Promise<string[] | null> {
+  try {
+    const response = await apiFetchV1<{ itemMaster?: { visibleFields?: unknown } }>('/layout/preferences');
+    const fields = response?.itemMaster?.visibleFields;
+    if (!Array.isArray(fields) || !fields.every(value => typeof value === 'string')) return getGlobalFieldVisibility();
+    const visibleKeys = Array.from(new Set(fields));
+    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(visibleKeys));
+    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(visibleKeys));
+    window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys } }));
+    return visibleKeys;
+  } catch {
+    return getGlobalFieldVisibility();
+  }
+}
+
+/** Hydrate the shared company/role ItemMaster profile before the user profile/cache. */
+export async function hydrateRoleGlobalFieldVisibility(role?: string | null): Promise<string[] | null> {
+  try {
+    const response = await apiFetchV1<{ visibleFields?: unknown }>("/layout/item-master-profile");
+    const fields = response?.visibleFields;
+    if (!Array.isArray(fields) || !fields.every(value => typeof value === "string") || fields.length === 0) {
+      return hydrateGlobalFieldVisibility();
+    }
+    const visibleKeys = Array.from(new Set(fields));
+    localStorage.setItem(GLOBAL_FIELD_VISIBILITY_KEY, JSON.stringify(visibleKeys));
+    localStorage.setItem(GLOBAL_COLUMN_ORDER_KEY, JSON.stringify(visibleKeys));
+    window.dispatchEvent(new CustomEvent("smriti_field_visibility_updated", { detail: { visibleKeys, role } }));
+    return visibleKeys;
+  } catch {
+    return hydrateGlobalFieldVisibility();
+  }
+}
+
+/** Persist global ItemMaster order/visibility for the authenticated user. */
+export async function persistGlobalFieldVisibility(visibleKeys: string[]): Promise<void> {
+  try {
+    await apiFetchV1('/layout/preferences', {
+      method: 'POST',
+      body: JSON.stringify({
+        itemMaster: {
+          visibleFields: Array.from(new Set(visibleKeys)),
+          updatedAt: new Date().toISOString(),
+        },
+      }),
+    });
+  } catch (error) {
+    console.warn('[FieldCatalog] Server preference persistence unavailable:', error);
+  }
+}
+
+/** Persist the active company/role ItemMaster profile when the operator is authorized. */
+export async function persistRoleGlobalFieldVisibility(visibleKeys: string[], role?: string | null): Promise<void> {
+  try {
+    await apiFetchV1("/layout/item-master-profile", {
+      method: "POST",
+      body: JSON.stringify({ visibleFields: Array.from(new Set(visibleKeys)), role: role || undefined }),
+    });
+  } catch (error) {
+    console.warn("[FieldCatalog] Role profile persistence unavailable:", error);
   }
 }
 

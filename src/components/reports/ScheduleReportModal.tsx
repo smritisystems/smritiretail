@@ -80,24 +80,12 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
       }
     } catch (err: any) {
       console.warn("[ScheduleReportModal] Fetch error:", err);
-      // Mock fallback
-      setSchedules([
-        {
-          id: "sched-mock-01",
-          schedule_name: `Nightly ${reportTitle} Delivery`,
-          report_code: reportCode,
-          cron_expression: "0 21 * * *",
-          export_format: "XLSX",
-          channels: ["EMAIL", "STATUTORY_VAULT"],
-          recipients: {
-            emails: ["director@smritibooks.com", "cfo@smritibooks.com"],
-            vault_folder: "/Statutory/Compliance/2026-Q3",
-          },
-          is_active: true,
-          next_run_at: "2026-08-28T21:00:00Z",
-          last_run_at: "2026-08-27T21:00:00Z",
-        },
-      ]);
+      setSchedules([]);
+      onNotification?.(
+        "Schedules unavailable",
+        "Could not load saved schedules from the database. No sample schedules are shown.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -189,19 +177,11 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
       setActiveTab("MANAGE");
       fetchSchedules();
     } catch (err: any) {
-      // Mock optimistic state for tests
-      const newMockItem: ScheduleItem = {
-        id: `sched-${Date.now()}`,
-        ...payload,
-        next_run_at: new Date(Date.now() + 86400000).toISOString(),
-      };
-      setSchedules([newMockItem, ...schedules]);
       onNotification?.(
-        "Schedule Registered",
-        `Automated distribution scheduled successfully for ${reportTitle}.`,
-        "success"
+        "Schedule not saved",
+        `Could not save the ${reportTitle} schedule to the database. Please try again.`,
+        "error"
       );
-      setActiveTab("MANAGE");
     } finally {
       setSubmitting(false);
     }
@@ -219,9 +199,9 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
       );
     } catch (err: any) {
       onNotification?.(
-        "Distribution Dispatched",
-        `Immediate execution dispatched for "${sched.schedule_name}".`,
-        "success"
+        "Distribution not dispatched",
+        `Could not trigger "${sched.schedule_name}". The database request failed.`,
+        "error"
       );
     }
   };
@@ -234,8 +214,7 @@ export const ScheduleReportModal: React.FC<ScheduleReportModalProps> = ({
       setSchedules(schedules.filter((s) => s.id !== schedId));
       onNotification?.("Schedule Deleted", "Automated distribution rule removed.", "success");
     } catch (err: any) {
-      setSchedules(schedules.filter((s) => s.id !== schedId));
-      onNotification?.("Schedule Deleted", "Automated distribution rule removed.", "success");
+      onNotification?.("Schedule not deleted", "Could not remove the schedule from the database.", "error");
     }
   };
 

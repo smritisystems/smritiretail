@@ -48,7 +48,6 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
       lastHealthCheck: new Date().toISOString()
     },
     modules: [
-      { id: 'pos', name: 'POS Billing & Cash Shift', enabled: true },
       { id: 'sales', name: 'Sales & Invoicing', enabled: true },
       { id: 'purchase', name: 'Procurement & GRN', enabled: true },
       { id: 'inventory', name: 'Inventory & Stock Ledger', enabled: true },
@@ -186,8 +185,7 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
                   <Lock className="w-4 h-4" /> Security Isolation Guarantee
                 </div>
                 <p className="text-xs text-slate-400">
-                  PostgreSQL host, port, credentials, and connection strings are managed exclusively server-side by 
-                  <code className="text-indigo-400 ml-1">CompanyDatabaseResolver</code>. React never exposes raw credentials.
+                  Database host, port, credentials, and connection parameters are managed exclusively server-side. The client application never exposes raw credentials.
                 </p>
               </div>
             </div>

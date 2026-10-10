@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.70.1
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-05
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,6 +14,7 @@
 
 export interface ProPosCartItem {
   id: string;
+  productId?: string;
   itemNo: number;
   sku: string;
   barcode: string;
@@ -29,6 +30,8 @@ export interface ProPosCartItem {
   discQty?: number;
   discountPct: number;
   discountAmt: number;
+  promoDescription?: string;
+  promoBadge?: string;
   taxPct: number;
   taxAmt: number;
   taxableValue?: number;
@@ -38,6 +41,9 @@ export interface ProPosCartItem {
   isTaxInclusive?: boolean;
   hsnCode?: string;
   lineTotal: number;
+  batchId?: string;
+  serialId?: string;
+  warehouseLocationId?: string;
 }
 
 export interface ProPosCustomer {
@@ -51,10 +57,53 @@ export interface ProPosCustomer {
   creditLimit?: number;
   currentBalance?: number;
   address?: string;
+  city?: string;
+  pincode?: string;
+  stateName?: string;
   gstin?: string;
   state?: string;
   stateCode?: string;
+  customerGroup?: string;
+  customerGroupId?: string;
+  priceGroupCode?: string;
+  itemClassificationPriceFactorApplicable?: boolean;
   registrationType?: "REGISTERED" | "UNREGISTERED";
+  pricingBasis?: "MRP" | "RATE";
+  allowPromotionsOnRate?: boolean;
+  availableWalletBalance?: number;
+  availableLoyaltyValue?: number;
+  loyaltyRedemptionRatio?: number;
+  isLoyaltyEnrolled?: boolean;
+}
+
+export interface POSTenderItem {
+  tender_type: "CASH" | "CARD" | "UPI" | "CREDIT" | "WALLET" | "STORE_CREDIT" | "CREDIT_NOTE" | "LOYALTY" | "LOYALTY_POINTS";
+  amount: number;
+  reference_no?: string;
+  notes?: string;
+}
+
+export interface CustomerWalletBalanceResponse {
+  customer_id: string;
+  customer_name?: string;
+  available_wallet_balance: number;
+  total_credit_issued: number;
+  total_wallet_redeemed: number;
+  credit_limit?: number;
+  current_outstanding?: number;
+}
+
+export interface CustomerLoyaltyBalanceResponse {
+  customer_id: string;
+  customer_name?: string;
+  is_enrolled: boolean;
+  member_id?: string;
+  card_number?: string;
+  current_points_balance: number;
+  redemption_ratio: number;
+  available_monetary_value: number;
+  total_points_earned?: number;
+  total_points_redeemed?: number;
 }
 
 export interface ProPosTenderSplit {
@@ -64,12 +113,15 @@ export interface ProPosTenderSplit {
   cardAuthCode?: string;
   upi: number;
   upiRef?: string;
+  credit: number;
   creditNote: number;
   creditNoteNo?: string;
   giftVoucher: number;
   voucherCode?: string;
   loyaltyPointsRedeemed: number;
   loyaltyAmount: number;
+  wallet?: number;
+  walletRef?: string;
 }
 
 export interface SuspendedBill {

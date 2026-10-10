@@ -28,6 +28,8 @@ class SmritiPermission(BaseEntity):
     scope        = Column(String(50), nullable=False)  # e.g., 'User:002', 'Group:002', 'Node:NODE-01'
     module       = Column(String(100), nullable=False, default="core")
     description  = Column(Text, nullable=True)
+    # Group B — stores company_id value (legacy column naming). No FK to companies.
+    # Written by api/v1/security.py as tenant.company_id.
     tenant_id    = Column(String(50), nullable=True)
 
 
@@ -39,6 +41,8 @@ class SmritiAuditLog(Base):
     __tablename__ = "smriti_audit_log"
 
     id                = Column(String(50), primary_key=True)
+    # Group B — stores company_id value (legacy column naming). No FK to companies.
+    # Written by api/v1/security.py as tenant.company_id for audit trail scoping.
     tenant_id         = Column(String(50), nullable=True)
     entity_id         = Column(String(100), nullable=True)
     changed_table     = Column(String(100), nullable=False)

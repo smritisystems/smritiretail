@@ -16,7 +16,7 @@ export type ExportFormat = "csv" | "xlsx" | "txt" | "json" | "html" | "gsheet";
 
 export type ExportScope = "currentPage" | "all" | "filtered" | "selected";
 
-export type ColumnDataType = "text" | "number" | "currency" | "percentage" | "date" | "datetime" | "boolean" | "badge";
+export type ColumnDataType = "text" | "number" | "currency" | "percentage" | "date" | "datetime" | "boolean" | "badge" | "link";
 
 export interface ExportColumnDefinition {
   key: string;

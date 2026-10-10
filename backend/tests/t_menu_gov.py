@@ -15,6 +15,11 @@ import pytest
 import psycopg2
 from decimal import Decimal
 
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 def test_control_plane_menu_registry_and_audit_integration():
     """
     Test Phase 2 - Phase 8: Menu Governance, Centralized Resolver & Audit Trail.
@@ -24,7 +29,7 @@ def test_control_plane_menu_registry_and_audit_integration():
     - Admin Menu Edit updates title/sequence and writes audit record to smriti_audit_log
     - Audit log entries record changed_table='smriti_menus'
     """
-    conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smritisys")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys")
     cur = conn.cursor()
 
     # 1. Assert smriti_menus contains > 30 seeded rows

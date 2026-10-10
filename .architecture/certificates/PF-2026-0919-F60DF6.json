@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-F60DF6",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "service",
+  "proposed_name": "landed_cost.py",
+  "target_file_path": "backend/app/services/landed_cost.py",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "backend/app/services/landed_cost.py",
+  "content_hash": "54f77c0a21d80535308d7432cfd23bbc89a8a6baced0bb9135983afb989b4d44",
+  "git_commit": "529b6ce54bdd9d51b942fd1618c45ff53ff56890",
+  "issued_at": "2026-09-19T19:00:21.870825+00:00",
+  "expires_at": "2026-09-26T19:00:21.870825+00:00",
+  "status": "ISSUED"
+}

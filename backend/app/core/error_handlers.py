@@ -25,6 +25,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import settings
 from app.core.errors import SmritiErrorResponse, build_error_response
+from app.core.item_master_validation import ItemMasterValidationMapper, is_item_master_endpoint
 
 # Setup templates path using absolute resolution relative to app
 templates_dir = Path(__file__).resolve().parent.parent / "templates"
@@ -53,7 +54,7 @@ def dispatch_response(request: Request, exc: Exception | None, status_code: int,
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         stack_trace = ""
-        if settings.ENVIRONMENT == "development" and exc:
+        if settings.ENVIRONMENT == "development" and exc and status_code >= 500:
             stack_trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
             
         request_id = getattr(request.state, "request_id", None)
@@ -82,12 +83,18 @@ def dispatch_response(request: Request, exc: Exception | None, status_code: int,
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # ── Item Master endpoints: return structured field-level 422 response ──
+    if is_item_master_endpoint(request.url.path):
+        structured = ItemMasterValidationMapper.build_422_response(exc.errors())
+        return JSONResponse(status_code=422, content=structured)
+
+    # ── All other endpoints: legacy HREP single-message response ──
     errors = []
     for err in exc.errors():
         loc = " -> ".join(str(loc_val) for loc_val in err.get("loc", []))
         msg = err.get("msg", "Invalid value")
         errors.append(f"{loc}: {msg}")
-    
+
     explanation = "The input data provided was invalid. Details: " + "; ".join(errors)
     res = build_error_response(
         error_code="SMRITI-VAL-001",
@@ -98,7 +105,28 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    # ── Path B: Item Master dynamic attribute 422 normalisation ──────────────
+    # AttributesService / IM-001 raise HTTPException(422, detail=dict).
+    # Intercept here and convert to the same ITEM_MASTER_VALIDATION_ERROR
+    # structured contract as the Pydantic (Path A) handler.
+    # Scope is strictly Item Master endpoints; all other 422s fall through.
+    if exc.status_code == 422 and is_item_master_endpoint(request.url.path):
+        detail = exc.detail
+        # detail is a dict with {"message": ..., "errors": [...]} or IM-001 string
+        if isinstance(detail, dict):
+            structured = ItemMasterValidationMapper.build_dynamic_attr_422_response(detail)
+            if structured is not None:
+                return JSONResponse(status_code=422, content=structured)
+        # detail is a plain string (e.g. IM-001 block message)
+        elif isinstance(detail, str) and ("IM-001" in detail or "Style" in detail or "required" in detail.lower()):
+            structured = ItemMasterValidationMapper.build_dynamic_attr_422_response(
+                {"errors": [detail]}
+            )
+            if structured is not None:
+                return JSONResponse(status_code=422, content=structured)
+
     # Map HTTP status codes to standard SMRITI families
+
     if exc.status_code == 400:
         code = "SMRITI-VAL-001"
         title = "Bad Request"
@@ -137,9 +165,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 
 async def db_exception_handler(request: Request, exc: SQLAlchemyError):
-    print("DB EXCEPTION TRIGGERED:", repr(exc))
-    import traceback
-    traceback.print_exc()
+    from app.core.logging import logger
+    logger.error("[SMRITI DB] SQLAlchemyError: %s", repr(exc), exc_info=True)
     res = build_error_response(
         error_code="SMRITI-DATA-001",
         custom_explanation="A database operations conflict occurred or referential integrity check failed.",
@@ -149,6 +176,8 @@ async def db_exception_handler(request: Request, exc: SQLAlchemyError):
 
 
 async def generic_exception_handler(request: Request, exc: Exception):
+    from app.core.logging import logger
+    logger.error("[SMRITI UNCAUGHT EXCEPTION] %s: %s", type(exc).__name__, repr(exc), exc_info=True)
     res = build_error_response(
         error_code="SMRITI-SYS-001",
         custom_explanation="An internal server error occurred while processing the request.",

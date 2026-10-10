@@ -17,24 +17,25 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
 
-TARGET_MODEL_V1_IDS = [
+TARGET_MODEL_CANONICAL_IDS = [
     "menu-dashboard", "menu-user-profile", "menu-wiki", "menu-about-smriti", "menu-dev-tracker",
-    "menu-pos", "menu-sales", "menu-customer-master", "menu-crm", "menu-loyalty", "menu-profiles",
+    "menu-pos", "menu-sales", "menu-customer-master", "menu-crm", "menu-loyalty", "menu-profiles", "menu-sales-promotions",
     "menu-inventory", "menu-item-master", "menu-barcode", "menu-stock-ledger", "menu-purchase", "menu-supplier-mgmt",
     "menu-business-ledger", "menu-accounting-sync", "menu-reports", "menu-report-designer",
     "menu-masters", "menu-ufe", "menu-formulas", "menu-psv", "menu-document-series", "menu-print-studio",
     "menu-print-history", "menu-terms-engine", "menu-data-exchange",
-    "menu-staff-management", "menu-approval-matrix", "menu-company-setup", "menu-audit-logs"
+    "menu-staff-management", "menu-approval-matrix", "menu-company-setup", "menu-audit-logs",
+    "menu-manager", "menu-security"
 ]
 
 def verify_migration():
     conn = psycopg2.connect(DB_PARAMS)
     cur = conn.cursor()
 
-    # 1. Exact 34-ID verification
+    # 1. Exact 37-ID verification
     cur.execute("SELECT id FROM smriti_menus WHERE is_deleted = false ORDER BY id;")
     live_ids = sorted([r[0] for r in cur.fetchall()])
-    expected_ids = sorted(TARGET_MODEL_V1_IDS)
+    expected_ids = sorted(TARGET_MODEL_CANONICAL_IDS)
 
     assert live_ids == expected_ids, f"Menu IDs mismatch! Missing: {set(expected_ids)-set(live_ids)}, Unexpected: {set(live_ids)-set(expected_ids)}"
 
@@ -60,7 +61,7 @@ def verify_migration():
     print("============================================================")
     print("SMRITI MENU GOVERNANCE MIGRATION VERIFICATION PASSED")
     print("============================================================")
-    print("  - Exact 34 Immutable IDs Verified (0 missing, 0 unexpected, 0 duplicate)")
+    print("  - Exact 37 Immutable IDs Verified (0 missing, 0 unexpected, 0 duplicate)")
     print("  - Orphan Parent Links Verified (0 orphans)")
     print("  - 4 Protected System Defaults Verified (100% intact)")
     print("STATUS: VERIFIED_PASS")

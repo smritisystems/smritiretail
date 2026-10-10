@@ -32,6 +32,7 @@ from ..schemas.barcodes import (
     BatchLabelPrintResponse,
     PrintHistoryQueryResponse,
 )
+from .printer_service import PrinterService
 
 
 class BarcodesEngine:
@@ -221,6 +222,32 @@ PRINT 1
             # POS ESC/POS receipt barcode stream
             compiled = f"\x1b@\x1ba\x01{req.brand or 'SMRITI'}\n{req.item_name[:20]}\n\x1dk\x04{req.barcode}\x00\nRs. {req.selling_price:.2f}\n\x1dV\x00"
 
+        elif lang == "DPL":
+            # Datamax DPL label command compilation
+            if req.width_mm >= 90 and req.height_mm >= 45:
+                compiled = PrinterService.generate_dpl_footwear_label(
+                    barcode=req.barcode,
+                    size=getattr(req, "size", None) or "",
+                    color=getattr(req, "color", None) or "",
+                    style=getattr(req, "style", None) or req.item_code,
+                    mrp=req.mrp,
+                    pkd_date=getattr(req, "pkd_date", None),
+                    brand=req.brand or "TATTLY THREADS"
+                )
+            else:
+                compiled = PrinterService.generate_dpl_label(
+                    item_code=req.item_code,
+                    barcode=req.barcode,
+                    name=req.item_name,
+                    price=float(req.selling_price),
+                    mrp=float(req.mrp),
+                    size=getattr(req, "size", "") or "",
+                    color=getattr(req, "color", "") or "",
+                    brand=req.brand or "SMRITI",
+                    width_mm=req.width_mm,
+                    height_mm=req.height_mm
+                )
+
         else:
             raise ValueError(f"Unsupported printer language '{req.printer_language}'")
 
@@ -246,15 +273,36 @@ PRINT 1
         now = datetime.now(timezone.utc)
         batch_id = f"lbl_{uuid.uuid4().hex[:12]}"
         total_spooled = 0
+        from .product_resolution_service import ProductResolutionService
+        from ..schemas.product_resolution import TransactionLineItemInput
 
-        for item in req.items:
+        # Validate all items against authoritative catalog before spooling print jobs
+        validation_lines = [
+            TransactionLineItemInput(
+                line_no=idx + 1,
+                code=item.item_code,
+                sku=item.item_code,
+                barcode=item.barcode,
+                quantity=Decimal(str(item.quantity)),
+            )
+            for idx, item in enumerate(req.items)
+        ]
+        resolved_lines = await ProductResolutionService.enforce_transaction_lines(
+            session=session,
+            company_id=company_id,
+            lines=validation_lines,
+            allow_inactive=False,
+        )
+
+        for idx, item in enumerate(req.items):
+            res_prod = resolved_lines[idx]
             history = PrintHistory(
                 id=f"prh_{uuid.uuid4().hex[:12]}",
                 company_id=company_id,
                 user=created_by or "system",
-                item_code=item.item_code,
-                item_name=item.item_name,
-                barcode=item.barcode,
+                item_code=res_prod.sku or item.item_code,
+                item_name=res_prod.name or item.item_name,
+                barcode=res_prod.barcode or item.barcode,
                 quantity=item.quantity,
                 status="Success",
                 error_message=None,

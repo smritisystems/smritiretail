@@ -14,7 +14,12 @@
 import pytest
 import psycopg2
 
-DB_PARAMS = "postgresql://postgres:postgres@localhost:5432/smritisys"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+DB_PARAMS = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 
 def test_ui_control_plane_tables_and_schemas():
     """Verify smriti_themes and smriti_workspace_profiles Control Plane structure."""

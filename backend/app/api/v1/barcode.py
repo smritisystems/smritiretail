@@ -4,28 +4,42 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.25.0
+Version      : 6.47.0
 Created      : 2026-07-12
-Modified     : 2026-08-20
+Modified     : 2026-10-08
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 import json
 import socket
+import uuid as uuid_pkg
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+try:
+    from zoneinfo import ZoneInfo
+    KOLKATA_TZ = ZoneInfo("Asia/Kolkata")
+except Exception:
+    KOLKATA_TZ = timezone(timedelta(hours=5, minutes=30))
+
 from fastapi import APIRouter, Depends, HTTPException, Body, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ...api.deps import get_company_db, get_tenant_context, TenantContext, get_current_user, require_role
 from ...models.auth import User, UserRole
-from ...models.barcode import BarcodeLayout, PrintHistory
+from ...models.barcode import BarcodeLayout, PrintHistory, BarcodePrintJob
 from ...models.system import SystemConfig
 from ...schemas.barcode import (
     BarcodeLayoutCreate, BarcodeLayoutUpdate, BarcodeLayoutResponse, PrintRequest,
     PrintHistoryResponse, PrinterSettingsRequest, PrintJobAckRequest
+)
+from ...schemas.barcode_job import (
+    PrintJobCreateRequest, PrintJobResponse, PrintJobStatusUpdateRequest, TemplateSummaryResponse
+)
+from ...services.barcode_engine import (
+    BarcodeCompiler, template_registry, ProtocolType, render_svg
 )
 from ...services.printer_service import PrinterService
 from ...services.qz_security import QzSecurityService
@@ -58,6 +72,158 @@ def serialize_layout(l: BarcodeLayout) -> BarcodeLayoutResponse:
     )
 
 
+def generate_footwear_3stub_zpl(
+    item: Dict[str, Any],
+    company_name: str = "Tattly Threads",
+    company_address: str = "81,Umerkhadi,Mumbai,400003",
+    company_email: str = "care@tattlythreads.com",
+    default_mfg_date: Optional[str] = None,
+) -> str:
+    """
+    Renders 100mm x 50.7mm 3-Part Footwear Box Label with dual tear-off counter/inventory stubs.
+    Preserves byte-for-byte geometry and reverse print blocks from smriti_barcodes_2026-10-08.prn.
+    """
+    barcode = str(item.get("barcode") or "").strip()
+    if not barcode:
+        cand = str(item.get("code") or item.get("item_code") or "").strip()
+        if cand and not cand.startswith("SKU-") and not cand.startswith("PROD-"):
+            barcode = cand
+        else:
+            barcode = "8904551005335"
+
+    # Article / Style code
+    raw_art = str(
+        item.get("style_code")
+        or item.get("style")
+        or item.get("article")
+        or item.get("article_no")
+        or ""
+    ).strip()
+    if not raw_art:
+        cand = str(item.get("code") or item.get("item_code") or "").strip()
+        if cand and not cand.startswith("SKU-") and not cand.startswith("PROD-"):
+            raw_art = cand
+        else:
+            raw_art = "CH-30-K"
+    art_no = raw_art
+    # Main label Art.No reverse box is 284 dots wide: pad with spaces to 12 chars so white text visually fills the block
+    art_no_padded = f"{raw_art:<12}" if len(raw_art) < 12 else raw_art
+
+    # Variant attributes
+    attrs = item.get("attributes") or {}
+    size = str(item.get("size") or attrs.get("size") or "").strip()
+    color = str(item.get("color") or item.get("shade") or attrs.get("color") or "").strip().upper()
+
+    # Pricing
+    mrp_val = item.get("mrp", item.get("price", 0.0))
+    try:
+        mrp_str = f"{int(float(mrp_val))}"
+    except Exception:
+        mrp_str = str(mrp_val)
+
+    # Brand
+    brand_val = str(item.get("brand") or attrs.get("brand") or "TATTLY THREADS").strip().upper()
+
+    # Mfg Date
+    mfg_date = item.get("mfg_date") or default_mfg_date or datetime.now(timezone.utc).strftime("%m/%y")
+
+    # Net contents
+    net_contents = str(item.get("net_contents") or "NET CONTENTS:1 Pair Footwear").strip()
+
+    return f"""<xpml><page quantity='0' pitch='50.7 mm'></xpml>^XA
+^SZ2^JMA
+^MCY^PMN
+^PW804
+^JZY
+^LH0,0^LRN
+^XZ
+<xpml></page></xpml><xpml><page quantity='1' pitch='50.7 mm'></xpml>^XA
+^FO346,305
+^BY2^BCN,66,N,N^FD{barcode}^FS
+^FT390,399
+^CI0
+^AAN,27,15^FD{barcode}^FS
+^FT772,357
+^A0B,34,46^FD{brand_val}^FS
+^FT355,271
+^ADN,18,10^FD{company_address}^FS
+^FT355,289
+^ADN,18,10^FD{company_email}^FS
+^FO627,62
+^GB70,67,67^FS
+^FT627,116
+^A0N,65,72^FR^FD{size}^FS
+^FT405,111
+^A0N,37,49^FD{color}^FS
+^FO416,15
+^GB284,47,47^FS
+^FT416,54
+^A0N,45,44^FR^FD{art_no}     ^FS
+^FO332,13
+^GB367,117,3^FS
+^FO334,57
+^GB337,0,3^FS
+^FT490,199
+^A0N,17,23^FD |(Incl of all taxes)^FS
+^FT488,175
+^A0N,42,56^FD{mrp_str}/-^FS
+^FT408,170
+^A0N,28,38^FDMRP:^FS
+^FT355,199
+^A0N,17,23^FDMFG.Dt.:{mfg_date}^FS
+^FT355,215
+^ABN,11,7^FD{net_contents}^FS
+^FT340,41
+^A0N,17,23^FDArt.No.^FS
+^FT340,103
+^A0N,17,23^FDColor:^FS
+^FO34,112
+^BY1^BCN,30,N,N^FD{barcode}^FS
+^FT26,165
+^A0N,25,34^FD{barcode}^FS
+^FO37,47
+^GB70,67,67^FS
+^FT37,101
+^A0N,65,72^FR^FD{size}^FS
+^FT116,63
+^A0N,28,38^FD{color}^FS
+^FT37,34
+^A0N,28,27^FD{art_no}^FS
+^FT17,146
+^ABB,11,7^FD{brand_val}^FS
+^FT116,84
+^A0N,20,27^FDMRP:{mrp_str}/-^FS
+^FT116,101
+^A0N,17,23^FD(Incl of all taxes)^FS
+^FO33,338
+^BY1^BCN,30,N,N^FD{barcode}^FS
+^FT26,394
+^A0N,25,34^FD{barcode}^FS
+^FO33,274
+^GB70,67,67^FS
+^FT33,328
+^A0N,65,72^FR^FD{size}^FS
+^FT116,289
+^A0N,28,38^FD{color}^FS
+^FT33,260
+^A0N,28,27^FD{art_no}^FS
+^FT16,372
+^ABB,11,7^FD{brand_val}^FS
+^FT116,310
+^A0N,20,27^FDMRP:{mrp_str}/-^FS
+^FT116,327
+^A0N,17,23^FD(Incl of all taxes)^FS
+^FO731,0
+^GB0,405,3^FS
+^FO324,236
+^GB407,0,3^FS
+^FT355,261
+^A0N,20,27^FDMKTD.By:{company_name}^FS
+^PQ1,0,1,Y
+^XZ
+<xpml></page></xpml><xpml><end/></xpml>"""
+
+
 @router.get(
     "/layouts",
     response_model=List[BarcodeLayoutResponse],
@@ -76,7 +242,20 @@ async def list_layouts(
     )
     res = await db.execute(q)
     layouts = res.scalars().all()
-    return [serialize_layout(l) for l in layouts]
+    layout_responses = [serialize_layout(l) for l in layouts]
+    existing_ids = {lr.id for lr in layout_responses}
+    if "lay-footwear-100x50-3stub" not in existing_ids:
+        layout_responses.insert(0, BarcodeLayoutResponse(
+            id="lay-footwear-100x50-3stub",
+            name="Tattly Threads Footwear — 100x50.7mm",
+            widthMm=100.0,
+            heightMm=50.7,
+            columns=1,
+            isDefault=True,
+            elements=[],
+            prnTemplate=None,
+        ))
+    return layout_responses
 
 
 @router.post(
@@ -231,12 +410,13 @@ async def print_labels(
     """
     Generate ZPL commands stream, record print history, and dispatch stream via raw TCP socket.
     """
+    layout_id_requested = req.layout_id or req.layoutId
     layout = None
-    if req.layoutId:
-        layout = await db.get(BarcodeLayout, req.layoutId)
+    if layout_id_requested:
+        layout = await db.get(BarcodeLayout, layout_id_requested)
         if not layout:
             q_lay = select(BarcodeLayout).where(
-                BarcodeLayout.name == req.layoutId,
+                BarcodeLayout.name == layout_id_requested,
                 BarcodeLayout.company_id == tenant_ctx.company_id,
                 BarcodeLayout.is_deleted == False
             )
@@ -262,13 +442,47 @@ async def print_labels(
                     elements = data
             except Exception:
                 pass
-    
+    elif layout_id_requested in ("lay-footwear-100x50-3stub", "lay-premium-zpl"):
+        layout_width = 100.0
+        layout_height = 50.7
+
+    is_footwear_layout = (
+        layout_id_requested in ("lay-footwear-100x50-3stub", "lay-premium-zpl") or
+        (layout and layout.id in ("lay-footwear-100x50-3stub", "lay-premium-zpl")) or
+        (layout and abs(layout_width - 100.0) < 2.0 and abs(layout_height - 50.7) < 2.0 and not prn_template)
+    )
+
     # 1. Fetch Printer Connection parameters from SystemConfig
     configured_printer = await PrinterService.get_configured_printer(db, company_id=tenant_ctx.company_id)
     connection_type = configured_printer.get("connection_type", "TCP")
     printer_ip = configured_printer.get("ip", "192.168.1.200")
     printer_port = int(configured_printer.get("port", 9100))
     usb_target = configured_printer.get("usb_target", "LPT1")
+
+    # Resolve legal metrology from SystemConfig / Company if present
+    company_trade_name = None
+    company_address = None
+    company_email = None
+
+    if is_footwear_layout or prn_template:
+        cfg_q = select(SystemConfig).where(
+            SystemConfig.company_id == tenant_ctx.company_id,
+            SystemConfig.is_deleted == False
+        )
+        cfgs = (await db.execute(cfg_q)).scalars().all()
+        cfg_map = {c.key: c.value for c in cfgs}
+
+        company_trade_name = cfg_map.get("business_trade_name") or cfg_map.get("legal_metrology_marketer")
+        if not company_trade_name:
+            from ...models.tenant import Company
+            comp_row = (await db.execute(select(Company).where(Company.id == tenant_ctx.company_id))).scalars().first()
+            if comp_row:
+                company_trade_name = comp_row.name or "Tattly Threads"
+            else:
+                company_trade_name = "Tattly Threads"
+
+        company_address = cfg_map.get("legal_metrology_address") or cfg_map.get("business_address") or "81,Umerkhadi,Mumbai,400003"
+        company_email = cfg_map.get("legal_metrology_email") or cfg_map.get("customer_care_email") or "care@tattlythreads.com"
 
     # Determine dispatch mode: request override > company SystemConfig > default server_tcp
     if getattr(req, "saveAsPrn", False):
@@ -277,6 +491,15 @@ async def print_labels(
         active_dispatch_mode = (req.dispatch_mode or req.dispatchMode).lower().strip()
     else:
         active_dispatch_mode = configured_printer.get("dispatch_mode", "server_tcp")
+
+    target_printer_name = str(req.targetPrinter or getattr(req, "target_printer", None) or configured_printer.get("printer_name", "") or "")
+    req_lang = str(getattr(req, "printer_language", None) or req.language or "").lower().strip()
+    is_dpl = (
+        req_lang == "dpl" or
+        "dpl" in target_printer_name.lower() or
+        "honeywell" in target_printer_name.lower() or
+        "ih-2" in target_printer_name.lower()
+    )
 
     full_raw_stream_list = []
     log_entries = []
@@ -289,12 +512,55 @@ async def print_labels(
         qty = int(item.get("qty", 1))
         
         # Dynamic properties
-        prod_size = item.get("size", "")
-        prod_color = item.get("color", "")
+        attrs = item.get("attributes") or {}
+        prod_size = str(item.get("size") or attrs.get("size") or "").strip()
+        prod_color = str(item.get("color") or item.get("shade") or attrs.get("color") or attrs.get("colour") or item.get("colour") or "").strip().upper()
+        prod_style = str(
+            item.get("style")
+            or item.get("style_code")
+            or item.get("article")
+            or item.get("article_no")
+            or ""
+        ).strip()
+        if not prod_style:
+            cand = str(item.get("code") or item.get("item_code") or "").strip()
+            if cand and not cand.startswith("SKU-") and not cand.startswith("PROD-"):
+                prod_style = cand
+            else:
+                prod_style = "CH-30-K"
 
-        # Build raw ZPL thermal stream
-        if prn_template:
-            mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
+        prod_barcode = str(item.get("barcode") or "").strip()
+        if not prod_barcode:
+            cand = str(item.get("code") or item.get("item_code") or "").strip()
+            if cand and not cand.startswith("SKU-") and not cand.startswith("PROD-"):
+                prod_barcode = cand
+            else:
+                prod_barcode = "8904551005335"
+
+        # Build raw thermal stream
+        if is_footwear_layout:
+            if is_dpl:
+                # Native 300 DPI DPL Footwear Label for IMPACT by Honeywell IH-2
+                raw_stream = PrinterService.generate_dpl_footwear_label(
+                    barcode=prod_barcode,
+                    size=prod_size,
+                    color=prod_color,
+                    style=prod_style,
+                    mrp=prod_mrp,
+                    pkd_date=item.get("pkd_date") or item.get("mfg_date"),
+                    brand=company_trade_name or item.get("brand") or "TATTLY THREADS",
+                    company_address=company_address or "81,Umerkhadi,Mumbai,400003",
+                    company_email=company_email or "care@tattlythreads.com",
+                )
+            else:
+                raw_stream = generate_footwear_3stub_zpl(
+                    item=item,
+                    company_name=company_trade_name or "Tattly Threads",
+                    company_address=company_address or "81,Umerkhadi,Mumbai,400003",
+                    company_email=company_email or "care@tattlythreads.com",
+                )
+        elif prn_template:
+            mfg_date = datetime.now(KOLKATA_TZ).strftime("%m/%y")
             mrp_val = item.get("mrp", item.get("price", 0.0))
             try:
                 mrp_str = f"{int(float(mrp_val))}"
@@ -307,12 +573,26 @@ async def print_labels(
                 brand_val = attrs.get("brand") or "SMRITI"
 
             raw_stream = prn_template
+            raw_art = str(item.get("style_code") or item.get("style") or item.get("code") or item.get("item_code") or "").strip()
+            art_no_padded = f"{raw_art:<12}" if len(raw_art) < 12 else raw_art
             
-            # 1. Apply primary system-derived placeholders
+            # 1. Apply primary system-derived placeholders (supporting all 6 canonical tokens)
             raw_stream = raw_stream.replace("{mfg_date}", mfg_date)
+            raw_stream = raw_stream.replace("{pkd_date}", mfg_date)
             raw_stream = raw_stream.replace("{mrp}", mrp_str)
             raw_stream = raw_stream.replace("{brand}", brand_val)
-            raw_stream = raw_stream.replace("{style_code}", item.get("style_code", prod_code))
+            raw_stream = raw_stream.replace("{style}", raw_art)
+            raw_stream = raw_stream.replace("{style_code}", raw_art)
+            raw_stream = raw_stream.replace("{art_no}", raw_art)
+            raw_stream = raw_stream.replace("{art_no_padded}", art_no_padded)
+            raw_stream = raw_stream.replace("{color}", prod_color)
+            raw_stream = raw_stream.replace("{colour}", prod_color)
+            raw_stream = raw_stream.replace("{barcode}", prod_barcode)
+            raw_stream = raw_stream.replace("{size}", prod_size)
+            raw_stream = raw_stream.replace("{company_name}", company_trade_name or "Tattly Threads")
+            raw_stream = raw_stream.replace("{address}", company_address or "81,Umerkhadi,Mumbai,400003")
+            raw_stream = raw_stream.replace("{email}", company_email or "care@tattlythreads.com")
+            raw_stream = raw_stream.replace("{net_contents}", str(item.get("net_contents") or "NET CONTENTS:1 Pair Footwear"))
 
             # 2. Iterate and replace any top-level key present in the request item dict
             for key, val in item.items():
@@ -328,114 +608,19 @@ async def print_labels(
                     if v is not None:
                         raw_stream = raw_stream.replace(f"{{{k}}}", str(v))
                         raw_stream = raw_stream.replace(f"{{{k.lower()}}}", str(v))
-        elif layout and layout.id == "lay-premium-zpl":
-            mfg_date = datetime.now(timezone.utc).strftime("%m/%y")
-            mrp_val = item.get("mrp", item.get("price", 0.0))
-            try:
-                mrp_str = f"{int(float(mrp_val))}"
-            except Exception:
-                mrp_str = str(mrp_val)
-
-            brand_val = item.get("brand") or "SMRITI"
-            if not brand_val or brand_val == "SMRITI":
-                attrs = item.get("attributes") or {}
-                brand_val = attrs.get("brand") or "SMRITI"
-
-            raw_stream = f"""^XA
-^SZ2^JMA
-^MCY^PMN
-^PW804
-^JZY
-^LH0,0^LRN
-^XZ
-^XA
-^FO706,47
-^BY3^BCB,50,N,N^FD{item.get('barcode', '')}^FS
-^FT781,340
-^CI0
-^AAB,27,15^FD{item.get('barcode', '')}^FS
-^FT345,53
-^A0N,34,46^FD{brand_val}^FS
-^FT335,340
-^A0N,17,23^FDMKTD.By:{brand_val}^FS
-^FT335,351
-^ABN,11,7^FD81,Umerkhadi,Mumbai,400003^FS
-^FO615,135
-^GB76,80,76^FS
-^FT615,198
-^A0N,79,77^FR^FD{prod_size}^FS
-^FT400,182
-^A0N,37,49^FD{prod_color}^FS
-^FO410,86
-^GB277,46,46^FS
-^FT410,124
-^A0N,45,43^FR^FD{item.get('style_code', prod_code)}^FS
-^FO327,84
-^GB367,129,3^FS
-^FO329,128
-^GB337,0,3^FS
-^FT536,274
-^A0N,17,23^FD(Incl of all taxes)^FS
-^FT493,251
-^A0N,42,56^FD{mrp_str}/-^FS
-^FT410,246
-^A0N,28,38^FDMRP:^FS
-^FT327,274
-^A0N,17,23^FDMFG.Dt.: {mfg_date}^FS
-^FT327,290
-^ABN,11,7^FDNET CONTENTS:1 Pair Footwear^FS
-^FT335,113
-^A0N,17,23^FDArt.No.^FS
-^FT335,175
-^A0N,17,23^FDColor:^FS
-^FT335,386
-^ABN,11,7^FDcontact@yourstore.com^FS
-^FO34,125
-^BY2^BCN,30,N,N^FD{item.get('barcode', '')}^FS
-^FT46,181
-^A0N,25,34^FD{item.get('barcode', '')}^FS
-^FO37,60
-^GB70,67,67^FS
-^FT37,114
-^A0N,65,72^FR^FD{prod_size}^FS
-^FO116,50
-^GB101,30,30^FS
-^FT116,76
-^A0N,28,38^FR^FD{prod_color}^FS
-^FT37,47
-^A0N,28,27^FD{item.get('style_code', prod_code)}^FS
-^FT17,159
-^ABB,11,7^FD{brand_val}^FS
-^FT116,97
-^A0N,20,27^FDMRP:{mrp_str}/-^FS
-^FT116,114
-^A0N,17,23^FD(Incl of all taxes)^FS
-^FO33,338
-^BCN,30,N,N^FD{item.get('barcode', '')}^FS
-^FT45,394
-^A0N,25,34^FD{item.get('barcode', '')}^FS
-^FO33,275
-^GB70,65,65^FS
-^FT33,327
-^A0N,62,70^FR^FD{prod_size}^FS
-^FO116,263
-^GB101,30,30^FS
-^FT116,289
-^A0N,28,38^FR^FD{prod_color}^FS
-^FT33,260
-^A0N,28,27^FD{item.get('style_code', prod_code)}^FS
-^FT16,372
-^ABB,11,7^FD{brand_val}^FS
-^FT116,310
-^A0N,20,27^FDMRP:{mrp_str}/-^FS
-^FT116,327
-^A0N,17,23^FD(Incl of all taxes)^FS
-^FO328,308
-^GB367,0,3^FS
-^FO328,365
-^GB367,0,3^FS
-^PQ1,0,1,Y
-^XZ"""
+        elif is_dpl:
+            raw_stream = PrinterService.generate_dpl_label(
+                item_code=prod_code,
+                barcode=prod_barcode or prod_code,
+                name=prod_name,
+                price=prod_price,
+                mrp=prod_mrp,
+                size=prod_size,
+                color=prod_color,
+                brand=company_trade_name or item.get("brand") or "SMRITI",
+                width_mm=layout_width,
+                height_mm=layout_height
+            )
         else:
             zpl_parts = ["^XA", f"^PW{int(layout_width * 8)}", f"^LL{int(layout_height * 8)}"]
 
@@ -555,7 +740,7 @@ async def print_labels(
             "dispatch_mode": "qz_tray",
             "job_id": primary_job_id,
             "job_ids": [e.id for e in log_entries],
-            "language": req.language or "zpl",
+            "language": "dpl" if is_dpl else (req.language or "zpl"),
             "payload": "\n".join(full_raw_stream_list) if full_raw_stream_list else "",
             "encoding": "utf-8",
             "suggested_printer": target_prn,
@@ -856,4 +1041,342 @@ async def sign_qz_request(
         return Response(content=signature, media_type="text/plain")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate QZ signature: {str(e)}")
+
+
+# ==============================================================================
+# INDUSTRIAL BARCODE PRINT JOB & PROTOCOL COMPILER ENDPOINTS (P0 ARCHITECTURE)
+# ==============================================================================
+
+@router.get(
+    "/templates",
+    response_model=List[TemplateSummaryResponse],
+    summary="List Protocol-Agnostic Label Templates"
+)
+async def list_label_templates():
+    """
+    Returns registered protocol-agnostic label templates with dimensions and live SVG sample previews.
+    """
+    templates = template_registry.list_all()
+    results = []
+    for t in templates:
+        sample_svg = render_svg(t)
+        results.append(TemplateSummaryResponse(
+            id=t.id,
+            name=t.name,
+            width_mm=t.width_mm,
+            height_mm=t.height_mm,
+            default_dpi=t.default_dpi,
+            description=t.description,
+            sample_svg=sample_svg
+        ))
+    return results
+
+
+@router.post(
+    "/print-jobs",
+    response_model=PrintJobResponse,
+    summary="Create & Compile Industrial Barcode Print Job"
+)
+async def create_print_job(
+    request: PrintJobCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Central Barcode Print Job Endpoint.
+    1. Validates idempotency key to prevent duplicate spooling.
+    2. Resolves template from registry and calculates mathematical DPI coordinate scaling.
+    3. Compiles high-speed raw thermal byte stream (ZPL / DPL).
+    4. Persists PrintJob entity in PostgreSQL with initial 'READY' status.
+    5. Returns compiled stream for local QZ Tray or raw print bridge dispatch.
+    """
+    # 1. Idempotency Check
+    if request.idempotency_key:
+        stmt = select(BarcodePrintJob).where(BarcodePrintJob.idempotency_key == request.idempotency_key)
+        res = await db.execute(stmt)
+        existing_job = res.scalars().first()
+        if existing_job:
+            return PrintJobResponse(
+                id=existing_job.id,
+                tenant_id=tenant_ctx.tenant_id,
+                company_id=tenant_ctx.company_id,
+                branch_id=tenant_ctx.branch_id,
+                requested_by=existing_job.requested_by,
+                printer_id=existing_job.printer_id,
+                template_id=existing_job.template_id,
+                template_name=existing_job.template_id,
+                target_dpi=existing_job.target_dpi,
+                target_protocol=existing_job.target_protocol,
+                total_items=existing_job.total_items,
+                total_labels=existing_job.total_labels,
+                status=existing_job.status,
+                payload_stream=existing_job.payload_stream,
+                payload_hash=existing_job.payload_hash,
+                error_message=existing_job.error_message,
+                created_at=existing_job.created_at,
+                started_at=existing_job.started_at,
+                completed_at=existing_job.completed_at
+            )
+
+    # 2. Protocol Resolution
+    proto = ProtocolType.ZPL
+    proto_str = (request.protocol or "ZPL").upper()
+    if proto_str == "DPL":
+        proto = ProtocolType.DPL
+    elif proto_str == "SVG":
+        proto = ProtocolType.SVG
+
+    # 3. Barcode Compilation via continuous DPI engine
+    try:
+        compilation = BarcodeCompiler.compile(
+            template_id=request.template_id,
+            items=request.items,
+            protocol=proto,
+            dpi=request.dpi
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Label compilation error: {str(e)}")
+
+    # 4. Create Database PrintJob Record
+    job_id = f"job-{uuid_pkg.uuid4().hex[:12]}"
+    new_job = BarcodePrintJob(
+        id=job_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        idempotency_key=request.idempotency_key,
+        requested_by=current_user.username or current_user.email or "operator",
+        printer_id=request.printer_id,
+        template_id=compilation.template_id,
+        target_dpi=compilation.dpi,
+        target_protocol=proto.value,
+        total_items=compilation.total_items,
+        total_labels=compilation.total_labels,
+        status="READY",
+        payload_hash=compilation.payload_hash,
+        payload_stream=compilation.payload_stream,
+        labels_metadata=json.dumps([{"code": it.code, "barcode": it.barcode, "qty": it.qty} for it in request.items])
+    )
+
+    db.add(new_job)
+    await db.commit()
+    await db.refresh(new_job)
+
+    return PrintJobResponse(
+        id=new_job.id,
+        tenant_id=tenant_ctx.tenant_id,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        requested_by=new_job.requested_by,
+        printer_id=new_job.printer_id,
+        template_id=new_job.template_id,
+        template_name=compilation.template_name,
+        target_dpi=new_job.target_dpi,
+        target_protocol=new_job.target_protocol,
+        total_items=new_job.total_items,
+        total_labels=new_job.total_labels,
+        status=new_job.status,
+        payload_stream=new_job.payload_stream,
+        payload_hash=new_job.payload_hash,
+        svg_preview=compilation.svg_preview,
+        created_at=new_job.created_at,
+        started_at=new_job.started_at,
+        completed_at=new_job.completed_at
+    )
+
+
+@router.get(
+    "/print-jobs",
+    response_model=List[PrintJobResponse],
+    summary="List Barcode Print Jobs"
+)
+async def list_print_jobs(
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns paginated print job history for the current tenant workspace.
+    """
+    stmt = (
+        select(BarcodePrintJob)
+        .order_by(BarcodePrintJob.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    res = await db.execute(stmt)
+    jobs = res.scalars().all()
+    return [
+        PrintJobResponse(
+            id=j.id,
+            tenant_id=tenant_ctx.tenant_id,
+            company_id=j.company_id,
+            branch_id=j.branch_id,
+            requested_by=j.requested_by,
+            printer_id=j.printer_id,
+            template_id=j.template_id,
+            target_dpi=j.target_dpi,
+            target_protocol=j.target_protocol,
+            total_items=j.total_items,
+            total_labels=j.total_labels,
+            status=j.status,
+            payload_hash=j.payload_hash,
+            error_message=j.error_message,
+            created_at=j.created_at,
+            started_at=j.started_at,
+            completed_at=j.completed_at
+        )
+        for j in jobs
+    ]
+
+
+@router.get(
+    "/print-jobs/{job_id}",
+    response_model=PrintJobResponse,
+    summary="Get Print Job Details"
+)
+async def get_print_job(
+    job_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    stmt = select(BarcodePrintJob).where(BarcodePrintJob.id == job_id)
+    res = await db.execute(stmt)
+    job = res.scalars().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Print job not found.")
+    
+    return PrintJobResponse(
+        id=job.id,
+        tenant_id=tenant_ctx.tenant_id,
+        company_id=job.company_id,
+        branch_id=job.branch_id,
+        requested_by=job.requested_by,
+        printer_id=job.printer_id,
+        template_id=job.template_id,
+        target_dpi=job.target_dpi,
+        target_protocol=job.target_protocol,
+        total_items=job.total_items,
+        total_labels=job.total_labels,
+        status=job.status,
+        payload_stream=job.payload_stream,
+        payload_hash=job.payload_hash,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at
+    )
+
+
+@router.patch(
+    "/print-jobs/{job_id}/status",
+    response_model=PrintJobResponse,
+    summary="Update Print Job Execution Status"
+)
+async def update_print_job_status(
+    job_id: str,
+    body: PrintJobStatusUpdateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Updates the execution status (PRINTING, COMPLETED, FAILED, CANCELLED) with optional hardware error details.
+    """
+    stmt = select(BarcodePrintJob).where(BarcodePrintJob.id == job_id)
+    res = await db.execute(stmt)
+    job = res.scalars().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Print job not found.")
+
+    job.status = body.status.upper()
+    if body.error_message:
+        job.error_message = body.error_message
+    if job.status == "PRINTING" and not job.started_at:
+        job.started_at = datetime.now(timezone.utc)
+    elif job.status in ["COMPLETED", "FAILED", "CANCELLED"]:
+        job.completed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(job)
+
+    return PrintJobResponse(
+        id=job.id,
+        tenant_id=tenant_ctx.tenant_id,
+        company_id=job.company_id,
+        branch_id=job.branch_id,
+        requested_by=job.requested_by,
+        printer_id=job.printer_id,
+        template_id=job.template_id,
+        target_dpi=job.target_dpi,
+        target_protocol=job.target_protocol,
+        total_items=job.total_items,
+        total_labels=job.total_labels,
+        status=job.status,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at
+    )
+
+
+@router.post(
+    "/print-jobs/{job_id}/ack",
+    response_model=PrintJobResponse,
+    summary="Acknowledge Print Job Execution (QZ Tray / Spooler Callback)"
+)
+async def acknowledge_print_job(
+    job_id: str,
+    body: PrintJobAckRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Called by QZ Tray client or local print agent to acknowledge success or report hardware/spooler errors.
+    """
+    stmt = select(BarcodePrintJob).where(BarcodePrintJob.id == job_id)
+    res = await db.execute(stmt)
+    job = res.scalars().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Print job not found.")
+
+    if body.success:
+        job.status = "COMPLETED"
+    else:
+        job.status = "FAILED"
+        job.error_message = body.error_message or "Spooler dispatch error"
+
+    if body.printer_name:
+        job.printer_id = body.printer_name
+
+    job.completed_at = datetime.now(timezone.utc)
+    if not job.started_at:
+        job.started_at = job.completed_at
+
+    await db.commit()
+    await db.refresh(job)
+
+    return PrintJobResponse(
+        id=job.id,
+        tenant_id=tenant_ctx.tenant_id,
+        company_id=job.company_id,
+        branch_id=job.branch_id,
+        requested_by=job.requested_by,
+        printer_id=job.printer_id,
+        template_id=job.template_id,
+        target_dpi=job.target_dpi,
+        target_protocol=job.target_protocol,
+        total_items=job.total_items,
+        total_labels=job.total_labels,
+        status=job.status,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at
+    )
+
 

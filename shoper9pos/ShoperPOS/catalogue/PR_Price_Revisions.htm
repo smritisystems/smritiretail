@@ -1,0 +1,97 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Price Revisions</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Price Revisions</h1>
+
+<p class=Body-Text>Price changes of items happen due to various reasons. 
+ This option is to change prices of all items or selected ones from a specific 
+ date. Price revision is executed as part of Day Begin program if Shoper 
+ date is less than Price Revision Effective from date or as part of loading 
+ program, if Shoper date is greater than Effective date. If a price revision 
+ is loaded at a later stage, the system will not update the old records.</p>
+
+<p class=Body-Text>You can also import the Price Revisions defined at HO. 
+ Text files called SHPR are used to send price revisions from HO. The file 
+ naming convention used is SHPR_SOURCECODE_DESTINATIONCODE_NNNNN.txt where 
+ SHPR is a fixed string, SOURCECODE is a three digit HO company code, DESTINATIONCODE 
+ is a three digit POS company code and NNNNN is a five digit serial number. 
+ This serial number is used at POS by the price revision loading program 
+ to check the status of the previous SHPR file before loading the next 
+ SHPR file. If previous file is not loaded, system shall generate a log 
+ for the unloaded files or generate an alert depending on whether the loading 
+ is automatic or manual.</p>
+
+<p class=Body-Text>Any price revision can either be an increase or decrease 
+ and can affect either Retail Price or Distributor Price or both.</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Catalogue 
+ &gt; Define Price Revisions</span></p>
+
+<p class=Body-Text>The Price Revision window is displayed. In this window 
+ you can execute the following functions.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp2">A</span><span class="hcp1">dd</span>: Click to create a new price revision 
+ document. Click <a href="PR_Defining_Price_Revisions.htm">here</a> for 
+ more information.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp2">E</span><span class="hcp1">dit</span>: Click to modify an existing Price 
+ Revision. Enter the <span class="hcp1">Doc No.</span> and 
+ press <span class="hcp1">Enter</span>. The saved details 
+ are displayed. Make necessary changes as explained in the Add option and 
+ click <span class="hcp1">Save</span>.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp2">D</span><span class="hcp1">elete</span>: Click to delete an existing Price 
+ Revision. Enter the <span class="hcp1">Doc No.</span> and 
+ press <span class="hcp1">Enter</span>. The saved details 
+ are displayed. Click <span class="hcp1">OK </span>and a 
+ confirmation message is displayed before deletion. On deletion, the price 
+ revision definition records will be displayed as cancelled in <span class="hcp1">Price 
+ Revision Report</span>.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp2">V</span><span class="hcp1">iew</span>: Click to view the price revision 
+ report. Click <a href="PR_Price_Revision_View.htm">here</a> for more information.</p>
+
+<p class=Note
+	style="margin-left: 59px;"><span class="hcp1">Note:</span> 
+ Editing and Deleting can be done only to the Price Revision which has 
+ not come into effect. </p>
+
+<p class=BlankLine
+	style="margin-left: 40px;">&nbsp;</p>
+
+<p class=Note
+	style="margin-left: 59px;"><span class="hcp1">Note:</span> 
+ If the price revision as per the document being deleted is already used, 
+ the transactions completed will not be reverted.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Navigation
+	style="font-weight: bold; margin-left: 59px;">Cancel<span style="font-weight: normal;">: 
+ To undo all selections made and select a new function from the Price Revision 
+ Catalogue window</span></p>
+
+<p class=Navigation
+	style="margin-left: 59px;"><span class="hcp1">E</span><span class="hcp2">x</span><span class="hcp1">it</span>: To quit the Price Revision process</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 6.68.0
  * Created      : 2026-07-13
- * Modified     : 2026-08-25
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : CRM Studio (Fiori Horizon Inspired Light Theme)
@@ -36,10 +36,22 @@ import {
   Minus,
   Star,
   Loader2,
-  X
+  X,
+  CreditCard,
+  UserCheck,
+  Headphones,
+  History,
+  PieChart,
+  Award
 } from "lucide-react";
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
+import { Customer360LoyaltyModal } from "./crm/Customer360LoyaltyModal.tsx";
+import { CustomerCreditModal } from "./crm/CustomerCreditModal.tsx";
+import { ComplaintCRMModal } from "./crm/ComplaintCRMModal.tsx";
+import { LoyaltyLedgerModal } from "./crm/LoyaltyLedgerModal.tsx";
+import { CustomerSegmentationModal } from "./crm/CustomerSegmentationModal.tsx";
+import { LoyaltyTierModal } from "./crm/LoyaltyTierModal.tsx";
 
 
 export interface CrmStudioTabProps {
@@ -52,6 +64,12 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [showLoyalty360Modal, setShowLoyalty360Modal] = useState<boolean>(false);
+  const [showCreditModal, setShowCreditModal] = useState<boolean>(false);
+  const [showComplaintsModal, setShowComplaintsModal] = useState<boolean>(false);
+  const [showLoyaltyLedgerModal, setShowLoyaltyLedgerModal] = useState<boolean>(false);
+  const [showSegmentationModal, setShowSegmentationModal] = useState<boolean>(false);
+  const [showLoyaltyTierModal, setShowLoyaltyTierModal] = useState<boolean>(false);
 
   // Seed Data
   const [leads, setLeads] = useState([
@@ -59,6 +77,25 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
     { id: "LD-002", name: "Ananya Sen", email: "ananya@gmail.com", phone: "9870098765", source: "Referral", status: "Contacted", date: "2026-07-12" },
     { id: "LD-003", name: "Karan Johar", email: "karan@dharmaprod.com", phone: "9910011223", source: "In-Store", status: "Qualified", date: "2026-07-13" },
   ]);
+
+  const [customersCount, setCustomersCount] = useState<number>(0);
+  const [campaignsCount, setCampaignsCount] = useState<number>(2);
+  const [crmLoading, setCrmLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function loadCrmStats() {
+      try {
+        const res = await apiFetchV1("/crm/customers");
+        const list = Array.isArray(res) ? res : res?.items || [];
+        setCustomersCount(list.length);
+      } catch (e) {
+        console.error("Failed to load live CRM customer count:", e);
+      } finally {
+        setCrmLoading(false);
+      }
+    }
+    loadCrmStats();
+  }, []);
 
   // Telemetry Audit log triggers
   useEffect(() => {
@@ -109,6 +146,66 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
         </div>
 
         <div className="flex items-center space-x-2 text-xs">
+          <button 
+            type="button"
+            id="crm-studio-cust360-btn"
+            onClick={() => setShowLoyalty360Modal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Customer 360 & Loyalty Tier Engine"
+          >
+            <UserCheck size={13} className="text-amber-600" />
+            <span>Customer 360</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-credit-btn"
+            onClick={() => setShowCreditModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Customer Credit Limits & Aging Ledger"
+          >
+            <CreditCard size={13} className="text-sky-600" />
+            <span>Credit &amp; Aging</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-complaints-btn"
+            onClick={() => setShowComplaintsModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Customer Complaints, Service Requests & SLA Tracker"
+          >
+            <Headphones size={13} className="text-rose-600" />
+            <span>Complaints</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-loyalty-ledger-btn"
+            onClick={() => setShowLoyaltyLedgerModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Customer Loyalty Points Transaction Ledger"
+          >
+            <History size={13} className="text-purple-600" />
+            <span>Points Ledger</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-segmentation-btn"
+            onClick={() => setShowSegmentationModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 text-teal-600 hover:bg-teal-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open AI RFM Customer Micro-Cohort Segmentation"
+          >
+            <PieChart size={13} className="text-teal-600" />
+            <span>RFM Segments</span>
+          </button>
+          <button 
+            type="button"
+            id="crm-studio-tiers-btn"
+            onClick={() => setShowLoyaltyTierModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 font-semibold transition-colors cursor-pointer"
+            title="Open Loyalty Tier Progression Matrix & Rules"
+          >
+            <Award size={13} className="text-emerald-600" />
+            <span>Tier Matrix</span>
+          </button>
           <button 
             onClick={() => recordAuditAction("EXPORT", "crm", "export", "Exported lead pipeline report")}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-theme-border text-theme-body hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer"
@@ -168,12 +265,16 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
                 
                 <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 space-y-2 shadow-xs">
                   <div className="flex justify-between items-center text-theme-muted text-xs">
-                    <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Total Leads Collected</span>
+                    <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Total Leads &amp; Accounts</span>
                     <Users size={16} className="text-theme-primary" />
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-theme-body font-mono">1,408</span>
-                    <span className="text-[10px] text-emerald-600 font-mono font-bold">+12% vs last month</span>
+                    <span className="text-2xl font-bold text-theme-body font-mono">
+                      {crmLoading ? "..." : (leads.length + customersCount).toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-mono font-bold">
+                      {customersCount} verified accounts
+                    </span>
                   </div>
                 </div>
 
@@ -183,19 +284,25 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
                     <TrendingUp size={16} className="text-emerald-600" />
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-emerald-600 font-mono">24.5%</span>
-                    <span className="text-[10px] text-emerald-600 font-mono font-bold">+1.2% efficiency</span>
+                    <span className="text-2xl font-bold text-emerald-600 font-mono">
+                      {crmLoading ? "..." : `${(leads.length + customersCount) > 0 ? (((leads.filter(l => l.status === "Qualified").length + Math.min(customersCount, 5)) / (leads.length + customersCount)) * 100).toFixed(1) : "0.0"}%`}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-mono font-bold">
+                      {leads.filter(l => l.status === "Qualified").length} qualified leads
+                    </span>
                   </div>
                 </div>
 
                 <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 space-y-2 shadow-xs">
                   <div className="flex justify-between items-center text-theme-muted text-xs">
-                    <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Active ROI Campaigns</span>
+                    <span className="font-semibold uppercase tracking-wider font-mono text-[10px]">Active Marketing Campaigns</span>
                     <Megaphone size={16} className="text-indigo-600" />
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-theme-body font-mono">3</span>
-                    <span className="text-[10px] text-theme-muted font-mono">Targeting 15k customers</span>
+                    <span className="text-2xl font-bold text-theme-body font-mono">{campaignsCount}</span>
+                    <span className="text-[10px] text-theme-muted font-mono">
+                      Targeting {customersCount > 0 ? `${customersCount} verified customers` : "retail cohort"}
+                    </span>
                   </div>
                 </div>
 
@@ -250,6 +357,48 @@ export const CrmStudioTab: React.FC<CrmStudioTabProps> = ({ currentUser }) => {
           )}
         </motion.div>
       </SmritiScrollArea>
+
+      {showLoyalty360Modal && (
+        <Customer360LoyaltyModal
+          isOpen={showLoyalty360Modal}
+          onClose={() => setShowLoyalty360Modal(false)}
+        />
+      )}
+
+      {showCreditModal && (
+        <CustomerCreditModal
+          isOpen={showCreditModal}
+          onClose={() => setShowCreditModal(false)}
+        />
+      )}
+
+      {showComplaintsModal && (
+        <ComplaintCRMModal
+          isOpen={showComplaintsModal}
+          onClose={() => setShowComplaintsModal(false)}
+        />
+      )}
+
+      {showLoyaltyLedgerModal && (
+        <LoyaltyLedgerModal
+          isOpen={showLoyaltyLedgerModal}
+          onClose={() => setShowLoyaltyLedgerModal(false)}
+        />
+      )}
+
+      {showSegmentationModal && (
+        <CustomerSegmentationModal
+          isOpen={showSegmentationModal}
+          onClose={() => setShowSegmentationModal(false)}
+        />
+      )}
+
+      {showLoyaltyTierModal && (
+        <LoyaltyTierModal
+          isOpen={showLoyaltyTierModal}
+          onClose={() => setShowLoyaltyTierModal(false)}
+        />
+      )}
     </div>
   );
 };

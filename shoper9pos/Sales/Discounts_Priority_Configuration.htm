@@ -1,0 +1,236 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Discounts Priority Configuration</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+table.hcp2 { x-cell-content-align:top; top:383px; margin-left:80px; border-spacing:0px; }
+tr.hcp3 { x-cell-content-align:top; }
+td.hcp4 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp5 { border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp6 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp7 { border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+-->
+</style>
+</head>
+<body>
+<h1>Configuring Parameters to Prioritise the Calculation of Item/ Bill 
+ Level Discounts</h1>
+
+<p class=Body-Text>The parameter <span class="hcp1">Apply 
+ Bill Level Discount First </span>under the category <span class="hcp1">Billing</span> 
+ gives you the flexibility to prioritise the calculation of item level 
+ and bill level discounts as per your requirement.</p>
+
+<p class=Body-Text>The calculation of the net amount of a <span style="x-condition: POS;">bill</span> varies based on the value 
+ set for this parameter.</p>
+
+<p class=Body-Text>An example to show the calculation of net amount of 
+ an item is given.</p>
+
+<p class=Body-Text>Suppose the item rate of stock no. 00001 is Rs. 1000/-, 
+ quantity is one, item level discount code applied is D1 and the variable 
+ discount at the item level is defined as 10%. In addition, the bill level 
+ discount given is Rs. 200/-.</p>
+
+<p class=Body-Text>The calculations are explained as follows.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>If the parameter <span class="hcp1">Apply 
+ Bill Level Discount First</span> is set to <span class="hcp1">0</span>: 
+ The item level discount is given priority over bill level discount while 
+ calculating the net amount. </p></li>
+</ul>
+
+<p class=Body-Text
+	style="margin-left: 87px;"><span class="hcp1">Step 1:</span> 
+ The item level discount amount is calculated and is deducted from the 
+ item rate.</p>
+
+<p class=Body-Text
+	style="margin-left: 127px;">i.e., the item level discount amount of 
+ the item = 1000 * 10 / 100 = 100</p>
+
+<p class=Body-Text
+	style="margin-left: 127px;">the total amount of the item at item level 
+ = 1000 - 100 = 900</p>
+
+<p class=Body-Text
+	style="margin-left: 87px;"><span class="hcp1">Step 2:</span> 
+ The bill level discount amount is deducted from the total item level amount 
+ of the item</p>
+
+<p class=Body-Text
+	style="margin-left: 127px;">i.e., the net amount of the item = 900 
+ - 200 = 700</p>
+
+<p class=Body-Text
+	style="margin-left: 127px;">The net result of the calculations in step 
+ 1 and step 2 are as shown.</p>
+
+<table x-use-null-cells style="left:0px; width:661px;" cellspacing="0" width="661" class="hcp2">
+<col style="width: 10.966%;">
+<col style="width: 9.896%;">
+<col style="width: 9.646%;">
+<col style="width: 14.755%;">
+<col style="width: 14.957%;">
+<col style="width: 14.826%;">
+<col style="width: 14.978%;">
+<col style="width: 9.976%;">
+
+<tr valign="top" class="hcp3">
+<td style="width:10.966%;" width="10.966%" class="hcp4">
+<p class=TableCell
+	style="font-weight: bold;">Stock No</td>
+<td style="width:9.896%;" width="9.896%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Rate</td>
+<td style="width:9.646%;" width="9.646%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Qty</td>
+<td style="width:14.755%;" width="14.755%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Item level Disc %</td>
+<td style="width:14.957%;" width="14.957%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Item level Disc Amt</td>
+<td colspan="1" rowspan="1" style="width:14.826%;" width="14.826%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Item level Total</td>
+<td colspan="1" rowspan="1" style="width:14.978%;" width="14.978%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Bill level discount</td>
+<td style="width:9.976%;" width="9.976%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Net Amt</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:10.966%;" width="10.966%" class="hcp6">
+<p class=TableCell>00001</td>
+<td style="width:9.896%;" width="9.896%" class="hcp7">
+<p class=TableCell>1000</td>
+<td style="width:9.646%;" width="9.646%" class="hcp7">
+<p class=TableCell>1</td>
+<td style="width:14.755%;" width="14.755%" class="hcp7">
+<p class=TableCell>10%</td>
+<td style="width:14.957%;" width="14.957%" class="hcp7">
+<p class=TableCell>100</td>
+<td colspan="1" rowspan="1" style="width:14.826%;" width="14.826%" class="hcp7">
+<p class=TableCell>900</td>
+<td colspan="1" rowspan="1" style="width:14.978%;" width="14.978%" class="hcp7">
+<p class=TableCell>200</td>
+<td style="width:9.976%;" width="9.976%" class="hcp7">
+<p class=TableCell>700</td></tr>
+</table>
+
+<p class=Body-Text
+	style="margin-left: 47px;">&nbsp;</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>If the parameter <span class="hcp1">Apply 
+ Bill Level Discount First</span> is set to <span class="hcp1">1</span>: 
+ The bill level discount is given priority over item level discount while 
+ calculating the net amount. </p></li>
+</ul>
+
+<p class=Body-Text
+	style="margin-left: 87px;"><span class="hcp1">Step 1:</span> 
+ The bill level discount amount is deducted from the item rate</p>
+
+<p class=Body-Text
+	style="margin-left: 127px;">i.e., the amount of the item after deducting 
+ the bill level discount = 1000 - 200 = 800 </p>
+
+<p class=Note
+	style="margin-left: 99px;"><span class="hcp1">Note:</span> 
+ If there are more than one item, the appropriated bill level discount 
+ amount is deducted from the item rate of each item.</p>
+
+<p class=Body-Text
+	style="margin-left: 87px;"><span class="hcp1">Step 2:</span> 
+ The item level discount amount is calculated on Rs. 800/-, which is the 
+ amount of the item after deducting the bill level discount</p>
+
+<p class=Body-Text
+	style="margin-left: 127px;">i.e., the item level discount amount of 
+ the item = 800 * 10 / 100 = 80</p>
+
+<p class=Body-Text
+	style="margin-left: 87px;"><span class="hcp1">Step 3:</span> 
+ The item level discount amount is deducted from the total bill level amount 
+ of the item</p>
+
+<p class=Body-Text
+	style="margin-left: 127px;">i.e., the net amount of the item = 800 
+ - 80 = 720</p>
+
+<p class=Body-Text
+	style="margin-left: 127px;">The net result of the calculations in step 
+ 1, step 2 and step 3 are as shown.</p>
+
+<table x-use-null-cells style="left:0px; width:664px;" cellspacing="0" width="664" class="hcp2">
+<col style="width: 10.786%;">
+<col style="width: 10.211%;">
+<col style="width: 9.172%;">
+<col style="width: 14.608%;">
+<col style="width: 14.5%;">
+<col style="width: 14.909%;">
+<col style="width: 14.97%;">
+<col style="width: 10.843%;">
+
+<tr valign="top" class="hcp3">
+<td style="width:10.786%;" width="10.786%" class="hcp4">
+<p class=TableCell
+	style="font-weight: bold;">Stock No</td>
+<td style="width:10.211%;" width="10.211%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Rate</td>
+<td style="width:9.172%;" width="9.172%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Qty</td>
+<td colspan="1" rowspan="1" style="width:14.608%;" width="14.608%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Bill level discount</td>
+<td colspan="1" rowspan="1" style="width:14.5%;" width="14.5%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Bill level Total</td>
+<td style="width:14.909%;" width="14.909%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Item level Disc %</td>
+<td style="width:14.97%;" width="14.97%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Item level Disc Amt</td>
+<td style="width:10.843%;" width="10.843%" class="hcp5">
+<p class=TableCell
+	style="font-weight: bold;">Net Amt</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:10.786%;" width="10.786%" class="hcp6">
+<p class=TableCell>00001</td>
+<td style="width:10.211%;" width="10.211%" class="hcp7">
+<p class=TableCell>1000</td>
+<td style="width:9.172%;" width="9.172%" class="hcp7">
+<p class=TableCell>1</td>
+<td colspan="1" rowspan="1" style="width:14.608%;" width="14.608%" class="hcp7">
+<p class=TableCell>200</td>
+<td colspan="1" rowspan="1" style="width:14.5%;" width="14.5%" class="hcp7">
+<p class=TableCell>800</td>
+<td style="width:14.909%;" width="14.909%" class="hcp7">
+<p class=TableCell>10%</td>
+<td style="width:14.97%;" width="14.97%" class="hcp7">
+<p class=TableCell>80</td>
+<td style="width:10.843%;" width="10.843%" class="hcp7">
+<p class=TableCell>720</td></tr>
+</table>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

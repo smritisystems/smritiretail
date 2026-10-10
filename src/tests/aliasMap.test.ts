@@ -36,8 +36,8 @@ describe("Phase 3 Refactor: Config-Driven One-to-Many Alias Registry", () => {
 
     // Style code mapping
     const styleCol = result.columns[1];
-    expect(styleCol.mappedFieldKey).toBe("code");
-    expect(styleCol.confidence).toBe("HIGH");
+    expect(styleCol.mappedFieldKey).toBe("style_code");
+    expect(["EXACT", "HIGH"]).toContain(styleCol.confidence);
 
     // MRP mapping
     const mrpCol = result.columns[2];

@@ -88,6 +88,8 @@ export interface PriceResolutionInput {
   activeOffers: PromotionalOffer[];
   coupon?: CouponCode;
   asOf: Date;
+  /** Optional per-transaction override for coupon stacking with promotional discounts */
+  couponStackingAllowed?: boolean;
 }
 
 export interface PriceResolutionResult {
@@ -116,11 +118,34 @@ export interface InvoicePricingResult {
   capBreached: boolean;           // True if max discount cap was applied
 }
 
-/** Engine-wide constants */
-export const PRICING_CONFIG = {
-  maxDiscountCapPct: 40,          // No invoice may receive more than 40% total discount
-  couponStackingAllowed: true,    // Coupons may stack on top of promos
+/** Configuration contract for pricing and discount rules */
+export interface PricingConfig {
+  /** Maximum allowable discount percentage for an entire invoice (governed by SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT) */
+  maxDiscountCapPct?: number;
+  /** Whether coupons can be stacked on top of promotional discounts (governed by SMRITI.PRICING.ALLOW_COUPON_STACKING) */
+  couponStackingAllowed: boolean;
+}
+
+/**
+ * Engine configuration instance.
+ * Dynamic and configuration-driven — no hardcoded commercial ceilings.
+ */
+export const PRICING_CONFIG: PricingConfig = {
+  maxDiscountCapPct: undefined, // Resolved dynamically from SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT
+  couponStackingAllowed: true,
 };
+
+/**
+ * Update engine configuration at runtime from system parameters or company policy.
+ */
+export function setPricingConfig(config: Partial<PricingConfig>): void {
+  if (config.maxDiscountCapPct !== undefined) {
+    PRICING_CONFIG.maxDiscountCapPct = config.maxDiscountCapPct;
+  }
+  if (config.couponStackingAllowed !== undefined) {
+    PRICING_CONFIG.couponStackingAllowed = config.couponStackingAllowed;
+  }
+}
 
 export class PricingDiscountEngine {
   /** Resolve effective unit price through the 4-layer hierarchy for a single line */
@@ -188,7 +213,11 @@ export class PricingDiscountEngine {
     let couponDiscount = 0;
     let appliedCoupon: CouponCode | undefined;
 
-    if (input.coupon && PRICING_CONFIG.couponStackingAllowed && (!appliedOffer || appliedOffer.isStackable)) {
+    const isStackingAllowed = input.couponStackingAllowed !== undefined
+      ? input.couponStackingAllowed
+      : PRICING_CONFIG.couponStackingAllowed;
+
+    if (input.coupon && isStackingAllowed && (!appliedOffer || appliedOffer.isStackable)) {
       const c = input.coupon;
       const validCoupon =
         c.isActive &&
@@ -230,10 +259,15 @@ export class PricingDiscountEngine {
     };
   }
 
-  /** Resolve all lines and compute invoice-level totals with cap enforcement */
+  /** Resolve all lines and compute invoice-level totals with dynamic cap enforcement */
   public static resolveInvoice(
     lines: Omit<PriceResolutionInput, "coupon" | "asOf">[],
-    shared: { coupon?: CouponCode; asOf: Date }
+    shared: {
+      coupon?: CouponCode;
+      asOf: Date;
+      maxDiscountCapPct?: number;
+      couponStackingAllowed?: boolean;
+    }
   ): InvoicePricingResult {
     const resolved = lines.map((l) => this.resolveLine({ ...l, ...shared }));
 
@@ -244,9 +278,11 @@ export class PricingDiscountEngine {
     const rawTotal            = subtotal - totalDiscount;
     const discountPct         = subtotal > 0 ? Math.round((totalDiscount / subtotal) * 10000) / 100 : 0;
 
-    // Cap enforcement
-    const maxAllowedDiscount  = Math.round(subtotal * (PRICING_CONFIG.maxDiscountCapPct / 100) * 100) / 100;
-    const capBreached         = totalDiscount > maxAllowedDiscount;
+    // Cap enforcement — dynamic based on configured policy parameter
+    const effectiveCap = shared.maxDiscountCapPct ?? PRICING_CONFIG.maxDiscountCapPct;
+    const hasCap = effectiveCap !== undefined && effectiveCap > 0;
+    const maxAllowedDiscount  = hasCap ? Math.round(subtotal * (effectiveCap! / 100) * 100) / 100 : Infinity;
+    const capBreached         = hasCap && totalDiscount > maxAllowedDiscount;
     const cappedDiscount      = capBreached ? maxAllowedDiscount : totalDiscount;
     const grandTotal          = Math.round((subtotal - cappedDiscount) * 100) / 100;
 
@@ -257,7 +293,7 @@ export class PricingDiscountEngine {
       totalCouponDiscount,
       totalDiscount: cappedDiscount,
       grandTotal,
-      discountPct: capBreached ? PRICING_CONFIG.maxDiscountCapPct : discountPct,
+      discountPct: capBreached ? effectiveCap! : discountPct,
       capBreached,
     };
   }

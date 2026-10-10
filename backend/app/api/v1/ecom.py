@@ -518,7 +518,7 @@ from ...schemas.ecom import (
 )
 
 
-@router.post("/channels", response_model=ChannelResponse, summary="Configure eCommerce Channel")
+@router.post("/ecom/channels", response_model=ChannelResponse, summary="Configure eCommerce Channel")
 async def configure_channel(
     req: ChannelCreateReq,
     session: AsyncSession = Depends(get_company_db),
@@ -545,7 +545,7 @@ async def configure_channel(
     )
 
 
-@router.post("/sku-mappings", response_model=SkuMappingResponse, summary="Map external marketplace SKU to SMRITI SKU")
+@router.post("/ecom/sku-mappings", response_model=SkuMappingResponse, summary="Map external marketplace SKU to SMRITI SKU")
 async def map_ecom_sku(
     req: SkuMappingReq,
     session: AsyncSession = Depends(get_company_db),
@@ -571,7 +571,7 @@ async def map_ecom_sku(
     )
 
 
-@router.post("/orders/inbound", response_model=OrderImportResponse, summary="Process Inbound eCommerce Order")
+@router.post("/ecom/orders/inbound", response_model=OrderImportResponse, summary="Process Inbound eCommerce Order")
 async def process_inbound_order(
     payload: InboundOrderPayload,
     session: AsyncSession = Depends(get_company_db),
@@ -599,7 +599,7 @@ async def process_inbound_order(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/orders/{import_id}/converge", response_model=OrderConvergenceResponse, summary="Converge order to SalesInvoice")
+@router.post("/ecom/orders/{import_id}/converge", response_model=OrderConvergenceResponse, summary="Converge order to SalesInvoice")
 async def converge_order(
     import_id: str,
     session: AsyncSession = Depends(get_company_db),
@@ -618,7 +618,7 @@ async def converge_order(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/dlq/retry", response_model=DlqRetryResponse, summary="Retry failed or DLQ eCommerce imports")
+@router.post("/ecom/dlq/retry", response_model=DlqRetryResponse, summary="Retry failed or DLQ eCommerce imports")
 async def retry_dlq_imports(
     req: DlqRetryReq,
     session: AsyncSession = Depends(get_company_db),
@@ -632,7 +632,7 @@ async def retry_dlq_imports(
     )
 
 
-@router.post("/reconciliations/run", response_model=ReconciliationReportResponse, summary="Run Channel Financial Reconciliation")
+@router.post("/ecom/reconciliations/run", response_model=ReconciliationReportResponse, summary="Run Channel Financial Reconciliation")
 async def run_channel_reconciliation(
     req: ReconciliationRunReq,
     session: AsyncSession = Depends(get_company_db),

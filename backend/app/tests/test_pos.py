@@ -67,6 +67,8 @@ async def _make_tenant(db_session, suffix):
     warehouse = Warehouse(
         id=f"wh-central-{suffix}", company_id=comp.id, branch_id=br.id,
         code=f"WH-POS-{suffix}", name="Central Warehouse", is_active=True,
+        address="POS Test Warehouse", city="Mumbai", state="Maharashtra",
+        pincode="400001",
     )
     db_session.add(warehouse)
     await db_session.commit()
@@ -168,7 +170,7 @@ async def test_open_shift(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         res = await c.post("/api/v1/pos/shifts/open",
-                           json={"id": f"sh-{s}", "register_id": reg.id,
+                           json={"register_id": reg.id,
                                  "opening_balance": "500.00"},
                            headers=_bearer(cashier, comp.id, br.id))
     assert res.status_code == 201
@@ -188,12 +190,12 @@ async def test_cannot_open_two_shifts_same_register(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r1 = await c.post("/api/v1/pos/shifts/open",
-                          json={"id": f"sh1-{s}", "register_id": reg.id},
+                          json={"register_id": reg.id},
                           headers=_bearer(cashier, comp.id, br.id))
         assert r1.status_code == 201
 
         r2 = await c.post("/api/v1/pos/shifts/open",
-                          json={"id": f"sh2-{s}", "register_id": reg.id},
+                          json={"register_id": reg.id},
                           headers=_bearer(cashier, comp.id, br.id))
     assert r2.status_code == 400
     assert "already has an open shift" in r2.json()["detail"].lower()
@@ -208,7 +210,7 @@ async def test_open_shift_invalid_register_returns_404(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         res = await c.post("/api/v1/pos/shifts/open",
-                           json={"id": f"sh-{s}", "register_id": "nonexistent"},
+                           json={"register_id": "nonexistent"},
                            headers=_bearer(cashier, comp.id, br.id))
     assert res.status_code == 404
 
@@ -225,12 +227,13 @@ async def test_close_shift_no_sales(db_session):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         open_res = await c.post("/api/v1/pos/shifts/open",
-                                json={"id": f"sh-{s}", "register_id": reg.id,
+                                json={"register_id": reg.id,
                                       "opening_balance": "1000.00"},
                                 headers=_bearer(cashier, comp.id, br.id))
         assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
 
-        close_res = await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        close_res = await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                                  json={"closing_balance": "1000.00"},
                                  headers=_bearer(cashier, comp.id, br.id))
 
@@ -308,13 +311,15 @@ async def test_close_already_closed_shift_returns_400(db_session):
     _set_tenant(db_session, comp.id, br.id)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        await c.post("/api/v1/pos/shifts/open",
-                     json={"id": f"sh-{s}", "register_id": reg.id},
-                     headers=_bearer(cashier, comp.id, br.id))
-        await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        open_res = await c.post("/api/v1/pos/shifts/open",
+                                json={"register_id": reg.id},
+                                headers=_bearer(cashier, comp.id, br.id))
+        assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
+        await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                      json={"closing_balance": "0.00"},
                      headers=_bearer(cashier, comp.id, br.id))
-        second_close = await c.post(f"/api/v1/pos/shifts/close/sh-{s}",
+        second_close = await c.post(f"/api/v1/pos/shifts/close/{shift_id}",
                                     json={"closing_balance": "0.00"},
                                     headers=_bearer(cashier, comp.id, br.id))
     assert second_close.status_code == 400
@@ -336,13 +341,15 @@ async def test_get_active_shift(db_session):
         assert r1.status_code == 404
 
         # Open a shift → 200
-        await c.post("/api/v1/pos/shifts/open",
-                     json={"id": f"sh-{s}", "register_id": reg.id},
-                     headers=_bearer(cashier, comp.id, br.id))
+        open_res = await c.post("/api/v1/pos/shifts/open",
+                                json={"register_id": reg.id},
+                                headers=_bearer(cashier, comp.id, br.id))
+        assert open_res.status_code == 201
+        shift_id = open_res.json()["id"]
         r2 = await c.get(f"/api/v1/shifts/active/{reg.id}",
                          headers=_bearer(cashier, comp.id, br.id))
         assert r2.status_code == 200
-        assert r2.json()["id"] == f"sh-{s}"
+        assert r2.json()["id"] == shift_id
 
 
 # ─────────────────────────── POS Checkout tests (Phase 1) ───────────────────────────
@@ -401,6 +408,8 @@ async def test_pos_checkout_happy_path(db_session):
         "shift_id": shift.id,
         "payment_mode": "CASH",
         "grand_total": "100.00",
+        "billing_address": "1 Corporate Park, Mumbai, Maharashtra - 400001",
+        "shipping_address": "12 MG Road, Bengaluru, Karnataka - 560001",
         "items": [{
             "product_id": product.id,
             "code": product.code,
@@ -423,6 +432,13 @@ async def test_pos_checkout_happy_path(db_session):
     assert data["invoice_no"] == f"POS-{s}"
     assert data["payment_mode"] == "CASH"
     assert Decimal(data["grand_total"]) == Decimal("100.00")
+
+    invoice = (await db_session.execute(
+        select(SalesInvoice).where(SalesInvoice.invoice_no == f"POS-{s}")
+    )).scalars().first()
+    assert invoice is not None
+    assert invoice.billing_address == "1 Corporate Park, Mumbai, Maharashtra - 400001"
+    assert invoice.shipping_address == "12 MG Road, Bengaluru, Karnataka - 560001"
 
     # Verify stock was deducted in DB
     await db_session.refresh(product)
@@ -585,7 +601,7 @@ async def test_open_shift_contract_url(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r = await c.post(
             "/api/v1/pos/shifts/open",
-            json={"id": f"sh4a-{s}", "register_id": reg.id, "opening_balance": "500.00"},
+            json={"register_id": reg.id, "opening_balance": "500.00"},
             headers=_bearer(cashier, comp.id, br.id),
         )
     assert r.status_code == 201, r.text
@@ -605,7 +621,7 @@ async def test_close_shift_contract_url(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         open_r = await c.post(
             "/api/v1/pos/shifts/open",
-            json={"id": f"sh4b-{s}", "register_id": reg.id, "opening_balance": "100.00"},
+            json={"register_id": reg.id, "opening_balance": "100.00"},
             headers=hdrs,
         )
         assert open_r.status_code == 201, open_r.text
@@ -617,3 +633,437 @@ async def test_close_shift_contract_url(db_session):
         )
     assert close_r.status_code == 200, close_r.text
     assert close_r.json()["id"] == shift_id
+
+
+async def test_pos_checkout_rejects_rate_exceeding_mrp(db_session):
+    """
+    Statutory Price Validation: Selling price cannot exceed MRP.
+    """
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"mrp{s}")
+    cashier = await _make_user(db_session, f"mrp{s}", comp.id, br.id)
+    reg = await _make_register(db_session, f"mrp{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"mrp{s}", comp.id, br.id, stock=10)
+    shift = await _make_open_shift(db_session, f"mrp{s}", comp.id, br.id, cashier.id, reg.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    payload = {
+        "invoice_no": f"INV-MRP-{s}",
+        "shift_id": shift.id,
+        "payment_mode": "CASH",
+        "grand_total": "1200.00",
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1",
+            "price": "1200.00",
+            "mrp": "1000.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/pos/checkout",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id),
+        )
+
+    assert r.status_code == 400
+    assert "Selling price" in r.text
+    assert "cannot exceed MRP" in r.text
+
+
+# ─────────────────────────── Phase P2.6: Multi-Tender, Wallet, & Offline Sync Tests ───────────────────────────
+
+async def _make_customer(db_session, suffix, comp_id, br_id):
+    """Helper: create a customer record."""
+    from app.models.crm import Customer
+    cust = Customer(
+        id=f"cust-{suffix}",
+        name=f"Customer {suffix}",
+        mobile=f"98765{suffix[:5]}",
+        email=f"cust_{suffix}@example.com",
+        company_id=comp_id,
+        branch_id=br_id,
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(cust)
+    await db_session.commit()
+    return cust
+
+
+async def test_pos_checkout_split_tender_cash_and_upi(db_session):
+    """
+    Phase P2.6: Split Tender Checkout (CASH + UPI).
+    Verifies multi-tender processing, accurate drawer cash tracking on shift close,
+    PaymentTransaction persistence, and GL voucher generation.
+    """
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"sp{s}")
+    cashier = await _make_user(db_session, f"sp{s}", comp.id, br.id)
+    reg = await _make_register(db_session, f"sp{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"sp{s}", comp.id, br.id, stock=10)
+    shift = await _make_open_shift(db_session, f"sp{s}", comp.id, br.id, cashier.id, reg.id, opening="500.00")
+    _set_tenant(db_session, comp.id, br.id)
+
+    payload = {
+        "invoice_no": f"POS-SPLIT-{s}",
+        "shift_id": shift.id,
+        "payment_mode": "SPLIT",
+        "grand_total": "500.00",
+        "tenders": [
+            {"tender_type": "CASH", "amount": "200.00"},
+            {"tender_type": "UPI", "amount": "300.00", "reference_no": f"UPI-{s}-REF"}
+        ],
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "5",
+            "price": "100.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        res = await c.post(
+            "/api/v1/pos/checkout",
+            json=payload,
+            headers=_bearer(cashier, comp.id, br.id)
+        )
+
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["success"] is True
+    assert data["payment_mode"] == "SPLIT"
+    assert Decimal(str(data["grand_total"])) == Decimal("500.00")
+    assert Decimal(str(data["paid_amount"])) == Decimal("500.00")
+    assert Decimal(str(data["balance_amount"])) == Decimal("0.00")
+
+    # Close shift with physical cash 700.00 (opening 500.00 + 200.00 cash sales)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        close_res = await c.post(
+            f"/api/v1/pos/shifts/close/{shift.id}",
+            json={"closing_balance": "700.00"},
+            headers=_bearer(cashier, comp.id, br.id)
+        )
+
+    assert close_res.status_code == 200, close_res.text
+    shift_data = close_res.json()
+    assert Decimal(str(shift_data["cash_sales_total"])) == Decimal("200.00")
+    assert Decimal(str(shift_data["upi_sales_total"])) == Decimal("300.00")
+    assert Decimal(str(shift_data["card_sales_total"])) == Decimal("0.00")
+    assert Decimal(str(shift_data["total_sales"])) == Decimal("500.00")
+    assert Decimal(str(shift_data["expected_cash"])) == Decimal("700.00")
+    assert Decimal(str(shift_data["variance"])) == Decimal("0.00")
+
+    # Verify PaymentTransactions and GL links in DB
+    from app.models.payment_ledger import PaymentTransaction
+    from app.models.accounting import JournalVoucher
+    tx_res = await db_session.execute(
+        select(PaymentTransaction).where(
+            PaymentTransaction.reference_doc_id == data["invoice_id"],
+            PaymentTransaction.company_id == comp.id,
+        )
+    )
+    txs = tx_res.scalars().all()
+    assert len(txs) == 2
+    types = {tx.tender_type: Decimal(str(tx.amount)) for tx in txs}
+    assert types["CASH"] == Decimal("200.00")
+    assert types["UPI"] == Decimal("300.00")
+
+    for tx in txs:
+        jv_res = await db_session.execute(
+            select(JournalVoucher).where(
+                JournalVoucher.reference_doc_id == tx.id,
+                JournalVoucher.company_id == comp.id,
+            )
+        )
+        jv = jv_res.scalars().first()
+        assert jv is not None
+        assert jv.voucher_type == "PAYMENT_RECEIPT"
+
+
+async def test_pos_checkout_store_credit_wallet_redemption(db_session):
+    """
+    Phase P2.6: POS Cashier Store Credit / Wallet Redemption.
+    Verifies wallet lookup, multi-tender split checkout with store credit,
+    ledger deduction with compound reference identity, and shift cash exclusion.
+    """
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"wal{s}")
+    cashier = await _make_user(db_session, f"wal{s}", comp.id, br.id)
+    reg = await _make_register(db_session, f"wal{s}", comp.id, br.id)
+    customer = await _make_customer(db_session, f"wal{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"wal{s}", comp.id, br.id, stock=10)
+    shift = await _make_open_shift(db_session, f"wal{s}", comp.id, br.id, cashier.id, reg.id, opening="500.00")
+    _set_tenant(db_session, comp.id, br.id)
+
+    # Provision customer with ₹300 store credit
+    from app.models.crm import CustomerCreditLedgerEntry
+    from datetime import datetime, timezone
+    credit_entry = CustomerCreditLedgerEntry(
+        id=f"ccle-prov-{s}",
+        customer_id=customer.id,
+        entry_date=datetime.now(timezone.utc),
+        entry_type="CREDIT",
+        amount=Decimal("300.00"),
+        balance_after=Decimal("300.00"),
+        reference_type="SALES_RETURN",
+        reference_id=f"SR-PROV-{s}",
+        notes="Return credit note store wallet refund",
+        company_id=comp.id,
+        branch_id=br.id,
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(credit_entry)
+    await db_session.commit()
+
+    hdrs = _bearer(cashier, comp.id, br.id)
+
+    # 1. Query wallet balance via POS endpoint
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        bal_res = await c.get(f"/api/v1/pos/customer-wallet/{customer.id}", headers=hdrs)
+    assert bal_res.status_code == 200, bal_res.text
+    bal_data = bal_res.json()
+    assert Decimal(str(bal_data["available_wallet_balance"])) == Decimal("300.00")
+    assert Decimal(str(bal_data["total_credit_issued"])) == Decimal("300.00")
+    assert Decimal(str(bal_data["total_wallet_redeemed"])) == Decimal("0.00")
+
+    # 2. POS Checkout: ₹300 WALLET + ₹200 CASH for ₹500 invoice
+    payload = {
+        "invoice_no": f"POS-WAL-{s}",
+        "shift_id": shift.id,
+        "payment_mode": "SPLIT",
+        "customer_id": customer.id,
+        "grand_total": "500.00",
+        "tenders": [
+            {"tender_type": "WALLET", "amount": "300.00"},
+            {"tender_type": "CASH", "amount": "200.00"}
+        ],
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "5",
+            "price": "100.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        res = await c.post("/api/v1/pos/checkout", json=payload, headers=hdrs)
+
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["success"] is True
+    assert Decimal(str(data["paid_amount"])) == Decimal("500.00")
+    assert Decimal(str(data["balance_amount"])) == Decimal("0.00")
+
+    # 3. Check wallet balance after redemption (should be 0.00)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        bal_after = await c.get(f"/api/v1/pos/customer-wallet/{customer.id}", headers=hdrs)
+    assert bal_after.status_code == 200
+    bal_after_data = bal_after.json()
+    assert Decimal(str(bal_after_data["available_wallet_balance"])) == Decimal("0.00")
+    assert Decimal(str(bal_after_data["total_wallet_redeemed"])) == Decimal("300.00")
+
+    # 4. Verify debit entry has compound reference identity (invoice_id:tx_id)
+    debit_res = await db_session.execute(
+        select(CustomerCreditLedgerEntry).where(
+            CustomerCreditLedgerEntry.customer_id == customer.id,
+            CustomerCreditLedgerEntry.entry_type == "DEBIT",
+            CustomerCreditLedgerEntry.company_id == comp.id,
+        )
+    )
+    debit_entry = debit_res.scalars().first()
+    assert debit_entry is not None
+    assert debit_entry.amount == Decimal("300.00")
+    assert ":" in debit_entry.reference_id
+
+    # 5. Close shift — drawer cash must only expect the cash portion (200.00), not wallet (300.00)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        close_res = await c.post(
+            f"/api/v1/pos/shifts/close/{shift.id}",
+            json={"closing_balance": "700.00"},
+            headers=hdrs
+        )
+    assert close_res.status_code == 200, close_res.text
+    shift_res_data = close_res.json()
+    assert Decimal(str(shift_res_data["cash_sales_total"])) == Decimal("200.00")
+    assert Decimal(str(shift_res_data["total_sales"])) == Decimal("500.00")
+    assert Decimal(str(shift_res_data["expected_cash"])) == Decimal("700.00")
+    assert Decimal(str(shift_res_data["variance"])) == Decimal("0.00")
+
+
+async def test_pos_checkout_wallet_exceeds_available_balance_returns_400(db_session):
+    """
+    Phase P2.6: Tendering wallet amount greater than available credit fails with HTTP 400.
+    """
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"wexc{s}")
+    cashier = await _make_user(db_session, f"wexc{s}", comp.id, br.id)
+    reg = await _make_register(db_session, f"wexc{s}", comp.id, br.id)
+    customer = await _make_customer(db_session, f"wexc{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"wexc{s}", comp.id, br.id, stock=10)
+    shift = await _make_open_shift(db_session, f"wexc{s}", comp.id, br.id, cashier.id, reg.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    # Customer only has ₹100
+    from app.models.crm import CustomerCreditLedgerEntry
+    from datetime import datetime, timezone
+    db_session.add(
+        CustomerCreditLedgerEntry(
+            id=f"ccle-exc-{s}",
+            customer_id=customer.id,
+            entry_date=datetime.now(timezone.utc),
+            entry_type="CREDIT",
+            amount=Decimal("100.00"),
+            balance_after=Decimal("100.00"),
+            reference_type="SALES_RETURN",
+            reference_id=f"SR-EXC-{s}",
+            notes="Small store credit",
+            company_id=comp.id,
+            branch_id=br.id,
+            is_active=True,
+            is_deleted=False,
+        )
+    )
+    await db_session.commit()
+
+    # Attempt to tender ₹200 WALLET
+    payload = {
+        "invoice_no": f"POS-EXC-{s}",
+        "shift_id": shift.id,
+        "payment_mode": "SPLIT",
+        "customer_id": customer.id,
+        "grand_total": "200.00",
+        "tenders": [
+            {"tender_type": "WALLET", "amount": "200.00"},
+        ],
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "2",
+            "price": "100.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        res = await c.post("/api/v1/pos/checkout", json=payload, headers=_bearer(cashier, comp.id, br.id))
+
+    assert res.status_code == 400
+    assert "exceeds available" in res.text
+
+
+async def test_pos_checkout_wallet_without_customer_returns_400(db_session):
+    """
+    Phase P2.6: Tendering wallet without specifying customer_id fails with HTTP 400.
+    """
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"wnoc{s}")
+    cashier = await _make_user(db_session, f"wnoc{s}", comp.id, br.id)
+    reg = await _make_register(db_session, f"wnoc{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"wnoc{s}", comp.id, br.id, stock=10)
+    shift = await _make_open_shift(db_session, f"wnoc{s}", comp.id, br.id, cashier.id, reg.id)
+    _set_tenant(db_session, comp.id, br.id)
+
+    payload = {
+        "invoice_no": f"POS-NOCUST-{s}",
+        "shift_id": shift.id,
+        "payment_mode": "WALLET",
+        "customer_id": None,
+        "grand_total": "100.00",
+        "tenders": [
+            {"tender_type": "WALLET", "amount": "100.00"},
+        ],
+        "items": [{
+            "product_id": product.id,
+            "code": product.code,
+            "name": product.name,
+            "quantity": "1",
+            "price": "100.00",
+            "gst_rate": "0.00",
+        }],
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        res = await c.post("/api/v1/pos/checkout", json=payload, headers=_bearer(cashier, comp.id, br.id))
+
+    assert res.status_code == 400
+    assert "customer identification" in res.text.lower()
+
+
+async def test_pos_offline_sync_push_and_idempotent_deduplication(db_session):
+    """
+    Phase P2.6 (BD-04): POS Offline Synchronization Invariants.
+    Verifies offline batch ingestion via /api/v1/sync/push, 5-tier conflict resolution,
+    and 100% idempotent deduplication on repeated batch push.
+    """
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, f"sync{s}")
+    cashier = await _make_user(db_session, f"sync{s}", comp.id, br.id)
+    product = await _make_product(db_session, f"sync{s}", comp.id, br.id, stock=10)
+    _set_tenant(db_session, comp.id, br.id)
+
+    headers = _bearer(cashier, comp.id, br.id)
+    prod_id = str(product.id)
+    prod_code = str(product.code)
+    prod_name = str(product.name)
+
+    batch_payload = {
+        "batch_id": f"BATCH-{s}",
+        "terminal_id": f"TERM-{s}",
+        "allow_negative_stock": True,
+        "transactions": [
+            {
+                "client_id": f"TX-CLI-{s}",
+                "type": "SALES_INVOICE",
+                "invoice_no": f"OFFLINE-INV-{s}",
+                "payment_mode": "CASH",
+                "items": [{
+                    "product_id": prod_id,
+                    "code": prod_code,
+                    "name": prod_name,
+                    "quantity": 2.0,
+                    "price": 100.0,
+                    "gst_rate": 0.0,
+                }]
+            }
+        ]
+    }
+
+    # 1. First push: batch accepted and committed
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        push1 = await c.post("/api/v1/sync/push", json=batch_payload, headers=headers)
+
+    assert push1.status_code == 200, push1.text
+    res1 = push1.json()
+    assert res1["accepted_count"] == 1
+    assert res1["deduplicated_count"] == 0
+    assert res1["results"][0]["status"] == "ACCEPTED"
+
+    # Verify stock deducted in DB (10 - 2 = 8)
+    from app.models.inventory import Product as _Product
+    p_row = (await db_session.execute(select(_Product).where(_Product.id == prod_id))).scalars().first()
+    assert p_row.stock == 8
+
+    # 2. Second push: re-submitting the same batch must be deduplicated
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        push2 = await c.post("/api/v1/sync/push", json=batch_payload, headers=headers)
+
+    assert push2.status_code == 200, push2.text
+    res2 = push2.json()
+    assert res2["accepted_count"] == 0
+    assert res2["deduplicated_count"] == 1
+    assert res2["results"][0]["status"] == "DEDUPLICATED"
+
+    # Verify stock was NOT double-deducted (still exactly 8)
+    p_row2 = (await db_session.execute(select(_Product).where(_Product.id == prod_id))).scalars().first()
+    assert p_row2.stock == 8

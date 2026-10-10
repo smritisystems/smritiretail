@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0917-6DD7C1",
+  "entity": "IDENTITY",
+  "capability": "UNIFIED_IDENTITY_CONTROL_PLANE",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "uuid7.py",
+  "target_file_path": "backend/app/services/identity/uuid7.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/identity/uuid7.py",
+  "content_hash": "6ef5a61e62a12b085f8cabe3c363db7f8239ad6b56fc82077327c6eef2353fbe",
+  "git_commit": "20cd1171feb8d386664e0b84808c0b5b39919327",
+  "issued_at": "2026-09-17T21:39:27.914574+00:00",
+  "expires_at": "2026-09-24T21:39:27.914574+00:00",
+  "status": "ISSUED"
+}

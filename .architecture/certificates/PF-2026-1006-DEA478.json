@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-DEA478",
+  "entity": "databridge",
+  "capability": "databridge.connector_framework",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "shopify_connector.py",
+  "target_file_path": "backend/app/services/databridge/connectors/shopify_connector.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/connectors/shopify_connector.py",
+  "content_hash": "7db8227f7d9ee07afbe03ff1763cec2290e761cc0723f93b932571e721b18263",
+  "git_commit": "76cffdcf16d8ad944eab68d2a4edf0952bcffe1a",
+  "issued_at": "2026-10-06T19:12:42.508321+00:00",
+  "expires_at": "2026-10-13T19:12:42.508321+00:00",
+  "status": "ISSUED"
+}

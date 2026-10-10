@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-05EDDE",
+  "entity": "databridge",
+  "capability": "databridge.connector_framework",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "unicommerce_connector.py",
+  "target_file_path": "backend/app/services/databridge/connectors/unicommerce_connector.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/connectors/unicommerce_connector.py",
+  "content_hash": "7323ea3b4ae8018be445974abeb9432a39553689e5d2a1bbe8c36683b5baea8d",
+  "git_commit": "76cffdcf16d8ad944eab68d2a4edf0952bcffe1a",
+  "issued_at": "2026-10-06T19:12:42.669589+00:00",
+  "expires_at": "2026-10-13T19:12:42.669589+00:00",
+  "status": "ISSUED"
+}

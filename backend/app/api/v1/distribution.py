@@ -14,7 +14,7 @@ Classification: Internal
 
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_current_user
@@ -193,16 +193,23 @@ async def create_distribution_order(
 @router.post("/orders/{order_id}/dispatch", summary="Dispatch distribution order and record stock movement")
 async def dispatch_distribution_order(
     order_id: str,
+    request: Request,
     delivery_challan_no: Optional[str] = None,
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Dispatches order and posts authoritative outward stock movements."""
+    idempotency_key = (
+        request.headers.get("x-idempotency-key")
+        or request.headers.get("idempotency-key")
+        or request.headers.get("Idempotency-Key")
+    )
     try:
         order = await DistributionService.dispatch_distribution_order(
             session=db,
             order_id=order_id,
             delivery_challan_no=delivery_challan_no,
+            idempotency_key=idempotency_key,
         )
         return {
             "status": "SUCCESS",
@@ -210,6 +217,8 @@ async def dispatch_distribution_order(
             "order_status": order.status,
             "delivery_challan_no": order.delivery_challan_no,
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

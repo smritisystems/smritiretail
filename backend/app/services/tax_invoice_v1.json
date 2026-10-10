@@ -8,7 +8,7 @@
   "artifact": "tax_invoice_v1.css",
   "format_code": "SMRITITAXINVOICE",
   "format_version": "V1",
-  "sha256": "d3a9be3492a4cf6178982a912888bdc7a462c06ae03025a75c52bf0126c5ff1d",
-  "css_sha256": "d3a9be3492a4cf6178982a912888bdc7a462c06ae03025a75c52bf0126c5ff1d",
+  "sha256": "55472ab1ad180bd206506cb4c51abd8c9c3dec222aab38ef66ca43e38a4b69ba",
+  "css_sha256": "55472ab1ad180bd206506cb4c51abd8c9c3dec222aab38ef66ca43e38a4b69ba",
   "version": "1.3.1"
 }
