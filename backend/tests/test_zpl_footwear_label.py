@@ -255,3 +255,26 @@ class TestZplFootwearLabelValidation:
         assert "^FT26,394\n^A0N,25,34" in prn or "^FT26,394\r\n^A0N,25,34" in prn
         assert "^FT390,385\n^CI0\n^AAN,27,15" in prn or "^FT390,385\r\n^CI0\r\n^AAN,27,15" in prn
 
+    def test_synthetic_sku_fallback_protection(self):
+        """
+        Verify that when a product record has no style_code and no barcode,
+        internal synthetic SKU identifiers (e.g. SKU-API-269AEF) do NOT pollute
+        the Art.No reverse box or the barcode data.
+        """
+        from app.api.v1.barcode import generate_footwear_3stub_zpl
+
+        zpl = generate_footwear_3stub_zpl(
+            item={
+                "code": "SKU-API-269AEF",
+                "name": "API Product 269aef",
+                "size": "37",
+                "color": "BLACK",
+                "mrp": 1200,
+            }
+        )
+
+        assert "^FDSKU-API-269AEF" not in zpl, "Synthetic SKU must not appear in Art.No or barcode"
+        assert "^FDCH-30-K" in zpl, "Art.No should fall back cleanly to designated style"
+        assert "^FD8904551005335" in zpl, "Barcode should fall back cleanly to valid EAN-13"
+
+

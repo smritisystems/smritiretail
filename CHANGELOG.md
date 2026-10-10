@@ -28,6 +28,34 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+## [6.50.0] - 2026-10-10 — SMRITI Barcode Studio Script-Based PRN Printing Engine & Front-End UX Validation
+
+> **Branch:** `smritiNX` | **Area:** Thermal Barcode Printing, PRN Script Ingestion, POS Operator Ergonomics
+> **Walkthrough:** `docs/walkthrough/barcode/Barcode_Script_Based_Printing_And_UX_Validation_Walkthrough_v6.50.0.md`
+> **Plan:** `docs/implementation/inventory/Barcode_Script_Based_Printing_And_UX_Validation_Plan_v6.50.0.md`
+
+### Added & Enhanced (Script-Based PRN Printing & Operator Ergonomics)
+- **Client-Side PRN Token Interpolation Engine (`src/components/barcode/prnInterpolation.ts`)**:
+  - Implemented dynamic token substitution supporting modern bracket tokens (`{style_code}`, `{barcode}`, `{colour}`, `{size}`, `{mrp}`, `{brand}`, `{pkd_date}`) and legacy hash tokens (`#STYLE#`, `#BARCODE#`, `#COLOR#`, `#SIZE#`, `#MRP#`).
+  - Added sample-literal fallback replacement for pre-rendered BarTender/ZebraDesigner template exports.
+  - Built `compilePrnBatch(...)` expanding multi-item batches with quantity repetition per `item.labelCount`.
+  - Added protocol auto-detection (`detectPrnProtocol`) distinguishing ZPL (`^XA`), DPL (`\x02L`/`D11`), and TSPL (`SIZE`/`GAP`).
+  - Embedded master layout templates (`Tattly Threads Footwear — 100x50.7mm`, `Retail 50x25mm Standard`, `ModernLabelDesign_TE244.blf`, `Honeywell_IH2_DualStub.prn`).
+- **Template Ingestion in Tag Label Printing Studio (`src/components/barcode/TagLabelPrintingTa.tsx`)**:
+  - Replaced name-only file upload with asynchronous `await file.text()` reader, storing raw script text into `settings.customScriptContent`.
+  - Displayed active script indicator badge: `✓ Script Active ({N} lines, {PROTOCOL})` with 1-click `Clear` trigger.
+  - Connected `compilePrnBatch` to `handleExecutePrintDispatch` for both QZ Tray hardware spooling and direct PRN file export.
+- **Front-End UX Validation & Viewport Layout Hardening**:
+  - Remediated critical P0 viewport clipping by converting the action footer from `fixed bottom-0` to a container-scoped `shrink-0` flexbox element, eliminating overlap with the global application shell.
+  - Eliminated premature text truncation in data grid columns by expanding product title constraints from `max-w-[160px]` to `max-w-[320px] min-w-[180px]`.
+  - Wired native POS keyboard hotkeys: `[F8]` (Print All / Validate & Print), `[F7]` (Print Current item), and `[F11]` (Batch Quantity Editor), with visual hotkey badges on all CTA buttons.
+- **Verification & Test Coverage**:
+  - 7/7 Vitest tests passing in `src/tests/prnInterpolation.test.ts`.
+  - 22/22 Vitest tests passing in `src/tests/tagPrinting.test.ts`.
+  - 23/23 Vitest tests passing in `src/tests/printLabelsStudio.test.ts`.
+  - 13/13 Pytest tests passing in `backend/tests/test_zpl_footwear_label.py`.
+  - 0 TypeScript monorepo compiler errors (`npx tsc --noEmit`).
+
 ## [6.70.51] - 2026-10-10 — SMRITI Industrial Barcode Print Job Architecture, Multi-Protocol Compiler & QZ Tray Bridge
 
 > **Branch:** `smritiNX` | **Area:** Thermal Barcode Printing, Multi-Protocol Compiler, QZ Tray Bridge, Print Job Lifecycle

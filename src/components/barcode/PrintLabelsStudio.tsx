@@ -384,8 +384,23 @@ export function compilePrnString(items: StudioRow[], template: LabelTemplate, is
 
   for (const item of items) {
     const qty = Math.max(1, item.printQty || 1);
-    const barcodeVal = item.barcode || item.itemCode || '890100000001';
-    const rawArt = (item.style || item.itemCode || 'CH-30-K').trim();
+    let barcodeVal = (item.barcode || '').trim();
+    if (!barcodeVal || barcodeVal.startsWith('SKU-') || barcodeVal.startsWith('PROD-')) {
+      if (item.itemCode && !item.itemCode.startsWith('SKU-') && !item.itemCode.startsWith('PROD-')) {
+        barcodeVal = item.itemCode.trim();
+      } else if (!barcodeVal) {
+        barcodeVal = '8904551005335';
+      }
+    }
+    let cleanArt = (item.style || '').trim();
+    if (!cleanArt) {
+      if (item.itemCode && !item.itemCode.startsWith('SKU-') && !item.itemCode.startsWith('PROD-')) {
+        cleanArt = item.itemCode.trim();
+      } else {
+        cleanArt = 'CH-30-K';
+      }
+    }
+    const rawArt = cleanArt;
     const artPadded = rawArt.length < 12 ? rawArt.padEnd(12, ' ') : rawArt;
     const color = (item.shade || 'BLACK').toUpperCase();
     const size = item.size || '37';
@@ -911,7 +926,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   itemCode: itm.product_sku || itm.item_code || itm.stockNo || `SKU-${ordIdx}-${itemIdx}`,
                   product: itm.product_name || itm.product || order.order_no || 'PO Item',
                   brand: itm.brand || 'SMRITI',
-                  style: itm.style || '',
+                  style: itm.style_code || itm.style || itm.styleCode || itm.article || itm.article_no || '',
                   shade: itm.shade || itm.color || itm.colour || '',
                   size: itm.size || '',
                   barcode: itm.barcode || itm.product_sku || '890100000001',
@@ -935,7 +950,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             itemCode: itm.stockNo,
             product: itm.product,
             brand: itm.brand || 'SMRITI',
-            style: itm.style || '',
+            style: (itm as any).style_code || itm.style || (itm as any).styleCode || (itm as any).article || '',
             shade: itm.colour || '',
             size: itm.size || '',
             barcode: itm.barcode,
@@ -974,7 +989,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   itemCode: itm.product_sku || itm.item_code || itm.stockNo || `GRN-${rIdx}-${itemIdx}`,
                   product: itm.product_name || itm.product || receipt.receipt_no || 'GRN Item',
                   brand: itm.brand || 'SMRITI',
-                  style: itm.style || '',
+                  style: itm.style_code || itm.style || itm.styleCode || itm.article || itm.article_no || '',
                   shade: itm.shade || itm.color || itm.colour || '',
                   size: itm.size || '',
                   barcode: itm.barcode || itm.product_sku || '890100000001',
@@ -998,7 +1013,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             itemCode: itm.stockNo,
             product: itm.product,
             brand: itm.brand || 'SMRITI',
-            style: itm.style || '',
+            style: (itm as any).style_code || itm.style || (itm as any).styleCode || (itm as any).article || '',
             shade: itm.colour || '',
             size: itm.size || '',
             barcode: itm.barcode,
@@ -1036,7 +1051,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   itemCode: itm.product_sku || itm.item_code || itm.stockNo || `INV-${invIdx}-${itemIdx}`,
                   product: itm.product_name || itm.product || inv.invoice_number || 'Sales Item',
                   brand: itm.brand || 'SMRITI',
-                  style: itm.style || '',
+                  style: itm.style_code || itm.style || itm.styleCode || itm.article || itm.article_no || '',
                   shade: itm.shade || itm.colour || '',
                   size: itm.size || '',
                   barcode: itm.barcode || itm.product_sku || '890100000001',
@@ -1060,7 +1075,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             itemCode: itm.stockNo,
             product: itm.product,
             brand: itm.brand || 'SMRITI',
-            style: itm.style || '',
+            style: (itm as any).style_code || itm.style || (itm as any).styleCode || (itm as any).article || '',
             shade: itm.colour || '',
             size: itm.size || '',
             barcode: itm.barcode,
@@ -1098,7 +1113,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   itemCode: itm.product_sku || itm.item_code || itm.stockNo || `TR-${trIdx}-${itemIdx}`,
                   product: itm.product_name || itm.product || tr.transfer_no || 'Transfer Item',
                   brand: itm.brand || 'SMRITI',
-                  style: itm.style || '',
+                  style: itm.style_code || itm.style || itm.styleCode || itm.article || itm.article_no || '',
                   shade: itm.shade || itm.colour || '',
                   size: itm.size || '',
                   barcode: itm.barcode || itm.product_sku || '890100000001',
@@ -1122,7 +1137,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             itemCode: itm.stockNo,
             product: itm.product,
             brand: itm.brand || 'SMRITI',
-            style: itm.style || '',
+            style: (itm as any).style_code || itm.style || (itm as any).styleCode || (itm as any).article || '',
             shade: itm.colour || '',
             size: itm.size || '',
             barcode: itm.barcode,
@@ -1183,7 +1198,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
         itemCode: p.code ?? p.item_code ?? p.sku ?? '',
         product: p.name ?? '',
         brand: p.brand ?? p.brandName ?? '',
-        style: p.style ?? p.styleCode ?? '',
+        style: p.style_code ?? p.style ?? p.styleCode ?? p.article ?? p.article_no ?? '',
         shade: p.shade ?? p.colour ?? p.color ?? '',
         size: p.size ?? '',
         barcode: p.barcode ?? p.primaryBarcode ?? '',
@@ -1292,6 +1307,8 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           name: r.product,
           brand: r.brand,
           style: r.style,
+          style_code: r.style,
+          article: r.style,
           size: r.size,
           color: r.shade,
           barcode: r.barcode,
@@ -1405,7 +1422,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             itemCode: p.code ?? p.item_code ?? p.sku ?? `${cleanTarget}-${i}`,
             product: p.name ?? `${cleanTarget} Variant`,
             brand: p.brand ?? p.brandName ?? 'Tattly Threads',
-            style: p.style ?? cleanTarget,
+            style: p.style_code ?? p.style ?? p.styleCode ?? p.article ?? cleanTarget,
             shade: p.shade ?? p.colour ?? p.color ?? 'BLACK',
             size: p.size ?? String(37 + (i % 6)),
             barcode: p.barcode ?? p.primaryBarcode ?? `890455100${5335 + i}`,

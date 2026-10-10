@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.9.0
+ * Version      : 6.50.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-02
+ * Modified     : 2026-10-10
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -26,6 +26,12 @@ import {
   LabelSourceOption,
   PrintSafetyValidation
 } from "./types.ts";
+import {
+  interpolatePrnScript,
+  compilePrnBatch,
+  detectPrnProtocol,
+  BUILTIN_PRN_TEMPLATES
+} from "./prnInterpolation.ts";
 import { EditQuantityDetailsModal } from "./EditQuantityDetDlg.tsx";
 import { BarcodeScriptGenerationView } from "./BarcodeScriptGenVi.tsx";
 import { BarcodePrinterSelectModal } from "./BarcodePrinterSele.tsx";
@@ -1046,6 +1052,32 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     setShowDispatchModal(true);
   };
 
+  // Global Hotkey Listener (F8 = Print All, F7 = Print Current, F11 = Edit Quantities)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT");
+      
+      if (e.key === "F8") {
+        e.preventDefault();
+        if (safetyValidation.canPrint && !isPrinting) {
+          handlePrintAll();
+        }
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        if (currentSelectedItem && currentSelectedItem.labelCount > 0 && !isPrinting) {
+          handlePrintCurrent();
+        }
+      } else if (e.key === "F11" && !isInput) {
+        e.preventDefault();
+        setIsEditQtyModalOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [safetyValidation.canPrint, isPrinting, currentSelectedItem]);
+
   const activePrintItems = useMemo(() => {
     if (isSinglePrintMode && currentSelectedItem) {
       return [{ ...currentSelectedItem, labelCount: Math.max(1, currentSelectedItem.labelCount) }];
@@ -1066,8 +1098,35 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     const printerLower = (settings.targetPrinterName || "").toLowerCase();
     const isFootwear = scriptLower.includes("footwear") || scriptLower.includes("100x50") || scriptLower.includes("tattly");
     const templateId = isFootwear ? "tattly-threads-footwear-100x50.7" : "retail-50x25";
-    const protocol = (printerLower.includes("dpl") || printerLower.includes("honeywell") || printerLower.includes("ih-2") || scriptLower.includes("dpl")) ? "DPL" : "ZPL";
+
+    // 1. Resolve Active Template Script (User-uploaded script takes priority, then built-in scripts)
+    const activeTemplateScript = settings.customScriptContent || (
+      BUILTIN_PRN_TEMPLATES[settings.scriptFileName] ||
+      (isFootwear ? BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"]
+      : (scriptLower.includes("dpl") || scriptLower.includes("honeywell") || scriptLower.includes("ih-2")) ? BUILTIN_PRN_TEMPLATES["Honeywell_IH2_DualStub.prn"]
+      : (scriptLower.includes("te244") || scriptLower.includes("modern")) ? BUILTIN_PRN_TEMPLATES["ModernLabelDesign_TE244.blf"]
+      : BUILTIN_PRN_TEMPLATES["Retail 50x25mm Standard"])
+    );
+
+    const protocol = detectPrnProtocol(activeTemplateScript) || ((printerLower.includes("dpl") || printerLower.includes("honeywell") || printerLower.includes("ih-2") || scriptLower.includes("dpl")) ? "DPL" : "ZPL");
     const targetDpi = settings.resolutionDpi || (protocol === "DPL" ? 300 : 203);
+
+    // Compile the exact script stream based on the selected or browsed PRN script!
+    const compiledScriptStream = compilePrnBatch(
+      activeTemplateScript,
+      activePrintItems.map(item => ({
+        stockNo: item.stockNo,
+        barcode: item.barcode || item.stockNo,
+        product: item.product,
+        brand: item.brand,
+        style: item.style,
+        colour: item.colour,
+        size: item.size,
+        mrp: Number(item.mrp || 0),
+        sellingPrice: Number(item.sellingPrice || item.mrp || 0),
+        labelCount: item.labelCount
+      }))
+    );
 
     const printItemsPayload = activePrintItems.map(item => ({
       code: item.stockNo || item.barcode || "ITEM",
@@ -1088,27 +1147,34 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     // 1. QZ Tray Direct Thermal Route
     if (settings.portSetting === "QZ Tray Thermal") {
       try {
-        onNotification?.("Preparing Print Job", `Compiling ${protocol} stream for ${activePrintTotalLabels} label(s)...`, "info");
+        onNotification?.("Preparing Print Job", `Compiling ${protocol} stream for ${activePrintTotalLabels} label(s) via "${settings.scriptFileName}"...`, "info");
         
-        let res: any = null;
-        try {
-          res = await apiFetchV1("/barcode/print-jobs", {
-            method: "POST",
-            body: JSON.stringify({
-              printer_id: settings.targetPrinterName || "Windows Spooler",
-              template_id: templateId,
-              dpi: targetDpi,
-              protocol: protocol,
-              items: printItemsPayload
-            })
-          });
-        } catch (backendErr: any) {
-          console.warn("[Print Dispatch] Backend print-jobs compilation failed, using local fallback:", backendErr);
-        }
+        let rawPayload = compiledScriptStream;
+        let jobId = `job-client-${Date.now()}`;
+        let targetPrinter = settings.targetPrinterName || "Windows Spooler";
 
-        const rawPayload = res?.payload_stream || generateRawDplScript();
-        const jobId = res?.id || `job-client-${Date.now()}`;
-        const targetPrinter = settings.targetPrinterName || res?.printer_id;
+        // If no custom script was uploaded and user didn't override, try backend print-jobs service first
+        if (!settings.customScriptContent) {
+          try {
+            const res: any = await apiFetchV1("/barcode/print-jobs", {
+              method: "POST",
+              body: JSON.stringify({
+                printer_id: settings.targetPrinterName || "Windows Spooler",
+                template_id: templateId,
+                dpi: targetDpi,
+                protocol: protocol,
+                items: printItemsPayload
+              })
+            });
+            if (res?.payload_stream) {
+              rawPayload = res.payload_stream;
+            }
+            if (res?.id) jobId = res.id;
+            if (res?.printer_id) targetPrinter = res.printer_id;
+          } catch (backendErr: any) {
+            console.warn("[Print Dispatch] Backend print-jobs compilation failed, using local script template:", backendErr);
+          }
+        }
 
         onNotification?.("Sending to QZ Tray", `Dispatching to Windows printer "${targetPrinter}"...`, "info");
 
@@ -1139,27 +1205,12 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     // 2. PRN File Download Route
     if (settings.portSetting === "PRN File Download" || settings.outputToFile) {
       try {
-        onNotification?.("Compiling File", `Generating ${protocol} label script for ${activePrintTotalLabels} label(s)...`, "info");
+        onNotification?.("Compiling File", `Generating ${protocol} label script for ${activePrintTotalLabels} label(s) from "${settings.scriptFileName}"...`, "info");
         
-        let res: any = null;
-        try {
-          res = await apiFetchV1("/barcode/print-jobs", {
-            method: "POST",
-            body: JSON.stringify({
-              printer_id: "File Export",
-              template_id: templateId,
-              dpi: targetDpi,
-              protocol: protocol,
-              items: printItemsPayload
-            })
-          });
-        } catch (backendErr: any) {
-          console.warn("[Print Dispatch] Backend compiler unavailable, falling back to local generator:", backendErr);
-        }
-
-        const content = res?.payload_stream || generateRawDplScript();
+        const content = compiledScriptStream;
         const ext = protocol.toLowerCase() === "zpl" ? "zpl" : "prn";
-        const filename = `${templateId}_${Date.now()}.${ext}`;
+        const cleanBaseName = (settings.scriptFileName || "Labels").replace(/\.[^/.]+$/, "").replace(/\s+/g, "_");
+        const filename = `${cleanBaseName}_${Date.now()}.${ext}`;
 
         const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);
@@ -1169,11 +1220,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         a.click();
         URL.revokeObjectURL(url);
 
-        if (res?.id) {
-          await acknowledgePrintJob(res.id, true, "File Download", undefined);
-        }
-
-        onNotification?.("File Downloaded", `Downloaded ${protocol} file "${filename}" (${activePrintTotalLabels} labels).`, "success");
+        onNotification?.("File Downloaded", `Downloaded ${protocol} file "${filename}" (${activePrintTotalLabels} labels from template "${settings.scriptFileName}").`, "success");
       } catch (err: any) {
         onNotification?.("Download Error", err?.message || String(err), "error");
       } finally {
@@ -1377,7 +1424,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       </header>
 
       {/* Main Workspace Frame: Left Sidebar (Step 1 & 4) + Main Content (Step 2, 3, 5) */}
-      <div className="flex-1 flex overflow-hidden print:hidden pb-16">
+      <div className="flex-1 flex overflow-hidden print:hidden">
         
         {/* Left Sidebar: Fixed Width (280px), Scrollable Configuration */}
         <aside className="w-72 bg-surface-container-low border-r border-outline-variant flex flex-col p-3.5 gap-3.5 overflow-y-auto shrink-0 z-10">
@@ -1441,20 +1488,41 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             <div className="flex flex-col gap-1">
               <div className="flex justify-between items-center">
                 <label className="font-label-caps text-[10px] text-on-surface-variant">Label Template / Layout</label>
-                <span 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-[10px] text-secondary font-bold hover:underline cursor-pointer"
-                  title="Upload custom .prn, .zpl, or .blf file"
-                >
-                  Upload File...
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[10px] text-secondary font-bold hover:underline cursor-pointer"
+                    title="Upload custom .prn, .zpl, or .blf file"
+                  >
+                    Upload File...
+                  </span>
+                  {settings.customScriptContent && (
+                    <span
+                      onClick={() => setSettings(prev => ({ 
+                        ...prev, 
+                        customScriptContent: undefined, 
+                        scriptFileName: "Tattly Threads Footwear — 100x50.7mm" 
+                      }))}
+                      className="text-[9px] text-error hover:underline cursor-pointer font-bold"
+                      title="Clear uploaded custom script"
+                    >
+                      Clear
+                    </span>
+                  )}
+                </div>
               </div>
               <select
                 value={settings.scriptFileName}
                 onChange={(e) => {
                   const val = e.target.value;
                   const newDpi = val.includes("Footwear") ? 203 : (settings.resolutionDpi || 300);
-                  setSettings({ ...settings, scriptFileName: val, resolutionDpi: newDpi });
+                  const isBuiltIn = Object.prototype.hasOwnProperty.call(BUILTIN_PRN_TEMPLATES, val);
+                  setSettings({ 
+                    ...settings, 
+                    scriptFileName: val, 
+                    resolutionDpi: newDpi,
+                    customScriptContent: isBuiltIn ? BUILTIN_PRN_TEMPLATES[val] : settings.customScriptContent
+                  });
                 }}
                 className="bg-surface-container border border-outline-variant rounded p-1.5 text-xs font-sans text-on-surface truncate outline-hidden focus:ring-1 focus:ring-secondary font-semibold"
               >
@@ -1481,14 +1549,38 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                   </option>
                 )}
               </select>
+
+              {settings.customScriptContent && (
+                <div className="flex items-center justify-between text-[10px] bg-secondary-fixed/40 border border-secondary/40 rounded px-2 py-0.5 text-primary">
+                  <span className="font-mono text-[9px] truncate" title={`${settings.scriptFileName} (${settings.customScriptContent.length} bytes)`}>
+                    ✓ Script Active ({settings.customScriptContent.split("\n").length} lines, {detectPrnProtocol(settings.customScriptContent)})
+                  </span>
+                </div>
+              )}
+
               <input
                 ref={fileInputRef}
                 type="file"
                 accept=".t,.blf,.prn,.zpl,.tspl,.txt"
                 className="hidden"
-                onChange={e => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (file) setSettings({ ...settings, scriptFileName: file.name });
+                  if (file) {
+                    try {
+                      const text = await file.text();
+                      const proto = detectPrnProtocol(text);
+                      const isFootwearOr203 = file.name.toLowerCase().includes("footwear") || text.includes("^PW804");
+                      setSettings(prev => ({
+                        ...prev,
+                        scriptFileName: file.name,
+                        customScriptContent: text,
+                        resolutionDpi: isFootwearOr203 ? 203 : (proto === "DPL" ? 300 : prev.resolutionDpi || 203)
+                      }));
+                      onNotification?.("Custom Script Loaded", `Loaded custom ${proto} template "${file.name}" (${text.length} bytes, ${text.split("\n").length} lines).`, "success");
+                    } catch (err: any) {
+                      onNotification?.("File Load Error", `Failed to read file: ${err?.message || err}`, "error");
+                    }
+                  }
                 }}
               />
             </div>
@@ -2439,7 +2531,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                         </td>
 
                         <td className="px-3 py-1.5 font-code-md text-on-surface">{row.stockNo}</td>
-                        <td className="px-3 py-1.5 text-on-surface truncate max-w-[160px]" title={row.product}>{row.product}</td>
+                        <td className="px-3 py-1.5 text-on-surface truncate max-w-[320px] min-w-[180px]" title={row.product}>{row.product}</td>
                         <td className="px-3 py-1.5 text-on-surface">{row.brand}</td>
                         <td className="px-3 py-1.5 text-on-surface">{row.style}</td>
                         <td className="px-3 py-1.5 text-on-surface">{row.colour}</td>
@@ -2523,8 +2615,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
       </div>
 
-      {/* STEP 5: Bottom Fixed Action Bar / Safety Gate (Stitch Enterprise Specification) */}
-      <footer className="fixed bottom-0 right-0 left-0 h-16 bg-surface-container-highest border-t border-outline-variant flex justify-between items-center px-4 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
+      {/* STEP 5: Bottom Docked Action Bar / Safety Gate (Stitch Enterprise Specification) */}
+      <footer className="shrink-0 h-16 bg-surface-container-highest border-t border-outline-variant flex justify-between items-center px-4 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
         
         {/* Safety Validation Status Indicator */}
         <div className="flex items-center gap-2 text-xs font-medium">
@@ -2565,9 +2657,9 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             onClick={handlePrintCurrent}
             disabled={!currentSelectedItem || currentSelectedItem.labelCount <= 0}
             className="px-3.5 py-1.5 rounded bg-secondary-fixed/50 text-primary hover:bg-secondary-fixed disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-body-sm font-bold shadow-xs text-xs"
-            title="Print label for current selected item"
+            title="Print label for current selected item (F7)"
           >
-            Print Current ({currentSelectedItem?.labelCount || 1})
+            Print Current ({currentSelectedItem?.labelCount || 1}) [F7]
           </button>
           
           <button
@@ -2580,17 +2672,17 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
             {settings.portSetting === "QZ Tray Thermal" ? (
               <>
                 <Zap size={15} />
-                <span>Send to QZ Tray ({selectedTotalLabels})</span>
+                <span>Send to QZ Tray ({selectedTotalLabels}) [F8]</span>
               </>
             ) : settings.portSetting === "PRN File Download" ? (
               <>
                 <Download size={15} />
-                <span>Download PRN ({selectedTotalLabels})</span>
+                <span>Download PRN ({selectedTotalLabels}) [F8]</span>
               </>
             ) : (
               <>
                 <Printer size={15} />
-                <span>Validate &amp; Print ({selectedTotalLabels})</span>
+                <span>Validate &amp; Print ({selectedTotalLabels}) [F8]</span>
               </>
             )}
           </button>
