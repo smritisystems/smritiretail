@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.49.0
+ * Version      : 6.53.0
  * Created      : 2026-09-26
- * Modified     : 2026-10-08
+ * Modified     : 2026-10-10
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -22,11 +22,13 @@ import {
   Truck, BarChart2, ArrowLeftRight, MoreHorizontal, Zap, X,
   Tag, Layers, AlertTriangle, Circle, Download, Code, FileText, BookOpen,
   Image, History, CheckCircle2, Activity, Grid, Plus, Copy, Check, ShieldAlert,
-  Upload, Save, FileSpreadsheet,
+  Upload, Save, FileSpreadsheet, PanelRightClose, PanelRightOpen, ArrowUp,
+  ArrowDown, ArrowUpDown, ChevronRight,
 } from 'lucide-react';
 import { apiFetchV1 } from '../../lib/apiFetchV1.js';
 import { ThermalBarcodeSvg } from './ThermalBarcodeSvg.tsx';
 import { barcodeTransactionStore } from './barcodeTransactionS.ts';
+import { compareNatural, isWithinRange } from './rangeFilter.ts';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -727,6 +729,113 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
   const [page, setPage]                 = useState(1);
   const [totalRows, setTotalRows]       = useState(0);
   const debounceRef                     = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Right Sidebar collapsible state & Alt+S hotkey
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('smriti_print_studio_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('smriti_print_studio_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebar]);
+
+  // Step 1 collapsible state
+  const [isStep1Collapsed, setIsStep1Collapsed] = useState<boolean>(false);
+
+  // Grid Sorting & Per-Column Filtering state
+  type SortField = 'itemCode' | 'product' | 'brand' | 'style' | 'shade' | 'size' | 'barcode' | 'stock' | 'printQty';
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
+
+  const handleSortToggle = (field: SortField) => {
+    if (sortField === field) {
+      if (sortAsc) {
+        setSortAsc(false);
+      } else {
+        setSortField(null);
+        setSortAsc(true);
+      }
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const renderSortIndicator = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown size={11} className='text-[#94a3b8] opacity-50 shrink-0' />;
+    }
+    return sortAsc
+      ? <ArrowUp size={12} className='text-[#00288e] dark:text-[#a8b8ff] shrink-0' />
+      : <ArrowDown size={12} className='text-[#00288e] dark:text-[#a8b8ff] shrink-0' />;
+  };
+
+  const [showColFilters, setShowColFilters] = useState<boolean>(false);
+  const [colFilters, setColFilters] = useState({
+    itemCode: '',
+    product: '',
+    brand: '',
+    style: '',
+    shade: '',
+    size: '',
+    barcode: '',
+  });
+
+  const hasActiveColFilters = useMemo(() => {
+    return Object.values(colFilters).some(v => v.trim() !== '');
+  }, [colFilters]);
+
+  const displayedRows = useMemo(() => {
+    let list = rows;
+    if (hasActiveColFilters) {
+      list = list.filter(r => {
+        if (colFilters.itemCode && !r.itemCode.toLowerCase().includes(colFilters.itemCode.toLowerCase().trim())) return false;
+        if (colFilters.product && !r.product.toLowerCase().includes(colFilters.product.toLowerCase().trim())) return false;
+        if (colFilters.brand && !r.brand.toLowerCase().includes(colFilters.brand.toLowerCase().trim())) return false;
+        if (colFilters.style && !r.style.toLowerCase().includes(colFilters.style.toLowerCase().trim())) return false;
+        if (colFilters.shade && !r.shade.toLowerCase().includes(colFilters.shade.toLowerCase().trim())) return false;
+        if (colFilters.size && !r.size.toLowerCase().includes(colFilters.size.toLowerCase().trim())) return false;
+        if (colFilters.barcode && !r.barcode.includes(colFilters.barcode.trim())) return false;
+        return true;
+      });
+    }
+    if (sortField) {
+      list = [...list].sort((a, b) => {
+        const valA = a[sortField];
+        const valB = b[sortField];
+        let cmp = 0;
+        if (sortField === 'stock' || sortField === 'printQty') {
+          cmp = (Number(valA) || 0) - (Number(valB) || 0);
+        } else {
+          cmp = compareNatural(String(valA ?? ''), String(valB ?? ''));
+        }
+        return sortAsc ? cmp : -cmp;
+      });
+    }
+    return list;
+  }, [rows, colFilters, hasActiveColFilters, sortField, sortAsc]);
+
   // Filters
   const [advOpen, setAdvOpen]           = useState(false);
   const [filters, setFilters]           = useState<AdvancedFilters>(EMPTY_FILTERS);
@@ -880,29 +989,23 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
   // ── Apply advanced & quick filter rules ────────────────────────────────
   const applyFilterRules = useCallback((list: StudioRow[]) => {
     let res = list;
-    if (filters.brand !== 'All') {
+    if (filters.brand !== 'All' && filters.brand.trim()) {
       res = res.filter(r => r.brand.toLowerCase() === filters.brand.toLowerCase());
     }
-    if (filters.style !== 'All') {
+    if (filters.style !== 'All' && filters.style.trim()) {
       res = res.filter(r => r.style.toLowerCase() === filters.style.toLowerCase());
     }
-    if (filters.shade !== 'All') {
+    if (filters.shade !== 'All' && filters.shade.trim()) {
       res = res.filter(r => r.shade.toLowerCase() === filters.shade.toLowerCase());
     }
-    if (filters.size !== 'All') {
+    if (filters.size !== 'All' && filters.size.trim()) {
       res = res.filter(r => r.size.toLowerCase() === filters.size.toLowerCase());
     }
-    if (filters.itemCodeFrom) {
-      res = res.filter(r => r.itemCode.toLowerCase() >= filters.itemCodeFrom.toLowerCase());
+    if (filters.itemCodeFrom || filters.itemCodeTo) {
+      res = res.filter(r => isWithinRange(r.itemCode, filters.itemCodeFrom, filters.itemCodeTo, 'style'));
     }
-    if (filters.itemCodeTo) {
-      res = res.filter(r => r.itemCode.toLowerCase() <= filters.itemCodeTo.toLowerCase());
-    }
-    if (filters.barcodeFrom) {
-      res = res.filter(r => r.barcode >= filters.barcodeFrom);
-    }
-    if (filters.barcodeTo) {
-      res = res.filter(r => r.barcode <= filters.barcodeTo);
+    if (filters.barcodeFrom || filters.barcodeTo) {
+      res = res.filter(r => isWithinRange(r.barcode, filters.barcodeFrom, filters.barcodeTo, 'barcode'));
     }
     return res;
   }, [filters]);
@@ -1244,11 +1347,16 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
     }));
 
   const toggleAll = () => {
-    const anySelected = rows.some(r => r.selected);
-    setRows(prev => prev.map(r => ({
-      ...r, selected: !anySelected,
-      printQty: !anySelected && r.printQty === 0 ? labelsPerItem : r.printQty,
-    })));
+    const displayedIds = new Set(displayedRows.map(r => r.id));
+    const anySelected = displayedRows.some(r => r.selected);
+    setRows(prev => prev.map(r => {
+      if (!displayedIds.has(r.id)) return r;
+      return {
+        ...r,
+        selected: !anySelected,
+        printQty: !anySelected && r.printQty === 0 ? labelsPerItem : r.printQty,
+      };
+    }));
   };
 
   const setQty = (id: string, qty: number) =>
@@ -1741,8 +1849,8 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
     </div>
   );
 
-  const allSelected = rows.length > 0 && rows.every(r => r.selected);
-  const someSelected = rows.some(r => r.selected);
+  const allSelected = displayedRows.length > 0 && displayedRows.every(r => r.selected);
+  const someSelected = displayedRows.some(r => r.selected);
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (
@@ -1803,42 +1911,73 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           >
             <HelpCircle size={13} /> Help
           </button>
+          <button
+            type='button'
+            onClick={toggleSidebar}
+            className={'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition ' +
+              (isSidebarCollapsed
+                ? 'bg-[#00288e] text-white border-[#00288e] hover:bg-[#002070]'
+                : 'bg-white dark:bg-[#1e232a] border-[#c4c5d5] dark:border-[#444653] text-[#475569] dark:text-[#cbd5e1] hover:bg-[#f1f5f9]')}
+            title={isSidebarCollapsed ? 'Expand Preview & Print Sidebar [Alt+S]' : 'Collapse Sidebar for Full-Screen Grid [Alt+S]'}
+          >
+            {isSidebarCollapsed ? <PanelRightOpen size={13} /> : <PanelRightClose size={13} />}
+            <span>{isSidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}</span>
+            <kbd className='text-[10px] font-mono px-1 py-0.2 bg-black/10 dark:bg-white/10 rounded'>Alt+S</kbd>
+          </button>
         </div>
       </div>
 
       {/* ── Body ── */}
-      <div className='flex flex-1 overflow-hidden'>
+      <div className='flex flex-1 overflow-hidden relative'>
 
         {/* LEFT — Steps */}
         <div className='flex-1 overflow-y-auto min-w-0 p-5 space-y-5'>
 
           {/* ── STEP 1 : Choose Source ── */}
-          <section className='bg-white dark:bg-[#1e232a] rounded-2xl border border-[#e2e8f0] dark:border-[#334155] p-4 shadow-sm'>
-            <div className='flex items-center gap-2 mb-4'>
-              <span className='flex items-center justify-center w-6 h-6 rounded-full bg-[#00288e] text-white text-xs font-bold shrink-0'>1</span>
-              <span className='font-bold text-sm'>Choose Source</span>
-              <span className='text-[11px] text-[#64748b]'>(Where to get items from?)</span>
-            </div>
-            <div className='flex gap-2 flex-wrap'>
-              {SOURCES.map(({ key, label, sub, Icon }) => (
-                <button
-                  key={key}
-                  type='button'
-                  onClick={() => setSource(key)}
-                  className={'flex flex-col items-center justify-center gap-1 w-[88px] py-3 rounded-xl border-2 text-xs font-semibold transition-all ' +
-                    (source === key
-                      ? 'border-[#00288e] bg-[#dde1ff] dark:bg-[#1e40af]/30 text-[#00288e] dark:text-[#a8b8ff] shadow-sm'
-                      : 'border-[#e2e8f0] dark:border-[#334155] bg-[#f8fafc] dark:bg-[#0f172a] text-[#475569] hover:border-[#00288e]/40 hover:bg-[#f0f4ff]')}
-                >
-                  <Icon size={20} className={source === key ? 'text-[#00288e] dark:text-[#a8b8ff]' : 'text-[#64748b]'} />
-                  <span>{label}</span>
-                  {sub && <span className='text-[9px] text-[#64748b]'>{sub}</span>}
-                </button>
-              ))}
-              <button type='button' className='flex flex-col items-center justify-center gap-1 w-[88px] py-3 rounded-xl border-2 border-dashed border-[#c4c5d5] text-[#64748b] hover:border-[#00288e]/40 text-xs font-semibold transition-all'>
-                <MoreHorizontal size={20} /><span>More</span>
+          <section className='bg-white dark:bg-[#1e232a] rounded-2xl border border-[#e2e8f0] dark:border-[#334155] p-4 shadow-sm transition-all'>
+            <div className='flex items-center justify-between'>
+              <div className='flex items-center gap-2'>
+                <span className='flex items-center justify-center w-6 h-6 rounded-full bg-[#00288e] text-white text-xs font-bold shrink-0'>1</span>
+                <span className='font-bold text-sm'>Choose Source</span>
+                <span className='text-[11px] text-[#64748b]'>(Where to get items from?)</span>
+                {isStep1Collapsed && (
+                  <span className='ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#dde1ff] text-[#00288e] dark:bg-[#1e40af]/30 dark:text-[#a8b8ff]'>
+                    Active: {SOURCES.find(s => s.key === source)?.label || source} {SOURCES.find(s => s.key === source)?.sub ? `(${SOURCES.find(s => s.key === source)?.sub})` : ''}
+                  </span>
+                )}
+              </div>
+              <button
+                type='button'
+                onClick={() => setIsStep1Collapsed(c => !c)}
+                className='flex items-center gap-1 text-xs text-[#64748b] hover:text-[#00288e] dark:hover:text-[#a8b8ff] font-semibold transition'
+                title={isStep1Collapsed ? 'Expand Source Selection' : 'Collapse Source Selection to Save Vertical Space'}
+              >
+                <span>{isStep1Collapsed ? 'Change Source' : 'Collapse'}</span>
+                {isStep1Collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
               </button>
             </div>
+            {!isStep1Collapsed && (
+              <div className='flex gap-2 flex-wrap mt-4'>
+                {SOURCES.map(({ key, label, sub, Icon }) => (
+                  <button
+                    key={key}
+                    type='button'
+                    onClick={() => setSource(key)}
+                    className={'flex flex-col items-center justify-center gap-1 w-[88px] py-3 rounded-xl border-2 text-xs font-semibold transition-all ' +
+                      (source === key
+                        ? 'border-[#00288e] bg-[#dde1ff] dark:bg-[#1e40af]/30 text-[#00288e] dark:text-[#a8b8ff] shadow-sm'
+                        : 'border-[#e2e8f0] dark:border-[#334155] bg-[#f8fafc] dark:bg-[#0f172a] text-[#475569] hover:border-[#00288e]/40 hover:bg-[#f0f4ff]')}
+                  >
+                    <Icon size={20} className={source === key ? 'text-[#00288e] dark:text-[#a8b8ff]' : 'text-[#64748b]'} />
+                    <span>{label}</span>
+                    {sub && <span className='text-[9px] text-[#64748b]'>{sub}</span>}
+                  </button>
+                ))}
+                <button type='button' className='flex flex-col items-center justify-center gap-1 w-[88px] py-3 rounded-xl border-2 border-dashed border-[#c4c5d5] text-[#64748b] hover:border-[#00288e]/40 text-xs font-semibold transition-all'>
+                  <MoreHorizontal size={20} /><span>More</span>
+                </button>
+              </div>
+            )}
           </section>
 
           {/* ── STEP 2 : Find Items ── */}
@@ -1916,12 +2055,43 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                     <input
                       type='text' placeholder='From' value={filters.itemCodeFrom}
                       onChange={e => setFilters(f => ({ ...f, itemCodeFrom: e.target.value }))}
-                      className='w-1/2 px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs'
+                      className='w-1/2 px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs font-mono'
                     />
                     <input
                       type='text' placeholder='To' value={filters.itemCodeTo}
                       onChange={e => setFilters(f => ({ ...f, itemCodeTo: e.target.value }))}
-                      className='w-1/2 px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs'
+                      className='w-1/2 px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs font-mono'
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className='block text-[10px] font-bold text-[#64748b] mb-1'>Brand Filter</label>
+                  <input
+                    type='text' placeholder='Filter by brand...' value={filters.brand === 'All' ? '' : filters.brand}
+                    onChange={e => setFilters(f => ({ ...f, brand: e.target.value || 'All' }))}
+                    className='w-full px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs'
+                  />
+                </div>
+                <div>
+                  <label className='block text-[10px] font-bold text-[#64748b] mb-1'>Style / Article</label>
+                  <input
+                    type='text' placeholder='Filter by style (e.g. CH-01-A)...' value={filters.style === 'All' ? '' : filters.style}
+                    onChange={e => setFilters(f => ({ ...f, style: e.target.value || 'All' }))}
+                    className='w-full px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs'
+                  />
+                </div>
+                <div className='col-span-1 sm:col-span-2'>
+                  <label className='block text-[10px] font-bold text-[#64748b] mb-1'>Barcode Range (Natural & BigInt Range)</label>
+                  <div className='flex items-center gap-1.5'>
+                    <input
+                      type='text' placeholder='From (e.g. 8904551000002)' value={filters.barcodeFrom}
+                      onChange={e => setFilters(f => ({ ...f, barcodeFrom: e.target.value }))}
+                      className='w-1/2 px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs font-mono'
+                    />
+                    <input
+                      type='text' placeholder='To (e.g. 8904551000057)' value={filters.barcodeTo}
+                      onChange={e => setFilters(f => ({ ...f, barcodeTo: e.target.value }))}
+                      className='w-1/2 px-2 py-1.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] text-xs font-mono'
                     />
                   </div>
                 </div>
@@ -1970,6 +2140,17 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                 >
                   <FileSpreadsheet size={13} /> Import CSV / Text
                 </button>
+                <button
+                  type='button'
+                  onClick={() => setShowColFilters(v => !v)}
+                  className={'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border rounded-lg transition ' +
+                    (showColFilters || hasActiveColFilters
+                      ? 'border-[#00288e] bg-[#dde1ff] text-[#00288e] dark:bg-[#1e40af]/30 dark:text-[#a8b8ff]'
+                      : 'border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f1f5f9] text-[#475569] dark:text-[#cbd5e1]')}
+                  title='Toggle inline per-column search filters in the grid header'
+                >
+                  <Filter size={13} /> Column Filters {hasActiveColFilters && <span className='w-1.5 h-1.5 rounded-full bg-[#00288e] dark:bg-[#a8b8ff]' />}
+                </button>
               </div>
               <div className='flex items-center gap-2'>
                 <button
@@ -2006,21 +2187,151 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                 <thead>
                   <tr className='bg-[#f8fafc] dark:bg-[#131b2e] border-b border-[#e2e8f0] dark:border-[#334155]'>
                     <th className='px-3 py-2 w-8'>
-                      <button type='button' onClick={toggleAll} className='text-[#475569] hover:text-[#00288e] transition'>
+                      <button type='button' onClick={toggleAll} className='text-[#475569] hover:text-[#00288e] transition' title='Toggle Select All Visible Rows'>
                         {allSelected ? <CheckSquare size={14} className='text-[#00288e]' /> : <Square size={14} />}
                       </button>
                     </th>
-                    {['Item Code','Product','Brand','Style','Shade','Size','Barcode','Stock','Print Qty'].map(h => (
-                      <th key={h} className='px-2 py-2 text-left font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap'>{h}</th>
-                    ))}
+                    <th className='px-2 py-2 text-left font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('itemCode')}>
+                      <div className='flex items-center gap-1'>
+                        <span>Item Code</span>
+                        {renderSortIndicator('itemCode')}
+                      </div>
+                    </th>
+                    <th className='px-2 py-2 text-left font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('product')}>
+                      <div className='flex items-center gap-1'>
+                        <span>Product</span>
+                        {renderSortIndicator('product')}
+                      </div>
+                    </th>
+                    <th className='px-2 py-2 text-left font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('brand')}>
+                      <div className='flex items-center gap-1'>
+                        <span>Brand</span>
+                        {renderSortIndicator('brand')}
+                      </div>
+                    </th>
+                    <th className='px-2 py-2 text-left font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('style')}>
+                      <div className='flex items-center gap-1'>
+                        <span>Style</span>
+                        {renderSortIndicator('style')}
+                      </div>
+                    </th>
+                    <th className='px-2 py-2 text-left font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('shade')}>
+                      <div className='flex items-center gap-1'>
+                        <span>Shade</span>
+                        {renderSortIndicator('shade')}
+                      </div>
+                    </th>
+                    <th className='px-2 py-2 text-left font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('size')}>
+                      <div className='flex items-center gap-1'>
+                        <span>Size</span>
+                        {renderSortIndicator('size')}
+                      </div>
+                    </th>
+                    <th className='px-2 py-2 text-left font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('barcode')}>
+                      <div className='flex items-center gap-1'>
+                        <span>Barcode</span>
+                        {renderSortIndicator('barcode')}
+                      </div>
+                    </th>
+                    <th className='px-2 py-2 text-right font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('stock')}>
+                      <div className='flex items-center justify-end gap-1'>
+                        <span>Stock</span>
+                        {renderSortIndicator('stock')}
+                      </div>
+                    </th>
+                    <th className='px-2 py-2 text-center font-bold text-[#475569] dark:text-[#94a3b8] whitespace-nowrap cursor-pointer hover:text-[#00288e] transition select-none' onClick={() => handleSortToggle('printQty')}>
+                      <div className='flex items-center justify-center gap-1'>
+                        <span>Print Qty</span>
+                        {renderSortIndicator('printQty')}
+                      </div>
+                    </th>
                   </tr>
+                  {showColFilters && (
+                    <tr className='bg-[#f1f5f9] dark:bg-[#1a2234] border-b border-[#e2e8f0] dark:border-[#334155]'>
+                      <td className='px-2 py-1 text-center'>
+                        <button
+                          type='button'
+                          onClick={() => setColFilters({ itemCode: '', product: '', brand: '', style: '', shade: '', size: '', barcode: '' })}
+                          title='Clear all column filters'
+                          className='text-[10px] text-[#64748b] hover:text-[#dc2626]'
+                        >
+                          <X size={12} />
+                        </button>
+                      </td>
+                      <td className='px-1 py-1'>
+                        <input
+                          type='text'
+                          value={colFilters.itemCode}
+                          onChange={e => setColFilters(f => ({ ...f, itemCode: e.target.value }))}
+                          placeholder='Filter code...'
+                          className='w-full px-1.5 py-0.5 text-[11px] font-mono border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#0f172a] outline-none'
+                        />
+                      </td>
+                      <td className='px-1 py-1'>
+                        <input
+                          type='text'
+                          value={colFilters.product}
+                          onChange={e => setColFilters(f => ({ ...f, product: e.target.value }))}
+                          placeholder='Filter product...'
+                          className='w-full px-1.5 py-0.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#0f172a] outline-none'
+                        />
+                      </td>
+                      <td className='px-1 py-1'>
+                        <input
+                          type='text'
+                          value={colFilters.brand}
+                          onChange={e => setColFilters(f => ({ ...f, brand: e.target.value }))}
+                          placeholder='Filter brand...'
+                          className='w-full px-1.5 py-0.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#0f172a] outline-none'
+                        />
+                      </td>
+                      <td className='px-1 py-1'>
+                        <input
+                          type='text'
+                          value={colFilters.style}
+                          onChange={e => setColFilters(f => ({ ...f, style: e.target.value }))}
+                          placeholder='Filter style...'
+                          className='w-full px-1.5 py-0.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#0f172a] outline-none'
+                        />
+                      </td>
+                      <td className='px-1 py-1'>
+                        <input
+                          type='text'
+                          value={colFilters.shade}
+                          onChange={e => setColFilters(f => ({ ...f, shade: e.target.value }))}
+                          placeholder='Filter shade...'
+                          className='w-full px-1.5 py-0.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#0f172a] outline-none'
+                        />
+                      </td>
+                      <td className='px-1 py-1'>
+                        <input
+                          type='text'
+                          value={colFilters.size}
+                          onChange={e => setColFilters(f => ({ ...f, size: e.target.value }))}
+                          placeholder='Size...'
+                          className='w-full px-1.5 py-0.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#0f172a] outline-none'
+                        />
+                      </td>
+                      <td className='px-1 py-1'>
+                        <input
+                          type='text'
+                          value={colFilters.barcode}
+                          onChange={e => setColFilters(f => ({ ...f, barcode: e.target.value }))}
+                          placeholder='Filter barcode...'
+                          className='w-full px-1.5 py-0.5 text-[11px] font-mono border border-[#c4c5d5] dark:border-[#444653] rounded bg-white dark:bg-[#0f172a] outline-none'
+                        />
+                      </td>
+                      <td className='px-1 py-1'></td>
+                      <td className='px-1 py-1'></td>
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
                   {searching ? (
                     <tr><td colSpan={10} className='text-center py-8 text-[#64748b]'><RefreshCcw size={18} className='animate-spin inline mr-2' />Searching...</td></tr>
-                  ) : rows.length === 0 ? (
+                  ) : displayedRows.length === 0 ? (
                     <tr><td colSpan={10} className='text-center py-10 text-[#64748b]'><Package size={28} className='mx-auto mb-2 text-[#c4c5d5]' />No items found. Try a different search.</td></tr>
-                  ) : rows.map((row, idx) => (
+                  ) : displayedRows.map((row, idx) => (
                     <tr key={row.id}
                       onClick={() => { setPreviewRow(row); }}
                       className={'border-b border-[#e2e8f0]/60 dark:border-[#334155]/60 cursor-pointer transition-colors ' + (row.selected ? 'bg-[#f0f4ff] dark:bg-[#1e40af]/10' : idx % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-[#fafbfc] dark:bg-[#131b2e]/30') + ' hover:bg-[#f0f4ff] dark:hover:bg-[#1e40af]/10'}>
@@ -2038,7 +2349,11 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                       <td className='px-2 py-2'>{row.style}</td>
                       <td className='px-2 py-2'>{row.shade}</td>
                       <td className='px-2 py-2'>{row.size}</td>
-                      <td className='px-2 py-2 font-mono text-[#475569]'>{row.barcode}</td>
+                      <td className='px-2 py-2 font-mono text-[#475569] dark:text-[#94a3b8] whitespace-nowrap'>
+                        <span className='px-1.5 py-0.5 rounded bg-[#f1f5f9] dark:bg-[#334155] border border-[#e2e8f0] dark:border-[#475569] text-[11px] font-bold text-[#0f172a] dark:text-[#f8fafc]'>
+                          {row.barcode || '—'}
+                        </span>
+                      </td>
                       <td className='px-2 py-2 text-right font-semibold'>{row.stock}</td>
                       <td className='px-2 py-2' onClick={e => e.stopPropagation()}>
                         <input
@@ -2056,7 +2371,9 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
 
             {/* Table footer */}
             <div className='px-4 py-2.5 border-t border-[#e2e8f0] dark:border-[#334155] flex items-center gap-3 flex-wrap bg-[#f8fafc] dark:bg-[#131b2e]'>
-              <span className='text-[11px] text-[#64748b]'>Showing {rows.length} items</span>
+              <span className='text-[11px] text-[#64748b]'>
+                Showing {displayedRows.length} item{displayedRows.length !== 1 ? 's' : ''} {hasActiveColFilters ? `(filtered from ${rows.length})` : ''}
+              </span>
               {someSelected && <span className='text-[11px] font-bold text-[#00288e]'>Selected: {selectedRows.length} items</span>}
               <div className='flex-1' />
               <button type='button' onClick={autoQty} disabled={!someSelected} className='flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#475569] border border-[#c4c5d5] rounded-lg hover:bg-[#f1f5f9] disabled:opacity-40 transition'><Zap size={11} className='text-[#f59e0b]' /> Auto Qty</button>
@@ -2069,44 +2386,6 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                 {totalPages > 5 && <span className='text-[#64748b] text-[11px]'>...</span>}
               </div>
             </div>
-
-            {/* ── Advanced Filters ── */}
-            {advOpen && (
-              <div className='border-t border-[#e2e8f0] dark:border-[#334155] px-4 py-4 bg-[#f0f4ff]/40 dark:bg-[#131b2e]'>
-                <div className='flex items-center justify-between mb-3'>
-                  <span className='text-xs font-bold text-[#00288e] flex items-center gap-1.5'><Filter size={12} /> Advanced Filters <span className='text-[10px] text-[#64748b] font-normal'>(Optional)</span></span>
-                  <button type='button' onClick={() => setFilters(EMPTY_FILTERS)} className='text-[11px] text-[#64748b] hover:text-[#dc2626] flex items-center gap-1'><X size={10} /> Reset</button>
-                </div>
-                <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3'>
-                  {/* Item Code From/To */}
-                  <div className='col-span-2 sm:col-span-1 flex gap-1.5 items-end'>
-                    <div className='flex-1'><label className='block text-[10px] font-bold text-[#64748b] mb-1'>Item Code From</label><input type='text' value={filters.itemCodeFrom} onChange={e => setFilters(f => ({ ...f, itemCodeFrom: e.target.value }))} placeholder='From' className='w-full px-2 py-1.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] outline-none focus:border-[#00288e]' /></div>
-                    <div className='flex-1'><label className='block text-[10px] font-bold text-[#64748b] mb-1'>To</label><input type='text' value={filters.itemCodeTo} onChange={e => setFilters(f => ({ ...f, itemCodeTo: e.target.value }))} placeholder='To' className='w-full px-2 py-1.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] outline-none focus:border-[#00288e]' /></div>
-                  </div>
-                  {[
-                    ['Product', 'product'], ['Category', 'category'], ['Brand', 'brand'], ['Style', 'style'],
-                  ].map(([lbl, key]) => (
-                    <div key={key}><label className='block text-[10px] font-bold text-[#64748b] mb-1'>{lbl}</label>
-                      <select value={(filters as any)[key]} onChange={e => setFilters(f => ({ ...f, [key]: e.target.value }))} className='w-full px-2 py-1.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] outline-none'>
-                        <option>All</option>
-                      </select></div>
-                  ))}
-                  {[
-                    ['Shade', 'shade'], ['Size', 'size'], ['Warehouse', 'warehouse'], ['Supplier', 'supplier'],
-                  ].map(([lbl, key]) => (
-                    <div key={key}><label className='block text-[10px] font-bold text-[#64748b] mb-1'>{lbl}</label>
-                      <select value={(filters as any)[key]} onChange={e => setFilters(f => ({ ...f, [key]: e.target.value }))} className='w-full px-2 py-1.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] outline-none'>
-                        <option>All</option>
-                      </select></div>
-                  ))}
-                  <div className='col-span-2 flex gap-1.5 items-end'>
-                    <div className='flex-1'><label className='block text-[10px] font-bold text-[#64748b] mb-1'>Barcode From</label><input type='text' value={filters.barcodeFrom} onChange={e => setFilters(f => ({ ...f, barcodeFrom: e.target.value }))} placeholder='From' className='w-full px-2 py-1.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] outline-none' /></div>
-                    <div className='flex-1'><label className='block text-[10px] font-bold text-[#64748b] mb-1'>To</label><input type='text' value={filters.barcodeTo} onChange={e => setFilters(f => ({ ...f, barcodeTo: e.target.value }))} placeholder='To' className='w-full px-2 py-1.5 text-[11px] border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0f172a] outline-none' /></div>
-                  </div>
-                  <div className='flex items-end'><button type='button' className='flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-[#475569] border border-[#c4c5d5] rounded-lg hover:bg-[#f1f5f9] transition'><Filter size={11} /> + More Filters</button></div>
-                </div>
-              </div>
-            )}
           </section>
 
           {/* ── STEP 3 : Print Setup & Presets ── */}
@@ -2232,7 +2511,12 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
 
 
         {/* ── RIGHT SIDEBAR ── */}
-        <div className='w-72 xl:w-80 shrink-0 bg-white dark:bg-[#1e232a] border-l border-[#e2e8f0] dark:border-[#334155] flex flex-col overflow-y-auto'>
+        <div
+          className={'shrink-0 bg-white dark:bg-[#1e232a] border-l border-[#e2e8f0] dark:border-[#334155] flex flex-col overflow-y-auto transition-all duration-200 ' +
+            (isSidebarCollapsed
+              ? 'w-0 p-0 border-l-0 overflow-hidden opacity-0 pointer-events-none'
+              : 'w-72 xl:w-80 opacity-100')}
+        >
 
           {/* Label Preview */}
           <div className='p-4 border-b border-[#e2e8f0] dark:border-[#334155]'>
@@ -2465,6 +2749,21 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
           </div>
 
         </div>
+
+        {/* Floating edge tab handle when sidebar is collapsed */}
+        {isSidebarCollapsed && (
+          <button
+            type='button'
+            onClick={toggleSidebar}
+            title='Show Sidebar [Alt+S] (Label Preview, Print Settings & Action)'
+            className='absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-[#00288e] hover:bg-[#002070] text-white py-3 px-1 rounded-l-lg shadow-lg flex flex-col items-center gap-1.5 transition select-none'
+          >
+            <PanelRightOpen size={14} />
+            <span className='text-[9px] font-bold tracking-wider [writing-mode:vertical-lr] rotate-180'>
+              SIDEBAR
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ── BROWSER LABEL PRINT SHEET PREVIEW MODAL ── */}

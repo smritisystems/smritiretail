@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.49.0
+ * Version      : 6.53.0
  * Created      : 2026-10-08
- * Modified     : 2026-10-08
+ * Modified     : 2026-10-10
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,6 +14,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { compareNatural, isWithinRange } from "../components/barcode/rangeFilter.ts";
 import { barcodeTransactionStore } from "../components/barcode/barcodeTransactionS.ts";
 import {
   generateThermalLabelSvgString,
@@ -583,4 +584,166 @@ describe("Print Labels Studio Domain Logic & Multi-Source Engine Suite", () => {
     expect(dplStream).not.toContain("^XA");
   });
 });
+
+describe("Print Labels Studio Ergonomics & Grid Suite", () => {
+  interface TestStudioRow {
+    id: string;
+    itemCode: string;
+    product: string;
+    brand: string;
+    style: string;
+    shade: string;
+    size: string;
+    barcode: string;
+    stock: number;
+    printQty: number;
+    mrp: number;
+    selected: boolean;
+  }
+
+  const sampleRows: TestStudioRow[] = [
+    {
+      id: "row-1",
+      itemCode: "CH-01-A-CREAM-36",
+      product: "CH-01-A CREAM 36",
+      brand: "Tattly Threads",
+      style: "CH-01-A",
+      shade: "CREAM",
+      size: "36",
+      barcode: "8904551000002",
+      stock: 10,
+      printQty: 0,
+      mrp: 1899,
+      selected: false,
+    },
+    {
+      id: "row-2",
+      itemCode: "CH-01-A-CREAM-37",
+      product: "CH-01-A CREAM 37",
+      brand: "Tattly Threads",
+      style: "CH-01-A",
+      shade: "CREAM",
+      size: "37",
+      barcode: "8904551000019",
+      stock: 15,
+      printQty: 0,
+      mrp: 1899,
+      selected: false,
+    },
+    {
+      id: "row-3",
+      itemCode: "CH-01-A-PEACH-36",
+      product: "CH-01-A PEACH 36",
+      brand: "Tattly Threads",
+      style: "CH-01-A",
+      shade: "PEACH",
+      size: "36",
+      barcode: "8904551000071",
+      stock: 5,
+      printQty: 0,
+      mrp: 1899,
+      selected: false,
+    },
+    {
+      id: "row-4",
+      itemCode: "CH-01-A-PEACH-40",
+      product: "CH-01-A PEACH 40",
+      brand: "Tattly Threads",
+      style: "CH-01-A",
+      shade: "PEACH",
+      size: "40",
+      barcode: "8904551000118",
+      stock: 0,
+      printQty: 0,
+      mrp: 1899,
+      selected: false,
+    },
+  ];
+
+  describe("1. Zero-Armed Printing Safety Default", () => {
+    it("should ensure all fetched rows default to unselected and zero printQty", () => {
+      expect(sampleRows.every(r => !r.selected)).toBe(true);
+      expect(sampleRows.every(r => r.printQty === 0)).toBe(true);
+      const totalArmedLabels = sampleRows
+        .filter(r => r.selected)
+        .reduce((sum, r) => sum + r.printQty, 0);
+      expect(totalArmedLabels).toBe(0);
+    });
+  });
+
+  describe("2. Barcode Range Filtering with isWithinRange", () => {
+    it("should filter rows within numeric EAN-13 barcode boundaries accurately", () => {
+      const fromBarcode = "8904551000002";
+      const toBarcode = "8904551000071";
+
+      const filtered = sampleRows.filter(r =>
+        isWithinRange(r.barcode, fromBarcode, toBarcode, "barcode")
+      );
+
+      expect(filtered.length).toBe(3);
+      expect(filtered.map(r => r.id)).toEqual(["row-1", "row-2", "row-3"]);
+    });
+
+    it("should handle single boundary (unbounded to) correctly", () => {
+      const fromBarcode = "8904551000071";
+      const filtered = sampleRows.filter(r =>
+        isWithinRange(r.barcode, fromBarcode, "", "barcode")
+      );
+
+      expect(filtered.length).toBe(2);
+      expect(filtered.map(r => r.id)).toEqual(["row-3", "row-4"]);
+    });
+  });
+
+  describe("3. Item Code Range Natural Comparison", () => {
+    it("should filter style codes naturally without ASCII truncation bugs", () => {
+      const fromCode = "CH-01-A-CREAM-36";
+      const toCode = "CH-01-A-CREAM-37";
+
+      const filtered = sampleRows.filter(r =>
+        isWithinRange(r.itemCode, fromCode, toCode, "style")
+      );
+
+      expect(filtered.length).toBe(2);
+      expect(filtered.map(r => r.id)).toEqual(["row-1", "row-2"]);
+    });
+  });
+
+  describe("4. Grid Natural Sorting Mechanics", () => {
+    it("should sort rows ascending and descending by barcode naturally", () => {
+      const asc = [...sampleRows].sort((a, b) => compareNatural(a.barcode, b.barcode));
+      expect(asc[0].barcode).toBe("8904551000002");
+      expect(asc[asc.length - 1].barcode).toBe("8904551000118");
+
+      const desc = [...sampleRows].sort((a, b) => compareNatural(b.barcode, a.barcode));
+      expect(desc[0].barcode).toBe("8904551000118");
+      expect(desc[desc.length - 1].barcode).toBe("8904551000002");
+    });
+
+    it("should sort rows numerically by stock", () => {
+      const byStockAsc = [...sampleRows].sort((a, b) => a.stock - b.stock);
+      expect(byStockAsc[0].stock).toBe(0);
+      expect(byStockAsc[byStockAsc.length - 1].stock).toBe(15);
+    });
+  });
+
+  describe("5. Per-Column Search Filtering", () => {
+    it("should filter rows by shade case-insensitively", () => {
+      const shadeFilter = "peach";
+      const filtered = sampleRows.filter(r =>
+        r.shade.toLowerCase().includes(shadeFilter)
+      );
+      expect(filtered.length).toBe(2);
+      expect(filtered.every(r => r.shade === "PEACH")).toBe(true);
+    });
+
+    it("should filter rows by barcode substring", () => {
+      const barcodeFilter = "000071";
+      const filtered = sampleRows.filter(r => r.barcode.includes(barcodeFilter));
+      expect(filtered.length).toBe(1);
+      expect(filtered[0].id).toBe("row-3");
+    });
+  });
+});
+
 
