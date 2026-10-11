@@ -148,3 +148,8 @@ fix-typescript-errors.*
 ~$*.docx
 
 .visual-audit-temp/
+
+# Runtime-generated PRN print job temp files
+public/assets/prn/
+*.prn
+
