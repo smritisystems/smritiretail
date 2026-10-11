@@ -9,9 +9,9 @@ Founders
 * Jawahar Ramkripal Mallah   -- Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.70.42
+* Version    : 6.70.43
 * Created    : 2026-08-24
-* Modified   : 2026-10-09
+* Modified   : 2026-10-12
 * Copyright  : (c) AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 
@@ -254,14 +254,25 @@ async def _resolve_company_local_user(control_user: User, db: AsyncSession, tena
     local_user = (await db.execute(select(User).where(
         or_(
             User.id == control_user.id,
-            and_(
-                User.username == control_user.username,
-                User.company_id == tenant.company_id,
-            ),
-        ),
-        User.is_deleted == False,
-    ))).scalar_one_or_none()
+            User.username == control_user.username,
+        )
+    ))).scalars().first()
     if local_user:
+        updated = False
+        if local_user.is_deleted:
+            local_user.is_deleted = False
+            updated = True
+        if local_user.company_id != tenant.company_id:
+            local_user.company_id = tenant.company_id
+            updated = True
+        if not local_user.branch_id:
+            local_user.branch_id = tenant.branch_id
+            updated = True
+        if updated:
+            try:
+                await db.flush()
+            except Exception:
+                await db.rollback()
         return local_user
 
     branch_id = control_user.branch_id or tenant.branch_id
@@ -298,8 +309,20 @@ async def _resolve_company_local_user(control_user: User, db: AsyncSession, tena
         employment_type=control_user.employment_type,
     )
     db.add(local_user)
-    await db.flush()
-    return local_user
+    try:
+        await db.flush()
+        return local_user
+    except IntegrityError:
+        await db.rollback()
+        recheck = (await db.execute(select(User).where(
+            or_(
+                User.id == control_user.id,
+                User.username == control_user.username,
+            )
+        ))).scalars().first()
+        if recheck:
+            return recheck
+        raise
 
 
 async def _tenant_user(
@@ -313,40 +336,51 @@ async def _tenant_user(
     Guarantees that control-plane identities (e.g. central directory users) are reconciled
     and mapped into the active company DB without phantom 404s.
     """
-    # 1. Direct search in company database by primary key ID
+    # 1. Direct search in company database by primary key ID or username
     user = (await db.execute(select(User).where(
-        User.id == user_id,
-        User.company_id == tenant.company_id,
+        or_(
+            User.id == user_id,
+            User.username == user_id,
+        ),
+        or_(
+            User.company_id == tenant.company_id,
+            User.company_id.is_(None),
+        ),
         User.is_deleted == False,
-    ))).scalar_one_or_none()
+    ))).scalars().first()
     if user:
+        if user.company_id != tenant.company_id:
+            user.company_id = tenant.company_id
+            try:
+                await db.flush()
+            except Exception:
+                pass
         return user
 
     # 2. Check control plane (smritisys.users) where auth/directory identities reside
     control_user = None
     if control_db is not None:
         control_user = (await control_db.execute(select(User).where(
-            User.id == user_id,
+            or_(User.id == user_id, User.username == user_id),
             or_(User.company_id == tenant.company_id, User.company_id.is_(None)),
             User.is_deleted == False,
-        ))).scalar_one_or_none()
+        ))).scalars().first()
     else:
         async with async_session() as sys_db:
             control_user = (await sys_db.execute(select(User).where(
-                User.id == user_id,
+                or_(User.id == user_id, User.username == user_id),
                 or_(User.company_id == tenant.company_id, User.company_id.is_(None)),
                 User.is_deleted == False,
-            ))).scalar_one_or_none()
+            ))).scalars().first()
 
     if control_user:
         return await _resolve_company_local_user(control_user, db, tenant)
 
     # 3. Fallback: check by username directly in company database
     user_by_name = (await db.execute(select(User).where(
-        User.username == user_id,
-        User.company_id == tenant.company_id,
+        or_(User.id == user_id, User.username == user_id),
         User.is_deleted == False,
-    ))).scalar_one_or_none()
+    ))).scalars().first()
     if user_by_name:
         return user_by_name
 
@@ -1098,20 +1132,20 @@ async def get_commissions_summary(
     if period:
         try:
             yr, mo = [int(x) for x in period.split("-")]
-            start_dt = datetime(yr, mo, 1, 0, 0, 0, tzinfo=timezone.utc)
+            start_dt = datetime(yr, mo, 1, 0, 0, 0)
             if mo == 12:
-                end_dt = datetime(yr + 1, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+                end_dt = datetime(yr + 1, 1, 1, 0, 0, 0)
             else:
-                end_dt = datetime(yr, mo + 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+                end_dt = datetime(yr, mo + 1, 1, 0, 0, 0)
             conditions.append(CommissionLedger.timestamp >= start_dt)
             conditions.append(CommissionLedger.timestamp < end_dt)
         except Exception:
             pass
     else:
         if from_date:
-            conditions.append(CommissionLedger.timestamp >= datetime.combine(from_date, datetime.min.time(), tzinfo=timezone.utc))
+            conditions.append(CommissionLedger.timestamp >= datetime.combine(from_date, datetime.min.time()))
         if to_date:
-            conditions.append(CommissionLedger.timestamp <= datetime.combine(to_date, datetime.max.time(), tzinfo=timezone.utc))
+            conditions.append(CommissionLedger.timestamp <= datetime.combine(to_date, datetime.max.time()))
 
     agg_stmt = select(
         func.count(CommissionLedger.id).label("tx_count"),
@@ -1745,8 +1779,33 @@ async def record_attendance_punch(
             correction_reason=payload.notes,
         )
         db.add(record)
-        await db.commit()
-        await db.refresh(record)
+        try:
+            await db.commit()
+            await db.refresh(record)
+        except IntegrityError:
+            await db.rollback()
+            existing = (await db.execute(select(AttendanceRecord).where(
+                AttendanceRecord.company_id == tenant.company_id,
+                AttendanceRecord.user_id.in_(user_ids),
+                AttendanceRecord.attendance_date == today,
+                AttendanceRecord.is_deleted == False,
+            ))).scalar_one_or_none()
+            if existing:
+                return {
+                    "success": True,
+                    "action": "ALREADY_CHECKED_IN",
+                    "message": f"Already clocked in at {existing.check_in_at.strftime('%H:%M') if existing.check_in_at else now_utc.strftime('%H:%M')}",
+                    "record": {
+                        "id": existing.id,
+                        "user_id": existing.user_id,
+                        "attendance_date": existing.attendance_date.isoformat(),
+                        "status": existing.status,
+                        "check_in_at": existing.check_in_at.isoformat() if existing.check_in_at else None,
+                        "check_out_at": existing.check_out_at.isoformat() if existing.check_out_at else None,
+                        "device_source": existing.device_source,
+                    }
+                }
+            raise
         late_note = " (marked LATE)" if clock_in_status == "LATE" else ""
         return {
             "success": True,
@@ -2013,10 +2072,14 @@ async def list_leave_balances(
             )
             db.add(lb)
             created_rows.append(lb)
-        await db.commit()
-        for r in created_rows:
-            await db.refresh(r)
-        rows = created_rows
+        try:
+            await db.commit()
+            for r in created_rows:
+                await db.refresh(r)
+            rows = created_rows
+        except IntegrityError:
+            await db.rollback()
+            rows = (await db.execute(stmt.order_by(LeaveBalance.user_id, LeaveBalance.leave_type))).scalars().all()
 
     return {"balances": rows, "total": len(rows), "leave_year": leave_year}
 
