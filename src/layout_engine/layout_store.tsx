@@ -285,6 +285,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Operations",
     },
     {
+      id: "commission-workspace",
+      label: "Commission Workspace",
+      icon: "payments",
+      category: "Operations",
+    },
+    {
       id: "user-profile",
       label: "My Profile Dashboard",
       icon: "account_circle",

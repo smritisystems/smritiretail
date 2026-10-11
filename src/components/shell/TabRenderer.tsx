@@ -82,6 +82,7 @@ const DataBridgeWorkspace = lazy(() => import("../databridge/DataBridgeWorkspace
 const LegacyDeprecationTelemetryTab = lazy(() => import("../governance/LegacyDeprecationTelemetryTab.tsx").then(m => ({ default: m.LegacyDeprecationTelemetryTab })));
 const AttendanceWorkspaceTab = lazy(() => import("../hr/AttendanceWorkspaceTab.tsx").then(m => ({ default: m.AttendanceWorkspaceTab })));
 const LeaveManagementTab = lazy(() => import("../hr/LeaveManagementTab.tsx").then(m => ({ default: m.LeaveManagementTab })));
+const CommissionWorkspaceTab = lazy(() => import("../hr/CommissionWorkspaceTab.tsx").then(m => ({ default: m.CommissionWorkspaceTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -315,6 +316,10 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "staff-leave":
     case "hr-leave":
       return <LeaveManagementTab currentUser={currentUser} onNotification={addNotification} />;
+    case "commission-workspace":
+    case "staff-commission":
+    case "hr-commission":
+      return <CommissionWorkspaceTab currentUser={currentUser} onNotification={addNotification} />;
     case "user-profile":
       return <UserProfileTab />;
     case "ufe":
