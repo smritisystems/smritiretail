@@ -80,6 +80,7 @@ const DocumentStudioScreen = lazy(() => import("../global/document/DocStudioScre
 const BulkImportSection = lazy(() => import("../BulkImportSection.tsx").then(m => ({ default: m.BulkImportSection })));
 const DataBridgeWorkspace = lazy(() => import("../databridge/DataBridgeWorkspace.tsx").then(m => ({ default: m.DataBridgeWorkspace })));
 const LegacyDeprecationTelemetryTab = lazy(() => import("../governance/LegacyDeprecationTelemetryTab.tsx").then(m => ({ default: m.LegacyDeprecationTelemetryTab })));
+const AttendanceWorkspaceTab = lazy(() => import("../hr/AttendanceWorkspaceTab.tsx").then(m => ({ default: m.AttendanceWorkspaceTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -178,6 +179,9 @@ export const mapModuleId = (id: string): string => {
     "menu-terms-engine": "terms-engine",
     "menu-data-exchange": "data-exchange",
     "menu-staff-management": "staff-management",
+    "menu-attendance-workspace": "attendance-workspace",
+    "attendance-register": "attendance-workspace",
+    "hr-attendance": "attendance-workspace",
     "menu-approval-matrix": "approval-matrix",
     "menu-company-setup": "company-setup",
     "menu-audit-logs": "audit-logs",
@@ -302,6 +306,10 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
       return <LoyaltyStudioTab currentUser={currentUser} />;
     case "staff-management":
       return <StaffManagementTab currentUser={currentUser} />;
+    case "attendance-workspace":
+    case "attendance-register":
+    case "hr-attendance":
+      return <AttendanceWorkspaceTab currentUser={currentUser} onNotification={addNotification} />;
     case "user-profile":
       return <UserProfileTab />;
     case "ufe":
