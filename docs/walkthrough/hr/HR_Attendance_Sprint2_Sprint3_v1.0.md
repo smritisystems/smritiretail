@@ -126,8 +126,8 @@ select(LeaveBalance).where(...).with_for_update()
 | Suite | Status |
 |-------|--------|
 | `tsc --noEmit --skipLibCheck` | ✅ exit 0 (both commits) |
-| `t_staff_late_halfday_devpush_verify.py` (8 tests) | Running (task-978) |
-| `t_staff_punch_verify.py` (2 tests) | Running (task-978) |
+| `t_staff_late_halfday_devpush_verify.py` (8 tests) | ? 10/10 PASSED (task-1057, 61.50s) |
+| `t_staff_punch_verify.py` (2 tests) | ? 10/10 PASSED (task-1057, 61.50s) |
 
 ---
 
@@ -139,7 +139,7 @@ select(LeaveBalance).where(...).with_for_update()
 | Commit `f9835ae5` created | git log output | Done |
 | tsc Sprint 2 exit 0 | task-911 output | Done |
 | tsc Sprint 3 exit 0 | task-967 output | Done |
-| 10 tests passing | task-978 (pending) | Partially Verified |
+| 10/10 tests passing | task-1057 exit 0, 61.50s | Done |
 
 ---
 
