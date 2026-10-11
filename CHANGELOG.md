@@ -7661,3 +7661,19 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 ### Changed
 - Modernized subview layouts and animations in the Sales & Commerce Studio (`SalesStudioTab.tsx`).
 
+
+## [6.7.2] - 2026-10-11
+### Added
+- **Barcode Studio**: DB-backed item resolver card in PRN/ZPL Script Compiler
+  - Debounced search (350ms) against GET /api/v1/inventory/search?q=
+  - Real-time placeholder substitution: {barcode} {size} {colour} {style_code} {mrp} {pkd_date}
+  - Resolved values chip, dark ZPL preview, Apply to Editor button
+  - Commits: cbed2a62 (PRN Library v6.7.1), f00e6735 (DB Resolver v6.7.2)
+
+## [6.7.1] - 2026-10-11
+### Added
+- **Barcode Studio**: PRN Script Library browser
+  - 12-entry registry of real .prn/.blf files served from public/assets/prn/
+  - One-click load with LOADED badge, language colour badges (ZPL/DPL/BLF/PRN)
+  - Auto-loads TattlyThreads.prn on mount
+  - 14 PRN/BLF files copied to public/assets/prn/
