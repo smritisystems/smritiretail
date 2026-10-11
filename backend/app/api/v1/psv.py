@@ -207,3 +207,36 @@ async def get_scoped_party_visibility(
         party_id=party_id,
     )
     return res
+
+
+@router.patch("/events/{event_id}/approve")
+async def approve_psv_event(
+    event_id: str,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+    company_id: str = Header(default="COMP-001", alias="X-Company-ID"),
+) -> Dict[str, Any]:
+    """
+    F-08: Promotes a PENDING (unapproved) PSV stock event to APPROVED and
+    applies the deferred balance delta into psv_stock_balances.
+
+    Role requirement: MANAGER or ADMIN only.
+    """
+    allowed_roles = {"MANAGER", "ADMIN", "manager", "admin"}
+    if getattr(current_user, "role", None) not in allowed_roles and \
+       getattr(getattr(current_user, "role", None), "value", None) not in allowed_roles:
+        raise HTTPException(
+            status_code=403,
+            detail="Insufficient permissions. MANAGER or ADMIN role required to approve PSV events.",
+        )
+    result = await PSVProjectionService.approve_pending_event(
+        session=session,
+        event_id=event_id,
+        company_id=company_id,
+        approved_by=str(current_user.id),
+    )
+    if result.get("status") == "NOT_FOUND":
+        raise HTTPException(status_code=404, detail=f"PSV event '{event_id}' not found.")
+    if result.get("status") == "ALREADY_APPROVED":
+        raise HTTPException(status_code=409, detail=f"PSV event '{event_id}' is already approved.")
+    return result

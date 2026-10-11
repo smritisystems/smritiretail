@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { PSVParty } from "../types";
 import { computeSkuLyingWithPartner, computeSkuSellThrough } from "../services/partnerSellThru.ts";
@@ -37,6 +37,12 @@ interface PsvTabProps {
 export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const [selectedPartyId, setSelectedPartyId] = useState<string>(psvParties[0]?.id || "");
+  // F-10: guard against emitting an audit event on the auto-selected default party at mount
+  const hasMounted = useRef(false);
+
+  useEffect(() => {
+    hasMounted.current = true;
+  }, []);
 
   useEffect(() => {
     if (!selectedPartyId && psvParties.length > 0) {
@@ -56,7 +62,8 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   };
 
   useEffect(() => {
-    if (activeParty) {
+    // F-10: only record audit after mount; skip the auto-selected default party on load
+    if (hasMounted.current && activeParty) {
       recordAuditAction("TRANSACTION_VIEW", "psv_parties", activeParty.id, `Viewed PSV partner details and sell-through report: ${activeParty.name}`);
     }
   }, [activeParty]);
