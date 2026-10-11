@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.17.0
 Created      : 2026-07-11
-Modified     : 2026-07-12
+Modified     : 2026-10-11
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -27,7 +27,7 @@ from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 from ..schemas.user import (
     UserCreate, UserUpdate, PasswordChange, StaffUserCreate, StaffUserUpdate,
     StaffUserResponse, SalaryStructure, PaymentDetails, PerformanceMetrics,
-    UserPreferencesSchema, NotificationSettings
+    UserPreferencesSchema, NotificationSettings, PreferencesUpdate
 )
 from ..core.security import hash_password, verify_password, validate_password_strength
 from ..api.deps import TenantContext
@@ -545,7 +545,11 @@ class UserService:
             "travelClaimStatus": "None"
         })
         pref_str = req.preferences.json() if req.preferences else json.dumps({
-            "theme": "dark",
+            "theme": "light",
+            "presetId": "enterprise-light",
+            "density": "comfortable",
+            "fontScale": "md",
+            "accentOverride": None,
             "language": "English",
             "timeZone": "Asia/Kolkata"
         })
@@ -764,17 +768,25 @@ class UserService:
         await self.db.refresh(user)
         return to_staff_response(user)
 
-    async def update_preferences(self, user_id: str, preferences: dict) -> StaffUserResponse:
+    async def update_preferences(self, user_id: str, preferences: "PreferencesUpdate") -> StaffUserResponse:
         user = await self.get_user(user_id)
-        current = {}
+        current: dict = {}
         if user.preferences_json:
             try:
                 current = json.loads(user.preferences_json)
             except Exception:
                 pass
-        current.update(preferences)
+        # Merge only the fields that were explicitly provided (exclude_none)
+        incoming = preferences.model_dump(exclude_none=True)
+        current.update(incoming)
         user.preferences_json = json.dumps(current)
         user.modified_at = datetime.now(timezone.utc)
+        await self._record_audit(
+            event_type="USER_PREFERENCES_UPDATED",
+            record_id=user_id,
+            reason=f"Preset changed to {incoming.get('presetId', 'unknown')}",
+            new_val=json.dumps(incoming),
+        )
         await self.db.commit()
         await self.db.refresh(user)
         return to_staff_response(user)

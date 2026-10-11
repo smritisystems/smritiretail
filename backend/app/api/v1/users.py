@@ -12,14 +12,15 @@ License      : Proprietary Commercial Software
 """
 
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Query, HTTPException, Body
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_db, get_current_user, get_tenant_context, require_permission, TenantContext
 from ...models.auth import User, UserRole
 from ...schemas.user import (
     UserCreate, UserUpdate, UserResponse, UserListResponse, PasswordChange,
-    StaffUserCreate, StaffUserUpdate, StaffUserResponse, StaffUserListResponse
+    StaffUserCreate, StaffUserUpdate, StaffUserResponse, StaffUserListResponse,
+    PreferencesUpdate
 )
 from ...services.user import UserService, to_staff_response
 
@@ -171,15 +172,18 @@ async def reactivate_staff_user(
 @router.put(
     "/{user_id}/preferences",
     response_model=StaffUserResponse,
+    summary="Update Operator Visual & Regional Preferences",
 )
 async def update_preferences(
     user_id: str,
-    preferences: dict = Body(...),
+    preferences: PreferencesUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Update operator self layout/theme preferences.
+    Update operator workspace visual preset (theme, density, font scale, accent)
+    and regional settings (language, timezone).
+    Only the fields provided are merged — omitted fields retain their current values.
     """
     if current_user.role not in [UserRole.SYSADMIN, UserRole.MANAGER] and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Access Denied: You cannot modify preferences of other operators.")

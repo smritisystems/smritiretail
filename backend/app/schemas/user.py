@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.17.0
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-10-11
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -74,10 +74,58 @@ class PerformanceMetrics(BaseModel):
     travelClaimStatus: str = "None"
 
 
+# ---------------------------------------------------------------------------
+# Theme Preset — canonical IDs must match frontend src/config/theme_presets.ts
+# Density and fontScale are kept as plain strings to avoid tight coupling.
+# ---------------------------------------------------------------------------
+VALID_PRESET_IDS = {
+    "enterprise-light", "enterprise-dark",
+    "pos-dark", "retail-day", "high-contrast",
+}
+VALID_DENSITIES  = {"compact", "comfortable", "spacious"}
+VALID_FONT_SCALES = {"sm", "md", "lg"}
+
+
 class UserPreferencesSchema(BaseModel):
-    theme: str = "dark"
+    """User workspace visual and regional preferences."""
+    # ── Base mode (legacy field — kept for backward compat) ──
+    theme: str = "light"
+    # ── Preset system (Phase 6 — 2026-10-11) ────────────────
+    presetId: Optional[str] = "enterprise-light"
+    density: Optional[str] = "comfortable"
+    fontScale: Optional[str] = "md"
+    accentOverride: Optional[str] = None
+    # ── Regional ─────────────────────────────────────────────
     language: str = "English"
     timeZone: str = "Asia/Kolkata"
+
+    @field_validator("presetId", mode="before")
+    @classmethod
+    def validate_preset_id(cls, v):
+        if v is None:
+            return v
+        if v not in VALID_PRESET_IDS:
+            # Accept unknown presets gracefully (future-proof)
+            return v
+        return v
+
+    @field_validator("density", mode="before")
+    @classmethod
+    def validate_density(cls, v):
+        if v is None:
+            return v
+        if v not in VALID_DENSITIES:
+            return "comfortable"  # safe fallback
+        return v
+
+    @field_validator("fontScale", mode="before")
+    @classmethod
+    def validate_font_scale(cls, v):
+        if v is None:
+            return v
+        if v not in VALID_FONT_SCALES:
+            return "md"  # safe fallback
+        return v
 
 
 class NotificationSettings(BaseModel):
@@ -90,6 +138,43 @@ class NotificationSettings(BaseModel):
     holidayWeeklyOff: bool = True
     birthdayAnniversary: bool = True
     policyAnnouncements: bool = True
+
+
+class PreferencesUpdate(BaseModel):
+    """
+    Typed request body for PUT /api/v1/users/{id}/preferences.
+    All fields are optional — only provided fields are merged into the stored JSON.
+    """
+    theme: Optional[str] = None
+    presetId: Optional[str] = None
+    density: Optional[str] = None
+    fontScale: Optional[str] = None
+    accentOverride: Optional[str] = None
+    language: Optional[str] = None
+    timeZone: Optional[str] = None
+
+    @field_validator("presetId", mode="before")
+    @classmethod
+    def validate_preset_id(cls, v):
+        if v is None:
+            return v
+        if v not in VALID_PRESET_IDS:
+            return v  # accept unknown — future-proof
+        return v
+
+    @field_validator("density", mode="before")
+    @classmethod
+    def validate_density(cls, v):
+        if v is None:
+            return v
+        return v if v in VALID_DENSITIES else "comfortable"
+
+    @field_validator("fontScale", mode="before")
+    @classmethod
+    def validate_font_scale(cls, v):
+        if v is None:
+            return v
+        return v if v in VALID_FONT_SCALES else "md"
 
 
 # System Schemas
