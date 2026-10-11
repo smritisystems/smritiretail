@@ -655,3 +655,5 @@ equire_role() wildcard bypass to SYSADMIN enum users only; added non-SYSADMIN wi
 
 | 2026-10-11 | psv | **PSV UX Redesign — Distributor Stock Tracker v3.0.0** — WhatsApp-level plain-language redesign of `PsvTab.tsx`. All ERP jargon replaced with plain business English: Sell-Through -> How Much Has Sold, Weeks of Cover -> Stock Will Last weeks, Capital Locked -> Money Tied in Unsold Stock, Critical -> Needs Action. Added: search bar, explainer box, emoji traffic-light status legend, empty states, plain-language chart tooltips, MetricTile + SkuRow sub-components, statusSignal() / tipForParty() helpers. Commit: 54abf7df. | [PSV_UX_Redesign_v3.0.0.md](./psv/PSV_UX_Redesign_v3.0.0.md) | — | Done |
 
+
+| 2026-10-11 | Barcode Studio | PRN Script Library + DB Item Resolver | v6.7.1-v6.7.2 | [Barcode_PRNLibrary_DBResolver_v6.7.1-v6.7.2.md](barcode/Barcode_PRNLibrary_DBResolver_v6.7.1-v6.7.2.md) | cbed2a62, f00e6735 |
