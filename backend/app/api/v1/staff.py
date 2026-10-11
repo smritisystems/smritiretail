@@ -1464,6 +1464,46 @@ async def record_attendance_punch(
     now_utc = datetime.now(timezone.utc)
     today = now_utc.date()
 
+    # F-02: Resolve late detection thresholds from SystemParameterService
+    _shift_start = "09:00"
+    _late_threshold_mins = 15
+    _half_day_hours = 4.0
+    try:
+        _p1 = await SystemParameterService.resolve_parameter(
+            db, "SMRITI.HR.SHIFT_START_TIME", company_id=tenant.company_id
+        )
+        if _p1 and _p1.effective_value:
+            _shift_start = _p1.effective_value.strip()
+        _p2 = await SystemParameterService.resolve_parameter(
+            db, "SMRITI.HR.LATE_THRESHOLD_MINUTES", company_id=tenant.company_id
+        )
+        if _p2 and _p2.effective_value:
+            _late_threshold_mins = int(_p2.effective_value)
+        _p3 = await SystemParameterService.resolve_parameter(
+            db, "SMRITI.HR.HALF_DAY_HOURS_THRESHOLD", company_id=tenant.company_id
+        )
+        if _p3 and _p3.effective_value:
+            _half_day_hours = float(_p3.effective_value)
+    except Exception:
+        pass
+
+    def _compute_clock_in_status(punch_time: datetime) -> str:
+        """Return LATE if punch_time exceeds shift start + grace period, else PRESENT."""
+        try:
+            sh, sm = [int(x) for x in _shift_start.split(":")]
+            from datetime import time as _time
+            local_date = punch_time.date()
+            # Compare against today's shift start in UTC
+            shift_start_dt = datetime(
+                local_date.year, local_date.month, local_date.day, sh, sm, 0,
+                tzinfo=timezone.utc
+            )
+            if punch_time > shift_start_dt + timedelta(minutes=_late_threshold_mins):
+                return "LATE"
+        except Exception:
+            pass
+        return "PRESENT"
+
     user_ids = list({target_user_id, resolved_user_id})
     existing = (await db.execute(select(AttendanceRecord).where(
         AttendanceRecord.company_id == tenant.company_id,
@@ -1475,14 +1515,15 @@ async def record_attendance_punch(
     punch_mode = (payload.punch_type or "AUTO").upper()
 
     if not existing:
-        # First punch of today -> Clock IN
+        # First punch of today -> Clock IN (with late detection)
+        clock_in_status = _compute_clock_in_status(now_utc)
         record = AttendanceRecord(
             company_id=tenant.company_id,
             branch_id=tenant.branch_id,
             created_by=current_user.id,
             user_id=resolved_user_id,
             attendance_date=today,
-            status="PRESENT",
+            status=clock_in_status,  # F-02: PRESENT or LATE
             check_in_at=now_utc,
             check_out_at=None,
             branch_source_id=tenant.branch_id,
@@ -1494,10 +1535,11 @@ async def record_attendance_punch(
         db.add(record)
         await db.commit()
         await db.refresh(record)
+        late_note = " (marked LATE)" if clock_in_status == "LATE" else ""
         return {
             "success": True,
             "action": "CHECKED_IN",
-            "message": f"Successfully clocked in at {now_utc.strftime('%H:%M')}",
+            "message": f"Successfully clocked in at {now_utc.strftime('%H:%M')}{late_note}",
             "record": {
                 "id": record.id,
                 "user_id": record.user_id,
@@ -1530,12 +1572,20 @@ async def record_attendance_punch(
                 }
             }
         else:
-            # AUTO or OUT -> Clock OUT
+            # AUTO or OUT -> Clock OUT with half-day auto-detection (F-07)
             existing.check_out_at = now_utc
             if payload.device_source:
                 existing.device_source = f"{existing.device_source or ''}, {payload.device_source}".strip(", ")
             action_done = "CHECKED_OUT"
-            msg = f"Successfully clocked out at {now_utc.strftime('%H:%M')}"
+            # F-07: Recompute status based on hours worked
+            if existing.check_in_at:
+                hours_worked = (now_utc - existing.check_in_at).total_seconds() / 3600.0
+                if hours_worked < _half_day_hours:
+                    existing.status = "HALF_DAY"
+                elif existing.status not in ("LATE",):  # preserve LATE status
+                    existing.status = "PRESENT"
+            half_day_note = " (HALF_DAY — less than {:.0f}h worked)".format(_half_day_hours) if existing.status == "HALF_DAY" else ""
+            msg = f"Successfully clocked out at {now_utc.strftime('%H:%M')}{half_day_note}"
 
         existing.modified_at = now_utc
         existing.updated_by = current_user.id
@@ -1568,7 +1618,38 @@ async def receive_biometric_device_push(
     IoT Biometric Device Push Webhook.
     Receives raw punch streams from hardware terminals (ZKTeco, eSSL, Matrix).
     Resolves employee codes to tenant users and upserts attendance records.
+
+    Security: Validates device_key against system parameter SMRITI.HR.DEVICE_PUSH_API_KEY.
+    If the parameter is not set, the endpoint rejects all pushes to enforce explicit opt-in.
     """
+    # F-03: Device key authentication guard
+    try:
+        registered_key_param = await SystemParameterService.resolve_parameter(
+            db, "SMRITI.HR.DEVICE_PUSH_API_KEY", company_id=tenant.company_id
+        )
+        registered_key = registered_key_param.effective_value if registered_key_param else None
+    except Exception:
+        registered_key = None
+
+    if not registered_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "SMRITI-PERM-010",
+                "message": "Biometric device push is not enabled for this account.",
+                "action": "Set SMRITI.HR.DEVICE_PUSH_API_KEY in System Parameters to activate IoT attendance push.",
+            },
+        )
+    if payload.device_key != registered_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "SMRITI-PERM-011",
+                "message": "Device authentication failed. The device key is incorrect.",
+                "action": "Verify the device key matches the key registered in System Parameters.",
+            },
+        )
+
     if not payload.punches:
         return {"processed": 0, "success": True, "message": "No punches to process"}
 
@@ -1604,8 +1685,11 @@ async def receive_biometric_device_push(
     errors = []
 
     for item in payload.punches:
-        raw_code = (item.employee_code or item.user_id or "").strip().upper()
-        resolved_uid = code_to_uid.get(raw_code)
+        # F-14: Normalize employee code — strip whitespace, uppercase, remove leading zeros
+        raw_code = (item.employee_code or item.user_id or "").strip().upper().lstrip("0") or "0"
+        resolved_uid = code_to_uid.get(raw_code) or code_to_uid.get(
+            (item.employee_code or item.user_id or "").strip().upper()
+        )
         if not resolved_uid:
             errors.append(f"Unrecognized employee code '{raw_code}'")
             continue
