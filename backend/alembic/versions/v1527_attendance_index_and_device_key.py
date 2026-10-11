@@ -57,38 +57,61 @@ def upgrade() -> None:
         END $$;
     """)
 
-    # 3. Seed HR shift configuration system parameters (safe upsert)
+    # 3. Seed HR shift configuration system parameters (safe idempotent insert)
+    # system_parameters has no unique constraint on param_code; use WHERE NOT EXISTS.
     op.execute("""
         INSERT INTO system_parameters (
             id, company_id, param_code, canonical_code, category, category_name,
             description, data_type, mutability, profile_type,
-            scope_level, terminal_id,
-            val_text,
+            scope_level, terminal_id, val_text,
             is_active, is_deleted, is_locked, created_at, modified_at
         )
-        VALUES
-            ('sp-hr-shift-start',
-             NULL, 'SMRITI.HR.SHIFT_START_TIME', 'SMRITI.HR.SHIFT_START_TIME',
-             'HR', 'Human Resources',
-             'Standard shift start time (HH:MM, 24-hour). Used for late detection.',
-             'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON',
-             '09:00',
-             TRUE, FALSE, FALSE, NOW(), NOW()),
-            ('sp-hr-late-mins',
-             NULL, 'SMRITI.HR.LATE_THRESHOLD_MINUTES', 'SMRITI.HR.LATE_THRESHOLD_MINUTES',
-             'HR', 'Human Resources',
-             'Grace period (minutes) after shift start before a punch is recorded LATE.',
-             'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON',
-             '15',
-             TRUE, FALSE, FALSE, NOW(), NOW()),
-            ('sp-hr-halfday-hrs',
-             NULL, 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD', 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD',
-             'HR', 'Human Resources',
-             'Minimum hours worked for a full day. Below this threshold on clock-out status becomes HALF_DAY.',
-             'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON',
-             '4',
-             TRUE, FALSE, FALSE, NOW(), NOW())
-        ON CONFLICT (param_code) DO NOTHING;
+        SELECT 'sp-hr-shift-start',
+               NULL, 'SMRITI.HR.SHIFT_START_TIME', 'SMRITI.HR.SHIFT_START_TIME',
+               'HR', 'Human Resources',
+               'Standard shift start time (HH:MM 24h). Used for late detection.',
+               'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON', '09:00',
+               TRUE, FALSE, FALSE, NOW(), NOW()
+        WHERE NOT EXISTS (
+            SELECT 1 FROM system_parameters
+            WHERE canonical_code = 'SMRITI.HR.SHIFT_START_TIME' AND company_id IS NULL
+        )
+    """)
+    op.execute("""
+        INSERT INTO system_parameters (
+            id, company_id, param_code, canonical_code, category, category_name,
+            description, data_type, mutability, profile_type,
+            scope_level, terminal_id, val_text,
+            is_active, is_deleted, is_locked, created_at, modified_at
+        )
+        SELECT 'sp-hr-late-mins',
+               NULL, 'SMRITI.HR.LATE_THRESHOLD_MINUTES', 'SMRITI.HR.LATE_THRESHOLD_MINUTES',
+               'HR', 'Human Resources',
+               'Grace period (minutes) after shift start before a punch is LATE.',
+               'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON', '15',
+               TRUE, FALSE, FALSE, NOW(), NOW()
+        WHERE NOT EXISTS (
+            SELECT 1 FROM system_parameters
+            WHERE canonical_code = 'SMRITI.HR.LATE_THRESHOLD_MINUTES' AND company_id IS NULL
+        )
+    """)
+    op.execute("""
+        INSERT INTO system_parameters (
+            id, company_id, param_code, canonical_code, category, category_name,
+            description, data_type, mutability, profile_type,
+            scope_level, terminal_id, val_text,
+            is_active, is_deleted, is_locked, created_at, modified_at
+        )
+        SELECT 'sp-hr-halfday-hrs',
+               NULL, 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD', 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD',
+               'HR', 'Human Resources',
+               'Minimum hours worked for full day. Below this on clock-out = HALF_DAY.',
+               'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON', '4',
+               TRUE, FALSE, FALSE, NOW(), NOW()
+        WHERE NOT EXISTS (
+            SELECT 1 FROM system_parameters
+            WHERE canonical_code = 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD' AND company_id IS NULL
+        )
     """)
 
 
