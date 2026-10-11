@@ -22,8 +22,9 @@ from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Branch, Company
-from app.models.staff_profile import StaffProfile
 from app.models.hr import AttendanceRecord
+from app.models.system_parameter import SystemParameter
+from app.models.staff_profile import StaffProfile
 from app.tests.conftest import clear_db
 
 
@@ -163,6 +164,28 @@ async def test_biometric_device_push_batch_ingestion(db_session):
 
     _set_tenant(company.id, branch.id)
     headers = _bearer(manager, company.id, branch.id)
+
+    # F-03 fix: seed the device API key so the secured endpoint accepts the push
+    device_key_val = "sec-token-123"
+    sp = SystemParameter(
+        id=f"sp-dev-{suffix}",
+        company_id=company.id,
+        param_code="SMRITI.HR.DEVICE_PUSH_API_KEY",
+        canonical_code="SMRITI.HR.DEVICE_PUSH_API_KEY",
+        category="HR",
+        category_name="Human Resources",
+        description="Device push API key (test)",
+        data_type="Text",
+        mutability="Variable",
+        profile_type="COMMON",
+        scope_level="COMPANY",
+        terminal_id="COMMON",
+        val_text=device_key_val,
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(sp)
+    await db_session.commit()
 
     now = datetime.now(timezone.utc)
     punch_in_time = (now - timedelta(hours=4)).isoformat()
