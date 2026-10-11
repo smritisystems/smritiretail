@@ -250,7 +250,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     },
     {
       id: "psv",
-      label: "Channel Visibility",
+      label: "Distributor Stock",
       icon: "hub",
       category: "Data & Config",
     },

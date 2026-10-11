@@ -374,8 +374,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   },
   {
     id: "psv",
-    title: "Channel Stock Visibility (PSV)",
-    subtitle: "Party stock visibility, partner sell-through analytics & channel cover weeks",
+    title: "Distributor Stock Tracker",
+    subtitle: "See how much stock each distributor has, how much has sold, and whether any action is needed",
     icon: "hub",
     tag: "Distribution",
     badgeType: "primary",
