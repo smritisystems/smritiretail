@@ -757,7 +757,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   const executeOrderLineAction = async (line: SalesItemLine, action: "close" | "cancel", reason: string) => {
     try {
-      const cleanOrderId = String(selectedOrder.id || "").replace(/^:/, "").trim();
+      const cleanOrderId = String(selectedOrder!.id || "").replace(/^:/, "").trim();
       const cleanLineId = String(line.id).replace(/^:/, "").trim();
       await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanOrderId)}/lines/${encodeURIComponent(cleanLineId)}/${action}`, {
         method: "POST",

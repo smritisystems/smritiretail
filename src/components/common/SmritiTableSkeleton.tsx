@@ -27,9 +27,10 @@ export interface SmritiTableSkeletonProps {
   className?: string;
 }
 
-const Shimmer: React.FC<{ className?: string }> = ({ className = "" }) => (
+const Shimmer: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = "", style }) => (
   <div
     className={`relative overflow-hidden rounded bg-theme-surface-2 ${className}`}
+    style={style}
     aria-hidden="true"
   >
     <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/8 to-transparent" />
