@@ -428,7 +428,7 @@ export function computeMetrics(parsed: ParsedCodebase): ScanResult {
     const reportsComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("QuickReports") || (parsed.fileContentsMap.get(frontendFile) || "").includes("ReportDesigner") : false;
     const printingComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("print") || (parsed.fileContentsMap.get(frontendFile) || "").includes("PrintStudio") : false;
     const barcodeComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("barcode") || (parsed.fileContentsMap.get(frontendFile) || "").includes("Barcode") : false;
-    const aiComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("ai") || (parsed.fileContentsMap.get(frontendFile) || "").includes("GenAI") || (parsed.fileContentsMap.get(frontendFile) || "").includes("Gemini") : false;
+    const aiComplete = frontendFile ? (parsed.fileContentsMap.get(frontendFile) || "").includes("ai") || (parsed.fileContentsMap.get(frontendFile) || "").includes("GenAI") || (parsed.fileContentsMap.get(frontendFile) || "").includes("SmritiSaathi") : false;
 
     // 5. Tests
     const testFile = parsed.testFiles.find(t => map.testKeywords.some(k => t.toLowerCase().includes(k.toLowerCase())));
