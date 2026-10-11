@@ -1472,6 +1472,98 @@ async def create_attendance(
     return record
 
 
+@router.post("/attendance/bulk", status_code=status.HTTP_201_CREATED)
+async def bulk_create_attendance(
+    payload: List[AttendanceCreate],
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    R-10: Bulk Attendance Mark Endpoint.
+    Allows managers to mark attendance for multiple staff in one request
+    (e.g. HOLIDAY or ABSENT for an entire branch roster).
+    Idempotent per (user_id, attendance_date) — skips duplicates rather than raising 409.
+    Only SYSADMIN or MANAGER may call this endpoint.
+    """
+    _require_manager(current_user)
+
+    if not payload:
+        raise HTTPException(status_code=422, detail="At least one attendance record is required.")
+    if len(payload) > 500:
+        raise HTTPException(status_code=422, detail="Maximum 500 records per bulk request.")
+
+    allowed_statuses = {"PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE", "HOLIDAY"}
+    created, skipped, errors = [], [], []
+
+    for item in payload:
+        if item.status not in allowed_statuses:
+            errors.append({
+                "user_id": item.user_id,
+                "attendance_date": str(item.attendance_date),
+                "error": f"Unsupported status '{item.status}'",
+            })
+            continue
+
+        try:
+            target_user = await _tenant_user(db, item.user_id, tenant, control_db=control_db)
+            resolved_uid = target_user.id
+        except HTTPException:
+            errors.append({
+                "user_id": item.user_id,
+                "attendance_date": str(item.attendance_date),
+                "error": "Staff member not found in this branch.",
+            })
+            continue
+
+        user_ids = list({item.user_id, resolved_uid})
+        existing = (await db.execute(select(AttendanceRecord).where(
+            AttendanceRecord.company_id == tenant.company_id,
+            AttendanceRecord.user_id.in_(user_ids),
+            AttendanceRecord.attendance_date == item.attendance_date,
+            AttendanceRecord.is_deleted == False,
+        ))).scalar_one_or_none()
+
+        if existing:
+            skipped.append({
+                "user_id": item.user_id,
+                "attendance_date": str(item.attendance_date),
+                "reason": "Attendance already exists for this date.",
+            })
+            continue
+
+        record = AttendanceRecord(
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
+            created_by=current_user.id,
+            user_id=resolved_uid,
+            attendance_date=item.attendance_date,
+            status=item.status,
+            check_in_at=item.check_in_at,
+            check_out_at=item.check_out_at,
+            branch_source_id=item.branch_source_id or tenant.branch_id,
+            register_source=item.register_source or "MANAGER_BULK",
+            device_source=item.device_source,
+            correction_status="PENDING" if item.correction_reason else "NONE",
+            correction_reason=item.correction_reason,
+        )
+        db.add(record)
+        created.append({"user_id": resolved_uid, "attendance_date": str(item.attendance_date), "status": item.status})
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "created": len(created),
+        "skipped": len(skipped),
+        "errors": len(errors),
+        "created_records": created,
+        "skipped_records": skipped,
+        "error_records": errors,
+    }
+
+
 @router.post("/attendance/punch")
 async def record_attendance_punch(
     payload: AttendancePunchPayload,
