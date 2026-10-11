@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.121.0
+ * Version      : 3.121.1-deprecated
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-10-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -21,6 +21,25 @@
  *   Target     : `salesTargetStatus()` — actual vs target + achievement %
  *   Payout     : `payoutSummary()` — base + commission + deductions per employee
  *   Period     : `periodReport()` — attendance + payout across employees
+ */
+
+/**
+ * @deprecated R-14 (2026-10-11)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * EmployeeAttendanceEngine is a LEGACY in-memory computation layer.
+ * It has been superseded by the SMRITI FastAPI + PostgreSQL backend:
+ *
+ *   - Attendance records  →  POST /api/v1/staff/attendance/punch
+ *                            POST /api/v1/staff/attendance/bulk
+ *                            PATCH /api/v1/staff/attendance/{id}/correction
+ *   - Commission data     →  GET  /api/v1/staff/commissions/summary
+ *   - Period reports      →  GET  /api/v1/staff/attendance (date range filter)
+ *
+ * DO NOT use this engine in any new feature or page.
+ * Existing unit tests are retained for mathematical regression coverage only.
+ * Full retirement (file deletion) is scheduled after all test files are
+ * migrated to live FastAPI integration tests (R-14 P3).
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "LEAVE" | "HALF_DAY" | "HOLIDAY";
