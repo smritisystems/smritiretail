@@ -1,6 +1,18 @@
 
 ## [Unreleased] — 2026-10-11
 
+### DevOps & Branding — Container Startup Resilience & AI Iconography Governance v1.0.0 (Commits `737f66f4`, `6793bbe6`)
+
+Resolves client-site Docker container startup dependency errors and enacts permanent governance policy prohibiting third-party AI iconography and recommendations.
+
+**Key Changes:**
+- `docker-compose.yml`: Removed host bind mount of `entrypoint.sh` to prevent Windows CRLF interpreter failures; decoupled container healthcheck from deep multi-tenant database checks to `/live` with 120s start period and 10 retries; added resilient default fallbacks for JWT, Internal, and Vault secret keys.
+- `install.sh`: Staged service initialization sequence (`smriti-db` healthy -> `smriti-api` started -> canonical `bootstrap_engine` execution -> `smriti-web` startup) matching `install.ps1`.
+- `src/components/standalone/StandaloneWindowView.tsx`: Replaced Google Gemini CDN avatar image with inline theme-aware SVG avatar.
+- `sales_order_stitch_mock.html`: Replaced external Google CDN logo and avatar links with self-contained SVGs.
+- `src/modules/dev_tracker/scanner/metrics.ts`: Replaced `Gemini` scanner string with `SmritiSaathi`.
+- `.agents/AGENTS.md`: Enacted Policy ID `SAIB-NO-GEMINI-v1.0` freezing prohibition of third-party AI branding, logos, sparkle emblems, and recommendations across SMRITI Retail OS.
+
 ### Foundation — Theme Preset Package System v1.0 (Commits `36c780b1`, `15e34409`)
 
 Replaces binary light/dark toggle with a named, 5-preset visual configuration system bundling colour mode, accent, density, and font scale. Full-stack: React frontend + FastAPI backend.
