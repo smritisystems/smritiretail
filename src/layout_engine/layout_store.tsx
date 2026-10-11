@@ -273,6 +273,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Operations",
     },
     {
+      id: "attendance-workspace",
+      label: "Attendance Workspace",
+      icon: "calendar_month",
+      category: "Operations",
+    },
+    {
       id: "user-profile",
       label: "My Profile Dashboard",
       icon: "account_circle",
