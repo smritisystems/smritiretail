@@ -42,6 +42,8 @@ import {
   Send,
   Terminal,
   Info,
+  FolderOpen,
+  FileText,
 } from "lucide-react";
 import { ScriptFieldIdentification } from "./types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
@@ -81,7 +83,33 @@ const LS_MODE_KEY = "smriti_script_compiler_dispatch_mode";
 const LS_TCP_IP_KEY = "smriti_script_compiler_tcp_ip";
 const LS_TCP_PORT_KEY = "smriti_script_compiler_tcp_port";
 
-// ─── Default Sample Script ─────────────────────────────────────────────────────
+// ─── PRN Script Library (served from /assets/prn/ via Vite public/) ──────────
+
+interface PrnLibraryEntry {
+  name: string;          // display label
+  file: string;          // filename in /assets/prn/
+  lang: "ZPL" | "DPL" | "BLF" | "PRN";
+  description: string;
+}
+
+const PRN_LIBRARY: PrnLibraryEntry[] = [
+  { name: "Tattly Threads — Footwear 3-Stub",        file: "TattlyThreads.prn",                             lang: "ZPL", description: "Full 3-stub footwear label: barcode, size, colour, MRP, brand" },
+  { name: "Tattly Threads — Black 37",                file: "TATTLY_BLACK_37.prn",                           lang: "ZPL", description: "Pre-filled: BLACK, Size 37" },
+  { name: "Tattly Threads — Black 40",                file: "TATTLY_BLACK_40.prn",                           lang: "ZPL", description: "Pre-filled: BLACK, Size 40" },
+  { name: "Tattly Threads — Toupe 37",                file: "TATTLY_TOUPE_37.prn",                           lang: "ZPL", description: "Pre-filled: TOUPE, Size 37" },
+  { name: "Tattly Threads — Toupe 42",                file: "TATTLY_TOUPE_42.prn",                           lang: "ZPL", description: "Pre-filled: TOUPE, Size 42" },
+  { name: "Tattly CH-30-K Black 37 (Corrected)",      file: "TATTLY_CH-30-K_BLACK_37_CORRECTED.prn",         lang: "ZPL", description: "Corrected version — CH-30-K, BLACK, 37" },
+  { name: "Tattly SND-18-V Black 37 (Corrected)",     file: "TATTLY_SND-18-V_BLACK_37_CORRECTED.prn",        lang: "ZPL", description: "Corrected version — SND-18-V, BLACK, 37" },
+  { name: "Footwear 100×50 3-Stub Layout",            file: "smriti_labels_lay-footwear-100x50-3stub_1791617855968.prn", lang: "ZPL", description: "Generic footwear 100×50mm 3-stub" },
+  { name: "Raw PRN Script (General)",                  file: "RawPRNScript.prn",                             lang: "PRN", description: "General-purpose raw PRN template" },
+  { name: "Honeywell IH-2 Label (A)",                 file: "Honeywell_IH2_Labels_1791612531188.prn",        lang: "DPL", description: "Honeywell IH-2 DPL label variant A" },
+  { name: "Honeywell IH-2 Label (B)",                 file: "Honeywell_IH2_Labels_1791617952352.prn",        lang: "DPL", description: "Honeywell IH-2 DPL label variant B" },
+  { name: "Modern Label Design TE244",                file: "ModernLabelDesign_TE244.blf",                   lang: "BLF", description: "TSC TE244 BLF script with macro tokens" },
+];
+
+const TATTLY_DEFAULT_URL = "/assets/prn/TattlyThreads.prn";
+
+// ─── Default Sample Script (fallback if fetch fails) ─────────────────────────
 
 const DEFAULT_SAMPLE_SCRIPT = `@@@01;02;02;03;04@@@^XA
 ^PRB
@@ -155,6 +183,8 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
   });
   const [copies, setCopies] = useState<number>(1);
   const [printerDropdownOpen, setPrinterDropdownOpen] = useState<boolean>(false);
+  const [libraryOpen, setLibraryOpen] = useState<boolean>(false);
+  const [libraryLoading, setLibraryLoading] = useState<string | null>(null); // filename being loaded
 
   const lines = scriptContent.split("\n");
 
@@ -213,6 +243,45 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
   useEffect(() => {
     void discoverQzPrinters();
   }, [discoverQzPrinters]);
+
+  // ── Auto-load TattlyThreads.prn on first mount ────────────────────────────
+  useEffect(() => {
+    const loadDefault = async () => {
+      try {
+        const res = await fetch(TATTLY_DEFAULT_URL);
+        if (!res.ok) return; // fallback to DEFAULT_SAMPLE_SCRIPT stays in place
+        const text = await res.text();
+        setScriptContent(text);
+        setLoadedFileName("TattlyThreads.prn");
+        setCompilerStatus("Loaded: TattlyThreads.prn");
+        setPrintDispatch({ status: "idle", message: "TattlyThreads.prn loaded — ready to send to printer." });
+      } catch {
+        // silently fall back to the embedded DEFAULT_SAMPLE_SCRIPT
+      }
+    };
+    void loadDefault();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Load a PRN file from the library by URL ───────────────────────────────
+  const loadScriptFromUrl = useCallback(async (entry: PrnLibraryEntry) => {
+    setLibraryLoading(entry.file);
+    try {
+      const res = await fetch(`/assets/prn/${encodeURIComponent(entry.file)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      setScriptContent(text);
+      setLoadedFileName(entry.file);
+      setCompilerStatus(`Loaded: ${entry.name}`);
+      setPrintDispatch({ status: "idle", message: `${entry.name} loaded — ready to send to printer.` });
+      setLibraryOpen(false);
+      onNotification?.("Script Loaded", `${entry.name} loaded into editor.`, "success");
+    } catch (err: any) {
+      onNotification?.("Load Failed", `Could not load ${entry.file}: ${err?.message}`, "error");
+    } finally {
+      setLibraryLoading(null);
+    }
+  }, [onNotification]);
 
   // Persist selections
   useEffect(() => {
@@ -558,6 +627,20 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
               <span>Save</span>
             </button>
 
+            {/* Browse Library button */}
+            <button
+              type="button"
+              onClick={() => setLibraryOpen((o) => !o)}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold border transition shadow-xs ${
+                libraryOpen
+                  ? "bg-secondary text-on-secondary border-secondary"
+                  : "bg-surface-container-highest hover:bg-surface-variant text-on-surface border-outline-variant"
+              }`}
+            >
+              <FolderOpen size={13} />
+              <span>PRN Library</span>
+            </button>
+
             <div className="flex-1" />
 
             {/* Copies input */}
@@ -586,6 +669,81 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
 
         {/* ────────────── RIGHT: Printer Panel + Config ───────────────────── */}
         <div className="lg:w-80 shrink-0 flex flex-col gap-3 overflow-y-auto">
+
+          {/* ── Card: PRN Script Library ────────────────────────────────── */}
+          <div className="bg-surface border border-outline-variant rounded-lg shadow-xs overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setLibraryOpen((o) => !o)}
+              className="w-full px-4 py-3 bg-gradient-to-r from-indigo-500/10 to-purple-500/5 border-b border-outline-variant flex items-center justify-between hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/15">
+                  <FolderOpen size={15} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-on-surface">PRN Script Library</p>
+                  <p className="text-[10px] text-on-surface-variant">{PRN_LIBRARY.length} scripts — click to browse &amp; load</p>
+                </div>
+              </div>
+              <ChevronDown size={14} className={`text-on-surface-variant transition-transform ${libraryOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {libraryOpen && (
+              <div className="max-h-72 overflow-y-auto">
+                {PRN_LIBRARY.map((entry) => {
+                  const isActive = loadedFileName === entry.file;
+                  const isLoading = libraryLoading === entry.file;
+                  const langColor: Record<string, string> = {
+                    ZPL: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+                    DPL: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300",
+                    TSPL: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
+                    BLF: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300",
+                    PRN: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400",
+                  };
+                  return (
+                    <button
+                      key={entry.file}
+                      type="button"
+                      onClick={() => void loadScriptFromUrl(entry)}
+                      disabled={isLoading}
+                      className={`w-full text-left px-4 py-2.5 border-b border-outline-variant/50 flex items-start gap-3 transition ${
+                        isActive
+                          ? "bg-indigo-50 dark:bg-indigo-900/20"
+                          : "hover:bg-surface-variant"
+                      }`}
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        {isLoading ? (
+                          <Loader2 size={14} className="animate-spin text-indigo-500" />
+                        ) : isActive ? (
+                          <CheckCircle2 size={14} className="text-indigo-600 dark:text-indigo-400" />
+                        ) : (
+                          <FileText size={14} className="text-on-surface-variant" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xs font-semibold ${isActive ? "text-indigo-700 dark:text-indigo-300 font-bold" : "text-on-surface"}`}>
+                            {entry.name}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono ${langColor[entry.lang] ?? langColor.PRN}`}>
+                            {entry.lang}
+                          </span>
+                          {isActive && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-500 text-white">
+                              LOADED
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-on-surface-variant mt-0.5 truncate">{entry.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* ── Card: Send to Printer ──────────────────────────────────────── */}
           <div className="bg-surface border border-outline-variant rounded-lg shadow-xs overflow-hidden">
