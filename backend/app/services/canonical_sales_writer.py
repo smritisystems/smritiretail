@@ -43,7 +43,7 @@ from ..models.crm import Customer, CustomerGroup, CustomerCreditLedgerEntry, Cus
 from ..models.pricing import CustomerPriceTier
 from ..models.item_master import ItemBarcode
 from ..models.inventory import Product, Warehouse
-from ..models.tenant import Branch
+from ..models.tenant import Company, Branch
 from .canonical_transaction_writer import CanonicalTransactionWriter
 from .inventory_wms import InventoryWmsService
 from .payments_engine import PaymentsEngine
@@ -91,12 +91,54 @@ class CanonicalSalesPostingWriter:
         shift_id = req.context.shift_id
         idempotency_key = idempotency_key or req.context.idempotency_key
 
-        # 0. Authoritative Input Validations
+        # 0. Authoritative Input & Identity Validations
         if not req.items:
             raise HTTPException(
                 status_code=400,
                 detail="SMRITI-VAL-001: Sales transaction must contain at least one line item.",
             )
+
+        # 0A. Authoritative Company and Seller Identity Validation
+        q_comp = select(Company).where(Company.id == company_id)
+        res_comp = await session.execute(q_comp)
+        comp_obj = res_comp.scalars().first()
+
+        if not comp_obj or not comp_obj.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail=f"SMRITI-TENANT-002: Authoritative company identity '{company_id}' is missing or inactive. Invoice issuance blocked.",
+            )
+
+        q_branch = select(Branch).where(Branch.company_id == company_id)
+        if branch_id:
+            q_branch = q_branch.where((Branch.id == branch_id) | (Branch.code == branch_id))
+        res_br = await session.execute(q_branch)
+        branch_obj = res_br.scalars().first()
+
+        seller_gstin = (branch_obj and getattr(branch_obj, "gst_number", None)) or (comp_obj and comp_obj.gst_number)
+        
+        # Statutory Tax Invoice vs Retail Receipt / Bill of Supply Determination
+        is_b2b = bool(req.customer_gstin or getattr(req, "billed_party_gstin_id", None) or req.context.source_channel == "B2B_WHOLESALE")
+        req_doc_type = getattr(req, "document_type", None) or getattr(req.context, "document_type", None)
+        has_positive_tax = any(
+            item.gst_rate is not None and Decimal(str(item.gst_rate)) > Decimal("0.00")
+            for item in req.items
+        )
+
+        if not seller_gstin:
+            if is_b2b or req_doc_type == "TAX_INVOICE" or has_positive_tax:
+                raise HTTPException(
+                    status_code=400,
+                    detail="SMRITI-TAX-002: Authoritative seller GSTIN is missing. Statutory tax invoice issuance blocked.",
+                )
+            gst_sc = None
+        else:
+            val_gst, gst_sc, _ = validate_gstin(seller_gstin)
+            if not val_gst:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-TAX-003: Authoritative seller GSTIN '{seller_gstin}' is invalid. Statutory tax invoice issuance blocked.",
+                )
 
         for t in req.tenders:
             if Decimal(str(t.amount)) <= Decimal("0.00"):
@@ -137,6 +179,7 @@ class CanonicalSalesPostingWriter:
 
         # Resolve canonical warehouse via InventoryWarehouseResolver
         from .inventory_warehouse_resolver import InventoryWarehouseResolver
+        wh = None  # initialise so the variable is always in scope even if resolution fails
         try:
             resolver = InventoryWarehouseResolver(session)
             wh = await resolver.resolve(
@@ -512,22 +555,7 @@ class CanonicalSalesPostingWriter:
                 }
 
         # 4. Resolve Interstate / Tax Jurisdiction
-        from ..models.tenant import Company
-        q_comp = select(Company).where(Company.id == company_id)
-        res_comp = await session.execute(q_comp)
-        comp_obj = res_comp.scalars().first()
-
-        q_branch = select(Branch).where(Branch.company_id == company_id)
-        if branch_id:
-            q_branch = q_branch.where((Branch.id == branch_id) | (Branch.code == branch_id))
-        res_br = await session.execute(q_branch)
-        branch_obj = res_br.scalars().first()
-
-        branch_state_code = None
-        if branch_obj and getattr(branch_obj, "gst_number", None):
-            branch_state_code = extract_state_code_from_gstin(branch_obj.gst_number)
-        if not branch_state_code and comp_obj and comp_obj.gst_number:
-            branch_state_code = extract_state_code_from_gstin(comp_obj.gst_number)
+        branch_state_code = gst_sc
         if not branch_state_code and branch_obj and getattr(branch_obj, "state_code", None):
             branch_state_code = str(branch_obj.state_code).zfill(2)
         if not branch_state_code and comp_obj and getattr(comp_obj, "state_code", None):
@@ -541,11 +569,27 @@ class CanonicalSalesPostingWriter:
             )
             branch_state_code = str(state_param.effective_value).zfill(2) if state_param and state_param.effective_value else None
 
+        if not branch_state_code and wh and getattr(wh, "state", None):
+            wh_st_norm = str(wh.state).strip().upper()
+            for code, name in GST_STATE_CODES.items():
+                if name == wh_st_norm or wh_st_norm in name:
+                    branch_state_code = code
+                    break
+
+        if not branch_state_code and req.place_of_supply:
+            pos_digits = "".join(ch for ch in str(req.place_of_supply) if ch.isdigit())
+            if len(pos_digits) >= 2 and pos_digits[:2] in GST_STATE_CODES:
+                branch_state_code = pos_digits[:2]
+
         if not branch_state_code:
-            raise HTTPException(
-                status_code=400,
-                detail="SMRITI-JURISDICTION-001: Seller tax jurisdiction cannot be resolved. Branch/Company GSTIN, state code, or SMRITI.TAX.DEFAULT_STATE_CODE must be configured.",
-            )
+            # Unregistered sellers (no GSTIN) issuing a Bill of Supply / Retail Receipt with 0% GST
+            # are not required to determine tax jurisdiction — no interstate computation applies.
+            is_unregistered_zero_tax = not seller_gstin and not has_positive_tax
+            if not is_unregistered_zero_tax:
+                raise HTTPException(
+                    status_code=400,
+                    detail="SMRITI-JURISDICTION-001: Seller tax jurisdiction cannot be resolved. Branch/Company GSTIN, state code, or SMRITI.TAX.DEFAULT_STATE_CODE must be configured.",
+                )
 
         pos_state_code = None
         pos_state_name = None
@@ -773,6 +817,7 @@ class CanonicalSalesPostingWriter:
             source_document_type="CUSTOMER_PO" if req.customer_po_id else req.context.source_channel,
             source_document_id=req.customer_po_id or req.so_reference_no,
             rule_snapshots={
+                "document_type": ("TAX_INVOICE" if seller_gstin else "RETAIL_RECEIPT"),
                 "idempotency_key": idempotency_key,
                 "request_hash": req_hash,
                 "source_channel": req.context.source_channel,
@@ -935,6 +980,7 @@ class CanonicalSalesPostingWriter:
             req.context.source_channel == "POS_RETAIL"
             and (req.payment_mode or "CASH").upper() != "CREDIT"
             and not tenders_to_process
+            and net_rounded > Decimal("0.00")
         ):
             from ..schemas.canonical_posting import CanonicalTenderItem
             tenders_to_process = [CanonicalTenderItem(
@@ -943,7 +989,10 @@ class CanonicalSalesPostingWriter:
             )]
 
         total_paid = Decimal("0.00")
-        payment_tenders_to_send = [t for t in tenders_to_process if t.tender_type.upper() != "CREDIT"]
+        payment_tenders_to_send = [
+            t for t in tenders_to_process 
+            if t.tender_type.upper() != "CREDIT" and Decimal(str(t.amount)) > Decimal("0.00")
+        ]
         if payment_tenders_to_send:
             payment_tenders: List[PaymentTenderItem] = []
             for t in payment_tenders_to_send:
