@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 """
 
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_db, get_current_user, get_tenant_context, require_permission, TenantContext

@@ -35,24 +35,26 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # 1. Composite index: company_id + attendance_date (P0 — sequential scan fix)
-    op.execute("""
-        CREATE INDEX IF NOT EXISTS ix_attendance_records_company_date
-        ON attendance_records (company_id, attendance_date DESC)
-    """)
-
-    # 2. CHECK constraint on status column (P0 — data integrity enforcement)
+    # 1. Composite index & CHECK constraint on attendance_records (guarded by table existence)
     op.execute("""
         DO $$
         BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_constraint
-                WHERE conname = 'chk_attendance_status_valid'
-                  AND conrelid = 'attendance_records'::regclass
+            IF EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'attendance_records'
             ) THEN
-                ALTER TABLE attendance_records
-                    ADD CONSTRAINT chk_attendance_status_valid
-                    CHECK (status IN ('PRESENT','ABSENT','LATE','HALF_DAY','LEAVE','HOLIDAY'));
+                CREATE INDEX IF NOT EXISTS ix_attendance_records_company_date
+                ON attendance_records (company_id, attendance_date DESC);
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'chk_attendance_status_valid'
+                      AND conrelid = 'attendance_records'::regclass
+                ) THEN
+                    ALTER TABLE attendance_records
+                        ADD CONSTRAINT chk_attendance_status_valid
+                        CHECK (status IN ('PRESENT','ABSENT','LATE','HALF_DAY','LEAVE','HOLIDAY'));
+                END IF;
             END IF;
         END $$;
     """)
@@ -61,12 +63,13 @@ def upgrade() -> None:
     # system_parameters has no unique constraint on param_code; use WHERE NOT EXISTS.
     op.execute("""
         INSERT INTO system_parameters (
-            id, company_id, param_code, canonical_code, category, category_name,
+            id, uuid, company_id, param_code, canonical_code, category, category_name,
             description, data_type, mutability, profile_type,
             scope_level, terminal_id, val_text,
             is_active, is_deleted, is_locked, created_at, modified_at
         )
         SELECT 'sp-hr-shift-start',
+               'a1100001-0001-4000-8000-000000000001',
                NULL, 'SMRITI.HR.SHIFT_START_TIME', 'SMRITI.HR.SHIFT_START_TIME',
                'HR', 'Human Resources',
                'Standard shift start time (HH:MM 24h). Used for late detection.',
@@ -79,12 +82,13 @@ def upgrade() -> None:
     """)
     op.execute("""
         INSERT INTO system_parameters (
-            id, company_id, param_code, canonical_code, category, category_name,
+            id, uuid, company_id, param_code, canonical_code, category, category_name,
             description, data_type, mutability, profile_type,
             scope_level, terminal_id, val_text,
             is_active, is_deleted, is_locked, created_at, modified_at
         )
         SELECT 'sp-hr-late-mins',
+               'a1100001-0001-4000-8000-000000000002',
                NULL, 'SMRITI.HR.LATE_THRESHOLD_MINUTES', 'SMRITI.HR.LATE_THRESHOLD_MINUTES',
                'HR', 'Human Resources',
                'Grace period (minutes) after shift start before a punch is LATE.',
@@ -97,12 +101,13 @@ def upgrade() -> None:
     """)
     op.execute("""
         INSERT INTO system_parameters (
-            id, company_id, param_code, canonical_code, category, category_name,
+            id, uuid, company_id, param_code, canonical_code, category, category_name,
             description, data_type, mutability, profile_type,
             scope_level, terminal_id, val_text,
             is_active, is_deleted, is_locked, created_at, modified_at
         )
         SELECT 'sp-hr-halfday-hrs',
+               'a1100001-0001-4000-8000-000000000003',
                NULL, 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD', 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD',
                'HR', 'Human Resources',
                'Minimum hours worked for full day. Below this on clock-out = HALF_DAY.',
@@ -116,10 +121,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS ix_attendance_records_company_date")
     op.execute("""
-        ALTER TABLE attendance_records
-            DROP CONSTRAINT IF EXISTS chk_attendance_status_valid
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'attendance_records'
+            ) THEN
+                DROP INDEX IF EXISTS ix_attendance_records_company_date;
+                ALTER TABLE attendance_records
+                    DROP CONSTRAINT IF EXISTS chk_attendance_status_valid;
+            END IF;
+        END $$;
     """)
     op.execute("""
         DELETE FROM system_parameters
