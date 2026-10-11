@@ -1,6 +1,27 @@
 
 ## [Unreleased] — 2026-10-11
 
+### Foundation — Theme Preset Package System v1.0 (Commits `36c780b1`, `15e34409`)
+
+Replaces binary light/dark toggle with a named, 5-preset visual configuration system bundling colour mode, accent, density, and font scale. Full-stack: React frontend + FastAPI backend.
+
+**Frontend files (commit `36c780b1` — 8 files, 459 ins, 79 del):**
+- `src/config/theme_presets.ts` *(new)* — canonical 5-preset definitions (enterprise-light, enterprise-dark, pos-dark, retail-day, high-contrast)
+- `src/contexts/ThemeContext.tsx` — v2.0: `setPreset()`, `applyPresetToDOM()`, density + accent + font-base DOM writes; backward-compat `toggleTheme`/`setTheme` aliases kept
+- `src/index.css` — density token layer: 3 `[data-density]` tiers (compact/comfortable/spacious); `font-size: var(--font-base, 13px)`
+- `src/smriti_scroll.css` — 3x hardcoded `rgba(37,99,235)` replaced with `color-mix(var(--c-theme-primary))`
+- `src/types.ts` — `UserPreferences` + `presetId?`, `density?`, `fontScale?`, `accentOverride?`
+- `src/components/UserProfileTab.tsx` — Phase 1 sync bug fixed; 5-tile visual preset grid; tab renamed to "Appearance & Prefs"
+- `src/layout_engine/layout_manager.tsx` — `PresetSwitcher` dropdown in header replaces Sun/Moon toggle
+- `src/state/store.ts` — seed defaults: admin/manager → `enterprise-light`; cashier → `pos-dark`
+
+**Backend files (commit `15e34409` — 3 files, 115 ins, 14 del):**
+- `backend/app/schemas/user.py` v3.17.0 — `UserPreferencesSchema` + preset fields; `PreferencesUpdate` typed partial-update schema with validators
+- `backend/app/services/user.py` v3.17.0 — typed merge with `exclude_none`; `USER_PREFERENCES_UPDATED` audit; `enterprise-light` default
+- `backend/app/api/v1/users.py` — `PUT /users/{id}/preferences` accepts `PreferencesUpdate`; unused `Body` import removed
+
+**Verification:** TSC exit 0 | Vite 3708 modules exit 0 | py_compile exit 0
+
 ### Staff Attendance — Audit P0+P1 Security & Logic Fixes (Commit `93dd4385`)
 
 **Files:**
