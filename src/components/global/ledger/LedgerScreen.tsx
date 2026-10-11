@@ -935,7 +935,7 @@ export function LedgerScreen<T extends Record<string, any>>({
                 }}
                 className="bg-theme-surface-1 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-primary font-mono focus:border-blue-500 focus:outline-hidden"
               >
-                {filter.options.map((opt) => (
+                {(filter.options ?? []).map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
