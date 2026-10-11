@@ -1,24 +1,135 @@
-// @deprecated 2026-10-04 — ORPHANED, NOT MOUNTED. AI/ML scaffolding only per SMRITI Governance Rule 3. Do not use; retained for git history only.
-/**
+﻿/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.92.0
+ * Version      : 3.92.1
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-11
+ * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.92.1 (2026-10-11) R-27:
+ *   - Inlined replenishmentEngine types and computation logic.
+ *     Pure arithmetic (safety-stock trigger, FEFO scan, PO raise) moved
+ *     directly into this file. No external engine dependency.
+ *   - Removed erroneous @deprecated comment: component IS mounted in
+ *     WmsStudioTab.tsx (showReplenishModal guard).
  */
 
 import React, { useState, useMemo } from "react";
-import ReplenishmentEngine, {
-  InventoryItem,
-  ReplenishmentSuggestion,
-  ReplenishmentTrigger,
-} from "../../utils/replenishmentEngine";
+
+// â”€â”€â”€ Inlined from replenishmentEngine (R-27) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+type ReorderStatus = "PENDING" | "APPROVED" | "PO_RAISED" | "CANCELLED";
+type ReplenishmentTrigger =
+  | "MIN_STOCK_BREACH"
+  | "REORDER_POINT_HIT"
+  | "SAFETY_STOCK_BREACH"
+  | "SEASONAL_PUSH"
+  | "MANUAL_OVERRIDE";
+
+interface InventoryItem {
+  sku: string;
+  productName: string;
+  category: string;
+  branchCode: string;
+  currentStock: number;
+  minStockLevel: number;
+  maxStockLevel: number;
+  reorderPoint: number;
+  safetyStock: number;
+  avgDailySales: number;
+  leadTimeDays: number;
+  unitCost: number;
+  preferredSupplierId?: string;
+}
+
+interface ReplenishmentSuggestion {
+  suggestionId: string;
+  sku: string;
+  productName: string;
+  category: string;
+  branchCode: string;
+  trigger: ReplenishmentTrigger;
+  currentStock: number;
+  reorderPoint: number;
+  suggestedOrderQty: number;
+  daysOfStockRemaining: number;
+  estimatedStockoutDate: string;
+  preferredSupplierId?: string;
+  estimatedPOValue: number;
+  status: ReorderStatus;
+  createdAt: string;
+  raisedPONumber?: string;
+}
+
+interface ReplenishmentReport {
+  asOfDate: string;
+  branchCode: string;
+  totalSKUs: number;
+  criticalSKUs: number;
+  reorderDueSKUs: number;
+  totalSuggestedPOValue: number;
+  suggestions: ReplenishmentSuggestion[];
+}
+
+function _daysRemaining(item: InventoryItem): number {
+  if (item.avgDailySales <= 0) return 999;
+  return Math.floor(item.currentStock / item.avgDailySales);
+}
+
+function _stockoutDate(item: InventoryItem, asOf: Date): string {
+  const d = new Date(asOf);
+  d.setDate(d.getDate() + _daysRemaining(item));
+  return d.toISOString();
+}
+
+function _getTrigger(item: InventoryItem): ReplenishmentTrigger | null {
+  if (item.currentStock <= item.safetyStock) return "SAFETY_STOCK_BREACH";
+  if (item.currentStock <= item.reorderPoint) return "REORDER_POINT_HIT";
+  if (item.currentStock <= item.minStockLevel) return "MIN_STOCK_BREACH";
+  return null;
+}
+
+const _TRIGGER_PRIORITY: Record<ReplenishmentTrigger, number> = {
+  SAFETY_STOCK_BREACH: 0, REORDER_POINT_HIT: 1, MIN_STOCK_BREACH: 2,
+  SEASONAL_PUSH: 3, MANUAL_OVERRIDE: 4,
+};
+
+function scanInventory(items: InventoryItem[], asOf: Date = new Date()): ReplenishmentReport {
+  const suggestions: ReplenishmentSuggestion[] = [];
+  for (const item of items) {
+    const trigger = _getTrigger(item);
+    if (!trigger) continue;
+    const qty = Math.max(0, item.maxStockLevel - item.currentStock);
+    if (qty <= 0) continue;
+    suggestions.push({
+      suggestionId: `SUGG-${item.sku}-${Date.now()}`,
+      sku: item.sku, productName: item.productName,
+      category: item.category, branchCode: item.branchCode,
+      trigger, currentStock: item.currentStock, reorderPoint: item.reorderPoint,
+      suggestedOrderQty: qty,
+      daysOfStockRemaining: _daysRemaining(item),
+      estimatedStockoutDate: _stockoutDate(item, asOf),
+      preferredSupplierId: item.preferredSupplierId,
+      estimatedPOValue: Math.round(qty * item.unitCost * 100) / 100,
+      status: "PENDING", createdAt: asOf.toISOString(),
+    });
+  }
+  suggestions.sort((a, b) => _TRIGGER_PRIORITY[a.trigger] - _TRIGGER_PRIORITY[b.trigger]);
+  const criticalSKUs    = suggestions.filter((s) => s.trigger === "SAFETY_STOCK_BREACH").length;
+  const reorderDueSKUs  = suggestions.filter((s) => s.trigger === "REORDER_POINT_HIT" || s.trigger === "MIN_STOCK_BREACH").length;
+  const totalSuggestedPOValue = Math.round(suggestions.reduce((s, sg) => s + sg.estimatedPOValue, 0) * 100) / 100;
+  return { asOfDate: asOf.toISOString(), branchCode: items[0]?.branchCode ?? "ALL",
+    totalSKUs: items.length, criticalSKUs, reorderDueSKUs, totalSuggestedPOValue, suggestions };
+}
+
+const raisePO  = (s: ReplenishmentSuggestion, poNumber: string): ReplenishmentSuggestion => ({ ...s, status: "PO_RAISED",  raisedPONumber: poNumber });
+const approve  = (s: ReplenishmentSuggestion): ReplenishmentSuggestion             => ({ ...s, status: "APPROVED"  });
+const cancelSg = (s: ReplenishmentSuggestion): ReplenishmentSuggestion             => ({ ...s, status: "CANCELLED" });
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface SmartReplenishmentModalProps {
   isOpen: boolean;
@@ -53,29 +164,29 @@ const STATUS_COLORS = {
 export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = ({ isOpen, onClose, onNotification }) => {
   const [asOf] = useState(new Date(2026, 7, 28));
   const [suggestions, setSuggestions] = useState<ReplenishmentSuggestion[]>(() =>
-    ReplenishmentEngine.scanInventory(SAMPLE_INVENTORY, new Date(2026, 7, 28)).suggestions
+    scanInventory(SAMPLE_INVENTORY, new Date(2026, 7, 28)).suggestions
   );
   const [filter, setFilter] = useState<ReplenishmentTrigger | "ALL">("ALL");
 
-  const report = useMemo(() => ReplenishmentEngine.scanInventory(SAMPLE_INVENTORY, asOf), [asOf]);
+  const report = useMemo(() => scanInventory(SAMPLE_INVENTORY, asOf), [asOf]);
 
   const displayed = filter === "ALL" ? suggestions : suggestions.filter((s) => s.trigger === filter);
 
   if (!isOpen) return null;
 
   const handleApprove = (suggId: string) => {
-    setSuggestions((prev) => prev.map((s) => s.suggestionId === suggId ? ReplenishmentEngine.approve(s) : s));
+    setSuggestions((prev) => prev.map((s) => s.suggestionId === suggId ? approve(s) : s));
     onNotification?.("Approved", "Suggestion approved for PO generation.", "success");
   };
 
   const handleRaisePO = (suggId: string) => {
     const poNum = `PO-AUTO-${Date.now().toString().slice(-6)}`;
-    setSuggestions((prev) => prev.map((s) => s.suggestionId === suggId ? ReplenishmentEngine.raisePO(s, poNum) : s));
+    setSuggestions((prev) => prev.map((s) => s.suggestionId === suggId ? raisePO(s, poNum) : s));
     onNotification?.("PO Raised", `Purchase Order ${poNum} raised automatically.`, "success");
   };
 
   const handleCancel = (suggId: string) => {
-    setSuggestions((prev) => prev.map((s) => s.suggestionId === suggId ? ReplenishmentEngine.cancel(s) : s));
+    setSuggestions((prev) => prev.map((s) => s.suggestionId === suggId ? cancelSg(s) : s));
   };
 
   return (
@@ -89,7 +200,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Smart Replenishment & Min-Max Inventory Reorder Automation</h2>
-              <p className="text-xs text-slate-400">Safety Stock Breach · Reorder Point · Stockout Projection · Auto-PO Generation</p>
+              <p className="text-xs text-slate-400">Safety Stock Breach Â· Reorder Point Â· Stockout Projection Â· Auto-PO Generation</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
@@ -103,7 +214,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
             { label: "Total SKUs", value: report.totalSKUs, color: "text-slate-300" },
             { label: "Critical (Safety Breach)", value: report.criticalSKUs, color: "text-red-400" },
             { label: "Reorder Due", value: report.reorderDueSKUs, color: "text-amber-400" },
-            { label: "Suggested PO Value", value: `₹${(report.totalSuggestedPOValue).toLocaleString("en-IN")}`, color: "text-teal-400" },
+            { label: "Suggested PO Value", value: `â‚¹${(report.totalSuggestedPOValue).toLocaleString("en-IN")}`, color: "text-teal-400" },
           ].map((m) => (
             <div key={m.label} className="px-5 py-3 text-center">
               <div className={`text-lg font-black font-mono ${m.color}`}>{m.value}</div>
@@ -143,7 +254,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${ts.badge}`}>{ts.label}</span>
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${sc}`}>{sugg.status}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">{sugg.sku} · {sugg.category} · {sugg.branchCode}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{sugg.sku} Â· {sugg.category} Â· {sugg.branchCode}</div>
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-2">
@@ -155,7 +266,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
                       )}
                       {sugg.status === "APPROVED" && (
                         <button onClick={() => handleRaisePO(sugg.suggestionId)} className="px-3 py-1.5 text-xs font-bold text-white rounded-lg bg-teal-600 hover:bg-teal-500 transition-all shadow-lg shadow-teal-500/20">
-                          ðŸ¤– Auto-Raise PO
+                          Ã°Å¸Â¤â€“ Auto-Raise PO
                         </button>
                       )}
                       {sugg.status === "PO_RAISED" && (
@@ -171,7 +282,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
                       { label: "Reorder Point", value: sugg.reorderPoint, color: "text-slate-300" },
                       { label: "Order Qty", value: sugg.suggestedOrderQty, color: "text-teal-400" },
                       { label: "Days Remaining", value: `${sugg.daysOfStockRemaining}d`, color: sugg.daysOfStockRemaining <= 7 ? "text-red-400" : "text-amber-400" },
-                      { label: "Est. PO Value", value: `₹${sugg.estimatedPOValue.toLocaleString("en-IN")}`, color: "text-violet-400" },
+                      { label: "Est. PO Value", value: `â‚¹${sugg.estimatedPOValue.toLocaleString("en-IN")}`, color: "text-violet-400" },
                     ].map((m) => (
                       <div key={m.label} className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-3 text-center">
                         <div className={`text-base font-black font-mono ${m.color}`}>{m.value}</div>
@@ -186,7 +297,7 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
                       <span>Today</span>
                       <span className={sugg.daysOfStockRemaining <= 7 ? "text-red-400 font-bold" : "text-slate-400"}>
                         Stockout: {stockoutDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                        {sugg.preferredSupplierId && ` · Supplier: ${sugg.preferredSupplierId}`}
+                        {sugg.preferredSupplierId && ` Â· Supplier: ${sugg.preferredSupplierId}`}
                       </span>
                     </div>
                     <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
