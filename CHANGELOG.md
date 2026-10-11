@@ -1,3 +1,36 @@
+﻿
+## [Unreleased] — 2026-10-11
+
+### Added
+- **SmritiConfirmDialog** (src/components/common/SmritiConfirmDialog.tsx): Design-system modal replacing all window.confirm and window.prompt calls across Sales Studio. Supports confirm variant and reason-entry variant with min-length guard.
+- **SmritiEmptyState** (src/components/common/SmritiEmptyState.tsx): Standardised empty-state component with icon, title, description, primary and secondary CTA. Used across all 7 sub-view empty variants.
+- **SmritiTableSkeleton** (src/components/common/SmritiTableSkeleton.tsx): Animated shimmer table skeleton with configurable rows and per-column width/alignment. Replaces generic spinner on all ledger sub-views.
+- **Sales Studio Keyboard Shortcut Overlay** (? key / Shortcuts button): Shows all hotkeys — Shift+Q/O/I/R/C tab navigation, D density cycle, Escape deselect.
+- **Sales Studio Bulk Action Toolbar**: Contextual floating bar on row selection — Export Selected (CSV) + Delete Selected (audit-logged) + Escape/Clear.
+- **Customer Tag Inline Editor**: Direct chip-pill tag add/remove in the Customers directory table without opening the edit panel.
+- **Per-field Inline Validation** on Add Customer form: Name/Mobile/Email/GSTIN/PAN — onBlur validators, red/green border feedback, error message with AlertCircle icon.
+- **Sortable Customer Columns** (9 columns) with ChevronUp/Down/UpDown visual indicators and sortedCustomers useMemo.
+- **LedgerScreen Page-Size Selector**: 25/50/100/250 rows with first/last page navigation. Persisted in localStorage.
+- **BillingWorkspace Toolbar Overflow**: 5 secondary actions (Gift Cards, Vouchers, Recon, Dynamic Pricing, Omni Orders) consolidated into a More ··· popover with backdrop dismiss.
+- **POS Summary Panel Responsive Auto-Collapse**: Totals panel auto-collapses at window.innerWidth ≤ 1280px on mount and window resize. F9 still reopens.
+- **Credit Billing Purple Visual Skin**: Purple header + container border when uxView === "CREDIT_BILLING".
+- **Shift HUD** visible in all 3 billing modes (WORKSPACE / EOD / CREDIT_BILLING).
+- **Tamper-Proof Ledger** lock badge in audit log config.
+- **Simulation Centre** buttons guarded with import.meta.env.DEV.
+- **Audit events** for POS bill settlement and supervisor PIN overrides.
+- **4-dimension audit filters**: Action Type / Module / Actor / Date Range.
+- **Audit drill-down** routing + copy entityId button + action-specific colour variants.
+
+### Changed
+- Toast duration extended from default to 6000ms.
+- Row density state persisted in localStorage (compact/comfortable/relaxed).
+- Tab badge counts for all 5 Sales Studio sub-views.
+- Dynamic version badge from import.meta.env.VITE_APP_VERSION.
+
+### Governance
+- Walkthrough: docs/walkthrough/sales_billing/SalesBilling_UX_Audit_Implementation_v1.0.md
+- Commit: 12fa565b
+- Files changed: 12 (1526 insertions / 172 deletions)
 <!--
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
@@ -7518,3 +7551,4 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ### Changed
 - Modernized subview layouts and animations in the Sales & Commerce Studio (`SalesStudioTab.tsx`).
+
