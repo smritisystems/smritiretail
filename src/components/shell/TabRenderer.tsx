@@ -81,6 +81,7 @@ const BulkImportSection = lazy(() => import("../BulkImportSection.tsx").then(m =
 const DataBridgeWorkspace = lazy(() => import("../databridge/DataBridgeWorkspace.tsx").then(m => ({ default: m.DataBridgeWorkspace })));
 const LegacyDeprecationTelemetryTab = lazy(() => import("../governance/LegacyDeprecationTelemetryTab.tsx").then(m => ({ default: m.LegacyDeprecationTelemetryTab })));
 const AttendanceWorkspaceTab = lazy(() => import("../hr/AttendanceWorkspaceTab.tsx").then(m => ({ default: m.AttendanceWorkspaceTab })));
+const LeaveManagementTab = lazy(() => import("../hr/LeaveManagementTab.tsx").then(m => ({ default: m.LeaveManagementTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -310,6 +311,10 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "attendance-register":
     case "hr-attendance":
       return <AttendanceWorkspaceTab currentUser={currentUser} onNotification={addNotification} />;
+    case "leave-management":
+    case "staff-leave":
+    case "hr-leave":
+      return <LeaveManagementTab currentUser={currentUser} onNotification={addNotification} />;
     case "user-profile":
       return <UserProfileTab />;
     case "ufe":

@@ -279,6 +279,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Operations",
     },
     {
+      id: "leave-management",
+      label: "Leave Management",
+      icon: "beach_access",
+      category: "Operations",
+    },
+    {
       id: "user-profile",
       label: "My Profile Dashboard",
       icon: "account_circle",
