@@ -78,6 +78,51 @@
 	--color-theme-chart-indigo: var(--c-theme-chart-indigo);
 }
 
+/* ── Density Token Layer ────────────────────────────────────────────────── */
+/* Applied via data-density attribute set by ThemeContext.setPreset()        */
+:root,
+[data-density="comfortable"] {
+	--spacing-unit: 6px;
+	--row-height:   34px;
+	--font-base:    13px;
+	--gap-xs:       4px;
+	--gap-sm:       8px;
+	--gap-md:       12px;
+	--gap-lg:       16px;
+	--gap-xl:       24px;
+	--p-card:       16px;
+	--p-cell:       8px 12px;
+	--radius-card:  8px;
+}
+
+[data-density="compact"] {
+	--spacing-unit: 4px;
+	--row-height:   28px;
+	--font-base:    12px;
+	--gap-xs:       2px;
+	--gap-sm:       6px;
+	--gap-md:       8px;
+	--gap-lg:       12px;
+	--gap-xl:       16px;
+	--p-card:       10px;
+	--p-cell:       5px 8px;
+	--radius-card:  6px;
+}
+
+[data-density="spacious"] {
+	--spacing-unit: 8px;
+	--row-height:   40px;
+	--font-base:    14px;
+	--gap-xs:       6px;
+	--gap-sm:       10px;
+	--gap-md:       16px;
+	--gap-lg:       24px;
+	--gap-xl:       32px;
+	--p-card:       24px;
+	--p-cell:       10px 16px;
+	--radius-card:  10px;
+}
+
 @layer base {
 	:root, [data-theme="light"] {
 		/* SMRITI Enterprise Light Design Tokens — Fiori Horizon Inspired */
@@ -206,7 +251,8 @@
 		background-color: var(--c-theme-base) !important;
 		color: var(--c-theme-body) !important;
 		font-family: var(--font-sans);
-		font-size: 13px;
+		/* font-base is set dynamically by ThemeContext via CSS var override */
+		font-size: var(--font-base, 13px);
 	}
 
 	body {

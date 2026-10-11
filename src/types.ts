@@ -844,9 +844,18 @@ export interface SalesReturn {
 
 export interface UserPreferences {
   theme: "light" | "dark";
+  /** Active preset ID — drives the full visual configuration */
+  presetId?: string;
+  /** Density override — "compact" | "comfortable" | "spacious" */
+  density?: "compact" | "comfortable" | "spacious";
+  /** Font scale override — "sm" | "md" | "lg" */
+  fontScale?: "sm" | "md" | "lg";
+  /** Optional per-user accent colour hex override */
+  accentOverride?: string | null;
   language: string;
   timeZone: string;
 }
+
 
 export interface User {
   id: string; // Keep for Staff-compatibility
