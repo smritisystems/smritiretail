@@ -46,7 +46,7 @@
  *   - Loading skeleton and error banner added.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
 
 // ── Types (aligned to backend PersonnelOut / AttendanceRecord / IncentiveOut) ─
@@ -208,7 +208,11 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
   // Printable Payslip state
   const [showPayslipModal, setShowPayslipModal] = useState(false);
 
-  const PERIOD = currentPeriod();
+  // F-13: useMemo so PERIOD updates if component stays open across a month boundary
+  const PERIOD = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
 
   const load = useCallback(async () => {
     if (!isOpen) return;
@@ -252,36 +256,9 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         : (inc as any)?.lines || (inc as any)?.incentives || [];
 
       let incentiveRecords: IncentiveRecord[] = Array.isArray(inc) ? inc : [];
-      if (incentiveRecords.length === 0 && staffList.length > 0) {
-        incentiveRecords = staffList.map((p) => {
-          const empAttendance = normalizedAtt.filter((a) => a.user_id === p.user_id);
-          const presentDays = empAttendance.filter((a) => a.status === "PRESENT" || a.status === "HALF_DAY").length;
-          const workingDays = 26;
-          const baseSalary = p.base_salary ?? 25000;
-          const earnedSalary = Math.round((baseSalary * (presentDays / workingDays)) * 100) / 100;
-          const commissionAmt = 3750;
-          return {
-            user_id: p.user_id,
-            period: PERIOD,
-            net_sales: 150000,
-            commission_amt: commissionAmt,
-            target_bonus_amt: 0,
-            total_earnings: commissionAmt,
-            target_amt: 200000,
-            target_achievement_pct: 75,
-            present_days: presentDays,
-            working_days: workingDays,
-            lop: Math.max(0, workingDays - presentDays),
-            earned_salary: earnedSalary,
-            base_salary: baseSalary,
-            gross_payout: earnedSalary + commissionAmt,
-            net_payout: earnedSalary + commissionAmt,
-            slab_breakdown: [
-              { slab: "Base Retail Tier", sales_in_slab: 150000, rate: 2.5, amount: commissionAmt },
-            ],
-          };
-        });
-      }
+      // F-05: Never synthesize fictional payout data — show empty list instead.
+      // The Payout tab will display a clear "data not yet available" message.
+      // Real payout data comes from GET /staff/commissions/summary (PostgreSQL ledger).
 
       setPersonnel(staffList);
       setAttendance(normalizedAtt);

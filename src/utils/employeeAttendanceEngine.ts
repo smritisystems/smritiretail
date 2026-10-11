@@ -23,7 +23,7 @@
  *   Period     : `periodReport()` — attendance + payout across employees
  */
 
-export type AttendanceStatus = "PRESENT" | "ABSENT" | "LEAVE" | "HALF_DAY" | "HOLIDAY";
+export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "LEAVE" | "HALF_DAY" | "HOLIDAY";
 export type CommissionType   = "FLAT_PCT" | "TIERED" | "TARGET_BASED";
 export type LeaveType        = "CASUAL" | "SICK" | "EARNED" | "UNPAID";
 
