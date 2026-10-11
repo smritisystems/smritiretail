@@ -1,6 +1,30 @@
 
 ## [Unreleased] — 2026-10-11
 
+### PSV — Menu Registry & Launchpad Plain-Language Rename
+
+**Commit:** `82f0baf5`
+
+- **`src/layout_engine/layout_store.tsx`** — sidebar/tab-bar label: `"Channel Visibility"` → `"Distributor Stock"` (short for sidebar fit; matches redesign language)
+- **`src/components/launchpad/launchpadCatalog.ts`** — Fiori home tile:
+  - `title`: `"Channel Stock Visibility (PSV)"` → `"Distributor Stock Tracker"`
+  - `subtitle`: `"Party stock visibility, partner sell-through analytics & channel cover weeks"` → `"See how much stock each distributor has, how much has sold, and whether any action is needed"`
+- `fioriLaunchpad.test.ts` — no change needed; test checks tile `id: "psv"` only, not the title string.
+
+### TypeScript — Full Codebase Clean Pass (0 errors)
+
+**Commits:** `2c5aec14` · `6855fddf`
+
+Pre-existing errors eliminated; `tsc --noEmit --skipLibCheck` now exits `0` with empty stdout/stderr.
+
+| Error | Root Cause | Fix | File |
+|-------|-----------|-----|------|
+| `TS2339` `import.meta.env` (×2) | `vite/client` types not in scope for standalone `tsc` run | `/// <reference types="vite/client" />` added | `src/declarations.d.ts` |
+| `TS2353` `LedgerFilterOption.type` (×2) | Interface missing `type` field; date filters use `type:"date"` | Added `type?: "select"\|"date"\|"text"`, made `options?` optional | `src/components/global/ledger/types.ts` |
+| `TS2322` `Shimmer style` | `Shimmer` component only accepted `className`, not `style` | Added `style?: React.CSSProperties` to Shimmer props | `src/components/common/SmritiTableSkeleton.tsx` |
+| `TS18047` `selectedOrder null` | `selectedOrder` typed `T\|null`; used without null guard | `selectedOrder!.id` non-null assertion | `src/components/SalesStudioTab.tsx` |
+| `TS18048` `filter.options undefined` | Making `options?` optional cascaded to `LedgerScreen.tsx:938` | `(filter.options ?? []).map(...)` nullish fallback | `src/components/global/ledger/LedgerScreen.tsx` |
+
 ### PSV Distributor Stock Tracker — UX Redesign v3.0.0 (WhatsApp-Level Simplicity)
 
 **Commit:** `54abf7df` · **File:** `src/components/PsvTab.tsx`
