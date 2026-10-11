@@ -512,6 +512,111 @@ class PSVProjectionService:
             )
 
     @classmethod
+    async def approve_pending_event(
+        cls,
+        session: AsyncSession,
+        event_id: str,
+        company_id: str,
+        approved_by: str,
+    ) -> Dict[str, Any]:
+        """
+        F-08: Promotes a PENDING PSV stock event to APPROVED and applies its
+        deferred balance delta into psv_stock_balances.
+
+        Accepts either event_id (internal PK) or source_event_id (idempotency key).
+        Returns a structured status dict consumed by the PATCH router endpoint.
+        """
+        # Resolve event by internal id or source_event_id
+        evt_stmt = select(PSVStockEvent).where(
+            (PSVStockEvent.event_id == event_id) | (PSVStockEvent.source_event_id == event_id)
+        )
+        event = (await session.execute(evt_stmt)).scalar_one_or_none()
+
+        if not event:
+            return {"status": "NOT_FOUND", "event_id": event_id}
+
+        if event.approval_status == "APPROVED":
+            return {
+                "status": "ALREADY_APPROVED",
+                "event_id": event.event_id,
+                "source_event_id": event.source_event_id,
+            }
+
+        # Promote to APPROVED
+        event.approval_status = "APPROVED"
+        event.reported_by = approved_by
+        event.sync_status = "PROJECTED"
+
+        # Apply deferred balance delta (same logic as project_psv_stock_event)
+        bal_stmt = select(PSVStockBalance).where(
+            PSVStockBalance.psv_party_id == event.psv_party_id,
+            PSVStockBalance.sku == event.sku,
+        )
+        if company_id:
+            bal_stmt = bal_stmt.where(PSVStockBalance.company_id == company_id)
+        bal = (await session.execute(bal_stmt)).scalar_one_or_none()
+
+        if not bal:
+            bal = PSVStockBalance(
+                id=f"psvb_{__import__('uuid').uuid4().hex[:16]}",
+                company_id=company_id,
+                company_code=event.company_code,
+                product_id=event.product_id,
+                psv_party_id=event.psv_party_id,
+                psv_store_id=event.psv_store_id,
+                delivery_location_id=event.delivery_location_id,
+                store_code_snapshot=event.store_code_snapshot,
+                sku=event.sku,
+                billed_qty=Decimal("0.0000"),
+                received_qty=Decimal("0.0000"),
+                sold_qty=Decimal("0.0000"),
+                returned_qty=Decimal("0.0000"),
+                transferred_qty=Decimal("0.0000"),
+                current_balance=Decimal("0.0000"),
+                reconciliation_status="PENDING_CATALOG_MAPPING",
+            )
+            session.add(bal)
+
+        mtype = event.movement_type.upper()
+        qty = event.quantity
+
+        if mtype in ["GST_BILLED", "INVOICE", "INWARD", "BILLED_TO_PARTNER"]:
+            bal.billed_qty += qty
+            bal.current_balance += qty
+        elif mtype in ["STORE_RECEIVED", "RECEIVED", "RECEIVED_AT_STORE"]:
+            bal.received_qty += qty
+        elif mtype in ["SOLD", "SOLD_THROUGH", "OUTWARD_SALE", "POS_SALE"]:
+            bal.sold_qty += qty
+            bal.current_balance -= qty
+        elif mtype in ["RETURNED", "SALES_RETURN"]:
+            bal.returned_qty += qty
+            bal.current_balance += qty  # F-02 fix: returns restore balance
+        elif mtype in ["TRANSFERRED"]:
+            bal.transferred_qty += qty
+            bal.current_balance -= qty
+
+        bal.last_reported_at = event.event_date
+        bal.reconciliation_status = "AUTO_MATCHED" if bal.product_id else "PENDING_CATALOG_MAPPING"
+
+        await cls._recompute_party_metrics(
+            session=session,
+            party_id=event.psv_party_id,
+            company_id=company_id,
+        )
+
+        await session.commit()
+        return {
+            "status": "APPROVED_AND_PROJECTED",
+            "event_id": event.event_id,
+            "source_event_id": event.source_event_id,
+            "psv_party_id": event.psv_party_id,
+            "sku": event.sku,
+            "movement_type": event.movement_type,
+            "quantity": float(qty),
+            "current_balance": float(bal.current_balance),
+        }
+
+    @classmethod
     async def get_scoped_party_visibility(
         cls,
         session: AsyncSession,
@@ -539,11 +644,33 @@ class PSVProjectionService:
         )
         balances = (await session.execute(bal_stmt)).scalars().all()
 
+        # F-09: Load the visibility policy to get allowed_sku_patterns for this scope
+        allowed_patterns: List[str] = []
+        if scope and scope.policy_code:
+            pol_stmt = select(PSVVisibilityPolicy).where(
+                PSVVisibilityPolicy.policy_code == scope.policy_code,
+                PSVVisibilityPolicy.is_active == True,
+                PSVVisibilityPolicy.is_deleted == False,
+            )
+            policy = (await session.execute(pol_stmt)).scalars().first()
+            if policy and policy.allowed_sku_patterns:
+                allowed_patterns = list(policy.allowed_sku_patterns)
+
+        from fnmatch import fnmatch
+
+        def _sku_passes(sku: str) -> bool:
+            """Returns True if sku matches any allowed pattern, or if no patterns are defined."""
+            if not allowed_patterns:
+                return True  # no restriction — all SKUs pass
+            return any(fnmatch(sku, pat) for pat in allowed_patterns)
+
         items: List[PSVScopedBalanceItem] = []
         tot_units = Decimal("0.0000")
 
         for b in balances:
-            # If allowed patterns exist on scope/policy, filter
+            # F-09: apply policy-scoped SKU pattern filter
+            if not _sku_passes(b.sku):
+                continue
             items.append(
                 PSVScopedBalanceItem(
                     sku=b.sku,
