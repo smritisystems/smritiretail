@@ -44,6 +44,12 @@ import {
   Info,
   FolderOpen,
   FileText,
+  Search,
+  Database,
+  Package,
+  Eye,
+  Tag,
+  X,
 } from "lucide-react";
 import { ScriptFieldIdentification } from "./types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
@@ -57,6 +63,22 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type DispatchMode = "qz_tray" | "server_tcp" | "prn_download";
+
+/** Minimal shape from GET /api/v1/inventory/search */
+interface DbItem {
+  id: number;
+  name: string;
+  barcode: string;
+  style_code: string | null;
+  color: string | null;
+  size: string | null;
+  mrp: number | string;
+  brand: string | null;
+  created_at: string | null;
+}
+
+/** Resolved placeholder map for script substitution */
+type PlaceholderMap = Record<string, string>;
 
 interface PrinterTarget {
   name: string;
@@ -184,7 +206,16 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
   const [copies, setCopies] = useState<number>(1);
   const [printerDropdownOpen, setPrinterDropdownOpen] = useState<boolean>(false);
   const [libraryOpen, setLibraryOpen] = useState<boolean>(false);
-  const [libraryLoading, setLibraryLoading] = useState<string | null>(null); // filename being loaded
+  const [libraryLoading, setLibraryLoading] = useState<string | null>(null);
+
+  // ── DB Item Resolver state ───────────────────────────────────────────
+  const [dbOpen, setDbOpen] = useState<boolean>(false);
+  const [dbQuery, setDbQuery] = useState<string>("");
+  const [dbResults, setDbResults] = useState<DbItem[]>([]);
+  const [dbSearching, setDbSearching] = useState<boolean>(false);
+  const [selectedItem, setSelectedItem] = useState<DbItem | null>(null);
+  const [resolvedScript, setResolvedScript] = useState<string>("");
+  const [resolvedPreviewOpen, setResolvedPreviewOpen] = useState<boolean>(false);
 
   const lines = scriptContent.split("\n");
 
@@ -282,6 +313,75 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
       setLibraryLoading(null);
     }
   }, [onNotification]);
+
+  // ── Search DB items ───────────────────────────────────────────────────────
+  const searchDbItems = useCallback(async (q: string) => {
+    if (q.trim().length < 2) { setDbResults([]); return; }
+    setDbSearching(true);
+    try {
+      const data = await apiFetchV1<DbItem[]>(`/inventory/search?q=${encodeURIComponent(q.trim())}&limit=12`);
+      setDbResults(data || []);
+    } catch {
+      setDbResults([]);
+    } finally {
+      setDbSearching(false);
+    }
+  }, []);
+
+  // Debounce the search
+  useEffect(() => {
+    if (!dbQuery) { setDbResults([]); return; }
+    const t = setTimeout(() => void searchDbItems(dbQuery), 350);
+    return () => clearTimeout(t);
+  }, [dbQuery, searchDbItems]);
+
+  // ── Resolve script placeholders from a DB item ─────────────────────────────
+  const resolveScript = useCallback((item: DbItem): string => {
+    const today = new Date();
+    const pkd = today.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const map: PlaceholderMap = {
+      "{barcode}":    item.barcode || "",
+      "{size}":       item.size || "",
+      "{colour}":     item.color || "",
+      "{color}":      item.color || "",
+      "{style_code}": item.style_code || "",
+      "{mrp}":        String(item.mrp ?? ""),
+      "{pkd_date}":   pkd,
+      "{brand}":      item.brand || "",
+      "{name}":       item.name || "",
+    };
+    let out = scriptContent;
+    for (const [ph, val] of Object.entries(map)) {
+      out = out.split(ph).join(val);
+    }
+    return out;
+  }, [scriptContent]);
+
+  // When item selected, resolve immediately
+  const handleSelectItem = useCallback((item: DbItem) => {
+    setSelectedItem(item);
+    setDbResults([]);
+    setDbQuery(item.name);
+    const resolved = resolveScript(item);
+    setResolvedScript(resolved);
+    setResolvedPreviewOpen(true);
+    setCompilerStatus(`Resolved: ${item.name} (${item.barcode})`);
+    onNotification?.(
+      "Item Resolved",
+      `Script placeholders filled with: ${item.name} — ${item.barcode}`,
+      "success"
+    );
+  }, [resolveScript, onNotification]);
+
+  // Apply resolved script to editor
+  const handleApplyResolvedToEditor = useCallback(() => {
+    if (!resolvedScript) return;
+    setScriptContent(resolvedScript);
+    setResolvedPreviewOpen(false);
+    setCompilerStatus(`Applied: ${selectedItem?.name || "Item"} — ready to print`);
+    setPrintDispatch({ status: "idle", message: `Script resolved with real item data — ready to send to printer.` });
+    onNotification?.("Applied to Editor", "Resolved script loaded into editor. Hit Send to Printer.", "success");
+  }, [resolvedScript, selectedItem, onNotification]);
 
   // Persist selections
   useEffect(() => {
@@ -1120,17 +1220,142 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
             </div>
           </div>
 
+          {/* ── Card: Resolve with DB Items ────────────────────────────── */}
+          <div className="bg-surface border border-outline-variant rounded-lg shadow-xs overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setDbOpen((o) => !o)}
+              className="w-full px-4 py-3 bg-gradient-to-r from-emerald-500/10 to-teal-500/5 border-b border-outline-variant flex items-center justify-between hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 transition"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/15">
+                  <Database size={15} className="text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-on-surface">Resolve with DB Items</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    {selectedItem
+                      ? <span className="text-emerald-600 dark:text-emerald-400 font-semibold">&#10003; {selectedItem.name}</span>
+                      : "Search & fill script placeholders from live DB"
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {selectedItem && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setSelectedItem(null); setResolvedScript(""); setDbQuery(""); setResolvedPreviewOpen(false); setCompilerStatus("Compiler Ready"); }}
+                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500"
+                    title="Clear"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+                <ChevronDown size={14} className={`text-on-surface-variant transition-transform ${dbOpen ? "rotate-180" : ""}`} />
+              </div>
+            </button>
+
+            {dbOpen && (
+              <div className="p-3 flex flex-col gap-2.5">
+                <div className="relative">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                  <input
+                    type="text"
+                    value={dbQuery}
+                    onChange={(e) => setDbQuery(e.target.value)}
+                    placeholder="Search name, barcode, SKU..."
+                    className="w-full pl-8 pr-7 py-2 text-xs border border-outline-variant rounded-lg bg-surface text-on-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition"
+                  />
+                  {dbSearching && <Loader2 size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-emerald-500" />}
+                </div>
+
+                {dbResults.length > 0 && (
+                  <div className="border border-outline-variant rounded-lg overflow-hidden max-h-52 overflow-y-auto shadow bg-surface">
+                    {dbResults.map((item) => (
+                      <button key={item.id} type="button" onClick={() => handleSelectItem(item)}
+                        className="w-full text-left px-3 py-2.5 border-b border-outline-variant/40 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition">
+                        <div className="flex items-start gap-2">
+                          <Package size={12} className="text-emerald-500 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-on-surface truncate">{item.name}</p>
+                            <div className="flex gap-1.5 mt-0.5 flex-wrap">
+                              <span className="text-[9px] font-mono text-on-surface-variant">{item.barcode}</span>
+                              {item.style_code && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-1 rounded font-mono">{item.style_code}</span>}
+                              {item.size && <span className="text-[9px] bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-1 rounded">{item.size}</span>}
+                              {item.color && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-1 rounded">{item.color}</span>}
+                              <span className="text-[9px] font-bold text-green-700 dark:text-green-400">&#8377;{item.mrp}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedItem && (
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg p-2.5">
+                    <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Tag size={10} /> Resolved Values
+                    </p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {([
+                        ["{barcode}",    selectedItem.barcode],
+                        ["{style_code}", selectedItem.style_code || "—"],
+                        ["{size}",       selectedItem.size || "—"],
+                        ["{colour}",     selectedItem.color || "—"],
+                        ["{mrp}",        "Rs." + selectedItem.mrp],
+                        ["{pkd_date}",   new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })],
+                      ] as [string, string][]).map(([k, v]) => (
+                        <div key={k}>
+                          <span className="text-[9px] font-mono text-on-surface-variant">{k}</span>
+                          <p className="text-[10px] font-semibold text-on-surface truncate">{v}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {resolvedScript && resolvedPreviewOpen && (
+                  <div>
+                    <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Eye size={10} /> Resolved Script Preview
+                    </p>
+                    <pre className="bg-[#1E1E1E] text-[#D4D4D4] text-[10px] font-mono rounded-lg p-2 max-h-28 overflow-auto leading-relaxed whitespace-pre-wrap break-all">
+                      {resolvedScript.slice(0, 500)}
+                      {resolvedScript.length > 500 && <span className="text-white/40">{"\n\u2026"}{resolvedScript.length - 500} more chars</span>}
+                    </pre>
+                  </div>
+                )}
+
+                {selectedItem && resolvedScript && (
+                  <div className="flex gap-2">
+                    <button type="button" onClick={handleApplyResolvedToEditor}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
+                      <FileCode size={13} />
+                      Apply to Editor
+                    </button>
+                    <button type="button" onClick={() => setResolvedPreviewOpen((p) => !p)}
+                      className="px-3 py-2 border border-outline-variant rounded-lg text-xs text-on-surface-variant hover:bg-surface-variant transition" title="Toggle preview">
+                      <Eye size={13} />
+                    </button>
+                  </div>
+                )}
+
+                {dbQuery.trim().length >= 2 && !dbSearching && dbResults.length === 0 && !selectedItem && (
+                  <p className="text-[11px] text-on-surface-variant text-center py-2">No products found for &ldquo;{dbQuery}&rdquo;</p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* ── Status Bar ───────────────────────────────────────────────── */}
           <div className="bg-surface-container-low border border-outline-variant rounded-lg p-3 flex items-center gap-3">
             <span className="relative flex h-3 w-3 shrink-0">
               {statusPulse && (
-                <span
-                  className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusColor[printDispatch.status]} opacity-75`}
-                />
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusColor[printDispatch.status]} opacity-75`} />
               )}
-              <span
-                className={`relative inline-flex rounded-full h-3 w-3 ${statusColor[printDispatch.status]}`}
-              />
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${statusColor[printDispatch.status]}`} />
             </span>
             <div className="min-w-0">
               <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold flex items-center gap-1">
