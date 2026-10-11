@@ -1,5 +1,33 @@
-﻿
+
 ## [Unreleased] — 2026-10-11
+
+### PSV (Party Stock Visibility) — Full Audit Sprint (10/10 findings resolved)
+
+**Commits:** `1ed07877` (P0) · `f11e077f` (P1) · `0a6d081d` (P3)
+
+#### Fixed — Critical (P0)
+- **F-01** `GET /api/v1/psv/parties` endpoint was completely missing — `App.tsx` called it on every load causing permanent blank `PsvTab` and a `console.error` on every session start. Added the endpoint (`backend/app/api/v1/psv.py`) with company-scoped `PSVParty` query, `selectinload` for `sku_tracking`, live `stock_count` from `psv_stock_balances`, and a 4-day sales/stock history window from `psv_stock_events` for the velocity chart.
+- **F-02** `RETURNED` / `SALES_RETURN` movement type applied wrong sign on `current_balance` — `current_balance -= qty` (removed stock on return). Fixed to `current_balance += qty` (`psv_projection.py:372`). Stock returned to a partner restores their on-hand balance.
+
+#### Fixed — P1
+- **F-03** `PSVParty.stock_count` never updated after seeding — now recomputed from `SUM(current_balance)` across all SKU balances via `_recompute_party_metrics` after every approved event.
+- **F-04** `PSVParty.sell_through` and `weeks_of_cover` permanently `0.00` for new parties — recomputed live: `sell_through = MIN(100, totalSold / totalBilled × 100)`, `weeks_of_cover = current_balance / (avg_daily_sold × 7)` from distinct sales event days.
+- **F-06** `psvParties` serialised to/from Express-era JSON `DB_FILE` in `store.ts` — removed from `saveDb()` and `loadDb()`. FastAPI + Postgres is sole owner; comment notes migration complete.
+- **F-07** `capital_locked` seeded at creation, never updated — now computed as `Σ(current_balance_sku × Product.mrp)` via a batch `Product.sku` join inside `_recompute_party_metrics`.
+
+#### Added — P1
+- **`PSVProjectionService._recompute_party_metrics()`** — private classmethod called after every `APPROVED` stock event. Recomputes `stock_count`, `sell_through`, `weeks_of_cover`, `capital_locked` and writes back to `psv_parties`. Wrapped in `try/except` so recompute failure never blocks the projection path.
+- **`history` field** on `PSVPartyResponse` schema — `List[Dict]` with shape `{date, stock, sales}`. Populated by `GET /parties` from last 4 event days. Prevents `PsvTab` velocity chart crash.
+- **`ConfigDict(from_attributes=True)`** on `PSVSkuTrackingResponse` and `PSVPartyResponse` for direct SQLAlchemy ORM → Pydantic mapping.
+
+#### Added — P3
+- **F-08** `PATCH /api/v1/psv/events/{event_id}/approve` — promotes a `PENDING` PSV event to `APPROVED` and applies its deferred balance delta. MANAGER/ADMIN role guard (403), 404 on unknown event, 409 on double-approve. Accepts both `event_id` (PK) and `source_event_id` (idempotency key). Returns `APPROVED_AND_PROJECTED` with full balance snapshot.
+- **F-09** SKU pattern filter in `get_scoped_party_visibility` — loads `PSVVisibilityPolicy.allowed_sku_patterns` via `scope.policy_code` join; applies `fnmatch` glob per SKU. Empty pattern list = no restriction (backward compatible).
+- **F-10** `PsvTab` audit `useEffect` mount-guard — `hasMounted = useRef(false)` flipped to `true` by a dedicated empty-dep `useEffect`. `recordAuditAction` now gated on `hasMounted.current && activeParty`, eliminating spurious audit log on auto-selected default party at component mount.
+
+#### Tests
+- `backend/app/tests/test_psv.py::test_list_psv_parties_returns_partner_inventory` — previously failing (no route). Now **PASSED** with `pytest-8.2.1, asyncio-mode=auto` on Python 3.11.9.
+- `src/tests/psvEngine.test.ts` — 5/5 Vitest engine tests unaffected (no changes to `partnerSellThru.ts`).
 
 ### Added
 - **SmritiConfirmDialog** (src/components/common/SmritiConfirmDialog.tsx): Design-system modal replacing all window.confirm and window.prompt calls across Sales Studio. Supports confirm variant and reason-entry variant with min-length guard.
