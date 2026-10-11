@@ -14,6 +14,7 @@
 
 import React, { useState } from "react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
+import { recordAuditAction } from "../../../lib/apiFetch";
 
 export type SupervisorActionType =
   | "NEGATIVE_CASH_DRAWER"
@@ -112,6 +113,13 @@ export const ProPosSupervisorAuthModal: React.FC<ProPosSupervisorAuthModalProps>
           reason: reason.trim() || "Store Manager On-Duty Authorization",
         };
         onAuthorized(authResult);
+        // REC-04: Audit event for every supervisor override
+        recordAuditAction(
+          "SUPERVISOR_OVERRIDE",
+          "pos_supervisor_auth",
+          `${actionType}`,
+          `Supervisor '${authResult.supervisor_name}' authorized override: ${actionTitle || defaultTitles[actionType]}. Reason: ${authResult.reason}`
+        );
         onNotification?.(
           "Supervisor Authorized",
           `Supervisor override approved for ${actionTitle || defaultTitles[actionType]}.`,

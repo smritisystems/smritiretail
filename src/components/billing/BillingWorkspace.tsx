@@ -43,6 +43,7 @@ import {
   Ticket,
   Zap,
   ShoppingBag,
+  MoreHorizontal,
 } from "lucide-react";
 
 export type BillingWorkspaceMode = "RETAIL_POS";
@@ -91,6 +92,8 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const [showSupervisorPinModal, setShowSupervisorPinModal] = useState<boolean>(false);
   const [showDynamicPricingModal, setShowDynamicPricingModal] = useState<boolean>(false);
   const [showOmniOrderModal, setShowOmniOrderModal] = useState<boolean>(false);
+  // REC-07: Secondary toolbar overflow menu
+  const [showOverflowMenu, setShowOverflowMenu] = useState<boolean>(false);
 
   // Clock ticker
   useEffect(() => {
@@ -104,7 +107,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
     (title: string, message: string, type: "success" | "error" | "info" | "warning" = "info") => {
       setToast({ title, message, type });
       onNotification?.(title, message, type);
-      setTimeout(() => setToast(null), 4000);
+      setTimeout(() => setToast(null), 6000);
     },
     [onNotification]
   );
@@ -140,9 +143,17 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   }, [showHotkeysModal, showToast]);
 
   return (
-    <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden font-sans">
+    <div className={`h-full flex flex-col overflow-hidden font-sans transition-colors duration-300 ${
+      auxView === "CREDIT_BILLING"
+        ? "bg-[#1a0f2e] dark:bg-[#0f0920] text-[#e8d5ff]"
+        : "bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]"
+    }`}>
       {/* ── Top Unified Billing Navigation Header ── */}
-      <header className="bg-white dark:bg-[#131b2e] border-b border-[#c4c5d5] dark:border-[#444653] flex flex-wrap justify-between items-center px-4 h-13 shrink-0 z-20 shadow-2xs gap-2">
+      <header className={`border-b flex flex-wrap justify-between items-center px-4 h-13 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300 ${
+        auxView === "CREDIT_BILLING"
+          ? "bg-[#2d1057] dark:bg-[#1e0a3c] border-[#6d28d9]/40"
+          : "bg-white dark:bg-[#131b2e] border-[#c4c5d5] dark:border-[#444653]"
+      }`}>
         {/* Brand & Mode Switcher */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 pr-2 border-r border-[#c4c5d5] dark:border-[#444653]">
@@ -150,7 +161,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             <h1 className="text-sm font-bold text-[#00288e] dark:text-[#a8b8ff] tracking-tight flex items-center gap-1.5">
               <span>Billing Workspace</span>
               <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">
-                v4.14
+                {import.meta.env.VITE_APP_VERSION || "v6.70"}
               </span>
             </h1>
           </div>
@@ -217,87 +228,93 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             <span className="hidden sm:inline">Credit Billing</span>
           </button>
 
-          {/* Gift Cards */}
-          <button
-            type="button"
-            id="pos-gift-cards-btn"
-            onClick={() => setShowGiftCardModal(true)}
-            title="Gift Card Issuance, Top-up & Ledger"
-            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-amber-600 dark:text-amber-400"
-          >
-            <Gift size={13} />
-            <span className="hidden sm:inline">Gift Cards</span>
-          </button>
+          {/* REC-07: Secondary actions collapsed into overflow popover */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowOverflowMenu(v => !v)}
+              title="More billing tools"
+              className={`px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border text-xs font-semibold ${
+                showOverflowMenu
+                  ? "bg-theme-surface-3 border-indigo-500/50 text-theme-primary"
+                  : "border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
+              }`}
+            >
+              <MoreHorizontal size={14} />
+              <span className="hidden sm:inline">More</span>
+            </button>
 
-          {/* Gift Vouchers */}
-          <button
-            type="button"
-            id="pos-gift-vouchers-btn"
-            onClick={() => setShowGiftVoucherModal(true)}
-            title="Store Credit & Gift Vouchers"
-            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-teal-600 dark:text-teal-400"
-          >
-            <Ticket size={13} />
-            <span className="hidden sm:inline">Vouchers</span>
-          </button>
+            {showOverflowMenu && (
+              <>
+                {/* Backdrop to close on outside click */}
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setShowOverflowMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-1.5 z-40 bg-white dark:bg-[#1e2228] border border-[#c4c5d5] dark:border-[#444653] rounded-xl shadow-2xl p-1.5 min-w-[200px] flex flex-col gap-0.5">
+                  {/* Gift Cards */}
+                  <button
+                    type="button"
+                    id="pos-gift-cards-btn"
+                    onClick={() => { setShowGiftCardModal(true); setShowOverflowMenu(false); }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                  >
+                    <Gift size={13} />
+                    Gift Cards
+                  </button>
+                  {/* Gift Vouchers */}
+                  <button
+                    type="button"
+                    id="pos-gift-vouchers-btn"
+                    onClick={() => { setShowGiftVoucherModal(true); setShowOverflowMenu(false); }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-teal-600 dark:text-teal-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                  >
+                    <Ticket size={13} />
+                    Gift Vouchers
+                  </button>
+                  <div className="h-px bg-[#c4c5d5] dark:bg-[#444653] my-0.5" />
+                  {/* Sync & Recon */}
+                  <button
+                    type="button"
+                    id="pos-recon-btn"
+                    onClick={() => { setShowReconModal(true); setShowOverflowMenu(false); }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                  >
+                    <RotateCcw size={13} />
+                    Sync &amp; Recon
+                  </button>
+                  {/* Dynamic Pricing */}
+                  <button
+                    type="button"
+                    id="pos-dynamic-pricing-btn"
+                    onClick={() => { setShowDynamicPricingModal(true); setShowOverflowMenu(false); }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                  >
+                    <Zap size={13} />
+                    Dynamic Pricing
+                  </button>
+                  {/* Omni Orders */}
+                  <button
+                    type="button"
+                    id="pos-omni-order-btn"
+                    onClick={() => { setShowOmniOrderModal(true); setShowOverflowMenu(false); }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                  >
+                    <ShoppingBag size={13} />
+                    Omni Orders
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
-          {/* Offline Sync & Reconciliation */}
-          <button
-            type="button"
-            id="pos-recon-btn"
-            onClick={() => setShowReconModal(true)}
-            title="Offline Queue Sync & Terminal Transaction Reconciliation"
-            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-blue-600 dark:text-blue-400 cursor-pointer"
-          >
-            <RotateCcw size={13} />
-            <span className="hidden sm:inline">Sync &amp; Recon</span>
-          </button>
-
-          {/* Supervisor PIN Override */}
-          <button
-            type="button"
-            id="pos-supervisor-pin-btn"
-            onClick={() => setShowSupervisorPinModal(true)}
-            title="Supervisor PIN Authorization & Security Overrides"
-            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-rose-600 dark:text-rose-400 cursor-pointer"
-          >
+          {/* Shift HUD Badge — always visible (REC-24: shown in all modes) */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${auxView === "CREDIT_BILLING" ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-400/30" : "bg-[#dcfce7] text-[#166534] dark:bg-[#14532d]/40 dark:text-[#86efac] border-[#16a34a]/30"}`}>
             <ShieldCheck size={13} />
-            <span className="hidden sm:inline">Supervisor PIN</span>
-          </button>
-
-          {/* Dynamic Pricing Engine Rules */}
-          <button
-            type="button"
-            id="pos-dynamic-pricing-btn"
-            onClick={() => setShowDynamicPricingModal(true)}
-            title="Inspect Real-time Dynamic Pricing, Happy Hours & Velocity Rules"
-            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer"
-          >
-            <Zap size={13} />
-            <span className="hidden sm:inline">Dynamic Pricing</span>
-          </button>
-
-          {/* Omnichannel Orders & BOPIS Pickup */}
-          <button
-            type="button"
-            id="pos-omni-order-btn"
-            onClick={() => setShowOmniOrderModal(true)}
-            title="Omnichannel Order Fulfillment, BOPIS Pickup & Slot Reservation"
-            className="px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] text-xs font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer"
-          >
-            <ShoppingBag size={13} />
-            <span className="hidden sm:inline">Omni Orders</span>
-          </button>
-
-          {/* Shift HUD Badge - Only visible for Counter POS */}
-          {auxView !== "CREDIT_BILLING" && (
-            <div className="flex items-center gap-1.5 bg-[#dcfce7] text-[#166534] dark:bg-[#14532d]/40 dark:text-[#86efac] px-2.5 py-1 rounded-lg border border-[#16a34a]/30">
-              <ShieldCheck size={13} />
-              <span className="font-mono">{registerLabel}</span>
-              <span className="opacity-60">•</span>
-              <span>{shiftStatus}</span>
-            </div>
-          )}
+            <span className="font-mono">{registerLabel}</span>
+            <span className="opacity-60">•</span>
+            <span>{auxView === "CREDIT_BILLING" ? "Credit Mode" : shiftStatus}</span>
+          </div>
 
           {/* Real-time Clock */}
           <div className="hidden md:flex items-center gap-1 bg-[#f3f4f5] dark:bg-[#191c1e] px-2.5 py-1 rounded-lg border border-[#c4c5d5] dark:border-[#444653] font-mono text-[11px]">
@@ -316,6 +333,24 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           </button>
         </div>
       </header>
+
+      {/* REC-20: Credit Billing mode contextual alert banner */}
+      {auxView === "CREDIT_BILLING" && (
+        <div className="flex items-center gap-3 px-5 py-2.5 bg-purple-950/70 border-b border-purple-500/30 text-purple-200 text-[11px] font-semibold shrink-0">
+          <CreditCard size={13} className="text-purple-400 shrink-0" />
+          <span>
+            <span className="font-bold text-purple-300">Credit Billing Mode Active</span>
+            {" — "}Transactions here are posted as credit invoices against customer accounts. Cash and card tender are disabled in this mode.
+          </span>
+          <button
+            type="button"
+            onClick={() => setAuxView("WORKSPACE")}
+            className="ml-auto text-[10px] font-bold text-purple-300 hover:text-white border border-purple-500/40 hover:border-purple-400 px-2 py-0.5 rounded transition-colors"
+          >
+            Back to POS
+          </button>
+        </div>
+      )}
 
       {/* ── Main Workspace Body ── */}
       <div className="flex-1 overflow-hidden relative">
