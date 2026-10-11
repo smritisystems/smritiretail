@@ -12,21 +12,129 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_company_db, get_current_user
 from app.models.auth import User
+from app.models.psv import (
+    PSVParty, PSVPartySkuTracking, PSVStockEvent, PSVStockBalance
+)
 from app.services.psv_projection import PSVProjectionService
 from app.schemas.psv import (
     PSVEventProjectionReq,
     PSVVisibilityPolicyCreateReq,
     PSVPartyScopeCreateReq,
     PSVScopedVisibilityResponse,
+    PSVPartyResponse,
+    PSVSkuTrackingResponse,
 )
 
 router = APIRouter(prefix="/psv", tags=["Projected Stock Visibility (PSV)"])
+
+
+@router.get("/parties", response_model=List[PSVPartyResponse])
+async def list_psv_parties(
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+    company_id: str = Header(default="COMP-001", alias="X-Company-ID"),
+) -> List[PSVPartyResponse]:
+    """
+    F-01 fix: Returns all PSV parties for the requesting company,
+    including per-SKU tracking and a 4-day stock/sales history window
+    for the velocity chart in PsvTab.
+    """
+    # 1. Load all parties for this company with sku_tracking eagerly loaded
+    party_stmt = (
+        select(PSVParty)
+        .where(PSVParty.company_id == company_id)
+        .options(selectinload(PSVParty.sku_tracking))
+        .order_by(PSVParty.name)
+    )
+    parties = (await session.execute(party_stmt)).scalars().all()
+
+    # 2. Build 4-day history per party from psv_stock_events
+    # Group events by (party_id, event_date.date) and bucket into stock/sales
+    history_stmt = (
+        select(
+            PSVStockEvent.psv_party_id,
+            func.date_trunc("day", PSVStockEvent.event_date).label("day"),
+            func.sum(
+                func.case(
+                    (PSVStockEvent.movement_type.in_(["SOLD", "SOLD_THROUGH", "OUTWARD_SALE", "POS_SALE"]), PSVStockEvent.quantity),
+                    else_=0,
+                )
+            ).label("sales"),
+        )
+        .where(
+            PSVStockEvent.company_id == company_id,
+            PSVStockEvent.psv_party_id.in_([p.id for p in parties]),
+            PSVStockEvent.approval_status == "APPROVED",
+        )
+        .group_by(PSVStockEvent.psv_party_id, func.date_trunc("day", PSVStockEvent.event_date))
+        .order_by(PSVStockEvent.psv_party_id, func.date_trunc("day", PSVStockEvent.event_date).desc())
+    )
+    history_rows = (await session.execute(history_stmt)).all()
+
+    # Group history rows by party_id and take last 4 days
+    from collections import defaultdict
+    party_history: Dict[str, list] = defaultdict(list)
+    for row in history_rows:
+        pid = row.psv_party_id
+        if len(party_history[pid]) < 4:
+            party_history[pid].append({
+                "date": row.day.strftime("%d %b") if row.day else "—",
+                "sales": float(row.sales or 0),
+                "stock": 0,  # populated below from psv_stock_balances
+            })
+
+    # 3. Load stock balances per party for current_balance aggregation
+    bal_stmt = select(
+        PSVStockBalance.psv_party_id,
+        func.sum(PSVStockBalance.current_balance).label("total_balance"),
+    ).where(
+        PSVStockBalance.company_id == company_id,
+        PSVStockBalance.psv_party_id.in_([p.id for p in parties]),
+    ).group_by(PSVStockBalance.psv_party_id)
+    bal_rows = (await session.execute(bal_stmt)).all()
+    balance_map: Dict[str, float] = {row.psv_party_id: float(row.total_balance or 0) for row in bal_rows}
+
+    # 4. Build response — stamp current stock_count from balances if available
+    result: List[PSVPartyResponse] = []
+    for party in parties:
+        live_stock = balance_map.get(party.id)
+        history = party_history.get(party.id, [])
+        # fill stock value into history entries from live balance (approximate)
+        for h in history:
+            h["stock"] = int(live_stock or party.stock_count)
+
+        sku_list = [
+            PSVSkuTrackingResponse.model_validate(s)
+            for s in (party.sku_tracking or [])
+        ]
+        resp = PSVPartyResponse(
+            id=party.id,
+            company_id=party.company_id,
+            host_customer_id=party.host_customer_id,
+            delivery_location_id=party.delivery_location_id,
+            store_code=party.store_code,
+            store_name_snapshot=party.store_name_snapshot,
+            stock_model=party.stock_model,
+            name=party.name,
+            location=party.location,
+            stock_count=int(live_stock) if live_stock is not None else party.stock_count,
+            sell_through=party.sell_through,
+            weeks_of_cover=party.weeks_of_cover,
+            capital_locked=party.capital_locked,
+            status=party.status,
+            sku_tracking=sku_list,
+            history=history,
+        )
+        result.append(resp)
+    return result
 
 
 @router.post("/policies")
