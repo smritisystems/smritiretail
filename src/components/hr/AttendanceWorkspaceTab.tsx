@@ -1,10 +1,10 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 1.1.0
  * Created      : 2026-10-11
  * Modified     : 2026-10-11
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
@@ -15,7 +15,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle, BadgeCheck, CalendarDays, CheckCircle2,
-  ChevronLeft, ChevronRight, Clock, Loader2, RefreshCw,
+  ChevronLeft, ChevronRight, Clock, Loader2, Pencil, RefreshCw,
   Search, Shield, UserCheck, UserMinus, Users, XCircle,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
@@ -95,6 +95,10 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [section, setSection]       = useState<"register" | "corrections" | "summary">("register");
   const [corrections, setCorrections] = useState<AttendanceRecord[]>([]);
+  // R-12: correction request modal
+  const [correctionTarget, setCorrectionTarget] = useState<AttendanceRecord | null>(null);
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false);
 
   const notify = useCallback((t: string, m: string, type: "success" | "error" | "info" | "warning") => {
     onNotification?.(t, m, type);
@@ -161,6 +165,23 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
       notify("Correction " + decision.toLowerCase(), `Record ${decision.toLowerCase()} successfully.`, "success");
       loadAttendance();
     } catch (e: any) { notify("Decision Failed", e?.message || "Could not update correction.", "error"); }
+  };
+
+  const handleRequestCorrection = async () => {
+    if (!correctionTarget) return;
+    if (!correctionReason.trim()) { notify("Reason Required", "Please enter a reason for the correction request.", "warning"); return; }
+    setCorrectionSubmitting(true);
+    try {
+      await apiFetchV1(`/staff/attendance/${correctionTarget.id}/correction`, {
+        method: "PATCH",
+        body: JSON.stringify({ correction_status: "PENDING", correction_reason: correctionReason.trim() }),
+      });
+      notify("Request Submitted", "Your correction request has been submitted for manager review.", "success");
+      setCorrectionTarget(null);
+      setCorrectionReason("");
+      loadAttendance();
+    } catch (e: any) { notify("Request Failed", e?.message || "Could not submit correction request.", "error"); }
+    finally { setCorrectionSubmitting(false); }
   };
 
   const filtered = useMemo(() => {
@@ -319,22 +340,33 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
                           {rec.device_source || rec.register_source || "--"}
                         </td>
                         <td className="px-4 py-3">
-                          {rec.correction_status === "PENDING" && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                              <Clock size={10} /> Pending
-                            </span>
-                          )}
-                          {rec.correction_status === "APPROVED" && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                              <CheckCircle2 size={10} /> Approved
-                            </span>
-                          )}
-                          {rec.correction_status === "REJECTED" && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                              <XCircle size={10} /> Rejected
-                            </span>
-                          )}
-                          {rec.correction_status === "NONE" && <span className="text-slate-300">--</span>}
+                          <div className="flex flex-col gap-1">
+                            {rec.correction_status === "PENDING" && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                                <Clock size={10} /> Pending review
+                              </span>
+                            )}
+                            {rec.correction_status === "APPROVED" && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                <CheckCircle2 size={10} /> Approved
+                              </span>
+                            )}
+                            {rec.correction_status === "REJECTED" && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                                <XCircle size={10} /> Rejected
+                              </span>
+                            )}
+                            {rec.correction_status === "NONE" && (
+                              <button
+                                id={`att-req-correction-${rec.id}`}
+                                onClick={() => { setCorrectionTarget(rec); setCorrectionReason(""); }}
+                                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+                                title="Request a correction for this attendance record"
+                              >
+                                <Pencil size={10} /> Request Fix
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -464,6 +496,57 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
           </div>
         </div>
       </div>
+
+      {/* R-12: Correction Request Modal */}
+      {correctionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-black text-slate-800 dark:text-white">
+                <Pencil size={16} className="mr-1.5 inline text-indigo-600" />
+                Request Attendance Correction
+              </h2>
+              <button id="att-correction-close" onClick={() => setCorrectionTarget(null)} className="text-slate-400 hover:text-slate-600">
+                <XCircle size={20} />
+              </button>
+            </div>
+            <div className="mb-4 rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-800">
+              <div className="flex gap-4">
+                <div><span className="font-semibold text-slate-500">Date</span><div className="mt-0.5 font-mono text-slate-700 dark:text-slate-200">{fmtDate(correctionTarget.attendance_date)}</div></div>
+                <div><span className="font-semibold text-slate-500">Current Status</span>
+                  <div className="mt-0.5"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_COLORS[correctionTarget.status] || ""}`}>{STATUS_LABELS[correctionTarget.status]}</span></div>
+                </div>
+                <div><span className="font-semibold text-slate-500">Employee</span><div className="mt-0.5 text-slate-700 dark:text-slate-200">{correctionTarget.full_name || correctionTarget.username}</div></div>
+              </div>
+            </div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
+              Why does this need a correction? <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="att-correction-reason"
+              rows={3}
+              value={correctionReason}
+              onChange={e => setCorrectionReason(e.target.value)}
+              placeholder="e.g. Forgot to clock in — was present from 9 AM. Please correct to PRESENT with 09:00 clock-in."
+              className="mb-4 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            />
+            <p className="mb-4 text-xs text-slate-400">
+              Your manager will review this request. You will see the status update in the Corrections tab.
+            </p>
+            <div className="flex gap-3">
+              <button id="att-correction-cancel" onClick={() => setCorrectionTarget(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button id="att-correction-submit" disabled={correctionSubmitting || !correctionReason.trim()} onClick={handleRequestCorrection}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
+                {correctionSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
+                {correctionSubmitting ? "Submitting..." : "Submit Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Modal */}
       {showBulkModal && (

@@ -1564,6 +1564,92 @@ async def bulk_create_attendance(
     }
 
 
+class AttendanceCorrectionPayload(BaseModel):
+    """Request body for PATCH /attendance/{record_id}/correction."""
+    correction_status: str  # PENDING | APPROVED | REJECTED
+    correction_reason: Optional[str] = None
+
+
+@router.patch("/attendance/{record_id}/correction")
+async def update_attendance_correction(
+    record_id: str,
+    payload: AttendanceCorrectionPayload,
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    R-12: Attendance correction lifecycle endpoint.
+
+    Roles:
+      - Any authenticated user may submit a correction request (→ PENDING)
+        for their own record only.
+      - SYSADMIN / ADMIN / MANAGER / STORE_MANAGER / BRANCH_ADMIN may
+        approve (→ APPROVED) or reject (→ REJECTED) any record in their tenant.
+
+    On APPROVED/REJECTED the endpoint stamps approved_by = current_user.id
+    and approved_at = now(UTC).
+    """
+    from datetime import timezone as _tz
+    manager_roles = {UserRole.SYSADMIN, UserRole.ADMIN, UserRole.MANAGER,
+                     UserRole.STORE_MANAGER, UserRole.BRANCH_ADMIN}
+    is_manager = current_user.role in manager_roles
+
+    allowed_statuses = {"PENDING", "APPROVED", "REJECTED"}
+    if payload.correction_status not in allowed_statuses:
+        raise HTTPException(
+            status_code=422,
+            detail=f"correction_status must be one of: {', '.join(sorted(allowed_statuses))}.",
+        )
+
+    # Managers may only set APPROVED / REJECTED; employees only PENDING
+    if payload.correction_status in {"APPROVED", "REJECTED"} and not is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only managers may approve or reject attendance corrections.",
+        )
+
+    record: AttendanceRecord | None = (
+        await db.execute(
+            select(AttendanceRecord).where(
+                AttendanceRecord.id == record_id,
+                AttendanceRecord.company_id == tenant.company_id,
+                AttendanceRecord.is_deleted == False,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not record:
+        raise HTTPException(status_code=404, detail="Attendance record not found.")
+
+    # Non-managers may only submit corrections for their own records
+    if not is_manager and record.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Employees may only request corrections for their own attendance records.",
+        )
+
+    record.correction_status = payload.correction_status
+    if payload.correction_reason is not None:
+        record.correction_reason = payload.correction_reason
+
+    if payload.correction_status in {"APPROVED", "REJECTED"}:
+        record.approved_by = current_user.id
+        record.approved_at = datetime.now(_tz.utc)
+
+    await db.commit()
+    await db.refresh(record)
+    return {
+        "success": True,
+        "id": record.id,
+        "correction_status": record.correction_status,
+        "correction_reason": record.correction_reason,
+        "approved_by": record.approved_by,
+        "approved_at": record.approved_at.isoformat() if record.approved_at else None,
+    }
+
+
 @router.post("/attendance/punch")
 async def record_attendance_punch(
     payload: AttendancePunchPayload,
