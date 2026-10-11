@@ -4,13 +4,18 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.46
+ * Version      : 6.70.53
  * Created      : 2026-09-11
- * Modified     : 2026-10-09
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-12
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved>
  * License      : Proprietary Commercial Software
  * Classification: Internal
  * Source Module: Staff 360 Workspace & HR User Governance
+ *
+ * Changelog v6.70.53 (2026-10-12):
+ *   - Integrated interactive Today's Shift Punch Console directly in Attendance tab.
+ *   - Wired PostgreSQL authoritative KPI summary (present, late, half-day, total hours).
+ *   - Propagated selectedId as initialUserId to EmployeeAttendanceModal.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -209,9 +214,21 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   const [showNew, setShowNew] = useState(false);
   const [creatingStaff, setCreatingStaff] = useState(false);
   const [newStaff, setNewStaff] = useState({ fullName: "", username: "", email: "", password: "", role: "CASHIER" });
-  const [attendance, setAttendance] = useState<Array<{ id: string; attendance_date: string; status: string; check_in_at?: string; check_out_at?: string }>>([]);
+  const [attendance, setAttendance] = useState<Array<{ id: string; attendance_date: string; status: string; check_in_at?: string; check_out_at?: string; register_source?: string; device_source?: string; correction_status?: string }>>([]);
   const [attendanceFrom, setAttendanceFrom] = useState("");
   const [attendanceTo, setAttendanceTo] = useState("");
+  const [attendanceSummary, setAttendanceSummary] = useState<{
+    total_days: number;
+    present_days: number;
+    late_days: number;
+    half_days: number;
+    absent_days: number;
+    leave_days: number;
+    holiday_days: number;
+    total_hours_worked: number;
+    avg_daily_hours: number;
+  } | null>(null);
+  const [todayPunching, setTodayPunching] = useState(false);
   const [leaveRequests, setLeaveRequests] = useState<Array<{ id: string; leave_type: string; start_date: string; end_date: string; total_days: number; status: string; reason?: string }>>([]);
   const [placements, setPlacements] = useState<Array<{ id: string; placement_type: string; host_store_code?: string; host_store_name?: string; host_customer_id?: string; internal_branch_id?: string; internal_branch_code?: string; internal_branch_name?: string; internal_store_code?: string; internal_store_name?: string; role_at_location?: string; stock_model: string; effective_from: string; effective_to?: string; status: string }>>([]);
   const [hrLoading, setHrLoading] = useState(false);
@@ -300,6 +317,9 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       .then(async (data) => {
         if (activeTab === "attendance") {
           setAttendance(Array.isArray(data.records) ? data.records : []);
+          apiFetchV1<any>(`/staff/attendance/summary?user_id=${encodeURIComponent(selectedId)}`)
+            .then((summData) => setAttendanceSummary(summData))
+            .catch(() => setAttendanceSummary(null));
           return;
         }
         if (activeTab === "leave") {
@@ -317,7 +337,10 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
         }
       })
       .catch((error: any) => {
-        if (activeTab === "attendance") setAttendance([]);
+        if (activeTab === "attendance") {
+          setAttendance([]);
+          setAttendanceSummary(null);
+        }
         if (activeTab === "leave") setLeaveRequests([]);
         if (activeTab === "assignments") setPlacements([]);
         const isNotFound = error?.status === 404 || error?.statusCode === 404 || String(error?.message || "").includes("404");
@@ -327,6 +350,39 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       })
       .finally(() => setHrLoading(false));
   }, [activeTab, selectedId, attendanceFrom, attendanceTo, onNotification]);
+
+  const handleQuickPunch = async (punchType: "AUTO" | "IN" | "OUT" = "AUTO") => {
+    if (!selectedId) return;
+    setTodayPunching(true);
+    try {
+      const res = await apiFetchV1<{ success: boolean; action: string; message: string }>(
+        "/staff/attendance/punch",
+        {
+          method: "POST",
+          body: {
+            user_id: selectedId,
+            punch_type: punchType,
+            device_source: "STAFF_360_WORKSPACE",
+          },
+        }
+      );
+      if (res?.success) {
+        onNotification?.("Punch Recorded", res.message || "Shift punch recorded successfully.", "success");
+        const [attData, summData] = await Promise.all([
+          apiFetchV1<{ records: any[] }>(`/staff/attendance?user_id=${encodeURIComponent(selectedId)}`),
+          apiFetchV1<any>(`/staff/attendance/summary?user_id=${encodeURIComponent(selectedId)}`),
+        ]);
+        setAttendance(Array.isArray(attData?.records) ? attData.records : []);
+        if (summData) setAttendanceSummary(summData);
+      } else {
+        onNotification?.("Punch Failed", res?.message || "Could not record punch.", "error");
+      }
+    } catch (err: any) {
+      onNotification?.("Punch Error", err?.message || "Failed to record attendance punch.", "error");
+    } finally {
+      setTodayPunching(false);
+    }
+  };
 
   const safeStaff = Array.isArray(staff) ? staff : [];
   const safePlacements = Array.isArray(placements) ? placements : [];
@@ -778,6 +834,90 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       case "attendance":
         return hrLoading ? <div className="p-8 text-sm text-slate-500">Loading attendance...</div> : (
           <div className="space-y-3">
+            {/* Live Today's Shift Punch Console */}
+            {(() => {
+              const todayStr = new Date().toISOString().split("T")[0];
+              const todayRecord = attendance.find((r) => r.attendance_date === todayStr);
+              const isClockedIn = Boolean(todayRecord?.check_in_at);
+              const isClockedOut = Boolean(todayRecord?.check_out_at);
+
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3.5 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
+                      <Clock3 size={16} />
+                    </span>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Today's Shift Status ({todayStr})
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            isClockedOut
+                              ? "bg-slate-400"
+                              : isClockedIn
+                              ? "bg-emerald-500 animate-pulse"
+                              : "bg-amber-400"
+                          }`}
+                        />
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {isClockedOut
+                            ? `Clocked Out (${new Date(todayRecord!.check_out_at!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`
+                            : isClockedIn
+                            ? `Clocked In (${new Date(todayRecord!.check_in_at!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`
+                            : "Not Clocked In Today"}
+                        </span>
+                        {todayRecord?.status && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                            todayRecord.status === "LATE" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" :
+                            todayRecord.status === "HALF_DAY" ? "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300" :
+                            "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                          }`}>
+                            {todayRecord.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      id="staff360-btn-attendance-punch"
+                      type="button"
+                      disabled={todayPunching}
+                      onClick={() => handleQuickPunch("AUTO")}
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-white shadow transition-all disabled:opacity-50 ${
+                        isClockedIn && !isClockedOut
+                          ? "bg-amber-600 hover:bg-amber-500"
+                          : isClockedOut
+                          ? "bg-slate-700 hover:bg-slate-600"
+                          : "bg-emerald-600 hover:bg-emerald-500"
+                      }`}
+                    >
+                      {todayPunching ? (
+                        <span>Recording…</span>
+                      ) : isClockedIn && !isClockedOut ? (
+                        <><span>⏱</span> Clock Out</>
+                      ) : isClockedOut ? (
+                        <><span>↻</span> Update Punch</>
+                      ) : (
+                        <><span>⏱</span> Clock In</>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAttendanceModal(true)}
+                      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                      title="Open full Attendance Studio"
+                    >
+                      Studio Modal
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="font-bold text-slate-600 dark:text-slate-300">Date Range:</span>
@@ -806,24 +946,75 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
                 )}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {renderField("Records this view", attendance.length)}
-              {renderField("Present / late", attendance.filter((record) => ["PRESENT", "LATE"].includes(record.status)).length)}
-              {renderField("Leave / absent", attendance.filter((record) => ["LEAVE", "ABSENT"].includes(record.status)).length)}
-            </div>
+
+            {/* Authoritative PostgreSQL Attendance KPI Summary */}
+            {attendanceSummary ? (
+              <div className="grid gap-2 sm:grid-cols-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-3 text-center dark:border-slate-800 dark:bg-slate-900">
+                  <div className="text-[10px] font-bold uppercase text-slate-500">Present Shifts</div>
+                  <div className="mt-1 text-base font-black font-mono text-emerald-600 dark:text-emerald-400">{attendanceSummary.present_days}d</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-3 text-center dark:border-slate-800 dark:bg-slate-900">
+                  <div className="text-[10px] font-bold uppercase text-slate-500">Late Punches</div>
+                  <div className="mt-1 text-base font-black font-mono text-amber-600 dark:text-amber-400">{attendanceSummary.late_days}d</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-3 text-center dark:border-slate-800 dark:bg-slate-900">
+                  <div className="text-[10px] font-bold uppercase text-slate-500">Half Day Shifts</div>
+                  <div className="mt-1 text-base font-black font-mono text-violet-600 dark:text-violet-400">{attendanceSummary.half_days}d</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-3 text-center dark:border-slate-800 dark:bg-slate-900">
+                  <div className="text-[10px] font-bold uppercase text-slate-500">Hours Logged</div>
+                  <div className="mt-1 text-base font-black font-mono text-sky-600 dark:text-sky-400">{attendanceSummary.total_hours_worked}h ({attendanceSummary.avg_daily_hours}h/d)</div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-3">
+                {renderField("Records this view", attendance.length)}
+                {renderField("Present / late", attendance.filter((record) => ["PRESENT", "LATE"].includes(record.status)).length)}
+                {renderField("Leave / absent", attendance.filter((record) => ["LEAVE", "ABSENT"].includes(record.status)).length)}
+              </div>
+            )}
+
             {attendance.length ? (
               <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-                <div className="grid grid-cols-4 gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase text-slate-500 dark:border-slate-800 dark:bg-slate-900">
-                  <span>Date</span><span>Status</span><span>Check in</span><span>Check out</span>
+                <div className="grid grid-cols-6 gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+                  <span>Date</span>
+                  <span>Status</span>
+                  <span>Check In</span>
+                  <span>Check Out</span>
+                  <span>Hours</span>
+                  <span>Source / Terminal</span>
                 </div>
-                {attendance.map((record) => (
-                  <div key={record.id} className="grid grid-cols-4 gap-3 border-b border-slate-100 px-4 py-3 text-xs last:border-0 dark:border-slate-800">
-                    <span>{record.attendance_date}</span>
-                    <span className="font-bold">{record.status}</span>
-                    <span>{record.check_in_at ? new Date(record.check_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}</span>
-                    <span>{record.check_out_at ? new Date(record.check_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}</span>
-                  </div>
-                ))}
+                {attendance.map((record) => {
+                  const checkIn = record.check_in_at ? new Date(record.check_in_at) : null;
+                  const checkOut = record.check_out_at ? new Date(record.check_out_at) : null;
+                  const hours = checkIn && checkOut
+                    ? Math.round(((checkOut.getTime() - checkIn.getTime()) / 3600000) * 10) / 10
+                    : null;
+                  return (
+                    <div key={record.id} className="grid grid-cols-6 gap-2 border-b border-slate-100 px-4 py-3 text-xs last:border-0 dark:border-slate-800 items-center">
+                      <span className="font-mono text-slate-600 dark:text-slate-400">{record.attendance_date}</span>
+                      <div>
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          record.status === "PRESENT" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" :
+                          record.status === "LATE" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" :
+                          record.status === "HALF_DAY" ? "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400" :
+                          record.status === "ABSENT" ? "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400" :
+                          record.status === "LEAVE" ? "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400" :
+                          "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                        }`}>
+                          {record.status}
+                        </span>
+                      </div>
+                      <span className="font-mono">{checkIn ? checkIn.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+                      <span className="font-mono">{checkOut ? checkOut.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+                      <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{hours != null ? `${hours}h` : "—"}</span>
+                      <span className="truncate text-[10px] text-slate-400" title={record.device_source || record.register_source || ""}>
+                        {record.device_source ? `📡 ${record.device_source.split(",")[0].trim()}` : record.register_source || "—"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : renderUnavailable("No attendance records", "Attendance will appear here after an authorized attendance entry is recorded.")}
           </div>
@@ -1418,6 +1609,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       <EmployeeAttendanceModal
         isOpen={showAttendanceModal}
         onClose={() => setShowAttendanceModal(false)}
+        initialUserId={selectedId}
         onNotification={onNotification ? (title, msg, type) => onNotification(title, msg, type === "info" ? "info" : type) : undefined}
       />
     )}

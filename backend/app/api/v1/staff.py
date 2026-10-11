@@ -1787,7 +1787,11 @@ async def record_attendance_punch(
             # AUTO or OUT -> Clock OUT with half-day auto-detection (F-07)
             existing.check_out_at = now_utc
             if payload.device_source:
-                existing.device_source = f"{existing.device_source or ''}, {payload.device_source}".strip(", ")
+                cur_dev = existing.device_source or ""
+                if payload.device_source not in cur_dev:
+                    existing.device_source = f"{cur_dev}, {payload.device_source}".strip(", ")[:100]
+                elif not existing.device_source:
+                    existing.device_source = payload.device_source[:100]
             action_done = "CHECKED_OUT"
             # F-07: Recompute status based on hours worked
             if existing.check_in_at:
@@ -1947,9 +1951,9 @@ async def receive_biometric_device_push(
 
             existing.modified_at = datetime.now(timezone.utc)
             if existing.device_source and device_tag not in existing.device_source:
-                existing.device_source = f"{existing.device_source}, {device_tag}"
+                existing.device_source = f"{existing.device_source}, {device_tag}"[:100]
             elif not existing.device_source:
-                existing.device_source = device_tag
+                existing.device_source = device_tag[:100]
 
         processed_count += 1
 

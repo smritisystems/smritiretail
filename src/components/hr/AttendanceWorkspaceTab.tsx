@@ -4,12 +4,15 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.1.0
+ * Version      : 1.2.0
  * Created      : 2026-10-11
- * Modified     : 2026-10-11
+ * Modified     : 2026-10-12
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v1.2.0 (2026-10-12):
+ *   - Unified /staff/personnel and /staff/directory in loadPersonnel so all company staff are selectable.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -105,8 +108,42 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
   }, [onNotification]);
 
   const loadPersonnel = useCallback(async () => {
-    try { const d = await apiFetchV1<PersonnelProfile[]>("/staff/personnel"); setPersonnel(Array.isArray(d) ? d : []); }
-    catch { /* non-fatal */ }
+    try {
+      const [pRes, dirRes] = await Promise.all([
+        apiFetchV1<PersonnelProfile[]>("/staff/personnel").catch(() => []),
+        apiFetchV1<{ users?: any[]; items?: any[] }>("/staff/directory").catch(() => ({ users: [] })),
+      ]);
+      const list: PersonnelProfile[] = [];
+      const seen = new Set<string>();
+
+      const rawP = Array.isArray(pRes) ? pRes : (pRes as any)?.users || [];
+      for (const p of rawP) {
+        const uid = p.id || (p as any).user_id;
+        if (uid && !seen.has(uid)) {
+          seen.add(uid);
+          list.push({
+            id: uid,
+            username: (p as any).username || (p as any).code || uid,
+            fullName: (p as any).fullName || (p as any).full_name || (p as any).person_name || "Staff Member",
+          });
+        }
+      }
+
+      const rawD = Array.isArray(dirRes) ? dirRes : (dirRes as any)?.users || (dirRes as any)?.items || [];
+      for (const d of rawD) {
+        const uid = d.id || d.user_id;
+        if (uid && !seen.has(uid)) {
+          seen.add(uid);
+          list.push({
+            id: uid,
+            username: d.username || d.employeeCode || uid,
+            fullName: d.fullName || d.full_name || d.name || "Staff Member",
+          });
+        }
+      }
+
+      setPersonnel(list);
+    } catch { /* non-fatal */ }
   }, []);
 
   const loadBranches = useCallback(async () => {

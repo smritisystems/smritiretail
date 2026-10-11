@@ -1,5 +1,21 @@
+## [6.70.49] — 2026-10-12
 
-## [Unreleased] — 2026-10-12
+### HR & Workforce — Staff Attendance & Workforce Management UX, UI, and Database Wiring v1.0.0
+
+Integrated comprehensive, end-to-end UX, UI, and PostgreSQL database table wiring for the Staff Attendance & Workforce Management subsystem across Staff 360 (`StaffMasterWs.tsx`), Attendance Studio modal (`EmployeeAttendanceModal.tsx`), Attendance Workspace (`AttendanceWorkspaceTab.tsx`), and FastAPI backend (`backend/app/api/v1/staff.py`).
+
+**Key Capabilities:**
+- **Initial User Synchronization:** Propagates `selectedId` from Staff 360 as `initialUserId` to `EmployeeAttendanceModal`, synchronizing modal employee selection dynamically.
+- **Unified Staff Roster Coverage:** Parallelized retrieval and union of `/staff/personnel` (commission participants) and `/staff/directory` (central system users), preventing omission of non-commission employees (e.g., cashiers, warehouse associates, store supervisors).
+- **Interactive Shift Punch Console in Staff 360:** Embedded 1-click `[⏱ Clock In / Out Now]` console with dynamic status indicator directly inside Staff 360's inline Attendance tab, hitting `POST /api/v1/staff/attendance/punch` with `device_source: "STAFF_360_WORKSPACE"`.
+- **PostgreSQL Authoritative KPI Summary:** Rendered period shift metrics (`Present Shifts`, `Late Punches`, `Half Day Shifts`, `Hours Logged`) computed directly from PostgreSQL `attendance_records` via `GET /api/v1/staff/attendance/summary`.
+- **Extended Attendance Ledger:** Upgraded historical tables with `Hours Worked` calculations, color status badges (`PRESENT`, `LATE`, `HALF_DAY`, `ABSENT`, `LEAVE`), and hardware `device_source` / `register_source` badges.
+- **Database VARCHAR(100) Safety Bounding:** Deduplicated and bound concatenated device tags to 100 characters in `staff.py` to prevent PostgreSQL `StringDataRightTruncationError`.
+
+**Verification:**
+- Vitest: 69/69 passed across `staffAttendance.integration.test.ts` (40 tests) and `staffShift.integration.test.ts` (29 tests).
+- Python: 8/8 passed in `tests/test_headless_attendance_client.py` against live backend.
+- TypeScript: `npx tsc --noEmit` exited 0 (0 errors).
 
 ### HR & Workforce — Headless Staff Attendance Punch & Automation Client v1.0.0
 
