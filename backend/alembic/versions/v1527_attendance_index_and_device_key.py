@@ -59,16 +59,36 @@ def upgrade() -> None:
 
     # 3. Seed HR shift configuration system parameters (safe upsert)
     op.execute("""
-        INSERT INTO system_parameters (id, parameter_key, scope, default_value, effective_value,
-            data_type, description, mutability, is_active, is_deleted, created_at, modified_at)
+        INSERT INTO system_parameters (
+            id, company_id, param_code, canonical_code, category, category_name,
+            description, data_type, mutability, profile_type,
+            scope_level, terminal_id,
+            val_text,
+            is_active, is_deleted, is_locked, created_at, modified_at
+        )
         VALUES
-            ('sp-hr-shift-start',  'SMRITI.HR.SHIFT_START_TIME',         'GLOBAL', '09:00', '09:00',
-             'STRING', 'Standard shift start time (HH:MM, 24-hour). Used for late detection.', 'VARIABLE', TRUE, FALSE, NOW(), NOW()),
-            ('sp-hr-late-mins',    'SMRITI.HR.LATE_THRESHOLD_MINUTES',    'GLOBAL', '15',    '15',
-             'INTEGER','Grace period (minutes) after shift start before a punch is recorded LATE.', 'VARIABLE', TRUE, FALSE, NOW(), NOW()),
-            ('sp-hr-halfday-hrs',  'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD',  'GLOBAL', '4',     '4',
-             'INTEGER','Minimum hours worked to qualify as a full day. Below this threshold, status is set to HALF_DAY on clock-out.', 'VARIABLE', TRUE, FALSE, NOW(), NOW())
-        ON CONFLICT (parameter_key) DO NOTHING;
+            ('sp-hr-shift-start',
+             NULL, 'SMRITI.HR.SHIFT_START_TIME', 'SMRITI.HR.SHIFT_START_TIME',
+             'HR', 'Human Resources',
+             'Standard shift start time (HH:MM, 24-hour). Used for late detection.',
+             'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON',
+             '09:00',
+             TRUE, FALSE, FALSE, NOW(), NOW()),
+            ('sp-hr-late-mins',
+             NULL, 'SMRITI.HR.LATE_THRESHOLD_MINUTES', 'SMRITI.HR.LATE_THRESHOLD_MINUTES',
+             'HR', 'Human Resources',
+             'Grace period (minutes) after shift start before a punch is recorded LATE.',
+             'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON',
+             '15',
+             TRUE, FALSE, FALSE, NOW(), NOW()),
+            ('sp-hr-halfday-hrs',
+             NULL, 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD', 'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD',
+             'HR', 'Human Resources',
+             'Minimum hours worked for a full day. Below this threshold on clock-out status becomes HALF_DAY.',
+             'Text', 'Variable', 'COMMON', 'GLOBAL', 'COMMON',
+             '4',
+             TRUE, FALSE, FALSE, NOW(), NOW())
+        ON CONFLICT (param_code) DO NOTHING;
     """)
 
 
@@ -80,9 +100,10 @@ def downgrade() -> None:
     """)
     op.execute("""
         DELETE FROM system_parameters
-        WHERE parameter_key IN (
+        WHERE param_code IN (
             'SMRITI.HR.SHIFT_START_TIME',
             'SMRITI.HR.LATE_THRESHOLD_MINUTES',
             'SMRITI.HR.HALF_DAY_HOURS_THRESHOLD'
         )
+        AND company_id IS NULL
     """)
