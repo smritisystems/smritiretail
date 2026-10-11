@@ -1,5 +1,21 @@
 
-## [Unreleased] — 2026-10-11
+## [Unreleased] — 2026-10-12
+
+### HR & Workforce — Headless Staff Attendance Punch & Automation Client v1.0.0
+
+Delivered zero-dependency headless CLI client (`scripts/headless_attendance_client.py`) and automated test harness (`tests/test_headless_attendance_client.py`) enabling terminal-level staff attendance entry, IoT biometric stream pushes, bulk attendance roster marking, ASCII tabular ledger querying, and KPI summaries without requiring browser interaction or GUI frontends.
+
+**Key Capabilities:**
+- `biometric-push`: Ingests IoT biometric hardware punch streams (`POST /api/v1/staff/attendance/device-push`) for employee codes with device security key authentication and status state machines.
+- `single-punch`: Real-time staff self-service or supervisor punch (`POST /api/v1/staff/attendance/punch`) with shift schedule late and half-day working hours auto-detection.
+- `bulk-mark`: Headlessly marks bulk attendance status (`POST /api/v1/staff/attendance/bulk`) across employees for designated dates.
+- `query-ledger`: Tabular formatted ASCII terminal inspection of active attendance records (`GET /api/v1/staff/attendance`).
+- `query-summary`: Period attendance KPI summary extraction (`GET /api/v1/staff/attendance/summary`).
+- `list-staff`: Directory lookup of active staff roster, codes, roles, and user IDs (`GET /api/v1/staff/`).
+
+**Verification:**
+- `python -m unittest tests/test_headless_attendance_client.py -v`: 8/8 tests passed in 0.349s.
+- `python -m py_compile scripts/headless_attendance_client.py tests/test_headless_attendance_client.py`: exit 0.
 
 ### DevOps & Branding — Container Startup Resilience & AI Iconography Governance v1.0.0 (Commits `737f66f4`, `6793bbe6`)
 
