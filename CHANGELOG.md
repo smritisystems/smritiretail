@@ -1,7 +1,41 @@
 
 ## [Unreleased] — 2026-10-11
 
-### PSV (Party Stock Visibility) — Full Audit Sprint (10/10 findings resolved)
+### PSV Distributor Stock Tracker — UX Redesign v3.0.0 (WhatsApp-Level Simplicity)
+
+**Commit:** `54abf7df` · **File:** `src/components/PsvTab.tsx`
+
+Complete plain-language redesign of the PSV tab so any non-technical user (shop owner, field sales person, distributor) can read and act on data without training.
+
+#### Changed — Language & Labelling
+- **Page title:** "Party Stock Visibility (PSV)" → **"📊 Distributor Stock Tracker"** with a one-sentence plain-English description of what the screen does.
+- **Sell-Through %** → **"🛒 How Much Has Sold"** with contextual sub-label (`"Excellent — most goods have sold ✅"`, `"Very slow — most goods are still sitting"`).
+- **Weeks of Cover** → **"⏳ Stock Will Last _ weeks"** with action sub-label (`"Very low — reorder soon!"`, `"Comfortable — no rush to restock"`).
+- **Capital Locked** → **"💰 Money Tied in Unsold Stock"** with sub-label `"This money will come back once goods sell"`.
+- **Status "Critical"** → **🔴 Needs Action** · **"Monitor"** → **🟡 Keep Watch** · **"Healthy"** → **🟢 All Good** · **"SOLD_OUT"** → **⚫ Sold Out**.
+- **"Operational Recommendation"** → plain-language **Tip card** with emoji heading (🚨 / 👀 / 📦 / ✅) and conversational body.
+- **"Downstream Channel Distribution Ledger"** subtitle removed.
+- **"Node ID"** removed from detail header (no business value to end users).
+- **SKU table columns:** `"Invoiced"` → `"Sent 📤"` · `"Lying Stock"` → `"Still There 📦"` · `"Sold"` → `"Sold ✅"` · `"Returned"` → `"Returned 🔄"`.
+- **Read-only banner:** technical wording replaced with `"View-Only Mode. You can see all data but cannot make any changes."`.
+
+#### Added — New UX Elements
+- **🔍 Search bar** — filter distributor list by name or city, with no-results state.
+- **ℹ️ "How to read these numbers" explainer box** — plain-English paragraph for each of the 4 metrics, always visible below the metric tiles.
+- **📈 Bottom status legend** — `🟢 All Good · 🟡 Keep Watch · 🔴 Needs Action · ⚫ Sold Out` with description.
+- **📦 Empty state (no parties)** — friendly illustration and explanation instead of blank screen.
+- **📉 Chart empty state** — if no history events yet, friendly message `"Chart will appear once goods start moving"`.
+- **Chart tooltips** — show `"150 pcs"` not raw numbers; Legend labels in plain text `"📦 Stock Remaining / 🛒 Daily Sales"`.
+- **`MetricTile`** — reusable metric tile sub-component (icon, label, value, sub-label, value colour).
+- **`SkuRow`** — extracted SKU table row as named sub-component.
+- **`statusSignal()`** — helper returning emoji + label + CSS for any `PSVParty["status"]`.
+- **`sellThroughMessage()`** / **`tipForParty()`** — plain-language text generators for guidance.
+
+#### Changed — Layout & Behaviour
+- Left panel party cards use a **left border accent** (blue when selected, transparent otherwise) instead of full background tint — cleaner mobile feel.
+- Party cards restructured: name + status badge on top row, location row, then 3 mini stat tiles (`Stock Left / Sold % / Weeks Left`).
+- Right panel metric tiles are a **2×2 grid on mobile, 1×4 on desktop**.
+- Chart container rounded to `rounded-xl` and restyled.
 
 **Commits:** `1ed07877` (P0) · `f11e077f` (P1) · `0a6d081d` (P3)
 
