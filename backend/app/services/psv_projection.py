@@ -369,8 +369,10 @@ class PSVProjectionService:
             bal.sold_qty += qty
             bal.current_balance -= qty
         elif mtype in ["RETURNED", "SALES_RETURN"]:
+            # F-02 fix: stock returned to the partner RESTORES their on-hand balance
+            # (the partner received the goods back, so current_balance increases)
             bal.returned_qty += qty
-            bal.current_balance -= qty
+            bal.current_balance += qty
         elif mtype in ["TRANSFERRED"]:
             bal.transferred_qty += qty
             bal.current_balance -= qty

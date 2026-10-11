@@ -15,10 +15,12 @@ Classification: Internal
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class PSVSkuTrackingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     party_id: str
     sku: str
@@ -28,6 +30,8 @@ class PSVSkuTrackingResponse(BaseModel):
 
 
 class PSVPartyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     company_id: Optional[str] = None
     host_customer_id: Optional[str] = None
@@ -43,6 +47,9 @@ class PSVPartyResponse(BaseModel):
     capital_locked: Decimal = Decimal("0.00")
     status: str = "Healthy"
     sku_tracking: List[PSVSkuTrackingResponse] = Field(default_factory=list)
+    # history: computed time-series for velocity chart (populated by GET /parties)
+    # shape: [{"date": "YYYY-MM-DD", "stock": int, "sales": int}]
+    history: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class PSVEventProjectionReq(BaseModel):
