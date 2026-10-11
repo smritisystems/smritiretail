@@ -1,6 +1,29 @@
 
 ## [Unreleased] — 2026-10-11
 
+### Staff Attendance — Audit P0+P1 Security & Logic Fixes (Commit `93dd4385`)
+
+**Files:**
+- `backend/app/api/v1/staff.py`
+- `backend/alembic/versions/v1527_attendance_index_and_device_key.py` *(new)*
+- `src/components/hr/EmployeeAttendanceModal.tsx`
+- `src/utils/employeeAttendanceEngine.ts`
+
+**tsc:** `0 errors` (verified post-commit)
+
+| ID | Severity | Description | File(s) |
+|----|----------|-------------|---------|
+| F-03 / R-01 | 🔴 P0 | `POST /attendance/device-push` now requires `SMRITI.HR.DEVICE_PUSH_API_KEY` validation. Unauthenticated pushes → `403 SMRITI-PERM-010`; wrong key → `401 SMRITI-PERM-011`. | `staff.py` |
+| F-02 / R-04 | 🔴 P0 | Clock-in status auto-detects `LATE` using `SMRITI.HR.SHIFT_START_TIME` + `SMRITI.HR.LATE_THRESHOLD_MINUTES` (defaults: 09:00, 15 min grace). | `staff.py` |
+| F-07 / R-03 | 🟠 P1 | Clock-out auto-sets `HALF_DAY` if hours worked < `SMRITI.HR.HALF_DAY_HOURS_THRESHOLD` (default 4h). `LATE` status preserved through clock-out. | `staff.py` |
+| F-01 / R-02 | 🔴 P0 | `LATE` added to `AttendanceStatus` TypeScript union type; now matches backend `allowed_statuses`. | `employeeAttendanceEngine.ts` |
+| F-05 / R-06 | 🟠 P1 | Removed hardcoded phantom payout synthesis (₹3750/₹1.5L/75%). Fictional data no longer shown to managers. Real data from `GET /staff/commissions/summary`. | `EmployeeAttendanceModal.tsx` |
+| F-13 | 🟡 P2 | `PERIOD` moved into `useMemo` — fixes month-boundary stale closure bug. | `EmployeeAttendanceModal.tsx` |
+| F-14 / R-09 | 🟡 P2 | Device-push employee code normalized (strip whitespace, uppercase, remove leading zeros for ZKTeco firmware quirk). | `staff.py` |
+| F-04 / R-08 | 🔴 P0 | Migration v1527: composite index `ix_attendance_records_company_date` on `(company_id, attendance_date DESC)`. | `v1527_*.py` |
+| — | — | Migration v1527: `CHECK` constraint `chk_attendance_status_valid` on `attendance_records.status`. | `v1527_*.py` |
+| — | — | Migration v1527: Seeds `SMRITI.HR.SHIFT_START_TIME`, `SMRITI.HR.LATE_THRESHOLD_MINUTES`, `SMRITI.HR.HALF_DAY_HOURS_THRESHOLD` into `system_parameters`. | `v1527_*.py` |
+
 ### PSV — Menu Registry & Launchpad Plain-Language Rename
 
 **Commit:** `82f0baf5`
