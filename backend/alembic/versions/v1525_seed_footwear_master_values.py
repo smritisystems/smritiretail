@@ -86,17 +86,17 @@ def upgrade() -> None:
     conn.execute(sa.text("""
         DO $$
         DECLARE
-            v_comp_id VARCHAR(50);
+            v_comp_id VARCHAR(50) := NULL;
             v_sup_record RECORD;
         BEGIN
             IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'suppliers') THEN
                 
-                -- Detect company_id if companies table exists
+                -- Detect company_id if companies table exists and has records
                 IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'companies') THEN
-                    SELECT id INTO v_comp_id FROM companies LIMIT 1;
-                END IF;
-                IF v_comp_id IS NULL THEN
-                    v_comp_id := 'COMP-001';
+                    SELECT id INTO v_comp_id FROM companies WHERE id = 'COMP-001' LIMIT 1;
+                    IF v_comp_id IS NULL THEN
+                        SELECT id INTO v_comp_id FROM companies LIMIT 1;
+                    END IF;
                 END IF;
 
                 FOR v_sup_record IN

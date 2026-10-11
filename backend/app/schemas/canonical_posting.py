@@ -62,6 +62,7 @@ class CanonicalPostingLineItem(BaseModel):
     disc_amt: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"), description="Line discount fixed amount")
     is_tax_inclusive: Optional[bool] = Field(None, description="True=MRP inclusive; False=Base exclusive; None=derive from channel")
     is_fee_line: bool = Field(False, description="True for delivery charges, round-off, or non-stock fee items")
+    is_free_item: bool = Field(False, description="True for free promotional gifts, samples, or zero-price giveaways")
     mrp: Optional[Decimal] = Field(None, description="Statutory Maximum Retail Price")
     customer_po_line_id: Optional[str] = Field(None, description="Traceability link to customer_purchase_order_lines.id")
     source_line_type: Optional[str] = Field(None, description="DIRECT, CUSTOMER_PO, SALES_ORDER")
@@ -121,6 +122,7 @@ class CanonicalPostingRequest(BaseModel):
     promotion_campaign_id: Optional[str] = Field(None, description="Server-evaluated promotion campaign")
     promotion_coupon_code: Optional[str] = Field(None, description="Server-evaluated promotion coupon")
     promotion_coupon_id: Optional[str] = Field(None, description="Server-evaluated promotion coupon ID")
+    document_type: Optional[str] = Field(None, description="TAX_INVOICE, RETAIL_RECEIPT, or BILL_OF_SUPPLY")
 
 
 class CanonicalPostingLineResult(BaseModel):
@@ -179,6 +181,14 @@ class CanonicalPostingResult(BaseModel):
     customer_id: Optional[str] = None
     customer_name: Optional[str] = None
     lines: List[CanonicalPostingLineResult] = Field(default_factory=list)
+
+    @property
+    def document_id(self) -> str:
+        return self.invoice_id
+
+    @property
+    def is_interstate(self) -> bool:
+        return self.igst_amount > Decimal("0.00")
 
 
 class BillingCalculatedLine(BaseModel):

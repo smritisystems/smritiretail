@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.0
+ * Version      : 3.16.1
  * Created      : 2026-09-27
- * Modified     : 2026-09-27
+ * Modified     : 2026-10-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Redesigned Unified Credit & Retail Billing Terminal (Phase 5)
@@ -83,7 +83,7 @@ export interface SmritiCreditBillingTerminalProps {
 }
 
 export type BillingMode = "CREDIT" | "CASH" | "EXCHANGE" | "QUOTATION" | "HOLD";
-export type DocStatus = "DRAFT" | "SUBMITTED";
+export type DocStatus = "DRAFT" | "PROCESSING" | "SUBMITTED" | "FAILED" | "RECONCILIATION_REQUIRED";
 
 export interface CreditLineItem {
   id: string;
@@ -155,8 +155,11 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
   const [activeNavRail, setActiveNavRail] = useState("billing");
   const [activeTopTab, setActiveTopTab] = useState("billing");
 
-  // Submitting / Loading indicator
+  // Submitting / Loading indicator & P0 transaction state
   const [submitting, setSubmitting] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [submittedInvoiceNo, setSubmittedInvoiceNo] = useState<string | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   // ---- Header & Customer State matching Image 1 ----
   const [header, setHeader] = useState<CreditBillingHeader>({
@@ -658,6 +661,7 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
   // Actions
   const handleSaveDraft = () => {
     setDocStatus("DRAFT");
+    setLastError(null);
     onNotification?.("Draft Saved", "Invoice saved as Draft with zero stock and ledger impact.", "info");
   };
 
@@ -669,10 +673,17 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
     setTransport("");
     setFreightCharges(0);
     setOtherCharges(0);
+    setDocStatus("DRAFT");
+    setLastError(null);
+    setSubmittedInvoiceNo(null);
+    idempotencyKeyRef.current = null;
     onNotification?.("Workspace Cleared", "Cart lines and parameters reset.", "info");
   };
 
   const handleSubmitInvoice = async () => {
+    // P0-A: Prevent duplicate concurrent submissions
+    if (submitting) return;
+
     if (!header.customer) {
       onNotification?.("Customer Required", "Please assign a customer before submitting a credit sale.", "error");
       return;
@@ -683,12 +694,29 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
     }
 
     setSubmitting(true);
-    const idempotencyKey = `idemp-inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setDocStatus("PROCESSING");
+    setLastError(null);
+
+    const effectiveCompanyId = currentUser?.companyId || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_id") : null) || "COMP-001";
+    const effectiveBranchId = currentUser?.branchId || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_branch_id") : null) || "MAIN";
+    const storageIdempKey = `smriti_credit_idemp_${effectiveCompanyId}_${effectiveBranchId}`;
+    if (!idempotencyKeyRef.current) {
+      if (typeof sessionStorage !== "undefined") {
+        idempotencyKeyRef.current = sessionStorage.getItem(storageIdempKey);
+      }
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = `CREDIT-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+        if (typeof sessionStorage !== "undefined") {
+          try { sessionStorage.setItem(storageIdempKey, idempotencyKeyRef.current); } catch {}
+        }
+      }
+    }
+    const idempotencyKey = idempotencyKeyRef.current;
 
     const checkoutPayload = {
       context: {
-        company_id: currentUser?.companyId || "COMP-001",
-        branch_id: currentUser?.branchId || "MAIN",
+        company_id: currentUser?.companyId || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_id") : null) || "COMP-001",
+        branch_id: currentUser?.branchId || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_branch_id") : null) || "MAIN",
         terminal_id: currentUser?.terminalId ? `STATION-${currentUser.terminalId}` : "DESKTOP_BILLING",
         source_channel: "B2B_WHOLESALE",
         idempotency_key: idempotencyKey,
@@ -722,21 +750,104 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
     try {
       const res = await apiFetchV1<any>("/billing/checkout", {
         method: "POST",
+        headers: {
+          "Idempotency-Key": idempotencyKey,
+        },
         body: checkoutPayload,
       });
+
+      const invNo = res?.invoice_no || res?.invoiceNo || "INV-POSTED";
       setDocStatus("SUBMITTED");
+      setSubmittedInvoiceNo(invNo);
+      idempotencyKeyRef.current = null; // Key consumed successfully
+      if (typeof sessionStorage !== "undefined") {
+        try { sessionStorage.removeItem(storageIdempKey); } catch {}
+      }
+
       onNotification?.(
         "Credit Invoice Submitted",
-        `Invoice ${res?.invoice_no || "INV-POSTED"} committed atomically with full ledger & stock parity.`,
+        `Invoice ${invNo} committed atomically with full ledger & stock parity.`,
         "success"
       );
-    } catch {
-      setDocStatus("SUBMITTED");
-      onNotification?.(
-        "Credit Invoice Submitted",
-        "Invoice posted successfully to PostgreSQL stock, ledger, and customer exposure balance.",
-        "success"
-      );
+    } catch (err: any) {
+      // P0-A: NEVER mark a failed request as SUBMITTED! Preserve the cart items.
+      const isNetworkTimeout =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        err?.name === "AbortError" ||
+        err?.message?.toLowerCase().includes("network") ||
+        err?.message?.toLowerCase().includes("failed to fetch") ||
+        err?.message?.toLowerCase().includes("timeout");
+
+      if (isNetworkTimeout) {
+        setDocStatus("RECONCILIATION_REQUIRED");
+        const msg = "Network timeout or connection interrupted. Transaction state uncertain on server. Click Reconcile to verify whether invoice committed.";
+        setLastError(msg);
+        onNotification?.("Network Timeout", msg, "warning");
+      } else {
+        setDocStatus("FAILED");
+        const errorDetail =
+          err?.detail ||
+          err?.message ||
+          "Credit billing rejected by server validation or exposure limit rules.";
+        setLastError(errorDetail);
+        onNotification?.("Submission Failed", errorDetail, "error");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /**
+   * Non-destructive reconciliation query checking whether the transaction was committed on the server.
+   */
+  const handleReconcileInvoice = async () => {
+    const effectiveCompanyId = currentUser?.companyId || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_id") : null) || "COMP-001";
+    const effectiveBranchId = currentUser?.branchId || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_branch_id") : null) || "MAIN";
+    const storageIdempKey = `smriti_credit_idemp_${effectiveCompanyId}_${effectiveBranchId}`;
+    const activeKey = idempotencyKeyRef.current || (typeof sessionStorage !== "undefined" ? sessionStorage.getItem(storageIdempKey) : null);
+    if (!activeKey) {
+      onNotification?.("No Key to Reconcile", "No active idempotency key found for this transaction draft.", "info");
+      return;
+    }
+
+    setSubmitting(true);
+    setLastError(null);
+    try {
+      const rec = await apiFetchV1<any>(`/billing/reconcile/${encodeURIComponent(activeKey)}`);
+      if (rec?.status === "COMMITTED" && rec?.invoice_no) {
+        setDocStatus("SUBMITTED");
+        setSubmittedInvoiceNo(rec.invoice_no);
+        idempotencyKeyRef.current = null;
+        if (typeof sessionStorage !== "undefined") {
+          try { sessionStorage.removeItem(storageIdempKey); } catch {}
+        }
+        setItems([]);
+        onNotification?.(
+          "Reconciliation Confirmed",
+          `Invoice ${rec.invoice_no} was already committed on server! Status synchronized.`,
+          "success"
+        );
+      } else if (rec?.status === "NOT_FOUND") {
+        setDocStatus("DRAFT");
+        onNotification?.(
+          "No Transaction Record",
+          "No transaction record currently exists for this key. An absent record does not guarantee an in-flight network request cannot arrive later. Retain this stable key if retrying.",
+          "warning"
+        );
+      } else if (rec?.status === "IN_FLIGHT") {
+        onNotification?.(
+          "Transaction Processing",
+          "Transaction is actively committing in server database. Please wait a moment and check again.",
+          "warning"
+        );
+      } else {
+        setDocStatus("FAILED");
+        const errMsg = rec?.error_detail || "Transaction failed on server.";
+        setLastError(errMsg);
+        onNotification?.("Reconciliation Result", errMsg, "error");
+      }
+    } catch (e: any) {
+      onNotification?.("Reconciliation Check Failed", e?.message || "Could not reach server to reconcile state.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -1014,6 +1125,36 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
                     <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" />
                     Credit Sale
                   </span>
+                  {docStatus === "DRAFT" && (
+                    <span className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-[#f1f5f9] dark:bg-[#334155] text-[#475569] dark:text-[#cbd5e1] font-bold border border-[#cbd5e1] dark:border-[#475569]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#94a3b8]" />
+                      Draft
+                    </span>
+                  )}
+                  {docStatus === "PROCESSING" && (
+                    <span className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-[#dbeafe] text-[#1d4ed8] font-bold border border-[#bfdbfe]">
+                      <RefreshCcw size={10} className="animate-spin text-[#2563eb]" />
+                      Processing...
+                    </span>
+                  )}
+                  {docStatus === "SUBMITTED" && (
+                    <span className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-[#dcfce7] text-[#15803d] font-bold border border-[#86efac]">
+                      <CheckCircle2 size={11} className="text-[#16a34a]" />
+                      Submitted {submittedInvoiceNo ? `(${submittedInvoiceNo})` : ""}
+                    </span>
+                  )}
+                  {docStatus === "FAILED" && (
+                    <span className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-[#fee2e2] text-[#b91c1c] font-bold border border-[#fca5a5]">
+                      <AlertTriangle size={11} className="text-[#dc2626]" />
+                      Submission Rejected
+                    </span>
+                  )}
+                  {docStatus === "RECONCILIATION_REQUIRED" && (
+                    <span className="flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-[#fef3c7] text-[#b45309] font-bold border border-[#fcd34d]">
+                      <AlertTriangle size={11} className="text-[#d97706]" />
+                      Reconciliation Required
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11px] text-[#64748b]">
                   Create sale invoice on credit (Customer Account)
@@ -1204,6 +1345,35 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
               </button>
             </div>
           </div>
+
+          {/* Actionable Error & Reconciliation Feedback Banner */}
+          {lastError && (
+            <div className="bg-[#fef2f2] dark:bg-[#450a0a]/40 border-b border-[#fecaca] dark:border-[#7f1d1d] px-4 py-2 flex items-center justify-between text-xs text-[#991b1b] dark:text-[#f87171] animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={15} className="shrink-0 text-[#dc2626]" />
+                <span className="font-semibold">{lastError}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => void (docStatus === "RECONCILIATION_REQUIRED" ? handleReconcileInvoice() : handleSubmitInvoice())}
+                  disabled={submitting}
+                  className="px-3 py-1 bg-[#dc2626] hover:bg-[#b91c1c] disabled:opacity-50 text-white rounded-lg text-[11px] font-bold transition shadow-xs flex items-center gap-1.5"
+                >
+                  {submitting && <RefreshCcw size={10} className="animate-spin" />}
+                  <span>{docStatus === "RECONCILIATION_REQUIRED" ? "Reconcile with Server" : "Retry Submission"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLastError(null)}
+                  className="p-1 hover:bg-[#fee2e2] dark:hover:bg-[#7f1d1d] rounded text-[#991b1b] dark:text-[#f87171]"
+                  title="Dismiss error"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── 4. CUSTOMER HEADER CARD (IMAGE 1 & 2) ── */}
           <div className="bg-white dark:bg-[#1e232a] border-b border-[#e2e8f0] dark:border-[#334155] px-4 py-2.5 flex items-center gap-3 shrink-0 flex-wrap">
@@ -1765,8 +1935,8 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
             <div>
               <button
                 type="button"
-                disabled={submitting}
-                onClick={() => void handleSubmitInvoice()}
+                disabled={submitting || items.length === 0 || !header.customer}
+                onClick={() => void (docStatus === "RECONCILIATION_REQUIRED" ? handleReconcileInvoice() : handleSubmitInvoice())}
                 className="flex items-center gap-2 px-6 py-2 rounded-xl bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-50 text-white font-extrabold text-xs shadow-md transition"
               >
                 {submitting ? (
@@ -1774,7 +1944,15 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
                 ) : (
                   <CheckCircle2 size={15} />
                 )}
-                <span>Submit Invoice (F6)</span>
+                <span>
+                  {submitting
+                    ? "Submitting..."
+                    : docStatus === "RECONCILIATION_REQUIRED"
+                    ? "Reconcile Invoice (F6)"
+                    : docStatus === "SUBMITTED"
+                    ? "Invoice Committed (F6)"
+                    : "Submit Invoice (F6)"}
+                </span>
                 <ChevronDown size={12} className="ml-1" />
               </button>
             </div>

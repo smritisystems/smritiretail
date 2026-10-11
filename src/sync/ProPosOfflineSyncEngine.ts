@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.73.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-10-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -44,6 +44,141 @@ export class ProPosOfflineSyncEngine {
   // In-memory fallback / simulation for non-DOM and SSR environments
   private static memoryQueue: Map<string, OfflineSaleRecord> = new Map();
   private static autoSyncTimer: any = null;
+  private static STORAGE_KEY = "smriti_propos_offline_queue_v1";
+
+  private static sanitizePayloadForOfflineStorage(payload: any): any {
+    if (!payload || typeof payload !== "object") return payload;
+    const sanitized = JSON.parse(JSON.stringify(payload));
+    const seen = new Set<any>();
+
+    const SENSITIVE_KEY_REGEX = /(?:password|passwd|secret|cvv|cvv2|cid|api_?key|jwt|(?:^|_|[a-z0-9])token|(?:^|_)pin(?:$|_)|auth_token)/i;
+    const CARD_PAN_KEY_REGEX = /(?:card_number|card_no|cardNumber|card_pan|account_pan|credit_card|(?:^|_)pan(?:$|_))/i;
+    const EMBEDDED_PAN_REGEX = /\b(?:\d[ -]?){13,19}\b/g;
+
+    const sanitizeObject = (obj: any) => {
+      if (!obj || typeof obj !== "object" || seen.has(obj)) return;
+      seen.add(obj);
+
+      for (const key of Object.keys(obj)) {
+        const val = obj[key];
+
+        // 1. Purge sensitive credentials matching regex pattern
+        if (SENSITIVE_KEY_REGEX.test(key)) {
+          delete obj[key];
+          continue;
+        }
+
+        // 2. Identify PAN keys and convert to masked card_last4
+        if (CARD_PAN_KEY_REGEX.test(key)) {
+          const strVal = String(val ?? "").replace(/[\s-]/g, "");
+          if (strVal.length >= 4) {
+            obj.card_last4 = strVal.slice(-4);
+          }
+          delete obj[key];
+          continue;
+        }
+
+        // 3. Mask any raw embedded card numbers in string values
+        if (typeof val === "string") {
+          obj[key] = val.replace(EMBEDDED_PAN_REGEX, (match) => {
+            const digitsOnly = match.replace(/[\s-]/g, "");
+            if (digitsOnly.length >= 13 && digitsOnly.length <= 19) {
+              return `****-****-****-${digitsOnly.slice(-4)}`;
+            }
+            return match;
+          });
+        } else if (Array.isArray(val)) {
+          val.forEach((item: any) => sanitizeObject(item));
+        } else if (val && typeof val === "object") {
+          sanitizeObject(val);
+        }
+      }
+    };
+
+    sanitizeObject(sanitized);
+    return sanitized;
+  }
+
+  private static loadStorage(): { loadedCount: number; corruptedCount: number } {
+    if (typeof localStorage === "undefined" || !localStorage) return { loadedCount: 0, corruptedCount: 0 };
+    let loadedCount = 0;
+    let corruptedCount = 0;
+
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (raw) {
+        let parsed: any;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          // Entire JSON string corrupted - quarantine it to prevent total data loss
+          corruptedCount++;
+          const quarantineKey = `smriti_propos_offline_corrupted_${Date.now()}`;
+          try {
+            localStorage.setItem(quarantineKey, raw);
+            localStorage.removeItem(this.STORAGE_KEY);
+          } catch {}
+          console.error(`[ProPosOfflineSyncEngine] Corrupted offline queue string quarantined to ${quarantineKey}`);
+          return { loadedCount: 0, corruptedCount };
+        }
+
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (item && typeof item === "object" && item.client_tx_uuid && typeof item.client_tx_uuid === "string") {
+              // Deep sanitize existing/legacy records loaded from disk
+              if (item.payload) {
+                item.payload = this.sanitizePayloadForOfflineStorage(item.payload);
+              }
+              if (!this.memoryQueue.has(item.client_tx_uuid)) {
+                this.memoryQueue.set(item.client_tx_uuid, item);
+                loadedCount++;
+              }
+            } else {
+              corruptedCount++;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[ProPosOfflineSyncEngine] Error reading storage:", e);
+    }
+    return { loadedCount, corruptedCount };
+  }
+
+  private static persistStorage(): void {
+    if (typeof localStorage === "undefined" || !localStorage) {
+      throw new Error("STORAGE_UNAVAILABLE: LocalStorage is unavailable or disabled. Cannot guarantee durable offline persistence.");
+    }
+    const arr = Array.from(this.memoryQueue.values());
+    const serialized = JSON.stringify(arr);
+
+    try {
+      localStorage.setItem(this.STORAGE_KEY, serialized);
+    } catch (err: any) {
+      const isQuota =
+        err?.name === "QuotaExceededError" ||
+        err?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+        err?.code === 22 ||
+        err?.code === 1014;
+
+      if (isQuota) {
+        throw new Error("STORAGE_QUOTA_EXCEEDED: LocalStorage quota exceeded. Offline transaction could not be durably written to disk.");
+      }
+      throw new Error(`STORAGE_WRITE_FAILED: Failed to write offline transaction to storage: ${err?.message || "Storage unavailable"}`);
+    }
+  }
+
+  /**
+   * Recovers any queued offline transactions persisted in storage upon restart.
+   */
+  public static recoverFromStorage(): { recoveredCount: number; corruptedCount: number; totalQueueSize: number } {
+    const { loadedCount, corruptedCount } = this.loadStorage();
+    return {
+      recoveredCount: loadedCount,
+      corruptedCount,
+      totalQueueSize: this.memoryQueue.size,
+    };
+  }
 
   /**
    * Generates a deterministic client-side transaction UUID.
@@ -56,25 +191,50 @@ export class ProPosOfflineSyncEngine {
 
   /**
    * Enqueues an offline POS transaction for resilient upstream synchronization.
+   * Enforces deduplication and strict durable persistence before returning.
    */
   public static async queueOfflineSale(
     payload: any,
     terminalId: string = "POS-01",
     documentNumber?: string
   ): Promise<OfflineSaleRecord> {
+    this.loadStorage();
+    const docNo = documentNumber || payload.invoice_no || payload.invoiceNo;
+
+    // Deduplication check: if a transaction with this client_tx_uuid or document_number already exists
+    for (const existing of this.memoryQueue.values()) {
+      if (
+        (payload.client_tx_uuid && existing.client_tx_uuid === payload.client_tx_uuid) ||
+        (docNo && existing.document_number === docNo && (existing.status === "QUEUED" || existing.status === "SYNCING"))
+      ) {
+        return existing;
+      }
+    }
+
+    const sanitizedPayload = this.sanitizePayloadForOfflineStorage(payload);
     const clientTxUuid = payload.client_tx_uuid || this.generateClientTxUuid(terminalId);
     const record: OfflineSaleRecord = {
       client_tx_uuid: clientTxUuid,
       terminal_id: terminalId,
       txn_type: payload.txn_type || "SALES_INVOICE",
-      document_number: documentNumber || payload.invoice_no || payload.invoiceNo,
-      payload: { ...payload, client_tx_uuid: clientTxUuid },
+      document_number: docNo,
+      payload: { ...sanitizedPayload, client_tx_uuid: clientTxUuid },
       status: "QUEUED",
       retry_count: 0,
       created_at: new Date().toISOString(),
     };
 
+    // Speculative insert into memory
     this.memoryQueue.set(clientTxUuid, record);
+
+    // Enforce durable disk write: if storage fails, roll back memory and throw!
+    try {
+      this.persistStorage();
+    } catch (storageErr) {
+      this.memoryQueue.delete(clientTxUuid);
+      throw storageErr;
+    }
+
     return record;
   }
 
@@ -82,6 +242,7 @@ export class ProPosOfflineSyncEngine {
    * Retrieves all items currently stored in the sync queue.
    */
   public static async getQueue(): Promise<OfflineSaleRecord[]> {
+    this.loadStorage();
     return Array.from(this.memoryQueue.values()).sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
@@ -199,6 +360,11 @@ export class ProPosOfflineSyncEngine {
           itm.last_synced_at = new Date().toISOString();
         }
       }
+      try {
+        this.persistStorage();
+      } catch (storeErr) {
+        console.warn("[ProPosOfflineSyncEngine] Failed to persist sync batch status to disk:", storeErr);
+      }
 
       return {
         success: true,
@@ -211,6 +377,11 @@ export class ProPosOfflineSyncEngine {
       for (const itm of pending) {
         itm.status = "FAILED";
         itm.error_message = err?.message || "Network offline or backend timeout.";
+      }
+      try {
+        this.persistStorage();
+      } catch (storeErr) {
+        console.warn("[ProPosOfflineSyncEngine] Failed to persist failed sync batch status to disk:", storeErr);
       }
       return {
         success: false,
@@ -255,5 +426,10 @@ export class ProPosOfflineSyncEngine {
    */
   public static clearQueue(): void {
     this.memoryQueue.clear();
+    if (typeof localStorage !== "undefined") {
+      try {
+        localStorage.removeItem(this.STORAGE_KEY);
+      } catch {}
+    }
   }
 }

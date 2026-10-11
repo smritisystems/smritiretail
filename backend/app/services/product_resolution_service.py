@@ -148,7 +148,7 @@ class ProductResolutionService:
                 product_id=line.product_id.strip(),
                 allow_inactive=allow_inactive,
             )
-            if res.success:
+            if res.success or res.code in ("PRODUCT_INACTIVE", "PRODUCT_QUARANTINED"):
                 return res
 
         if line.variant_id and line.variant_id.strip():
@@ -158,7 +158,7 @@ class ProductResolutionService:
                 product_id=line.variant_id.strip(),
                 allow_inactive=allow_inactive,
             )
-            if res.success:
+            if res.success or res.code in ("PRODUCT_INACTIVE", "PRODUCT_QUARANTINED"):
                 return res
 
         # Priority 2: Barcode
@@ -169,7 +169,7 @@ class ProductResolutionService:
                 barcode=line.barcode.strip(),
                 allow_inactive=allow_inactive,
             )
-            if res.success:
+            if res.success or res.code in ("PRODUCT_INACTIVE", "PRODUCT_QUARANTINED"):
                 return res
 
         # Priority 3: SKU / Code
@@ -181,7 +181,7 @@ class ProductResolutionService:
                 sku=query_code.strip(),
                 allow_inactive=allow_inactive,
             )
-            if res.success:
+            if res.success or res.code in ("PRODUCT_INACTIVE", "PRODUCT_QUARANTINED"):
                 return res
 
         # If none resolved, return explicit PRODUCT_NOT_FOUND error
@@ -414,7 +414,7 @@ class ProductResolutionService:
                         category_code=canonical_row.get("category_code"),
                         uom=canonical_row.get("primary_uom") or "NOS",
                         hsn_code=canonical_row.get("hsn_code") or "640411",
-                        tax_rate=Decimal(str(canonical_row.get("tax_rate") or "0.00")),
+                        tax_rate=Decimal(str(canonical_row["tax_rate"])) if canonical_row.get("tax_rate") is not None else None,
                         mrp=Decimal(str(canonical_row.get("mrp") or "0.00")),
                         selling_price=Decimal(str(canonical_row.get("selling_price") or "0.00")),
                         cost_price=Decimal(str(canonical_row.get("cost_price") or "0.00")),
@@ -453,7 +453,7 @@ class ProductResolutionService:
                         category_code=legacy_row.get("category_code"),
                         uom="PAIR" if (legacy_row.get("category") or "").lower() in ["footwear", "socks"] else "NOS",
                         hsn_code=legacy_row.get("hsn_code") or "640411",
-                        tax_rate=Decimal(str(legacy_row.get("gst_percentage") or "0.00")),
+                        tax_rate=Decimal(str(legacy_row["gst_percentage"])) if legacy_row.get("gst_percentage") is not None else None,
                         mrp=Decimal(str(legacy_row.get("mrp") or "0.00")),
                         selling_price=Decimal(str(legacy_row.get("price") or "0.00")),
                         cost_price=Decimal(str(legacy_row.get("cost_price") or "0.00")),
@@ -515,7 +515,7 @@ class ProductResolutionService:
                     v.variant_name,
                     v.is_active as variant_is_active,
                     COALESCE(v.hsn_code, i.hsn_code) as hsn_code,
-                    COALESCE(v.tax_rate, i.tax_rate, 0.00) as tax_rate,
+                    COALESCE(v.tax_rate, i.tax_rate) as tax_rate,
                     ib.barcode,
                     COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
                     COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
@@ -558,7 +558,7 @@ class ProductResolutionService:
                     v.variant_name,
                     v.is_active as variant_is_active,
                     COALESCE(v.hsn_code, i.hsn_code) as hsn_code,
-                    COALESCE(v.tax_rate, i.tax_rate, 0.00) as tax_rate,
+                    COALESCE(v.tax_rate, i.tax_rate) as tax_rate,
                     ib.barcode,
                     COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
                     COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
@@ -601,7 +601,7 @@ class ProductResolutionService:
                     v.variant_name,
                     v.is_active as variant_is_active,
                     COALESCE(v.hsn_code, i.hsn_code) as hsn_code,
-                    COALESCE(v.tax_rate, i.tax_rate, 0.00) as tax_rate,
+                    COALESCE(v.tax_rate, i.tax_rate) as tax_rate,
                     ib.barcode,
                     COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
                     COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
@@ -644,7 +644,7 @@ class ProductResolutionService:
                     COALESCE(v.variant_name, i.item_name) as variant_name,
                     COALESCE(v.is_active, i.is_active) as variant_is_active,
                     COALESCE(v.hsn_code, i.hsn_code) as hsn_code,
-                    COALESCE(v.tax_rate, i.tax_rate, 0.00) as tax_rate,
+                    COALESCE(v.tax_rate, i.tax_rate) as tax_rate,
                     ib.barcode,
                     COALESCE(v.selling_price, i.selling_price, 0.00) as selling_price,
                     COALESCE(v.mrp, i.mrp, 0.00) as mrp,

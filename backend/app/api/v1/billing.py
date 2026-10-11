@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.16.1
 Created      : 2026-09-27
-Modified     : 2026-09-27
+Modified     : 2026-10-11
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Canonical Billing API & Transaction Router (Phase 1)
@@ -226,3 +226,62 @@ async def checkout(
     )
 
     return result
+
+
+@router.get(
+    "/reconcile/{idempotency_key}",
+    status_code=status.HTTP_200_OK,
+    summary="Reconcile Billing Transaction by Idempotency Key",
+)
+@router.get(
+    "/billing/reconcile/{idempotency_key}",
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
+)
+async def reconcile_billing_transaction(
+    idempotency_key: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Non-destructive transaction reconciliation check.
+    Queries the Transaction Integrity Engine ledger without triggering any mutations.
+    """
+    from ...models.transaction_integrity import TransactionIdempotencyRecord
+    from sqlalchemy import select
+
+    stmt = select(TransactionIdempotencyRecord).where(
+        TransactionIdempotencyRecord.company_id == tenant.company_id,
+        TransactionIdempotencyRecord.entity_type == "SALES_INVOICE",
+        TransactionIdempotencyRecord.idempotency_key == idempotency_key,
+    )
+    rec = (await db.execute(stmt)).scalars().first()
+    if not rec:
+        return {
+            "status": "NOT_FOUND",
+            "is_committed": False,
+            "idempotency_key": idempotency_key,
+            "reconciliation_advice": (
+                "No transaction record currently exists for this idempotency key. "
+                "An absent record does not guarantee an in-flight network request cannot arrive later. "
+                "Retain this stable key if retrying."
+            ),
+        }
+
+    is_committed = (rec.status == "COMMITTED")
+    return {
+        "status": rec.status,
+        "is_committed": is_committed,
+        "idempotency_key": idempotency_key,
+        "invoice_no": rec.document_no,
+        "invoice_id": rec.document_id,
+        "completed_at": rec.completed_at.isoformat() if rec.completed_at else None,
+        "error_detail": rec.error_detail,
+        "reconciliation_advice": (
+            "Transaction committed and posted." if is_committed else
+            "Transaction actively in progress on server. Do not dispatch duplicate." if rec.status == "IN_FLIGHT" else
+            "Transaction previously failed. Safe to review and retry with a new or clean key."
+        ),
+    }
+

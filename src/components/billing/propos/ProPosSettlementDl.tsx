@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 6.0.1
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -28,7 +28,8 @@ import {
   Coins,
   Delete,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  RefreshCcw
 } from "lucide-react";
 
 interface SmritiPosSettlementProps {
@@ -36,6 +37,7 @@ interface SmritiPosSettlementProps {
   customer?: ProPosCustomer;
   onSettle: (tenders: ProPosTenderSplit, changeDue: number, tenderItems?: POSTenderItem[]) => void;
   onClose: () => void;
+  isSubmitting?: boolean;
 }
 
 type TenderMode = "CASH" | "CARD" | "UPI" | "STORE_CREDIT" | "GIFT_VOUCHER" | "LOYALTY" | "CREDIT" | "CREDIT_NOTE";
@@ -53,13 +55,15 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
   netAmount,
   customer,
   onSettle,
-  onClose
+  onClose,
+  isSubmitting = false,
 }) => {
   const [selectedMode, setSelectedMode] = useState<TenderMode>("CASH");
   const [keypadInput, setKeypadInput] = useState<string>("");
   const [appliedPayments, setAppliedPayments] = useState<AppliedPayment[]>([]);
   const [cardAuthCode, setCardAuthCode] = useState<string>("");
   const [upiRefNo, setUpiRefNo] = useState<string>("");
+  const [isSoundboxVerified, setIsSoundboxVerified] = useState<boolean>(false);
   const [voucherCode, setVoucherCode] = useState<string>("");
   const [creditError, setCreditError] = useState<string>("");
   const [walletBalance, setWalletBalance] = useState<number>(customer?.availableWalletBalance ?? 0);
@@ -227,8 +231,15 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
       subLabel = cardAuthCode ? `Auth: ${cardAuthCode}` : "Card Swiped";
       ref = cardAuthCode;
     } else if (selectedMode === "UPI") {
-      subLabel = upiRefNo ? `Ref: ${upiRefNo}` : "Dynamic QR Paid";
-      ref = upiRefNo;
+      if (upiRefNo.trim()) {
+        subLabel = isSoundboxVerified
+          ? `UTR: ${upiRefNo} (Manual Attestation)`
+          : `UTR: ${upiRefNo} (Pending Attestation)`;
+        ref = isSoundboxVerified ? `${upiRefNo} [MANUAL_ATTESTED]` : `${upiRefNo} [PENDING_ATTESTATION]`;
+      } else {
+        subLabel = "UPI Pending (No UTR)";
+        ref = "";
+      }
     } else if (selectedMode === "STORE_CREDIT") {
       subLabel = `Store Credit • Available ₹${walletBalance.toFixed(2)}`;
       ref = customer?.id ? `WAL-${customer.id.slice(-6)}` : "WALLET";
@@ -263,6 +274,7 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
     setKeypadInput("");
     setCardAuthCode("");
     setUpiRefNo("");
+    setIsSoundboxVerified(false);
     setVoucherCode("");
   };
 
@@ -588,17 +600,55 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
               )}
 
               {selectedMode === "UPI" && (
-                <div className="mt-3 flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={upiRefNo}
-                    onChange={e => setUpiRefNo(e.target.value)}
-                    placeholder="Enter UPI Transaction Reference (UTR)..."
-                    className="flex-1 text-xs px-3 py-2 border border-[#c4c5d5] dark:border-[#444653] rounded-lg outline-none bg-white dark:bg-[#131b2e]"
-                  />
-                  <span className="px-3 py-2 bg-[#dcfce7] text-[#166534] rounded-lg text-xs font-bold">
-                    Scan Verified
-                  </span>
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={upiRefNo}
+                      onChange={e => setUpiRefNo(e.target.value)}
+                      placeholder="Enter UPI Transaction Reference (UTR)..."
+                      className="flex-1 text-xs px-3 py-2 border border-[#c4c5d5] dark:border-[#444653] rounded-lg outline-none bg-white dark:bg-[#131b2e]"
+                    />
+                    {upiRefNo.trim() ? (
+                      isSoundboxVerified ? (
+                        <span className="px-2.5 py-1.5 bg-[#dcfce7] text-[#166534] rounded-lg text-[11px] font-bold border border-[#bbf7d0] flex items-center gap-1">
+                          <CheckCircle size={12} />
+                          Manual Attestation (Prompt Heard / Checked)
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1.5 bg-[#dbeafe] text-[#1e40af] rounded-lg text-[11px] font-bold border border-[#bfdbfe]">
+                          UTR Recorded (Pending Cashier Attestation)
+                        </span>
+                      )
+                    ) : (
+                      <span className="px-2.5 py-1.5 bg-[#fef3c7] text-[#92400e] rounded-lg text-[11px] font-bold border border-[#fde68a]">
+                        Pending (Awaiting Scan / UTR)
+                      </span>
+                    )}
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isSoundboxVerified}
+                      onChange={e => setIsSoundboxVerified(e.target.checked)}
+                      className="rounded text-[#00288e] focus:ring-[#00288e]"
+                    />
+                    <span>Cashier Manual Attestation: I confirm having heard the soundbox audio prompt or verified the banking app manually (Not automated bank verification).</span>
+                  </label>
+
+                  <div className="p-2.5 rounded-lg bg-[#e0e7ff] dark:bg-[#1e1b4b] border border-[#c7d2fe] dark:border-[#312e81] flex items-center justify-between text-xs text-[#3730a3] dark:text-[#a5b4fc]">
+                    <div className="flex items-center gap-2">
+                      <QrCode size={16} />
+                      <span className="font-mono font-medium">
+                        Dynamic Intent: upi://pay?pa={(typeof localStorage !== "undefined" ? (localStorage.getItem("smriti_company_upi_vpa") || localStorage.getItem("smriti_merchant_vpa")) : null) || "merchant@upi"}&amp;am={balanceRemaining.toFixed(2)}
+                      </span>
+                    </div>
+                    <span className="font-bold text-[11px] bg-white dark:bg-[#0f172a] px-2 py-0.5 rounded shadow-2xs">BHIM / GPay / PayTM</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 italic">
+                    * Initiation QR only — not automated proof of payment. Cashier manual attestation required upon hearing soundbox audio announcement or reviewing banking portal.
+                  </p>
                 </div>
               )}
 
@@ -798,11 +848,16 @@ export const SmritiPosSettlement: React.FC<SmritiPosSettlementProps> = ({
 
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={handleFinalSettle}
-            className="px-8 py-3 rounded-xl bg-[#00288e] hover:bg-[#1e40af] text-white font-bold text-sm shadow-lg flex items-center gap-2 transition active:scale-95"
+            className="px-8 py-3 rounded-xl bg-[#00288e] hover:bg-[#1e40af] disabled:opacity-50 text-white font-bold text-sm shadow-lg flex items-center gap-2 transition active:scale-95"
           >
-            <Printer size={16} />
-            <span>Settle &amp; Print [F10]</span>
+            {isSubmitting ? (
+              <RefreshCcw size={16} className="animate-spin" />
+            ) : (
+              <Printer size={16} />
+            )}
+            <span>{isSubmitting ? "Finalizing Invoice..." : "Settle & Print [F10]"}</span>
           </button>
         </footer>
 
