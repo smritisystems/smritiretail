@@ -106,6 +106,28 @@ class AttendanceCreate(BaseModel):
     correction_reason: Optional[str] = None
 
 
+class AttendanceRecordOut(BaseModel):
+    """R-05: Typed serialization contract for GET /attendance.
+    Prevents raw ORM objects reaching the client and enforces ISO datetime formatting.
+    """
+    id: str
+    user_id: str
+    attendance_date: date
+    status: str
+    check_in_at: Optional[datetime] = None
+    check_out_at: Optional[datetime] = None
+    branch_source_id: Optional[str] = None
+    register_source: Optional[str] = None
+    device_source: Optional[str] = None
+    correction_status: Optional[str] = None
+    correction_reason: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class AttendancePunchPayload(BaseModel):
     user_id: Optional[str] = None
     punch_type: Optional[str] = "AUTO"  # AUTO | IN | OUT
@@ -1264,11 +1286,12 @@ async def settle_commission(
 # STAFF-004: Attendance and leave foundations
 # ---------------------------------------------------------------------------
 
-@router.get("/attendance")
+@router.get("/attendance", response_model=None)
 async def list_attendance(
     user_id: Optional[str] = Query(default=None),
     from_date: Optional[date] = Query(default=None),
     to_date: Optional[date] = Query(default=None),
+    branch_id: Optional[str] = Query(default=None),
     tenant: TenantContext = Depends(get_tenant_context),
     control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
@@ -1288,8 +1311,14 @@ async def list_attendance(
         stmt = stmt.where(AttendanceRecord.attendance_date >= from_date)
     if to_date:
         stmt = stmt.where(AttendanceRecord.attendance_date <= to_date)
+    if branch_id:  # R-11 filter (also available on list endpoint)
+        stmt = stmt.where(AttendanceRecord.branch_source_id == branch_id)
     rows = (await db.execute(stmt.order_by(AttendanceRecord.attendance_date.desc()))).scalars().all()
-    return {"records": rows, "total": len(rows)}
+    # R-05: Serialize through AttendanceRecordOut for consistent JSON contract
+    return {
+        "records": [AttendanceRecordOut.from_orm(r).dict() for r in rows],
+        "total": len(rows),
+    }
 
 
 @router.get("/attendance/summary")
@@ -1298,6 +1327,7 @@ async def get_attendance_summary(
     period: Optional[str] = Query(default=None, description="Month format YYYY-MM"),
     from_date: Optional[date] = Query(default=None),
     to_date: Optional[date] = Query(default=None),
+    branch_id: Optional[str] = Query(default=None, description="Filter by branch source ID for multi-branch headcount"),
     tenant: TenantContext = Depends(get_tenant_context),
     control_db: AsyncSession = Depends(get_db),
     db: AsyncSession = Depends(get_company_db),
@@ -1307,6 +1337,7 @@ async def get_attendance_summary(
     Authoritative Period Attendance KPI Summary.
     Aggregates PostgreSQL attendance_records to provide exact counts of present,
     absent, leave, late, total hours worked, and average daily shift hours.
+    R-11: Accepts optional branch_id for per-branch headcount in multi-branch tenants.
     """
     if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
         user_id = current_user.id
@@ -1319,6 +1350,9 @@ async def get_attendance_summary(
         target_user = await _tenant_user(db, user_id, tenant, control_db=control_db)
         user_ids = list({user_id, target_user.id})
         conditions.append(AttendanceRecord.user_id.in_(user_ids))
+    # R-11: Per-branch filter for multi-branch headcount reporting
+    if branch_id:
+        conditions.append(AttendanceRecord.branch_source_id == branch_id)
 
     if period:
         try:
@@ -1919,15 +1953,19 @@ async def decide_leave_request(
     if request.status != "PENDING":
         raise HTTPException(status_code=409, detail="Only pending leave requests can be decided.")
 
-    # Locate LeaveBalance for this employee, year, and leave type
+    # R-07: SELECT FOR UPDATE to prevent concurrent approval race condition.
+    # Two managers approving the same leave simultaneously could both pass the
+    # balance check and overdraw entitled_days. The row lock serializes access.
     leave_year = request.start_date.year
-    lb = (await db.execute(select(LeaveBalance).where(
-        LeaveBalance.company_id == tenant.company_id,
-        LeaveBalance.user_id == request.user_id,
-        LeaveBalance.leave_year == leave_year,
-        LeaveBalance.leave_type == request.leave_type,
-        LeaveBalance.is_deleted == False,
-    ))).scalar_one_or_none()
+    lb = (await db.execute(
+        select(LeaveBalance).where(
+            LeaveBalance.company_id == tenant.company_id,
+            LeaveBalance.user_id == request.user_id,
+            LeaveBalance.leave_year == leave_year,
+            LeaveBalance.leave_type == request.leave_type,
+            LeaveBalance.is_deleted == False,
+        ).with_for_update()
+    )).scalar_one_or_none()
 
     if not lb:
         entitled = 15 if request.leave_type == "EL" else 12
