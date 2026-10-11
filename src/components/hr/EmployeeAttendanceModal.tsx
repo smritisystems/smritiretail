@@ -4,12 +4,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.46
+ * Version      : 6.70.53
  * Created      : 2026-08-28
- * Modified     : 2026-10-09
+ * Modified     : 2026-10-12
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v6.70.53 (2026-10-12):
+ *   - Added initialUserId prop support with dynamic staff selection synchronization.
+ *   - Unified /staff/personnel and /staff/directory to present complete active roster.
+ *   - Added LATE status styling and device_source / register_source badges in ledger.
  *
  * Changelog v6.70.46 (2026-10-09):
  *   - Enforced defensive Array.isArray guards across personnel, attendance, incentives,
@@ -69,6 +74,8 @@ interface AttendanceRecord {
   clock_out?: string;
   hours_worked?: number;
   leave_type?: string;
+  register_source?: string;
+  device_source?: string;
 }
 
 interface IncentiveRecord {
@@ -155,11 +162,13 @@ export interface AttendanceSummary {
 interface EmployeeAttendanceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialUserId?: string;
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info") => void;
 }
 
 const STATUS_COLOR: Record<string, string> = {
   PRESENT:  "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+  LATE:     "text-amber-400 bg-amber-500/10 border-amber-500/20",
   ABSENT:   "text-rose-400 bg-rose-500/10 border-rose-500/20",
   LEAVE:    "text-amber-400 bg-amber-500/10 border-amber-500/20",
   HALF_DAY: "text-sky-400 bg-sky-500/10 border-sky-500/20",
@@ -173,11 +182,11 @@ const currentPeriod = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
-export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = ({ isOpen, onClose, onNotification }) => {
+export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = ({ isOpen, onClose, initialUserId, onNotification }) => {
   const [personnel, setPersonnel]           = useState<PersonnelProfile[]>([]);
   const [attendance, setAttendance]         = useState<AttendanceRecord[]>([]);
   const [incentives, setIncentives]         = useState<IncentiveRecord[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUserId, setSelectedUserId] = useState<string>(initialUserId || "");
   const [activeTab, setActiveTab]           = useState<"ATTENDANCE" | "COMMISSION" | "LEAVE" | "PAYOUT">("ATTENDANCE");
   const [loading, setLoading]               = useState(false);
   const [punchLoading, setPunchLoading]     = useState(false);
@@ -214,13 +223,20 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, []);
 
+  useEffect(() => {
+    if (initialUserId) {
+      setSelectedUserId(initialUserId);
+    }
+  }, [initialUserId]);
+
   const load = useCallback(async () => {
     if (!isOpen) return;
     setLoading(true);
     setError(null);
     try {
-      const [staff, att, inc] = await Promise.all([
+      const [staff, dir, att, inc] = await Promise.all([
         apiFetchV1<PersonnelProfile[]>("/staff/personnel").catch(() => []),
+        apiFetchV1<any>("/staff/directory").catch(() => ({ users: [] })),
         apiFetchV1<any>(`/staff/attendance?from_date=${PERIOD}-01&to_date=${PERIOD}-31`).catch(() => ({ records: [] })),
         apiFetchV1<any>(`/staff/incentives?period=${PERIOD}`).catch(() => ({ lines: [] })),
       ]);
@@ -229,12 +245,40 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         ? staff
         : (staff as any)?.users || (staff as any)?.data || [];
 
-      const staffList: PersonnelProfile[] = rawStaff.map((p: any) => ({
-        ...p,
-        user_id: p.user_id || p.id || `staff-${Math.random().toString(36).slice(2, 7)}`,
-        full_name: p.full_name || p.person_name || "Staff Member",
-        emp_id: p.emp_id || p.id || p.user_id,
-      }));
+      const staffMap = new Map<string, PersonnelProfile>();
+
+      for (const p of rawStaff) {
+        const uid = p.user_id || p.id;
+        if (uid) {
+          staffMap.set(uid, {
+            ...p,
+            user_id: uid,
+            full_name: p.full_name || p.person_name || "Staff Member",
+            emp_id: p.emp_id || p.id || p.user_id,
+          });
+        }
+      }
+
+      const rawDir: any[] = Array.isArray(dir)
+        ? dir
+        : (dir as any)?.users || (dir as any)?.items || [];
+
+      for (const d of rawDir) {
+        const uid = d.id || d.user_id;
+        if (uid && !staffMap.has(uid)) {
+          staffMap.set(uid, {
+            user_id: uid,
+            emp_id: d.employeeId || d.employeeCode || uid,
+            full_name: d.fullName || d.full_name || d.name || d.username || "Staff Member",
+            designation: d.designation || d.role || "Operator",
+            branch_code: d.branch || d.branchId || "MAIN",
+            commission_type: "DIRECT_SALES",
+            base_salary: 0,
+          });
+        }
+      }
+
+      const staffList = Array.from(staffMap.values());
 
       const rawAtt: any[] = Array.isArray(att)
         ? att
@@ -249,6 +293,8 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         clock_out: r.clock_out || (r.check_out_at ? new Date(r.check_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : undefined),
         hours_worked: r.hours_worked ?? (r.check_in_at && r.check_out_at ? Math.round(((new Date(r.check_out_at).getTime() - new Date(r.check_in_at).getTime()) / 3600000) * 10) / 10 : undefined),
         leave_type: r.leave_type,
+        register_source: r.register_source,
+        device_source: r.device_source,
       }));
 
       const rawInc: any[] = Array.isArray(inc)
@@ -256,21 +302,22 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         : (inc as any)?.lines || (inc as any)?.incentives || [];
 
       let incentiveRecords: IncentiveRecord[] = Array.isArray(inc) ? inc : [];
-      // F-05: Never synthesize fictional payout data — show empty list instead.
-      // The Payout tab will display a clear "data not yet available" message.
-      // Real payout data comes from GET /staff/commissions/summary (PostgreSQL ledger).
 
       setPersonnel(staffList);
       setAttendance(normalizedAtt);
       setIncentives(incentiveRecords);
-      if (staffList?.length) setSelectedUserId(staffList[0].user_id);
+      if (initialUserId && staffMap.has(initialUserId)) {
+        setSelectedUserId(initialUserId);
+      } else if (staffList?.length) {
+        setSelectedUserId((prev) => (prev && staffMap.has(prev) ? prev : staffList[0].user_id));
+      }
     } catch (e: any) {
       setError(e?.message ?? "Failed to load staff data.");
       onNotification?.("Error", "Could not load staff attendance data.", "error");
     } finally {
       setLoading(false);
     }
-  }, [isOpen, PERIOD, onNotification]);
+  }, [isOpen, PERIOD, initialUserId, onNotification]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -648,11 +695,20 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                       {empAtt.length === 0 ? (
                         <p className="text-xs text-slate-500 text-center py-6">No attendance records for this period.</p>
                       ) : empAtt.slice(0, 30).map((r) => (
-                        <div key={r.record_id} className="flex items-center justify-between px-3 py-2 bg-slate-800/20 border border-slate-800/50 rounded-lg text-xs">
-                          <span className="text-slate-400 font-mono">{r.date}</span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_COLOR[r.status] ?? ""}`}>{r.status}</span>
-                          <span className="text-slate-500 font-mono">{r.clock_in ?? "—"} → {r.clock_out ?? "—"}</span>
-                          <span className="text-slate-400 font-mono">{r.hours_worked != null ? `${r.hours_worked}h` : r.leave_type ?? ""}</span>
+                        <div key={r.record_id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-800/20 border border-slate-800/50 rounded-lg text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400 font-mono">{r.date}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_COLOR[r.status] ?? "text-slate-400 bg-slate-800 border-slate-700"}`}>{r.status}</span>
+                            {(r.device_source || r.register_source) && (
+                              <span className="text-[9px] text-slate-500 bg-slate-900/80 border border-slate-800 px-1.5 py-0.5 rounded" title={r.device_source || r.register_source}>
+                                {r.device_source ? `📡 ${r.device_source.split(",")[0].trim()}` : `📋 ${r.register_source}`}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-slate-500 font-mono">{r.clock_in ?? "—"} → {r.clock_out ?? "—"}</span>
+                            <span className="text-slate-300 font-mono font-semibold">{r.hours_worked != null ? `${r.hours_worked}h` : r.leave_type ?? "—"}</span>
+                          </div>
                         </div>
                       ))}
                     </div>

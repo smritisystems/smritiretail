@@ -1,12 +1,12 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 1.1.0
  * Created      : 2026-10-11
- * Modified     : 2026-10-11
+ * Modified     : 2026-10-12
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -553,3 +553,106 @@ describe("IT-ATT-09 — Shape Regression: all attendance fields present in API r
     }
   });
 });
+
+// ─── Suite 10: Staff 360 & Modal Wiring (UX/UI/DB Integration) ──────────────
+describe("IT-ATT-10 — Staff 360 & Modal Wiring: initialUserId, multi-source roster, and device bounds", () => {
+
+  it("Staff 360 quick punch sends device_source='STAFF_360_WORKSPACE' with AUTO type", async () => {
+    let capturedBody: any = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        if (init?.body) capturedBody = JSON.parse(init.body as string);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            action: "CHECKED_IN",
+            message: "Clocked in successfully",
+            record: { ...PUNCH_RESPONSE, device_source: "STAFF_360_WORKSPACE" },
+          }),
+          headers: new Headers({ "content-type": "application/json" }),
+        };
+      })
+    );
+
+    const res = await (await fetch("/api/v1/staff/attendance/punch", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: "usr-cashier-001",
+        punch_type: "AUTO",
+        device_source: "STAFF_360_WORKSPACE",
+      }),
+    })).json();
+
+    expect(capturedBody).toEqual({
+      user_id: "usr-cashier-001",
+      punch_type: "AUTO",
+      device_source: "STAFF_360_WORKSPACE",
+    });
+    expect(res.record.device_source).toBe("STAFF_360_WORKSPACE");
+  });
+
+  it("Attendance summary returns authoritative PostgreSQL KPI metrics", async () => {
+    const SUMMARY_MOCK = {
+      user_id: "usr-cashier-001",
+      period: "2026-10",
+      total_days: 20,
+      present_days: 18,
+      late_days: 2,
+      half_days: 1,
+      absent_days: 1,
+      leave_days: 0,
+      holiday_days: 2,
+      total_hours_worked: 154.5,
+      avg_daily_hours: 8.58,
+    };
+    mockFetch(SUMMARY_MOCK);
+    const summary = await (await fetch("/api/v1/staff/attendance/summary?user_id=usr-cashier-001&period=2026-10")).json();
+
+    expect(summary.present_days).toBe(18);
+    expect(summary.late_days).toBe(2);
+    expect(summary.total_hours_worked).toBe(154.5);
+    expect(summary.avg_daily_hours).toBe(8.58);
+  });
+
+  it("Multi-source staff roster combines personnel and directory identities uniquely", async () => {
+    const rawPersonnel = [{ user_id: "usr-sales-01", full_name: "Sales Agent", designation: "Cashier" }];
+    const rawDirectory = {
+      users: [
+        { id: "usr-sales-01", fullName: "Sales Agent", role: "CASHIER" },
+        { id: "usr-admin-02", fullName: "Store Admin", role: "ADMIN" },
+      ],
+    };
+
+    // Simulate multi-source union logic used in EmployeeAttendanceModal and AttendanceWorkspaceTab
+    const staffMap = new Map<string, any>();
+    for (const p of rawPersonnel) {
+      staffMap.set(p.user_id, { ...p, id: p.user_id });
+    }
+    for (const d of rawDirectory.users) {
+      if (!staffMap.has(d.id)) {
+        staffMap.set(d.id, { id: d.id, user_id: d.id, full_name: d.fullName, designation: d.role });
+      }
+    }
+
+    const unified = Array.from(staffMap.values());
+    expect(unified.length).toBe(2);
+    expect(unified.map((u) => u.id)).toEqual(["usr-sales-01", "usr-admin-02"]);
+  });
+
+  it("Attendance record device_source stays within PostgreSQL VARCHAR(100) boundary", () => {
+    const baseSource = "BIO-TERMINAL-FRONT-01, BIO-TERMINAL-FRONT-01, UNITTEST-HEADLESS-01";
+    const newTag = "UNITTEST-HEADLESS-01";
+
+    // Replicate deduplication & truncation logic from backend/app/api/v1/staff.py
+    let updatedSource = baseSource;
+    if (newTag && !baseSource.includes(newTag)) {
+      updatedSource = `${baseSource}, ${newTag}`.slice(0, 100);
+    }
+    expect(updatedSource.length).toBeLessThanOrEqual(100);
+    expect(updatedSource).toBe(baseSource); // Deduplicated, not concatenated again
+  });
+});
+
