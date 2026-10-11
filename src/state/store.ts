@@ -264,7 +264,7 @@ export function migrateUsersAndSeedOrganizationData() {
         reportingManager: "",
         employmentType: "Permanent",
         allowedBranches: ["HQ Store"],
-        preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
+        preferences: { theme: "light", presetId: "enterprise-light", language: "English", timeZone: "Asia/Kolkata" },
         notificationSettings: {
           salaryCredit: true,
           commissionEarned: true,
@@ -309,7 +309,7 @@ export function migrateUsersAndSeedOrganizationData() {
         reportingManager: "",
         employmentType: "Permanent",
         allowedBranches: ["HQ Store"],
-        preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
+        preferences: { theme: "light", presetId: "enterprise-light", language: "English", timeZone: "Asia/Kolkata" },
         notificationSettings: {
           salaryCredit: true,
           commissionEarned: true,
@@ -354,7 +354,7 @@ export function migrateUsersAndSeedOrganizationData() {
         reportingManager: "",
         employmentType: "Permanent",
         allowedBranches: ["HQ Store"],
-        preferences: { theme: "dark", language: "English", timeZone: "Asia/Kolkata" },
+        preferences: { theme: "dark", presetId: "pos-dark", language: "English", timeZone: "Asia/Kolkata" },
         notificationSettings: {
           salaryCredit: true,
           commissionEarned: true,

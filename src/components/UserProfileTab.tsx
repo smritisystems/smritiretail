@@ -44,13 +44,16 @@ import {
   CheckCircle,
   AlertCircle,
   Activity,
-  LogOut
+  LogOut,
+  Palette,
 } from "lucide-react";
 import { User, UserPreferences, AuditLogEntry } from "../types.js";
 import { useNotifications } from "../notifications/notification_store.tsx";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 import { PasswordReset } from "./PasswordReset.tsx";
 import { isValidMobile, isValidEmail } from "../utils/validators.ts";
+import { useTheme } from "../contexts/ThemeContext.tsx";
+import { THEME_PRESETS } from "../config/theme_presets.ts";
 
 interface SessionInfo {
   token: string;
@@ -67,6 +70,7 @@ interface SessionInfo {
 
 export const UserProfileTab: React.FC = () => {
   const { addNotification } = useNotifications();
+  const { setPreset, activePreset } = useTheme();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<"summary" | "sessions" | "notifications" | "preferences">("summary");
@@ -80,7 +84,7 @@ export const UserProfileTab: React.FC = () => {
   const [displayName, setDisplayName] = useState<string>("");
   const [mobile, setMobile] = useState<string>("");
   const [email, setEmail] = useState<string>("");
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [selectedPresetId, setSelectedPresetId] = useState<string>(activePreset.id);
   const [language, setLanguage] = useState<string>("English");
   const [timeZone, setTimeZone] = useState<string>("Asia/Kolkata");
   const [notificationSettings, setNotificationSettings] = useState<User["notificationSettings"]>({
@@ -134,7 +138,11 @@ export const UserProfileTab: React.FC = () => {
       setEmail(fullProfile.email || "");
 
       if (fullProfile.preferences) {
-        setTheme(fullProfile.preferences.theme || "dark");
+        // Prefer presetId; fall back to legacy theme field
+        setSelectedPresetId(
+          fullProfile.preferences.presetId ?? 
+          (fullProfile.preferences.theme === "dark" ? "enterprise-dark" : "enterprise-light")
+        );
         setLanguage(fullProfile.preferences.language || "English");
         setTimeZone(fullProfile.preferences.timeZone || "Asia/Kolkata");
       }
@@ -237,15 +245,27 @@ export const UserProfileTab: React.FC = () => {
     if (!currentUser) return;
     setSaving(true);
     try {
-      // Migrated: PUT /api/users/{id}/preferences (Express) → PUT /api/v1/users/{id}/preferences (FastAPI)
+      const selectedPreset = THEME_PRESETS.find(p => p.id === selectedPresetId);
+      const payload = {
+        theme: selectedPreset?.mode ?? "light",
+        presetId: selectedPresetId,
+        density: selectedPreset?.density,
+        fontScale: selectedPreset?.fontScale,
+        language,
+        timeZone,
+      };
+
       await apiFetchV1(`/users/${currentUser.id}/preferences`, {
         method: "PUT",
-        body: JSON.stringify({ theme, language, timeZone }),
+        body: JSON.stringify(payload),
       });
+
+      // ── Phase 1 Fix: propagate preset to live ThemeContext ──
+      setPreset(selectedPresetId);
 
       addNotification({
         title: "Preferences Saved",
-        message: "Language, Theme and Time Zone preferences saved.",
+        message: `Workspace preset "${selectedPreset?.label ?? selectedPresetId}" applied and saved.`,
         type: "activity",
         priority: "low"
       });
@@ -690,19 +710,97 @@ export const UserProfileTab: React.FC = () => {
               <form onSubmit={handleUpdatePreferences} className="space-y-6">
                 <div className="flex items-center justify-between border-b border-theme-divider pb-3">
                   <div>
-                    <h3 className="text-sm font-bold text-theme-body">Operator Regional Preferences</h3>
-                    <p className="text-xs text-theme-muted mt-1">Set localized workspace characteristics.</p>
+                    <h3 className="text-sm font-bold text-theme-body flex items-center gap-2">
+                      <Palette size={15} className="text-blue-500" />
+                      Appearance &amp; Regional Preferences
+                    </h3>
+                    <p className="text-xs text-theme-muted mt-1">Choose a visual preset and set localized workspace settings.</p>
                   </div>
                   <button
                     type="submit"
                     disabled={saving}
                     className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors"
                   >
-                    <Save size={13} /> {saving ? "Saving..." : "Save Preferences"}
+                    <Save size={13} /> {saving ? "Applying..." : "Apply & Save"}
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* ── Preset Tiles ── */}
+                <div className="space-y-2">
+                  <label className="text-[10px] text-theme-muted uppercase font-bold tracking-wide flex items-center gap-1.5">
+                    <Palette size={11} className="text-blue-500" />
+                    Workspace Visual Preset
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {THEME_PRESETS.map((preset) => {
+                      const isActive = selectedPresetId === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setSelectedPresetId(preset.id)}
+                          className={`relative text-left p-3.5 rounded-xl border-2 transition-all cursor-pointer group ${
+                            isActive
+                              ? "border-blue-500 shadow-lg shadow-blue-500/10"
+                              : "border-theme-divider hover:border-theme-border-strong"
+                          }`}
+                          style={{ background: preset.swatchBg }}
+                        >
+                          {/* Colour swatch header */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <span
+                              className="w-5 h-5 rounded-full border-2 border-white/20 shrink-0"
+                              style={{ background: preset.swatchAccent }}
+                            />
+                            <span
+                              className="text-xs font-bold truncate"
+                              style={{ color: preset.mode === "dark" ? "#F8FAFC" : "#1D2D3E" }}
+                            >
+                              {preset.label}
+                            </span>
+                            {isActive && (
+                              <CheckCircle
+                                size={13}
+                                className="ml-auto shrink-0"
+                                style={{ color: preset.swatchAccent }}
+                              />
+                            )}
+                          </div>
+                          <p
+                            className="text-[10px] leading-relaxed"
+                            style={{ color: preset.mode === "dark" ? "#94A3B8" : "#556B82" }}
+                          >
+                            {preset.description}
+                          </p>
+                          {/* Density + font badges */}
+                          <div className="flex gap-1 mt-2">
+                            <span
+                              className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded"
+                              style={{
+                                background: preset.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)",
+                                color: preset.mode === "dark" ? "#94A3B8" : "#556B82",
+                              }}
+                            >
+                              {preset.density}
+                            </span>
+                            <span
+                              className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded"
+                              style={{
+                                background: preset.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)",
+                                color: preset.mode === "dark" ? "#94A3B8" : "#556B82",
+                              }}
+                            >
+                              font-{preset.fontScale}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── Regional Settings ── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-theme-divider">
                   <div className="space-y-2">
                     <label className="text-[10px] text-theme-muted uppercase font-bold flex items-center gap-1">
                       <Clock size={12} className="text-blue-500" />
@@ -735,37 +833,6 @@ export const UserProfileTab: React.FC = () => {
                       <option value="Marathi">Marathi (मराठी)</option>
                       <option value="Gujarati">Gujarati (ગુજરાતી)</option>
                     </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] text-theme-muted uppercase font-bold flex items-center gap-1">
-                      <Clock size={12} className="text-blue-500" />
-                      Workspace Color Profile
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setTheme("light")}
-                        className={`px-4 py-2 border rounded font-bold text-xs transition-all ${
-                          theme === "light"
-                            ? "bg-blue-500/10 border-blue-500 text-blue-400"
-                            : "bg-theme-surface-2 border-theme-divider text-theme-muted"
-                        }`}
-                      >
-                        Light Theme Profile
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTheme("dark")}
-                        className={`px-4 py-2 border rounded font-bold text-xs transition-all ${
-                          theme === "dark"
-                            ? "bg-blue-500/10 border-blue-500 text-blue-400"
-                            : "bg-theme-surface-2 border-theme-divider text-theme-muted"
-                        }`}
-                      >
-                        Dark Theme Profile
-                      </button>
-                    </div>
                   </div>
                 </div>
               </form>
