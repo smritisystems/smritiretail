@@ -178,6 +178,12 @@ class HeadlessBillingCore:
                     status_code=400,
                     detail=f"SMRITI-VAL-003: Line item '{item.code}' has negative unit price ({item.unit_price}). Unit price cannot be negative.",
                 )
+            is_free = bool(getattr(item, "is_free_item", False) or item.is_fee_line)
+            if rate <= Decimal("0.00") and not is_free:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-PRICE-002: Line item '{item.code}' has zero or missing unit price ({item.unit_price}). Valid price is required.",
+                )
             if item.mrp and Decimal(str(item.mrp)) > Decimal("0.00") and rate > Decimal(str(item.mrp)):
                 raise HTTPException(
                     status_code=400,
@@ -327,7 +333,7 @@ class HeadlessBillingCore:
             if gst_rate is None:
                 if line_res and line_res.success and line_res.tax_rate is not None:
                     gst_rate = Decimal(str(line_res.tax_rate))
-                elif item.is_fee_line:
+                elif item.is_fee_line or getattr(item, "is_free_item", False):
                     gst_rate = Decimal("0.00")
                 else:
                     raise HTTPException(
@@ -340,6 +346,12 @@ class HeadlessBillingCore:
                             "line_no": line_no,
                         },
                     )
+
+            if gst_rate is not None and Decimal(str(gst_rate)) < Decimal("0.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-TAX-004: Line item '{item.code}' has negative GST tax rate ({gst_rate}). Valid tax classification required.",
+                )
 
             # Gross base & Line discount
             gross_base = qty * rate

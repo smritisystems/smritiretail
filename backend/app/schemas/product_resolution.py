@@ -50,7 +50,7 @@ class ProductResolutionResult(BaseModel):
     category_code: Optional[str] = None
     uom: str = "NOS"
     hsn_code: Optional[str] = None
-    tax_rate: Decimal = Decimal("0.00")
+    tax_rate: Optional[Decimal] = None
     mrp: Decimal = Decimal("0.00")
     selling_price: Decimal = Decimal("0.00")
     cost_price: Decimal = Decimal("0.00")

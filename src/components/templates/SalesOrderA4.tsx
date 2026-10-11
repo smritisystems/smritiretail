@@ -87,27 +87,33 @@ export const SalesOrderA4: React.FC<SalesOrderA4Props> = ({ data, hideWatermark 
   const taxTot = data.tax_total ?? items.reduce((acc, it) => acc + (it.total_tax || it.tax_amount || 0), 0);
   const grandTot = data.grand_total ?? (basicTot + taxTot);
 
-  const supplierName = data.supplier_name || "TATTLY THREADS";
-  const supplierGstin = data.supplier_gstin || "27AAXFT2508H1ZR";
-  const supplierAddr = data.supplier_address || "C/O RAMKRIPAL MALLAH, H NO. 2785, OLD BAGADGANJ ROAD, WARDHMAN NAGAR, NAGPUR, MAHARASHTRA 440008";
-  const supplierPhone = data.supplier_phone || "+91 9324117007 / +91 9823023023";
-  const supplierEmail = data.supplier_email || "support@smritibooks.com";
+  const tenantCompany = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") : null) || "";
+  const tenantGstin = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") : null) || "";
+  const tenantAddr = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") : null) || "";
+  const tenantPhone = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_phone") : null) || "";
+  const tenantEmail = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_email") : null) || "";
 
-  const bankName = data.bank_name || "STATE BANK OF INDIA";
-  const accNo = data.account_no || "43976711765";
-  const ifsc = data.ifsc_code || "SBIN0030425";
-  const branch = data.bank_branch || "WARDHMAN NAGAR NAGPUR";
-  const accHolder = data.account_holder_name || "TATTLY THREADS";
+  const supplierName = data.supplier_name || tenantCompany || "[Authoritative Supplier Identity Required]";
+  const supplierGstin = data.supplier_gstin || tenantGstin || "Unregistered";
+  const supplierAddr = data.supplier_address || tenantAddr || "[Registered Supplier Address Required]";
+  const supplierPhone = data.supplier_phone || tenantPhone;
+  const supplierEmail = data.supplier_email || tenantEmail;
+
+  const bankName = data.bank_name || "";
+  const accNo = data.account_no || "";
+  const ifsc = data.ifsc_code || "";
+  const branch = data.bank_branch || "";
+  const accHolder = data.account_holder_name || supplierName;
 
   return (
     <div className="a4-document relative bg-white text-slate-900 mx-auto shadow-2xl rounded-sm print:shadow-none print:m-0 print:w-full print:max-w-none text-[11px] leading-tight select-text"
          style={{ width: "210mm", minHeight: "297mm", padding: "12mm 15mm", boxSizing: "border-box", fontFamily: "Segoe UI, Inter, Roboto, sans-serif" }}>
       
       {/* 13% Opacity Watermark */}
-      {!hideWatermark && (
+      {!hideWatermark && (data.supplier_name || tenantCompany) && (
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.13] z-0">
           <div className="text-center font-black tracking-widest text-slate-900 rotate-[-30deg] select-none text-[75px] border-8 border-dashed border-slate-700 px-12 py-6 rounded-3xl">
-            TATTLY THREADS
+            {supplierName}
             <div className="text-2xl font-bold tracking-normal mt-2">CONFIRMED ORDER</div>
           </div>
         </div>

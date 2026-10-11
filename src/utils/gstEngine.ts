@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.8.0
+ * Version      : 6.8.1
  * Created      : 2026-08-22
- * Modified     : 2026-08-22
+ * Modified     : 2026-10-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -69,15 +69,16 @@ export function parseAndValidateGSTIN(gstin?: string | null): GstValidationResul
 
   const cleaned = gstin.trim().toUpperCase();
   const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-  const isValid = gstRegex.test(cleaned);
-
-  if (!isValid && cleaned.length !== 15) {
-    return { isValid: false, stateCode: null, stateName: null, pan: null };
-  }
+  let isValid = gstRegex.test(cleaned);
 
   const stateCode = cleaned.slice(0, 2);
   const stateName = GST_STATE_MAP[stateCode] || null;
-  const pan = cleaned.slice(2, 12);
+  const pan = cleaned.length >= 12 ? cleaned.slice(2, 12) : null;
+
+  // Under statutory GST rules, GSTIN must map to a recognized State/UT
+  if (!stateName) {
+    isValid = false;
+  }
 
   return {
     isValid,

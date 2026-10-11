@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.27.3
+ * Version      : 6.27.4
  * Created      : 2026-08-21
- * Modified     : 2026-09-16
+ * Modified     : 2026-10-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -38,6 +38,7 @@ export interface SmritiProPosTaxInvoiceReceiptProps {
     phone?: string;
     city?: string;
     state?: string;
+    stateCode?: string;
     pincode?: string;
   };
 }
@@ -68,7 +69,11 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
   };
 
   const handlePrint = () => {
-    window.print();
+    try {
+      window.print();
+    } catch (e) {
+      console.warn("[ProPosTaxInvoiceReceipt] Browser print dialog interrupted or failed:", e);
+    }
   };
 
   // Keyboard shortcut listener: Ctrl+P to print, Escape to close
@@ -92,38 +97,50 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
 
   const hasIgst = items.some(it => (it.igstAmount ?? 0) > 0) || Boolean(customer?.gstin && customer.stateCode && customer.stateCode !== "27");
 
-  // Format data payload tailored to TaxInvoiceA4 matching canonical TT2026-2027/138 layout
+  // Format data payload tailored to TaxInvoiceA4 matching statutory invoice layout
   const a4InvoiceData = useMemo(() => {
     const isInterstate = hasIgst;
-    const buyerName = customer?.name?.trim() ? customer.name : "Reliance Retail Limited";
-    const buyerGst = customer?.gstin?.trim() ? customer.gstin : "18AABCR1718E1ZO";
+    // P0-C: Resolve buyer details without unrelated hardcoded substitutions
+    const buyerName = customer?.name?.trim() ? customer.name : "Walk-in Retail Customer";
+    const buyerGst = customer?.gstin?.trim() ? customer.gstin : "";
     const buyerAddress = customer?.address?.trim()
       ? customer.address
-      : "Reliance Retail Limited RRL Footprint RKB Path Dibrugarh Assam Bagra Sadan Near Sadan Thana RKB Path Dibrugarh 786001";
-    const buyerCity = customer?.city || "DIBRUGARH";
-    const buyerState = customer?.stateName || (customer?.stateCode === "18" ? "ASSAM" : (customer?.state || "ASSAM"));
-    const buyerPincode = customer?.pincode || "786001";
+      : (customer?.name?.trim() ? `${customer.name} Address` : "Counter Sale / Walk-in");
+    const buyerCity = customer?.city || storeProfile?.city || "";
+    const buyerState = customer?.stateName || (customer?.stateCode ? (customer?.state || "Home State") : (storeProfile?.state || "Home State"));
+    const buyerPincode = customer?.pincode || "";
+
+    // P0-C: Resolve tenant seller profile dynamically without hardcoding another company's identity
+    const tenantName = storeProfile?.storeName || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") : null) || "[Authoritative Store Name Required]";
+    const tenantGstin = storeProfile?.gstin || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") : null) || "";
+    const tenantAddress = storeProfile?.addressLine1 || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") : null) || "";
+    const tenantCity = storeProfile?.city || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_city") : null) || "";
+    const tenantState = storeProfile?.state || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_state") : null) || "";
+    const tenantStateCode = storeProfile?.stateCode || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_store_state_code") : null) || "";
+    const tenantPincode = storeProfile?.pincode || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_pincode") : null) || "";
+    const tenantWebsite = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_website") : null) || "";
+    const tenantEmail = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_email") : null) || "";
 
     return {
-      companyName: storeProfile?.storeName || "TATTLY THREADS",
-      companyDisplayName: storeProfile?.storeName || "TATTLY THREADS",
-      companyAddressDisplay: storeProfile?.addressLine1 || "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003",
-      companyGst: storeProfile?.gstin || "27AAXFT2508H1ZR",
-      companyWebsite: "www.tattlythreads.com",
-      dispatchEmail: "dispatch@tattlythreads.com",
-      accountsEmail: "accounts@tattlythreads.com",
+      companyName: tenantName,
+      companyDisplayName: tenantName,
+      companyAddressDisplay: tenantAddress ? `${tenantAddress}${tenantCity ? `, ${tenantCity}` : ""}` : tenantName,
+      companyGst: tenantGstin,
+      companyWebsite: tenantWebsite,
+      dispatchEmail: tenantEmail,
+      accountsEmail: tenantEmail,
       dispatchFromSnapshot: {
-        name: "Tattly Threads",
-        address_line1: "Om Sai Nagar, Kalamana",
-        city: "Nagpur",
-        state: "Maharashtra",
-        pincode: "440029",
+        name: tenantName,
+        address_line1: tenantAddress,
+        city: tenantCity,
+        state: tenantState,
+        pincode: tenantPincode,
       },
-      invoiceNo: billNo || "TT2026-2027/138",
+      invoiceNo: billNo || "INV-DRAFT",
       date: billDate || new Date().toISOString().slice(0, 10),
-      sisCode: customer?.code || "1888",
-      poRef: (customer as any)?.notes || "5182778151",
-      placeOfSupply: isInterstate ? `${buyerState} (18) — Inter-State` : "Maharashtra (27) — Intra-State",
+      sisCode: customer?.code || "",
+      poRef: (customer as any)?.notes || "",
+      placeOfSupply: isInterstate ? `${buyerState} (${customer?.stateCode || ""}) — Inter-State` : `${tenantState} (${tenantStateCode}) — Intra-State`,
       supplyType: isInterstate ? ("Interstate" as const) : ("Intrastate" as const),
       customerName: buyerName,
       billingAddressLine1: buyerAddress,
@@ -131,7 +148,7 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
       billingState: buyerState,
       billingPincode: buyerPincode,
       billingGst: buyerGst,
-      shippingName: `${buyerName} (RRL FOOTPRINT RKB PATH DIBRUGARH AS)`,
+      shippingName: buyerName,
       shippingAddressLine1: buyerAddress,
       shippingCity: buyerCity,
       shippingState: buyerState,
@@ -280,10 +297,10 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
               {/* Header Store Branding */}
               <div className="text-center space-y-1 border-b border-dashed border-gray-400 pb-3">
                 <h1 className="text-base font-bold tracking-wider uppercase font-sans">
-                  {storeProfile?.storeName || "TATTLY THREADS"}
+                  {storeProfile?.storeName || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") : null) || "[Authoritative Store Name Required]"}
                 </h1>
-                <p className="text-[11px]">{storeProfile?.addressLine1 || "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, Mumbai"}</p>
-                <p className="text-[10px] text-gray-600">GSTIN: {storeProfile?.gstin || "27AAXFT2508H1ZR"}</p>
+                <p className="text-[11px]">{storeProfile?.addressLine1 || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") : null) || "[Registered Store Address Required]"}</p>
+                <p className="text-[10px] text-gray-600">GSTIN: {storeProfile?.gstin || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") : null) || "Unregistered"}</p>
                 <p className="text-[10px] font-bold uppercase mt-1">TAX INVOICE / CASH MEMO</p>
               </div>
 

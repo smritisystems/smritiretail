@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.1
+ * Version      : 6.70.3
  * Created      : 2026-08-21
- * Modified     : 2026-10-05
+ * Modified     : 2026-10-11
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -93,6 +93,7 @@ import { GRID_PROFILES } from "../../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../../services/gridInput/types.ts";
 import type { CustomerBillingLocationDTO, CustomerDeliveryLocationDTO } from "../types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { ProPosOfflineSyncEngine } from "../../../sync/ProPosOfflineSyncEngine.ts";
 import { useF2Screen } from "../../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../../context/F2DispatcherContext.tsx";
 
@@ -590,17 +591,27 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     }
   });
 
-  const storeStateCode = "27"; // Maharashtra store default
-  const storeProfile = useMemo(() => ({
-    storeName: "TATTLY THREADS",
-    addressLine1: "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai",
-    city: "Mumbai",
-    state: "Maharashtra",
-    stateCode: storeStateCode,
-    gstin: "27AAXFT2508H1ZR",
-    phone: "+91 98765 43210",
-    pincode: "400003",
-  }), []);
+  const storeStateCode = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_store_state_code") : null) || "27";
+  const storeProfile = useMemo(() => {
+    const sName = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") : null) || "";
+    const sAddr = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") : null) || "";
+    const sCity = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_city") : null) || "";
+    const sState = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_state") : null) || "";
+    const sGst = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") : null) || "";
+    const sPhone = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_phone") : null) || "";
+    const sPin = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_pincode") : null) || "";
+
+    return {
+      storeName: sName,
+      addressLine1: sAddr,
+      city: sCity,
+      state: sState,
+      stateCode: storeStateCode,
+      gstin: sGst,
+      phone: sPhone,
+      pincode: sPin,
+    };
+  }, [storeStateCode]);
 
   const gstAnalysis = useMemo(() => {
     return parseAndValidateGSTIN(customer.gstin);
@@ -667,6 +678,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState<number>(0);
   const [activeSearchField, setActiveSearchField] = useState<"stockNo" | "barcode">("stockNo");
   const [selectedProductMeta, setSelectedProductMeta] = useState<AutoPopulateProductResult | null>(null);
+  const [itemLookupError, setItemLookupError] = useState<string | null>(null);
 
   // Document Remarks & Delivery Instructions State (Desktop POS Parity)
   const [documentRemarks, setDocumentRemarks] = useState<string>("");
@@ -865,6 +877,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
   // --- Modals State ---
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [showLoyaltyModal, setShowLoyaltyModal] = useState<boolean>(false);
@@ -1144,9 +1157,10 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   };
 
   // Stock No / Barcode Lookup
-  const handleDirectStockNoLookup = async (code: string) => {
-    if (!code.trim()) return;
+  const handleDirectStockNoLookup = async (code: string): Promise<AutoPopulateProductResult | null> => {
+    if (!code.trim()) return null;
     const term = code.trim();
+    setItemLookupError(null);
 
     try {
       const resp = await apiFetchV1<any>(`/products/search?q=${encodeURIComponent(term)}&limit=1`);
@@ -1154,14 +1168,14 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       if (items.length > 0) {
         const p = items[0];
         const isRate = customer.pricingBasis === "RATE";
-        const catMrp = parseFloat(p.mrp || p.price || 0) || 999.00;
-        const catSelling = parseFloat(p.selling_price || p.price || catMrp) || catMrp;
+        const catMrp = parseFloat(p.mrp || p.price || 0) || 0.00;
+        const catSelling = parseFloat(p.selling_price || p.price || catMrp) || 0.00;
         const baseUnit = isRate ? catSelling : catMrp;
         const unitP = baseUnit.toFixed(2);
         const meta: AutoPopulateProductResult = {
           id: p.id || term,
-          name: p.product_name || p.name || `Retail Item ${term}`,
-          code: p.style_code || p.stock_no || term,
+          name: p.product_name || p.name || "",
+          code: p.style_code || p.stock_no || p.code || term,
           sku: p.sku || p.barcode || p.code || term,
           stockNo: p.style_code || p.stock_no || term,
           barcode: p.barcode || term,
@@ -1172,11 +1186,12 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           stockQty: p.stock_quantity || 1,
           category: p.category || "",
           brand: p.brand || "",
-          gstPercentage: p.gst_percentage || 5.0,
+          gstPercentage: p.gst_percentage !== undefined && p.gst_percentage !== null ? parseFloat(p.gst_percentage) : 18.0,
           hsnCode: p.hsn_code || "",
           uom: p.uom || "PCS"
         };
         setSelectedProductMeta(meta);
+        setDirectDescription(meta.name || meta.description);
 
         // Auto-evaluate promotional scheme on stockNo/barcode lookup
         const promoRes = SmritiSalesPromotionService.resolveBestItemPromo({
@@ -1206,14 +1221,22 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           setDirectDiscAmtInput("0.00");
           handleRateOrQtyChange(unitP, directQty, "0.00", "0.00");
         }
-        return;
+        return meta;
+      } else {
+        setSelectedProductMeta(null);
+        setDirectDescription("");
+        const errMsg = `Item Not Found: Barcode/SKU '${term}' is not registered in the item master catalog.`;
+        setItemLookupError(errMsg);
+        onNotification?.("Item Not Found", errMsg, "error");
+        return null;
       }
-    } catch (e) {
-      console.warn("Direct lookup fallback to auto-generated details", e);
-    }
-
-    if (!directDescription) {
-      setDirectDescription(`regular straight Med Beige`);
+    } catch (e: any) {
+      setSelectedProductMeta(null);
+      setDirectDescription("");
+      const errMsg = `Item Lookup Failed: Product service error while looking up '${term}'.`;
+      setItemLookupError(errMsg);
+      onNotification?.("Lookup Failure", errMsg, "error");
+      return null;
     }
   };
 
@@ -1234,14 +1257,19 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         if (selected) {
           handleSelectProductSuggestion(selected);
         } else {
-          handleAcceptDirectEntryItem();
+          void handleAcceptDirectEntryItem();
         }
         return;
       } else if (e.key === "Escape") {
         e.preventDefault();
         setIsProductSearchOpen(false);
+        setItemLookupError(null);
         return;
       }
+    }
+
+    if (e.key === "Escape") {
+      setItemLookupError(null);
     }
 
     if (e.key === "Enter") {
@@ -1249,13 +1277,13 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       if (productSuggestions.length === 1 && isProductSearchOpen) {
         handleSelectProductSuggestion(productSuggestions[0]);
       } else {
-        handleAcceptDirectEntryItem();
+        void handleAcceptDirectEntryItem();
       }
     }
   };
 
   // Accept Item from Direct Entry Grid into Item Details Grid
-  const handleAcceptDirectEntryItem = () => {
+  const handleAcceptDirectEntryItem = async () => {
     if (!directStockNo.trim() && !directBarcode.trim()) {
       onNotification?.("Stock No / Barcode Required", "Please enter a Stock No or scan a barcode.", "error");
       directStockNoRef.current?.focus();
@@ -1270,12 +1298,42 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
 
     const stockCode = directStockNo.trim() || directBarcode.trim();
     const barcodeCode = directBarcode.trim() || selectedProductMeta?.barcode || stockCode;
-    const desc = directDescription.trim() || selectedProductMeta?.name || `Retail Item ${stockCode}`;
-    const rate = parseFloat(directRate) || selectedProductMeta?.sellingPrice || 999.00;
+
+    // Verify item resolution from authoritative master records (reject unknown/unregistered items)
+    let meta = selectedProductMeta;
+    if (!meta || (meta.barcode !== barcodeCode && meta.stockNo !== stockCode && meta.sku !== stockCode && meta.code !== stockCode)) {
+      meta = await handleDirectStockNoLookup(stockCode);
+    }
+
+    if (!meta) {
+      const errMsg = `Item '${stockCode}' is not registered in product catalog. Auto-creation of unregistered items is strictly prohibited.`;
+      setItemLookupError(errMsg);
+      onNotification?.("Unregistered Item Rejected", errMsg, "error");
+      return;
+    }
+
+    const desc = meta.name || directDescription.trim() || meta.description || `Item ${stockCode}`;
+    const rate = parseFloat(directRate) || meta.sellingPrice || meta.mrp;
     const qty = parseFloat(directQty) || 1.00;
 
+    // Missing Price Guard
+    if (rate <= 0 && (!meta.mrp || meta.mrp <= 0)) {
+      const errMsg = `Item '${desc}' has no valid selling price or MRP configured in item master.`;
+      setItemLookupError(errMsg);
+      onNotification?.("Missing Price", errMsg, "error");
+      return;
+    }
+
+    // Missing Tax Classification Guard
+    if (meta.gstPercentage === undefined || meta.gstPercentage === null || isNaN(meta.gstPercentage)) {
+      const errMsg = `Item '${desc}' has no statutory GST tax rate configured in item master.`;
+      setItemLookupError(errMsg);
+      onNotification?.("Missing Tax Rate", errMsg, "error");
+      return;
+    }
+
     // LSQ (Least Saleable Quantity) Validation Gate (Shoper 9 Parity)
-    const lsq = Number((selectedProductMeta as any)?.least_saleable_qty ?? (selectedProductMeta as any)?.leastSaleableQty ?? 1.0);
+    const lsq = Number((meta as any)?.least_saleable_qty ?? (meta as any)?.leastSaleableQty ?? 1.0);
     if (lsq > 1.0) {
       const rem = qty % lsq;
       const isMultiple = Math.abs(rem) < 0.0001 || Math.abs(rem - lsq) < 0.0001;
@@ -1293,8 +1351,8 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     const discPct = parseFloat(directDiscPct) || 0.00;
     const discAmt = parseFloat(directDiscAmtInput) || ((rate * effDiscQ * discPct) / 100);
     const staff = directStaff || salesStaff;
-    const gstRate = selectedProductMeta?.gstPercentage || 5.00;
-    const itemTaxInclusive = (selectedProductMeta as any)?.isTaxInclusive ?? (selectedProductMeta as any)?.is_tax_inclusive;
+    const gstRate = meta.gstPercentage;
+    const itemTaxInclusive = (meta as any)?.isTaxInclusive ?? (meta as any)?.is_tax_inclusive;
     const effTaxInclusive = itemTaxInclusive !== undefined ? Boolean(itemTaxInclusive) : (taxMode === "inclusive");
 
     // Determine effective promotional scheme for committing item
@@ -1831,6 +1889,9 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     changeDue: number,
     tenderItems?: POSTenderItem[]
   ) => {
+    // P0-B: Prevent duplicate submissions
+    if (isSubmitting) return;
+
     const generatedBillNo = (billDocPrefix.endsWith("/") || billDocPrefix.endsWith("-"))
       ? `${billDocPrefix}${billDocNumber}`
       : `${billDocPrefix}-${billDocNumber}`;
@@ -1842,6 +1903,69 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     if (cartItems.some((item) => !item.productId)) {
       onNotification?.("Checkout Blocked", "Refresh the product selection before finalizing this bill so stock can be tracked.", "error");
       return;
+    }
+
+    // Statutory Authoritative Company Configuration Enforcement
+    const sellerCompanyName = storeProfile.storeName?.trim();
+    const sellerAddress = storeProfile.addressLine1?.trim();
+    const sellerGstin = storeProfile.gstin?.trim();
+
+    if (!sellerCompanyName) {
+      onNotification?.(
+        "Seller Profile Missing",
+        "Authoritative company name is not configured. Configure company profile in settings before issuing invoices.",
+        "error"
+      );
+      return;
+    }
+    if (!sellerAddress) {
+      onNotification?.(
+        "Seller Address Missing",
+        "Authoritative company address is not configured. Statutory invoices require a registered business address.",
+        "error"
+      );
+      return;
+    }
+
+    // Statutory B2B GSTIN Validation: Block issuance if statutory GSTIN is invalid
+    if (customer?.gstin && customer.gstin.trim() !== "") {
+      if (!sellerGstin) {
+        onNotification?.(
+          "Seller GSTIN Missing for B2B",
+          "Cannot issue a B2B statutory tax invoice: seller company GSTIN is not configured in authorized settings.",
+          "error"
+        );
+        return;
+      }
+      const sellerGstCheck = parseAndValidateGSTIN(sellerGstin);
+      if (!sellerGstCheck.isValid) {
+        onNotification?.(
+          "Invalid Seller GSTIN",
+          `Configured company GSTIN '${sellerGstin}' is invalid. Update company profile before issuing B2B invoices.`,
+          "error"
+        );
+        return;
+      }
+      const gstinVal = parseAndValidateGSTIN(customer.gstin.trim());
+      if (!gstinVal.isValid) {
+        onNotification?.(
+          "Invalid Statutory GSTIN",
+          `Customer GSTIN '${customer.gstin}' is invalid (checksum/format mismatch). Correct GSTIN or switch customer to walk-in retail.`,
+          "error"
+        );
+        return;
+      }
+    }
+    if (selectedDeliveryLocation?.delivery_gstin && selectedDeliveryLocation.delivery_gstin.trim() !== "") {
+      const delGstinVal = parseAndValidateGSTIN(selectedDeliveryLocation.delivery_gstin.trim());
+      if (!delGstinVal.isValid) {
+        onNotification?.(
+          "Invalid Delivery GSTIN",
+          `Delivery location GSTIN '${selectedDeliveryLocation.delivery_gstin}' is invalid (checksum/format mismatch).`,
+          "error"
+        );
+        return;
+      }
     }
 
     // Governed System Parameter Checks
@@ -1886,6 +2010,59 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
               ? "UPI"
               : "CASH");
 
+    const checkoutPayload = {
+      invoice_no: generatedBillNo,
+      shift_id: effectiveShiftId,
+      payment_mode: paymentMode,
+      grand_total: netPayableAmount,
+      customer_id: (customer.id === "cust-01" || customer.code === "C01" || !customer.id) ? undefined : customer.id,
+      customer_name: customer.name,
+      tenders: backendTenders.length > 0 ? backendTenders : undefined,
+      remarks: documentRemarks || undefined,
+      delivery_instructions: deliveryInstructions || undefined,
+      billing_location_id: selectedBillingLocation?.id,
+      billing_store_code: selectedBillingLocation?.billing_store_code,
+      billing_address: selectedBillingLocation ? formatBillingAddress(selectedBillingLocation) : undefined,
+      delivery_location_id: selectedDeliveryLocation?.id,
+      delivery_store_code: selectedDeliveryLocation?.store_code,
+      delivery_gstin: selectedDeliveryLocation?.delivery_gstin,
+      delivery_location_snapshot: selectedDeliveryLocation ? {
+        id: selectedDeliveryLocation.id,
+        store_code: selectedDeliveryLocation.store_code,
+        location_name: selectedDeliveryLocation.location_name,
+        site_type: selectedDeliveryLocation.site_type,
+        address_line1: selectedDeliveryLocation.address_line1,
+        address_line2: selectedDeliveryLocation.address_line2,
+        city: selectedDeliveryLocation.city,
+        district: selectedDeliveryLocation.district,
+        state_code: selectedDeliveryLocation.state_code,
+        state_name: selectedDeliveryLocation.state_name,
+        pin_code: selectedDeliveryLocation.pin_code,
+        delivery_gstin: selectedDeliveryLocation.delivery_gstin,
+        contact_person: selectedDeliveryLocation.contact_person,
+        contact_phone: selectedDeliveryLocation.contact_phone,
+      } : undefined,
+      shipping_address: selectedDeliveryLocation ? formatDeliveryAddress(selectedDeliveryLocation) : undefined,
+      place_of_supply_code: selectedDeliveryLocation?.state_code || selectedBillingLocation?.state_code,
+      items: cartItems.map((item) => ({
+        product_id: item.productId as string,
+        code: item.sku,
+        name: item.name,
+        quantity: item.qty,
+        price: item.isTaxInclusive ? item.unitPrice : ((item.taxableValue ?? Math.max(item.lineTotal - item.taxAmt, 0)) / item.qty),
+        hsn_code: item.hsnCode,
+        gst_rate: item.taxPct,
+        mrp: item.mrp,
+        is_tax_inclusive: item.isTaxInclusive,
+        salesperson_id: item.salesStaff || salesStaff,
+        salesperson_name: item.salesStaff || salesStaff,
+        batch_id: item.batchId,
+        serial_id: item.serialId,
+        warehouse_location_id: item.warehouseLocationId,
+      })),
+    };
+
+    setIsSubmitting(true);
     try {
       const response = await apiFetchV1<{
         invoice_no: string;
@@ -1899,57 +2076,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       }>("/pos/checkout", {
         method: "POST",
         headers: { "Idempotency-Key": generatedBillNo },
-        body: JSON.stringify({
-          invoice_no: generatedBillNo,
-          shift_id: effectiveShiftId,
-          payment_mode: paymentMode,
-          grand_total: netPayableAmount,
-          customer_id: (customer.id === "cust-01" || customer.code === "C01" || !customer.id) ? undefined : customer.id,
-          customer_name: customer.name,
-          tenders: backendTenders.length > 0 ? backendTenders : undefined,
-          remarks: documentRemarks || undefined,
-          delivery_instructions: deliveryInstructions || undefined,
-          billing_location_id: selectedBillingLocation?.id,
-          billing_store_code: selectedBillingLocation?.billing_store_code,
-          billing_address: selectedBillingLocation ? formatBillingAddress(selectedBillingLocation) : undefined,
-          delivery_location_id: selectedDeliveryLocation?.id,
-          delivery_store_code: selectedDeliveryLocation?.store_code,
-          delivery_gstin: selectedDeliveryLocation?.delivery_gstin,
-          delivery_location_snapshot: selectedDeliveryLocation ? {
-            id: selectedDeliveryLocation.id,
-            store_code: selectedDeliveryLocation.store_code,
-            location_name: selectedDeliveryLocation.location_name,
-            site_type: selectedDeliveryLocation.site_type,
-            address_line1: selectedDeliveryLocation.address_line1,
-            address_line2: selectedDeliveryLocation.address_line2,
-            city: selectedDeliveryLocation.city,
-            district: selectedDeliveryLocation.district,
-            state_code: selectedDeliveryLocation.state_code,
-            state_name: selectedDeliveryLocation.state_name,
-            pin_code: selectedDeliveryLocation.pin_code,
-            delivery_gstin: selectedDeliveryLocation.delivery_gstin,
-            contact_person: selectedDeliveryLocation.contact_person,
-            contact_phone: selectedDeliveryLocation.contact_phone,
-          } : undefined,
-          shipping_address: selectedDeliveryLocation ? formatDeliveryAddress(selectedDeliveryLocation) : undefined,
-          place_of_supply_code: selectedDeliveryLocation?.state_code || selectedBillingLocation?.state_code,
-          items: cartItems.map((item) => ({
-            product_id: item.productId as string,
-            code: item.sku,
-            name: item.name,
-            quantity: item.qty,
-            price: item.isTaxInclusive ? item.unitPrice : ((item.taxableValue ?? Math.max(item.lineTotal - item.taxAmt, 0)) / item.qty),
-            hsn_code: item.hsnCode,
-            gst_rate: item.taxPct,
-            mrp: item.mrp,
-            is_tax_inclusive: item.isTaxInclusive,
-            salesperson_id: item.salesStaff || salesStaff,
-            salesperson_name: item.salesStaff || salesStaff,
-            batch_id: item.batchId,
-            serial_id: item.serialId,
-            warehouse_location_id: item.warehouseLocationId,
-          })),
-        }),
+        body: JSON.stringify(checkoutPayload),
       });
 
       const effectiveChangeDue = response.change_amount !== undefined && response.change_amount !== null
@@ -1968,6 +2095,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
         netPayable: response.grand_total,
         tenders,
         changeDue: effectiveChangeDue,
+        isOfflineQueued: false,
       };
 
       setLastCompletedBill(billRecord);
@@ -1976,8 +2104,78 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       setCartItems([]);
       setBillDocNumber((prev) => (parseInt(prev) + 1).toString());
       onNotification?.("Invoice Finalized", `Invoice ${response.invoice_no} generated successfully!`, "success");
-    } catch (error) {
-      onNotification?.("Checkout Failed", error instanceof Error ? error.message : "The bill could not be posted.", "error");
+    } catch (error: any) {
+      // P0-B: Distinguish network failure from business rejection
+      const isNetworkError =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        error?.name === "AbortError" ||
+        error?.message?.toLowerCase().includes("network") ||
+        error?.message?.toLowerCase().includes("failed to fetch") ||
+        error?.message?.toLowerCase().includes("timeout");
+
+      const hasOnlineOnlyTender =
+        (tenders.credit && tenders.credit > 0) ||
+        (tenders.wallet && tenders.wallet > 0) ||
+        (tenders.loyaltyAmount && tenders.loyaltyAmount > 0) ||
+        (tenders.creditNote && tenders.creditNote > 0);
+
+      if (isNetworkError && !hasOnlineOnlyTender) {
+        try {
+          const terminalId = (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_terminal_id") : null) || "POS-01";
+          await ProPosOfflineSyncEngine.queueOfflineSale(
+            checkoutPayload,
+            terminalId,
+            generatedBillNo
+          );
+
+          const offlineRecord = {
+            billNo: `${generatedBillNo} (OFFLINE PENDING SYNC)`,
+            billDate: new Date().toISOString().slice(0, 10),
+            customer,
+            salesStaff,
+            items: cartItems,
+            subTotal: grossSalesValue,
+            discountTotal: itemDiscountsTotal,
+            taxTotal: totalTaxAmount,
+            netPayable: netPayableAmount,
+            tenders,
+            changeDue,
+            isOfflineQueued: true,
+          };
+
+          setLastCompletedBill(offlineRecord);
+          setShowSettlementModal(false);
+          setShowReceiptModal(true);
+          setCartItems([]);
+          setBillDocNumber((prev) => (parseInt(prev) + 1).toString());
+          onNotification?.(
+            "Sale Queued Offline",
+            `Network offline. Bill ${generatedBillNo} saved locally in offline sync queue and will sync automatically when online.`,
+            "warning"
+          );
+        } catch (queueErr: any) {
+          onNotification?.(
+            "Offline Queue Error",
+            `Could not persist sale offline: ${queueErr.message || "Storage error"}. Cart preserved.`,
+            "error"
+          );
+        }
+      } else if (isNetworkError && hasOnlineOnlyTender) {
+        onNotification?.(
+          "Online Verification Required",
+          "Credit, Wallet, and Loyalty tenders require real-time server connectivity. The sale cannot be completed offline. Cart preserved.",
+          "error"
+        );
+      } else {
+        // Business rejection / server error: preserve cart and show error message
+        onNotification?.(
+          "Checkout Rejected",
+          error instanceof Error ? error.message : "The bill was rejected by server validation. Cart preserved.",
+          "error"
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -2855,6 +3053,26 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
             </div>
           </div>
 
+          {/* Item Not Found / Master Record Validation Banner */}
+          {itemLookupError && (
+            <div
+              data-testid="item-not-found-alert"
+              className="bg-amber-50 dark:bg-amber-950/40 border-y border-amber-300 dark:border-amber-700 px-3 py-1.5 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200"
+            >
+              <div className="flex items-center gap-2 font-medium">
+                <AlertCircle size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>{itemLookupError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setItemLookupError(null)}
+                className="text-amber-800 dark:text-amber-300 hover:underline font-semibold ml-4 text-xs"
+              >
+                Dismiss [Esc]
+              </button>
+            </div>
+          )}
+
           {/* Document Remarks & Action Buttons (Desktop Parity) */}
           <div className="bg-[#edeae1] dark:bg-[#191c1e] px-3 py-1.5 border-t border-[#c4c5d5] dark:border-[#444653] flex flex-wrap items-center justify-between gap-3 shrink-0">
             <div className="flex-1 flex items-center gap-2 min-w-[280px]">
@@ -3131,6 +3349,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
           customer={customer}
           onSettle={handleSettlementSuccess}
           onClose={() => setShowSettlementModal(false)}
+          isSubmitting={isSubmitting}
         />
       )}
 
