@@ -689,11 +689,12 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
                 {isAuditBillingMode ? "Audit View" : standaloneSaving ? "Saving..." : "Save"}
               </button>
               <div className="ml-1 flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-[#c3c5d9] bg-[#eff4ff]">
-                <img
-                  alt="User profile"
-                  className="h-full w-full object-cover"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDw7iKSsa2xjaRxfnIAq48U_FGEaD_STHEXy6nS31QBwugUVfrqR5mWwm93xABCH8WY8chvsxBSSYsrmmAVpzAW4N2yBTBUP_HXA7rXJFCi09PJXok6TrBjS41nRPaY4RnnTarS5rl4xcjeADJPAU25oVZYc8NJaE7326dOV7BCZNXkQN8l4oAlIq58Sb40o-e9eynWDAJDoWgUewUdut1Cg13DvFlrenniM5suR7s2O54d4OW70XIB"
-                />
+                {/* SMRITI user avatar — no external image dependency */}
+                <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
+                  <circle cx="14" cy="14" r="14" fill="#EFF4FF" />
+                  <circle cx="14" cy="11" r="4.5" fill="#0070F2" />
+                  <ellipse cx="14" cy="22" rx="7.5" ry="5" fill="#0070F2" />
+                </svg>
               </div>
             </div>
           </header>
