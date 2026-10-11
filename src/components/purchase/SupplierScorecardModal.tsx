@@ -17,12 +17,117 @@
  */
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import SupplierScorecardEngine, {
-  SupplierProfile,
-  PurchaseOrderRecord,
-  SupplierSLAStatus,
-} from "../../utils/supplierScorecardEngine.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+
+// ─── Inlined from supplierScorecardEngine (R-27) ──────────────────────────────
+type SupplierSLAStatus = "GREEN" | "AMBER" | "RED" | "CRITICAL";
+type GRNQualityVerdict = "ACCEPTED" | "PARTIAL_REJECTION" | "FULL_REJECTION";
+
+interface SupplierProfile {
+  supplierId: string;
+  supplierName: string;
+  gstIn?: string;
+  category: string;
+  contractedLeadTimeDays: number;
+  contractedFillRatePct: number;
+  penaltyPerDayDelay?: number;
+}
+
+interface PurchaseOrderRecord {
+  poNumber: string;
+  supplierId: string;
+  orderedQty: number;
+  orderedValue: number;
+  poDate: string;
+  expectedDeliveryDate: string;
+  actualDeliveryDate?: string;
+  grnNumber?: string;
+  receivedQty?: number;
+  acceptedQty?: number;
+  rejectedQty?: number;
+  rejectionReason?: string;
+  qualityVerdict?: GRNQualityVerdict;
+}
+
+interface SupplierScorecardEntry {
+  supplierId: string;
+  supplierName: string;
+  category: string;
+  totalOrders: number;
+  onTimeDeliveries: number;
+  lateDeliveries: number;
+  avgLeadTimeDays: number;
+  contractedLeadTimeDays: number;
+  onTimeDeliveryPct: number;
+  fillRatePct: number;
+  qualityRejectionPct: number;
+  totalPenaltyAccrued: number;
+  slaStatus: SupplierSLAStatus;
+  scorecard: number;
+  orders: PurchaseOrderRecord[];
+}
+
+interface VendorSLAReport {
+  asOfDate: string;
+  totalSuppliers: number;
+  greenSuppliers: number;
+  amberSuppliers: number;
+  redSuppliers: number;
+  criticalSuppliers: number;
+  avgScorecard: number;
+  entries: SupplierScorecardEntry[];
+}
+
+function _leadTimeDays(from: string, to: string): number {
+  return Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000);
+}
+function _resolveSLAStatus(score: number): SupplierSLAStatus {
+  if (score >= 85) return "GREEN";
+  if (score >= 70) return "AMBER";
+  if (score >= 50) return "RED";
+  return "CRITICAL";
+}
+function _computeScore(otd: number, fill: number, rejection: number): number {
+  const qualityScore = Math.max(0, 100 - rejection * 10);
+  return Math.round(Math.min(100, Math.max(0, otd * 0.50 + fill * 0.35 + qualityScore * 0.15)));
+}
+function _buildScorecard(profile: SupplierProfile, orders: PurchaseOrderRecord[]): SupplierScorecardEntry {
+  const completed = orders.filter((o) => o.actualDeliveryDate);
+  let onTime = 0, late = 0, totalLeadDays = 0, totalOrdered = 0, totalAccepted = 0, totalReceived = 0, totalRejected = 0, totalPenalty = 0;
+  for (const o of completed) {
+    const actual   = _leadTimeDays(o.poDate, o.actualDeliveryDate!);
+    const expected = _leadTimeDays(o.poDate, o.expectedDeliveryDate);
+    const daysLate = Math.max(0, actual - expected);
+    totalLeadDays  += actual;
+    totalOrdered   += o.orderedQty;
+    totalAccepted  += o.acceptedQty ?? o.receivedQty ?? 0;
+    totalReceived  += o.receivedQty ?? 0;
+    totalRejected  += o.rejectedQty ?? 0;
+    if (daysLate === 0) { onTime++; } else { late++; if (profile.penaltyPerDayDelay) totalPenalty += daysLate * profile.penaltyPerDayDelay; }
+  }
+  const n = completed.length;
+  const onTimeDeliveryPct    = n > 0 ? Math.round((onTime / n) * 100) : 0;
+  const fillRatePct          = totalOrdered > 0 ? Math.round((totalAccepted / totalOrdered) * 1000) / 10 : 0;
+  const qualityRejectionPct  = totalReceived > 0 ? Math.round((totalRejected / totalReceived) * 1000) / 10 : 0;
+  const avgLeadTimeDays      = n > 0 ? Math.round(totalLeadDays / n) : 0;
+  const scorecard            = _computeScore(onTimeDeliveryPct, fillRatePct, qualityRejectionPct);
+  return { supplierId: profile.supplierId, supplierName: profile.supplierName, category: profile.category,
+    totalOrders: orders.length, onTimeDeliveries: onTime, lateDeliveries: late, avgLeadTimeDays,
+    contractedLeadTimeDays: profile.contractedLeadTimeDays, onTimeDeliveryPct, fillRatePct,
+    qualityRejectionPct, totalPenaltyAccrued: totalPenalty, slaStatus: _resolveSLAStatus(scorecard), scorecard, orders };
+}
+function generateScorecardReport(profiles: SupplierProfile[], allOrders: PurchaseOrderRecord[]): VendorSLAReport {
+  const entries = profiles.map((p) => _buildScorecard(p, allOrders.filter((o) => o.supplierId === p.supplierId)));
+  entries.sort((a, b) => b.scorecard - a.scorecard);
+  const avgScorecard = entries.length > 0 ? Math.round(entries.reduce((s, e) => s + e.scorecard, 0) / entries.length) : 0;
+  return { asOfDate: new Date().toISOString(), totalSuppliers: entries.length,
+    greenSuppliers: entries.filter((e) => e.slaStatus === "GREEN").length,
+    amberSuppliers: entries.filter((e) => e.slaStatus === "AMBER").length,
+    redSuppliers:   entries.filter((e) => e.slaStatus === "RED").length,
+    criticalSuppliers: entries.filter((e) => e.slaStatus === "CRITICAL").length,
+    avgScorecard, entries };
+}
+// ───────────────────────────────────────────────────────────────────────────
 import {
   RadarChart,
   Radar,
@@ -185,7 +290,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
   }, [dataMode, dbSuppliers, dbOrders]);
 
   const report = useMemo(() => {
-    return SupplierScorecardEngine.generateReport(activeProfiles, activeOrders);
+    return generateScorecardReport(activeProfiles, activeOrders);
   }, [activeProfiles, activeOrders]);
 
   const selected = useMemo(() => {
