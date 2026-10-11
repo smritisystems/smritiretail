@@ -16,7 +16,7 @@ import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.psv import (
@@ -29,6 +29,7 @@ from ..models.psv import (
 from ..models.sales import SalesInvoice
 from ..models.crm import Customer, CustomerDeliveryLocation
 from ..models.tenant import Company
+from ..models.inventory import Product
 from ..models.control.control_models import ControlPSVConfig
 from .partner_resolver import PartnerIdentifierResolver
 from ..schemas.psv import (
@@ -383,6 +384,13 @@ class PSVProjectionService:
         else:
             bal.reconciliation_status = "PENDING_CATALOG_MAPPING"
 
+        # F-04 + F-07: Recompute live party-level aggregate metrics after every approved event
+        await cls._recompute_party_metrics(
+            session=psv_session,
+            party_id=psv_event.psv_party_id,
+            company_id=company_id,
+        )
+
         if commit:
             await psv_session.commit()
         else:
@@ -394,6 +402,114 @@ class PSVProjectionService:
             "event_id": psv_event.event_id,
             "current_balance": float(bal.current_balance)
         }
+
+    @classmethod
+    async def _recompute_party_metrics(
+        cls,
+        session: AsyncSession,
+        party_id: str,
+        company_id: Optional[str],
+    ) -> None:
+        """
+        F-04 + F-07: Recomputes and persists live aggregate metrics on PSVParty:
+          - stock_count   : sum of current_balance across all SKU balances
+          - sell_through  : totalSold / totalBilled * 100 (clamped 0-100)
+          - weeks_of_cover: current_balance / (avg_daily_sold * 7), 0 if no sales
+          - capital_locked: sum(current_balance_sku * product.mrp) joined via Product.sku
+
+        Called after every APPROVED stock event projection. Skipped gracefully on
+        errors so that a metric recompute failure never blocks the core projection path.
+        """
+        try:
+            # 1. Aggregate balance totals for this party
+            bal_agg_stmt = select(
+                func.coalesce(func.sum(PSVStockBalance.current_balance), Decimal("0")).label("total_balance"),
+                func.coalesce(func.sum(PSVStockBalance.billed_qty), Decimal("0")).label("total_billed"),
+                func.coalesce(func.sum(PSVStockBalance.sold_qty), Decimal("0")).label("total_sold"),
+            ).where(PSVStockBalance.psv_party_id == party_id)
+            if company_id:
+                bal_agg_stmt = bal_agg_stmt.where(PSVStockBalance.company_id == company_id)
+            agg = (await session.execute(bal_agg_stmt)).one_or_none()
+            if not agg:
+                return
+
+            total_balance = agg.total_balance or Decimal("0")
+            total_billed  = agg.total_billed  or Decimal("0")
+            total_sold    = agg.total_sold    or Decimal("0")
+
+            # sell_through % (F-04)
+            if total_billed > 0:
+                sell_through = min(
+                    Decimal("100.00"),
+                    (total_sold / total_billed * 100).quantize(Decimal("0.01")),
+                )
+            else:
+                sell_through = Decimal("0.00")
+
+            # 2. weeks_of_cover (F-04)
+            # avg daily sold = total_sold / max(1, distinct event days with sales)
+            day_count_stmt = select(
+                func.count(
+                    func.distinct(func.date_trunc("day", PSVStockEvent.event_date))
+                ).label("day_count"),
+            ).where(
+                PSVStockEvent.psv_party_id == party_id,
+                PSVStockEvent.movement_type.in_(
+                    ["SOLD", "SOLD_THROUGH", "OUTWARD_SALE", "POS_SALE"]
+                ),
+                PSVStockEvent.approval_status == "APPROVED",
+            )
+            day_row = (await session.execute(day_count_stmt)).one_or_none()
+            day_count = int(day_row.day_count) if day_row and day_row.day_count else 1
+            avg_daily_sold = total_sold / max(1, day_count)
+            if avg_daily_sold > 0 and total_balance > 0:
+                weeks_of_cover = (total_balance / avg_daily_sold / 7).quantize(Decimal("0.01"))
+            else:
+                weeks_of_cover = Decimal("0.00")
+
+            # 3. capital_locked via Product.mrp join (F-07)
+            sku_bal_stmt = select(
+                PSVStockBalance.sku,
+                PSVStockBalance.current_balance,
+            ).where(
+                PSVStockBalance.psv_party_id == party_id,
+                PSVStockBalance.current_balance > 0,
+            )
+            if company_id:
+                sku_bal_stmt = sku_bal_stmt.where(PSVStockBalance.company_id == company_id)
+            sku_rows = (await session.execute(sku_bal_stmt)).all()
+
+            capital_locked = Decimal("0.00")
+            if sku_rows:
+                skus = [row.sku for row in sku_rows]
+                prod_stmt = select(Product.sku, Product.mrp).where(
+                    Product.sku.in_(skus),
+                    Product.is_deleted == False,
+                )
+                prod_rows = (await session.execute(prod_stmt)).all()
+                mrp_map: Dict[str, Decimal] = {
+                    row.sku: (Decimal(str(row.mrp)) if row.mrp else Decimal("0"))
+                    for row in prod_rows
+                }
+                for row in sku_rows:
+                    mrp = mrp_map.get(row.sku, Decimal("0"))
+                    capital_locked += Decimal(str(row.current_balance)) * mrp
+
+            # 4. Write all three metrics back to PSVParty
+            party_stmt = select(PSVParty).where(PSVParty.id == party_id)
+            party = (await session.execute(party_stmt)).scalar_one_or_none()
+            if party:
+                party.stock_count = int(max(0, float(total_balance)))
+                party.sell_through = sell_through
+                party.weeks_of_cover = weeks_of_cover
+                party.capital_locked = capital_locked.quantize(Decimal("0.01"))
+
+        except Exception as exc:  # noqa: BLE001
+            # Metric recompute must never break the core projection path
+            import logging
+            logging.getLogger(__name__).warning(
+                "PSV metric recompute failed for party %s: %s", party_id, exc
+            )
 
     @classmethod
     async def get_scoped_party_visibility(

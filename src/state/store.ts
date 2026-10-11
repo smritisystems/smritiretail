@@ -57,7 +57,7 @@ export let fields: FieldInfo[] = [];
 // TODO: migrate to DB in Phase 2b
 export let formulas: Formula[] = [];
 
-// TODO: migrate to DB in Phase 2b
+// Migrated to FastAPI/Postgres (Phase 2b complete) — see GET /api/v1/psv/parties
 export let psvParties: PSVParty[] = [];
 
 // TODO: migrate to DB in Phase 2b
@@ -115,7 +115,6 @@ export function saveDb() {
       salesReturns,
       fields,
       formulas,
-      psvParties,
       companyState,
       goodsReceipts,
       attributeDefinitions,
@@ -157,7 +156,7 @@ export function loadDb() {
       if (data.salesReturns) salesReturns = data.salesReturns;
       if (data.fields) fields = data.fields;
       if (data.formulas) formulas = data.formulas;
-      if (data.psvParties) psvParties = data.psvParties;
+      // psvParties: migrated to FastAPI/Postgres — loaded via GET /api/v1/psv/parties in App.tsx
       if (data.companyState !== undefined) companyState = data.companyState;
       if (data.goodsReceipts) goodsReceipts = data.goodsReceipts;
       if (data.attributeDefinitions) attributeDefinitions = data.attributeDefinitions;
