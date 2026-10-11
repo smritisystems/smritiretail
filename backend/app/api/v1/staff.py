@@ -1760,20 +1760,14 @@ async def receive_biometric_device_push(
     if not registered_key:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "SMRITI-PERM-010",
-                "message": "Biometric device push is not enabled for this account.",
-                "action": "Set SMRITI.HR.DEVICE_PUSH_API_KEY in System Parameters to activate IoT attendance push.",
-            },
+            detail="Biometric device push is not enabled for this account. "
+                   "Set SMRITI.HR.DEVICE_PUSH_API_KEY in System Parameters to activate IoT attendance push.",
         )
     if payload.device_key != registered_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "SMRITI-PERM-011",
-                "message": "Device authentication failed. The device key is incorrect.",
-                "action": "Verify the device key matches the key registered in System Parameters.",
-            },
+            detail="Device authentication failed. The device key provided does not match "
+                   "the key registered in System Parameters (SMRITI.HR.DEVICE_PUSH_API_KEY).",
         )
 
     if not payload.punches:

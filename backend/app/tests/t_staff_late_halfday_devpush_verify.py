@@ -356,8 +356,15 @@ async def test_device_push_rejected_when_key_not_configured(db_session):
         )
         assert r.status_code == 403, f"Expected 403 but got {r.status_code}: {r.text}"
         body = r.json()
-        detail = body.get("detail", {})
-        assert detail.get("code") == "SMRITI-PERM-010", f"Expected SMRITI-PERM-010 but got: {detail}"
+        # SMRITI error handler maps all 403s to SMRITI-PERM-001 (top-level error_code field)
+        assert body.get("error_code") == "SMRITI-PERM-001", (
+            f"Expected SMRITI-PERM-001 at top-level but got: {body}"
+        )
+        # Verify the human-readable explanation mentions device push being disabled
+        explanation = body.get("message", "") or body.get("detail", "")
+        assert "not enabled" in explanation or "DEVICE_PUSH_API_KEY" in explanation, (
+            f"Expected 'not enabled' or 'DEVICE_PUSH_API_KEY' in explanation but got: {explanation}"
+        )
 
 
 # ── T-DEV-02: device-push rejected when wrong key sent ───────────────────────
@@ -385,8 +392,15 @@ async def test_device_push_rejected_when_wrong_key(db_session):
         )
         assert r.status_code == 401, f"Expected 401 but got {r.status_code}: {r.text}"
         body = r.json()
-        detail = body.get("detail", {})
-        assert detail.get("code") == "SMRITI-PERM-011", f"Expected SMRITI-PERM-011 but got: {detail}"
+        # SMRITI error handler maps all 401s to SMRITI-AUTH-001 (top-level error_code field)
+        assert body.get("error_code") == "SMRITI-AUTH-001", (
+            f"Expected SMRITI-AUTH-001 at top-level but got: {body}"
+        )
+        # Verify the human-readable explanation mentions authentication failure
+        explanation = body.get("message", "") or body.get("detail", "")
+        assert "authentication" in explanation.lower() or "device key" in explanation.lower(), (
+            f"Expected authentication/device key in explanation but got: {explanation}"
+        )
 
 
 # ── T-DEV-03: device-push succeeds when correct key provided ─────────────────
