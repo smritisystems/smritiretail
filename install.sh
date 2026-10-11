@@ -439,14 +439,13 @@ fi
 echo -e "  Building required images using $COMPOSE_FILE..."
 docker compose -f "$COMPOSE_FILE" build
 
-echo -e "  Starting services in background (docker compose up -d)..."
-docker compose -f "$COMPOSE_FILE" up -d
-echo -e "  ${GREEN}[OK] Services started.${NC}"
-
 # -----------------------------------------------------------------------------
 # 7. Database Readiness, Migrations & Health Checks
 # -----------------------------------------------------------------------------
 write_section "7/7" "Validating Database Readiness, Migrations, and Service Health"
+
+echo -e "  Starting PostgreSQL database container ($DB_CONTAINER)..."
+docker compose -f "$COMPOSE_FILE" up -d "$DB_CONTAINER"
 
 echo -e "  Waiting for PostgreSQL database container ($DB_CONTAINER) to become healthy..."
 DB_READY=false
@@ -464,6 +463,10 @@ if [ "$DB_READY" = true ]; then
 else
     echo -e "  ${YELLOW}[WARNING] Database container took longer than expected to report healthy.${NC}"
 fi
+
+# Start API Backend container
+echo -e "  Starting API backend container ($API_CONTAINER)..."
+SKIP_MIGRATIONS=true docker compose -f "$COMPOSE_FILE" up -d "$API_CONTAINER"
 
 # Canonical Database Bootstrap Engine (Rule 4)
 echo -e "  Executing SMRITI Canonical Database Bootstrap Engine..."
@@ -483,6 +486,10 @@ else
     echo -e "  ${RED}[ERROR] Database bootstrap failed.${NC}"
     exit 1
 fi
+
+echo -e "  Starting remaining services (docker compose up -d)..."
+docker compose -f "$COMPOSE_FILE" up -d
+echo -e "  ${GREEN}[OK] Services started.${NC}"
 
 # Probe API Health
 echo -e "  Checking API health on http://localhost:$API_PORT/health..."
