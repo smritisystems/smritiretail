@@ -93,6 +93,7 @@ import { GRID_PROFILES } from "../../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../../services/gridInput/types.ts";
 import type { CustomerBillingLocationDTO, CustomerDeliveryLocationDTO } from "../types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { recordAuditAction } from "../../../lib/apiFetch";
 import { ProPosOfflineSyncEngine } from "../../../sync/ProPosOfflineSyncEngine.ts";
 import { useF2Screen } from "../../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../../context/F2DispatcherContext.tsx";
@@ -625,7 +626,19 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
   const [salesStaff, setSalesStaff] = useState<string>("SM1");
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
   const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null);
-  const [showTotalsPanel, setShowTotalsPanel] = useState<boolean>(true);
+  // REC-16: Auto-collapse summary panel on narrow viewports (<=1280px)
+  const [showTotalsPanel, setShowTotalsPanel] = useState<boolean>(
+    () => typeof window !== "undefined" ? window.innerWidth > 1280 : true
+  );
+
+  // REC-16: Auto-collapse on resize below 1280px
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth <= 1280) setShowTotalsPanel(false);
+    };
+    window.addEventListener("resize", onResize, { passive: true });
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // --- Statutory Tax Mode: "exclusive" (Default per canonical Tax Invoice TT2026-2027/138: MRP -> Disc% -> Taxable Value -> + GST -> Total) | "inclusive" (MRP Gross) ---
   const [taxMode, setTaxMode] = useState<"exclusive" | "inclusive">("exclusive");
@@ -2104,6 +2117,17 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       setCartItems([]);
       setBillDocNumber((prev) => (parseInt(prev) + 1).toString());
       onNotification?.("Invoice Finalized", `Invoice ${response.invoice_no} generated successfully!`, "success");
+      // REC-04: Audit event for every POS settlement
+      const tenderSummary = Object.entries(tenders)
+        .filter(([, amt]) => Number(amt) > 0)
+        .map(([mode, amt]) => `${mode}:₹${Number(amt).toFixed(2)}`)
+        .join(", ");
+      recordAuditAction(
+        "SETTLEMENT",
+        "pos_transactions",
+        response.invoice_no,
+        `POS bill ${response.invoice_no} settled. Customer: ${customer.name || "Walk-in"}. Net: ₹${Number(response.grand_total ?? 0).toFixed(2)}. Tenders: ${tenderSummary || "Cash"}`
+      );
     } catch (error: any) {
       // P0-B: Distinguish network failure from business rejection
       const isNetworkError =

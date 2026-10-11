@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -88,7 +88,9 @@ export function LedgerScreen<T extends Record<string, any>>({
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const [page, setPage] = useState(1);
-  const pageSize = 50;
+  const [pageSize, setPageSize] = useState<number>(
+    () => Number(localStorage.getItem("smriti_ledger_page_size") || 50)
+  );
 
   // Handle outside clicks for dropdowns & popovers
   useEffect(() => {
@@ -1490,12 +1492,42 @@ export function LedgerScreen<T extends Record<string, any>>({
 
         {/* Pagination Bar */}
         <div className="bg-theme-surface-3/30 border-t border-theme-divider p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-theme-muted">
-          <div>
-            Showing <strong className="text-theme-primary">{paginatedItems.length}</strong> of{" "}
-            <strong className="text-theme-primary">{serverTotalCount ?? filteredAndSortedItems.length}</strong> records
+          <div className="flex items-center gap-3">
+            <span>
+              Showing <strong className="text-theme-primary">{paginatedItems.length}</strong> of{" "}
+              <strong className="text-theme-primary">{serverTotalCount ?? filteredAndSortedItems.length}</strong> records
+            </span>
+            {/* REC-09: Page-size selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-theme-muted">Rows:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const newSize = Number(e.target.value);
+                  localStorage.setItem("smriti_ledger_page_size", String(newSize));
+                  setPageSize(newSize);
+                  setPage(1);
+                }}
+                className="px-2 py-1 rounded-lg border border-theme-divider bg-theme-surface-1 text-theme-primary text-[11px] focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+              >
+                {[25, 50, 100, 250].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* First page */}
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => fetchData({ page: 1, preservePage: true })}
+              className="px-2 py-1 rounded-lg border border-theme-divider hover:bg-theme-surface-hover text-theme-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors text-[10px] font-bold"
+              title="First page"
+            >
+              «
+            </button>
             <button
               type="button"
               disabled={page <= 1}
@@ -1522,6 +1554,16 @@ export function LedgerScreen<T extends Record<string, any>>({
               className="p-1.5 rounded-lg border border-theme-divider hover:bg-theme-surface-hover text-theme-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               <ChevronRight size={14} />
+            </button>
+            {/* Last page */}
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => fetchData({ page: totalPages, preservePage: true })}
+              className="px-2 py-1 rounded-lg border border-theme-divider hover:bg-theme-surface-hover text-theme-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors text-[10px] font-bold"
+              title="Last page"
+            >
+              »
             </button>
           </div>
         </div>

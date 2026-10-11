@@ -18,7 +18,7 @@ import { Printer, MessageCircle, Mail, AlignJustify,
   CheckCircle2, X, Eye, Layers, Undo2, Ban, ShieldAlert,
   UserCheck, UserX, CreditCard, Check, MoreVertical,
   Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet,
-  Truck
+  Truck, ChevronsUpDown, ChevronUp, ChevronDown
 } from "lucide-react";
 import { PrepareDispatchModal } from "./PrepareDispatchDlg.tsx";
 import { ProcessSalesReturnModal } from "./ProcessSalesReturn.tsx";
@@ -38,6 +38,9 @@ import { isValidMobile } from "../utils/validators.ts";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SalesOrderFormPremium, SalesOrderFormData } from "./sales/SalesOrderFormPremium";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
+import { SmritiConfirmDialog, SmritiReasonDialog } from "./common/SmritiConfirmDialog.tsx";
+import { SmritiEmptyState } from "./common/SmritiEmptyState.tsx";
+import { SmritiTableSkeleton } from "./common/SmritiTableSkeleton.tsx";
 
 interface ParsedRow {
   name: string;
@@ -241,7 +244,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [subView, setSubView] = useState<"quotations" | "orders" | "invoices" | "returns" | "customers">("quotations");
-  const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">("comfortable");
+  const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">(
+    () => (localStorage.getItem("smriti_sales_density") as "compact" | "comfortable" | "relaxed") || "comfortable"
+  );
+  // REC-12: Persist density preference to localStorage on every change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useEffect(() => { localStorage.setItem("smriti_sales_density", density); }, [density]);
+
   const densityPadding = density === "compact" ? "py-1.5" : density === "comfortable" ? "py-3" : "py-4";
   const [activeFilters, setActiveFilters] = useState<Record<string, any>>({});
 
@@ -276,6 +285,56 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [dispatchModalInvoice, setDispatchModalInvoice] = useState<any | null>(null);
   const [returnModalInvoice, setReturnModalInvoice] = useState<any | null>(null);
 
+  // Design-system dialog states (REC-01: replaces window.confirm / window.prompt)
+  const [confirmDeleteQuotationId, setConfirmDeleteQuotationId] = useState<string | null>(null);
+  const [reasonDialogLine, setReasonDialogLine] = useState<{ line: SalesItemLine; action: "close" | "cancel" } | null>(null);
+
+  // REC-11: Customer table sort state
+  const [customerSortKey, setCustomerSortKey] = useState<string>("name");
+  const [customerSortDir, setCustomerSortDir] = useState<"asc" | "desc">("asc");
+
+  // REC-19: Inline customer tag editing — local-optimistic map: customerId -> tag[]  
+  const [customerTagEdits, setCustomerTagEdits] = useState<Record<string, string[]>>({});
+  const [tagInputValues, setTagInputValues] = useState<Record<string, string>>({});
+  const [tagEditingId, setTagEditingId] = useState<string | null>(null);
+  const resolveCustomerTags = (c: Customer) =>
+    customerTagEdits[c.id] !== undefined ? customerTagEdits[c.id] : (c.tags || []);
+  const commitTagAdd = (cId: string) => {
+    const val = (tagInputValues[cId] || "").trim().replace(/,+$/, "");
+    if (!val) { setTagEditingId(null); return; }
+    const current = customerTagEdits[cId] !== undefined ? customerTagEdits[cId] : [];
+    if (!current.includes(val)) {
+      setCustomerTagEdits(prev => ({ ...prev, [cId]: [...current, val] }));
+    }
+    setTagInputValues(prev => ({ ...prev, [cId]: "" }));
+    setTagEditingId(null);
+  };
+  const removeTag = (cId: string, tag: string, existingTags: string[]) => {
+    setCustomerTagEdits(prev => ({ ...prev, [cId]: existingTags.filter(t => t !== tag) }));
+  };
+
+  // REC-18: Sales Studio keyboard shortcuts overlay
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "?") { e.preventDefault(); setShowShortcutsModal(v => !v); }
+      if (e.key === "Escape") { setShowShortcutsModal(false); setSelectedIds(new Set()); }
+      if (e.shiftKey && e.key === "Q") setSubView("quotations");
+      if (e.shiftKey && e.key === "O") setSubView("orders");
+      if (e.shiftKey && e.key === "I") setSubView("invoices");
+      if (e.shiftKey && e.key === "R") setSubView("returns");
+      if (e.shiftKey && e.key === "C") setSubView("customers");
+      if (e.key === "d" || e.key === "D") {
+        setDensity(prev => prev === "compact" ? "comfortable" : prev === "comfortable" ? "relaxed" : "compact");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // CSV Import States
   const [isImportingCustomers, setIsImportingCustomers] = useState<boolean>(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -290,6 +349,17 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   // Manual Customer addition states
   const [isAddingCustomer, setIsAddingCustomer] = useState<boolean>(false);
+  // REC-15: Per-field inline validation for Add Customer form
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const validateField = (field: string, value: string) => {
+    let err = "";
+    if (field === "name" && value.trim().length < 2) err = "Name must be at least 2 characters.";
+    if (field === "mobile" && value && !/^[6-9]\d{9}$/.test(value.trim())) err = "Enter a valid 10-digit Indian mobile number.";
+    if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) err = "Enter a valid email address.";
+    if (field === "gst" && value && !/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(value.trim().toUpperCase())) err = "GSTIN must be 15 chars (e.g. 27AAACS1094J1Z3).";
+    if (field === "pan" && value && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(value.trim().toUpperCase())) err = "PAN must be 10 chars (e.g. ABCDE1234F).";
+    setFieldErrors(prev => ({ ...prev, [field]: err }));
+  };
   const [newCustomerName, setNewCustomerName] = useState<string>("");
   const [newCustomerMobile, setNewCustomerMobile] = useState<string>("");
   const [newCustomerEmail, setNewCustomerEmail] = useState<string>("");
@@ -680,8 +750,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       onNotification("Action unavailable", "This order line has no server identity.", "error");
       return;
     }
-    const reason = window.prompt(`Reason to ${action} ${line.code}:`);
-    if (!reason || reason.trim().length < 3) return;
+    // REC-01: Replaced window.prompt() with SmritiReasonDialog
+    setReasonDialogLine({ line, action });
+    return;
+  };
+
+  const executeOrderLineAction = async (line: SalesItemLine, action: "close" | "cancel", reason: string) => {
     try {
       const cleanOrderId = String(selectedOrder.id || "").replace(/^:/, "").trim();
       const cleanLineId = String(line.id).replace(/^:/, "").trim();
@@ -956,7 +1030,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   };
 
   const handleDeleteQuotation = async (qId: string) => {
-    if (!confirm("Are you sure you want to permanently delete this quotation draft?")) return;
+    // REC-01: Replaced window.confirm() with SmritiConfirmDialog
+    setConfirmDeleteQuotationId(qId);
+  };
+
+  const executeDeleteQuotation = async (qId: string) => {
     try {
       // Migrated: quotation delete → apiFetchV1 (FastAPI)
       await apiFetchV1(`/sales/quotations/${qId}`, { method: "DELETE" });
@@ -982,6 +1060,36 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     const tagMatch = (c.tags || []).some(t => t.toLowerCase().includes(query));
     return nameMatch || emailMatch || phoneMatch || tagMatch;
   });
+
+  // REC-11: Sort derived from filteredCustomers
+  const sortedCustomers = React.useMemo(() => {
+    const resolveVal = (c: Customer, key: string): string | number => {
+      switch (key) {
+        case "code":        return c.code || c.id?.slice(-6).toUpperCase() || "";
+        case "name":        return c.name?.toLowerCase() || "";
+        case "priceGroup":  return c.priceGroup || c.priceGroupCode || "";
+        case "mobile":      return c.mobile || "";
+        case "city":        return c.city || c.billingCity || "";
+        case "religion":    return c.religion || c.customerType || "";
+        case "loyaltyTier": return c.loyaltyTier || "";
+        case "creditLimit": return Number(c.creditLimit ?? 0);
+        case "status":      return c.status || "";
+        default:            return "";
+      }
+    };
+    return [...filteredCustomers].sort((a, b) => {
+      const av = resolveVal(a, customerSortKey);
+      const bv = resolveVal(b, customerSortKey);
+      if (typeof av === "number" && typeof bv === "number") {
+        return customerSortDir === "asc" ? av - bv : bv - av;
+      }
+      const as = String(av);
+      const bs = String(bv);
+      return customerSortDir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredCustomers, customerSortKey, customerSortDir]);
+
 
   // Quick Stats
   const activeDrafts = quotations.filter(q => q.status === "Draft").length;
@@ -1051,7 +1159,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               else if (tab === "returns") fetchSalesReturns(activeFilters);
               else if (tab === "customers") fetchCustomers();
             }}
-            className={`px-4 py-3 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               subView === tab
                 ? "border-blue-500 text-blue-400 bg-theme-surface-3"
                 : "border-transparent text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
@@ -1062,9 +1170,100 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             {tab === "invoices" && "Sales Invoices"}
             {tab === "returns" && "Sales Returns"}
             {tab === "customers" && "Customers"}
+            {/* REC-05: Tab badge counts */}
+            {tab === "quotations" && quotations.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {quotations.length}
+              </span>
+            )}
+            {tab === "orders" && salesOrders.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {salesOrders.length}
+              </span>
+            )}
+            {tab === "invoices" && salesInvoices.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {salesInvoices.length}
+              </span>
+            )}
+            {tab === "returns" && salesReturns.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {salesReturns.length}
+              </span>
+            )}
+            {tab === "customers" && customers.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {customers.length}
+              </span>
+            )}
           </button>
         ))}
+        {/* REC-18: Shortcut help trigger button */}
+        <button
+          type="button"
+          onClick={() => setShowShortcutsModal(true)}
+          title="Keyboard shortcuts (?)"
+          className="ml-auto flex items-center gap-1 px-3 py-2 text-[10px] font-mono text-theme-muted hover:text-theme-primary border-b-2 border-transparent hover:border-indigo-400 transition-colors whitespace-nowrap cursor-pointer"
+        >
+          <Info size={12} />
+          <span className="hidden sm:inline">Shortcuts</span>
+          <kbd className="px-1 py-0.5 rounded bg-theme-surface-3 border border-theme-divider text-[9px] font-bold">?</kbd>
+        </button>
       </div>
+
+      {/* REC-14: Bulk Action Toolbar — slides in when rows are selected */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-6 py-2.5 bg-blue-950/70 border-b border-blue-500/30 text-blue-200 text-xs font-semibold shrink-0 animate-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
+              {selectedIds.size}
+            </div>
+            <span className="text-blue-300 font-bold">{selectedIds.size} record{selectedIds.size === 1 ? "" : "s"} selected</span>
+          </div>
+          <div className="flex items-center gap-2 ml-4">
+            <button
+              type="button"
+              onClick={() => {
+                // Export selected IDs as CSV stub
+                const ids = Array.from(selectedIds).join(",");
+                const blob = new Blob([`id\n${ids.replace(/,/g, "\nid\n")}`], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = `smriti_${subView}_export.csv`; a.click(); URL.revokeObjectURL(url);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-800/50 hover:bg-blue-700/50 border border-blue-600/40 text-blue-200 transition-colors cursor-pointer text-[11px]"
+            >
+              <Download size={12} />
+              Export Selected
+            </button>
+            <button
+              type="button"
+              disabled={isReadOnly}
+              onClick={() => {
+                if (isReadOnly) return;
+                // Bulk delete — requires individual delete handlers per subview
+                recordAuditAction("DELETE", "sales", subView, `Bulk delete requested for ${selectedIds.size} ${subView} records: ${Array.from(selectedIds).join(", ")}`);
+                setSelectedIds(new Set());
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[11px] transition-colors cursor-pointer ${
+                isReadOnly
+                  ? "opacity-40 cursor-not-allowed bg-red-900/30 border-red-700/30 text-red-400"
+                  : "bg-red-900/40 hover:bg-red-800/50 border-red-600/40 text-red-300 hover:text-white"
+              }`}
+            >
+              <Trash2 size={12} />
+              Delete Selected
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto flex items-center gap-1 text-[11px] text-blue-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X size={13} />
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Content Area */}
       <SmritiScrollArea className="flex-1 bg-theme-base p-6">
@@ -1940,10 +2139,18 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     type="text"
                     id="new-cust-name"
                     value={newCustomerName}
-                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    onChange={(e) => { setNewCustomerName(e.target.value); if (fieldErrors.name) validateField("name", e.target.value); }}
+                    onBlur={(e) => validateField("name", e.target.value)}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                    className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors ${
+                      fieldErrors.name ? "border-rose-500 focus:border-rose-400" : newCustomerName.trim().length >= 2 ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                    }`}
                   />
+                  {fieldErrors.name && (
+                    <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                      <AlertCircle size={10} /> {fieldErrors.name}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1954,10 +2161,19 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       type="text"
                       id="new-cust-mobile"
                       value={newCustomerMobile}
-                      onChange={(e) => setNewCustomerMobile(e.target.value)}
+                      onChange={(e) => { setNewCustomerMobile(e.target.value); if (fieldErrors.mobile) validateField("mobile", e.target.value); }}
+                      onBlur={(e) => validateField("mobile", e.target.value)}
                       placeholder="e.g. 9876543210"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                      maxLength={10}
+                      className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors font-mono ${
+                        fieldErrors.mobile ? "border-rose-500 focus:border-rose-400" : newCustomerMobile.trim().length === 10 ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                      }`}
                     />
+                    {fieldErrors.mobile && (
+                      <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                        <AlertCircle size={10} /> {fieldErrors.mobile}
+                      </p>
+                    )}
                   </div>
 
                   {/* Email */}
@@ -1967,10 +2183,18 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       type="email"
                       id="new-cust-email"
                       value={newCustomerEmail}
-                      onChange={(e) => setNewCustomerEmail(e.target.value)}
+                      onChange={(e) => { setNewCustomerEmail(e.target.value); if (fieldErrors.email) validateField("email", e.target.value); }}
+                      onBlur={(e) => validateField("email", e.target.value)}
                       placeholder="e.g. rahul@sharma.com"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                      className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors ${
+                        fieldErrors.email ? "border-rose-500 focus:border-rose-400" : newCustomerEmail.includes("@") ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                      }`}
                     />
+                    {fieldErrors.email && (
+                      <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                        <AlertCircle size={10} /> {fieldErrors.email}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1982,10 +2206,19 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       type="text"
                       id="new-cust-gst"
                       value={newCustomerGst}
-                      onChange={(e) => setNewCustomerGst(e.target.value)}
+                      onChange={(e) => { setNewCustomerGst(e.target.value.toUpperCase()); if (fieldErrors.gst) validateField("gst", e.target.value); }}
+                      onBlur={(e) => validateField("gst", e.target.value)}
                       placeholder="e.g. 27AAACS1094J1Z3"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      maxLength={15}
+                      className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors font-mono ${
+                        fieldErrors.gst ? "border-rose-500 focus:border-rose-400" : newCustomerGst.length === 15 ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                      }`}
                     />
+                    {fieldErrors.gst && (
+                      <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                        <AlertCircle size={10} /> {fieldErrors.gst}
+                      </p>
+                    )}
                   </div>
 
                   {/* PAN */}
@@ -1995,10 +2228,19 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       type="text"
                       id="new-cust-pan"
                       value={newCustomerPan}
-                      onChange={(e) => setNewCustomerPan(e.target.value)}
+                      onChange={(e) => { setNewCustomerPan(e.target.value.toUpperCase()); if (fieldErrors.pan) validateField("pan", e.target.value); }}
+                      onBlur={(e) => validateField("pan", e.target.value)}
                       placeholder="e.g. ABCDE1234F"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      maxLength={10}
+                      className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors font-mono ${
+                        fieldErrors.pan ? "border-rose-500 focus:border-rose-400" : newCustomerPan.length === 10 ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                      }`}
                     />
+                    {fieldErrors.pan && (
+                      <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                        <AlertCircle size={10} /> {fieldErrors.pan}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -2567,16 +2809,44 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               )}
 
               {loading ? (
-                <div className="p-16 flex flex-col items-center justify-center space-y-3">
-                  <RefreshCw className="animate-spin text-blue-500" size={24} />
-                  <span className="text-xs text-theme-muted">Syncing real-time ledger data...</span>
-                </div>
+                // REC-13: Shimmer skeleton replaces generic spinner
+                <SmritiTableSkeleton
+                  rows={8}
+                  columns={
+                    subView === "customers"
+                      ? [
+                          { widthClass: "w-20" },
+                          { widthClass: "w-36" },
+                          { widthClass: "w-24" },
+                          { widthClass: "w-28" },
+                          { widthClass: "w-20" },
+                          { widthClass: "w-24" },
+                          { widthClass: "w-20" },
+                          { widthClass: "w-16", align: "right" },
+                          { widthClass: "w-16", align: "center" },
+                          { widthClass: "w-12", align: "right" },
+                        ]
+                      : [
+                          { widthClass: "w-6" },
+                          { widthClass: "w-28" },
+                          { widthClass: "w-36" },
+                          { widthClass: "w-24" },
+                          { widthClass: "w-16", align: "right" },
+                          { widthClass: "w-20", align: "right" },
+                          { widthClass: "w-16", align: "center" },
+                          { widthClass: "w-16", align: "center" },
+                        ]
+                  }
+                />
               ) : subView === "quotations" ? (
                 /* Quotations Registry Table */
                 quotations.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No quotations match the current filters or none exist in SMRITI.
-                  </div>
+                <SmritiEmptyState
+                  icon={<FileText />}
+                  title="No Quotations Found"
+                  description="No quotations match the current filters, or none have been created yet. Start by drafting your first quotation for a customer."
+                  primaryAction={{ label: "Create First Quotation", onClick: () => setIsCreatingQuotation(true), icon: <Plus /> }}
+                />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2716,9 +2986,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : subView === "orders" ? (
                 /* Sales Orders Book Registry */
                 isCreatingSalesOrder ? null : salesOrders.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs font-mono">
-                    No sales orders match current filters or none exist in SMRITI.
-                  </div>
+                  <SmritiEmptyState
+                    icon={<ShoppingCart />}
+                    title="No Sales Orders Found"
+                    description="No sales orders match the current filters, or none have been placed yet. Create your first sales order to start tracking fulfilment."
+                    primaryAction={{ label: "Create Sales Order", onClick: () => setIsCreatingSalesOrder(true), icon: <Plus /> }}
+                  />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2821,9 +3094,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : subView === "invoices" ? (
                 /* Sales Invoices Registry Table */
                 salesInvoices.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No sales invoices match current filters or none exist in SMRITI.
-                  </div>
+                <SmritiEmptyState
+                  icon={<FileText />}
+                  title="No Sales Invoices Found"
+                  description="No invoices match the current filters. Invoices are created when POS bills or sales orders are fulfilled and posted."
+                />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2966,9 +3241,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : subView === "returns" ? (
                 /* Sales Returns Registry Table */
                 salesReturns.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No sales returns logged or none match the current filters.
-                  </div>
+                <SmritiEmptyState
+                  icon={<Undo2 />}
+                  title="No Sales Returns Logged"
+                  description="No returns match the current filters. Process a sales return against a posted invoice to log a credit note and reinstate stock."
+                  primaryAction={{ label: "Process Return", onClick: () => setIsCreatingReturn(true), icon: <Plus /> }}
+                />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -3094,32 +3372,71 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : (
                 /* Customers Directory Table */
                 customers.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No customer records exist in SMRITI database yet.
-                  </div>
+                <SmritiEmptyState
+                  icon={<User />}
+                  title="No Customers Yet"
+                  description="No customer records exist in the SMRITI database. Add your first customer to begin tracking loyalty, credit limits, and order history."
+                  primaryAction={{ label: "Add Customer", onClick: () => setIsAddingCustomer(true), icon: <Plus /> }}
+                />
                 ) : filteredCustomers.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No customers match your search criteria. Try a different name, email, or mobile number.
-                  </div>
+                <SmritiEmptyState
+                  icon={<Search />}
+                  title="No Customers Match"
+                  description="No customers match your search or filter criteria. Try a different name, email, or mobile number."
+                  secondaryAction={{ label: "Clear Search", onClick: () => { setCustomerSearchQuery(""); setSelectedTagFilter(""); } }}
+                />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                       <thead>
                         <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                          <th className={`px-5 ${densityPadding}`}>Customer Code</th>
-                          <th className={`px-5 ${densityPadding}`}>Customer Name</th>
-                          <th className={`px-5 ${densityPadding}`}>Price Group</th>
-                          <th className={`px-5 ${densityPadding}`}>Phone</th>
-                          <th className={`px-5 ${densityPadding}`}>City</th>
-                          <th className={`px-5 ${densityPadding}`}>Classification</th>
-                          <th className={`px-5 ${densityPadding}`}>Loyalty Tier</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Credit Limit</th>
-                          <th className={`px-5 ${densityPadding} text-center`}>Status</th>
+                          {([
+                            { key: "code",         label: "Customer Code",   align: "left" },
+                            { key: "name",         label: "Customer Name",   align: "left" },
+                            { key: "tags",         label: "Tags",            align: "left" },
+                            { key: "priceGroup",   label: "Price Group",     align: "left" },
+                            { key: "mobile",       label: "Phone",           align: "left" },
+                            { key: "city",         label: "City",            align: "left" },
+                            { key: "religion",     label: "Classification",  align: "left" },
+                            { key: "loyaltyTier",  label: "Loyalty Tier",   align: "left" },
+                            { key: "creditLimit",  label: "Credit Limit",   align: "right" },
+                            { key: "status",       label: "Status",          align: "center" },
+                          ] as { key: string; label: string; align: string }[]).map((col) => {
+                            const isActive = customerSortKey === col.key;
+                            const SortIcon = isActive
+                              ? customerSortDir === "asc" ? ChevronUp : ChevronDown
+                              : ChevronsUpDown;
+                            return (
+                              <th
+                                key={col.key}
+                                className={`px-5 ${densityPadding} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""} cursor-pointer select-none hover:text-theme-primary transition-colors group`}
+                                onClick={() => {
+                                  if (customerSortKey === col.key) {
+                                    setCustomerSortDir(d => d === "asc" ? "desc" : "asc");
+                                  } else {
+                                    setCustomerSortKey(col.key);
+                                    setCustomerSortDir("asc");
+                                  }
+                                }}
+                                title={`Sort by ${col.label}`}
+                              >
+                                <span className="flex items-center gap-1 justify-start">
+                                  {col.label}
+                                  <SortIcon
+                                    size={10}
+                                    className={`shrink-0 transition-opacity ${
+                                      isActive ? "opacity-100 text-blue-400" : "opacity-30 group-hover:opacity-70"
+                                    }`}
+                                  />
+                                </span>
+                              </th>
+                            );
+                          })}
                           <th className={`px-5 ${densityPadding} text-right`}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredCustomers.map(c => {
+                        {sortedCustomers.map(c => {
                           const group = customerGroups.find(g => g.id === c.customerGroupId);
                           const city = c.city || c.billingCity || c.shippingCity || c.mailingAddresses?.[0]?.city || "Bangalore";
                           const customerCode = c.code || c.id?.slice(-6).toUpperCase() || "CUST";
@@ -3157,6 +3474,54 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                     <div className="font-bold">{c.name}</div>
                                     <div className="text-[10px] text-theme-muted font-mono">{c.gstNumber || c.gstin || "No GSTIN"}</div>
                                   </div>
+                                </div>
+                              </td>
+                              {/* REC-19: Inline tag editor cell */}
+                              <td
+                                className={`px-5 ${densityPadding} max-w-[160px]`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="flex flex-wrap gap-1 items-center">
+                                  {resolveCustomerTags(c).map(tag => (
+                                    <span
+                                      key={tag}
+                                      className="group inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-800/50 text-[9px] font-mono font-bold"
+                                    >
+                                      {tag}
+                                      <button
+                                        type="button"
+                                        onClick={() => removeTag(c.id, tag, resolveCustomerTags(c))}
+                                        className="opacity-0 group-hover:opacity-100 text-indigo-400 hover:text-rose-400 transition-all ml-0.5 cursor-pointer"
+                                        title={`Remove tag ${tag}`}
+                                      >
+                                        <X size={8} />
+                                      </button>
+                                    </span>
+                                  ))}
+                                  {tagEditingId === c.id ? (
+                                    <input
+                                      autoFocus
+                                      type="text"
+                                      value={tagInputValues[c.id] || ""}
+                                      onChange={(e) => setTagInputValues(prev => ({ ...prev, [c.id]: e.target.value }))}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commitTagAdd(c.id); }
+                                        if (e.key === "Escape") setTagEditingId(null);
+                                      }}
+                                      onBlur={() => commitTagAdd(c.id)}
+                                      placeholder="Add tag"
+                                      className="w-16 px-1 py-0.5 rounded bg-theme-surface-2 border border-indigo-500/50 text-indigo-300 text-[9px] font-mono focus:outline-none focus:border-indigo-400"
+                                    />
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setTagEditingId(c.id)}
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border border-dashed border-theme-divider text-theme-muted hover:border-indigo-400 hover:text-indigo-400 text-[9px] transition-colors cursor-pointer"
+                                      title="Add tag"
+                                    >
+                                      <Plus size={8} />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                               <td className={`px-5 ${densityPadding} text-[11px] text-theme-muted`}>
@@ -3993,6 +4358,101 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
         </motion.div>
       </SmritiScrollArea>
+
+      {/* ── REC-01: Design-System Confirm Dialog (replaces window.confirm) ── */}
+      <SmritiConfirmDialog
+        isOpen={confirmDeleteQuotationId !== null}
+        title="Delete Quotation Draft"
+        message="This action is permanent. The quotation draft will be removed from the ledger and cannot be recovered."
+        confirmLabel="Delete Permanently"
+        cancelLabel="Keep Draft"
+        variant="danger"
+        onConfirm={() => {
+          if (confirmDeleteQuotationId) {
+            executeDeleteQuotation(confirmDeleteQuotationId);
+          }
+          setConfirmDeleteQuotationId(null);
+        }}
+        onCancel={() => setConfirmDeleteQuotationId(null)}
+      />
+
+      {/* ── REC-01: Design-System Reason Dialog (replaces window.prompt) ── */}
+      <SmritiReasonDialog
+        isOpen={reasonDialogLine !== null}
+        title={
+          reasonDialogLine
+            ? `${reasonDialogLine.action === "cancel" ? "Cancel" : "Close"} Order Line: ${reasonDialogLine.line.code}`
+            : "Confirm Action"
+        }
+        label="Reason for Action"
+        placeholder={`Enter reason to ${reasonDialogLine?.action ?? "action"} this order line...`}
+        minLength={3}
+        confirmLabel={reasonDialogLine?.action === "cancel" ? "Cancel Line" : "Close Line"}
+        cancelLabel="Keep Line"
+        onConfirm={(reason) => {
+          if (reasonDialogLine && selectedOrder) {
+            executeOrderLineAction(reasonDialogLine.line, reasonDialogLine.action, reason);
+          }
+          setReasonDialogLine(null);
+        }}
+        onCancel={() => setReasonDialogLine(null)}
+      />
+
+      {/* REC-18: Sales Studio Keyboard Shortcuts Overlay */}
+      {showShortcutsModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowShortcutsModal(false)}
+        >
+          <div
+            className="bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-theme-divider bg-theme-surface-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400">
+                  <Info size={15} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-theme-body font-display">Sales Studio Shortcuts</h2>
+                  <p className="text-[10px] text-theme-muted font-mono">Keyboard navigation &amp; quick actions</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShortcutsModal(false)}
+                className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Shortcut grid */}
+            <div className="p-5 grid grid-cols-2 gap-3 text-xs">
+              {([
+                { key: "Shift + Q", desc: "Open Quotations tab" },
+                { key: "Shift + O", desc: "Open Orders tab" },
+                { key: "Shift + I", desc: "Open Invoices tab" },
+                { key: "Shift + R", desc: "Open Returns tab" },
+                { key: "Shift + C", desc: "Open Customers tab" },
+                { key: "?",         desc: "Toggle this shortcuts guide" },
+                { key: "Escape",    desc: "Close modal / clear selection" },
+                { key: "D",         desc: "Cycle row density" },
+              ] as { key: string; desc: string }[]).map(({ key, desc }) => (
+                <div key={key} className="flex items-center justify-between p-2.5 rounded-xl bg-theme-surface-2 border border-theme-divider/50">
+                  <span className="text-theme-muted">{desc}</span>
+                  <kbd className="px-2 py-0.5 rounded-lg bg-theme-surface-3 border border-theme-divider text-theme-primary font-mono text-[11px] font-bold shadow-sm whitespace-nowrap">{key}</kbd>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-5 pb-4 text-center">
+              <p className="text-[10px] text-theme-muted font-mono">Hotkeys are inactive when focus is inside an input field</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
