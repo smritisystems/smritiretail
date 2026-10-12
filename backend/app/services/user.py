@@ -30,7 +30,7 @@ from ..schemas.user import (
     UserPreferencesSchema, NotificationSettings, PreferencesUpdate
 )
 from ..core.security import hash_password, verify_password, validate_password_strength
-from ..api.deps import TenantContext
+from ..api.deps import TenantContext, normalize_branch_value
 
 
 def to_staff_response(user: User) -> StaffUserResponse:
@@ -284,14 +284,26 @@ class UserService:
                     status_code=400,
                     detail="The specified company does not exist or is inactive.",
                 )
-            branch = await self.db.get(Branch, req.branch_id)
-            if not branch or branch.company_id != req.company_id \
-                    or not branch.is_active or branch.is_deleted:
+            canonical_br = normalize_branch_value(req.branch_id)
+            br_q = select(Branch).where(
+                Branch.company_id == req.company_id,
+                or_(
+                    Branch.id == req.branch_id,
+                    Branch.code == req.branch_id,
+                    Branch.id == canonical_br,
+                    Branch.code == canonical_br,
+                ),
+                Branch.is_active == True,
+                Branch.is_deleted == False
+            )
+            branch = (await self.db.execute(br_q)).scalars().first()
+            if not branch:
                 raise HTTPException(
                     status_code=400,
                     detail="The specified branch does not exist, is inactive, "
                            "or does not belong to the given company.",
                 )
+            req.branch_id = branch.id
 
         validate_password_strength(req.password)
         user = User(
@@ -570,24 +582,50 @@ class UserService:
 
         if req.role == UserRole.SYSADMIN:
             comp_id = None
-            branch_id = None
+            resolved_branch_id = None
         else:
             comp_id = self.tenant.company_id if (self.tenant and not is_sysadmin_caller) else None
-            branch_id = req.branchId or (self.tenant.branch_id if self.tenant else None)
+            candidate_branch = req.branchId or (self.tenant.branch_id if self.tenant else None)
             if not is_sysadmin_caller:
-                if not comp_id or not branch_id:
-                    if not branch_id:
-                        raise HTTPException(status_code=400, detail="A company and branch context are required to create staff.")
+                if not comp_id and not candidate_branch:
+                    raise HTTPException(status_code=400, detail="A company and branch context are required to create staff.")
                 if self.tenant and self.tenant.company_id and req.branchId and req.branchId != self.tenant.branch_id:
                     raise HTTPException(status_code=403, detail="Staff must be created in the active branch context.")
-            if branch_id:
-                br_q = select(Branch).where(Branch.id == branch_id)
+
+            br_obj = None
+            if candidate_branch:
+                canonical_br = normalize_branch_value(candidate_branch)
+                br_conds = [
+                    Branch.id == candidate_branch,
+                    Branch.code == candidate_branch,
+                    Branch.id == canonical_br,
+                    Branch.code == canonical_br,
+                ]
+                br_q = select(Branch).where(or_(*br_conds), Branch.is_deleted == False)
                 if comp_id:
                     br_q = br_q.where(Branch.company_id == comp_id)
                 br_obj = (await self.db.execute(br_q)).scalars().first()
-                if not br_obj:
-                    raise HTTPException(status_code=400, detail=f"Branch with ID '{branch_id}' does not exist.")
-                comp_id = br_obj.company_id
+
+            if not br_obj and comp_id:
+                fallback_q = select(Branch).where(
+                    Branch.company_id == comp_id,
+                    Branch.is_active == True,
+                    Branch.is_deleted == False
+                ).order_by(Branch.created_at.asc())
+                br_obj = (await self.db.execute(fallback_q)).scalars().first()
+
+            if not br_obj and is_sysadmin_caller:
+                system_br_q = select(Branch).where(
+                    or_(Branch.id == "BR-MAIN-001", Branch.code == "MAIN"),
+                    Branch.is_deleted == False
+                )
+                br_obj = (await self.db.execute(system_br_q)).scalars().first()
+
+            if not br_obj and candidate_branch:
+                raise HTTPException(status_code=400, detail=f"Branch '{candidate_branch}' does not exist or is inactive.")
+
+            resolved_branch_id = br_obj.id if br_obj else candidate_branch
+            comp_id = br_obj.company_id if br_obj else comp_id
 
         allowed_br = json.dumps(req.allowedBranches) if req.allowedBranches else json.dumps([req.branch or "Andheri West, Mumbai"])
 
@@ -620,7 +658,7 @@ class UserService:
             is_active=True,
             is_deleted=False,
             company_id=comp_id,
-            branch_id=branch_id,
+            branch_id=resolved_branch_id,
             employee_id=emp_id,
             employee_code=emp_code,
             display_name=display_name,
@@ -660,7 +698,14 @@ class UserService:
             details={"role": str(user.role), "username": user.username, "employee_id": user.employee_id},
             reason="Staff user created",
         )
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="A user with this username, email, or employee code already exists. Please use unique credentials.",
+            )
         await self.db.refresh(user)
         return to_staff_response(user)
 
