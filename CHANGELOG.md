@@ -1,3 +1,22 @@
+## [6.72.1] — 2026-10-12
+
+### Inventory & Item Master — Catalog Export Parity, Universal Field Resolution & Multi-Format Output v6.72.1
+
+Resolved critical discrepancy where Article / Design codes (Column H), Gender (Column F), and Product Type (Column G) exported as blank cells in Excel and CSV files despite appearing populated on screen in the Article / Design Catalog (`ItemCatalogGrid.tsx`).
+
+**Key Capabilities:**
+- **Universal Field Resolvers:** Introduced unified attribute extraction functions (`resolveProductArticle`, `resolveProductColor`, `resolveProductSize`, `resolveProductGender`, `resolveProductType`, `resolveProductHsn`) guaranteeing 100% field parity between UI display and export serialization.
+- **Article & Style Code Parity:** `resolveProductArticle` inspects `attributes.article`, `attributes.style_code`, `style_code`, `styleCode`, `article`, `article_code`, and `design_code`, eliminating blank Column H values.
+- **Tri-Modal Multi-Format Export:** Upgraded `ItemCatalogGrid.tsx` top navigation bar with a split dropdown button offering instant **Excel Spreadsheet (.xlsx)** via `serializeToOpenXMLXLSX` and **CSV Document (.csv)** via RFC-4180 escaping with UTF-8 BOM (`\uFEFF`).
+- **Defensive Data Access Engine (`getRowValue`):** Upgraded `globalExportService.ts` with deep key lookup supporting casing transformation (`snake_case` <-> `camelCase`), domain aliases (`buying_price` <-> `buyingPrice`, `cost_price` <-> `costPrice`), and JSON attributes dictionary searches.
+- **Barcode & Data Integrity Protection:** Barcodes in CSV exports are formatted with text formula guards (`="<barcode>"`) preventing Microsoft Excel from converting 13-digit EAN/UPC codes into scientific notation (`8.9E+12`).
+- **Omni-Search Article Matching:** Upgraded catalog search query filtering to evaluate resolved article codes, allowing operators to locate articles like `SND-10-J` instantly.
+
+**Verification:**
+- Vitest: 19/19 tests passed in `src/tests/itemMasterExport.test.ts`.
+- TypeScript: `npx tsc --noEmit` exited with 0 errors across entire repository.
+- Verification status: `Done`.
+
 ## [6.72.0] — 2026-10-12
 
 ### HR & Security — User & Staff Creation Hardening, Tenant Resolution & Error Visibility v6.72.0

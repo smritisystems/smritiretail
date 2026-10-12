@@ -41,6 +41,10 @@ import { AddProductDrawer } from "./AddProductDrawer.tsx";
 import { VariantEditModal } from "./modals/VariantEditModal.tsx";
 import { BatchBarcodePrintModal } from "./modals/BatchBarcodePrintModal.tsx";
 import { ImportBatchManager, ImportBatchRecord } from "../../services/importBatchManager.ts";
+import {
+  serializeToOpenXMLXLSX,
+  downloadExportBlob,
+} from "../../services/globalExportService.ts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,11 +67,157 @@ interface SmritiItemCatalogGridProps {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Universal Resolvers ───────────────────────────────────────────────────────
 
-function getAttr(p: Product, key: string): string {
+export function getAttr(p: Product, key: string): string {
   return String((p.attributes as any)?.[key] ?? (p as any)[key] ?? "");
 }
+
+export function resolveProductArticle(p: Product): string {
+  return String(
+    (p.attributes as any)?.article ??
+    (p.attributes as any)?.Article ??
+    (p.attributes as any)?.style_code ??
+    (p.attributes as any)?.styleCode ??
+    (p as any).style_code ??
+    p.styleCode ??
+    (p as any).article ??
+    (p as any).article_code ??
+    (p as any).articleCode ??
+    (p as any).style ??
+    (p as any).style_article ??
+    (p as any).article_no ??
+    (p as any).design_code ??
+    ""
+  ).trim();
+}
+
+export function resolveProductColor(p: Product): string {
+  return String(
+    p.color ??
+    (p as any).colour ??
+    (p.attributes as any)?.color ??
+    (p.attributes as any)?.Color ??
+    (p.attributes as any)?.colour ??
+    (p.attributes as any)?.Colour ??
+    (p.attributes as any)?.shade ??
+    (p.attributes as any)?.Shade ??
+    (p.attributes as any)?.color_shade ??
+    ""
+  ).trim();
+}
+
+export function resolveProductSize(p: Product): string {
+  return String(
+    p.size ??
+    (p.attributes as any)?.size ??
+    (p.attributes as any)?.Size ??
+    (p as any).size_eu ??
+    (p as any).size_uk ??
+    ""
+  ).trim();
+}
+
+export function resolveProductGender(p: Product): string {
+  const explicit = String(
+    (p as any).gender ??
+    (p.attributes as any)?.gender ??
+    (p.attributes as any)?.Gender ??
+    (p.attributes as any)?.target_gender ??
+    (p.attributes as any)?.gender_category ??
+    (p.attributes as any)?.a4 ??
+    ""
+  ).trim();
+  if (explicit) return explicit;
+
+  // Smart fallback from category/name
+  const combined = `${p.category || ""} ${p.name || ""}`.toLowerCase();
+  if (/\b(men|mens|gents|male)\b/.test(combined)) return "Men";
+  if (/\b(women|womens|ladies|female)\b/.test(combined)) return "Women";
+  if (/\b(kids|boys|girls|children)\b/.test(combined)) return "Kids";
+  if (/\b(unisex)\b/.test(combined)) return "Unisex";
+  return "";
+}
+
+export function resolveProductType(p: Product): string {
+  return String(
+    (p as any).product_type ??
+    (p as any).productType ??
+    (p.attributes as any)?.product_type ??
+    (p.attributes as any)?.productType ??
+    (p.attributes as any)?.["Product Type"] ??
+    (p.attributes as any)?.type ??
+    (p.attributes as any)?.Type ??
+    p.category ??
+    ""
+  ).trim();
+}
+
+export function resolveProductHsn(p: Product): string {
+  return String(
+    (p as any).hsn_code ??
+    p.hsnCode ??
+    (p as any).hsn ??
+    (p.attributes as any)?.hsn ??
+    (p.attributes as any)?.hsn_code ??
+    ""
+  ).trim();
+}
+
+export function mapProductToExportRow(p: Product) {
+  const article = resolveProductArticle(p);
+  const color = resolveProductColor(p);
+  const size = resolveProductSize(p);
+  const gender = resolveProductGender(p);
+  const productType = resolveProductType(p);
+  const hsn = resolveProductHsn(p);
+
+  return {
+    code: p.code || "",
+    sku: p.code || "",
+    barcode: p.barcode || "",
+    name: p.name || "",
+    brand: p.brand || "",
+    category: p.category || "",
+    gender: gender || "—",
+    product_type: productType || "—",
+    article: article,
+    style_code: article,
+    styleCode: article,
+    color: color,
+    colour: color,
+    size: size,
+    hsn_code: hsn,
+    hsn: hsn,
+    price: p.mrp || p.price || 0,
+    mrp: p.mrp || p.price || 0,
+    retail_price: p.mrp || p.price || 0,
+    buying_price: p.buyingPrice ?? (p as any).buying_price ?? 0,
+    dealer_price: p.buyingPrice ?? (p as any).buying_price ?? 0,
+    cost_price: p.costPrice ?? (p as any).cost_price ?? 0,
+    gst_percentage: (p as any).gst_percentage ?? p.gstPercentage ?? 0,
+    status: p.isActive !== false ? "Active" : "Inactive",
+  };
+}
+
+export const CATALOG_EXPORT_COLUMNS = [
+  { key: "code", label: "SKU", datatype: "text" },
+  { key: "barcode", label: "Barcode", datatype: "text" },
+  { key: "name", label: "Name", datatype: "text" },
+  { key: "brand", label: "Brand", datatype: "text" },
+  { key: "category", label: "Category", datatype: "text" },
+  { key: "gender", label: "Gender", datatype: "text" },
+  { key: "product_type", label: "Product Type", datatype: "text" },
+  { key: "article", label: "Article", datatype: "text" },
+  { key: "color", label: "Color", datatype: "text" },
+  { key: "size", label: "Size", datatype: "text" },
+  { key: "hsn_code", label: "HSN", datatype: "text" },
+  { key: "mrp", label: "Retail Price", datatype: "currency" },
+  { key: "buying_price", label: "Dealer Price", datatype: "currency" },
+  { key: "cost_price", label: "Cost Price", datatype: "currency" },
+  { key: "gst_percentage", label: "GST%", datatype: "percentage" },
+  { key: "status", label: "Status", datatype: "text" },
+];
 
 function formatINR(val: number | undefined | null): string {
   if (val === null || val === undefined || isNaN(Number(val))) return "—";
@@ -173,6 +323,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   const [selectedVariantForEdit, setSelectedVariantForEdit] = useState<Product | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
@@ -215,8 +366,8 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
   // Unique filter values
   const categories = useMemo(() => [...new Set(products.map(p => p.category).filter(Boolean))], [products]);
   const brands = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))], [products]);
-  const genders = useMemo(() => [...new Set(products.map(p => getAttr(p, "gender")).filter(Boolean))], [products]);
-  const productTypes = useMemo(() => [...new Set(products.map(p => getAttr(p, "product_type")).filter(Boolean))], [products]);
+  const genders = useMemo(() => [...new Set(products.map(p => resolveProductGender(p)).filter(Boolean))], [products]);
+  const productTypes = useMemo(() => [...new Set(products.map(p => resolveProductType(p)).filter(Boolean))], [products]);
 
   // Active filters check
   const hasActiveFilters = useMemo(() => {
@@ -311,8 +462,8 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
       // 3. Structured dropdown filters
       if (filterCategory !== "All" && p.category !== filterCategory) return false;
       if (filterBrand !== "All" && p.brand !== filterBrand) return false;
-      if (filterGender !== "All" && getAttr(p, "gender") !== filterGender) return false;
-      if (filterProductType !== "All" && getAttr(p, "product_type") !== filterProductType) return false;
+      if (filterGender !== "All" && resolveProductGender(p) !== filterGender) return false;
+      if (filterProductType !== "All" && resolveProductType(p) !== filterProductType) return false;
       if (filterStatus !== "All") {
         const active = p.isActive !== false && (p as any).is_active !== false;
         if (filterStatus === "Active" && !active) return false;
@@ -322,11 +473,13 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
       // 4. Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
+        const article = resolveProductArticle(p).toLowerCase();
         return (
           (p.code || "").toLowerCase().includes(q) ||
           (p.name || "").toLowerCase().includes(q) ||
           (p.barcode || "").toLowerCase().includes(q) ||
           (p.brand || "").toLowerCase().includes(q) ||
+          article.includes(q) ||
           Object.values(p.attributes || {}).some(v => String(v).toLowerCase().includes(q))
         );
       }
@@ -373,50 +526,79 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
     onNotification?.("Copied", `${label} "${text}" copied to clipboard.`, "info");
   };
 
-  const handleExport = () => {
+  const buildCsvString = (rows: ReturnType<typeof mapProductToExportRow>[]): string => {
+    const headers = ["SKU", "Barcode", "Name", "Brand", "Category", "Gender", "Product Type", "Article", "Color", "Size", "HSN", "Retail Price", "Dealer Price", "Cost Price", "GST%", "Status"];
+    const escapeCsv = (val: any) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+    const lines = rows.map(r => [
+      escapeCsv(r.code),
+      r.barcode ? `="${r.barcode}"` : '""',
+      escapeCsv(r.name),
+      escapeCsv(r.brand),
+      escapeCsv(r.category),
+      escapeCsv(r.gender === "—" ? "" : r.gender),
+      escapeCsv(r.product_type === "—" ? "" : r.product_type),
+      escapeCsv(r.article),
+      escapeCsv(r.color),
+      escapeCsv(r.size),
+      escapeCsv(r.hsn_code),
+      r.mrp,
+      r.buying_price,
+      r.cost_price,
+      r.gst_percentage,
+      escapeCsv(r.status),
+    ].join(","));
+    return "\uFEFF" + [headers.map(escapeCsv).join(","), ...lines].join("\r\n");
+  };
+
+  const handleExport = (format: "xlsx" | "csv" = "xlsx") => {
     if (filtered.length === 0) { 
       onNotification?.("No Data", "No products to export.", "error"); 
       return; 
     }
-    const headers = ["SKU", "Barcode", "Name", "Brand", "Category", "Gender", "Product Type", "Article", "Color", "Size", "HSN", "Retail Price", "Dealer Price", "Cost Price", "GST%", "Status"];
-    const rows = filtered.map(p => [
-      p.code, p.barcode || "", `"${p.name}"`, p.brand || "", p.category || "",
-      getAttr(p, "gender"), getAttr(p, "product_type"), getAttr(p, "article"),
-      p.color || getAttr(p, "color"), p.size || getAttr(p, "size"),
-      (p as any).hsn_code || p.hsnCode || "",
-      p.mrp || p.price || "", p.buyingPrice || "", p.costPrice || "",
-      (p as any).gst_percentage ?? p.gstPercentage ?? "",
-      p.isActive !== false ? "Active" : "Inactive"
-    ]);
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `SMRITI_Products_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    onNotification?.("Export Ready", `${filtered.length} products exported.`, "success");
+    const rows = filtered.map(mapProductToExportRow);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    if (format === "xlsx") {
+      const metadata = {
+        moduleTitle: "Article / Design Catalog",
+        companyName: "SMRITI Retail",
+        totalRecordsCount: rows.length,
+        exportTimestamp: new Date().toISOString(),
+      };
+      const xlsxBytes = serializeToOpenXMLXLSX(CATALOG_EXPORT_COLUMNS as any, rows, metadata, "Articles");
+      const blob = new Blob([xlsxBytes as any], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      downloadExportBlob(blob, `SMRITI_Products_${dateStr}.xlsx`);
+      onNotification?.("Export Ready", `${rows.length} products exported to Excel (.xlsx).`, "success");
+    } else {
+      const csv = buildCsvString(rows);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      downloadExportBlob(blob, `SMRITI_Products_${dateStr}.csv`);
+      onNotification?.("Export Ready", `${rows.length} products exported to CSV (.csv).`, "success");
+    }
+    setIsExportMenuOpen(false);
   };
 
-  const handleBulkExportSelected = () => {
+  const handleBulkExportSelected = (format: "xlsx" | "csv" = "xlsx") => {
     const selectedProds = products.filter(p => selectedIds.has(p.id || p.code));
     if (selectedProds.length === 0) return;
-    const headers = ["SKU", "Barcode", "Name", "Brand", "Category", "Gender", "Product Type", "Article", "Color", "Size", "HSN", "Retail Price", "Dealer Price", "Cost Price", "GST%", "Status"];
-    const rows = selectedProds.map(p => [
-      p.code, p.barcode || "", `"${p.name}"`, p.brand || "", p.category || "",
-      getAttr(p, "gender"), getAttr(p, "product_type"), getAttr(p, "article"),
-      p.color || getAttr(p, "color"), p.size || getAttr(p, "size"),
-      (p as any).hsn_code || p.hsnCode || "",
-      p.mrp || p.price || "", p.buyingPrice || "", p.costPrice || "",
-      (p as any).gst_percentage ?? p.gstPercentage ?? "",
-      p.isActive !== false ? "Active" : "Inactive"
-    ]);
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `SMRITI_Selected_${selectedProds.length}_Products_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    onNotification?.("Export Ready", `${selectedProds.length} selected products exported.`, "success");
+    const rows = selectedProds.map(mapProductToExportRow);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    if (format === "xlsx") {
+      const metadata = {
+        moduleTitle: "Selected Articles",
+        companyName: "SMRITI Retail",
+        totalRecordsCount: rows.length,
+        exportTimestamp: new Date().toISOString(),
+      };
+      const xlsxBytes = serializeToOpenXMLXLSX(CATALOG_EXPORT_COLUMNS as any, rows, metadata, "Selected Articles");
+      const blob = new Blob([xlsxBytes as any], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      downloadExportBlob(blob, `SMRITI_Selected_${rows.length}_Products_${dateStr}.xlsx`);
+      onNotification?.("Export Ready", `${rows.length} selected products exported to Excel (.xlsx).`, "success");
+    } else {
+      const csv = buildCsvString(rows);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      downloadExportBlob(blob, `SMRITI_Selected_${rows.length}_Products_${dateStr}.csv`);
+      onNotification?.("Export Ready", `${rows.length} selected products exported to CSV (.csv).`, "success");
+    }
   };
 
   const handleBulkPrintBarcodes = () => {
@@ -499,14 +681,58 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
               <FileSpreadsheet size={14} />
               <span>Excel Import</span>
             </button>
-            <button
-              type="button"
-              onClick={handleExport}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#cbd5e1] dark:border-[#434654] text-[#374151] dark:text-[#e2e8f0] bg-white dark:bg-[#2d3133] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] text-xs font-semibold transition cursor-pointer"
-            >
-              <Upload size={14} />
-              <span>Export</span>
-            </button>
+            {/* Export Multi-Format Dropdown Button */}
+            <div className="relative hidden sm:block">
+              <div className="flex items-center rounded-lg border border-[#cbd5e1] dark:border-[#434654] bg-white dark:bg-[#2d3133] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => handleExport("xlsx")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[#374151] dark:text-[#e2e8f0] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] text-xs font-semibold transition cursor-pointer"
+                  title="Export catalog as Excel (.xlsx)"
+                >
+                  <Upload size={14} />
+                  <span>Export</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                  className="px-1.5 py-1.5 border-l border-[#cbd5e1] dark:border-[#434654] text-[#64748b] hover:bg-[#f1f5f9] dark:hover:bg-[#1c1f26] transition cursor-pointer"
+                  title="Choose export format (Excel or CSV)"
+                >
+                  <ChevronDown size={12} />
+                </button>
+              </div>
+
+              {isExportMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-[#1e293b] border border-[#e2e8f0] dark:border-[#334155] rounded-xl shadow-xl py-1.5 z-30 text-xs font-medium animate-in fade-in duration-100"
+                  onClick={() => setIsExportMenuOpen(false)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleExport("xlsx")}
+                    className="w-full text-left px-3.5 py-2 hover:bg-[#f1f5f9] dark:hover:bg-[#334155] flex items-center gap-2.5 text-[#0f172a] dark:text-white cursor-pointer"
+                  >
+                    <FileSpreadsheet size={15} className="text-emerald-600" />
+                    <div>
+                      <div className="font-semibold">Excel Spreadsheet (.xlsx)</div>
+                      <div className="text-[10px] text-slate-400">Formatted tables & auto-widths</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExport("csv")}
+                    className="w-full text-left px-3.5 py-2 hover:bg-[#f1f5f9] dark:hover:bg-[#334155] flex items-center gap-2.5 text-[#0f172a] dark:text-white cursor-pointer"
+                  >
+                    <Download size={15} className="text-blue-600" />
+                    <div>
+                      <div className="font-semibold">CSV Document (.csv)</div>
+                      <div className="text-[10px] text-slate-400">Universal UTF-8 with BOM</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="relative">
               <button
                 type="button"
@@ -541,11 +767,19 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={handleExport}
+                    onClick={() => handleExport("xlsx")}
                     className="sm:hidden w-full text-left px-3.5 py-2 hover:bg-[#f1f5f9] dark:hover:bg-[#334155] flex items-center gap-2 text-[#0f172a] dark:text-white"
                   >
-                    <Upload size={13} />
-                    <span>Export CSV</span>
+                    <FileSpreadsheet size={13} className="text-emerald-600" />
+                    <span>Export Excel (.xlsx)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExport("csv")}
+                    className="sm:hidden w-full text-left px-3.5 py-2 hover:bg-[#f1f5f9] dark:hover:bg-[#334155] flex items-center gap-2 text-[#0f172a] dark:text-white"
+                  >
+                    <Download size={13} className="text-blue-600" />
+                    <span>Export CSV (.csv)</span>
                   </button>
                 </div>
               )}
@@ -625,7 +859,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
             </button>
             <button
               type="button"
-              onClick={handleExport}
+              onClick={() => handleExport("csv")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-800 dark:text-blue-200 font-semibold transition cursor-pointer"
             >
               <Download size={13} />
@@ -912,18 +1146,18 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
               ) : (
                 paginated.map((p, idx) => {
                   const isSelected = selectedIds.has(p.id || p.code);
-                  const gender = getAttr(p, "gender");
-                  const productType = getAttr(p, "product_type");
-                  const article = getAttr(p, "article") || (p as any).style_code || p.styleCode || "";
-                  const color = p.color || getAttr(p, "color") || getAttr(p, "shade") || "";
-                  const size = p.size || getAttr(p, "size") || "";
-                  const hsnCode = (p as any).hsn_code || p.hsnCode || "";
+                  const gender = resolveProductGender(p);
+                  const productType = resolveProductType(p);
+                  const article = resolveProductArticle(p);
+                  const color = resolveProductColor(p);
+                  const size = resolveProductSize(p);
+                  const hsnCode = resolveProductHsn(p);
                   const retailPrice = p.mrp || p.price;
-                  const dealerPrice = p.buyingPrice;
-                  const costPrice = p.costPrice;
+                  const dealerPrice = p.buyingPrice ?? (p as any).buying_price;
+                  const costPrice = p.costPrice ?? (p as any).cost_price;
                   const lastPurchasePrice = getAttr(p, "last_purchase_price");
-                  const gstPct = p.gstPercentage;
-                  const isActive = p.isActive !== false;
+                  const gstPct = (p as any).gst_percentage ?? p.gstPercentage;
+                  const isActive = p.isActive !== false && (p as any).is_active !== false;
 
                   return (
                     <tr
@@ -1112,8 +1346,9 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
             </button>
             <button
               type="button"
-              onClick={handleBulkExportSelected}
+              onClick={() => handleBulkExportSelected("xlsx")}
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium flex items-center gap-1.5 transition text-slate-200 cursor-pointer"
+              title="Export selected items as formatted Excel spreadsheet"
             >
               <Download size={13} />
               <span>Export Selected</span>

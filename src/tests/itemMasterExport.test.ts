@@ -22,8 +22,18 @@ import {
   serializeToCSV,
   serializeToSpreadsheetML,
   serializeToOpenXMLXLSX,
+  getRowValue,
 } from "../services/globalExportService.ts";
 import { ExportColumnDefinition, ExportMetadata } from "../components/export/types.ts";
+import {
+  resolveProductArticle,
+  resolveProductColor,
+  resolveProductSize,
+  resolveProductGender,
+  resolveProductType,
+  mapProductToExportRow,
+  CATALOG_EXPORT_COLUMNS,
+} from "../components/itemMaster/ItemCatalogGrid.tsx";
 
 describe("Item Master Tri-Modal Export Engine & Audit Verification Suite", () => {
   describe("1. Presets Integrity & Column Coverage", () => {
@@ -271,6 +281,97 @@ describe("Item Master Tri-Modal Export Engine & Audit Verification Suite", () =>
       expect(xml).toContain('<Worksheet ss:Name="Item Audit">');
       expect(xml).toContain("<Data ss:Type=\"String\">COMPLIANT</Data>");
       expect(xml).toContain("<Data ss:Type=\"String\">FLAGGED</Data>");
+    });
+  });
+
+  describe("4. Catalog & Item Master Export Parity and Field Resolution Suite", () => {
+    it("resolves article/design from style_code, styleCode, and attributes", () => {
+      expect(resolveProductArticle({ id: "1", code: "SND-10-J-42", name: "SND-10-J", style_code: "SND-10-J" } as any)).toBe("SND-10-J");
+      expect(resolveProductArticle({ id: "2", code: "SH-03-I-42", name: "SH-03-I", styleCode: "SH-03-I" } as any)).toBe("SH-03-I");
+      expect(resolveProductArticle({ id: "3", code: "CH-25-G-42", name: "CH-25-G", attributes: { article: "CH-25-G" } } as any)).toBe("CH-25-G");
+      expect(resolveProductArticle({ id: "4", code: "SN-07-42", name: "SN-07", attributes: { style_code: "SND-07-G" } } as any)).toBe("SND-07-G");
+    });
+
+    it("resolves color and shade across aliases and attributes", () => {
+      expect(resolveProductColor({ id: "1", code: "C1", name: "N1", color: "CHIKKU" } as any)).toBe("CHIKKU");
+      expect(resolveProductColor({ id: "2", code: "C2", name: "N2", colour: "BLACK" } as any)).toBe("BLACK");
+      expect(resolveProductColor({ id: "3", code: "C3", name: "N3", attributes: { shade: "CREAM" } } as any)).toBe("CREAM");
+      expect(resolveProductColor({ id: "4", code: "C4", name: "N4", attributes: { Color: "GOLD" } } as any)).toBe("GOLD");
+    });
+
+    it("resolves and infers gender correctly", () => {
+      expect(resolveProductGender({ id: "1", code: "G1", name: "G1", gender: "Men" } as any)).toBe("Men");
+      expect(resolveProductGender({ id: "2", code: "G2", name: "G2", attributes: { target_gender: "Women" } } as any)).toBe("Women");
+      expect(resolveProductGender({ id: "3", code: "G3", name: "Mens Leather Shoe", category: "Footwear" } as any)).toBe("Men");
+      expect(resolveProductGender({ id: "4", code: "G4", name: "Ladies Sandals", category: "Footwear" } as any)).toBe("Women");
+      expect(resolveProductGender({ id: "5", code: "G5", name: "Kids Slippers", category: "Footwear" } as any)).toBe("Kids");
+    });
+
+    it("resolves product type from fields, attributes, and category fallback", () => {
+      expect(resolveProductType({ id: "1", code: "P1", name: "P1", product_type: "SANDAL" } as any)).toBe("SANDAL");
+      expect(resolveProductType({ id: "2", code: "P2", name: "P2", attributes: { "Product Type": "CHAPPAL" } } as any)).toBe("CHAPPAL");
+      expect(resolveProductType({ id: "3", code: "P3", name: "P3", category: "Footwear" } as any)).toBe("Footwear");
+    });
+
+    it("guarantees getRowValue resolves aliases across casing and attributes", () => {
+      const row = {
+        code: "SKU-001",
+        style_code: "SND-10-J",
+        buyingPrice: 1292.96,
+        cost_price: 470,
+        attributes: {
+          Gender: "Men",
+          shade: "CHIKKU",
+        },
+      };
+
+      expect(getRowValue(row, "style_code")).toBe("SND-10-J");
+      expect(getRowValue(row, "styleCode")).toBe("SND-10-J");
+      expect(getRowValue(row, "article")).toBe("SND-10-J");
+      expect(getRowValue(row, "buying_price")).toBe(1292.96);
+      expect(getRowValue(row, "buyingPrice")).toBe(1292.96);
+      expect(getRowValue(row, "costPrice")).toBe(470);
+      expect(getRowValue(row, "gender")).toBe("Men");
+      expect(getRowValue(row, "color")).toBe("CHIKKU");
+    });
+
+    it("exports article without blank field when product has style_code", () => {
+      const product = {
+        id: "p-snd-10",
+        code: "SND-10-J CHIKKU 42",
+        name: "SND-10-J CHIKKU 42",
+        barcode: "8904456789012",
+        brand: "TATTLY THREADS",
+        category: "Footwear",
+        style_code: "SND-10-J",
+        color: "CHIKKU",
+        size: "42",
+        hsn_code: "64041990",
+        mrp: 2299,
+        price: 2299,
+        buyingPrice: 1292.96,
+        costPrice: 470,
+        gst_percentage: 5,
+        isActive: true,
+      };
+
+      const mapped = mapProductToExportRow(product as any);
+      expect(mapped.article).toBe("SND-10-J");
+      expect(mapped.color).toBe("CHIKKU");
+      expect(mapped.size).toBe("42");
+      expect(mapped.brand).toBe("TATTLY THREADS");
+      expect(mapped.buying_price).toBe(1292.96);
+      expect(mapped.cost_price).toBe(470);
+
+      const cols = CATALOG_EXPORT_COLUMNS as ExportColumnDefinition[];
+      const csv = serializeToCSV(cols, [mapped]);
+
+      // Verify Column headers
+      expect(csv).toContain("SKU,Barcode,Name,Brand,Category,Gender,Product Type,Article,Color,Size,HSN,Retail Price,Dealer Price,Cost Price,GST%,Status");
+      // Verify Article SND-10-J is NOT blank in CSV
+      expect(csv).toContain("SND-10-J");
+      expect(csv).toContain("CHIKKU");
+      expect(csv).toContain("TATTLY THREADS");
     });
   });
 });
