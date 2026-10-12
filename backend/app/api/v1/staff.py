@@ -33,15 +33,16 @@ from pydantic import BaseModel
 from sqlalchemy import or_, and_, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from ...core.logging import logger
 from ...api.deps import get_db, get_company_db, get_tenant_context, get_current_user, TenantContext
 from ...db.session import async_session
 from ...models.commission import CommissionParticipant, CommissionProgram, CommissionRule, CommissionLedger
 from ...models.auth import User, UserRole
 from ...models.hr import AttendanceRecord, LeaveBalance, LeaveRequest
 from ...models.crm import CustomerDeliveryLocation
-from ...models.tenant import Branch
+from ...models.tenant import Branch, Company
 from ...models.staff_placement import StaffPlacementAssignment
 from ...models.staff_profile import StaffProfile
 from ...models.staff_profile_history import StaffProfileHistory
@@ -474,7 +475,7 @@ async def _staff_directory_record(
 ) -> dict:
     user = (await control_db.execute(select(User).where(
         User.id == user_id,
-        User.company_id == tenant.company_id,
+        or_(User.company_id == tenant.company_id, User.company_id.is_(None)),
         User.is_deleted == False,
     ))).scalar_one_or_none()
     if not user:
@@ -569,7 +570,7 @@ async def list_staff_directory(
 ):
     """Compose Staff 360 identity from smritisys and employment from the company DB."""
     users = (await control_db.execute(select(User).where(
-        User.company_id == tenant.company_id,
+        or_(User.company_id == tenant.company_id, User.company_id.is_(None)),
         User.is_deleted == False,
     ).order_by(User.username.asc()))).scalars().all()
     profiles = (await company_db.execute(select(StaffProfile).where(
@@ -616,42 +617,112 @@ async def update_staff_directory_profile(
     _require_manager(current_user)
     user = (await control_db.execute(select(User).where(
         User.id == user_id,
-        User.company_id == tenant.company_id,
+        or_(User.company_id == tenant.company_id, User.company_id.is_(None)),
         User.is_deleted == False,
     ))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Staff identity was not found in the active company.")
+
+    # 1. Resolve target company_id safely against company_db
+    target_company_id = tenant.company_id
+    c_row = (await company_db.execute(
+        select(Company.id).where(
+            or_(Company.id == tenant.company_id, Company.company_code == tenant.company_id),
+            Company.is_deleted == False,
+        ).limit(1)
+    )).scalar_one_or_none()
+    if c_row:
+        target_company_id = c_row
+
+    # 2. Resolve target branch_id safely against company_db to guarantee foreign key integrity
+    target_branch_id = None
+    candidate_branches = [tenant.branch_id, payload.branch, "MAIN", "BR-MAIN-001"]
+    for cand in candidate_branches:
+        if cand and str(cand).strip():
+            cand_str = str(cand).strip()
+            b_row = (await company_db.execute(
+                select(Branch.id).where(
+                    Branch.company_id == target_company_id,
+                    or_(Branch.id == cand_str, Branch.code == cand_str),
+                    Branch.is_deleted == False,
+                ).limit(1)
+            )).scalar_one_or_none()
+            if b_row:
+                target_branch_id = b_row
+                break
+
+    if not target_branch_id:
+        target_branch_id = (await company_db.execute(
+            select(Branch.id).where(
+                Branch.company_id == target_company_id,
+                Branch.is_deleted == False,
+            ).order_by(Branch.id.asc()).limit(1)
+        )).scalar_one_or_none()
+
+    # 3. Locate profile in company_db (without filtering is_deleted to avoid unique constraint collision)
     profile = (await company_db.execute(select(StaffProfile).where(
-        StaffProfile.company_id == tenant.company_id,
+        StaffProfile.company_id == target_company_id,
         StaffProfile.user_id == user_id,
-        StaffProfile.is_deleted == False,
     ))).scalar_one_or_none()
     local_user = None
     profile_was_new = False
     if not profile:
         local_user = (await company_db.execute(select(User).where(
             User.username == user.username,
-            User.is_deleted == False,
         ))).scalar_one_or_none()
         if local_user:
             profile = (await company_db.execute(select(StaffProfile).where(
-                StaffProfile.company_id == tenant.company_id,
+                StaffProfile.company_id == target_company_id,
                 StaffProfile.user_id == local_user.id,
-                StaffProfile.is_deleted == False,
             ))).scalar_one_or_none()
-    if not profile:
+
+    if profile:
+        # Reactivate if it was soft-deleted
+        if getattr(profile, "is_deleted", False):
+            profile.is_deleted = False
+            profile.deleted_at = None
+            profile.deleted_by = None
+        # Ensure branch_id is valid on existing profile if currently null
+        if not profile.branch_id and target_branch_id:
+            profile.branch_id = target_branch_id
+    else:
         profile_user_id = local_user.id if local_user else user_id
         profile = StaffProfile(
-            company_id=tenant.company_id,
-            branch_id=tenant.branch_id,
+            company_id=target_company_id,
+            branch_id=target_branch_id,
             user_id=profile_user_id,
-            created_by=current_user.id,
+            created_by=str(current_user.id)[:100],
         )
         company_db.add(profile)
         await company_db.flush()
         profile_was_new = True
 
     before_state = _profile_state(profile)
+
+    STRING_LIMITS = {
+        "employee_id": 20,
+        "employee_code": 20,
+        "display_name": 100,
+        "full_name": 200,
+        "gender": 10,
+        "date_of_birth": 20,
+        "alternate_mobile": 20,
+        "emergency_contact": 100,
+        "address": 500,
+        "city": 100,
+        "state": 100,
+        "country": 50,
+        "pin_code": 10,
+        "department": 100,
+        "designation": 100,
+        "branch": 200,
+        "department_id": 50,
+        "designation_id": 50,
+        "date_of_joining": 20,
+        "reporting_manager": 200,
+        "employment_type": 20,
+        "status": 50,
+    }
 
     field_map = {
         "fullName": "full_name", "employeeId": "employee_id", "employeeCode": "employee_code",
@@ -679,7 +750,7 @@ async def update_staff_directory_profile(
         control_user_updated = True
 
     if "fullName" in values and values["fullName"] != user.full_name:
-        user.full_name = values["fullName"]
+        user.full_name = str(values["fullName"])[:200]
         control_user_updated = True
 
     if "status" in values and values["status"] != user.status:
@@ -709,10 +780,17 @@ async def update_staff_directory_profile(
             await user_service._record_audit("USER_UPDATED", user.id, actor=current_user, reason="Staff directory identity fields updated")
         await control_db.commit()
         await control_db.refresh(user)
+
     for source, target in field_map.items():
         if source in values:
             value = values[source]
-            setattr(profile, target, json.dumps(value) if source == "allowedBranches" else value)
+            if source == "allowedBranches":
+                setattr(profile, target, json.dumps(value) if isinstance(value, list) else str(value))
+            else:
+                if value is not None and isinstance(value, str) and target in STRING_LIMITS:
+                    value = value[:STRING_LIMITS[target]]
+                setattr(profile, target, value)
+
     for source, target in {
         "salary": "salary_json", "payment": "payment_json", "performance": "performance_json",
         "preferences": "preferences_json", "notificationSettings": "notification_settings_json",
@@ -720,22 +798,30 @@ async def update_staff_directory_profile(
         if source in values:
             value = getattr(payload, source)
             setattr(profile, target, value.model_dump_json() if value is not None else None)
+
     profile.modified_at = datetime.now(timezone.utc)
     after_state = _profile_state(profile)
+    history_branch_id = profile.branch_id or target_branch_id
     company_db.add(StaffProfileHistory(
-        company_id=tenant.company_id,
-        branch_id=tenant.branch_id,
-        created_by=current_user.id,
+        company_id=profile.company_id or target_company_id,
+        branch_id=history_branch_id,
+        created_by=str(current_user.id)[:100],
         staff_profile_id=profile.id,
         user_id=profile.user_id,
         change_type="CREATED" if profile_was_new else "UPDATED",
         before_state_json=json.dumps(before_state, default=str),
         after_state_json=json.dumps(after_state, default=str),
-        changed_by=current_user.id,
+        changed_by=str(current_user.id)[:50],
         changed_at=datetime.now(timezone.utc),
     ))
-    await company_db.commit()
-    await company_db.refresh(profile)
+    try:
+        await company_db.commit()
+        await company_db.refresh(profile)
+    except SQLAlchemyError as err:
+        await company_db.rollback()
+        logger.error("[STAFF_PROFILE_PATCH_ERROR] Failed committing profile update for %s: %s", user_id, repr(err))
+        raise
+
     return _merge_staff_profile(user, profile)
 
 
