@@ -44,6 +44,7 @@ export interface LabelPrintRow {
   currentStock: number;
   labelCount: number; // # Lbls
   originalProduct?: Product;
+  vendorCode?: string;
 }
 
 export interface DerivedLabelRow {

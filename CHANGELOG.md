@@ -1,3 +1,24 @@
+## [6.72.4] — 2026-10-12
+
+### Barcode & Hardware — Barcode Label Style & Vendor Code Separation and Label Concatenation Engine v6.72.4
+
+Decoupled vendor code suffixes from Article / Style identifiers in the Item Master and catalog database, while engineering dynamic presentation formatting for barcode label printing where Style and Vendor Code are combined with a trailing hyphen (`[Style]-[VendorCode]-`, e.g. `CH-01-A-`).
+
+**Key Capabilities:**
+- **Normalized Presentation Formatter:** Implemented `formatStyleForBarcodeLabel(rawStyle?: string, vendorCode?: string)` in `src/components/barcode/prnInterpolation.ts` that combines base style and vendor code per client governance: single-letter vendors (`A` through `N`, `V`) receive trailing delimiter (`CH-01` + `A` -> `CH-01-A-`, `CH-41` + `V` -> `CH-41-V-`), while in-house vendor `TT` and multi-letter codes format without trailing hyphen (`CH-501` + `TT` -> `CH-501-TT`). Features idempotent sanitization stripping leading commas/quotes (e.g. `",CH-01"`), normalizing legacy prefixes (`V-00A` -> `A`), and preventing double-hyphenation.
+- **Template Script Token Expansion:** Enhanced `interpolatePrnScript` to inject `{vendor_code}`, `{vendor}`, `#VENDOR_CODE#`, `#VENDOR#` and replace `{style_code}` with the concatenated label presentation.
+- **Studio & Workspace Wiring:** Added `vendorCode` to `StudioRow` and `LabelPrintRow`, propagating it through `PrintLabelsStudio.tsx` (SVG preview, ZPL/DPL compilers, and transaction mappings) and `TagLabelPrintingTa.tsx` (`compilePrnBatch`, DPL manual generators, and preview components).
+- **Control Plane Master Approval:** Pre-registered 38 clean base styles (`CH-01` through `CH-25`, `SH-02`, `SH-03`, `SND-01` through `SND-19`) in master lookup `style_article` and in-house vendor `TT` in `vendor_code` lookup.
+- **Live Database Suffix Migration:** Executed concurrent asynchronous migration (`scripts/clean_live_products_styles.py`) updating 532 live products on `https://tattlythreads.smritisys.com/` with 0 failures, verifying all 1,137 products across 91 distinct styles possess clean style codes.
+- **Multi-Format Workbooks Regeneration:** Updated `scripts/export_all_1136_barcodes.py` and regenerated Excel/CSV exports containing clean `Style / Article`, separate `Vendor Code`, and `Barcode Label Style (Printed)` (`CH-01-A-` for external vendors, `CH-501-TT` for in-house articles).
+- **Item Master Live Header Hierarchy Clarification:** Updated the live badge in Item Master Workspace (`ItemMasterWs.tsx`) from the ambiguous `{products.length} Articles Live` to dual-level hierarchy `{uniqueArticlesCount} Articles • {products.length} SKUs Live` (`91 Articles • 1137 SKUs Live`) with informative tooltip explaining parent designs vs sellable SKU/barcode variants.
+
+**Verification:**
+- Vitest: 8/8 tests passed in `src/tests/prnInterpolation.test.ts`.
+- TypeScript: `npx tsc --noEmit` exited with 0 errors across entire workspace.
+- Live Database Audit: 1,137 products scanned on live production, 0 products with vendor suffixes in `style_code`, 91 distinct clean styles confirmed.
+- Verification status: `Done`.
+
 ## [6.72.3] — 2026-10-12
 
 ### Item Master & Catalog — Live Tattly Threads Item Master Seeding & Multy Exclusion v6.72.3

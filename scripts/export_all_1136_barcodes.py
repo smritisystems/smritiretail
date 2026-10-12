@@ -14,6 +14,7 @@ Classification: Export All 1,136 Barcodes with Style & Attributes
 
 import asyncio
 import csv
+import re
 from pathlib import Path
 import httpx
 import openpyxl
@@ -25,6 +26,48 @@ BASE_URL = "https://tattlythreads.smritisys.com"
 CLIENT_DIR = Path(r"F:\Smriti-Clients Data\Tattly Threads\ItemMaster")
 LOCAL_EXPORT_DIR = Path(r"F:\SMRITRretailNX\exports")
 ARTIFACT_DIR = Path(r"C:\Users\netma\.gemini\antigravity-ide\brain\446a48c2-6101-4a0a-b296-676ddefc529c")
+
+
+def format_style_for_barcode_label(raw_style: str, vendor_code: str) -> str:
+    """Formats Article / Style for barcode label printing:
+    - Single-letter vendors retain trailing dash: Style + '-' + Vendor + '-' (e.g. CH-01-A-)
+    - In-house vendor 'TT' (or multi-letter) formats without trailing dash: Style + '-' + Vendor (e.g. CH-501-TT)
+    """
+    if not raw_style or raw_style == "-":
+        return "CH-30-K"
+    style = raw_style.strip().lstrip(",'\" ").strip()
+    vendor = (vendor_code or "").strip().upper()
+    if vendor.startswith("V-00") and len(vendor) > 4:
+        vendor = vendor[4:]
+    if vendor:
+        if vendor == "TT" or len(vendor) > 1:
+            if style.upper().endswith(f"-{vendor}-"):
+                return style[:-1]
+            if style.upper().endswith(f"-{vendor}"):
+                return style
+            return f"{style}-{vendor}"
+        if style.upper().endswith(f"-{vendor}-"):
+            return style
+        if style.upper().endswith(f"-{vendor}"):
+            return f"{style}-"
+        return f"{style}-{vendor}-"
+    return style
+
+
+def clean_style_article(raw_style: str, vendor_code: str) -> tuple[str, str]:
+    """Extracts clean style code (e.g. CH-01) and separate vendor code (e.g. A)."""
+    style = raw_style.strip().lstrip(",'\" ").strip()
+    vendor = (vendor_code or "").strip().upper()
+    if vendor.startswith("V-00") and len(vendor) > 4:
+        vendor = vendor[4:]
+    m = re.match(r"^(.*?)-([A-Z]{1,2})$", style)
+    if m:
+        base_style = m.group(1).strip()
+        suffix_vendor = m.group(2).strip()
+        if not vendor:
+            vendor = suffix_vendor
+        return base_style, vendor
+    return style, vendor
 
 
 async def fetch_all_items():
@@ -65,18 +108,21 @@ def extract_rows(all_items):
     seen_barcodes = set()
 
     for item in all_items:
-        style = item.get("style_code") or item.get("item_code") or ""
+        raw_style = item.get("style_code") or item.get("item_code") or ""
         brand = item.get("brand") or "Tattly Threads"
         cat = item.get("category") or item.get("product_type") or ""
         dept = item.get("department") or "FOOTWEAR"
         gender = item.get("gender") or "LADIES"
         hsn = item.get("hsn_code") or "64041990"
         tax = item.get("tax_rate") or 5.0
-        vendor = item.get("vendor_code") or "TT"
+        raw_vendor = item.get("vendor_code") or "TT"
         heel = item.get("heel_type") or ""
         upper = item.get("upper_material") or ""
         outsole = item.get("outsole_material") or ""
         uom = item.get("primary_uom") or "PAIR"
+
+        clean_style, actual_vendor = clean_style_article(raw_style, raw_vendor)
+        barcode_label_style = format_style_for_barcode_label(clean_style, actual_vendor)
 
         for v in item.get("variants", []):
             sku = v.get("variant_sku") or ""
@@ -95,7 +141,9 @@ def extract_rows(all_items):
 
                 rows.append({
                     "barcode": bc,
-                    "style_code": style,
+                    "style_code": clean_style,
+                    "vendor_code": actual_vendor,
+                    "barcode_label_style": barcode_label_style,
                     "variant_sku": sku,
                     "color": color,
                     "size": str(size),
@@ -108,7 +156,6 @@ def extract_rows(all_items):
                     "selling_price": sp,
                     "tax_rate": tax,
                     "hsn_code": hsn,
-                    "vendor_code": vendor,
                     "heel_type": heel,
                     "upper_material": upper,
                     "outsole_material": outsole,
@@ -130,6 +177,8 @@ def export_to_excel(rows, target_paths):
         "S.No",
         "Barcode (EAN-13)",
         "Style / Article",
+        "Vendor Code",
+        "Barcode Label Style (Printed)",
         "Variant SKU",
         "Color",
         "Size",
@@ -142,7 +191,6 @@ def export_to_excel(rows, target_paths):
         "Selling Price (₹)",
         "GST Rate (%)",
         "HSN Code",
-        "Vendor Code",
         "Heel Type",
         "Upper Material",
         "Outsole Material",
@@ -172,12 +220,15 @@ def export_to_excel(rows, target_paths):
     zebra_fill = PatternFill(start_color="F9FAFB", end_color="F9FAFB", fill_type="solid")
     regular_font = Font(name="Calibri", size=10)
     mono_font = Font(name="Consolas", size=10, bold=True)
+    highlight_font = Font(name="Consolas", size=10, bold=True, color="002060")
 
     for idx, r in enumerate(rows, start=1):
         row_vals = [
             idx,
             r["barcode"],
             r["style_code"],
+            r["vendor_code"],
+            r["barcode_label_style"],
             r["variant_sku"],
             r["color"],
             r["size"],
@@ -190,7 +241,6 @@ def export_to_excel(rows, target_paths):
             r["selling_price"],
             r["tax_rate"],
             r["hsn_code"],
-            r["vendor_code"],
             r["heel_type"],
             r["upper_material"],
             r["outsole_material"],
@@ -212,9 +262,15 @@ def export_to_excel(rows, target_paths):
                 cell.number_format = "@"
                 cell.font = mono_font
                 cell.alignment = center_align
-            elif col_idx in (1, 6, 14, 15, 16, 20):
+            elif col_idx in (3, 4):
                 cell.alignment = center_align
-            elif col_idx in (11, 12, 13):
+                cell.font = mono_font
+            elif col_idx == 5:
+                cell.alignment = center_align
+                cell.font = highlight_font
+            elif col_idx in (1, 8, 16, 17, 21):
+                cell.alignment = center_align
+            elif col_idx in (13, 14, 15):
                 cell.alignment = right_align
                 cell.number_format = "#,##0.00"
             else:
@@ -245,6 +301,8 @@ def export_to_csv(rows, target_paths):
         "S.No",
         "Barcode",
         "Style / Article",
+        "Vendor Code",
+        "Barcode Label Style (Printed)",
         "Variant SKU",
         "Color",
         "Size",
@@ -257,7 +315,6 @@ def export_to_csv(rows, target_paths):
         "Selling Price",
         "GST Rate",
         "HSN Code",
-        "Vendor Code",
         "Heel Type",
         "Upper Material",
         "Outsole Material",
@@ -275,6 +332,8 @@ def export_to_csv(rows, target_paths):
                         idx,
                         f'="{r["barcode"]}"',  # Prevent scientific notation in Excel CSV
                         r["style_code"],
+                        r["vendor_code"],
+                        r["barcode_label_style"],
                         r["variant_sku"],
                         r["color"],
                         r["size"],
@@ -287,7 +346,6 @@ def export_to_csv(rows, target_paths):
                         f"{r['selling_price']:.2f}",
                         r["tax_rate"],
                         r["hsn_code"],
-                        r["vendor_code"],
                         r["heel_type"],
                         r["upper_material"],
                         r["outsole_material"],

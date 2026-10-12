@@ -37,6 +37,7 @@ import {
   interpolatePrnScript,
   compilePrnBatch,
   detectPrnProtocol,
+  formatStyleForBarcodeLabel,
   BUILTIN_PRN_TEMPLATES
 } from "./prnInterpolation.ts";
 import { EditQuantityDetailsModal } from "./EditQuantityDetDlg.tsx";
@@ -164,7 +165,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         sellingPrice: (p as any).sellingPrice || p.price || 1199,
         currentStock: p.stock || 10,
         labelCount: 1,
-        category: p.category || "Footwear"
+        category: p.category || "Footwear",
+        vendorCode: (p as any).vendor_code || (p as any).vendorCode || (p as any).vendor || ""
       }));
       setGridRows([...baseRows, ...extraRows]);
     } else {
@@ -504,7 +506,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       sellingPrice: p.price || 0,
       currentStock: p.stock ?? 0,
       labelCount: 1,
-      originalProduct: p
+      originalProduct: p,
+      vendorCode: (p as any).vendor_code || (p as any).vendorCode || (p as any).vendor || ""
     }));
 
     const combinedRows = [...baseRows, ...extraRows];
@@ -1227,7 +1230,8 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         size: item.size,
         mrp: Number(item.mrp || 0),
         sellingPrice: Number(item.sellingPrice || item.mrp || 0),
-        labelCount: item.labelCount
+        labelCount: item.labelCount,
+        vendorCode: item.vendorCode
       }))
     );
 
@@ -1236,7 +1240,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       barcode: item.barcode || item.stockNo || "890100000000",
       name: item.product || "Footwear Item",
       brand: item.brand || "TATTLY THREADS",
-      style: item.style || "CH-30-K",
+      style: formatStyleForBarcodeLabel(item.style || "CH-30-K", item.vendorCode),
       color: item.colour || "BLACK",
       size: item.size || "37",
       mrp: Number(item.mrp || 0),
@@ -1344,9 +1348,10 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
   const generateRawDplScript = () => {
     let script = "\x02L\nD11\n";
     activePrintItems.forEach(item => {
+      const printedStyle = formatStyleForBarcodeLabel(item.style || "CH-30-K", item.vendorCode);
       for (let i = 0; i < item.labelCount; i++) {
         script += `191100000200020${item.brand}\n`;
-        script += `191100000500020${item.product} - ${item.style}\n`;
+        script += `191100000500020${item.product} - ${printedStyle}\n`;
         script += `191100000800020Shade: ${item.colour}  Size: ${item.size}\n`;
         script += `1e4202001100020${item.barcode || item.stockNo}\n`;
         script += `191100001500020MRP: Rs. ${item.mrp}  SP: Rs. ${item.sellingPrice}\n`;
@@ -1437,7 +1442,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
               <div className="text-[8px] font-semibold truncate leading-tight my-0.5">
                 <span>{item.product}</span>
-                <span className="text-[7.5px] text-gray-700 ml-1">({item.style})</span>
+                <span className="text-[7.5px] text-gray-700 ml-1">({formatStyleForBarcodeLabel(item.style, item.vendorCode)})</span>
               </div>
 
               <div className="w-full flex justify-center py-0.5">
@@ -3469,7 +3474,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
                       <div className="text-[7.5px] font-semibold truncate leading-tight my-0.5">
                         <span>{activePrintItems[0].product}</span>
-                        <span className="text-[7px] text-gray-700 ml-1">({activePrintItems[0].style})</span>
+                        <span className="text-[7px] text-gray-700 ml-1">({formatStyleForBarcodeLabel(activePrintItems[0].style, activePrintItems[0].vendorCode)})</span>
                       </div>
 
                       <div className="w-full flex justify-center py-0.5">

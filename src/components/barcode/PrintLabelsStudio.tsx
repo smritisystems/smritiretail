@@ -29,6 +29,7 @@ import { apiFetchV1 } from '../../lib/apiFetchV1.js';
 import { ThermalBarcodeSvg } from './ThermalBarcodeSvg.tsx';
 import { barcodeTransactionStore } from './barcodeTransactionS.ts';
 import { compareNatural, isWithinRange } from './rangeFilter.ts';
+import { formatStyleForBarcodeLabel } from './prnInterpolation.ts';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ interface StudioRow {
   mrp: number;
   selected: boolean;
   imgUrl?: string;
+  vendorCode?: string;
 }
 
 interface AdvancedFilters {
@@ -100,7 +102,7 @@ export function generateThermalLabelSvgString(row: StudioRow, widthMm: number = 
   if (widthMm >= 90 && heightMm >= 45) {
     // 3-Part Footwear Hang Tag / Shoe Box Label (100mm x 50.7mm)
     const brandName = escapeXml((row.brand || 'TATTLY THREADS').toUpperCase());
-    const artNo = escapeXml(row.style || row.itemCode || 'CH-30-K');
+    const artNo = escapeXml(formatStyleForBarcodeLabel(row.style || row.itemCode || 'CH-30-K', row.vendorCode));
     const color = escapeXml((row.shade || 'BLACK').toUpperCase());
     const size = escapeXml(row.size || '37');
     const mrp = Math.round(row.mrp || 1199);
@@ -200,7 +202,7 @@ export function generateThermalLabelSvgString(row: StudioRow, widthMm: number = 
     return `<rect x="${x.toFixed(1)}" y="${(heightPx * 0.42).toFixed(1)}" width="${(b.width * 1.5).toFixed(1)}" height="${(heightPx * 0.32).toFixed(1)}" fill="#000000"/>`;
   }).filter(Boolean).join('\n    ');
 
-  const desc = [row.brand, row.style, row.size, row.shade].filter(Boolean).join(' • ');
+  const desc = [row.brand, formatStyleForBarcodeLabel(row.style, row.vendorCode), row.size, row.shade].filter(Boolean).join(' • ');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${widthMm}mm" height="${heightMm}mm" viewBox="0 0 ${widthPx} ${heightPx}">
@@ -324,7 +326,7 @@ export function compileDplFootwearString(items: StudioRow[], template: LabelTemp
   for (const item of items) {
     const qty = Math.max(1, item.printQty || 1);
     const barcodeVal = item.barcode || item.itemCode || '8904551005335';
-    const rawArt = (item.style || item.itemCode || 'CH-30-K').trim().toUpperCase();
+    const rawArt = formatStyleForBarcodeLabel((item.style || item.itemCode || 'CH-30-K').trim().toUpperCase(), item.vendorCode);
     const color = (item.shade || 'BLACK').toUpperCase();
     const size = item.size || '37';
     const mrp = Math.round(Number(item.mrp) || 1199);
@@ -402,7 +404,7 @@ export function compilePrnString(items: StudioRow[], template: LabelTemplate, is
         cleanArt = 'CH-30-K';
       }
     }
-    const rawArt = cleanArt;
+    const rawArt = formatStyleForBarcodeLabel(cleanArt, item.vendorCode);
     const artPadded = rawArt.length < 12 ? rawArt.padEnd(12, ' ') : rawArt;
     const color = (item.shade || 'BLACK').toUpperCase();
     const size = item.size || '37';
@@ -1037,6 +1039,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   printQty: itm.quantity || itm.ordered_qty || itm.poQty || 1,
                   mrp: Number(itm.mrp || itm.unit_price || itm.sellingPrice || 0),
                   selected: false,
+                  vendorCode: itm.vendor_code ?? itm.vendorCode ?? itm.vendor ?? '',
                 });
               });
             });
@@ -1061,6 +1064,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             printQty: itm.labelCount || 1,
             mrp: itm.mrp || itm.sellingPrice || 0,
             selected: false,
+            vendorCode: (itm as any).vendor_code ?? (itm as any).vendorCode ?? (itm as any).vendor ?? '',
           }));
         }
 
@@ -1100,6 +1104,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   printQty: itm.received_qty || itm.quantity || itm.labelCount || 1,
                   mrp: Number(itm.mrp || itm.unit_price || itm.sellingPrice || 0),
                   selected: false,
+                  vendorCode: itm.vendor_code ?? itm.vendorCode ?? itm.vendor ?? '',
                 });
               });
             });
@@ -1124,6 +1129,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             printQty: itm.labelCount || 1,
             mrp: itm.mrp || itm.sellingPrice || 0,
             selected: false,
+            vendorCode: (itm as any).vendor_code ?? (itm as any).vendorCode ?? (itm as any).vendor ?? '',
           }));
         }
 
@@ -1162,6 +1168,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   printQty: itm.quantity || 1,
                   mrp: Number(itm.mrp || itm.unit_price || itm.sellingPrice || 0),
                   selected: false,
+                  vendorCode: itm.vendor_code ?? itm.vendorCode ?? itm.vendor ?? '',
                 });
               });
             });
@@ -1186,6 +1193,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             printQty: itm.labelCount || 1,
             mrp: itm.mrp || itm.sellingPrice || 0,
             selected: false,
+            vendorCode: (itm as any).vendor_code ?? (itm as any).vendorCode ?? (itm as any).vendor ?? '',
           }));
         }
 
@@ -1224,6 +1232,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   printQty: itm.quantity || itm.transfer_qty || 1,
                   mrp: Number(itm.mrp || itm.unit_price || 0),
                   selected: false,
+                  vendorCode: itm.vendor_code ?? itm.vendorCode ?? itm.vendor ?? '',
                 });
               });
             });
@@ -1248,6 +1257,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             printQty: itm.labelCount || 1,
             mrp: itm.mrp || itm.sellingPrice || 0,
             selected: false,
+            vendorCode: (itm as any).vendor_code ?? (itm as any).vendorCode ?? (itm as any).vendor ?? '',
           }));
         }
 
@@ -1309,6 +1319,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
         printQty: 0,
         mrp: p.mrp ?? p.price ?? 0,
         selected: false,
+        vendorCode: p.vendor_code ?? p.vendorCode ?? p.vendor ?? '',
       }));
       const filtered = applyFilterRules(mapped);
       setRows(filtered);
@@ -1538,6 +1549,7 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
             printQty: labelsPerItem > 0 ? labelsPerItem : 1,
             mrp: Number(p.mrp ?? p.price ?? 1199),
             selected: true,
+            vendorCode: p.vendor_code ?? p.vendorCode ?? p.vendor ?? '',
           }));
         }
       } catch {

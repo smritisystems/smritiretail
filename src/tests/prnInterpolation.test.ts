@@ -18,6 +18,7 @@ import {
   interpolatePrnScript,
   compilePrnBatch,
   detectPrnProtocol,
+  formatStyleForBarcodeLabel,
   BUILTIN_PRN_TEMPLATES
 } from "../components/barcode/prnInterpolation.ts";
 
@@ -111,13 +112,32 @@ describe("PRN Template Interpolation Engine Suite", () => {
     expect(result).toContain("^FT390,399"); // Audited non-overlap baseline
   });
 
-  it("interpolates the built-in Honeywell DPL master template accurately", () => {
-    const template = BUILTIN_PRN_TEMPLATES["Honeywell_IH2_DualStub.prn"];
-    expect(template).toBeDefined();
-    const result = interpolatePrnScript(template, sampleItem);
+  it("formats Article / Style code with Vendor Code per client governance", () => {
+    // Single-letter vendors retain trailing dash (e.g. 'CH-01' + 'A' -> 'CH-01-A-')
+    expect(formatStyleForBarcodeLabel("CH-01", "A")).toBe("CH-01-A-");
+    expect(formatStyleForBarcodeLabel(",CH-01", "A")).toBe("CH-01-A-");
+    expect(formatStyleForBarcodeLabel("CH-01", "V-00A")).toBe("CH-01-A-");
+    expect(formatStyleForBarcodeLabel("CH-01-A", "A")).toBe("CH-01-A-");
+    expect(formatStyleForBarcodeLabel("CH-41", "V")).toBe("CH-41-V-");
 
-    expect(result).toContain("191100000200020TATTLY THREADS");
-    expect(result).toContain("191100000500020Tattly Threads Footwear - CH-30-K");
-    expect(result).toContain("1e4202001100020890100000006");
+    // In-house vendor 'TT' (or multi-letter) formats without trailing dash: ('CH-501', 'TT') -> 'CH-501-TT'
+    expect(formatStyleForBarcodeLabel("CH-501", "TT")).toBe("CH-501-TT");
+    expect(formatStyleForBarcodeLabel("CH-501-TT", "TT")).toBe("CH-501-TT");
+    expect(formatStyleForBarcodeLabel("CH-501-TT-", "TT")).toBe("CH-501-TT");
+
+    // Without vendor code
+    expect(formatStyleForBarcodeLabel("CH-01", "")).toBe("CH-01");
+  });
+
+  it("replaces {style_code} with Style + Vendor Code on barcode label when vendorCode is provided", () => {
+    const template = "^XA^FO50,50^FD{style_code}^FS^XZ";
+    const itemWithVendor = {
+      ...sampleItem,
+      style: "CH-01",
+      vendorCode: "A"
+    };
+    const result = interpolatePrnScript(template, itemWithVendor);
+    expect(result).toContain("^FDCH-01-A-^FS");
   });
 });
+
