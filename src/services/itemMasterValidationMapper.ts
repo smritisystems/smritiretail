@@ -106,12 +106,21 @@ export const FIELD_TO_ELEMENT_ID: Record<string, string> = {
   "style_name":              "im-field-name",
   "brand":                   "im-field-brand",
   "category":                "im-field-category",
+  "subcategory":             "im-field-subcategory",
+  "subCategory":             "im-field-subcategory",
+  "sub_category":            "im-field-subcategory",
+  "subcat":                  "im-field-subcategory",
+  "department":              "im-field-department",
+  "dept":                    "im-field-department",
+  "division":                "im-field-department",
   "gender":                  "im-field-gender",
   "product_type":            "im-field-product_type",
-  "design_attribute":        "im-field-product_type",
+  "design_attribute":        "im-field-subcategory",
 
   // ── Classification (Step 1) ─────────────────────────────────────────────────
   "hsn_code":                "im-field-hsn_code",
+  "hsnCode":                 "im-field-hsn_code",
+  "hsn":                     "im-field-hsn_code",
 
   // ── Pricing (Step 1) ────────────────────────────────────────────────────────
   "mrp":                     "im-field-mrp",
@@ -141,7 +150,11 @@ export const FIELD_TO_ELEMENT_ID: Record<string, string> = {
   "variant.colour":          "im-field-color",
   "size":                    "im-field-size",
   "variant.size":            "im-field-size",
-  "size_system":             "im-field-size",    // size system — no separate control; size group is closest
+  "size_group":              "im-field-size_group",
+  "sizeGroup":               "im-field-size_group",
+  "size_group_id":           "im-field-size_group",
+  "sizeGroupId":             "im-field-size_group",
+  "size_system":             "im-field-size",
   "variant.size_system":     "im-field-size",
 
   // ── System / Status ──────────────────────────────────────────────────────────
@@ -171,6 +184,8 @@ export const FIELD_TO_ELEMENT_ID: Record<string, string> = {
   "gst_rate":                "im-field-gst_rate",
   "tax.gst_rate":            "im-field-gst_rate",
   "tax_category":            "im-field-tax_category",
+  "taxCategory":             "im-field-tax_category",
+  "tax_cat":                 "im-field-tax_category",
   "tax_inclusive":           "im-field-tax_inclusive",
   "sales_tax_rate":          "im-field-sales_tax_rate",
   "purchase_tax_rate":       "im-field-purchase_tax_rate",

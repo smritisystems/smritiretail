@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.49
+ * Version      : 6.71.0
  * Created      : 2026-08-21
- * Modified     : 2026-10-09
+ * Modified     : 2026-10-13
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -84,7 +84,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     key: "brand",
     label: "Brand",
     datatype: "text",
-    required: false,
+    required: true,
     aliases: ["brand", "brand name", "manufacturer", "make", "label"],
     active: true,
     displayOrder: 4,
@@ -120,12 +120,24 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     key: "subCategory",
     label: "Sub-Category",
     datatype: "text",
-    required: false,
+    required: true,
     aliases: ["sub category", "subcategory", "sub-category", "segment"],
     active: true,
     displayOrder: 6,
     source: "core",
     width: "130px"
+  },
+  {
+    id: "department",
+    key: "department",
+    label: "Department",
+    datatype: "text",
+    required: true,
+    aliases: ["department", "dept", "division", "super class", "superclass", "SuperClass1"],
+    active: true,
+    displayOrder: 6.5,
+    source: "core",
+    width: "120px"
   },
   {
     id: "size",
@@ -138,6 +150,18 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     displayOrder: 7,
     source: "core",
     width: "90px"
+  },
+  {
+    id: "sizeGroup",
+    key: "size_group",
+    label: "Size Group",
+    datatype: "text",
+    required: true,
+    aliases: ["size group", "size_group", "sizeGroup", "sizegroup", "size group id"],
+    active: true,
+    displayOrder: 7.5,
+    source: "core",
+    width: "120px"
   },
   {
     id: "shade",
@@ -217,6 +241,19 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     width: "110px"
   },
   {
+    id: "taxCategory",
+    key: "tax_category",
+    label: "Tax Category",
+    datatype: "select",
+    required: true,
+    validValues: ["GOODS", "SERVICES"],
+    aliases: ["tax category", "tax_category", "taxCategory", "tax_cat"],
+    active: true,
+    displayOrder: 12.5,
+    source: "core",
+    width: "120px"
+  },
+  {
     id: "hsnCode",
     key: "hsn_code",
     label: "HSN Code",
@@ -277,7 +314,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     key: "department",
     label: "Merchandise Department",
     datatype: "text",
-    required: false,
+    required: true,
     aliases: ["department", "dept", "division", "merchandise department", "MERCHANDISE_DEPARTMENT"],
     active: true,
     displayOrder: 17,
