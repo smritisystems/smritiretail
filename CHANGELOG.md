@@ -1,3 +1,24 @@
+## [6.72.2] — 2026-10-12
+
+### HR & Workforce — Staff Directory Profile Robustness & Multi-Tenant Resilience v6.72.2
+
+Permanently eliminated HTTP 400 Bad Request failures (`/api/v1/staff/directory/{user_id}/profile`) encountered when editing and saving staff member profiles in Staff 360 across multi-tenant environments.
+
+**Key Capabilities:**
+- **Pydantic v2 Schema Resilience:** Hardened `PaymentDetails` schema in `backend/app/schemas/user.py` to make all fields `Optional[str] = ""` with `@field_validator("*", mode="before")` converting incoming `None` values to empty strings (`""`), while maintaining default business fallbacks (`Monthly`, `Bank Transfer`, `Savings`).
+- **Remuneration Sanitization:** Hardened `SalaryStructure.fixedMonthly` to safely parse null or empty strings into float defaults (`25000.0`).
+- **Dynamic Branch Foreign Key Resolution:** Replaced naive `tenant.branch_id` binding in `update_staff_directory_profile` with active verification against `company_db.branches`. Resolves against candidate keys (`tenant.branch_id`, `payload.branch`, `"MAIN"`, `"BR-MAIN-001"`) and falls back to active company branches or `None`, permanently eliminating PostgreSQL `staff_profiles_branch_id_fkey` and `staff_profile_history_branch_id_fkey` foreign key violation crashes.
+- **Soft-Delete Profile Reactivation:** Replaced filtered `StaffProfile.is_deleted == False` lookup with unconstrained query, automatically reactivating soft-deleted profiles (`is_deleted = False, deleted_at = None`) and eliminating duplicate insert collisions against `uq_staff_profiles_company_user`.
+- **Automatic String Truncation Guarding:** Introduced strict `STRING_LIMITS` dictionary in `backend/app/api/v1/staff.py` clamping `user.full_name` (200), `gender` (10), `pin_code` (10), `date_of_birth` (20), `alternate_mobile` (20), `employment_type` (20), and audit history `changed_by` (50), preventing PostgreSQL `StringDataRightTruncation` exceptions.
+- **Transactional Rollback Defense:** Wrapped company database commits in `try...except SQLAlchemyError` with explicit `await company_db.rollback()` to prevent leaving connections in `PendingRollbackError` state.
+- **Frontend Error Visibility & Payload Sanitization:** In `StaffMasterWs.tsx`, ensured `handleSave` sanitizes all KYC/banking payload fields with `|| ""` fallbacks, introduced `editError` state hook, and mounted a high-visibility, dismissible error alert banner inside the edit panel.
+
+**Verification:**
+- Pytest: 6/6 tests passed in `backend/app/tests/test_staff_profile_robustness.py`.
+- Pytest: 4/4 tests passed in `backend/app/tests/test_staff_attendance_cross_db_reconciliation.py`.
+- TypeScript: `npx tsc --noEmit` exited with 0 errors across entire workspace.
+- Verification status: `Done`.
+
 ## [6.72.1] — 2026-10-12
 
 ### Inventory & Item Master — Catalog Export Parity, Universal Field Resolution & Multi-Format Output v6.72.1

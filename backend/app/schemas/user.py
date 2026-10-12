@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.17.0
 Created      : 2026-07-11
-Modified     : 2026-10-11
+Modified     : 2026-10-12
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -40,20 +40,30 @@ class SalaryStructure(BaseModel):
     travelAllowance: TravelAllowanceStructure = Field(default_factory=TravelAllowanceStructure)
     otherAllowances: OtherAllowancesStructure = Field(default_factory=OtherAllowancesStructure)
 
+    @field_validator("fixedMonthly", mode="before")
+    @classmethod
+    def sanitize_fixed_monthly(cls, v):
+        if v is None or v == "":
+            return 25000.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 25000.0
+
 
 class PaymentDetails(BaseModel):
-    frequency: str = "Monthly"
-    paymentMode: str = "Bank Transfer"
+    frequency: Optional[str] = "Monthly"
+    paymentMode: Optional[str] = "Bank Transfer"
     bankName: Optional[str] = ""
     accountNumber: Optional[str] = ""
     ifscCode: Optional[str] = ""
     branchName: Optional[str] = ""
     accountType: Optional[str] = "Savings"
     nameAsPerBank: Optional[str] = ""
-    bankDetails: str = ""
-    upi: str = ""
-    salaryEffectiveFrom: str = ""
-    commissionEffectiveFrom: str = ""
+    bankDetails: Optional[str] = ""
+    upi: Optional[str] = ""
+    salaryEffectiveFrom: Optional[str] = ""
+    commissionEffectiveFrom: Optional[str] = ""
     aadhaarNumber: Optional[str] = ""
     panNumber: Optional[str] = ""
     providentFundUan: Optional[str] = ""
@@ -63,6 +73,30 @@ class PaymentDetails(BaseModel):
     maritalStatus: Optional[str] = ""
     emergencyContactRelation: Optional[str] = ""
     permanentAddress: Optional[str] = ""
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def sanitize_strings(cls, v):
+        if v is None:
+            return ""
+        if isinstance(v, str):
+            return v.strip()
+        return str(v)
+
+    @field_validator("frequency", mode="after")
+    @classmethod
+    def default_frequency(cls, v):
+        return v or "Monthly"
+
+    @field_validator("paymentMode", mode="after")
+    @classmethod
+    def default_payment_mode(cls, v):
+        return v or "Bank Transfer"
+
+    @field_validator("accountType", mode="after")
+    @classmethod
+    def default_account_type(cls, v):
+        return v or "Savings"
 
 
 class PerformanceMetrics(BaseModel):
