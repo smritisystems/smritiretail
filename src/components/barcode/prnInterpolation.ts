@@ -26,6 +26,7 @@ export interface PrnItemData {
   mrp?: number;
   sellingPrice?: number;
   labelCount?: number;
+  vendorCode?: string;
 }
 
 /**
@@ -250,13 +251,56 @@ export function detectPrnProtocol(scriptText: string): "ZPL" | "DPL" | "TSPL" {
 }
 
 /**
+ * Formats Article / Style code for barcode label printing by combining base style
+ * with vendor code per client governance:
+ * Example: style "CH-01" and vendor "A" -> "CH-01-A-" (single-letter vendor retains trailing dash)
+ * In-house vendor "TT" (or multi-letter vendor): "CH-501" and vendor "TT" -> "CH-501-TT" (no trailing dash)
+ */
+export function formatStyleForBarcodeLabel(rawStyle?: string, vendorCode?: string): string {
+  if (!rawStyle || rawStyle === "-") return "CH-30-K";
+  let style = rawStyle.trim().replace(/^[,"'\s]+/, "").trim();
+  let vendor = (vendorCode || "").trim().toUpperCase();
+
+  // Normalize legacy vendor prefixes (e.g., V-00A -> A)
+  if (vendor.startsWith("V-00") && vendor.length > 4) {
+    vendor = vendor.substring(4);
+  }
+
+  if (vendor) {
+    // In-house vendor "TT" or multi-letter vendor codes do not have a trailing hyphen
+    if (vendor === "TT" || vendor.length > 1) {
+      if (style.toUpperCase().endsWith(`-${vendor}-`)) {
+        return style.slice(0, -1);
+      }
+      if (style.toUpperCase().endsWith(`-${vendor}`)) {
+        return style;
+      }
+      return `${style}-${vendor}`;
+    }
+
+    // Single-letter vendors (A through N, V, etc.) retain trailing delimiter
+    if (style.toUpperCase().endsWith(`-${vendor}-`)) {
+      return style;
+    }
+    if (style.toUpperCase().endsWith(`-${vendor}`)) {
+      return `${style}-`;
+    }
+    return `${style}-${vendor}-`;
+  }
+
+  return style;
+}
+
+/**
  * Interpolates a single label's item data into a template PRN/ZPL/DPL script
  */
 export function interpolatePrnScript(templateText: string, item: PrnItemData): string {
   if (!templateText) return "";
 
   const barcode = item.barcode || item.stockNo || "890100000000";
-  const style = item.style && item.style !== "-" ? item.style : (item.stockNo || "CH-30-K");
+  const rawStyle = item.style && item.style !== "-" ? item.style : (item.stockNo || "CH-30-K");
+  const style = formatStyleForBarcodeLabel(rawStyle, item.vendorCode);
+  const vendor = (item.vendorCode || "").toUpperCase();
   const brand = (item.brand || "TATTLY THREADS").toUpperCase();
   const product = item.product || "Footwear Item";
   const colour = (item.colour && item.colour !== "-" ? item.colour : "BLACK").toUpperCase();
@@ -274,6 +318,8 @@ export function interpolatePrnScript(templateText: string, item: PrnItemData): s
     .replace(/\{style\}/gi, style)
     .replace(/\{art_no\}/gi, style)
     .replace(/\{artno\}/gi, style)
+    .replace(/\{vendor_code\}/gi, vendor)
+    .replace(/\{vendor\}/gi, vendor)
     .replace(/\{brand\}/gi, brand)
     .replace(/\{product\}/gi, product)
     .replace(/\{name\}/gi, product)
@@ -297,6 +343,8 @@ export function interpolatePrnScript(templateText: string, item: PrnItemData): s
     .replace(/#STYLE_CODE#/gi, style)
     .replace(/#STYLE#/gi, style)
     .replace(/#ARTNO#/gi, style)
+    .replace(/#VENDOR_CODE#/gi, vendor)
+    .replace(/#VENDOR#/gi, vendor)
     .replace(/#BRAND#/gi, brand)
     .replace(/#PRODUCT#/gi, product)
     .replace(/#NAME#/gi, product)

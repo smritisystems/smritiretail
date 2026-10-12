@@ -12,7 +12,7 @@
  * Classification: Internal
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Package, 
   Settings, 
@@ -28,7 +28,7 @@ import {
   Replace,
 } from "lucide-react";
 import { Product } from "../../types.ts";
-import { ItemCatalogGrid } from "./ItemCatalogGrid.tsx";
+import { ItemCatalogGrid, resolveProductArticle } from "./ItemCatalogGrid.tsx";
 import { AddProductDrawer } from "./AddProductDrawer.tsx";
 import { ItemDetailsGrid } from "./ItemDetailsGrid.tsx";
 import { ItemViewConfig, ItemViewConfigState } from "./ItemViewConfig.tsx";
@@ -87,6 +87,15 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
     }
     handleNotify("Adaptive Mode", `Switched to ${mode} mode.`, "info");
   };
+
+  const uniqueArticlesCount = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of products) {
+      const art = resolveProductArticle(p);
+      if (art) set.add(art.toUpperCase());
+    }
+    return set.size;
+  }, [products]);
 
   const handleImportCompleted = (batch: ImportBatchRecord) => {
     setActiveImportBatch(batch);
@@ -377,8 +386,11 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               <span>Replace Data</span>
             </button>
 
-            <span className="px-2.5 py-0.5 bg-[#e9edff] dark:bg-[#1d3054] text-[#003d9b] dark:text-[#b2c5ff] font-mono text-[11px] font-bold rounded">
-              {products.length} Articles Live
+            <span
+              className="px-2.5 py-0.5 bg-[#e9edff] dark:bg-[#1d3054] text-[#003d9b] dark:text-[#b2c5ff] font-mono text-[11px] font-bold rounded"
+              title={`${uniqueArticlesCount} Unique Articles / Designs across ${products.length} Sellable SKUs & Barcodes`}
+            >
+              {uniqueArticlesCount > 0 ? `${uniqueArticlesCount} Articles • ` : ""}{products.length} SKUs Live
             </span>
 
             {onClose && (
