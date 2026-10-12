@@ -1,3 +1,20 @@
+## [6.72.5] — 2026-10-13
+
+### Catalog & Compliance — Live Footwear Catalog GST Rate Harmonization to Statutory 5% v6.72.5
+
+Harmonized the Goods and Services Tax (GST) rate across all 1,136 live footwear catalog products on production server `https://tattlythreads.smritisys.com/` to the Indian statutory footwear tax rate of **5.00%** (HSN `64041990` / `64032012`), permanently remediating legacy 0.00% / EXEMPT rates resulting from historical batch ingestion.
+
+**Key Capabilities:**
+- **Statutory Footwear GST Compliance:** Enforced the mandatory 5.00% GST rate for footwear under HSN 64 across the live production catalog, eliminating 0.00% rates that caused confusion in Item Master and statutory tax compliance discrepancies during store billing and invoice generation.
+- **Selective Domain Filtering:** Guarded update targeting to footwear categories (`Footwear`, `CHAPPAL`, `SANDAL`, `SHOE`, `OTHERS`), HSN codes (`64041990`, `64032012`), and style code prefixes (`CH-`, `SND-`, `SH-`), strictly preserving non-footwear products (e.g. corporate shirt test item `UAT-B2B-001` at 18.00% under HSN `6203`).
+- **Concurrent Asynchronous Migration Pipeline:** Executed `scripts/update_live_products_gst.py` with `asyncio.Semaphore(12)` bounded concurrency against `PUT /api/v1/inventory/{id}` with JSON `{"gst_percentage": 5.0}`, updating 533 products in ~18 seconds with 0 failures and 0 connection drops.
+- **Authoritative Catalog Audit Parity:** Conducted a post-migration audit across all 1,137 inventory items on `https://tattlythreads.smritisys.com/`, verifying exactly 1,136 products at 5.00% GST (100% of footwear catalog), 1 product at 18.00% GST (`UAT-B2B-001`), and 0 products at 0.00% GST.
+
+**Verification:**
+- Migration Script: 533/533 products updated successfully with HTTP 200 OK.
+- Production Audit: 1,136 products at 5.00% GST, 1 product at 18.00% GST, 0 products at 0.00% GST.
+- Verification status: `Done`.
+
 ## [6.72.4] — 2026-10-12
 
 ### Barcode & Hardware — Barcode Label Style & Vendor Code Separation and Label Concatenation Engine v6.72.4
