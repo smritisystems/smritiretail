@@ -1264,6 +1264,7 @@ export class GlobalExportService {
       queryParams = {},
       metadata,
       selectedRows,
+      onEnrichData,
       onProgress,
       abortSignal,
       customFilename,
@@ -1373,16 +1374,18 @@ export class GlobalExportService {
         percentage: 95,
       });
 
+      const finalRecords = onEnrichData ? onEnrichData(allRecords) : allRecords;
+
       const result = await this.exportDataset({
         moduleName,
         format,
         scope,
         columns,
-        data: allRecords,
+        data: finalRecords,
         metadata: {
           moduleTitle: moduleName,
           ...metadata,
-          totalRecordsCount: allRecords.length,
+          totalRecordsCount: finalRecords.length,
         },
         customFilename,
         sheetName,

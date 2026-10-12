@@ -1,3 +1,53 @@
+## [6.71.0] — 2026-10-12
+
+### Inventory & Item Master — Tri-Modal Export Engine (All Fields, Selected Presets & Forensic Audit) v6.71.0
+
+Architected, delivered, and verified the Tri-Modal Export Engine for SMRITI Retail OS Item Master, providing a unified data extraction architecture across full-catalog migration dumps ("All Fields"), one-click task-specific operational configurations ("Selected Presets"), and automated compliance validation with Legal Metrology pricing checks ("Forensic Audit").
+
+**Key Capabilities:**
+- **Tri-Modal Presets Engine:** Introduced `ExportPreset` contracts and built-in retail presets:
+  - `all`: All Fields (Full catalog dump across identity, pricing, tax, hierarchy, inventory, and system metadata).
+  - `pos_price_list`: Store & POS Price List (Customer-facing price list for POS scanning and price verification; excludes sensitive supplier costs).
+  - `stocktake`: Physical Stocktaking Sheet (Inventory audit count sheet with SKU, barcode, location bin, and on-hand stock).
+  - `procurement`: Vendor & PO Catalog (Purchasing sheet with supplier code, buying price, landed cost, minimum order quantities, and HSN codes).
+  - `ecom_catalog`: E-Commerce Digital Feed (Digital marketplace feed with titles, categories, online selling prices, and image URLs).
+  - `statutory_tax`: Statutory GST & HSN (Tax audit sheet for GST returns, SAC services, and tax slab compliance).
+  - `forensic_audit`: Forensic & Quality Audit (Auditor checklist evaluating Legal Metrology price violations, negative margins, and missing statutory codes).
+- **Client-Side Forensic Audit Engine:** Implemented `enrichItemRowsWithAuditMetadata` executing zero-latency statutory checks:
+  - Mandatory SKU, Barcode, and Product Name identity verification.
+  - Statutory HSN Code (non-empty, non-`0000`) and GST Tax Rate (>= 0%) completeness.
+  - Legal Metrology Compliance: Selling Price <= MRP violations.
+  - Loss Prevention: Cost Price <= Buying Price and Selling Price >= Cost Price (positive gross margin).
+  - Calculated financial metrics: `audit_margin_amount`, `audit_margin_percentage`, and `audit_discount_amount`.
+- **Responsive Presets Control Bar in ExportCenterModal:** Added 1-click preset selector buttons with active-state indicators, audit badges, and dynamic column set switching.
+- **ExportButton Integration:** Passed presets, default preset ID, and data enrichment hooks from `ItemDetailsGrid.tsx` down through `ExportButton.tsx` to `ExportCenterModal.tsx`.
+
+**Verification:**
+- Vitest: 13/13 passed in `src/tests/itemMasterExport.test.ts`.
+- Vitest: 15/15 passed in `src/tests/globalExport.test.ts`.
+- Vitest: 13/13 passed in `src/tests/itemGrid.test.ts`.
+- Multi-format serialization: CSV, SpreadsheetML, and OpenXML XLSX compression verified.
+
+## [6.27.0] — 2026-10-12
+
+### Sales & Dispatch Invoicing — Reliance Retail 9 Stores Tax Invoices (Dispatch 12-10-2026) v6.27.0
+
+Delivered statutory commercial dispatch billing for Reliance Retail Limited covering 9 stores (1888, 1969, 9556, T51H, TAGG, TKL0, TPV2, TUA7, TV81) across Assam, Tripura, Karnataka, and West Bengal from formatted indent matrix (`TATTLY_THREADS_INDENT_FORMATTED (1).xlsx`). Continues sequentially from invoice `TT2026-2027/286` with document series `TT2026-2027/287` through `TT2026-2027/295` dated `12-10-2026`. Generated strictly without PO / Reference per client instruction.
+
+**Key Capabilities:**
+- **Automated Matrix Unpivoting:** Ingested 116 footwear styles across 7 size columns (36–42), unpivoting to exactly 254 transaction items (441 pairs).
+- **Dual-Source Barcode Resolution:** 100% item resolution by cross-referencing vendor purchases (`ALL VENDOR PURCHASE FOR SOFTWARE.xlsx`) and master catalog (`TATTLY THREADS ITEM MASTER 2026 - Copyfinal2.xlsx`).
+- **Statutory Pricing & Taxes:** Applied wholesale unit rate formula `round(mrp * 0.5624, 2)` (43.76% promotional discount) with 5% Interstate IGST across all invoices.
+- **Omission of PO / Reference:** PO reference and PO date omitted across database headers (`po_reference = None`), Playwright PDF invoices, summary matrix, and file names (`{store_code}_{invoice_clean_no}.pdf`).
+- **Headless Playwright PDF Invoicing:** Rendered 9 high-resolution statutory A4 vector PDF invoices (`1888_TT2026-2027_287.pdf` through `TV81_TT2026-2027_295.pdf`) saved in dual delivery folders.
+- **Government NIC E-Way Bill Payloads:** Generated 9 individual store JSONs and 1 consolidated bulk upload JSON (`EWayBill_Bulk_Upload_12102026.json`) compliant with NIC schema v1.0.1118 (`transType: 4`).
+- **Client Reconciliation Matrix:** Delivered multi-tab audit workbook `Tax_Invoice_Summary_12-10-2026.xlsx` and annotated green-highlighted indent workbook `TATTLY_THREADS_INDENT_FORMATTED_Invoiced.xlsx`.
+
+**Verification:**
+- PostgreSQL `smriti001`: 9 invoices (`TT2026-2027/287` to `295`), 254 line items, 9 eway bills verified.
+- Financial Parity: 441 pairs, ₹1,031,059.00 Gross MRP, ₹579,868.64 Taxable Value, ₹28,993.09 IGST, ₹608,862.00 Net Value.
+- Files: 9/9 PDFs generated and verified, 10/10 JSONs verified, 2 Excel workbooks verified.
+
 ## [6.70.49] — 2026-10-12
 
 ### HR & Workforce — Staff Attendance & Workforce Management UX, UI, and Database Wiring v1.0.0
